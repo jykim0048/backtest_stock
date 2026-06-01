@@ -1,0 +1,2007 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>QUANT ANTIGRAVITY - Trading & Portfolio Dashboard</title>
+  <!-- Google Fonts Outfit & Noto Sans KR -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Noto+Sans+KR:wght@300;400;700&display=swap" rel="stylesheet">
+  
+  <style>
+    :root {
+      --bg-dark: #070a13;
+      --panel-bg: rgba(15, 23, 42, 0.55);
+      --border-color: rgba(255, 255, 255, 0.08);
+      --font-outfit: 'Outfit', sans-serif;
+      --font-kr: 'Noto Sans KR', sans-serif;
+      
+      /* Color Harmony */
+      --kospi-blue: #00f0ff;
+      --kospi-blue-dim: rgba(0, 240, 255, 0.15);
+      --kosdaq-green: #10b981;
+      --kosdaq-green-dim: rgba(16, 185, 129, 0.15);
+      --up-red: #ef4444;
+      --up-red-dim: rgba(239, 68, 68, 0.12);
+      --down-blue: #3b82f6;
+      --down-blue-dim: rgba(59, 130, 246, 0.12);
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      background-image: 
+        radial-gradient(at 0% 0%, rgba(30, 58, 138, 0.15) 0px, transparent 50%),
+        radial-gradient(at 100% 100%, rgba(16, 185, 129, 0.08) 0px, transparent 50%);
+      color: var(--text-main);
+      font-family: var(--font-kr);
+      overflow-x: hidden;
+      min-height: 100vh;
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar {
+      width: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: var(--bg-dark);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #1e293b;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #334155;
+    }
+
+    /* App Container */
+    .app-container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 24px;
+      position: relative;
+    }
+
+    /* Header styling */
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 24px;
+      border-bottom: 1px solid var(--border-color);
+      margin-bottom: 30px;
+    }
+
+    .logo-section {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .logo-symbol {
+      width: 32px;
+      height: 32px;
+      background: linear-gradient(135deg, var(--kospi-blue), var(--kosdaq-green));
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-outfit);
+      font-weight: 800;
+      color: #000;
+      font-size: 18px;
+      box-shadow: 0 0 15px rgba(0, 240, 255, 0.3);
+    }
+
+    .logo-text h1 {
+      font-family: var(--font-outfit);
+      font-weight: 800;
+      font-size: 22px;
+      letter-spacing: 1px;
+      background: linear-gradient(to right, #ffffff, var(--text-muted));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .logo-text span {
+      font-size: 11px;
+      color: var(--kospi-blue);
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      display: block;
+      margin-top: -3px;
+    }
+
+    .status-panel {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      background: var(--panel-bg);
+      border: 1px solid var(--border-color);
+      padding: 8px 16px;
+      border-radius: 30px;
+      backdrop-filter: blur(10px);
+    }
+
+    .status-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background-color: var(--kosdaq-green);
+      box-shadow: 0 0 10px var(--kosdaq-green);
+      animation: pulse 1.8s infinite;
+    }
+
+    /* Overview Section (Index Cards) */
+    .market-overview {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+
+    .index-card {
+      background: var(--panel-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 20px;
+      backdrop-filter: blur(10px);
+      position: relative;
+      overflow: hidden;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .index-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 3px;
+    }
+
+    .index-card.kospi::before {
+      background: var(--kospi-blue);
+    }
+
+    .index-card.kosdaq::before {
+      background: var(--kosdaq-green);
+    }
+
+    .index-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .index-title {
+      font-family: var(--font-outfit);
+      font-weight: 600;
+      font-size: 14px;
+      color: var(--text-muted);
+      letter-spacing: 0.5px;
+    }
+
+    .index-badge {
+      font-size: 11px;
+      font-weight: bold;
+      padding: 3px 8px;
+      border-radius: 4px;
+      text-transform: uppercase;
+    }
+
+    .kospi .index-badge {
+      background: var(--kospi-blue-dim);
+      color: var(--kospi-blue);
+    }
+
+    .kosdaq .index-badge {
+      background: var(--kosdaq-green-dim);
+      color: var(--kosdaq-green);
+    }
+
+    .index-body {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+    }
+
+    .index-price {
+      font-family: var(--font-outfit);
+      font-weight: 800;
+      font-size: 32px;
+      line-height: 1.1;
+    }
+
+    .index-change {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 2px;
+    }
+
+    .rate-badge {
+      font-size: 15px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .rate-badge.up {
+      background: var(--up-red-dim);
+      color: var(--up-red);
+    }
+
+    .rate-badge.down {
+      background: var(--down-blue-dim);
+      color: var(--down-blue);
+    }
+
+    /* Core grid layout */
+    .main-grid {
+      display: grid;
+      grid-template-columns: 1fr 360px;
+      gap: 24px;
+    }
+
+    @media (max-width: 1024px) {
+      .main-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Stock Board panel */
+    .board-container {
+      background: var(--panel-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 20px;
+      padding: 24px;
+      backdrop-filter: blur(10px);
+    }
+
+    .board-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+
+    .board-header h2 {
+      font-size: 18px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .board-header h2::before {
+      content: '';
+      display: block;
+      width: 4px;
+      height: 18px;
+      background: var(--kospi-blue);
+      border-radius: 2px;
+    }
+
+    /* Trading Switch */
+    .trading-toggle-btn {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      padding: 8px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s;
+    }
+
+    .trading-toggle-btn.running {
+      background: var(--kosdaq-green-dim);
+      border-color: var(--kosdaq-green);
+      color: var(--kosdaq-green);
+      box-shadow: 0 0 10px rgba(16, 185, 129, 0.15);
+    }
+
+    .trading-toggle-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    /* Stocks Grid Table */
+    .stocks-table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+    }
+
+    .stocks-table th {
+      color: var(--text-muted);
+      font-size: 12px;
+      font-weight: 600;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border-color);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .stocks-table tr {
+      border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .stocks-table tr:hover {
+      background: rgba(255, 255, 255, 0.04) !important;
+      box-shadow: inset 4px 0 0 0 var(--kospi-blue);
+    }
+
+    .stocks-table td {
+      padding: 16px;
+      font-size: 14px;
+      vertical-align: middle;
+    }
+
+    .stock-info {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .stock-name-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .stock-name {
+      font-weight: 700;
+      font-size: 15px;
+    }
+
+    .market-badge {
+      font-size: 9px;
+      font-weight: bold;
+      padding: 1px 5px;
+      border-radius: 3px;
+    }
+
+    .market-badge.kospi {
+      background: var(--kospi-blue-dim);
+      color: var(--kospi-blue);
+      border: 1px solid rgba(0, 240, 255, 0.3);
+    }
+
+    .market-badge.kosdaq {
+      background: var(--kosdaq-green-dim);
+      color: var(--kosdaq-green);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+
+    .stock-code {
+      font-family: var(--font-outfit);
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .stock-price-col {
+      font-family: var(--font-outfit);
+      font-weight: 600;
+      font-size: 15px;
+      transition: color 0.1s ease;
+    }
+
+    /* Price animation classes */
+    .tick-up {
+      color: var(--up-red) !important;
+      animation: flash-red 0.4s ease-out;
+    }
+
+    .tick-down {
+      color: var(--down-blue) !important;
+      animation: flash-blue 0.4s ease-out;
+    }
+
+    @keyframes flash-red {
+      0% { background: rgba(239, 68, 68, 0.25); }
+      100% { background: transparent; }
+    }
+
+    @keyframes flash-blue {
+      0% { background: rgba(59, 130, 246, 0.25); }
+      100% { background: transparent; }
+    }
+
+    /* Portfolio Positions formatting */
+    .pos-info {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .pos-qty {
+      font-size: 13px;
+      color: #cbd5e1;
+    }
+
+    .pos-pnl {
+      font-family: var(--font-outfit);
+      font-weight: 700;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    /* Sparkline Canvas */
+    .sparkline-canvas {
+      background: rgba(255, 255, 255, 0.02);
+      border-radius: 4px;
+    }
+
+    /* Algorithm parameter tags */
+    .param-box {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      font-size: 12px;
+    }
+
+    .param-label {
+      color: var(--text-muted);
+      font-size: 10px;
+    }
+
+    .param-value {
+      font-family: var(--font-outfit);
+      font-weight: 600;
+    }
+
+    .param-value.entry { color: var(--kospi-blue); }
+    .param-value.target { color: var(--kosdaq-green); }
+    .param-value.stop { color: var(--up-red); }
+
+    /* Control Sidebar Panel */
+    .control-sidebar {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .side-panel {
+      background: var(--panel-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 20px;
+      padding: 20px;
+      backdrop-filter: blur(10px);
+    }
+
+    .side-panel h3 {
+      font-size: 15px;
+      font-weight: 700;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 10px;
+    }
+
+    .config-group {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .config-item {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .config-label-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+    }
+
+    .config-name {
+      color: var(--text-muted);
+    }
+
+    .config-val {
+      font-family: var(--font-outfit);
+      font-weight: 600;
+      color: var(--kospi-blue);
+    }
+
+    .slider {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 4px;
+      border-radius: 2px;
+      background: #1e293b;
+      outline: none;
+    }
+
+    .slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--kospi-blue);
+      cursor: pointer;
+      box-shadow: 0 0 10px var(--kospi-blue);
+    }
+
+    /* Custom Toggle Switch styling */
+    #demo-mode-toggle:checked + .slider-toggle {
+      background-color: #fbbf24;
+      box-shadow: 0 0 10px rgba(251, 191, 36, 0.4);
+    }
+    #demo-mode-toggle:checked + .slider-toggle:before {
+      transform: translateX(20px);
+      background-color: #070a13;
+    }
+    .slider-toggle:before {
+      position: absolute;
+      content: "";
+      height: 14px;
+      width: 14px;
+      left: 3px;
+      bottom: 3px;
+      background-color: var(--text-muted);
+      transition: .3s;
+      border-radius: 50%;
+    }
+    .pnl-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 700;
+      font-family: var(--font-outfit);
+      margin-top: 4px;
+      backdrop-filter: blur(5px);
+    }
+    .pnl-badge.profit {
+      background: rgba(16, 185, 129, 0.12);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      color: #10b981;
+      box-shadow: 0 0 8px rgba(16, 185, 129, 0.15);
+    }
+    .pnl-badge.loss {
+      background: rgba(239, 68, 68, 0.12);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      color: #ef4444;
+      box-shadow: 0 0 8px rgba(239, 68, 68, 0.15);
+    }
+    .pnl-badge.none {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: var(--text-muted);
+    }
+
+    /* Live Portfolio Summary widget */
+    .portfolio-summary-box {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .port-item {
+      background: rgba(7, 10, 19, 0.4);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .port-lbl {
+      font-size: 10px;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+
+    .port-val {
+      font-family: var(--font-outfit);
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    /* Live Logs Box */
+    .logs-box {
+      background: rgba(7, 10, 19, 0.7);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      height: 200px;
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 11px;
+      padding: 12px;
+      overflow-y: auto;
+      color: #10b981;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .log-line {
+      line-height: 1.4;
+    }
+
+    .log-time {
+      color: #3b82f6;
+    }
+
+    .log-warn {
+      color: #fbbf24;
+    }
+
+    .log-buy {
+      color: var(--kospi-blue);
+      font-weight: bold;
+    }
+
+    .log-sell {
+      color: var(--up-red);
+      font-weight: bold;
+    }
+
+    /* Premium Sliding Drawer for Stock Analysis Reports */
+    .detail-drawer-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(3, 7, 18, 0.5);
+      backdrop-filter: blur(4px);
+      z-index: 1000;
+      opacity: 0;
+      visibility: hidden;
+      transition: all 0.3s ease;
+    }
+
+    .detail-drawer-overlay.active {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    .detail-drawer {
+      position: fixed;
+      top: 0;
+      right: -550px;
+      width: 520px;
+      height: 100%;
+      background: rgba(15, 23, 42, 0.95);
+      border-left: 1px solid var(--border-color);
+      box-shadow: -10px 0 30px rgba(0, 0, 0, 0.5);
+      z-index: 1001;
+      transition: right 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+      padding: 30px;
+      overflow-y: auto;
+      backdrop-filter: blur(20px);
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    @media (max-width: 550px) {
+      .detail-drawer {
+        width: 100%;
+        right: -100%;
+      }
+    }
+
+    .detail-drawer.active {
+      right: 0;
+    }
+
+    .drawer-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 20px;
+    }
+
+    .drawer-title-sec {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .drawer-stock-name {
+      font-size: 24px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+    }
+
+    .drawer-stock-meta {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 13px;
+    }
+
+    .drawer-close-btn {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-outfit);
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+
+    .drawer-close-btn:hover {
+      background: rgba(255, 255, 255, 0.15);
+      border-color: var(--kospi-blue);
+    }
+
+    .drawer-price-card {
+      background: rgba(7, 10, 19, 0.5);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .drawer-price-label {
+      color: var(--text-muted);
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .drawer-live-price {
+      font-family: var(--font-outfit);
+      font-size: 22px;
+      font-weight: 800;
+    }
+
+    .drawer-live-rate {
+      font-family: var(--font-outfit);
+      font-size: 14px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 4px;
+    }
+
+    .drawer-section {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .drawer-section-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--kospi-blue);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .drawer-section-title::before {
+      content: '';
+      display: block;
+      width: 3px;
+      height: 12px;
+      background: currentColor;
+    }
+
+    .drawer-section.kosdaq-sec .drawer-section-title {
+      color: var(--kosdaq-green);
+    }
+
+    .drawer-catalyst-box {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 16px;
+      line-height: 1.6;
+      font-size: 14px;
+      color: #e2e8f0;
+    }
+
+    .stars-badge {
+      color: #fbbf24;
+      font-size: 16px;
+      display: flex;
+      gap: 2px;
+      margin-bottom: 8px;
+    }
+
+    .strategy-table {
+      width: 100%;
+      border-collapse: collapse;
+      background: rgba(7, 10, 19, 0.3);
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid var(--border-color);
+    }
+
+    .strategy-table td {
+      padding: 12px 16px;
+      font-size: 13px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+    }
+
+    .strategy-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .strategy-label {
+      color: var(--text-muted);
+      font-weight: 600;
+      width: 120px;
+    }
+
+    .strategy-val {
+      font-weight: bold;
+    }
+
+    .strategy-val.in { color: var(--kospi-blue); }
+    .strategy-val.tar { color: var(--kosdaq-green); }
+    .strategy-val.st { color: var(--up-red); }
+
+    .scenario-desc {
+      background: rgba(0, 240, 255, 0.03);
+      border-left: 3px solid var(--kospi-blue);
+      border-radius: 0 8px 8px 0;
+      padding: 12px 16px;
+      font-size: 13px;
+      line-height: 1.6;
+      color: #cbd5e1;
+    }
+
+    .kosdaq-sec .scenario-desc {
+      background: rgba(16, 185, 129, 0.03);
+      border-left-color: var(--kosdaq-green);
+    }
+
+    /* Animations */
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
+      70% { box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Drawer Overlay -->
+  <div class="detail-drawer-overlay" id="drawer-overlay" onclick="closeDetailDrawer()"></div>
+
+  <!-- Premium Side Drawer -->
+  <div class="detail-drawer" id="detail-drawer">
+    <div class="drawer-header">
+      <div class="drawer-title-sec">
+        <span class="drawer-stock-name" id="drawer-name">LG전자</span>
+        <div class="drawer-stock-meta">
+          <span class="stock-code" id="drawer-code">066570</span>
+          <span class="market-badge kospi" id="drawer-market">KOSPI</span>
+        </div>
+      </div>
+      <button class="drawer-close-btn" onclick="closeDetailDrawer()">✕</button>
+    </div>
+
+    <!-- Live Prices in Drawer -->
+    <div class="drawer-price-card">
+      <div style="display: flex; flex-direction: column; gap: 4px;">
+        <span class="drawer-price-label">LIVE SYSTEM PRICE</span>
+        <span class="drawer-live-price" id="drawer-price">293,000원</span>
+      </div>
+      <span class="drawer-live-rate up" id="drawer-rate">+30.00%</span>
+    </div>
+
+    <!-- Live Positions in Drawer -->
+    <div class="drawer-section">
+      <h4 class="drawer-section-title">실시간 보유 현황 (Live Account Position)</h4>
+      <table class="strategy-table" style="background: rgba(0, 240, 255, 0.02);">
+        <tbody>
+          <tr>
+            <td class="strategy-label">보유 수량</td>
+            <td class="strategy-val" id="drawer-pos-qty" style="color:var(--text-main);">0주</td>
+          </tr>
+          <tr>
+            <td class="strategy-label">평균 매수 단가</td>
+            <td class="strategy-val" id="drawer-pos-avg" style="color:var(--text-main);">0원</td>
+          </tr>
+          <tr>
+            <td class="strategy-label">평가 손익</td>
+            <td class="strategy-val in" id="drawer-pos-pnl">0원 (0.00%)</td>
+          </tr>
+          <tr>
+            <td class="strategy-label">총 매수 금액</td>
+            <td class="strategy-val" id="drawer-pos-total" style="color:var(--text-muted);">0원</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Catalyst Rating & Report -->
+    <div class="drawer-section" id="drawer-sec-class">
+      <h4 class="drawer-section-title">Market Moving Catalysts</h4>
+      <div class="drawer-catalyst-box">
+        <div class="stars-badge" id="drawer-stars">⭐⭐⭐⭐⭐</div>
+        <p id="drawer-catalyst">호재 공시 세부 로딩 중...</p>
+      </div>
+    </div>
+
+    <!-- System Auto Parameters Watch -->
+    <div class="drawer-section">
+      <h4 class="drawer-section-title">Automated Trading Scenario (월요일 전략)</h4>
+      <table class="strategy-table">
+        <tbody>
+          <tr>
+            <td class="strategy-label">진입 제한 상한가</td>
+            <td class="strategy-val in" id="drawer-param-in">288,000원</td>
+          </tr>
+          <tr>
+            <td class="strategy-label">시스템 자동 익절가</td>
+            <td class="strategy-val tar" id="drawer-param-tar">315,000원</td>
+          </tr>
+          <tr>
+            <td class="strategy-label">시스템 하드 손절선</td>
+            <td class="strategy-val st" id="drawer-param-st">275,000원</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="scenario-desc" id="drawer-scenario">
+        진입 계획 시나리오 로딩 중...
+      </div>
+    </div>
+  </div>
+
+  <div class="app-container">
+    
+    <!-- Top Header -->
+    <header>
+      <div class="logo-section">
+        <div class="logo-symbol">QA</div>
+        <div class="logo-text">
+          <h1>QUANT ANTIGRAVITY</h1>
+          <span>Auto Trading System</span>
+        </div>
+      </div>
+      
+      <div class="status-panel">
+        <div class="status-item">
+          <div class="status-dot" id="status-dot"></div>
+          <span id="status-feed-txt">REALTIME FEED</span>
+        </div>
+        <div class="status-item" style="color: var(--text-muted);">
+          <span>ALGO ENGINE:</span>
+          <span id="engine-status-txt" style="color: var(--kospi-blue); font-weight: 600;">ACTIVE</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Market Indices Row -->
+    <section class="market-overview">
+      <div class="index-card kospi">
+        <div class="index-header">
+          <span class="index-title">KOSPI INDEX</span>
+          <span class="index-badge">DART Active</span>
+        </div>
+        <div class="index-body">
+          <span class="index-price" id="kospi-index-price">8,476.15</span>
+          <div class="index-change">
+            <span class="rate-badge up" id="kospi-index-rate">▲ +3.55%</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="index-card kosdaq">
+        <div class="index-header">
+          <span class="index-title">KOSDAQ INDEX</span>
+          <span class="index-badge">Speculative</span>
+        </div>
+        <div class="index-body">
+          <span class="index-price" id="kosdaq-index-price">1,074.80</span>
+          <div class="index-change">
+            <span class="rate-badge down" id="kosdaq-index-rate">▼ -2.68%</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Main Workspace Layout -->
+    <div class="main-grid">
+      
+      <!-- Left Panel: Stocks Table -->
+      <section class="board-container">
+        <div class="board-header">
+          <h2>모멘텀 관심종목 실시간 계좌현황 및 리포트</h2>
+          <button class="trading-toggle-btn running" id="trading-toggle-btn" onclick="toggleTradingEngine()">
+            <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:currentColor; margin-right:4px;"></span>
+            <span id="toggle-btn-txt">AUTO TRADING ON</span>
+          </button>
+        </div>
+
+        <table class="stocks-table">
+          <thead>
+            <tr>
+              <th style="width: 200px;">종목 정보</th>
+              <th style="text-align: right; width: 120px;">실시간 현재가</th>
+              <th style="text-align: right; width: 100px;">실시간 등락률</th>
+              <th style="width: 220px;">실시간 보유잔고 (수익률)</th>
+              <th style="width: 100px; text-align: center;">미니 차트</th>
+              <th>매매 한도선 (진입/익절/손절)</th>
+            </tr>
+          </thead>
+          <tbody id="stocks-tbody">
+            <!-- Populated via Javascript -->
+          </tbody>
+        </table>
+      </section>
+
+      <!-- Right Panel: Side Controls, Portfolio Summary, and Logs -->
+      <aside class="control-sidebar">
+        
+        <!-- Live Portfolio Account Summary widget -->
+        <div class="side-panel">
+          <h3>📊 Realtime Portfolio Summary</h3>
+          <div class="portfolio-summary-box">
+            <div class="port-item">
+              <span class="port-lbl">총 자본금 설정액</span>
+              <span class="port-val" id="total-capital-val" style="color:var(--text-main);">100,000,000원</span>
+            </div>
+            <div class="port-item">
+              <span class="port-lbl">종목당 배분 한도액</span>
+              <span class="port-val" id="max-allocation-val" style="color:var(--text-muted);">12,500,000원</span>
+            </div>
+            <div class="port-item" style="grid-column: span 2;">
+              <span class="port-lbl">총 계좌 평가금액 (매수+예수금)</span>
+              <span class="port-val" id="total-eval-val" style="color:var(--kospi-blue); font-size: 16px;">100,000,000원</span>
+            </div>
+            <div class="port-item">
+              <span class="port-lbl">계좌 예수금 잔액</span>
+              <span class="port-val" id="total-cash-val" style="color:var(--text-main);">95,000,000원</span>
+            </div>
+            <div class="port-item">
+              <span class="port-lbl">총 평가 손익 (수익률)</span>
+              <span class="port-val" id="total-pnl-val" style="color:var(--up-red);">0원 (0.00%)</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Algorithm Parameter Sliders -->
+        <div class="side-panel">
+          <h3>⚙️ System Auto Parameters</h3>
+          <div class="config-group">
+            
+            <!-- Demo Mode Toggle -->
+            <div class="config-item" style="flex-direction: row; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 12px; margin-bottom: 8px;">
+              <span class="config-name" style="font-weight: 600; color: #fbbf24;">🔬 시뮬레이션 데모 모드</span>
+              <label class="switch-container" style="position: relative; display: inline-block; width: 44px; height: 22px;">
+                <input type="checkbox" id="demo-mode-toggle" onchange="toggleDemoMode()" style="opacity: 0; width: 0; height: 0;">
+                <span class="slider-toggle" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #1e293b; transition: .3s; border-radius: 20px; border: 1px solid var(--border-color);"></span>
+              </label>
+            </div>
+            
+            <div class="config-item">
+              <div class="config-label-row">
+                <span class="config-name">시초 갭 매수 필터</span>
+                <span class="config-val" id="val-gap">10.0%</span>
+              </div>
+              <input type="range" min="1" max="20" value="10" class="slider" id="slider-gap" oninput="updateSliderVal('gap')">
+            </div>
+
+            <div class="config-item">
+              <div class="config-label-row">
+                <span class="config-name">슬리피지 허용 한도</span>
+                <span class="config-val" id="val-slippage">0.25%</span>
+              </div>
+              <input type="range" min="5" max="100" value="25" class="slider" id="slider-slippage" oninput="updateSliderVal('slippage')">
+            </div>
+
+            <div class="config-item">
+              <div class="config-label-row">
+                <span class="config-name">알고리즘 최대 손절선</span>
+                <span class="config-val" id="val-stop">3.5%</span>
+              </div>
+              <input type="range" min="10" max="100" value="35" class="slider" id="slider-stop" oninput="updateSliderVal('stop')">
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Live Engine Log Feeder -->
+        <div class="side-panel">
+          <h3>📟 Algorithmic Execution Logs</h3>
+          <div class="logs-box" id="logs-box">
+            <!-- Initialized logs will be populated dynamically -->
+          </div>
+        </div>
+
+      </aside>
+
+    </div>
+
+  </div>
+
+  <script>
+    // Total Capital Constants
+    const totalCapital = 100000000; // 100 Million KRW
+    let maxAllocationPerStock = totalCapital; // Will be initialized dynamically
+
+    // Comprehensive Stock Datasets with full Catalysts, Scenarios, and Portfolio states
+    const stockData = [
+      { 
+        code: "066570", 
+        name: "LG전자", 
+        market: "KOSPI", 
+        basePrice: 293000, 
+        entry: 288000, 
+        target: 320000, 
+        stop: 268000, 
+        stars: "⭐⭐⭐⭐⭐",
+        catalyst: "엔비디아 젠슨 황 CEO 방한 및 LG그룹 구광모 회장 회동을 통한 '피지컬 AI' 파트너십 기대감 극대화. 특히 자율주행 모빌리티 및 서비스용 로봇 산업 내 실질적 하드웨어/소프트웨어 기술 연합 성사 가능성이 대두되며 기관 수급이 강하게 유입되었습니다.",
+        scenario: "<b>[돌파 및 눌림 공략 시나리오]</b><br>시초가 갭이 +10% 이하로 비교적 차분하게 시작하면 1차 매수 진입. 만약 과도한 갭상승이 나타난다면 오전 9시 30분까지 가격 조정을 기다렸다가, 금요일 상한가 돌파 마감선인 293,000원을 강한 거래량으로 견고하게 지지해 주는지 확인한 후 추종 매수(돌파) 주문을 실행하십시오."
+      },
+      { 
+        code: "011070", 
+        name: "LG이노텍", 
+        market: "KOSPI", 
+        basePrice: 1458000, 
+        entry: 1400000, 
+        target: 1600000, 
+        stop: 1320000, 
+        stars: "⭐⭐⭐⭐⭐",
+        catalyst: "LG그룹의 로보틱스/자율주행 하드웨어 공급 체인의 핵심 축. 엔비디아 드라이브 플랫폼과 연동되는 고성능 라이다(LiDAR), 카메라 모듈 및 패키지 기판(FC-BGA) 등 고부가 반도체 기판 공급의 수혜 기대감이 강하게 반영되며 장대양봉을 완성했습니다.",
+        scenario: "<b>[눌림목 지정가 매수 시나리오]</b><br>금요일 종가 부근에서 거래가 과열되었기 때문에 장 개시 직후 급격한 차익실현 매물 출회가 우려됩니다. 무리한 시초 시장가 돌파 추격보다는 전일 장대양봉의 피보나치 0.382 되돌림 가중 평균값에 수렴하는 1,420,000원 구간에서 지정가 매수를 체결하는 분할 진입이 손익비 관점에서 우수합니다."
+      },
+      { 
+        code: "035420", 
+        name: "네이버", 
+        market: "KOSPI", 
+        basePrice: 234000, 
+        entry: 228000, 
+        target: 260000, 
+        stop: 218000, 
+        stars: "⭐⭐⭐⭐",
+        catalyst: "젠슨 황 CEO와 네이버 이해진 의장의 독대 일정이 예정되며 '소버린 AI(Sovereign AI)' 및 아태지역 특화 클라우드 동맹 가능성이 재부각되었으며 장기 하강 추세선을 거래량과 함께 돌파했습니다.",
+        scenario: "<b>[눌림 매집 시나리오]</b><br>돌파 마디인 225,000~230,000원 구간에서 당일 지수가 흔들리거나 일시 차익실현 매물이 출회될 때 지정가 매집을 유도하며, 목표치는 타이트하게 260,000원 직전에서 분할 매도합니다."
+      },
+      { 
+        code: "090360", 
+        name: "로보스타", 
+        market: "KOSDAQ", 
+        basePrice: 94000, 
+        entry: 90000, 
+        target: 108000, 
+        stop: 83500, 
+        stars: "⭐⭐⭐⭐⭐",
+        catalyst: "LG그룹의 산업용 로봇 제조 핵심 계열사로서 '피지컬 AI' 아젠다 및 구광모 회장-젠슨 황 CEO 회동의 가장 직관적인 소형주 수혜 모델로 꼽히며 수급 탄력성이 극대화되었습니다.",
+        scenario: "<b>[시초 갭 지지 매수 시나리오]</b><br>코스닥 대장급 고베타 종목이므로 장 초반 변동성이 매우 큽니다. 시초가 갭이 +10% 이하 범위에 머무를 경우 시초 진입하고, 90,000원 전후 눌림 시 적극 지지선 분할 매수로 대응하며 손절선은 83,500원으로 철저하게 통제하십시오."
+      }
+    ];
+
+    let isTradingOn = true;
+    let selectedStockIndex = 0;
+    let useSimulatedData = false;
+    let isOpeningOrderExecuted = false;
+
+    // Initialize all portfolio properties dynamically to achieve perfect dynamic N-splitting
+    function initializePortfolioState() {
+      maxAllocationPerStock = totalCapital / stockData.length;
+      stockData.forEach(stock => {
+        stock.price = stock.basePrice;
+        stock.rate = 0;
+        stock.quantity = 0;
+        stock.avgBuyPrice = 0;
+        stock.investedCapital = 0;
+        stock.cashRemaining = maxAllocationPerStock;
+        stock.pnl = 0;
+        stock.pnlRate = 0;
+        stock.hasFollowedUp = false;
+        stock.isGapFiltered = false;
+        stock.hasLoggedGapFilter = false;
+        stock.openingGap = 0;
+        stock.history = [stock.basePrice, stock.basePrice, stock.basePrice, stock.basePrice];
+      });
+    }
+
+    // Check KST Market Opening Hours
+    function isMarketOpen() {
+      // If Demo Mode toggle is checked, bypass KST market hours for simulation testing
+      const demoToggle = document.getElementById("demo-mode-toggle");
+      if (demoToggle && demoToggle.checked) return true;
+
+      const now = new Date();
+      const kstTime = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Seoul" }));
+      const day = kstTime.getDay(); 
+      const hours = kstTime.getHours();
+      const minutes = kstTime.getMinutes();
+      const timeVal = hours * 100 + minutes;
+
+      if (day >= 1 && day <= 5 && timeVal >= 900 && timeVal <= 1530) {
+        return true;
+      }
+      return false;
+    }
+
+    // Check if within the strict 09:01 - 09:30 KST window for the 95% follow-up orders
+    function isWithinFollowUpWindow() {
+      // If Demo Mode toggle is checked, bypass time constraints for simulation testing
+      const demoToggle = document.getElementById("demo-mode-toggle");
+      if (demoToggle && demoToggle.checked) return true;
+
+      const now = new Date();
+      const kstTime = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Seoul" }));
+      const day = kstTime.getDay(); 
+      const hours = kstTime.getHours();
+      const minutes = kstTime.getMinutes();
+      const timeVal = hours * 100 + minutes;
+
+      if (day >= 1 && day <= 5 && timeVal >= 901 && timeVal <= 930) {
+        return true;
+      }
+      return false;
+    }
+
+    // Toggle Demo Mode Switch
+    function toggleDemoMode() {
+      const logsBox = document.getElementById("logs-box");
+      const time = new Date().toTimeString().split(" ")[0];
+      const isDemo = document.getElementById("demo-mode-toggle").checked;
+
+      if (isDemo) {
+        useSimulatedData = true; // Automatically enable simulated ticks fallback
+        logsBox.innerHTML += `<div class="log-line" style="color:#fbbf24; font-weight:bold;"><span class="log-time">[${time}]</span> [DEMO ON] 데모 시뮬레이션 모드가 활성화되었습니다. 시간 및 요일 제한을 무시하고 가상 틱 테스팅을 개시합니다.</div>`;
+      } else {
+        useSimulatedData = false;
+        logsBox.innerHTML += `<div class="log-line"><span class="log-time">[${time}]</span> [DEMO OFF] 데모 시뮬레이션 모드가 비활성화되었습니다. 실시간 API 피드에 대기합니다.</div>`;
+      }
+      updateEngineStatusIndicator();
+      logsBox.scrollTop = logsBox.scrollHeight;
+    }
+
+    // Load dynamic stock picks from the generated report if it exists
+    async function loadDynamicReportData() {
+      try {
+        const response = await fetch("daily_market_report.json");
+        if (response.ok) {
+          const data = await response.json();
+          if (Array.isArray(data) && data.length > 0) {
+            stockData.length = 0; // Clear the static array
+            data.forEach(item => {
+              stockData.push({
+                code: item.code,
+                name: item.name,
+                market: item.market,
+                basePrice: item.basePrice,
+                entry: item.entry,
+                target: item.target,
+                stop: item.stop,
+                stars: item.stars || "⭐⭐⭐⭐",
+                catalyst: item.catalyst || "",
+                scenario: item.scenario || ""
+              });
+            });
+            console.log("Successfully loaded dynamic report stockData:", stockData);
+          }
+        }
+      } catch (err) {
+        console.warn("Failed to load dynamic report from daily_market_report.json, using hardcoded default stocks.", err);
+      }
+    }
+
+    // Load tables on initial window launch
+    window.onload = async function() {
+      await loadDynamicReportData();
+      initializePortfolioState();
+      // Only execute the opening buy if the market is actually open right now!
+      if (isMarketOpen()) {
+        executeOpeningOrder();
+      }
+      renderTable();
+      initializeLogs();
+      fetchRealPrices(); 
+      setInterval(fetchRealPrices, 5000); 
+      setInterval(tickSimulation, 1500); 
+      setInterval(updateEngineStatusIndicator, 5000); 
+    };
+
+    // Rule 3: Regardless of the Gap filter, buy 5% of allocation or 1 share (whichever is larger) at market open
+    function executeOpeningOrder() {
+      if (isOpeningOrderExecuted) return;
+      
+      const targetBuyAmt = maxAllocationPerStock * 0.05; // 625,000 Won default target
+      const logsBox = document.getElementById("logs-box");
+      const time = new Date().toTimeString().split(" ")[0];
+
+      stockData.forEach(stock => {
+        if (stock.quantity > 0) return; // Prevent duplicate opening buys
+
+        const executionPrice = stock.price || stock.basePrice;
+        
+        // Quantity to buy is 5% target OR at least 1 share (effectively choosing the larger amount)
+        const qtyToBuy = Math.max(1, Math.floor(targetBuyAmt / executionPrice));
+        const actualCost = qtyToBuy * executionPrice;
+
+        stock.quantity = qtyToBuy;
+        stock.avgBuyPrice = executionPrice;
+        stock.investedCapital = actualCost;
+        stock.cashRemaining = maxAllocationPerStock - actualCost;
+        
+        // Reset states
+        stock.pnl = 0;
+        stock.pnlRate = 0;
+        stock.hasFollowedUp = false;
+      });
+
+      isOpeningOrderExecuted = true;
+
+      if (logsBox) {
+        logsBox.innerHTML += `<div class="log-line" style="color:var(--kospi-blue); font-weight:bold;"><span class="log-time">[${time}]</span> [MARKET OPEN] 장 개시 감지: 시초가 무관 5% (또는 최소 1주) 자동 분할 매수가 집행되었습니다.</div>`;
+        logsBox.scrollTop = logsBox.scrollHeight;
+      }
+    }
+
+    function initializeLogs() {
+      const logsBox = document.getElementById("logs-box");
+      const time = new Date().toTimeString().split(" ")[0];
+      
+      logsBox.innerHTML = `
+        <div class="log-line"><span class="log-time">[${time}]</span> Auto-trading engine initialized successfully.</div>
+        <div class="log-line"><span class="log-time">[${time}]</span> Registered 8 momentum tickers with 100M KRW total capital.</div>
+        <div class="log-line"><span class="log-time">[${time}]</span> Connecting to DART & Yahoo Finance MCPs... <span style="color:var(--kosdaq-green);">Connected.</span></div>
+      `;
+
+      if (isMarketOpen()) {
+        logsBox.innerHTML += `<div class="log-line" style="color:var(--kospi-blue);"><span class="log-time">[${time}]</span> [ALGO ENGINE] 장 중 정규 시장 매매 감지를 시작합니다. 5% 시초가 즉시 매수 집행 완료.</div>`;
+      } else {
+        logsBox.innerHTML += `<div class="log-line" style="color:var(--up-red);"><span class="log-time">[${time}]</span> [ALGO ENGINE] 국내 시장이 마감(장외) 상태입니다. 모든 시뮬레이션 매매 및 가격 변동이 일시 중지됩니다. (운영 시간: 월-금 09:00 - 15:30 KST)</div>`;
+        logsBox.innerHTML += `<div class="log-line" style="color:#fbbf24;"><span class="log-time">[${time}]</span> [TIP] 우측의 '시뮬레이션 데모 모드' 스위치를 켜시면 시간 제한을 무시하고 오토트레이딩 로직을 즉시 확인하실 수 있습니다.</div>`;
+      }
+      logsBox.scrollTop = logsBox.scrollHeight;
+      updateEngineStatusIndicator();
+      updatePortfolioAccountSummary();
+    }
+
+    function updateEngineStatusIndicator() {
+      const statusTxt = document.getElementById("engine-status-txt");
+      const dot = document.getElementById("status-dot");
+      const feedTxt = document.getElementById("status-feed-txt");
+      
+      if (!isTradingOn) {
+        statusTxt.innerText = "PAUSED";
+        statusTxt.style.color = "var(--up-red)";
+        return;
+      }
+
+      const isDemo = document.getElementById("demo-mode-toggle") && document.getElementById("demo-mode-toggle").checked;
+
+      if (isMarketOpen()) {
+        statusTxt.innerText = isDemo ? "ACTIVE (DEMO)" : "ACTIVE";
+        statusTxt.style.color = "var(--kospi-blue)";
+        feedTxt.innerText = isDemo ? "SIMULATED FEED (LIVE)" : "REALTIME FEED (LIVE)";
+        dot.style.backgroundColor = "var(--kosdaq-green)";
+        dot.style.boxShadow = "0 0 10px var(--kosdaq-green)";
+      } else {
+        statusTxt.innerText = "STANDBY (장외 대기)";
+        statusTxt.style.color = "#fbbf24"; 
+        feedTxt.innerText = "MARKET CLOSED (STANDBY)";
+        dot.style.backgroundColor = "#fbbf24";
+        dot.style.boxShadow = "0 0 10px #fbbf24";
+      }
+    }
+
+    // Dynamic Summary calculation
+    function updatePortfolioAccountSummary() {
+      let totalValuation = 0;
+      let totalCashRemaining = 0;
+
+      stockData.forEach(stock => {
+        totalValuation += stock.quantity * stock.price;
+        totalCashRemaining += stock.cashRemaining;
+      });
+
+      const totalAccountValuation = totalValuation + totalCashRemaining;
+      const totalPnl = totalAccountValuation - totalCapital;
+      const totalPnlRate = (totalPnl / totalCapital) * 100;
+
+      // Update values in sidebar
+      if (document.getElementById("total-capital-val")) {
+        document.getElementById("total-capital-val").innerText = totalCapital.toLocaleString() + "원";
+      }
+      if (document.getElementById("max-allocation-val")) {
+        document.getElementById("max-allocation-val").innerText = maxAllocationPerStock.toLocaleString() + "원";
+      }
+
+      document.getElementById("total-cash-val").innerText = totalCashRemaining.toLocaleString() + "원";
+      document.getElementById("total-eval-val").innerText = totalAccountValuation.toLocaleString() + "원";
+      
+      const pnlSpan = document.getElementById("total-pnl-val");
+      const sign = totalPnl >= 0 ? "+" : "";
+      pnlSpan.innerText = `${sign}${totalPnl.toLocaleString()}원 (${sign}${totalPnlRate.toFixed(2)}%)`;
+      pnlSpan.style.color = totalPnl >= 0 ? "var(--up-red)" : "var(--down-blue)";
+    }
+
+    async function fetchRealPrices() {
+      if (!isTradingOn) return;
+      
+      const logsBox = document.getElementById("logs-box");
+      const time = new Date().toTimeString().split(" ")[0];
+
+      try {
+        const response = await fetch("http://localhost:8000/api/prices");
+        if (!response.ok) throw new Error("Server responded with error");
+        
+        const data = await response.json();
+        if (data.status === "success" && data.stocks) {
+          if (useSimulatedData && !document.getElementById("demo-mode-toggle").checked) {
+            useSimulatedData = false;
+            logsBox.innerHTML += `<div class="log-line" style="color:var(--kosdaq-green);"><span class="log-time">[${time}]</span> [SERVER INFO] Connection restored. Switched to REALTIME market feeds.</div>`;
+            logsBox.scrollTop = logsBox.scrollHeight;
+          }
+
+          const gapFilterLimit = parseFloat(document.getElementById("slider-gap").value);
+
+          // Update the 8 stocks in stockData
+          stockData.forEach((stock, idx) => {
+            const apiStock = data.stocks[stock.code];
+            if (apiStock) {
+              const prevPrice = stock.price;
+              stock.price = apiStock.price || stock.basePrice;
+              stock.rate = apiStock.rate || 0;
+              
+              // Map open/prevClose if provided by API to calculate openingGap
+              if (apiStock.open && apiStock.prevClose) {
+                stock.openingGap = ((apiStock.open - apiStock.prevClose) / apiStock.prevClose) * 100;
+              } else {
+                stock.openingGap = stock.rate; // fallback to rate
+              }
+
+              // Evaluate Opening Gap Filter
+              if (Math.abs(stock.openingGap) > gapFilterLimit) {
+                stock.isGapFiltered = true;
+                if (!stock.hasLoggedGapFilter) {
+                  logsBox.innerHTML += `<div class="log-line" style="color:#fbbf24;"><span class="log-time">[${time}]</span> [ALGO FILTER] <b>${stock.name}</b> 시초 갭 (${stock.openingGap.toFixed(2)}%)이 제한 (${gapFilterLimit}%)을 초과하여 95% 추가 분할 매수에서 제외됩니다.</div>`;
+                  logsBox.scrollTop = logsBox.scrollHeight;
+                  stock.hasLoggedGapFilter = true;
+                }
+              }
+
+              // Maintain history for sparkline only when market is open
+              if (isMarketOpen()) {
+                stock.history.push(stock.price);
+                if (stock.history.length > 8) stock.history.shift();
+              }
+
+              // Calculate stock-level real-time PnL
+              if (stock.quantity > 0) {
+                const currentVal = stock.quantity * stock.price;
+                stock.pnl = currentVal - stock.investedCapital;
+                stock.pnlRate = ((stock.price - stock.avgBuyPrice) / stock.avgBuyPrice) * 100;
+              }
+
+              // Update DOM directly for ultra-smooth performance
+              const priceTd = document.getElementById(`price-${idx}`);
+              const rateTd = document.getElementById(`rate-${idx}`);
+              
+              const posQtyTd = document.getElementById(`pos-qty-${idx}`);
+              const posPnlTd = document.getElementById(`pos-pnl-${idx}`);
+
+              if (priceTd && rateTd) {
+                priceTd.innerText = stock.price.toLocaleString() + "원";
+                const rateSign = stock.rate >= 0 ? "+" : "";
+                rateTd.innerText = `${rateSign}${stock.rate.toFixed(2)}%`;
+                rateTd.style.color = stock.rate >= 0 ? "var(--up-red)" : "var(--down-blue)";
+
+                if (stock.price > prevPrice) {
+                  priceTd.className = "stock-price-col tick-up";
+                } else if (stock.price < prevPrice) {
+                  priceTd.className = "stock-price-col tick-down";
+                }
+              }
+
+              // Update live holdings cells with glowing PnL badge
+              if (posQtyTd && posPnlTd) {
+                if (stock.quantity > 0) {
+                  posQtyTd.innerHTML = `${stock.quantity.toLocaleString()}주 <span style="color:var(--text-muted); font-size:11px;">(평단 ${stock.avgBuyPrice.toLocaleString()}원)</span>`;
+                  const pnlSign = stock.pnl >= 0 ? "+" : "";
+                  posPnlTd.innerText = `${pnlSign}${stock.pnl.toLocaleString()}원 (${pnlSign}${stock.pnlRate.toFixed(2)}%)`;
+                  posPnlTd.className = `pnl-badge ${stock.pnl >= 0 ? 'profit' : 'loss'}`;
+                } else {
+                  posQtyTd.innerText = "보유 잔고 없음";
+                  posPnlTd.innerText = "0원 (0.00%)";
+                  posPnlTd.className = "pnl-badge none";
+                }
+              }
+
+              // Update sparkline canvas
+              drawSparkline(idx);
+
+              // Update drawer details live if active
+              if (selectedStockIndex === idx && document.getElementById("detail-drawer").classList.contains("active")) {
+                updateDrawerLivePrices(idx);
+              }
+            }
+          });
+
+          // Check and execute opening order when market first transitions to open
+          if (isMarketOpen() && !isOpeningOrderExecuted) {
+            executeOpeningOrder();
+          }
+
+          // Check for auto-trading follow-up orders if market is active!
+          if (isMarketOpen()) {
+            checkAndExecuteFollowUpAlgoTrading();
+          }
+
+          updatePortfolioAccountSummary();
+        }
+      } catch (err) {
+        if (!useSimulatedData && !document.getElementById("demo-mode-toggle").checked) {
+          useSimulatedData = true;
+          logsBox.innerHTML += `<div class="log-line" style="color:var(--up-red);"><span class="log-time">[${time}]</span> [SERVER WARNING] Local integration server not detected. Switched to Simulated Sandbox mode.</div>`;
+          logsBox.scrollTop = logsBox.scrollHeight;
+        }
+      }
+    }
+
+    // Follow up Auto Trading Logic (Breakout / Dip buy / Take profit / Stop loss)
+    function checkAndExecuteFollowUpAlgoTrading() {
+      const logsBox = document.getElementById("logs-box");
+      const time = new Date().toTimeString().split(" ")[0];
+
+      stockData.forEach((stock, idx) => {
+        if (stock.quantity === 0) return; // Skip if already fully liquidated
+
+        const targetLimit = stock.target;
+        const stopLimit = stock.stop;
+        const entryLimit = stock.entry;
+
+        // 1. Take Profit (익절) - Anytime during market hours
+        if (stock.price >= targetLimit) {
+          const profit = (stock.quantity * stock.price) - stock.investedCapital;
+          const realizedAmt = stock.quantity * stock.price;
+          
+          logsBox.innerHTML += `
+            <div class="log-line" style="color:var(--kosdaq-green); font-weight:bold;">
+              <span class="log-time">[${time}]</span> [ALGO SELL] <b>${stock.name}</b> 목표 익절 달성 전량 매도 완료! 실시간 실현손익: +${profit.toLocaleString()}원
+            </div>
+          `;
+          
+          // Reset portfolio states but bank the realized cash
+          stock.cashRemaining += realizedAmt;
+          stock.quantity = 0;
+          stock.avgBuyPrice = 0;
+          stock.investedCapital = 0;
+          stock.pnl = 0;
+          stock.pnlRate = 0;
+          stock.hasFollowedUp = false;
+          
+          renderTable();
+          logsBox.scrollTop = logsBox.scrollHeight;
+          return;
+        }
+
+        // 2. Stop Loss (손절) - Anytime during market hours
+        if (stock.price <= stopLimit) {
+          const loss = stock.investedCapital - (stock.quantity * stock.price);
+          const realizedAmt = stock.quantity * stock.price;
+
+          logsBox.innerHTML += `
+            <div class="log-line" style="color:var(--up-red); font-weight:bold;">
+              <span class="log-time">[${time}]</span> [ALGO SELL] <b>${stock.name}</b> 손절 지지선 붕괴 전량 매도 완료. 실시간 실현손실: -${loss.toLocaleString()}원
+            </div>
+          `;
+
+          // Reset portfolio states
+          stock.cashRemaining += realizedAmt;
+          stock.quantity = 0;
+          stock.avgBuyPrice = 0;
+          stock.investedCapital = 0;
+          stock.pnl = 0;
+          stock.pnlRate = 0;
+          stock.hasFollowedUp = false;
+
+          renderTable();
+          logsBox.scrollTop = logsBox.scrollHeight;
+          return;
+        }
+
+        // 3. Follow-up Purchase (95% 추가 분할 매수) - STRICTLY during 09:01 - 09:30 KST and only if NOT gap-filtered
+        if (!stock.hasFollowedUp && !stock.isGapFiltered && stock.cashRemaining > 1000000) {
+          // Verify time window constraint
+          if (!isWithinFollowUpWindow()) {
+            return;
+          }
+
+          // Check if price is within the valid buy entry range (less than or equal to the entry upper limit)
+          if (stock.price <= entryLimit) {
+            const buyAmt = stock.cashRemaining; // Spend all remaining allocation cash
+            const addQty = Math.floor(buyAmt / stock.price);
+            
+            if (addQty > 0) {
+              const addCost = addQty * stock.price;
+              
+              // Recalculate average buy price
+              const totalQty = stock.quantity + addQty;
+              stock.avgBuyPrice = Math.round(((stock.avgBuyPrice * stock.quantity) + (stock.price * addQty)) / totalQty);
+              stock.quantity = totalQty;
+              stock.investedCapital += addCost;
+              stock.cashRemaining -= addCost;
+              stock.hasFollowedUp = true;
+
+              logsBox.innerHTML += `
+                <div class="log-line"><span class="log-time">[${time}]</span> <span class="log-buy">[AUTO ORDER]</span> 09:01~09:30 시간 내 <b>${stock.name}</b> 진입선 터치에 따른 95% 잔여 비중 추가 매수 완료: ${addQty.toLocaleString()}주 at <b>${stock.price.toLocaleString()}원</b>.</div>
+              `;
+              
+              renderTable();
+              logsBox.scrollTop = logsBox.scrollHeight;
+            }
+          }
+        }
+      });
+    }
+
+    function renderTable() {
+      const tbody = document.getElementById("stocks-tbody");
+      tbody.innerHTML = "";
+
+      stockData.forEach((stock, idx) => {
+        const tr = document.createElement("tr");
+        tr.id = `stock-row-${idx}`;
+        tr.setAttribute("onclick", `openDetailDrawer(${idx})`);
+
+        const isKospi = stock.market === "KOSPI";
+        const badgeClass = isKospi ? "kospi" : "kosdaq";
+        const rateSign = stock.rate >= 0 ? "+" : "";
+        const rateColor = stock.rate >= 0 ? "var(--up-red)" : "var(--down-blue)";
+
+        let pnlHtml = "";
+        if (stock.quantity > 0) {
+          const pnlSign = stock.pnl >= 0 ? "+" : "";
+          const badgeClassPnl = stock.pnl >= 0 ? "profit" : "loss";
+          pnlHtml = `
+            <div class="pos-info">
+              <span class="pos-qty" id="pos-qty-${idx}">
+                ${stock.quantity.toLocaleString()}주 <span style="color:var(--text-muted); font-size:11px;">(평단 ${stock.avgBuyPrice.toLocaleString()}원)</span>
+              </span>
+              <div class="pnl-badge ${badgeClassPnl}" id="pos-pnl-${idx}">
+                ${pnlSign}${stock.pnl.toLocaleString()}원 (${pnlSign}${stock.pnlRate.toFixed(2)}%)
+              </div>
+            </div>
+          `;
+        } else {
+          pnlHtml = `
+            <div class="pos-info">
+              <span class="pos-qty" id="pos-qty-${idx}">보유 잔고 없음</span>
+              <div class="pnl-badge none" id="pos-pnl-${idx}">0원 (0.00%)</div>
+            </div>
+          `;
+        }
+
+        tr.innerHTML = `
+          <td>
+            <div class="stock-info">
+              <div class="stock-name-row">
+                <span class="stock-name">${stock.name}</span>
+                <span class="market-badge ${badgeClass}">${stock.market}</span>
+              </div>
+              <span class="stock-code">${stock.code}</span>
+            </div>
+          </td>
+          <td style="text-align: right; font-weight: bold;" class="stock-price-col" id="price-${idx}">
+            ${stock.price.toLocaleString()}원
+          </td>
+          <td style="text-align: right; color: ${rateColor}; font-weight: 600;" id="rate-${idx}">
+            ${rateSign}${stock.rate.toFixed(2)}%
+          </td>
+          <td>
+            ${pnlHtml}
+          </td>
+          <td style="text-align: center;">
+            <canvas id="canvas-${idx}" width="90" height="28" class="sparkline-canvas"></canvas>
+          </td>
+          <td>
+            <div style="display: flex; gap: 14px;">
+              <div class="param-box">
+                <span class="param-label">진입 상한</span>
+                <span class="param-value entry">${stock.entry.toLocaleString()}원</span>
+              </div>
+              <div class="param-box">
+                <span class="param-label">목표 익절</span>
+                <span class="param-value target">${stock.target.toLocaleString()}원</span>
+              </div>
+              <div class="param-box">
+                <span class="param-label">목표 손절</span>
+                <span class="param-value stop">${stock.stop.toLocaleString()}원</span>
+              </div>
+            </div>
+          </td>
+        `;
+
+        tbody.appendChild(tr);
+        drawSparkline(idx);
+      });
+    }
+
+    // Sparkline Trend Generator
+    function drawSparkline(idx) {
+      const canvas = document.getElementById(`canvas-${idx}`);
+      if (!canvas) return;
+      const ctx = canvas.getContext("2d");
+      const history = stockData[idx].history;
+      
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.strokeStyle = stockData[idx].market === "KOSPI" ? "#00f0ff" : "#10b981";
+      ctx.lineWidth = 1.8;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+
+      const maxVal = Math.max(...history);
+      const minVal = Math.min(...history);
+      const range = maxVal - minVal || 1;
+
+      ctx.beginPath();
+      history.forEach((val, step) => {
+        const x = (step / (history.length - 1)) * (canvas.width - 6) + 3;
+        const y = canvas.height - ((val - minVal) / range) * (canvas.height - 8) - 4;
+        if (step === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+    }
+
+    // Open sliding side drawer for stock details
+    function openDetailDrawer(idx) {
+      selectedStockIndex = idx;
+      const stock = stockData[idx];
+      
+      const drawer = document.getElementById("detail-drawer");
+      const overlay = document.getElementById("drawer-overlay");
+      
+      // Update basic fields
+      document.getElementById("drawer-name").innerText = stock.name;
+      document.getElementById("drawer-code").innerText = stock.code;
+      document.getElementById("drawer-catalyst").innerText = stock.catalyst;
+      document.getElementById("drawer-scenario").innerHTML = stock.scenario;
+      document.getElementById("drawer-stars").innerText = stock.stars;
+      
+      // Market classification badge styling
+      const marketSpan = document.getElementById("drawer-market");
+      const classSec = document.getElementById("drawer-sec-class");
+      marketSpan.innerText = stock.market;
+      
+      if (stock.market === "KOSPI") {
+        marketSpan.className = "market-badge kospi";
+        classSec.className = "drawer-section";
+      } else {
+        marketSpan.className = "market-badge kosdaq";
+        classSec.className = "drawer-section kosdaq-sec";
+      }
+
+      // Parameters updates
+      document.getElementById("drawer-param-in").innerText = stock.entry.toLocaleString() + "원";
+      document.getElementById("drawer-param-tar").innerText = stock.target.toLocaleString() + "원";
+      document.getElementById("drawer-param-st").innerText = stock.stop.toLocaleString() + "원";
+
+      // Live prices initial update in drawer
+      updateDrawerLivePrices(idx);
+
+      // Slide in drawer and fade overlay
+      overlay.classList.add("active");
+      drawer.classList.add("active");
+
+      // Log action
+      const logsBox = document.getElementById("logs-box");
+      const time = new Date().toTimeString().split(" ")[0];
+      logsBox.innerHTML += `<div class="log-line"><span class="log-time">[${time}]</span> [USER INTERACTION] Expanded research report for <b>${stock.name} (${stock.code})</b>.</div>`;
+      logsBox.scrollTop = logsBox.scrollHeight;
+    }
+
+    function closeDetailDrawer() {
+      document.getElementById("detail-drawer").classList.remove("active");
+      document.getElementById("drawer-overlay").classList.remove("active");
+    }
+
+    function updateDrawerLivePrices(idx) {
+      const stock = stockData[idx];
+      const priceSpan = document.getElementById("drawer-price");
+      const rateSpan = document.getElementById("drawer-rate");
+      
+      // Drawer Live Position values
+      const posQty = document.getElementById("drawer-pos-qty");
+      const posAvg = document.getElementById("drawer-pos-avg");
+      const posPnl = document.getElementById("drawer-pos-pnl");
+      const posTotal = document.getElementById("drawer-pos-total");
+
+      if (priceSpan && rateSpan) {
+        priceSpan.innerText = stock.price.toLocaleString() + "원";
+        const rateSign = stock.rate >= 0 ? "+" : "";
+        rateSpan.innerText = `${rateSign}${stock.rate.toFixed(2)}%`;
+        
+        if (stock.rate >= 0) {
+          rateSpan.className = "drawer-live-rate up";
+          rateSpan.style.background = "var(--up-red-dim)";
+          rateSpan.style.color = "var(--up-red)";
+        } else {
+          rateSpan.className = "drawer-live-rate down";
+          rateSpan.style.background = "var(--down-blue-dim)";
+          rateSpan.style.color = "var(--down-blue)";
+        }
+      }
+
+      if (posQty && posAvg && posPnl && posTotal) {
+        if (stock.quantity > 0) {
+          posQty.innerText = stock.quantity.toLocaleString() + "주";
+          posAvg.innerText = stock.avgBuyPrice.toLocaleString() + "원";
+          posTotal.innerText = stock.investedCapital.toLocaleString() + "원";
+          
+          const pnlSign = stock.pnl >= 0 ? "+" : "";
+          posPnl.innerText = `${pnlSign}${stock.pnl.toLocaleString()}원 (${pnlSign}${stock.pnlRate.toFixed(2)}%)`;
+          posPnl.style.color = stock.pnl >= 0 ? "var(--up-red)" : "var(--down-blue)";
+        } else {
+          posQty.innerText = "보유 잔고 없음";
+          posAvg.innerText = "0원";
+          posTotal.innerText = "0원";
+          posPnl.innerText = "0원 (0.00%)";
+          posPnl.style.color = "var(--text-muted)";
+        }
+      }
+    }
+
+    // Simulation price change loop (Active ONLY as fallback if python server is offline AND market is open)
+    function tickSimulation() {
+      if (!isTradingOn || !useSimulatedData || !isMarketOpen()) return;
+
+      const randomIdx = Math.floor(Math.random() * stockData.length);
+      const stock = stockData[randomIdx];
+      
+      // Compute mock fluctuations (high beta for KOSDAQ, steady for KOSPI)
+      const maxChangePercent = stock.market === "KOSDAQ" ? 0.0075 : 0.0025;
+      const direction = Math.random() > 0.48 ? 1 : -1; // Slight upward bias
+      const change = stock.price * (Math.random() * maxChangePercent) * direction;
+      
+      const prevPrice = stock.price;
+      stock.price = Math.round(stock.price + change);
+      
+      // Force upper limit caps for realism
+      const maxLimitPrice = stock.basePrice * 1.30;
+      if (stock.price > maxLimitPrice) stock.price = Math.round(maxLimitPrice);
+
+      // Recompute rate
+      stock.rate = ((stock.price - stock.basePrice) / stock.basePrice) * 100;
+
+      // Maintain history
+      stock.history.push(stock.price);
+      if (stock.history.length > 8) stock.history.shift();
+
+      // Recalculate stock-level real-time PnL
+      if (stock.quantity > 0) {
+        const currentVal = stock.quantity * stock.price;
+        stock.pnl = currentVal - stock.investedCapital;
+        stock.pnlRate = ((stock.price - stock.avgBuyPrice) / stock.avgBuyPrice) * 100;
+      }
+
+      // UI updates
+      const priceTd = document.getElementById(`price-${randomIdx}`);
+      const rateTd = document.getElementById(`rate-${randomIdx}`);
+      
+      const posQtyTd = document.getElementById(`pos-qty-${randomIdx}`);
+      const posPnlTd = document.getElementById(`pos-pnl-${randomIdx}`);
+
+      if (priceTd && rateTd) {
+        priceTd.innerText = stock.price.toLocaleString() + "원";
+        const rateSign = stock.rate >= 0 ? "+" : "";
+        rateTd.innerText = `${rateSign}${stock.rate.toFixed(2)}%`;
+        rateTd.style.color = stock.rate >= 0 ? "var(--up-red)" : "var(--down-blue)";
+
+        if (stock.price > prevPrice) {
+          priceTd.className = "stock-price-col tick-up";
+        } else if (stock.price < prevPrice) {
+          priceTd.className = "stock-price-col tick-down";
+        }
+
+        // Update live holdings cells with glowing PnL badge
+        if (posQtyTd && posPnlTd) {
+          if (stock.quantity > 0) {
+            posQtyTd.innerHTML = `${stock.quantity.toLocaleString()}주 <span style="color:var(--text-muted); font-size:11px;">(평단 ${stock.avgBuyPrice.toLocaleString()}원)</span>`;
+            const pnlSign = stock.pnl >= 0 ? "+" : "";
+            posPnlTd.innerText = `${pnlSign}${stock.pnl.toLocaleString()}원 (${pnlSign}${stock.pnlRate.toFixed(2)}%)`;
+            posPnlTd.className = `pnl-badge ${stock.pnl >= 0 ? 'profit' : 'loss'}`;
+          } else {
+            posQtyTd.innerText = "보유 잔고 없음";
+            posPnlTd.innerText = "0원 (0.00%)";
+            posPnlTd.className = "pnl-badge none";
+          }
+        }
+
+        // If this stock is currently expanded in the drawer, sync the price live!
+        if (selectedStockIndex === randomIdx && document.getElementById("detail-drawer").classList.contains("active")) {
+          updateDrawerLivePrices(randomIdx);
+        }
+
+        // Check and execute opening order when market first transitions to open
+        if (isMarketOpen() && !isOpeningOrderExecuted) {
+          executeOpeningOrder();
+        }
+
+        // Check for simulated orders
+        checkAndExecuteFollowUpAlgoTrading();
+        updatePortfolioAccountSummary();
+      }
+
+      drawSparkline(randomIdx);
+    }
+
+    // Toggle Trading System state
+    function toggleTradingEngine() {
+      const btn = document.getElementById("trading-toggle-btn");
+      const txt = document.getElementById("toggle-btn-txt");
+      const logsBox = document.getElementById("logs-box");
+      const time = new Date().toTimeString().split(" ")[0];
+
+      if (isTradingOn) {
+        isTradingOn = false;
+        btn.className = "trading-toggle-btn";
+        txt.innerText = "AUTO TRADING OFF";
+        logsBox.innerHTML += `<div class="log-line" style="color: var(--up-red);"><span class="log-time">[${time}]</span> [ENGINE WARNING] Automated Trading systems have been PAUSED by manual override.</div>`;
+      } else {
+        isTradingOn = true;
+        btn.className = "trading-toggle-btn running";
+        logsBox.innerHTML += `<div class="log-line" style="color: var(--kosdaq-green);"><span class="log-time">[${time}]</span> [ENGINE INFO] Automated Trading systems are ACTIVE and polling tickers...</div>`;
+      }
+      
+      updateEngineStatusIndicator();
+      logsBox.scrollTop = logsBox.scrollHeight;
+    }
+
+    // Update Slider indicators dynamically
+    function updateSliderVal(param) {
+      const slider = document.getElementById(`slider-${param}`);
+      const valSpan = document.getElementById(`val-${param}`);
+      if (param === 'gap') {
+        valSpan.innerText = slider.value + ".0%";
+      } else if (param === 'slippage') {
+        valSpan.innerText = (slider.value / 100).toFixed(2) + "%";
+      } else if (param === 'stop') {
+        valSpan.innerText = (slider.value / 10).toFixed(1) + "%";
+      }
+    }
+  </script>
+</body>
+</html>
