@@ -29,7 +29,8 @@ def get_stock_news(query: str) -> str:
     """
     # Locate the existing get_news.py script
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    script_path = os.path.join(script_dir, ".agents", "skills", "get-stock-news", "scripts", "get_news.py")
+    parent_dir = os.path.dirname(script_dir)
+    script_path = os.path.join(parent_dir, ".agents", "skills", "get-stock-news", "scripts", "get_news.py")
     
     if not os.path.exists(script_path):
         return f"Error: get_news.py script not found at {script_path}"

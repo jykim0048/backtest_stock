@@ -11,7 +11,9 @@ PORT = 8000
 # Dynamic lookup from daily_market_report.json, with fallback
 def get_ticker_map():
     try:
-        json_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'daily_market_report.json')
+        # Since this script is now in local_server/, daily_market_report.json is in the parent directory (root)
+        root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        json_path = os.path.join(root_dir, 'daily_market_report.json')
         if os.path.exists(json_path):
             with open(json_path, 'r', encoding='utf-8') as f:
                 stocks = json.load(f)
@@ -150,9 +152,10 @@ class TradingDashboardHandler(http.server.SimpleHTTPRequestHandler):
             self.wfile.write(json.dumps(error_response).encode('utf-8'))
 
 if __name__ == '__main__':
-    # Force working directory to the script's directory to find dashboard.html
+    # Force working directory to the parent's directory (root) to find dashboard.html
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    os.chdir(script_dir)
+    parent_dir = os.path.dirname(script_dir)
+    os.chdir(parent_dir)
     
     # Configure socket reuse to prevent port-in-use errors during quick restarts
     socketserver.TCPServer.allow_reuse_address = True
