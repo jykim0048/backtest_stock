@@ -1,5 +1,11 @@
 {
   "version": 2,
+  "builds": [
+    { "src": "api/prices.py", "use": "@vercel/python" },
+    { "src": "dashboard.html", "use": "@vercel/static" },
+    { "src": "daily_market_report.json", "use": "@vercel/static" },
+    { "src": "assets/**", "use": "@vercel/static" }
+  ],
   "rewrites": [
     { "source": "/", "destination": "/dashboard.html" },
     { "source": "/api/prices", "destination": "/api/prices.py" }
