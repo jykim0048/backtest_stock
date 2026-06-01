@@ -1,9 +1,24 @@
 from http.server import BaseHTTPRequestHandler
 import json
-import yfinance as yf
 import datetime
 import os
 import math
+
+# Force yfinance dependencies (appdirs/platformdirs) to use the writable /tmp directory
+# in Vercel's read-only serverless filesystem to prevent cache write permission errors.
+try:
+    import appdirs as ad
+    ad.user_cache_dir = lambda *args: "/tmp"
+except ImportError:
+    pass
+
+try:
+    import platformdirs as pd
+    pd.user_cache_dir = lambda *args: "/tmp"
+except ImportError:
+    pass
+
+import yfinance as yf
 
 def get_ticker_map():
     try:
