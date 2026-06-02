@@ -33,9 +33,9 @@ class TradingDashboardHandler(http.server.SimpleHTTPRequestHandler):
         if self.path == '/api/prices':
             self.fetch_real_prices()
         else:
-            # Fallback to serving static dashboard.html file
-            if self.path == '/' or self.path == '/index.html':
-                self.path = '/dashboard.html'
+            # Fallback to serving static index.html file
+            if self.path == '/':
+                self.path = '/index.html'
             super().do_GET()
 
     def fetch_real_prices(self):
@@ -124,7 +124,7 @@ class TradingDashboardHandler(http.server.SimpleHTTPRequestHandler):
             self.wfile.write(json.dumps(error_response).encode('utf-8'))
 
 if __name__ == '__main__':
-    # Force working directory to the parent's directory (root) to find dashboard.html
+    # Force working directory to the parent's directory (root) to find index.html
     script_dir = os.path.dirname(os.path.abspath(__file__))
     parent_dir = os.path.dirname(script_dir)
     os.chdir(parent_dir)
@@ -136,7 +136,7 @@ if __name__ == '__main__':
         print("==========================================================")
         print("   QUANT ANTIGRAVITY - REALTIME INTEGRATION SERVER")
         print(f"   Listening at: http://localhost:{PORT}")
-        print("   Serving static UI: dashboard.html")
+        print("   Serving static UI: index.html")
         print("==========================================================")
         try:
             httpd.serve_forever()
