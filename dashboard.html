@@ -1383,7 +1383,7 @@
       
       logsBox.innerHTML = `
         <div class="log-line"><span class="log-time">[${time}]</span> Auto-trading engine initialized successfully.</div>
-        <div class="log-line"><span class="log-time">[${time}]</span> Registered 8 momentum tickers with 100M KRW total capital.</div>
+        <div class="log-line"><span class="log-time">[${time}]</span> Registered ${stockData.length} momentum tickers with 100M KRW total capital.</div>
         <div class="log-line"><span class="log-time">[${time}]</span> Connecting to DART & Yahoo Finance MCPs... <span style="color:var(--kosdaq-green);">Connected.</span></div>
       `;
 
@@ -1464,7 +1464,7 @@
       const time = new Date().toTimeString().split(" ")[0];
 
       try {
-        const response = await fetch("http://localhost:8000/api/prices");
+        const response = await fetch("/api/prices");
         if (!response.ok) throw new Error("Server responded with error");
         
         const data = await response.json();
@@ -1983,6 +1983,7 @@
       } else {
         isTradingOn = true;
         btn.className = "trading-toggle-btn running";
+        txt.innerText = "AUTO TRADING ON";
         logsBox.innerHTML += `<div class="log-line" style="color: var(--kosdaq-green);"><span class="log-time">[${time}]</span> [ENGINE INFO] Automated Trading systems are ACTIVE and polling tickers...</div>`;
       }
       

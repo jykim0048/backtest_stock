@@ -1,39 +1,18 @@
 import http.server
 import socketserver
-import urllib.request
 import json
+import math
 import os
 import sys
+import datetime
+import traceback
+
+import yfinance as yf
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from ticker_utils import get_ticker_map
 
 PORT = 8000
-
-# Mapping of domestic codes to Yahoo Finance tickers
-# Dynamic lookup from daily_market_report.json, with fallback
-def get_ticker_map():
-    try:
-        # Since this script is now in local_server/, daily_market_report.json is in the parent directory (root)
-        root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        json_path = os.path.join(root_dir, 'daily_market_report.json')
-        if os.path.exists(json_path):
-            with open(json_path, 'r', encoding='utf-8') as f:
-                stocks = json.load(f)
-                new_map = {}
-                for stock in stocks:
-                    code = stock['code']
-                    market = stock['market']
-                    suffix = '.KS' if market == 'KOSPI' else '.KQ'
-                    new_map[code] = f"{code}{suffix}"
-                return new_map
-    except Exception as e:
-        print(f"Error loading dynamic tickers: {e}", file=sys.stderr)
-        
-    # Default fallback
-    return {
-        "066570": "066570.KS", # LG전자
-        "011070": "011070.KS", # LG이노텍
-        "035420": "035420.KS", # 네이버
-        "090360": "090360.KQ"  # 로보스타
-    }
 
 
 class TradingDashboardHandler(http.server.SimpleHTTPRequestHandler):
@@ -61,17 +40,12 @@ class TradingDashboardHandler(http.server.SimpleHTTPRequestHandler):
 
     def fetch_real_prices(self):
         try:
-            import yfinance as yf
-            import datetime
-            import sys
-            
             ticker_map = get_ticker_map()
             tickers_list = list(ticker_map.values())
             
             # Download the last 2 days of historical data for all tickers concurrently
             df = yf.download(tickers_list, period="2d", group_by="ticker", progress=False, threads=True)
             
-            import math
             formatted_data = {}
             market_state = "CLOSED"
             
@@ -122,7 +96,7 @@ class TradingDashboardHandler(http.server.SimpleHTTPRequestHandler):
             kst_offset = datetime.timezone(datetime.timedelta(hours=9))
             now = datetime.datetime.now(kst_offset)
             time_val = now.hour * 100 + now.minute
-            if now.weekday() >= 0 and now.weekday() <= 4 and time_val >= 900 and time_val <= 1530:
+            if now.weekday() < 5 and 900 <= time_val <= 1530:
                 market_state = "REGULAR"
             
             response_payload = {
@@ -138,8 +112,6 @@ class TradingDashboardHandler(http.server.SimpleHTTPRequestHandler):
             return
             
         except Exception as e:
-            # Fallback error handling
-            import traceback
             print(f"Exception in fetch_real_prices: {e}", file=sys.stderr)
             traceback.print_exc()
             self.send_response(500)

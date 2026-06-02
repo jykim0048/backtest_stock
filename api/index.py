@@ -2,6 +2,7 @@ from http.server import BaseHTTPRequestHandler
 import json
 import datetime
 import os
+import sys
 import math
 
 # Force yfinance dependencies (appdirs/platformdirs) to use the writable /tmp directory
@@ -20,33 +21,17 @@ except ImportError:
 
 import yfinance as yf
 
-def get_ticker_map():
-    try:
-        # Resolve to root directory relative to this function inside 'api' folder
-        root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        json_path = os.path.join(root_dir, 'daily_market_report.json')
-        if os.path.exists(json_path):
-            with open(json_path, 'r', encoding='utf-8') as f:
-                stocks = json.load(f)
-                new_map = {}
-                for stock in stocks:
-                    code = stock['code']
-                    market = stock['market']
-                    suffix = '.KS' if market == 'KOSPI' else '.KQ'
-                    new_map[code] = f"{code}{suffix}"
-                return new_map
-    except Exception as e:
-        print(f"Error loading dynamic tickers: {e}")
-        
-    # Default fallback
-    return {
-        "066570": "066570.KS", # LG전자
-        "011070": "011070.KS", # LG이노텍
-        "035420": "035420.KS", # 네이버
-        "090360": "090360.KQ"  # 로보스타
-    }
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from ticker_utils import get_ticker_map
 
 class handler(BaseHTTPRequestHandler):
+    def do_OPTIONS(self):
+        self.send_response(200)
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.send_header('Access-Control-Allow-Methods', 'GET, OPTIONS')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type')
+        self.end_headers()
+
     def do_GET(self):
         try:
             ticker_map = get_ticker_map()
@@ -101,7 +86,7 @@ class handler(BaseHTTPRequestHandler):
             kst_offset = datetime.timezone(datetime.timedelta(hours=9))
             now = datetime.datetime.now(kst_offset)
             time_val = now.hour * 100 + now.minute
-            if now.weekday() >= 0 and now.weekday() <= 4 and time_val >= 900 and time_val <= 1530:
+            if now.weekday() < 5 and 900 <= time_val <= 1530:
                 market_state = "REGULAR"
             
             response_payload = {
@@ -121,5 +106,6 @@ class handler(BaseHTTPRequestHandler):
         except Exception as e:
             self.send_response(500)
             self.send_header('Content-Type', 'application/json')
+            self.send_header('Access-Control-Allow-Origin', '*')
             self.end_headers()
             self.wfile.write(json.dumps({"status": "error", "message": str(e)}).encode('utf-8'))
