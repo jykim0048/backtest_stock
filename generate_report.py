@@ -15,8 +15,8 @@ import yfinance as yf
 
 ROOT           = os.path.dirname(os.path.abspath(__file__))
 WATCHLIST_PATH = os.path.join(ROOT, 'watchlist.json')
-REPORTS_DIR    = os.path.join(ROOT, 'reports')
-DAILY_PATH     = os.path.join(ROOT, 'daily_market_report.json')
+REPORTS_DIR    = os.path.join(ROOT, 'public', 'reports')
+DAILY_PATH     = os.path.join(ROOT, 'public', 'daily_market_report.json')
 
 
 def load_watchlist():

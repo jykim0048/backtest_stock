@@ -124,10 +124,10 @@ class TradingDashboardHandler(http.server.SimpleHTTPRequestHandler):
             self.wfile.write(json.dumps(error_response).encode('utf-8'))
 
 if __name__ == '__main__':
-    # Force working directory to the parent's directory (root) to find index.html
+    # Serve static files from the public/ subfolder
     script_dir = os.path.dirname(os.path.abspath(__file__))
     parent_dir = os.path.dirname(script_dir)
-    os.chdir(parent_dir)
+    os.chdir(os.path.join(parent_dir, 'public'))
     
     # Configure socket reuse to prevent port-in-use errors during quick restarts
     socketserver.TCPServer.allow_reuse_address = True

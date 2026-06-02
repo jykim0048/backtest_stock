@@ -6,7 +6,7 @@ import sys
 def get_ticker_map():
     try:
         root_dir = os.path.dirname(os.path.abspath(__file__))
-        json_path = os.path.join(root_dir, 'daily_market_report.json')
+        json_path = os.path.join(root_dir, 'public', 'daily_market_report.json')
         if os.path.exists(json_path):
             with open(json_path, 'r', encoding='utf-8') as f:
                 stocks = json.load(f)
