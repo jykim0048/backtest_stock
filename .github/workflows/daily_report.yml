@@ -2,9 +2,9 @@ name: Daily Market Report
 
 on:
   schedule:
-    # 08:00 KST = 23:00 UTC (previous day). Runs Mon–Fri.
-    - cron: '0 23 * * 0-4'
-  workflow_dispatch: # allow manual trigger for testing
+    # 16:00 KST = 07:00 UTC  — runs right after KRX market close (Mon–Fri)
+    - cron: '0 7 * * 1-5'
+  workflow_dispatch: # allow manual trigger at any time
 
 jobs:
   generate-report:
