@@ -2125,6 +2125,17 @@
             <div class="analysis-item-note">${escapeHtml(it.note)}</div>
           </div>`;
         }).join("");
+        if (sec.reddit && sec.reddit.length) {
+          html += `<div class="analysis-subhead">🔴 해외 Peer Reddit 여론</div>`;
+          html += sec.reddit.map(it => `<div class="analysis-item">
+              <div class="analysis-item-head">
+                <span class="analysis-item-title">${linkTitle(it.title, it.url)}</span>
+                ${sentimentBadge(it.sentiment)}
+              </div>
+              ${it.subreddit ? `<div class="analysis-item-meta">${escapeHtml(it.subreddit)}</div>` : ""}
+              <div class="analysis-item-note">${escapeHtml(it.summary)}</div>
+            </div>`).join("");
+        }
       } else if (currentAnalysisTab === "news") {
         html += (sec.items || []).map(it => `<div class="analysis-item">
             <div class="analysis-item-head">
@@ -2143,8 +2154,7 @@
             </div>
             <div class="analysis-item-note">${escapeHtml(it.summary)}</div>
           </div>`).join("") || `<span class="analysis-empty">수집된 글 없음</span>`;
-        html += `<div class="analysis-subhead">🔴 Reddit</div>${renderList(sec.reddit)}`;
-        html += `<div class="analysis-subhead">🟢 네이버 / 종목토론</div>${renderList(sec.naver)}`;
+        html += `<div class="analysis-subhead">🟢 네이버 / 종목토론방</div>${renderList(sec.naver)}`;
       } else if (currentAnalysisTab === "dart") {
         if (sec.highlights && sec.highlights.length) {
           html += `<div class="analysis-subhead">재무 하이라이트</div>`;

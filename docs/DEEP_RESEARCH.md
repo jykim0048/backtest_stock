@@ -11,14 +11,16 @@
 종목 클릭 시 드로어에 기존 **Account** 정보(실시간 시세·보유현황·catalyst·scenario)에 더해,
 다음 **4개 분석 컬럼**을 탭으로 제공한다.
 
-| # | 컬럼 | 데이터 소스 (MCP) |
+| # | 컬럼 | 데이터 소스 |
 |---|------|------|
-| 1 | 🌐 해외 Peer 종목 가격 | `yahoo-finance` (yfinance) |
-| 2 | 📰 해외·국내 뉴스 분석 | `naver-news`(국내) + `tavily`(해외) |
-| 3 | 💬 레딧 + 네이버 종목토론방 | `tavily`(Reddit) + `naver-news`(cafe/web) |
-| 4 | 📑 DART 분석 | `korean-dart` |
+| 1 | 🌐 해외 Peer 종목 가격 **+ Peer Reddit 여론** | yfinance + **Reddit**(해외 peer/섹터 검색) |
+| 2 | 📰 해외·국내 뉴스 분석 | Naver(국내) + Tavily(해외) |
+| 3 | 💬 네이버 종목토론방 (국내 개인투자자) | Naver(cafe/web) |
+| 4 | 📑 DART 분석 | DART OpenAPI |
 
-MCP 서버 설정은 레포 루트 `.mcp.json` 참조.
+> **Reddit 위치 결정(2026-06-04):** Reddit은 한국 종목토론방(컬럼 3)이 아니라 **해외 Peer 그룹 분석(컬럼 1)** 에 쓴다. 한국 중소형주는 Reddit에 거의 안 잡히지만, 해외 peer(Eli Lilly·GE Vernova·NGK 등)는 활발히 논의되기 때문. 따라서 community(컬럼 3)는 **네이버만**, peers(컬럼 1)에 `reddit` 배열 추가.
+
+MCP 서버 설정(로컬 인터랙티브용)은 레포 루트 `.mcp.json` 참조. 단 **배치는 MCP 미사용**(§8) — Reddit도 공개 JSON REST로 수집.
 
 ---
 
@@ -57,7 +59,8 @@ MCP 서버 설정은 레포 루트 `.mcp.json` 참조.
     "summary": "한국어 2~3문장",
     "items": [
       { "name": "Eli Lilly", "ticker": "LLY", "price": "$1,064.15", "changePct": -1.67, "note": "한 줄" }
-    ]
+    ],
+    "reddit": [ { "title": "...", "url": "...", "subreddit": "r/...", "sentiment": "긍정|부정|중립", "summary": "한 줄(해외 peer/섹터 여론)" } ]
   },
   "news": {
     "summary": "한국어 3~4문장",
@@ -67,9 +70,8 @@ MCP 서버 설정은 레포 루트 `.mcp.json` 참조.
     ]
   },
   "community": {
-    "summary": "한국어 3~4문장",
+    "summary": "한국어 3~4문장 (국내 개인투자자 여론만)",
     "sentimentLabel": "예: 전반적으로 중립~긍정",
-    "reddit": [ { "title": "...", "url": "...", "sentiment": "긍정|부정|중립", "summary": "한 줄" } ],
     "naver":  [ { "title": "...", "url": "...", "sentiment": "긍정|부정|중립", "summary": "한 줄" } ]
   },
   "dart": {
@@ -149,9 +151,9 @@ MCP는 로컬 전용이라 CI에서는 각 서비스 **REST API를 직접 호출
 ### 파일
 | 파일 | 역할 |
 |---|---|
-| `analysis/sources.py` | REST 래퍼: `get_peer_quotes`(yfinance) · `naver_search`(news/cafe) · `tavily_search`(해외뉴스/reddit) · `dart_*`(corpCode/financials/disclosures/major_holders). 모든 함수는 실패 시 빈 결과 반환(배치 중단 방지). |
-| `analysis/peers.json` | 종목코드 → 해외 peer 티커·note 맵(도메인 지식, 정적). 가격은 런타임에 yfinance로 채움. |
-| `generate_analysis.py` | 오케스트레이터. 종목별 RAW 수집 → Claude(`claude-sonnet-4-6`)가 `analysis` 스키마 JSON 생성(프롬프트 캐싱) → `daily_market_report.json` / `reports/YYYY-MM-DD.json` 병합. **peers.items 가격은 결정적**(LLM은 peers.summary만 작성). |
+| `analysis/sources.py` | REST 래퍼: `get_peer_quotes`(yfinance) · `naver_search`(news/cafe) · `tavily_search`(해외뉴스) · `reddit_search`(공개 JSON, **peer 그룹 여론용**) · `dart_*`(corpCode/financials/disclosures/major_holders). 모든 함수는 실패 시 빈 결과 반환(배치 중단 방지). |
+| `analysis/peers.json` | 종목코드 → 해외 peer 티커·note 맵(도메인 지식, 정적). 가격은 런타임에 yfinance로, **Reddit은 상위 peer 이름으로 검색**. |
+| `generate_analysis.py` | 오케스트레이터. 종목별 RAW 수집 → Claude(`claude-sonnet-4-6`)가 `analysis` 스키마 JSON 생성(프롬프트 캐싱) → `daily_market_report.json` / `reports/YYYY-MM-DD.json` 병합. **peers.items 가격은 결정적**(LLM은 peers.summary·peers.reddit·나머지 작성). `fetch_peer_reddit`이 상위 2개 peer로 Reddit 검색(공개 JSON→Tavily 폴백). |
 
 ### 실행 순서 (워크플로 `daily_report.yml`)
 1. `generate_report.py` — 가격/레벨(기존)
@@ -174,4 +176,6 @@ python generate_analysis.py   # daily_market_report.json 에 analysis 병합
 - ✅ 검증됨: Python 문법, 워크플로 YAML, peers.json, **graceful degradation**(키 없으면 빈 결과), **peer 시세 라이브**(단일·다중·nan-safe).
 - ⏳ 미검증(키 필요): Naver/Tavily/DART 라이브 응답, LLM 분석 생성 → **첫 `workflow_dispatch` 실행으로 확인**.
 - ⚠️ 가장 깨지기 쉬운 곳: **DART OpenAPI**. `corpCode.xml`(zip) 다운로드·파싱으로 stock_code→corp_code 매핑, `fnlttSinglAcntAll`(연결재무 11011/CFS), `list.json`(공시), `majorstock.json`(대량보유) 사용. 응답 status·필드명이 바뀌면 여기부터 점검.
+- **Reddit**: 키 없는 공개 JSON(`search.json`) 사용 → cloud IP에서 403/레이트리밋 시 **Tavily(reddit.com)로 자동 폴백**. 검색어는 해당 종목이 아니라 **상위 peer 이름**(예: "Eli Lilly stock").
+- 병렬: 6종목 동시 처리(`ANALYSIS_CONCURRENCY`, 기본 6), DART corpCode 맵은 사전 1회 로딩+락.
 - 비용: 6종목 × 1콜/일(Sonnet 4.6), 시스템 프롬프트 캐싱 적용.

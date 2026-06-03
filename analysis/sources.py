@@ -144,6 +144,46 @@ def tavily_search(query, max_results=5, include_domains=None):
 
 
 # ----------------------------------------------------------------------------
+# 3b) Reddit public JSON search (keyless). Tavily is the fallback in the caller.
+# ----------------------------------------------------------------------------
+REDDIT_UA = "quant-antigravity/1.0 (deep-research daily batch)"
+
+
+def reddit_search(query, max_results=5, period="year"):
+    """Search Reddit posts via the public search.json endpoint. No key required.
+
+    Returns list of {title, url, subreddit, score, num_comments, content}.
+    Cloud IPs are sometimes rate-limited/blocked by Reddit; on any failure this
+    returns [] so the caller can fall back to Tavily.
+    """
+    try:
+        r = requests.get(
+            "https://www.reddit.com/search.json",
+            params={"q": query, "sort": "relevance", "t": period,
+                    "limit": max_results, "type": "link"},
+            headers={"User-Agent": REDDIT_UA},
+            timeout=20,
+        )
+        r.raise_for_status()
+        children = r.json().get("data", {}).get("children", [])
+        out = []
+        for c in children:
+            d = c.get("data", {})
+            out.append({
+                "title": d.get("title", ""),
+                "url": "https://www.reddit.com" + d.get("permalink", ""),
+                "subreddit": d.get("subreddit_name_prefixed") or ("r/" + d.get("subreddit", "")),
+                "score": d.get("score", 0),
+                "num_comments": d.get("num_comments", 0),
+                "content": (d.get("selftext", "") or "")[:500],
+            })
+        return out
+    except Exception as e:
+        _warn(f"reddit_search({query}) failed: {e}")
+        return []
+
+
+# ----------------------------------------------------------------------------
 # 4) DART OpenAPI (corp_code, financials, disclosures, major holders)
 # ----------------------------------------------------------------------------
 _CORP_MAP = None  # stock_code(6) -> corp_code(8), cached per process
