@@ -120,12 +120,14 @@ MCP 서버 설정은 레포 루트 `.mcp.json` 참조.
 - [x] 드로어 UI: **Account / Deep Research 대분류 탭** 분리 (스킴 확정·승인됨)
 - [x] 로컬 검증(서버 200, JSON 유효, JS 문법 0 에러)
 - [x] 나머지 5종목 분석 수집·주입 (자화전자·HD현대중공업·올릭스·비에이치아이·미코) — **6종목 전체 완료**
-- [ ] `generate_report.py`에 수집 파이프라인 통합 (② 일일 배치 자동화)
+- [x] ② 일일 배치 자동화 **구현** (`generate_analysis.py` + 워크플로) — §8 참조
+- [ ] ② 첫 CI 실행(`workflow_dispatch`)으로 라이브 검증 (Naver/Tavily/DART/LLM)
 - [ ] (선택) B 런타임 전환
 
 ### 다음에 할 일
-1. 수집을 `generate_report.py`에 통합 → GitHub Actions cron 자동화. 이때 MCP/API 키를 Actions에서 어떻게 쓸지 결정 필요(§5 제약).
-2. (선택) B 런타임 전환 설계.
+1. GitHub Actions에서 **Run workflow**(workflow_dispatch)로 첫 실행 → 로그에서 종목별 analysis 생성 확인. DART OpenAPI가 가장 검증 필요(코드 §8).
+2. (선택) 분석 주기 분리(뉴스·토론 매일 / DART·peer 주1회), 실패 시 전일 analysis 유지 등 최적화.
+3. (선택) B 런타임 전환 설계.
 
 ---
 
@@ -136,3 +138,40 @@ cd backtest_stock\public
 python -m http.server 8000
 # http://localhost:8000 → 한미약품 클릭 → Account / Deep Research 탭 확인
 ```
+
+---
+
+## 8. 일일 배치 자동화 (② — 구현됨)
+
+확정 방식: **Approach A — "결정적 수집(REST) → LLM 분석(Sonnet 4.6, 1콜/종목)"**.
+MCP는 로컬 전용이라 CI에서는 각 서비스 **REST API를 직접 호출**한다.
+
+### 파일
+| 파일 | 역할 |
+|---|---|
+| `analysis/sources.py` | REST 래퍼: `get_peer_quotes`(yfinance) · `naver_search`(news/cafe) · `tavily_search`(해외뉴스/reddit) · `dart_*`(corpCode/financials/disclosures/major_holders). 모든 함수는 실패 시 빈 결과 반환(배치 중단 방지). |
+| `analysis/peers.json` | 종목코드 → 해외 peer 티커·note 맵(도메인 지식, 정적). 가격은 런타임에 yfinance로 채움. |
+| `generate_analysis.py` | 오케스트레이터. 종목별 RAW 수집 → Claude(`claude-sonnet-4-6`)가 `analysis` 스키마 JSON 생성(프롬프트 캐싱) → `daily_market_report.json` / `reports/YYYY-MM-DD.json` 병합. **peers.items 가격은 결정적**(LLM은 peers.summary만 작성). |
+
+### 실행 순서 (워크플로 `daily_report.yml`)
+1. `generate_report.py` — 가격/레벨(기존)
+2. `generate_analysis.py` — 심층 리서치(신규, `continue-on-error: true`로 best-effort)
+3. commit & push(기존)
+
+### 필요한 GitHub Actions Secrets
+`ANTHROPIC_API_KEY`, `DART_API_KEY`, `TAVILY_API_KEY`, `NAVER_CLIENT_ID`, `NAVER_CLIENT_SECRET`
+(이름이 다르면 워크플로 `env:` 매핑만 수정. 로컬은 `.env.example` 참고.)
+
+### 로컬 실행
+```powershell
+cd backtest_stock
+# .env 또는 환경변수로 5개 키 설정 후
+python generate_report.py
+python generate_analysis.py   # daily_market_report.json 에 analysis 병합
+```
+
+### 검증 상태 / 주의
+- ✅ 검증됨: Python 문법, 워크플로 YAML, peers.json, **graceful degradation**(키 없으면 빈 결과), **peer 시세 라이브**(단일·다중·nan-safe).
+- ⏳ 미검증(키 필요): Naver/Tavily/DART 라이브 응답, LLM 분석 생성 → **첫 `workflow_dispatch` 실행으로 확인**.
+- ⚠️ 가장 깨지기 쉬운 곳: **DART OpenAPI**. `corpCode.xml`(zip) 다운로드·파싱으로 stock_code→corp_code 매핑, `fnlttSinglAcntAll`(연결재무 11011/CFS), `list.json`(공시), `majorstock.json`(대량보유) 사용. 응답 status·필드명이 바뀌면 여기부터 점검.
+- 비용: 6종목 × 1콜/일(Sonnet 4.6), 시스템 프롬프트 캐싱 적용.

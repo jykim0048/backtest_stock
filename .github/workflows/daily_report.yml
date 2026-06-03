@@ -28,6 +28,16 @@ jobs:
       - name: Generate daily report
         run: python generate_report.py
 
+      - name: Generate deep research analysis
+        continue-on-error: true   # best-effort; never block the price report
+        env:
+          ANTHROPIC_API_KEY:   ${{ secrets.ANTHROPIC_API_KEY }}
+          DART_API_KEY:        ${{ secrets.DART_API_KEY }}
+          TAVILY_API_KEY:      ${{ secrets.TAVILY_API_KEY }}
+          NAVER_CLIENT_ID:     ${{ secrets.NAVER_CLIENT_ID }}
+          NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
+        run: python generate_analysis.py
+
       - name: Commit and push report
         run: |
           git config user.name "github-actions[bot]"

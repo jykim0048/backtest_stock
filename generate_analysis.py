@@ -1,0 +1,177 @@
+#!/usr/bin/env python3
+"""
+Daily Deep Research generator (Approach A: deterministic fetch -> LLM analyze).
+
+Pipeline per watchlist stock:
+  1. Fetch RAW data via REST (analysis/sources.py):
+       peers (yfinance) · news (Naver+Tavily) · community (Tavily/Reddit + Naver cafe) · DART
+  2. One Claude (Sonnet 4.6) call turns the raw data into the `analysis` schema
+     (summaries, sentiment, insights; peer prices kept deterministic).
+  3. Merge `analysis` into public/daily_market_report.json and public/reports/YYYY-MM-DD.json.
+
+Must run AFTER generate_report.py (which writes the base report).
+Degrades gracefully: a stock that fails keeps any existing analysis and never
+crashes the batch (so the price report still commits).
+
+Env: ANTHROPIC_API_KEY, DART_API_KEY, NAVER_CLIENT_ID, NAVER_CLIENT_SECRET, TAVILY_API_KEY
+"""
+import os
+import re
+import sys
+import json
+import datetime
+
+from anthropic import Anthropic
+
+from analysis import sources
+
+ROOT          = os.path.dirname(os.path.abspath(__file__))
+WATCHLIST     = os.path.join(ROOT, "watchlist.json")
+PEERS_PATH    = os.path.join(ROOT, "analysis", "peers.json")
+REPORTS_DIR   = os.path.join(ROOT, "public", "reports")
+DAILY_PATH    = os.path.join(ROOT, "public", "daily_market_report.json")
+
+MODEL      = "claude-sonnet-4-6"
+MAX_TOKENS = 4096
+
+SYSTEM = """\
+너는 한국 주식 투자 리서치 애널리스트다. 주어진 RAW 데이터(해외 peer 시세, 국내외 뉴스,
+커뮤니티 글, DART 공시/재무)를 분석해 대시보드용 `analysis` JSON 한 개를 생성한다.
+
+규칙:
+- 모든 서술형 필드는 한국어. 회사명/티커/기사 제목/URL은 원문 유지.
+- sentiment 값은 정확히 "긍정" | "부정" | "중립" 중 하나.
+- RAW에 없는 사실을 지어내지 말 것. 자료가 빈약하면 그 점을 summary에 명시하고 배열을 줄여라.
+- 각 insight/note는 투자자 관점의 한 줄 해석.
+- 반드시 아래 스키마와 '정확히' 동일한 키 구조의 JSON만 출력. 마크다운 펜스/설명 금지.
+
+스키마:
+{
+  "peers": { "summary": "2-3문장", "items": [ {"name","ticker","price","changePct","note"} ] },
+  "news": { "summary": "3-4문장", "items": [ {"title","source","date","sentiment","url","insight"} ] },
+  "community": { "summary": "3-4문장", "sentimentLabel": "", "reddit": [ {"title","url","sentiment","summary"} ], "naver": [ {"title","url","sentiment","summary"} ] },
+  "dart": { "summary": "3-4문장", "highlights": [ {"label","value","note"} ], "recentFilings": [ {"date","title","type","insight"} ] }
+}
+
+개수 가이드: news 5-7 (국내+해외 혼합), community reddit/naver 합쳐 3-5, dart highlights 4-6 & recentFilings 3-5.
+peers.items 는 입력으로 받은 항목을 그대로(가격/등락률/note 변경 금지) 쓰고 peers.summary 만 작성한다."""
+
+
+def load_json(path, default=None):
+    try:
+        with open(path, encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return default
+
+
+def gather_raw(stock, peer_cfg):
+    """Collect raw data for one stock."""
+    code, name = stock["code"], stock["name"]
+    peers = sources.get_peer_quotes(peer_cfg.get(code, []))
+
+    raw = {
+        "stock": {"code": code, "name": name, "market": stock["market"]},
+        "peers_items": peers,                                   # deterministic, reused verbatim
+        "naver_news": sources.naver_search("news", name, display=8),
+        "overseas_news": sources.tavily_search(f"{name} stock news", max_results=5),
+        "reddit": sources.tavily_search(f"{name} stock reddit",
+                                        max_results=4, include_domains=["reddit.com"]),
+        "naver_cafe": sources.naver_search("cafearticle", name, display=6),
+        "dart": {},
+    }
+    corp = sources.dart_corp_code(code)
+    if corp:
+        raw["dart"] = {
+            "financials": sources.dart_financials(corp),
+            "disclosures": sources.dart_disclosures(corp),
+            "major_holders": sources.dart_major_holders(corp),
+        }
+    return raw, peers
+
+
+def extract_json(text):
+    """Pull the first balanced JSON object out of an LLM response."""
+    text = text.strip()
+    if text.startswith("```"):
+        text = re.sub(r"^```(?:json)?|```$", "", text, flags=re.MULTILINE).strip()
+    start = text.find("{")
+    end = text.rfind("}")
+    if start == -1 or end == -1:
+        raise ValueError("no JSON object found in response")
+    return json.loads(text[start:end + 1])
+
+
+def analyze_stock(client, stock, peer_cfg):
+    raw, peers = gather_raw(stock, peer_cfg)
+    user = (f"종목: {stock['name']} ({stock['code']}, {stock['market']})\n"
+            f"RAW 데이터(JSON):\n{json.dumps(raw, ensure_ascii=False)}")
+
+    resp = client.messages.create(
+        model=MODEL,
+        max_tokens=MAX_TOKENS,
+        system=[{"type": "text", "text": SYSTEM, "cache_control": {"type": "ephemeral"}}],
+        messages=[{"role": "user", "content": user}],
+    )
+    text = "".join(b.text for b in resp.content if b.type == "text")
+    analysis = extract_json(text)
+
+    # Force deterministic peer items (LLM only authored peers.summary).
+    analysis.setdefault("peers", {})["items"] = peers
+    return analysis
+
+
+def merge_into_report(path, analysis_by_code):
+    report = load_json(path)
+    if not isinstance(report, list):
+        return False
+    changed = False
+    for stock in report:
+        a = analysis_by_code.get(stock.get("code"))
+        if a:
+            stock["analysis"] = a
+            changed = True
+    if changed:
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(report, f, ensure_ascii=False, indent=2)
+    return changed
+
+
+def main():
+    if not os.environ.get("ANTHROPIC_API_KEY"):
+        print("ERROR: ANTHROPIC_API_KEY not set", file=sys.stderr)
+        sys.exit(1)
+
+    watchlist = load_json(WATCHLIST, [])
+    peer_cfg = {k: v for k, v in (load_json(PEERS_PATH, {}) or {}).items()
+                if not k.startswith("_")}
+    client = Anthropic()
+
+    print(f"=== Generating deep research for {len(watchlist)} stocks ===")
+    analysis_by_code = {}
+    for stock in watchlist:
+        name = stock["name"]
+        try:
+            print(f"  Analyzing {name} ({stock['code']})...")
+            analysis_by_code[stock["code"]] = analyze_stock(client, stock, peer_cfg)
+        except Exception as e:
+            print(f"  Skipped {name}: {e}", file=sys.stderr)
+
+    if not analysis_by_code:
+        print("No analysis produced; leaving reports unchanged.", file=sys.stderr)
+        return
+
+    merge_into_report(DAILY_PATH, analysis_by_code)
+    print(f"  Updated {DAILY_PATH}")
+
+    today = datetime.date.today().strftime("%Y-%m-%d")
+    dated = os.path.join(REPORTS_DIR, f"{today}.json")
+    if os.path.exists(dated):
+        merge_into_report(dated, analysis_by_code)
+        print(f"  Updated {dated}")
+
+    print(f"=== Done: {len(analysis_by_code)}/{len(watchlist)} stocks analyzed ===")
+
+
+if __name__ == "__main__":
+    main()
