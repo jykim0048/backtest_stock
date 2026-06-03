@@ -24,9 +24,4 @@ def get_ticker_map():
     except Exception as e:
         print(f"Error loading watchlist tickers: {e}", file=sys.stderr)
 
-    return {
-        "066570": "066570.KS",
-        "011070": "011070.KS",
-        "035420": "035420.KS",
-        "090360": "090360.KQ",
-    }
+    return {}
