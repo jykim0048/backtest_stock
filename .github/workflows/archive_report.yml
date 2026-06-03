@@ -1,0 +1,44 @@
+name: Archive Daily Report on Push
+
+on:
+  push:
+    branches: [main]
+    paths: ['public/daily_market_report.json']
+
+jobs:
+  archive:
+    runs-on: ubuntu-latest
+    if: github.actor != 'github-actions[bot]'
+
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Archive to dated file
+        run: |
+          python3 << 'EOF'
+          import json, os, datetime, shutil
+          kst = datetime.timezone(datetime.timedelta(hours=9))
+          today = datetime.datetime.now(kst).strftime('%Y-%m-%d')
+          os.makedirs('public/reports', exist_ok=True)
+          shutil.copy('public/daily_market_report.json', f'public/reports/{today}.json')
+          index_path = 'public/reports/index.json'
+          index = json.load(open(index_path)) if os.path.exists(index_path) else []
+          if today not in index:
+              index.append(today)
+              index.sort(reverse=True)
+          with open(index_path, 'w', encoding='utf-8') as f:
+              json.dump(index, f, ensure_ascii=False, indent=2)
+          print(f'Archived: public/reports/{today}.json')
+          EOF
+
+      - name: Commit archive
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add public/reports/
+          git diff --staged --quiet && exit 0
+          git commit -m "chore: archive report $(TZ=Asia/Seoul date +'%Y-%m-%d')"
+          git push
