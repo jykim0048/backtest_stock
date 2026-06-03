@@ -930,6 +930,121 @@
       border-left-color: var(--kosdaq-green);
     }
 
+    /* Top-level drawer panes (Account / Deep Research) */
+    .drawer-toptabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 18px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--border-color);
+    }
+    .drawer-toptab {
+      flex: 1;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 12px 10px;
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.15s ease;
+      font-family: inherit;
+    }
+    .drawer-toptab:hover { color: var(--text-main); border-color: var(--kospi-blue); }
+    .drawer-toptab.active {
+      background: var(--kospi-blue);
+      color: #06121f;
+      border-color: var(--kospi-blue);
+      box-shadow: 0 0 14px rgba(0, 240, 255, 0.25);
+    }
+
+    /* Deep Research analysis tabs */
+    .analysis-tabs {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 6px;
+      margin-bottom: 12px;
+    }
+    .analysis-tab {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 10px 8px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.15s ease;
+      font-family: inherit;
+    }
+    .analysis-tab:hover { color: var(--text-main); border-color: var(--kospi-blue); }
+    .analysis-tab.active {
+      background: rgba(0, 240, 255, 0.08);
+      color: var(--kospi-blue);
+      border-color: var(--kospi-blue);
+    }
+    .kosdaq-sec .analysis-tab.active {
+      background: rgba(16, 185, 129, 0.08);
+      color: var(--kosdaq-green);
+      border-color: var(--kosdaq-green);
+    }
+    .analysis-content {
+      background: rgba(7, 10, 19, 0.3);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 14px;
+      font-size: 13px;
+      line-height: 1.6;
+      color: #cbd5e1;
+      min-height: 80px;
+    }
+    .analysis-summary {
+      color: #e2e8f0;
+      margin-bottom: 12px;
+      padding-bottom: 12px;
+      border-bottom: 1px dashed var(--border-color);
+    }
+    .analysis-item {
+      padding: 10px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    }
+    .analysis-item:last-child { border-bottom: none; }
+    .analysis-item-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 8px;
+      margin-bottom: 4px;
+    }
+    .analysis-item-title { font-weight: 600; color: var(--text-main); font-size: 13px; }
+    .analysis-item-title a { color: inherit; text-decoration: none; }
+    .analysis-item-title a:hover { color: var(--kospi-blue); text-decoration: underline; }
+    .analysis-item-meta { font-size: 11px; color: var(--text-muted); white-space: nowrap; }
+    .analysis-item-note { font-size: 12px; color: #94a3b8; }
+    .sentiment-badge {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 6px;
+      white-space: nowrap;
+    }
+    .sentiment-badge.pos { background: rgba(16, 185, 129, 0.15); color: #34d399; }
+    .sentiment-badge.neg { background: rgba(239, 68, 68, 0.15); color: #f87171; }
+    .sentiment-badge.neu { background: rgba(148, 163, 184, 0.15); color: #cbd5e1; }
+    .peer-price { font-weight: 700; color: var(--text-main); }
+    .peer-chg.up { color: var(--up-red); }
+    .peer-chg.down { color: var(--kospi-blue); }
+    .analysis-subhead {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin: 12px 0 4px;
+    }
+    .analysis-empty { color: var(--text-muted); font-style: italic; font-size: 12px; }
+
     /* Animations */
     @keyframes pulse {
       0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
@@ -956,6 +1071,14 @@
       <button class="drawer-close-btn" onclick="closeDetailDrawer()">✕</button>
     </div>
 
+    <!-- Top-level drawer tabs -->
+    <div class="drawer-toptabs">
+      <button class="drawer-toptab active" data-pane="account" onclick="selectDrawerPane('account')">📊 Account</button>
+      <button class="drawer-toptab" data-pane="research" onclick="selectDrawerPane('research')">🔬 Deep Research</button>
+    </div>
+
+    <!-- ACCOUNT PANE -->
+    <div id="drawer-account-pane">
     <!-- Live Prices in Drawer -->
     <div class="drawer-price-card">
       <div style="display: flex; flex-direction: column; gap: 4px;">
@@ -1022,6 +1145,24 @@
         진입 계획 시나리오 로딩 중...
       </div>
     </div>
+    </div><!-- /ACCOUNT PANE -->
+
+    <!-- RESEARCH PANE -->
+    <div id="drawer-research-pane" style="display:none;">
+    <!-- Deep Research: 4-column analysis -->
+    <div class="drawer-section" id="drawer-analysis-sec">
+      <h4 class="drawer-section-title">심층 리서치 (Deep Research)</h4>
+      <div class="analysis-tabs">
+        <button class="analysis-tab active" data-tab="peers" onclick="selectAnalysisTab('peers')">🌐 해외 Peer</button>
+        <button class="analysis-tab" data-tab="news" onclick="selectAnalysisTab('news')">📰 뉴스 분석</button>
+        <button class="analysis-tab" data-tab="community" onclick="selectAnalysisTab('community')">💬 토론방</button>
+        <button class="analysis-tab" data-tab="dart" onclick="selectAnalysisTab('dart')">📑 DART</button>
+      </div>
+      <div class="analysis-content" id="analysis-content">
+        <span class="analysis-empty">종목을 선택하면 심층 리서치가 표시됩니다.</span>
+      </div>
+    </div>
+    </div><!-- /RESEARCH PANE -->
   </div>
 
   <div class="app-container">
@@ -1378,7 +1519,8 @@
                 stop:      item.stop,
                 stars:     item.stars    || "⭐⭐⭐⭐",
                 catalyst:  item.catalyst || "",
-                scenario:  item.scenario || ""
+                scenario:  item.scenario || "",
+                analysis:  item.analysis || null
               });
             });
           }
@@ -1883,18 +2025,25 @@
       const classSec = document.getElementById("drawer-sec-class");
       marketSpan.innerText = stock.market;
       
+      const analysisSec = document.getElementById("drawer-analysis-sec");
       if (stock.market === "KOSPI") {
         marketSpan.className = "market-badge kospi";
         classSec.className = "drawer-section";
+        analysisSec.className = "drawer-section";
       } else {
         marketSpan.className = "market-badge kosdaq";
         classSec.className = "drawer-section kosdaq-sec";
+        analysisSec.className = "drawer-section kosdaq-sec";
       }
 
       // Parameters updates
       document.getElementById("drawer-param-in").innerText = stock.entry.toLocaleString() + "원";
       document.getElementById("drawer-param-tar").innerText = stock.target.toLocaleString() + "원";
       document.getElementById("drawer-param-st").innerText = stock.stop.toLocaleString() + "원";
+
+      // Reset to Account pane, and prime deep-research tabs
+      selectDrawerPane("account");
+      selectAnalysisTab("peers");
 
       // Live prices initial update in drawer
       updateDrawerLivePrices(idx);
@@ -1913,6 +2062,113 @@
     function closeDetailDrawer() {
       document.getElementById("detail-drawer").classList.remove("active");
       document.getElementById("drawer-overlay").classList.remove("active");
+    }
+
+    // ===== Top-level drawer panes (Account / Deep Research) =====
+    function selectDrawerPane(pane) {
+      document.querySelectorAll(".drawer-toptab").forEach(btn => {
+        btn.classList.toggle("active", btn.getAttribute("data-pane") === pane);
+      });
+      document.getElementById("drawer-account-pane").style.display = (pane === "account") ? "" : "none";
+      document.getElementById("drawer-research-pane").style.display = (pane === "research") ? "" : "none";
+    }
+
+    // ===== Deep Research analysis tabs =====
+    let currentAnalysisTab = "peers";
+
+    function escapeHtml(s) {
+      return String(s == null ? "" : s)
+        .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    function sentimentBadge(s) {
+      const cls = { "긍정": "pos", "부정": "neg", "중립": "neu" }[s] || "neu";
+      return `<span class="sentiment-badge ${cls}">${escapeHtml(s || "중립")}</span>`;
+    }
+
+    function linkTitle(title, url) {
+      const t = escapeHtml(title);
+      return url ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener">${t}</a>` : t;
+    }
+
+    function selectAnalysisTab(tab) {
+      currentAnalysisTab = tab;
+      document.querySelectorAll(".analysis-tab").forEach(btn => {
+        btn.classList.toggle("active", btn.getAttribute("data-tab") === tab);
+      });
+      renderAnalysisContent();
+    }
+
+    function renderAnalysisContent() {
+      const box = document.getElementById("analysis-content");
+      const stock = stockData[selectedStockIndex];
+      const a = stock && stock.analysis;
+      if (!a) {
+        box.innerHTML = `<span class="analysis-empty">이 종목은 아직 심층 리서치 데이터가 없습니다. (현재 한미약품만 프로토타입 제공)</span>`;
+        return;
+      }
+      const sec = a[currentAnalysisTab];
+      if (!sec) { box.innerHTML = `<span class="analysis-empty">데이터 없음</span>`; return; }
+
+      let html = sec.summary ? `<div class="analysis-summary">${escapeHtml(sec.summary)}</div>` : "";
+
+      if (currentAnalysisTab === "peers") {
+        html += (sec.items || []).map(it => {
+          const up = (it.changePct || 0) >= 0;
+          const sign = up ? "+" : "";
+          return `<div class="analysis-item">
+            <div class="analysis-item-head">
+              <span class="analysis-item-title">${escapeHtml(it.name)} <span class="analysis-item-meta">${escapeHtml(it.ticker)}</span></span>
+              <span><span class="peer-price">${escapeHtml(it.price)}</span> <span class="peer-chg ${up ? "up" : "down"}">${sign}${it.changePct == null ? "" : it.changePct}%</span></span>
+            </div>
+            <div class="analysis-item-note">${escapeHtml(it.note)}</div>
+          </div>`;
+        }).join("");
+      } else if (currentAnalysisTab === "news") {
+        html += (sec.items || []).map(it => `<div class="analysis-item">
+            <div class="analysis-item-head">
+              <span class="analysis-item-title">${linkTitle(it.title, it.url)}</span>
+              ${sentimentBadge(it.sentiment)}
+            </div>
+            <div class="analysis-item-meta">${escapeHtml(it.source)} · ${escapeHtml(it.date)}</div>
+            <div class="analysis-item-note">${escapeHtml(it.insight)}</div>
+          </div>`).join("");
+      } else if (currentAnalysisTab === "community") {
+        if (sec.sentimentLabel) html += `<div class="analysis-subhead">종합 분위기 · ${escapeHtml(sec.sentimentLabel)}</div>`;
+        const renderList = (arr) => (arr || []).map(it => `<div class="analysis-item">
+            <div class="analysis-item-head">
+              <span class="analysis-item-title">${linkTitle(it.title, it.url)}</span>
+              ${sentimentBadge(it.sentiment)}
+            </div>
+            <div class="analysis-item-note">${escapeHtml(it.summary)}</div>
+          </div>`).join("") || `<span class="analysis-empty">수집된 글 없음</span>`;
+        html += `<div class="analysis-subhead">🔴 Reddit</div>${renderList(sec.reddit)}`;
+        html += `<div class="analysis-subhead">🟢 네이버 / 종목토론</div>${renderList(sec.naver)}`;
+      } else if (currentAnalysisTab === "dart") {
+        if (sec.highlights && sec.highlights.length) {
+          html += `<div class="analysis-subhead">재무 하이라이트</div>`;
+          html += sec.highlights.map(h => `<div class="analysis-item">
+              <div class="analysis-item-head">
+                <span class="analysis-item-title">${escapeHtml(h.label)}</span>
+                <span class="peer-price">${escapeHtml(h.value)}</span>
+              </div>
+              <div class="analysis-item-note">${escapeHtml(h.note)}</div>
+            </div>`).join("");
+        }
+        if (sec.recentFilings && sec.recentFilings.length) {
+          html += `<div class="analysis-subhead">최근 주요 공시</div>`;
+          html += sec.recentFilings.map(f => `<div class="analysis-item">
+              <div class="analysis-item-head">
+                <span class="analysis-item-title">${escapeHtml(f.title)}</span>
+                <span class="analysis-item-meta">${escapeHtml(f.date)}</span>
+              </div>
+              <div class="analysis-item-meta">${escapeHtml(f.type)}</div>
+              <div class="analysis-item-note">${escapeHtml(f.insight)}</div>
+            </div>`).join("");
+        }
+      }
+      box.innerHTML = html;
     }
 
     function updateDrawerLivePrices(idx) {
