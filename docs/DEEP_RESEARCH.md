@@ -176,6 +176,6 @@ python generate_analysis.py   # daily_market_report.json 에 analysis 병합
 - ✅ 검증됨: Python 문법, 워크플로 YAML, peers.json, **graceful degradation**(키 없으면 빈 결과), **peer 시세 라이브**(단일·다중·nan-safe).
 - ⏳ 미검증(키 필요): Naver/Tavily/DART 라이브 응답, LLM 분석 생성 → **첫 `workflow_dispatch` 실행으로 확인**.
 - ⚠️ 가장 깨지기 쉬운 곳: **DART OpenAPI**. `corpCode.xml`(zip) 다운로드·파싱으로 stock_code→corp_code 매핑, `fnlttSinglAcntAll`(연결재무 11011/CFS), `list.json`(공시), `majorstock.json`(대량보유) 사용. 응답 status·필드명이 바뀌면 여기부터 점검.
-- **Reddit**: 키 없는 공개 JSON(`search.json`) 사용 → cloud IP에서 403/레이트리밋 시 **Tavily(reddit.com)로 자동 폴백**. 검색어는 해당 종목이 아니라 **상위 peer 이름**(예: "Eli Lilly stock").
+- **Reddit**: 키 없는 공개 JSON(`search.json`)을 먼저 시도하지만 **데이터센터 IP(GitHub Actions 포함)에서는 403으로 차단됨이 확인됨** → 실질적으로 **Tavily(`include_domains=["reddit.com"]`)가 CI의 주 경로**. 공개 JSON은 주로 사용자의 로컬(거주지 IP) 실행에서만 통함. 검색어는 해당 종목이 아니라 **상위 peer 이름**(예: "Eli Lilly stock"). 시드 데이터의 peers.reddit는 2026-06-04 Tavily로 실제 reddit.com 스레드로 교체 완료.
 - 병렬: 6종목 동시 처리(`ANALYSIS_CONCURRENCY`, 기본 6), DART corpCode 맵은 사전 1회 로딩+락.
 - 비용: 6종목 × 1콜/일(Sonnet 4.6), 시스템 프롬프트 캐싱 적용.
