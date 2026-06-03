@@ -11,6 +11,7 @@ import os
 import sys
 import datetime
 
+import pandas as pd
 import yfinance as yf
 
 ROOT           = os.path.dirname(os.path.abspath(__file__))
@@ -34,6 +35,10 @@ def fetch_stock_data(code, market):
 
     if hist is None or len(hist) < 2:
         return None
+
+    # yfinance 1.x returns MultiIndex columns even for single tickers
+    if isinstance(hist.columns, pd.MultiIndex):
+        hist.columns = hist.columns.get_level_values(0)
 
     close      = float(hist['Close'].iloc[-1])
     high       = float(hist['High'].iloc[-1])
