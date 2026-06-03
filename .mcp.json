@@ -1,0 +1,23 @@
+{
+  "mcpServers": {
+    "korean-dart": {
+      "command": "node",
+      "args": ["C:\\Users\\jykim\\Desktop\\Workspace\\financial_services\\korean-dart-mcp\\build\\index.js"]
+    },
+    "yahoo-finance": {
+      "command": "npx",
+      "args": ["-y", "yfinance-mcp"]
+    },
+    "fred": {
+      "command": "node",
+      "args": ["C:\\Users\\jykim\\Desktop\\Workspace\\financial_services\\fred-mcp-server\\build\\index.js"],
+      "env": {
+        "FRED_API_KEY": "${FRED_API_KEY}"
+      }
+    },
+    "fear-greed": {
+      "command": "npx",
+      "args": ["mcp-server-fear-greed@latest"]
+    }
+  }
+}
