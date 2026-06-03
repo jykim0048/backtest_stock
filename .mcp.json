@@ -18,6 +18,13 @@
     "fear-greed": {
       "command": "npx",
       "args": ["mcp-server-fear-greed@latest"]
+    },
+    "tavily": {
+      "command": "npx",
+      "args": ["-y", "tavily-mcp"],
+      "env": {
+        "TAVILY_API_KEY": "${TAVILY_API_KEY}"
+      }
     }
   }
 }
