@@ -119,13 +119,13 @@ MCP 서버 설정은 레포 루트 `.mcp.json` 참조.
 - [x] 드로어 UI: Deep Research 4-탭 구현
 - [x] 드로어 UI: **Account / Deep Research 대분류 탭** 분리 (스킴 확정·승인됨)
 - [x] 로컬 검증(서버 200, JSON 유효, JS 문법 0 에러)
-- [ ] 나머지 5종목 분석 수집 (자화전자·HD현대중공업·올릭스·비에이치아이·미코)
+- [x] 나머지 5종목 분석 수집·주입 (자화전자·HD현대중공업·올릭스·비에이치아이·미코) — **6종목 전체 완료**
 - [ ] `generate_report.py`에 수집 파이프라인 통합 (② 일일 배치 자동화)
 - [ ] (선택) B 런타임 전환
 
 ### 다음에 할 일
-1. **나머지 5종목**을 동일 4-에이전트 파이프라인으로 채운다 (스키마 그대로).
-2. 수집을 `generate_report.py`에 통합 → GitHub Actions cron 자동화. 이때 MCP/API 키를 Actions에서 어떻게 쓸지 결정 필요(§5 제약).
+1. 수집을 `generate_report.py`에 통합 → GitHub Actions cron 자동화. 이때 MCP/API 키를 Actions에서 어떻게 쓸지 결정 필요(§5 제약).
+2. (선택) B 런타임 전환 설계.
 
 ---
 
