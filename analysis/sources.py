@@ -15,6 +15,7 @@ import os
 import sys
 import zipfile
 import datetime
+import threading
 import xml.etree.ElementTree as ET
 
 import requests
@@ -146,6 +147,7 @@ def tavily_search(query, max_results=5, include_domains=None):
 # 4) DART OpenAPI (corp_code, financials, disclosures, major holders)
 # ----------------------------------------------------------------------------
 _CORP_MAP = None  # stock_code(6) -> corp_code(8), cached per process
+_CORP_LOCK = threading.Lock()  # guard the one-time (large) corpCode.xml download
 
 
 def _dart_key():
@@ -156,26 +158,31 @@ def _load_corp_map():
     global _CORP_MAP
     if _CORP_MAP is not None:
         return _CORP_MAP
-    _CORP_MAP = {}
-    key = _dart_key()
-    if not key:
-        _warn("DART_API_KEY missing")
+    with _CORP_LOCK:
+        if _CORP_MAP is not None:          # another thread populated it while we waited
+            return _CORP_MAP
+        m = {}
+        key = _dart_key()
+        if not key:
+            _warn("DART_API_KEY missing")
+            _CORP_MAP = m
+            return _CORP_MAP
+        try:
+            r = requests.get("https://opendart.fss.or.kr/api/corpCode.xml",
+                             params={"crtfc_key": key}, timeout=30)
+            r.raise_for_status()
+            zf = zipfile.ZipFile(io.BytesIO(r.content))
+            xml = zf.read(zf.namelist()[0])
+            root = ET.fromstring(xml)
+            for el in root.iter("list"):
+                stock = (el.findtext("stock_code") or "").strip()
+                corp = (el.findtext("corp_code") or "").strip()
+                if stock and corp:
+                    m[stock] = corp
+        except Exception as e:
+            _warn(f"DART corpCode load failed: {e}")
+        _CORP_MAP = m
         return _CORP_MAP
-    try:
-        r = requests.get("https://opendart.fss.or.kr/api/corpCode.xml",
-                         params={"crtfc_key": key}, timeout=30)
-        r.raise_for_status()
-        zf = zipfile.ZipFile(io.BytesIO(r.content))
-        xml = zf.read(zf.namelist()[0])
-        root = ET.fromstring(xml)
-        for el in root.iter("list"):
-            stock = (el.findtext("stock_code") or "").strip()
-            corp = (el.findtext("corp_code") or "").strip()
-            if stock and corp:
-                _CORP_MAP[stock] = corp
-    except Exception as e:
-        _warn(f"DART corpCode load failed: {e}")
-    return _CORP_MAP
 
 
 def dart_corp_code(stock_code):

@@ -20,6 +20,7 @@ import re
 import sys
 import json
 import datetime
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from anthropic import Anthropic
 
@@ -31,8 +32,9 @@ PEERS_PATH    = os.path.join(ROOT, "analysis", "peers.json")
 REPORTS_DIR   = os.path.join(ROOT, "public", "reports")
 DAILY_PATH    = os.path.join(ROOT, "public", "daily_market_report.json")
 
-MODEL      = "claude-sonnet-4-6"
-MAX_TOKENS = 4096
+MODEL       = "claude-sonnet-4-6"
+MAX_TOKENS  = 4096
+CONCURRENCY = int(os.environ.get("ANALYSIS_CONCURRENCY", "6"))  # stocks processed in parallel
 
 SYSTEM = """\
 너는 한국 주식 투자 리서치 애널리스트다. 주어진 RAW 데이터(해외 peer 시세, 국내외 뉴스,
@@ -147,15 +149,23 @@ def main():
                 if not k.startswith("_")}
     client = Anthropic()
 
-    print(f"=== Generating deep research for {len(watchlist)} stocks ===")
+    # Pre-warm the (large) DART corpCode map once so parallel workers don't race on it.
+    sources._load_corp_map()
+
+    workers = max(1, min(CONCURRENCY, len(watchlist)))
+    print(f"=== Generating deep research for {len(watchlist)} stocks "
+          f"({workers}-way parallel) ===")
     analysis_by_code = {}
-    for stock in watchlist:
-        name = stock["name"]
-        try:
-            print(f"  Analyzing {name} ({stock['code']})...")
-            analysis_by_code[stock["code"]] = analyze_stock(client, stock, peer_cfg)
-        except Exception as e:
-            print(f"  Skipped {name}: {e}", file=sys.stderr)
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        futures = {pool.submit(analyze_stock, client, s, peer_cfg): s for s in watchlist}
+        for fut in as_completed(futures):
+            stock = futures[fut]
+            name = stock["name"]
+            try:
+                analysis_by_code[stock["code"]] = fut.result()
+                print(f"  Done {name} ({stock['code']})")
+            except Exception as e:
+                print(f"  Skipped {name}: {e}", file=sys.stderr)
 
     if not analysis_by_code:
         print("No analysis produced; leaving reports unchanged.", file=sys.stderr)
