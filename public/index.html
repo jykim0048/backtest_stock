@@ -2167,14 +2167,13 @@
             </div>`).join("");
         }
         if (sec.recentFilings && sec.recentFilings.length) {
-          html += `<div class="analysis-subhead">최근 주요 공시</div>`;
+          html += `<div class="analysis-subhead">최근 공시 (DART 최신순 5건)</div>`;
           html += sec.recentFilings.map(f => `<div class="analysis-item">
               <div class="analysis-item-head">
-                <span class="analysis-item-title">${escapeHtml(f.title)}</span>
+                <span class="analysis-item-title">${linkTitle(f.title, f.url)}</span>
                 <span class="analysis-item-meta">${escapeHtml(f.date)}</span>
               </div>
-              <div class="analysis-item-meta">${escapeHtml(f.type)}</div>
-              <div class="analysis-item-note">${escapeHtml(f.insight)}</div>
+              ${f.filer ? `<div class="analysis-item-meta">${escapeHtml(f.filer)}</div>` : ""}
             </div>`).join("");
         }
       }

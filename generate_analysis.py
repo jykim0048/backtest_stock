@@ -54,14 +54,16 @@ SYSTEM = """\
   "peers": { "summary": "2-3문장", "items": [ {"name","ticker","price","changePct","note"} ], "reddit": [ {"title","url","subreddit","sentiment","summary"} ] },
   "news": { "summary": "3-4문장", "items": [ {"title","source","date","sentiment","url","insight"} ] },
   "community": { "summary": "3-4문장", "sentimentLabel": "", "naver": [ {"title","url","sentiment","summary"} ] },
-  "dart": { "summary": "3-4문장", "highlights": [ {"label","value","note"} ], "recentFilings": [ {"date","title","type","insight"} ] }
+  "dart": { "summary": "3-4문장", "highlights": [ {"label","value","note"} ] }
 }
 
 - peers.reddit: 입력 peers_reddit(해외 peer/섹터에 대한 영어권 Reddit 글)을 바탕으로 3-5개.
   해외 peer 그룹에 대한 여론·논점을 요약한다. title/url/subreddit은 원문, summary는 한국어 한 줄.
   한국 종목이 직접 언급되지 않으면 peer/섹터 맥락으로 해석하고 summary에 그 점을 밝힌다.
 - community: 네이버 카페/종목토론방 등 '국내 개인투자자' 여론만 담는다(Reddit 제외). naver 3-5개.
-- 개수 가이드: news 5-7 (국내+해외 혼합), dart highlights 4-6 & recentFilings 3-5.
+- dart: summary와 highlights(4-6개)만 작성한다. **recentFilings는 만들지 마라** — 코드가 DART
+  최신 공시 5건을 결정적으로 채운다.
+- 개수 가이드: news 5-7 (국내+해외 혼합), dart highlights 4-6.
 - peers.items 는 입력으로 받은 항목을 그대로(가격/등락률/note 변경 금지) 쓰고 peers.summary/peers.reddit 만 작성한다."""
 
 
@@ -149,8 +151,16 @@ def analyze_stock(client, stock, peer_cfg):
     text = "".join(b.text for b in resp.content if b.type == "text")
     analysis = extract_json(text)
 
-    # Force deterministic peer items (LLM only authored peers.summary).
+    # Force deterministic peer items (LLM only authored peers.summary/peers.reddit).
     analysis.setdefault("peers", {})["items"] = peers
+
+    # Deterministic recent filings: latest 5 DART disclosures, no LLM curation.
+    disclosures = (raw.get("dart") or {}).get("disclosures") or []
+    analysis.setdefault("dart", {})["recentFilings"] = [
+        {"date": d.get("date", ""), "title": d.get("title", ""),
+         "filer": d.get("filer", ""), "url": d.get("url", "")}
+        for d in disclosures[:5]
+    ]
     return analysis
 
 

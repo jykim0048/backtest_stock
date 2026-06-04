@@ -75,15 +75,16 @@ MCP 서버 설정(로컬 인터랙티브용)은 레포 루트 `.mcp.json` 참조
     "naver":  [ { "title": "...", "url": "...", "sentiment": "긍정|부정|중립", "summary": "한 줄" } ]
   },
   "dart": {
-    "summary": "한국어 3~4문장",
-    "highlights":    [ { "label": "매출액(2025)", "value": "1조5,475억원", "note": "한 줄" } ],
-    "recentFilings": [ { "date": "YYYY-MM-DD", "title": "...", "type": "...", "insight": "한 줄" } ]
+    "summary": "한국어 3~4문장 (LLM 작성)",
+    "highlights":    [ { "label": "매출액(2025)", "value": "1조5,475억원", "note": "한 줄 (LLM 작성)" } ],
+    "recentFilings": [ { "date": "YYYY-MM-DD", "title": "공시 제목", "filer": "제출인", "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=..." } ]
   }
 }
 ```
 
 - `analysis`가 없는 종목은 UI에서 "데이터 없음" 으로 표시(정상 동작).
 - 색상 규칙: peer 등락은 앱 관례(빨강=상승/파랑=하락), 감성 배지(긍정=초록/부정=빨강/중립=회색).
+- **`dart.recentFilings`는 LLM이 만들지 않고 코드가 결정적으로 채운다** — DART 공시 **최신순 5건**(무필터), 제목은 DART 원문(`dsaf001`) 링크. `summary`·`highlights`만 LLM 작성.
 
 ---
 
@@ -176,6 +177,7 @@ python generate_analysis.py   # daily_market_report.json 에 analysis 병합
 - ✅ 검증됨: Python 문법, 워크플로 YAML, peers.json, **graceful degradation**(키 없으면 빈 결과), **peer 시세 라이브**(단일·다중·nan-safe).
 - ⏳ 미검증(키 필요): Naver/Tavily/DART 라이브 응답, LLM 분석 생성 → **첫 `workflow_dispatch` 실행으로 확인**.
 - ⚠️ 가장 깨지기 쉬운 곳: **DART OpenAPI**. `corpCode.xml`(zip) 다운로드·파싱으로 stock_code→corp_code 매핑, `fnlttSinglAcntAll`(연결재무 11011/CFS), `list.json`(공시), `majorstock.json`(대량보유) 사용. 응답 status·필드명이 바뀌면 여기부터 점검.
+- **공시(recentFilings)**: LLM 큐레이션 없이 `list.json` **최신순 5건**을 코드가 그대로 노출(`generate_analysis.analyze_stock`에서 결정적 주입). 각 항목에 `dsaf001` 원문 링크. summary/highlights만 LLM.
 - **Reddit**: 키 없는 공개 JSON(`search.json`)을 먼저 시도하지만 **데이터센터 IP(GitHub Actions 포함)에서는 403으로 차단됨이 확인됨** → 실질적으로 **Tavily(`include_domains=["reddit.com"]`)가 CI의 주 경로**. 공개 JSON은 주로 사용자의 로컬(거주지 IP) 실행에서만 통함. 검색어는 해당 종목이 아니라 **상위 peer 이름**(예: "Eli Lilly stock"). 시드 데이터의 peers.reddit는 2026-06-04 Tavily로 실제 reddit.com 스레드로 교체 완료.
 - 병렬: 6종목 동시 처리(`ANALYSIS_CONCURRENCY`, 기본 6), DART corpCode 맵은 사전 1회 로딩+락.
 - 비용: 6종목 × 1콜/일(Sonnet 4.6), 시스템 프롬프트 캐싱 적용.

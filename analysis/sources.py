@@ -278,11 +278,17 @@ def dart_disclosures(corp_code, days=120, page_count=15):
         data = r.json()
         if data.get("status") != "000":
             return []
-        return [{
-            "date": _fmt_date(it.get("rcept_dt", "")),
-            "title": it.get("report_nm", ""),
-            "rcept_no": it.get("rcept_no", ""),
-        } for it in data.get("list", [])]
+        out = []
+        for it in data.get("list", []):       # DART returns newest first
+            rno = it.get("rcept_no", "")
+            out.append({
+                "date": _fmt_date(it.get("rcept_dt", "")),
+                "title": it.get("report_nm", ""),
+                "filer": it.get("flr_nm", ""),
+                "rcept_no": rno,
+                "url": f"https://dart.fss.or.kr/dsaf001/main.do?rcpNo={rno}" if rno else "",
+            })
+        return out
     except Exception as e:
         _warn(f"dart_disclosures({corp_code}) failed: {e}")
         return []
