@@ -294,6 +294,46 @@ def dart_disclosures(corp_code, days=120, page_count=15):
         return []
 
 
+def dart_market_disclosures(bgn_de, end_de, corp_cls, max_pages=20):
+    """corp_code 없이 시장 전체 공시를 날짜·시장구분으로 스캔한다 (per-stock fan-out 회피).
+
+    corp_cls: 'Y'(유가증권/KOSPI) | 'K'(코스닥) | 'N'(코넥스) | 'E'(기타).
+    Returns list of {date, stock_code, corp_name, title, rcept_no, url}, 최신순.
+    """
+    key = _dart_key()
+    if not key:
+        _warn("DART_API_KEY missing")
+        return []
+    out = []
+    for page in range(1, max_pages + 1):
+        try:
+            r = requests.get(
+                "https://opendart.fss.or.kr/api/list.json",
+                params={"crtfc_key": key, "bgn_de": bgn_de, "end_de": end_de,
+                        "corp_cls": corp_cls, "page_count": 100, "page_no": page},
+                timeout=20,
+            )
+            data = r.json()
+        except Exception as e:
+            _warn(f"dart_market_disclosures({corp_cls}, p{page}) failed: {e}")
+            break
+        if data.get("status") != "000":
+            break
+        for it in data.get("list", []):
+            rno = it.get("rcept_no", "")
+            out.append({
+                "date": _fmt_date(it.get("rcept_dt", "")),
+                "stock_code": (it.get("stock_code") or "").strip(),
+                "corp_name": it.get("corp_name", ""),
+                "title": it.get("report_nm", ""),
+                "rcept_no": rno,
+                "url": f"https://dart.fss.or.kr/dsaf001/main.do?rcpNo={rno}" if rno else "",
+            })
+        if page >= int(data.get("total_page", 1) or 1):
+            break
+    return out
+
+
 def dart_major_holders(corp_code):
     """대량보유 상황(5% rule) — recent ownership changes."""
     key = _dart_key()
