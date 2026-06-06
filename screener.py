@@ -29,6 +29,7 @@ import re
 import sys
 import json
 import datetime
+from email.utils import parsedate_to_datetime
 from concurrent.futures import ThreadPoolExecutor
 
 # yfinance writes a cache; on read-only CI point it at a writable dir.
@@ -57,6 +58,8 @@ N_SHORTLIST  = int(os.environ.get("SCREEN_N_SHORTLIST", "30"))  # 기계 필터 
 KOSPI_TOP    = 200   # 코스피200 근사 (시총 상위)
 KOSDAQ_TOP   = 150   # 코스닥150 근사 (시총 상위)
 ENRICH_WORKERS = int(os.environ.get("SCREEN_ENRICH_WORKERS", "8"))
+NEWS_FETCH   = 30   # 시간창 필터 전, 최신순으로 넉넉히 받아올 뉴스 건수 (Naver display)
+NEWS_MAX     = 8    # 시간창(전일 장마감~실행시각) 통과 후 후보당 최대 뉴스 수
 
 MODEL      = "claude-sonnet-4-6"
 MAX_TOKENS = 3000
@@ -217,22 +220,53 @@ def _recent_disclosures(code, days=7):
     return out[:5]
 
 
-def _enrich_one(row):
+def overnight_cutoff(now=None):
+    """뉴스 수집 시작 시각 = 직전 거래일 15:30 KST (전일 장 마감).
+
+    주말은 금요일로 당긴다(공휴일은 미반영 — 보수적으로 최근 평일 마감을 사용).
+    스크리너는 장전(08:00 KST)에 돌므로 '전일' = 직전 거래일을 의미한다.
+    """
+    now = now or datetime.datetime.now(KST)
+    d = now.date() - datetime.timedelta(days=1)
+    while d.weekday() >= 5:                       # 토(5)/일(6) 건너뜀
+        d -= datetime.timedelta(days=1)
+    return datetime.datetime.combine(d, datetime.time(15, 30), tzinfo=KST)
+
+
+def _parse_pubdate(s):
+    """Naver pubDate(RFC822) → tz-aware datetime. 실패 시 None."""
+    try:
+        dt = parsedate_to_datetime(s)
+    except Exception:
+        return None
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=KST)
+    return dt
+
+
+def _enrich_one(row, cutoff):
     name, code = row["Name"], row["Code"]
-    news = sources.naver_search("news", name, display=5)
-    return code, {
-        "news": [{"title": n["title"], "date": n.get("date", "")} for n in news[:5]],
-        "disclosures": _recent_disclosures(code),
-    }
+    news = []
+    for n in sources.naver_search("news", name, display=NEWS_FETCH):  # 최신순
+        dt = _parse_pubdate(n.get("date", ""))
+        if dt is not None and dt >= cutoff:       # 전일 장마감 이후만
+            news.append({"title": n["title"], "date": n.get("date", "")})
+        if len(news) >= NEWS_MAX:
+            break
+    return code, {"news": news, "disclosures": _recent_disclosures(code)}
 
 
 def enrich_candidates(shortlist):
-    """후보별 최근 뉴스 헤드라인 + 최근 공시를 병렬 수집. 실패는 빈 값으로 흡수."""
+    """후보별 '전일 장마감~실행시각' 뉴스 + 최근 공시를 병렬 수집. 실패는 빈 값으로 흡수."""
+    cutoff = overnight_cutoff()
+    _warn(f"news window: {cutoff.strftime('%Y-%m-%d %H:%M')} KST ~ now")
     enriched = {}
     rows = shortlist.to_dict("records")
     workers = max(1, min(ENRICH_WORKERS, len(rows)))
     with ThreadPoolExecutor(max_workers=workers) as ex:
-        for code, data in ex.map(lambda r: _enrich_one(r), rows):
+        for code, data in ex.map(lambda r: _enrich_one(r, cutoff), rows):
             enriched[code] = data
     return enriched
 
