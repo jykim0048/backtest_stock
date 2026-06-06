@@ -109,7 +109,13 @@ python local_server/server.py
 
 ### ③ 딥리서치 분석 — `generate_analysis.py`
 
-선정 종목별 peer 시세·뉴스·커뮤니티·DART 공시를 LLM이 요약해 리포트에 `analysis` 필드로 병합합니다(best-effort).
+선정 종목별 RAW 데이터(해외 peer 시세·뉴스·국내 커뮤니티·DART 공시)를 수집해 Claude가 요약하고, 리포트에 `analysis` 필드로 병합합니다(best-effort, 실패 종목은 건너뜀).
+
+- **해외 peer 동적 해결** — `analysis/peers.json`에 큐레이션된 peer가 있으면 그대로 쓰고, **없으면(동적 와치리스트로 새로 들어온 종목) Claude가 해외 비교기업+Yahoo 티커를 제안 → yfinance로 티커 유효성을 검증**(조회 안 되는 환각 티커 제거)해서 채웁니다. 덕분에 매일 종목이 바뀌어도 peer 분석이 비지 않습니다.
+- **Market Moving Catalysts** — 분석 단계가 뉴스·공시·수급을 종합한 `catalyst`(오늘의 핵심 촉매)를 생성해 리포트 최상위 필드로 올립니다(대시보드 'Market Moving Catalysts'에 노출). `generate_report.py`가 쓰는 placeholder를 덮어씁니다.
+- **DART 최신 공시 5건**은 LLM 큐레이션 없이 결정적으로 채웁니다.
+
+상세 설계는 [`docs/DEEP_RESEARCH.md`](docs/DEEP_RESEARCH.md) 참고.
 
 ### 수동 실행
 
