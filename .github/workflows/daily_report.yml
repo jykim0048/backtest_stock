@@ -6,6 +6,11 @@ on:
     - cron: '0 23 * * 0-4'
   workflow_dispatch: # allow manual trigger for testing
 
+# Serialize report-writing workflows so they never race each other on push.
+concurrency:
+  group: report-push
+  cancel-in-progress: false
+
 jobs:
   generate-report:
     runs-on: ubuntu-latest
@@ -63,7 +68,7 @@ jobs:
             if git push origin HEAD:main; then echo "pushed (attempt $i)"; exit 0; fi
             echo "push attempt $i rejected; rebasing onto latest main..."
             git fetch origin main
-            git rebase origin/main || { git rebase --abort; echo "::error::rebase conflict"; exit 1; }
+            git rebase FETCH_HEAD || { git rebase --abort; echo "::error::rebase conflict"; exit 1; }
             sleep $((RANDOM % 4 + 2))
           done
           echo "::error::push failed after 5 attempts" && exit 1

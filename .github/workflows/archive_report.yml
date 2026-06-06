@@ -5,6 +5,11 @@ on:
     branches: [main]
     paths: ['public/daily_market_report.json']
 
+# Share the serialize group with the daily report so the two never race.
+concurrency:
+  group: report-push
+  cancel-in-progress: false
+
 jobs:
   archive:
     runs-on: ubuntu-latest
@@ -50,7 +55,7 @@ jobs:
             if git push origin HEAD:main; then echo "pushed (attempt $i)"; exit 0; fi
             echo "push attempt $i rejected; rebasing onto latest main..."
             git fetch origin main
-            git rebase origin/main || { git rebase --abort; echo "::error::rebase conflict"; exit 1; }
+            git rebase FETCH_HEAD || { git rebase --abort; echo "::error::rebase conflict"; exit 1; }
             sleep $((RANDOM % 4 + 2))
           done
           echo "::error::push failed after 5 attempts" && exit 1
