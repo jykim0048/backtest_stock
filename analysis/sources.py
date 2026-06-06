@@ -144,17 +144,21 @@ def tavily_search(query, max_results=5, include_domains=None):
 
 
 # ----------------------------------------------------------------------------
-# 3b) Reddit public JSON search (keyless). Tavily is the fallback in the caller.
+# 3b) Reddit public JSON search (keyless). Tavily is the PRIMARY source in the
+#     caller — Reddit 403s from datacenter/CI IPs, so this is a residential-only
+#     best-effort fallback.
 # ----------------------------------------------------------------------------
-REDDIT_UA = "quant-antigravity/1.0 (deep-research daily batch)"
+REDDIT_UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+             "(KHTML, like Gecko) Chrome/124.0 Safari/537.36")
+_REDDIT_BLOCKED_WARNED = False
 
 
 def reddit_search(query, max_results=5, period="year"):
     """Search Reddit posts via the public search.json endpoint. No key required.
 
     Returns list of {title, url, subreddit, score, num_comments, content}.
-    Cloud IPs are sometimes rate-limited/blocked by Reddit; on any failure this
-    returns [] so the caller can fall back to Tavily.
+    Datacenter/CI IPs are blocked (403) by Reddit; on any failure this returns []
+    so the caller falls back to Tavily. Block warnings are logged once per process.
     """
     try:
         r = requests.get(
@@ -179,7 +183,11 @@ def reddit_search(query, max_results=5, period="year"):
             })
         return out
     except Exception as e:
-        _warn(f"reddit_search({query}) failed: {e}")
+        global _REDDIT_BLOCKED_WARNED
+        if not _REDDIT_BLOCKED_WARNED:
+            _warn(f"reddit_search blocked/failed ({e}); relying on Tavily for Reddit "
+                  f"(further reddit warnings suppressed)")
+            _REDDIT_BLOCKED_WARNED = True
         return []
 
 

@@ -84,18 +84,21 @@ def fetch_peer_reddit(peer_list):
     """Reddit discussion about the OVERSEAS PEER GROUP (not the Korean stock).
 
     Korean mid-caps barely appear on Reddit, but their global peers (e.g. Eli Lilly,
-    GE Vernova, NGK) are widely discussed — so we search Reddit on the top peers.
-    Reddit public JSON first; Tavily (reddit.com) as fallback when blocked/empty.
+    GE Vernova, NGK) are widely discussed.
+
+    Reddit's public search.json 403s from datacenter/CI IPs, so Tavily (reddit.com
+    domain) is the PRIMARY source here; the direct Reddit endpoint — which only
+    works from residential IPs — is a best-effort fallback when Tavily is empty.
     """
     if not peer_list:
         return []
     posts = []
     for p in peer_list[:2]:                      # top 2 peers (bellwethers)
-        posts += sources.reddit_search(f"{p['name']} stock", max_results=3)
-    if not posts:
-        lead = peer_list[0]["name"]
-        posts = sources.tavily_search(f"{lead} stock reddit", max_results=4,
-                                      include_domains=["reddit.com"])
+        posts += sources.tavily_search(f"{p['name']} stock discussion",
+                                       max_results=3, include_domains=["reddit.com"])
+    if not posts:                                # residential-only fallback
+        for p in peer_list[:2]:
+            posts += sources.reddit_search(f"{p['name']} stock", max_results=3)
     seen, uniq = set(), []
     for x in posts:                              # dedupe by url, cap at 5
         u = x.get("url")
