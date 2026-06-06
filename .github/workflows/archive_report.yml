@@ -17,6 +17,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history so the push-time rebase is clean
 
       - name: Archive to dated file
         run: |
@@ -43,4 +45,12 @@ jobs:
           git add public/reports/
           git diff --staged --quiet && exit 0
           git commit -m "chore: archive report $(TZ=Asia/Seoul date +'%Y-%m-%d')"
-          git push
+          # Remote may have advanced; push, and on rejection rebase and retry.
+          for i in $(seq 1 5); do
+            if git push origin HEAD:main; then echo "pushed (attempt $i)"; exit 0; fi
+            echo "push attempt $i rejected; rebasing onto latest main..."
+            git fetch origin main
+            git rebase origin/main || { git rebase --abort; echo "::error::rebase conflict"; exit 1; }
+            sleep $((RANDOM % 4 + 2))
+          done
+          echo "::error::push failed after 5 attempts" && exit 1

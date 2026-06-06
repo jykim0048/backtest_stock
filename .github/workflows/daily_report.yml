@@ -17,6 +17,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history so the push-time rebase is clean
 
       - uses: actions/setup-python@v5
         with:
@@ -55,4 +57,13 @@ jobs:
           git add watchlist.json public/daily_market_report.json public/reports/
           git diff --staged --quiet && echo "No changes to commit" && exit 0
           git commit -m "chore: auto-generate daily market report $(date +'%Y-%m-%d')"
-          git push
+          # Remote may have advanced (manual or concurrent pushes); push, and on
+          # rejection rebase onto the latest main and retry.
+          for i in $(seq 1 5); do
+            if git push origin HEAD:main; then echo "pushed (attempt $i)"; exit 0; fi
+            echo "push attempt $i rejected; rebasing onto latest main..."
+            git fetch origin main
+            git rebase origin/main || { git rebase --abort; echo "::error::rebase conflict"; exit 1; }
+            sleep $((RANDOM % 4 + 2))
+          done
+          echo "::error::push failed after 5 attempts" && exit 1
