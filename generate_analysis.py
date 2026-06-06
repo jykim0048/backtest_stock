@@ -216,7 +216,10 @@ def main():
     merge_into_report(DAILY_PATH, analysis_by_code)
     print(f"  Updated {DAILY_PATH}")
 
-    today = datetime.date.today().strftime("%Y-%m-%d")
+    # KST, to match generate_report.py / archive_report.yml — the CI cron runs
+    # at 23:00 UTC, so a UTC date would point at the wrong dated report file.
+    kst = datetime.timezone(datetime.timedelta(hours=9))
+    today = datetime.datetime.now(kst).strftime("%Y-%m-%d")
     dated = os.path.join(REPORTS_DIR, f"{today}.json")
     if os.path.exists(dated):
         merge_into_report(dated, analysis_by_code)

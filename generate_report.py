@@ -66,7 +66,12 @@ def stars_for(change_pct):
 
 def generate_report():
     watchlist = load_watchlist()
-    today = datetime.date.today().strftime('%Y-%m-%d')
+    # Use KST (Asia/Seoul), not the runner's UTC clock. The CI cron fires at
+    # 23:00 UTC, which is already 08:00 of the next day in Korea — using UTC
+    # here would date the report one day behind the Korean trading day and the
+    # KST "today" file would never be produced. (archive_report.yml does the same.)
+    kst = datetime.timezone(datetime.timedelta(hours=9))
+    today = datetime.datetime.now(kst).strftime('%Y-%m-%d')
 
     print(f"=== Generating daily market report ({today}) ===")
 
