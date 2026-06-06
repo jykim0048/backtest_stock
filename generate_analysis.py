@@ -25,7 +25,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from anthropic import Anthropic
 
-from analysis import sources
+from analysis import sources       # imports yfinance + redirects its cache to /tmp on CI
+import yfinance as yf
 
 ROOT          = os.path.dirname(os.path.abspath(__file__))
 WATCHLIST     = os.path.join(ROOT, "watchlist.json")
@@ -51,12 +52,16 @@ SYSTEM = """\
 
 스키마:
 {
+  "catalyst": "오늘 이 종목의 주가를 움직일 핵심 촉매 2-3문장",
   "peers": { "summary": "2-3문장", "items": [ {"name","ticker","price","changePct","note"} ], "reddit": [ {"title","url","subreddit","sentiment","summary"} ] },
   "news": { "summary": "3-4문장", "items": [ {"title","source","date","sentiment","url","insight"} ] },
   "community": { "summary": "3-4문장", "sentimentLabel": "", "naver": [ {"title","url","sentiment","summary"} ] },
   "dart": { "summary": "3-4문장", "highlights": [ {"label","value","note"} ] }
 }
 
+- catalyst: 뉴스·공시·수급·peer 동향 중 '오늘 주가를 가장 크게 움직일' 단일 촉매를 투자자 관점으로
+  요약한다. 대시보드의 'Market Moving Catalysts'에 그대로 노출되므로 placeholder/메타설명을 쓰지 말고
+  구체적 내용으로 채운다. 근거가 빈약하면 거래대금·모멘텀 등 가격 동향 기반으로 신중히 서술한다.
 - peers.reddit: 입력 peers_reddit(해외 peer/섹터에 대한 영어권 Reddit 글)을 바탕으로 3-5개.
   해외 peer 그룹에 대한 여론·논점을 요약한다. title/url/subreddit은 원문, summary는 한국어 한 줄.
   한국 종목이 직접 언급되지 않으면 peer/섹터 맥락으로 해석하고 summary에 그 점을 밝힌다.
@@ -100,10 +105,70 @@ def fetch_peer_reddit(peer_list):
     return uniq[:5]
 
 
-def gather_raw(stock, peer_cfg):
-    """Collect raw data for one stock."""
+PEER_SYSTEM = """\
+너는 한국 주식의 해외 비교기업(peer)을 찾는 애널리스트다. 주어진 한국 종목과 사업이 가장
+유사한 '해외 상장' 비교기업 4-5개를 고른다.
+- ticker 는 Yahoo Finance 에서 조회 가능한 정확한 심볼이어야 한다
+  (미국=AAPL, 일본=6479.T, 대만=3008.TW, 홍콩=2382.HK, 독일=ENR.DE, 영국=BAB.L, 이탈리아=FCT.MI 등).
+- 한국 상장사는 제외하고 해외 기업만 고른다.
+출력은 마크다운/설명 없이 정확히 이 JSON 배열만:
+[{"name": "회사명", "ticker": "야후티커", "note": "왜 peer인지 한국어 한 줄"}]"""
+
+
+def _valid_tickers(peer_list):
+    """yfinance 로 시세가 조회되는 ticker 만 남긴다 (LLM 환각 ticker 제거)."""
+    if not peer_list:
+        return []
+    tickers = [p["ticker"] for p in peer_list]
+    try:
+        df = yf.download(tickers, period="5d", group_by="ticker",
+                         progress=False, threads=True, auto_adjust=True)
+    except Exception:
+        return peer_list                         # 검증 자체가 실패하면 과도하게 거르지 않음
+    keep = []
+    for p in peer_list:
+        try:
+            tdf = sources._ticker_frame(df, p["ticker"])
+            closes = tdf["Close"].dropna() if (tdf is not None and "Close" in tdf.columns) else None
+            if closes is not None and len(closes) >= 1:
+                keep.append(p)
+        except Exception:
+            pass
+    return keep
+
+
+def resolve_peers(client, stock, peer_cfg):
+    """정적 peers.json 을 우선 사용하고, 없으면 LLM 이 해외 peer 를 제안 → ticker 유효성 검증.
+
+    동적 와치리스트(screener.py)로 매일 종목이 바뀌므로, peers.json 에 없는 종목도
+    peer 분석이 비지 않도록 런타임에 해외 비교기업을 찾아준다.
+    """
+    code = stock["code"]
+    if peer_cfg.get(code):
+        return peer_cfg[code]                     # 큐레이션된 정적 peer 우선
+    try:
+        resp = client.messages.create(
+            model=MODEL, max_tokens=700,
+            system=[{"type": "text", "text": PEER_SYSTEM}],
+            messages=[{"role": "user", "content":
+                       f"종목: {stock['name']} ({code}, {stock['market']}). 해외 peer 4-5개."}],
+        )
+        text = "".join(b.text for b in resp.content if b.type == "text")
+        arr = json.loads(text[text.find("["):text.rfind("]") + 1])
+        proposed = [{"name": p.get("name", ""), "ticker": p.get("ticker", ""),
+                     "note": p.get("note", "")} for p in arr if p.get("ticker")]
+    except Exception as e:
+        print(f"[peers] resolve failed for {stock['name']}: {e}", file=sys.stderr)
+        return []
+    valid = _valid_tickers(proposed)
+    print(f"[peers] {stock['name']}: {len(valid)}/{len(proposed)} peer tickers valid",
+          file=sys.stderr)
+    return valid
+
+
+def gather_raw(stock, peer_list):
+    """Collect raw data for one stock. peer_list is already resolved (static or LLM)."""
     code, name = stock["code"], stock["name"]
-    peer_list = peer_cfg.get(code, [])
     peers = sources.get_peer_quotes(peer_list)
 
     raw = {
@@ -138,7 +203,8 @@ def extract_json(text):
 
 
 def analyze_stock(client, stock, peer_cfg):
-    raw, peers = gather_raw(stock, peer_cfg)
+    peer_list = resolve_peers(client, stock, peer_cfg)
+    raw, peers = gather_raw(stock, peer_list)
     user = (f"종목: {stock['name']} ({stock['code']}, {stock['market']})\n"
             f"RAW 데이터(JSON):\n{json.dumps(raw, ensure_ascii=False)}")
 
@@ -173,6 +239,11 @@ def merge_into_report(path, analysis_by_code):
         a = analysis_by_code.get(stock.get("code"))
         if a:
             stock["analysis"] = a
+            # Surface the LLM catalyst to the top-level field the dashboard's
+            # "Market Moving Catalysts" box reads (overrides the placeholder
+            # generate_report.py writes).
+            if a.get("catalyst"):
+                stock["catalyst"] = a["catalyst"]
             changed = True
     if changed:
         with open(path, "w", encoding="utf-8") as f:
