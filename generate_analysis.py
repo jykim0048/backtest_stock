@@ -17,7 +17,6 @@ crashes the batch (so the price report still commits).
 Env: ANTHROPIC_API_KEY, DART_API_KEY, NAVER_CLIENT_ID, NAVER_CLIENT_SECRET, TAVILY_API_KEY
 """
 import os
-import re
 import sys
 import json
 import datetime
@@ -229,18 +228,6 @@ def gather_raw(stock, peer_list):
             "major_holders": sources.dart_major_holders(corp),
         }
     return raw, peers
-
-
-def extract_json(text):
-    """Pull the first balanced JSON object out of an LLM response."""
-    text = text.strip()
-    if text.startswith("```"):
-        text = re.sub(r"^```(?:json)?|```$", "", text, flags=re.MULTILINE).strip()
-    start = text.find("{")
-    end = text.rfind("}")
-    if start == -1 or end == -1:
-        raise ValueError("no JSON object found in response")
-    return json.loads(text[start:end + 1])
 
 
 def analyze_stock(client, stock, peer_cfg):
