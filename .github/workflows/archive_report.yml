@@ -14,14 +14,12 @@ jobs:
   archive:
     runs-on: ubuntu-latest
     if: github.actor != 'github-actions[bot]'
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
     permissions:
       contents: write
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0   # full history so the push-time rebase is clean
 
