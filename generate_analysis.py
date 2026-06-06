@@ -35,7 +35,7 @@ REPORTS_DIR   = os.path.join(ROOT, "public", "reports")
 DAILY_PATH    = os.path.join(ROOT, "public", "daily_market_report.json")
 
 MODEL       = "claude-sonnet-4-6"
-MAX_TOKENS  = 4096
+MAX_TOKENS  = 8192   # one full analysis is ~3.4-5.3k tokens; 4096 truncated mid-JSON
 CONCURRENCY = int(os.environ.get("ANALYSIS_CONCURRENCY", "6"))  # stocks processed in parallel
 
 SYSTEM = """\
@@ -48,12 +48,12 @@ SYSTEM = """\
 - sentiment 값은 정확히 "긍정" | "부정" | "중립" 중 하나.
 - RAW에 없는 사실을 지어내지 말 것. 자료가 빈약하면 그 점을 summary에 명시하고 배열을 줄여라.
 - 각 insight/note는 투자자 관점의 한 줄 해석.
-- 반드시 아래 스키마와 '정확히' 동일한 키 구조의 JSON만 출력. 마크다운 펜스/설명 금지.
+- 출력은 응답 형식(json_schema)으로 강제된다. 스키마에 정의된 키만 채운다.
 
 스키마:
 {
   "catalyst": "오늘 이 종목의 주가를 움직일 핵심 촉매 2-3문장",
-  "peers": { "summary": "2-3문장", "items": [ {"name","ticker","price","changePct","note"} ], "reddit": [ {"title","url","subreddit","sentiment","summary"} ] },
+  "peers": { "summary": "2-3문장", "reddit": [ {"title","url","subreddit","sentiment","summary"} ] },
   "news": { "summary": "3-4문장", "items": [ {"title","source","date","sentiment","url","insight"} ] },
   "community": { "summary": "3-4문장", "sentimentLabel": "", "naver": [ {"title","url","sentiment","summary"} ] },
   "dart": { "summary": "3-4문장", "highlights": [ {"label","value","note"} ] }
@@ -69,7 +69,45 @@ SYSTEM = """\
 - dart: summary와 highlights(4-6개)만 작성한다. **recentFilings는 만들지 마라** — 코드가 DART
   최신 공시 5건을 결정적으로 채운다.
 - 개수 가이드: news 5-7 (국내+해외 혼합), dart highlights 4-6.
-- peers.items 는 입력으로 받은 항목을 그대로(가격/등락률/note 변경 금지) 쓰고 peers.summary/peers.reddit 만 작성한다."""
+- peers.items 는 출력하지 마라 — 코드가 입력 시세를 결정적으로 채운다. peers 는 summary/reddit 만 작성한다."""
+
+
+# JSON Schema for the analysis call (strict structured output). peers.items and
+# dart.recentFilings are filled deterministically by code, so they're omitted here.
+_STR = {"type": "string"}
+
+
+def _obj(props):
+    return {"type": "object", "additionalProperties": False,
+            "properties": props, "required": list(props)}
+
+
+def _arr(item_props):
+    return {"type": "array", "items": _obj(item_props)}
+
+
+ANALYSIS_SCHEMA = _obj({
+    "catalyst": _STR,
+    "peers": _obj({
+        "summary": _STR,
+        "reddit": _arr({"title": _STR, "url": _STR, "subreddit": _STR,
+                        "sentiment": _STR, "summary": _STR}),
+    }),
+    "news": _obj({
+        "summary": _STR,
+        "items": _arr({"title": _STR, "source": _STR, "date": _STR,
+                       "sentiment": _STR, "url": _STR, "insight": _STR}),
+    }),
+    "community": _obj({
+        "summary": _STR,
+        "sentimentLabel": _STR,
+        "naver": _arr({"title": _STR, "url": _STR, "sentiment": _STR, "summary": _STR}),
+    }),
+    "dart": _obj({
+        "summary": _STR,
+        "highlights": _arr({"label": _STR, "value": _STR, "note": _STR}),
+    }),
+})
 
 
 def load_json(path, default=None):
@@ -216,9 +254,15 @@ def analyze_stock(client, stock, peer_cfg):
         max_tokens=MAX_TOKENS,
         system=[{"type": "text", "text": SYSTEM, "cache_control": {"type": "ephemeral"}}],
         messages=[{"role": "user", "content": user}],
+        # Constrain the response to valid JSON server-side so we never hit a
+        # json.loads parse error on free-form model text (the old failure mode).
+        output_config={"format": {"type": "json_schema", "schema": ANALYSIS_SCHEMA}},
     )
+    if resp.stop_reason == "max_tokens":
+        # Truncated mid-JSON — would be invalid even with the schema constraint.
+        raise ValueError(f"response truncated at max_tokens={MAX_TOKENS}; raise MAX_TOKENS")
     text = "".join(b.text for b in resp.content if b.type == "text")
-    analysis = extract_json(text)
+    analysis = json.loads(text)   # guaranteed valid JSON by output_config.format
 
     # Force deterministic peer items (LLM only authored peers.summary/peers.reddit).
     analysis.setdefault("peers", {})["items"] = peers
