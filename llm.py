@@ -74,12 +74,19 @@ def _gemini(model, system, user, max_tokens, schema):
         client = genai.Client(api_key=key)
         _CLIENTS[("gemini", key)] = client
 
-    cfg = genai.types.GenerateContentConfig(
+    cfg_kwargs = dict(
         system_instruction=system,
         response_mime_type="application/json",   # guarantees valid, escaped JSON
         max_output_tokens=max_tokens,
         temperature=0,
     )
+    # Gemini 2.5 models "think" by default, which eats the output-token budget and
+    # truncates the JSON (Unterminated string). These are deterministic extraction
+    # tasks — disable thinking so the whole budget goes to the answer. (2.5-flash /
+    # 2.5-flash-lite accept thinking_budget=0; 2.0-flash has no thinking_config.)
+    if "2.5" in model:
+        cfg_kwargs["thinking_config"] = genai.types.ThinkingConfig(thinking_budget=0)
+    cfg = genai.types.GenerateContentConfig(**cfg_kwargs)
     try:
         resp = client.models.generate_content(model=model, contents=user, config=cfg)
     except gerr.APIError as e:
