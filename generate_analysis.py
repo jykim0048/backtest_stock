@@ -193,7 +193,7 @@ def resolve_peers(stock, peer_cfg):
         data = llm.generate_json(
             PEER_SYSTEM,
             f"종목: {stock['name']} ({code}, {stock['market']}). 해외 peer 4-5개.",
-            max_tokens=700,
+            max_tokens=2048,   # headroom so residual thinking can't truncate the JSON
         )
         arr = data.get("peers", []) if isinstance(data, dict) else []
         proposed = [{"name": p.get("name", ""), "ticker": p.get("ticker", ""),

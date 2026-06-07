@@ -11,8 +11,9 @@ priority first); a link whose API key is missing is skipped silently:
 
     LLM_CHAIN=gemini:gemini-2.5-flash,gemini:gemini-2.0-flash,anthropic:claude-sonnet-4-6
 
-Default chain (cost first — all Gemini free tier, separate per-model quotas):
-    gemini-2.5-flash -> gemini-2.0-flash -> gemini-2.5-flash-lite
+Default chain (cost first — all Gemini, separate per-model quotas):
+    gemini-3.5-flash -> gemini-3.1-flash-lite -> gemini-3-flash-preview
+    -> gemini-2.5-flash -> gemini-2.5-flash-lite
 
 Keys: GEMINI_API_KEY (or GOOGLE_API_KEY) for gemini, ANTHROPIC_API_KEY for
 anthropic. Every link returns parsed JSON via response_mime_type=application/json
@@ -25,8 +26,10 @@ import json
 import time
 import random
 
-DEFAULT_CHAIN = ("gemini:gemini-2.5-flash,"
-                 "gemini:gemini-2.0-flash,"
+DEFAULT_CHAIN = ("gemini:gemini-3.5-flash,"
+                 "gemini:gemini-3.1-flash-lite,"
+                 "gemini:gemini-3-flash-preview,"
+                 "gemini:gemini-2.5-flash,"
                  "gemini:gemini-2.5-flash-lite")
 
 MAX_RETRY = 3                                   # transient retries within one link
@@ -80,12 +83,14 @@ def _gemini(model, system, user, max_tokens, schema):
         max_output_tokens=max_tokens,
         temperature=0,
     )
-    # Gemini 2.5 models "think" by default, which eats the output-token budget and
-    # truncates the JSON (Unterminated string). These are deterministic extraction
-    # tasks — disable thinking so the whole budget goes to the answer. (2.5-flash /
-    # 2.5-flash-lite accept thinking_budget=0; 2.0-flash has no thinking_config.)
+    # Gemini "thinks" by default, which eats the output-token budget and truncates
+    # the JSON (Unterminated string). These are deterministic extraction tasks, so
+    # minimize thinking. The control differs by family: 2.5 uses thinking_budget=0;
+    # Gemini 3 uses thinking_level (lowest broadly-supported level is "low").
     if "2.5" in model:
         cfg_kwargs["thinking_config"] = genai.types.ThinkingConfig(thinking_budget=0)
+    elif model.startswith("gemini-3"):
+        cfg_kwargs["thinking_config"] = genai.types.ThinkingConfig(thinking_level="low")
     cfg = genai.types.GenerateContentConfig(**cfg_kwargs)
     try:
         resp = client.models.generate_content(model=model, contents=user, config=cfg)
@@ -157,7 +162,7 @@ def _chain():
         provider, model = provider.strip().lower(), model.strip()
         if provider in _ADAPTERS and model:
             out.append((provider, model))
-    return out or [("gemini", "gemini-2.5-flash")]
+    return out or [("gemini", "gemini-3.5-flash")]
 
 
 def configured():

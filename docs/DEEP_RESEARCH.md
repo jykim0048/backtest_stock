@@ -155,7 +155,7 @@ MCP는 로컬 전용이라 CI에서는 각 서비스 **REST API를 직접 호출
 | `analysis/sources.py` | REST 래퍼: `get_peer_quotes`(yfinance) · `naver_search`(news/cafe) · `tavily_search`(해외뉴스) · `reddit_search`(공개 JSON, **peer 그룹 여론용**) · `dart_*`(corpCode/financials/disclosures/major_holders). 모든 함수는 실패 시 빈 결과 반환(배치 중단 방지). |
 | `analysis/peers.json` | 종목코드 → 해외 peer 티커·note 맵(도메인 지식, 정적). 가격은 런타임에 yfinance로, **Reddit은 상위 peer 이름으로 검색**. |
 | `generate_analysis.py` | 오케스트레이터. 종목별 RAW 수집 → LLM(`llm.py` 폴백 체인, 기본 Gemini)이 `analysis` 스키마 JSON 생성(구조화 출력으로 유효 JSON 보장) → `daily_market_report.json` / `reports/YYYY-MM-DD.json` 병합. **peers.items 가격은 결정적**(LLM은 peers.summary·peers.reddit·나머지 작성). `fetch_peer_reddit`이 상위 2개 peer로 Reddit 검색(공개 JSON→Tavily 폴백). |
-| `llm.py` | 제공자 무관 LLM JSON 헬퍼. `LLM_CHAIN`(우선순위 `provider:model` 목록)을 순서대로 시도하고 쿼터/billing 소진·rate limit·키 없음 시 다음 모델로 자동 폴백. 기본 체인: `gemini-2.5-flash → gemini-2.0-flash → gemini-2.5-flash-lite`. Anthropic 어댑터도 포함(체인에 추가하면 동작). |
+| `llm.py` | 제공자 무관 LLM JSON 헬퍼. `LLM_CHAIN`(우선순위 `provider:model` 목록)을 순서대로 시도하고 쿼터/billing 소진·rate limit·키 없음 시 다음 모델로 자동 폴백. 기본 체인: `gemini-3.5-flash → gemini-3.1-flash-lite → gemini-3-flash-preview → gemini-2.5-flash → gemini-2.5-flash-lite`. Anthropic 어댑터도 포함(체인에 추가하면 동작). |
 
 ### 실행 순서 (워크플로 `daily_report.yml`)
 1. `generate_report.py` — 가격/레벨(기존)
