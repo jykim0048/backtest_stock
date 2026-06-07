@@ -192,12 +192,15 @@ def _invoke(provider, model, system, user, max_tokens, schema):
     raise _SwitchLink(f"retries exhausted: {last}")
 
 
-def generate_json(system, user, *, max_tokens=4096, schema=None):
+def generate_json(system, user, *, max_tokens=4096, schema=None, return_model=False):
     """Return parsed JSON from the first chain link that succeeds.
 
     system/user are plain strings. `schema` is a JSON-Schema dict used for strict
     output on providers that support it (Anthropic); Gemini relies on the schema
     described in the prompt plus response_mime_type=application/json.
+
+    With return_model=True, returns (data, model_id) so callers can record which
+    model produced the answer (the chain may have fallen through several links).
 
     Raises LLMError if every configured link fails.
     """
@@ -213,9 +216,10 @@ def generate_json(system, user, *, max_tokens=4096, schema=None):
             seen.append(f"{provider}:{model} failed ({e})")
             continue
         try:
-            return json.loads(text)
+            data = json.loads(text)
         except json.JSONDecodeError as e:
             _warn(f"{provider}:{model} returned unparseable JSON ({e}); switching")
             seen.append(f"{provider}:{model} bad JSON ({e})")
             continue
+        return (data, model) if return_model else data
     raise LLMError("all LLM links failed: " + " | ".join(seen))

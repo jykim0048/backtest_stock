@@ -240,7 +240,9 @@ def analyze_stock(stock, peer_cfg):
     # llm.generate_json returns parsed JSON from the first chain link that
     # succeeds (auto-failover on quota/billing/rate-limit). Providers that
     # support it enforce ANALYSIS_SCHEMA; all return valid, escaped JSON.
-    analysis = llm.generate_json(SYSTEM, user, max_tokens=MAX_TOKENS, schema=ANALYSIS_SCHEMA)
+    analysis, model_used = llm.generate_json(
+        SYSTEM, user, max_tokens=MAX_TOKENS, schema=ANALYSIS_SCHEMA, return_model=True)
+    analysis["generatedBy"] = model_used   # surfaced on the dashboard
 
     # Force deterministic peer items (LLM only authored peers.summary/peers.reddit).
     analysis.setdefault("peers", {})["items"] = peers

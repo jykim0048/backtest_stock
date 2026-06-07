@@ -1005,6 +1005,16 @@
       padding-bottom: 12px;
       border-bottom: 1px dashed var(--border-color);
     }
+    .analysis-model {
+      display: inline-block;
+      font-size: 11px;
+      color: var(--text-muted);
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 2px 8px;
+      margin-bottom: 10px;
+    }
     .analysis-item {
       padding: 10px 0;
       border-bottom: 1px solid rgba(255, 255, 255, 0.04);
@@ -2108,10 +2118,12 @@
         box.innerHTML = `<span class="analysis-empty">이 종목은 아직 심층 리서치 데이터가 없습니다. (현재 한미약품만 프로토타입 제공)</span>`;
         return;
       }
+      const modelBadge = a.generatedBy
+        ? `<div class="analysis-model">🤖 분석 생성 모델: ${escapeHtml(a.generatedBy)}</div>` : "";
       const sec = a[currentAnalysisTab];
-      if (!sec) { box.innerHTML = `<span class="analysis-empty">데이터 없음</span>`; return; }
+      if (!sec) { box.innerHTML = modelBadge + `<span class="analysis-empty">데이터 없음</span>`; return; }
 
-      let html = sec.summary ? `<div class="analysis-summary">${escapeHtml(sec.summary)}</div>` : "";
+      let html = modelBadge + (sec.summary ? `<div class="analysis-summary">${escapeHtml(sec.summary)}</div>` : "");
 
       if (currentAnalysisTab === "peers") {
         html += (sec.items || []).map(it => {
