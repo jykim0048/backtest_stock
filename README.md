@@ -169,7 +169,7 @@ python generate_analysis.py # 딥리서치 분석 병합 (API 키 필요)
 - **Frontend:** Vanilla JS, HTML, CSS (단일 `index.html`)
 - **Backend:** Python `http.server` (로컬), Vercel Python Serverless (배포)
 - **Data:** [yfinance](https://github.com/ranaroussi/yfinance)(미국·실시간), [FinanceDataReader](https://github.com/FinanceData/FinanceDataReader)(KRX 유니버스), 네이버 뉴스 API, DART OpenAPI
-- **선정/분석:** Anthropic Claude (장전 종목 선정 + 딥리서치)
+- **선정/분석:** LLM 폴백 체인 (`llm.py`, 기본 Google Gemini · 쿼터 소진 시 자동 전환) — 장전 종목 선정 + 딥리서치
 - **자동화:** GitHub Actions (cron)
 - **배포:** Vercel
 

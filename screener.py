@@ -23,10 +23,10 @@ generate_report.py 가 항상 돌 수 있게 한다.
 정확한 코스피200/코스닥150 멤버십은 KRX 로그인이 필요해 기본은 시가총액 상위 근사를 쓴다.
 data/index_constituents.json (KOSPI200/KOSDAQ150 코드 배열)이 있으면 그 명단을 우선 사용한다.
 
-Env (GitHub Actions secrets): ANTHROPIC_API_KEY, NAVER_CLIENT_ID/SECRET, DART_API_KEY, TAVILY_API_KEY
+Env (GitHub Actions secrets): GEMINI_API_KEY (or LLM_CHAIN + matching keys),
+NAVER_CLIENT_ID/SECRET, DART_API_KEY, TAVILY_API_KEY
 """
 import os
-import re
 import sys
 import json
 import datetime
@@ -45,6 +45,7 @@ import numpy as np
 import pandas as pd
 import yfinance as yf
 
+import llm                          # provider-agnostic LLM with fallback chain
 from analysis import sources
 
 ROOT          = os.path.dirname(os.path.abspath(__file__))
@@ -65,7 +66,6 @@ NEWS_FETCH     = 30    # 시간창 필터 전, 최신순으로 받아올 뉴스 
 NEWS_MAX       = 8     # 시간창 통과 후 후보당 최대 뉴스 수
 US_MOVERS_TOP  = 20    # 미국 급등 특징주 상위 N (시총 하한 없음)
 
-MODEL      = "claude-sonnet-4-6"
 MAX_TOKENS = 3500
 
 # 미국 지수 / 섹터 ETF (전일 세션 동향). name 은 한국어 표기.
@@ -417,25 +417,25 @@ SYSTEM = """\
 picks 는 정확히 {n}개."""
 
 
-def _extract_json(text):
-    text = text.strip()
-    if text.startswith("```"):
-        text = re.sub(r"^```(?:json)?|```$", "", text, flags=re.MULTILINE).strip()
-    start, end = text.find("{"), text.rfind("}")
-    if start == -1 or end == -1:
-        raise ValueError("no JSON object in response")
-    return json.loads(text[start:end + 1])
+_STR = {"type": "string"}
+SELECT_SCHEMA = {
+    "type": "object", "additionalProperties": False,
+    "properties": {
+        "marketView": _STR,
+        "picks": {"type": "array", "items": {
+            "type": "object", "additionalProperties": False,
+            "properties": {"code": _STR, "name": _STR, "market": _STR,
+                           "reason": _STR, "catalyst": _STR},
+            "required": ["code", "name", "market", "reason", "catalyst"]}},
+    },
+    "required": ["marketView", "picks"],
+}
 
 
 def llm_select(us_brief, pool):
-    """Claude 로 최종 N종목 선정. 실패 시 None 반환(호출부에서 fallback)."""
-    if not os.environ.get("ANTHROPIC_API_KEY"):
-        _warn("ANTHROPIC_API_KEY missing; using mechanical fallback")
-        return None
-    try:
-        from anthropic import Anthropic
-    except Exception as e:
-        _warn(f"anthropic import failed: {e}")
+    """LLM 으로 최종 N종목 선정. 실패 시 None 반환(호출부에서 fallback)."""
+    if not llm.configured():
+        _warn("no LLM provider configured; using mechanical fallback")
         return None
 
     candidates = []
@@ -454,14 +454,7 @@ def llm_select(us_brief, pool):
     user = json.dumps({"us_market": us_brief, "candidates": candidates}, ensure_ascii=False)
     system = SYSTEM.replace("{n}", str(N_FINAL))
     try:
-        client = Anthropic()
-        resp = client.messages.create(
-            model=MODEL, max_tokens=MAX_TOKENS,
-            system=[{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}],
-            messages=[{"role": "user", "content": user}],
-        )
-        text = "".join(b.text for b in resp.content if b.type == "text")
-        result = _extract_json(text)
+        result = llm.generate_json(system, user, max_tokens=MAX_TOKENS, schema=SELECT_SCHEMA)
     except Exception as e:
         _warn(f"LLM selection failed: {e}")
         return None

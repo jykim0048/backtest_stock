@@ -6,7 +6,8 @@ Pipeline per watchlist stock:
   1. Fetch RAW data via REST (analysis/sources.py):
        peers (yfinance + Reddit on the overseas peer group) · news (Naver+Tavily)
        · community (Naver cafe — Korean retail) · DART
-  2. One Claude (Sonnet 4.6) call turns the raw data into the `analysis` schema
+  2. One LLM call (provider-agnostic via llm.py — Gemini by default, with an
+     auto-failover chain) turns the raw data into the `analysis` schema
      (summaries, sentiment, insights; peer prices kept deterministic).
   3. Merge `analysis` into public/daily_market_report.json and public/reports/YYYY-MM-DD.json.
 
@@ -14,7 +15,8 @@ Must run AFTER generate_report.py (which writes the base report).
 Degrades gracefully: a stock that fails keeps any existing analysis and never
 crashes the batch (so the price report still commits).
 
-Env: ANTHROPIC_API_KEY, DART_API_KEY, NAVER_CLIENT_ID, NAVER_CLIENT_SECRET, TAVILY_API_KEY
+Env: GEMINI_API_KEY (or LLM_CHAIN + matching keys), DART_API_KEY,
+     NAVER_CLIENT_ID, NAVER_CLIENT_SECRET, TAVILY_API_KEY
 """
 import os
 import sys
@@ -22,7 +24,7 @@ import json
 import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-from anthropic import Anthropic
+import llm                           # provider-agnostic LLM with fallback chain
 
 from analysis import sources       # imports yfinance + redirects its cache to /tmp on CI
 import yfinance as yf
@@ -33,9 +35,10 @@ PEERS_PATH    = os.path.join(ROOT, "analysis", "peers.json")
 REPORTS_DIR   = os.path.join(ROOT, "public", "reports")
 DAILY_PATH    = os.path.join(ROOT, "public", "daily_market_report.json")
 
-MODEL       = "claude-sonnet-4-6"
 MAX_TOKENS  = 8192   # one full analysis is ~3.4-5.3k tokens; 4096 truncated mid-JSON
-CONCURRENCY = int(os.environ.get("ANALYSIS_CONCURRENCY", "6"))  # stocks processed in parallel
+# Default low — free-tier LLM providers cap requests-per-minute; raise if you
+# have headroom (each stock makes up to 2 calls: peer resolution + analysis).
+CONCURRENCY = int(os.environ.get("ANALYSIS_CONCURRENCY", "3"))  # stocks processed in parallel
 
 SYSTEM = """\
 너는 한국 주식 투자 리서치 애널리스트다. 주어진 RAW 데이터(해외 peer 시세, peer 그룹 Reddit
@@ -151,8 +154,8 @@ PEER_SYSTEM = """\
 - ticker 는 Yahoo Finance 에서 조회 가능한 정확한 심볼이어야 한다
   (미국=AAPL, 일본=6479.T, 대만=3008.TW, 홍콩=2382.HK, 독일=ENR.DE, 영국=BAB.L, 이탈리아=FCT.MI 등).
 - 한국 상장사는 제외하고 해외 기업만 고른다.
-출력은 마크다운/설명 없이 정확히 이 JSON 배열만:
-[{"name": "회사명", "ticker": "야후티커", "note": "왜 peer인지 한국어 한 줄"}]"""
+출력은 정확히 이 JSON 객체만 (peers 배열에 4-5개):
+{"peers": [{"name": "회사명", "ticker": "야후티커", "note": "왜 peer인지 한국어 한 줄"}]}"""
 
 
 def _valid_tickers(peer_list):
@@ -177,7 +180,7 @@ def _valid_tickers(peer_list):
     return keep
 
 
-def resolve_peers(client, stock, peer_cfg):
+def resolve_peers(stock, peer_cfg):
     """정적 peers.json 을 우선 사용하고, 없으면 LLM 이 해외 peer 를 제안 → ticker 유효성 검증.
 
     동적 와치리스트(screener.py)로 매일 종목이 바뀌므로, peers.json 에 없는 종목도
@@ -187,14 +190,12 @@ def resolve_peers(client, stock, peer_cfg):
     if peer_cfg.get(code):
         return peer_cfg[code]                     # 큐레이션된 정적 peer 우선
     try:
-        resp = client.messages.create(
-            model=MODEL, max_tokens=700,
-            system=[{"type": "text", "text": PEER_SYSTEM}],
-            messages=[{"role": "user", "content":
-                       f"종목: {stock['name']} ({code}, {stock['market']}). 해외 peer 4-5개."}],
+        data = llm.generate_json(
+            PEER_SYSTEM,
+            f"종목: {stock['name']} ({code}, {stock['market']}). 해외 peer 4-5개.",
+            max_tokens=700,
         )
-        text = "".join(b.text for b in resp.content if b.type == "text")
-        arr = json.loads(text[text.find("["):text.rfind("]") + 1])
+        arr = data.get("peers", []) if isinstance(data, dict) else []
         proposed = [{"name": p.get("name", ""), "ticker": p.get("ticker", ""),
                      "note": p.get("note", "")} for p in arr if p.get("ticker")]
     except Exception as e:
@@ -230,26 +231,16 @@ def gather_raw(stock, peer_list):
     return raw, peers
 
 
-def analyze_stock(client, stock, peer_cfg):
-    peer_list = resolve_peers(client, stock, peer_cfg)
+def analyze_stock(stock, peer_cfg):
+    peer_list = resolve_peers(stock, peer_cfg)
     raw, peers = gather_raw(stock, peer_list)
     user = (f"종목: {stock['name']} ({stock['code']}, {stock['market']})\n"
             f"RAW 데이터(JSON):\n{json.dumps(raw, ensure_ascii=False)}")
 
-    resp = client.messages.create(
-        model=MODEL,
-        max_tokens=MAX_TOKENS,
-        system=[{"type": "text", "text": SYSTEM, "cache_control": {"type": "ephemeral"}}],
-        messages=[{"role": "user", "content": user}],
-        # Constrain the response to valid JSON server-side so we never hit a
-        # json.loads parse error on free-form model text (the old failure mode).
-        output_config={"format": {"type": "json_schema", "schema": ANALYSIS_SCHEMA}},
-    )
-    if resp.stop_reason == "max_tokens":
-        # Truncated mid-JSON — would be invalid even with the schema constraint.
-        raise ValueError(f"response truncated at max_tokens={MAX_TOKENS}; raise MAX_TOKENS")
-    text = "".join(b.text for b in resp.content if b.type == "text")
-    analysis = json.loads(text)   # guaranteed valid JSON by output_config.format
+    # llm.generate_json returns parsed JSON from the first chain link that
+    # succeeds (auto-failover on quota/billing/rate-limit). Providers that
+    # support it enforce ANALYSIS_SCHEMA; all return valid, escaped JSON.
+    analysis = llm.generate_json(SYSTEM, user, max_tokens=MAX_TOKENS, schema=ANALYSIS_SCHEMA)
 
     # Force deterministic peer items (LLM only authored peers.summary/peers.reddit).
     analysis.setdefault("peers", {})["items"] = peers
@@ -286,14 +277,14 @@ def merge_into_report(path, analysis_by_code):
 
 
 def main():
-    if not os.environ.get("ANTHROPIC_API_KEY"):
-        print("ERROR: ANTHROPIC_API_KEY not set", file=sys.stderr)
+    if not llm.configured():
+        print("ERROR: no LLM provider configured (set GEMINI_API_KEY, or LLM_CHAIN "
+              "with a matching key)", file=sys.stderr)
         sys.exit(1)
 
     watchlist = load_json(WATCHLIST, [])
     peer_cfg = {k: v for k, v in (load_json(PEERS_PATH, {}) or {}).items()
                 if not k.startswith("_")}
-    client = Anthropic()
 
     # Pre-warm the (large) DART corpCode map once so parallel workers don't race on it.
     sources._load_corp_map()
@@ -303,7 +294,7 @@ def main():
           f"({workers}-way parallel) ===")
     analysis_by_code = {}
     with ThreadPoolExecutor(max_workers=workers) as pool:
-        futures = {pool.submit(analyze_stock, client, s, peer_cfg): s
+        futures = {pool.submit(analyze_stock, s, peer_cfg): s
                    for s in watchlist}
         for fut in as_completed(futures):
             stock = futures[fut]
