@@ -1358,56 +1358,8 @@
     let maxAllocationPerStock = totalCapital; // Will be initialized dynamically
 
     // Comprehensive Stock Datasets with full Catalysts, Scenarios, and Portfolio states
-    const stockData = [
-      { 
-        code: "066570", 
-        name: "LG전자", 
-        market: "KOSPI", 
-        basePrice: 293000, 
-        entry: 288000, 
-        target: 320000, 
-        stop: 268000, 
-        stars: "⭐⭐⭐⭐⭐",
-        catalyst: "엔비디아 젠슨 황 CEO 방한 및 LG그룹 구광모 회장 회동을 통한 '피지컬 AI' 파트너십 기대감 극대화. 특히 자율주행 모빌리티 및 서비스용 로봇 산업 내 실질적 하드웨어/소프트웨어 기술 연합 성사 가능성이 대두되며 기관 수급이 강하게 유입되었습니다.",
-        scenario: "<b>[돌파 및 눌림 공략 시나리오]</b><br>시초가 갭이 +10% 이하로 비교적 차분하게 시작하면 1차 매수 진입. 만약 과도한 갭상승이 나타난다면 오전 9시 30분까지 가격 조정을 기다렸다가, 금요일 상한가 돌파 마감선인 293,000원을 강한 거래량으로 견고하게 지지해 주는지 확인한 후 추종 매수(돌파) 주문을 실행하십시오."
-      },
-      { 
-        code: "011070", 
-        name: "LG이노텍", 
-        market: "KOSPI", 
-        basePrice: 1458000, 
-        entry: 1400000, 
-        target: 1600000, 
-        stop: 1320000, 
-        stars: "⭐⭐⭐⭐⭐",
-        catalyst: "LG그룹의 로보틱스/자율주행 하드웨어 공급 체인의 핵심 축. 엔비디아 드라이브 플랫폼과 연동되는 고성능 라이다(LiDAR), 카메라 모듈 및 패키지 기판(FC-BGA) 등 고부가 반도체 기판 공급의 수혜 기대감이 강하게 반영되며 장대양봉을 완성했습니다.",
-        scenario: "<b>[눌림목 지정가 매수 시나리오]</b><br>금요일 종가 부근에서 거래가 과열되었기 때문에 장 개시 직후 급격한 차익실현 매물 출회가 우려됩니다. 무리한 시초 시장가 돌파 추격보다는 전일 장대양봉의 피보나치 0.382 되돌림 가중 평균값에 수렴하는 1,420,000원 구간에서 지정가 매수를 체결하는 분할 진입이 손익비 관점에서 우수합니다."
-      },
-      { 
-        code: "035420", 
-        name: "네이버", 
-        market: "KOSPI", 
-        basePrice: 234000, 
-        entry: 228000, 
-        target: 260000, 
-        stop: 218000, 
-        stars: "⭐⭐⭐⭐",
-        catalyst: "젠슨 황 CEO와 네이버 이해진 의장의 독대 일정이 예정되며 '소버린 AI(Sovereign AI)' 및 아태지역 특화 클라우드 동맹 가능성이 재부각되었으며 장기 하강 추세선을 거래량과 함께 돌파했습니다.",
-        scenario: "<b>[눌림 매집 시나리오]</b><br>돌파 마디인 225,000~230,000원 구간에서 당일 지수가 흔들리거나 일시 차익실현 매물이 출회될 때 지정가 매집을 유도하며, 목표치는 타이트하게 260,000원 직전에서 분할 매도합니다."
-      },
-      { 
-        code: "090360", 
-        name: "로보스타", 
-        market: "KOSDAQ", 
-        basePrice: 94000, 
-        entry: 90000, 
-        target: 108000, 
-        stop: 83500, 
-        stars: "⭐⭐⭐⭐⭐",
-        catalyst: "LG그룹의 산업용 로봇 제조 핵심 계열사로서 '피지컬 AI' 아젠다 및 구광모 회장-젠슨 황 CEO 회동의 가장 직관적인 소형주 수혜 모델로 꼽히며 수급 탄력성이 극대화되었습니다.",
-        scenario: "<b>[시초 갭 지지 매수 시나리오]</b><br>코스닥 대장급 고베타 종목이므로 장 초반 변동성이 매우 큽니다. 시초가 갭이 +10% 이하 범위에 머무를 경우 시초 진입하고, 90,000원 전후 눌림 시 적극 지지선 분할 매수로 대응하며 손절선은 83,500원으로 철저하게 통제하십시오."
-      }
-    ];
+    // 종목 데이터는 window.onload에서 daily_market_report.json으로 채운다.
+    const stockData = [];
 
     let isTradingOn = true;
     let selectedStockIndex = 0;
@@ -1509,11 +1461,14 @@
 
     // Load a report by date string (YYYY-MM-DD) or "today"
     async function loadDynamicReportData(date) {
-      const url = (!date || date === "today")
+      const base = (!date || date === "today")
         ? "daily_market_report.json"
         : `reports/${date}.json`;
+      // Cache-busting query so a freshly-generated report is never masked by
+      // a stale browser/CDN cache on page reload.
+      const url = `${base}?t=${Date.now()}`;
       try {
-        const response = await fetch(url);
+        const response = await fetch(url, { cache: "no-store" });
         if (response.ok) {
           const data = await response.json();
           if (Array.isArray(data) && data.length > 0) {
@@ -1536,7 +1491,7 @@
           }
         }
       } catch (err) {
-        console.warn(`Failed to load report from ${url}, using hardcoded default stocks.`, err);
+        console.warn(`Failed to load report from ${url}; stock list will be empty.`, err);
       }
     }
 
