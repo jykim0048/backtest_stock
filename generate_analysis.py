@@ -67,7 +67,9 @@ SYSTEM = """\
 - peers.reddit: 입력 peers_reddit(해외 peer/섹터에 대한 영어권 Reddit 글)을 바탕으로 3-5개.
   해외 peer 그룹에 대한 여론·논점을 요약한다. title/url/subreddit은 원문, summary는 한국어 한 줄.
   한국 종목이 직접 언급되지 않으면 peer/섹터 맥락으로 해석하고 summary에 그 점을 밝힌다.
-- community: 네이버 카페/종목토론방 등 '국내 개인투자자' 여론만 담는다(Reddit 제외). naver 3-5개.
+- community: 네이버 카페(naver_cafe)와 종목토론방(naver_board) 글로 '국내 개인투자자' 여론만
+  담는다(Reddit 제외). naver 3-5개에는 종목토론방 글을 우선 담고, 공감/비공감(agree/disagree)
+  수로 여론의 강도·쏠림을 가늠해 summary와 sentimentLabel에 반영한다.
 - dart: summary와 highlights(4-6개)만 작성한다. **recentFilings는 만들지 마라** — 코드가 DART
   최신 공시 5건을 결정적으로 채운다.
 - 개수 가이드: news 5-7 (국내+해외 혼합), dart highlights 4-6.
@@ -219,6 +221,7 @@ def gather_raw(stock, peer_list):
         "naver_news": sources.naver_search("news", name, display=8),
         "overseas_news": sources.tavily_search(f"{name} stock news", max_results=5),
         "naver_cafe": sources.naver_search("cafearticle", name, display=6),  # 국내 community
+        "naver_board": sources.naver_board(code, pages=2),                   # 종목토론방(개인투자자)
         "dart": {},
     }
     corp = sources.dart_corp_code(code)

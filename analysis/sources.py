@@ -119,6 +119,68 @@ def _strip_tags(s):
 
 
 # ----------------------------------------------------------------------------
+# 2b) Naver Finance 종목토론방 (HTML scrape — not in the official Search API)
+#     Encoding is auto-detected (now UTF-8; was EUC-KR historically). Datacenter/CI
+#     IPs may be blocked, so this degrades to [] (cafearticle search is the fallback).
+# ----------------------------------------------------------------------------
+def naver_board(code, pages=1, limit=15):
+    """종목토론방(finance.naver.com/item/board) 글을 파싱한다.
+
+    Returns list of {title, url, date, views, agree, disagree}, 공감수 내림차순
+    (노이즈/낚시 글을 가라앉히기 위함). 실패 시 [] 반환(배치 중단 방지).
+    """
+    try:
+        from bs4 import BeautifulSoup
+    except Exception:
+        _warn("beautifulsoup4 not installed — naver_board skipped")
+        return []
+
+    out = []
+    for page in range(1, pages + 1):
+        try:
+            r = requests.get(
+                "https://finance.naver.com/item/board.naver",
+                params={"code": code, "page": page},
+                headers={**UA, "Referer":
+                         f"https://finance.naver.com/item/main.naver?code={code}"},
+                timeout=15,
+            )
+            r.encoding = r.apparent_encoding or "utf-8"   # 자동 감지 (UTF-8/EUC-KR 모두 대응)
+            r.raise_for_status()
+        except Exception as e:
+            _warn(f"naver_board({code}, p{page}) failed: {e}")
+            break
+
+        table = BeautifulSoup(r.text, "html.parser").select_one("table.type2")
+        if table is None:
+            break
+        for tr in table.select("tr"):
+            a = tr.select_one("td.title a")
+            if not a:
+                continue
+            tds = tr.find_all("td")           # 날짜 | 제목 | 글쓴이 | 조회 | 공감 | 비공감
+
+            def _num(i):
+                try:
+                    return int(tds[i].get_text(strip=True).replace(",", ""))
+                except Exception:
+                    return 0
+
+            href = a.get("href", "")
+            out.append({
+                "title": (a.get("title") or a.get_text(strip=True)).strip(),
+                "url": "https://finance.naver.com" + href if href.startswith("/") else href,
+                "date": tds[0].get_text(strip=True) if tds else "",
+                "views": _num(3),
+                "agree": _num(4),
+                "disagree": _num(5),
+            })
+
+    out.sort(key=lambda x: x.get("agree", 0), reverse=True)
+    return out[:limit]
+
+
+# ----------------------------------------------------------------------------
 # 3) Tavily Search API (overseas news, reddit)
 # ----------------------------------------------------------------------------
 def tavily_search(query, max_results=5, include_domains=None):
