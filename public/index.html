@@ -1272,7 +1272,12 @@
         
         <!-- Live Portfolio Account Summary widget -->
         <div class="side-panel">
-          <h3>📊 Realtime Portfolio Summary</h3>
+          <h3 style="display:flex; justify-content:space-between; align-items:center;">
+            <span>📊 Realtime Portfolio Summary</span>
+            <button onclick="resetPortfolioAccount()" title="모의투자 계좌를 1억원으로 초기화"
+              style="font-size:11px; padding:3px 8px; background:transparent; color:var(--text-muted);
+                     border:1px solid var(--border-color); border-radius:6px; cursor:pointer;">계좌 초기화</button>
+          </h3>
           <div class="portfolio-summary-box">
             <div class="port-item">
               <span class="port-lbl">총 자본금 설정액</span>
@@ -1366,24 +1371,159 @@
     let useSimulatedData = false;
     let isOpeningOrderExecuted = false;
 
-    // Initialize all portfolio properties dynamically to achieve perfect dynamic N-splitting
+    // --- Persistent paper-trading account (localStorage) ---------------------
+    // 모의투자 계좌를 브라우저에 영속화한다. 새로고침/장 마감/다음 거래일에도
+    // 보유내역·예수금·로그가 초기화되지 않고 "계속 누적"된다.
+    // 예수금은 종목별 버킷이 아니라 단일 글로벌 계좌(cashBalance)로 관리한다 —
+    // 매일 워치리스트(종목 수 N)가 바뀌어도 손익 계산이 일관되게 유지되도록.
+    const PORTFOLIO_KEY = "qa_portfolio_v1";
+    let cashBalance = totalCapital;   // 예수금 (글로벌). 매수 시 차감, 매도 시 가산.
+    let realizedPnl = 0;              // 누적 실현손익
+    let openingOrderDate = null;      // 시초가 자동매수를 집행한 KST 날짜(거래일당 1회 보장)
+    let isLiveView = true;            // '오늘(라이브)' 리포트일 때만 매매/저장 (과거 열람 시 false)
+
+    function todayKST() {
+      return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Seoul" }); // YYYY-MM-DD
+    }
+
+    // 새 거래일이면 시초가 자동매수를 다시 집행해야 한다.
+    function needsOpeningOrder() {
+      return openingOrderDate !== todayKST();
+    }
+
+    // 한 종목의 포트폴리오 필드를 빈 상태로 초기화 (보유 0).
+    function applyDefaults(stock) {
+      stock.price = stock.price || stock.basePrice;
+      stock.rate = 0;
+      stock.quantity = 0;
+      stock.avgBuyPrice = 0;
+      stock.investedCapital = 0;
+      stock.followBudget = 0;   // 시초 매수 후 남겨둔 추가매수(95%) 한도
+      stock.pnl = 0;
+      stock.pnlRate = 0;
+      stock.hasFollowedUp = false;
+      stock.isGapFiltered = false;
+      stock.hasLoggedGapFilter = false;
+      stock.openingGap = 0;
+      stock.history = [stock.basePrice, stock.basePrice, stock.basePrice, stock.basePrice];
+    }
+
+    // 깨끗한 계좌로 초기화 (첫 실행 / 과거 리포트 열람 / 계좌 리셋).
     function initializePortfolioState() {
-      maxAllocationPerStock = totalCapital / stockData.length;
-      stockData.forEach(stock => {
-        stock.price = stock.basePrice;
-        stock.rate = 0;
-        stock.quantity = 0;
-        stock.avgBuyPrice = 0;
-        stock.investedCapital = 0;
-        stock.cashRemaining = maxAllocationPerStock;
-        stock.pnl = 0;
-        stock.pnlRate = 0;
-        stock.hasFollowedUp = false;
-        stock.isGapFiltered = false;
-        stock.hasLoggedGapFilter = false;
-        stock.openingGap = 0;
-        stock.history = [stock.basePrice, stock.basePrice, stock.basePrice, stock.basePrice];
+      maxAllocationPerStock = totalCapital / Math.max(1, stockData.length);
+      cashBalance = totalCapital;
+      realizedPnl = 0;
+      stockData.forEach(applyDefaults);
+    }
+
+    // 현재 계좌 상태를 localStorage에 저장 (라이브 뷰에서만).
+    function savePortfolio() {
+      if (!isLiveView) return;
+      try {
+        const positions = {};
+        stockData.forEach(s => {
+          positions[s.code] = {
+            quantity: s.quantity, avgBuyPrice: s.avgBuyPrice,
+            investedCapital: s.investedCapital, followBudget: s.followBudget,
+            pnl: s.pnl, pnlRate: s.pnlRate, hasFollowedUp: s.hasFollowedUp,
+            isGapFiltered: s.isGapFiltered, hasLoggedGapFilter: s.hasLoggedGapFilter,
+            openingGap: s.openingGap, price: s.price, history: s.history,
+            // 워치리스트에서 빠져도 종목을 다시 그릴 수 있도록 최소 스냅샷 보관
+            // (분석/딥리서치는 용량상 제외 — 오늘 워치리스트 종목은 리포트에서 다시 로드됨)
+            snapshot: { code: s.code, name: s.name, market: s.market,
+                        basePrice: s.basePrice, entry: s.entry, target: s.target,
+                        stop: s.stop, stars: s.stars || "", catalyst: s.catalyst || "",
+                        scenario: s.scenario || "" }
+          };
+        });
+        const logsBox = document.getElementById("logs-box");
+        // 로그는 누적되므로 용량 폭주 방지: 200KB 초과 시 저장에서 제외
+        let logsHtml = logsBox ? logsBox.innerHTML : "";
+        if (logsHtml.length > 200000) logsHtml = "";
+        localStorage.setItem(PORTFOLIO_KEY, JSON.stringify({
+          version: 1, cashBalance, realizedPnl, openingOrderDate, positions,
+          logsHtml,
+          savedAt: new Date().toISOString()
+        }));
+      } catch (_) { /* localStorage 불가(시크릿/용량초과) — 저장 생략 */ }
+    }
+
+    // 저장된 계좌를 오늘 워치리스트(stockData)에 복원한다.
+    // 반환: 저장 객체(복원됨) 또는 null(첫 실행).
+    function restorePortfolio() {
+      maxAllocationPerStock = totalCapital / Math.max(1, stockData.length);
+      let saved = null;
+      try { saved = JSON.parse(localStorage.getItem(PORTFOLIO_KEY) || "null"); } catch (_) {}
+
+      if (!saved || !saved.positions) {            // 첫 실행 — 깨끗한 계좌
+        initializePortfolioState();
+        return null;
+      }
+
+      cashBalance = (typeof saved.cashBalance === "number") ? saved.cashBalance : totalCapital;
+      realizedPnl = saved.realizedPnl || 0;
+      openingOrderDate = saved.openingOrderDate || null;
+      isOpeningOrderExecuted = !needsOpeningOrder();
+
+      const restoreFields = (s, p) => {
+        s.quantity = p.quantity || 0;
+        s.avgBuyPrice = p.avgBuyPrice || 0;
+        s.investedCapital = p.investedCapital || 0;
+        s.followBudget = (typeof p.followBudget === "number") ? p.followBudget : 0;
+        s.pnl = p.pnl || 0;
+        s.pnlRate = p.pnlRate || 0;
+        s.hasFollowedUp = !!p.hasFollowedUp;
+        s.isGapFiltered = !!p.isGapFiltered;
+        s.hasLoggedGapFilter = !!p.hasLoggedGapFilter;
+        s.openingGap = p.openingGap || 0;
+        s.price = p.price || s.basePrice;
+        s.rate = s.rate || 0;
+        s.history = (Array.isArray(p.history) && p.history.length)
+          ? p.history.slice(-8)
+          : [s.basePrice, s.basePrice, s.basePrice, s.basePrice];
+      };
+
+      const seen = new Set();
+      stockData.forEach(s => {
+        const p = saved.positions[s.code];
+        if (p) { restoreFields(s, p); seen.add(s.code); }
+        else { applyDefaults(s); }
       });
+
+      // 워치리스트에서 빠졌지만 아직 보유 중인 종목 → 이월해 계속 표시/누적
+      Object.keys(saved.positions).forEach(code => {
+        if (seen.has(code)) return;
+        const p = saved.positions[code];
+        if (!p || !(p.quantity > 0) || !p.snapshot) return;
+        const s = Object.assign({}, p.snapshot, { analysis: null, carriedOver: true });
+        restoreFields(s, p);
+        stockData.push(s);
+      });
+
+      return saved;
+    }
+
+    // 모의투자 계좌를 완전히 초기화한다 (사용자 명시적 리셋).
+    function resetPortfolioAccount() {
+      if (!confirm("모의투자 계좌를 초기화할까요?\n보유내역·예수금·실현손익·로그가 모두 삭제되고 1억원에서 다시 시작합니다.")) return;
+      try { localStorage.removeItem(PORTFOLIO_KEY); } catch (_) {}
+      // 이월 종목 제거: 오늘 워치리스트만 남긴다
+      for (let i = stockData.length - 1; i >= 0; i--) {
+        if (stockData[i].carriedOver) stockData.splice(i, 1);
+      }
+      openingOrderDate = null;
+      isOpeningOrderExecuted = false;
+      initializePortfolioState();
+      if (isMarketOpen()) executeOpeningOrder();
+      renderTable();
+      updatePortfolioAccountSummary();
+      const logsBox = document.getElementById("logs-box");
+      if (logsBox) {
+        const time = new Date().toTimeString().split(" ")[0];
+        logsBox.innerHTML += `<div class="log-line" style="color:var(--up-red); font-weight:bold;"><span class="log-time">[${time}]</span> [계좌 초기화] 모의투자 계좌가 1억원으로 리셋되었습니다.</div>`;
+        logsBox.scrollTop = logsBox.scrollHeight;
+      }
+      savePortfolio();
     }
 
     // Check KST Market Opening Hours
@@ -1497,8 +1637,18 @@
 
     // Called when user picks a different date
     async function onReportDateChange(date) {
+      const live = (!date || date === "today");
+      // 이전 라이브 세션의 이월 종목 제거 (날짜 전환 시 stockData 재구성)
+      for (let i = stockData.length - 1; i >= 0; i--) {
+        if (stockData[i].carriedOver) stockData.splice(i, 1);
+      }
       await loadDynamicReportData(date);
-      initializePortfolioState();
+      isLiveView = live;
+      if (live) {
+        restorePortfolio();   // 영속 계좌 복원
+      } else {
+        initializePortfolioState();   // 과거 리포트는 깨끗한 임시 계좌로 열람 (저장 안 함)
+      }
       renderTable();
       updatePortfolioAccountSummary();
       const logsBox = document.getElementById("logs-box");
@@ -1512,41 +1662,58 @@
     window.onload = async function() {
       await loadReportIndex();
       await loadDynamicReportData("today");
-      initializePortfolioState();
-      // Only execute the opening buy if the market is actually open right now!
-      if (isMarketOpen()) {
+      isLiveView = true;
+      // 저장된 모의투자 계좌를 복원 (없으면 깨끗한 계좌). 새로고침/장 마감 후에도 누적 유지.
+      const saved = restorePortfolio();
+      // Only execute the opening buy if the market is open AND not yet done today.
+      if (isMarketOpen() && needsOpeningOrder()) {
         executeOpeningOrder();
       }
       renderTable();
-      initializeLogs();
-      fetchRealPrices(); 
-      setInterval(fetchRealPrices, 5000); 
-      setInterval(tickSimulation, 1500); 
-      setInterval(updateEngineStatusIndicator, 5000); 
+      if (saved && saved.logsHtml) {
+        const logsBox = document.getElementById("logs-box");
+        logsBox.innerHTML = saved.logsHtml;
+        const time = new Date().toTimeString().split(" ")[0];
+        logsBox.innerHTML += `<div class="log-line" style="color:var(--kosdaq-green);"><span class="log-time">[${time}]</span> [세션 복원] 저장된 모의투자 계좌를 불러왔습니다. 보유내역·예수금·실현손익이 이어집니다.</div>`;
+        logsBox.scrollTop = logsBox.scrollHeight;
+        updateEngineStatusIndicator();
+        updatePortfolioAccountSummary();
+      } else {
+        initializeLogs();
+      }
+      fetchRealPrices();
+      setInterval(fetchRealPrices, 5000);
+      setInterval(tickSimulation, 1500);
+      setInterval(updateEngineStatusIndicator, 5000);
     };
 
     // Rule 3: Regardless of the Gap filter, buy 5% of allocation or 1 share (whichever is larger) at market open
     function executeOpeningOrder() {
-      if (isOpeningOrderExecuted) return;
-      
+      if (!isLiveView) return;        // 과거 리포트 열람 중엔 매매하지 않음
+      if (!needsOpeningOrder()) return;
+
       const targetBuyAmt = maxAllocationPerStock * 0.05; // 625,000 Won default target
       const logsBox = document.getElementById("logs-box");
       const time = new Date().toTimeString().split(" ")[0];
 
       stockData.forEach(stock => {
-        if (stock.quantity > 0) return; // Prevent duplicate opening buys
+        if (stock.quantity > 0) return;   // 이미 보유(전일 이월 포함) → 중복 시초매수 방지
+        if (stock.carriedOver) return;    // 워치리스트 밖 이월 종목엔 신규 시초매수 안 함
 
         const executionPrice = stock.price || stock.basePrice;
-        
+
         // Quantity to buy is 5% target OR at least 1 share (effectively choosing the larger amount)
         const qtyToBuy = Math.max(1, Math.floor(targetBuyAmt / executionPrice));
         const actualCost = qtyToBuy * executionPrice;
+        if (actualCost > cashBalance) return;   // 예수금 부족 시 스킵
 
+        cashBalance -= actualCost;
         stock.quantity = qtyToBuy;
         stock.avgBuyPrice = executionPrice;
         stock.investedCapital = actualCost;
-        stock.cashRemaining = maxAllocationPerStock - actualCost;
-        
+        // 남은 배분 한도를 추가매수(95%)용으로 earmark
+        stock.followBudget = Math.max(0, maxAllocationPerStock - actualCost);
+
         // Reset states
         stock.pnl = 0;
         stock.pnlRate = 0;
@@ -1554,6 +1721,8 @@
       });
 
       isOpeningOrderExecuted = true;
+      openingOrderDate = todayKST();
+      savePortfolio();
 
       if (logsBox) {
         logsBox.innerHTML += `<div class="log-line" style="color:var(--kospi-blue); font-weight:bold;"><span class="log-time">[${time}]</span> [MARKET OPEN] 장 개시 감지: 시초가 무관 5% (또는 최소 1주) 자동 분할 매수가 집행되었습니다.</div>`;
@@ -1613,13 +1782,12 @@
     // Dynamic Summary calculation
     function updatePortfolioAccountSummary() {
       let totalValuation = 0;
-      let totalCashRemaining = 0;
 
       stockData.forEach(stock => {
         totalValuation += stock.quantity * stock.price;
-        totalCashRemaining += stock.cashRemaining;
       });
 
+      const totalCashRemaining = cashBalance;   // 글로벌 예수금
       const totalAccountValuation = totalValuation + totalCashRemaining;
       const totalPnl = totalAccountValuation - totalCapital;
       const totalPnlRate = (totalPnl / totalCapital) * 100;
@@ -1639,6 +1807,9 @@
       const sign = totalPnl >= 0 ? "+" : "";
       pnlSpan.innerText = `${sign}${totalPnl.toLocaleString()}원 (${sign}${totalPnlRate.toFixed(2)}%)`;
       pnlSpan.style.color = totalPnl >= 0 ? "var(--up-red)" : "var(--down-blue)";
+
+      // 계좌 상태가 갱신될 때마다 영속화 (틱/체결마다 호출됨)
+      savePortfolio();
     }
 
     async function fetchRealPrices() {
@@ -1744,7 +1915,7 @@
           });
 
           // Check and execute opening order when market first transitions to open
-          if (isMarketOpen() && !isOpeningOrderExecuted) {
+          if (isMarketOpen() && needsOpeningOrder()) {
             executeOpeningOrder();
           }
 
@@ -1766,6 +1937,7 @@
 
     // Follow up Auto Trading Logic (Breakout / Dip buy / Take profit / Stop loss)
     function checkAndExecuteFollowUpAlgoTrading() {
+      if (!isLiveView) return;   // 과거 리포트 열람 중엔 매매하지 않음
       const logsBox = document.getElementById("logs-box");
       const time = new Date().toTimeString().split(" ")[0];
 
@@ -1787,16 +1959,19 @@
             </div>
           `;
           
-          // Reset portfolio states but bank the realized cash
-          stock.cashRemaining += realizedAmt;
+          // 전량 매도 → 매도대금을 글로벌 예수금으로 회수, 실현손익 누적
+          cashBalance += realizedAmt;
+          realizedPnl += profit;
           stock.quantity = 0;
           stock.avgBuyPrice = 0;
           stock.investedCapital = 0;
+          stock.followBudget = 0;
           stock.pnl = 0;
           stock.pnlRate = 0;
           stock.hasFollowedUp = false;
-          
+
           renderTable();
+          updatePortfolioAccountSummary();
           logsBox.scrollTop = logsBox.scrollHeight;
           return;
         }
@@ -1812,22 +1987,25 @@
             </div>
           `;
 
-          // Reset portfolio states
-          stock.cashRemaining += realizedAmt;
+          // 전량 매도 → 매도대금을 글로벌 예수금으로 회수, 실현손실 누적
+          cashBalance += realizedAmt;
+          realizedPnl -= loss;
           stock.quantity = 0;
           stock.avgBuyPrice = 0;
           stock.investedCapital = 0;
+          stock.followBudget = 0;
           stock.pnl = 0;
           stock.pnlRate = 0;
           stock.hasFollowedUp = false;
 
           renderTable();
+          updatePortfolioAccountSummary();
           logsBox.scrollTop = logsBox.scrollHeight;
           return;
         }
 
         // 3. Follow-up Purchase (95% 추가 분할 매수) - STRICTLY during 09:01 - 09:30 KST and only if NOT gap-filtered
-        if (!stock.hasFollowedUp && !stock.isGapFiltered && stock.cashRemaining > 1000000) {
+        if (!stock.hasFollowedUp && !stock.isGapFiltered && stock.followBudget > 1000000 && cashBalance > 0) {
           // Verify time window constraint
           if (!isWithinFollowUpWindow()) {
             return;
@@ -1835,25 +2013,27 @@
 
           // Check if price is within the valid buy entry range (less than or equal to the entry upper limit)
           if (stock.price <= entryLimit) {
-            const buyAmt = stock.cashRemaining; // Spend all remaining allocation cash
+            const buyAmt = Math.min(stock.followBudget, cashBalance); // earmark과 예수금 중 작은 값
             const addQty = Math.floor(buyAmt / stock.price);
-            
+
             if (addQty > 0) {
               const addCost = addQty * stock.price;
-              
+
               // Recalculate average buy price
               const totalQty = stock.quantity + addQty;
               stock.avgBuyPrice = Math.round(((stock.avgBuyPrice * stock.quantity) + (stock.price * addQty)) / totalQty);
               stock.quantity = totalQty;
               stock.investedCapital += addCost;
-              stock.cashRemaining -= addCost;
+              stock.followBudget -= addCost;
+              cashBalance -= addCost;
               stock.hasFollowedUp = true;
 
               logsBox.innerHTML += `
                 <div class="log-line"><span class="log-time">[${time}]</span> <span class="log-buy">[AUTO ORDER]</span> 09:01~09:30 시간 내 <b>${stock.name}</b> 진입선 터치에 따른 95% 잔여 비중 추가 매수 완료: ${addQty.toLocaleString()}주 at <b>${stock.price.toLocaleString()}원</b>.</div>
               `;
-              
+
               renderTable();
+              updatePortfolioAccountSummary();
               logsBox.scrollTop = logsBox.scrollHeight;
             }
           }
@@ -2265,7 +2445,7 @@
         }
 
         // Check and execute opening order when market first transitions to open
-        if (isMarketOpen() && !isOpeningOrderExecuted) {
+        if (isMarketOpen() && needsOpeningOrder()) {
           executeOpeningOrder();
         }
 
