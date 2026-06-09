@@ -283,7 +283,7 @@ def _load_universe_yfinance():
             market = "KOSPI" if ticker.endswith(".KS") else "KOSDAQ"
             rows.append({
                 "Code":        code,
-                "Name":        code,          # 이름은 빈칸 — 공시/뉴스 단계에서 보완
+                "Name":        code,          # pykrx로 이름 보완 (아래 단계)
                 "Market":      market,
                 "Close":       close,
                 "ChagesRatio": round(chg, 2),
@@ -293,6 +293,23 @@ def _load_universe_yfinance():
             })
         except Exception:
             continue
+
+    # pykrx로 종목명 보완 (가격 데이터는 yfinance, 이름만 pykrx)
+    try:
+        from pykrx import stock as pkstock
+        name_map = {}
+        for row in rows:
+            try:
+                name = pkstock.get_market_ticker_name(row["Code"])
+                if name:
+                    name_map[row["Code"]] = name
+            except Exception:
+                pass
+        for row in rows:
+            row["Name"] = name_map.get(row["Code"], row["Code"])
+        _warn(f"pykrx 종목명 보완: {len(name_map)}개")
+    except Exception as e:
+        _warn(f"pykrx 종목명 보완 실패 (코드로 대체): {e}")
 
     if not rows:
         raise RuntimeError("yfinance KRX universe: 유효 종목 없음")
