@@ -234,6 +234,32 @@ def _load_constituents():
         return None
 
 
+def _krx_name_map():
+    """{6자리코드: 종목명} dict를 pykrx 일괄 조회로 만든다. 실패 시 빈 dict.
+
+    get_market_price_change_by_ticker(from, to, market)는 시장 전체 종목의
+    '종목명' 컬럼을 한 번에 반환하므로 종목당 개별 호출이 필요 없다.
+    """
+    try:
+        from pykrx import stock as pkstock
+    except Exception:
+        return {}
+    base_date = overnight_cutoff().strftime("%Y%m%d")
+    name_map = {}
+    for market in ("KOSPI", "KOSDAQ"):
+        try:
+            df = pkstock.get_market_price_change_by_ticker(
+                base_date, base_date, market=market)
+            if df is None or df.empty or "종목명" not in df.columns:
+                continue
+            for ticker, name in df["종목명"].items():
+                if name:
+                    name_map[str(ticker).zfill(6)] = str(name)
+        except Exception as e:
+            _warn(f"pykrx 종목명 일괄 조회 실패 ({market}): {e}")
+    return name_map
+
+
 def _load_universe_yfinance():
     """index_constituents.json 종목코드 목록을 yfinance 배치 다운로드로 채운다.
 
@@ -294,22 +320,16 @@ def _load_universe_yfinance():
         except Exception:
             continue
 
-    # pykrx로 종목명 보완 (가격 데이터는 yfinance, 이름만 pykrx)
-    try:
-        from pykrx import stock as pkstock
-        name_map = {}
-        for row in rows:
-            try:
-                name = pkstock.get_market_ticker_name(row["Code"])
-                if name:
-                    name_map[row["Code"]] = name
-            except Exception:
-                pass
+    # pykrx로 종목명 보완 (가격은 yfinance, 이름만 pykrx).
+    # get_market_price_change_by_ticker는 시장당 1회 호출로 '종목명' 컬럼을
+    # 포함한 전체 종목 DataFrame을 반환한다(개별 조회 X → 일괄).
+    name_map = _krx_name_map()
+    if name_map:
         for row in rows:
             row["Name"] = name_map.get(row["Code"], row["Code"])
-        _warn(f"pykrx 종목명 보완: {len(name_map)}개")
-    except Exception as e:
-        _warn(f"pykrx 종목명 보완 실패 (코드로 대체): {e}")
+        _warn(f"pykrx 종목명 일괄 보완: {len(name_map)}개")
+    else:
+        _warn("pykrx 종목명 보완 실패 — 코드로 대체")
 
     if not rows:
         raise RuntimeError("yfinance KRX universe: 유효 종목 없음")
