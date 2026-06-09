@@ -2,7 +2,8 @@ name: Daily Market Report
 
 on:
   schedule:
-    # 08:00 KST = 23:00 UTC (previous day). Runs Mon–Fri.
+    # 08:00 KST = 23:00 UTC (the PREVIOUS calendar day). Runs Mon–Fri.
+    # KST 기준 당일 장전이나, 전 거래일 종가 데이터를 사용하도록 코드가 조정되어 있음.
     - cron: '0 23 * * 0-4'
   workflow_dispatch: # allow manual trigger for testing
 

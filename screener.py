@@ -234,18 +234,145 @@ def _load_constituents():
         return None
 
 
-def load_universe():
-    """FinanceDataReader KRX 스냅샷에서 유니버스 DataFrame을 만든다.
+def _load_universe_yfinance():
+    """index_constituents.json 종목코드 목록을 yfinance 배치 다운로드로 채운다.
 
-    columns: Code, Name, Market, Close, ChagesRatio, Amount, Volume, Marcap
+    외부 서비스(fdr·pykrx) 없이 yfinance 하나만 사용하므로 가장 안정적.
+    Marcap은 거래대금 × 200 으로 근사한다(일 회전율 ~0.5% 가정).
     """
-    import FinanceDataReader as fdr
+    constituents = _load_constituents()
+    if not constituents:
+        raise RuntimeError("index_constituents.json 없음 — yfinance 로더 사용 불가")
 
+    # constituents.json 에서 KOSPI/KOSDAQ 분류를 다시 읽어 suffix 결정
+    with open(CONSTITUENTS, encoding="utf-8") as f:
+        raw = json.load(f)
+    kospi_codes  = {str(c).zfill(6) for c in raw.get("KOSPI200", [])}
+    kosdaq_codes = {str(c).zfill(6) for c in raw.get("KOSDAQ150", [])}
+
+    tickers_ks = [f"{c}.KS" for c in sorted(kospi_codes)]
+    tickers_kq = [f"{c}.KQ" for c in sorted(kosdaq_codes)]
+    all_tickers = tickers_ks + tickers_kq
+
+    hist = yf.download(
+        all_tickers, period="5d",
+        group_by="ticker", progress=False, threads=True, auto_adjust=True,
+    )
+    if hist is None or hist.empty:
+        raise RuntimeError("yfinance returned empty data for KRX universe")
+
+    rows = []
+    for ticker in all_tickers:
+        try:
+            if isinstance(hist.columns, pd.MultiIndex):
+                tk_df = hist[ticker].dropna(how="all")
+            else:
+                tk_df = hist.dropna(how="all")
+            if len(tk_df) < 2:
+                continue
+            last = tk_df.iloc[-1]
+            prev = tk_df.iloc[-2]
+            close = float(last["Close"])
+            prev_close = float(prev["Close"])
+            volume = float(last["Volume"])
+            if close <= 0 or volume <= 0:
+                continue
+            chg = (close - prev_close) / prev_close * 100 if prev_close else 0.0
+            amount = close * volume
+            code = ticker.split(".")[0].zfill(6)
+            market = "KOSPI" if ticker.endswith(".KS") else "KOSDAQ"
+            rows.append({
+                "Code":        code,
+                "Name":        code,          # 이름은 빈칸 — 공시/뉴스 단계에서 보완
+                "Market":      market,
+                "Close":       close,
+                "ChagesRatio": round(chg, 2),
+                "Amount":      amount,
+                "Volume":      volume,
+                "Marcap":      amount * 200,  # 일 회전율 0.5% 가정 근사치
+            })
+        except Exception:
+            continue
+
+    if not rows:
+        raise RuntimeError("yfinance KRX universe: 유효 종목 없음")
+
+    df = pd.DataFrame(rows)
+    _warn(f"yfinance universe: {len(df)} stocks (KOSPI {(df['Market']=='KOSPI').sum()}, KOSDAQ {(df['Market']=='KOSDAQ').sum()})")
+    return df
+
+
+def _load_universe_fdr():
+    """FinanceDataReader로 KRX 종목 목록 로드. 404 등 네트워크 오류 시 예외를 올린다."""
+    import FinanceDataReader as fdr
     df = fdr.StockListing("KRX")
     df = df[df["Market"].isin(["KOSPI", "KOSDAQ"])].copy()
     for col in ("Close", "ChagesRatio", "Amount", "Volume", "Marcap"):
         df[col] = pd.to_numeric(df.get(col), errors="coerce")
     df = df.dropna(subset=["Marcap", "Amount"])
+    df["Code"] = df["Code"].astype(str).str.zfill(6)
+    return df
+
+
+def _load_universe_pykrx():
+    """pykrx로 KRX 직접 스크래핑. fdr 실패 시 fallback.
+
+    08:00 KST 장전 실행이므로 당일 데이터는 없음 → 직전 거래일 기준으로 조회.
+    """
+    from pykrx import stock as pkstock
+    # overnight_cutoff()는 직전 거래일 15:30 KST를 반환한다.
+    base_date = overnight_cutoff().strftime("%Y%m%d")
+    rows = []
+    for market, label in (("KOSPI", "KOSPI"), ("KOSDAQ", "KOSDAQ")):
+        tickers = pkstock.get_market_ticker_list(base_date, market=market)
+        for ticker in tickers:
+            try:
+                name = pkstock.get_market_ticker_name(ticker)
+                ohlcv = pkstock.get_market_ohlcv(base_date, base_date, ticker)
+                if ohlcv.empty:
+                    continue
+                row = ohlcv.iloc[-1]
+                cap_df = pkstock.get_market_cap(base_date, base_date, ticker)
+                marcap = float(cap_df["시가총액"].iloc[-1]) if not cap_df.empty else 0.0
+                amount = float(row.get("거래대금", 0) or 0)
+                rows.append({
+                    "Code": ticker.zfill(6),
+                    "Name": name,
+                    "Market": label,
+                    "Close": float(row.get("종가", 0) or 0),
+                    "ChagesRatio": float(row.get("등락률", 0) or 0),
+                    "Amount": amount,
+                    "Volume": float(row.get("거래량", 0) or 0),
+                    "Marcap": marcap,
+                })
+            except Exception as e:
+                _warn(f"pykrx ticker {ticker} failed: {e}")
+    if not rows:
+        raise RuntimeError("pykrx returned no rows")
+    df = pd.DataFrame(rows)
+    df = df.dropna(subset=["Marcap", "Amount"])
+    return df
+
+
+def load_universe():
+    """KRX 유니버스 DataFrame을 로드한다. yfinance → fdr → pykrx 순으로 시도.
+
+    columns: Code, Name, Market, Close, ChagesRatio, Amount, Volume, Marcap
+    """
+    df = None
+    for loader, name in (
+        (_load_universe_yfinance, "yfinance"),
+        (_load_universe_fdr,      "FinanceDataReader"),
+        (_load_universe_pykrx,    "pykrx"),
+    ):
+        try:
+            df = loader()
+            _warn(f"universe loaded via {name}: {len(df)} stocks")
+            break
+        except Exception as e:
+            _warn(f"{name} failed: {e}; trying next source...")
+    if df is None or df.empty:
+        raise RuntimeError("모든 유니버스 소스 실패 (yfinance, fdr, pykrx)")
     df["Code"] = df["Code"].astype(str).str.zfill(6)
 
     explicit = _load_constituents()
