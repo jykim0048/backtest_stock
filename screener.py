@@ -57,7 +57,7 @@ SELECTION_DIR = os.path.join(ROOT, "public", "reports", "selection")
 KST = datetime.timezone(datetime.timedelta(hours=9))
 
 # ---- tunables -------------------------------------------------------------
-N_FINAL        = int(os.environ.get("SCREEN_N_FINAL", "6"))        # 최종 선정 종목 수
+N_FINAL        = int(os.environ.get("SCREEN_N_FINAL", "10"))       # 최종 선정 종목 수
 PRICE_BACKUP   = int(os.environ.get("SCREEN_PRICE_BACKUP", "15"))  # ⓑ 가격 보조 후보 수
 MAX_CANDIDATES = int(os.environ.get("SCREEN_MAX_CANDIDATES", "40"))  # LLM에 넘길 후보 상한
 KOSPI_TOP      = 200   # 코스피200 근사 (시총 상위)
