@@ -51,6 +51,7 @@ from analysis import sources
 ROOT          = os.path.dirname(os.path.abspath(__file__))
 WATCHLIST     = os.path.join(ROOT, "watchlist.json")
 CONSTITUENTS  = os.path.join(ROOT, "data", "index_constituents.json")
+KRX_COMPANIES = os.path.join(ROOT, "public", "assets", "krx_companies.json")
 SELECTION_DIR = os.path.join(ROOT, "public", "reports", "selection")
 
 KST = datetime.timezone(datetime.timedelta(hours=9))
@@ -235,28 +236,25 @@ def _load_constituents():
 
 
 def _krx_name_map():
-    """{6자리코드: 종목명} dict를 pykrx 일괄 조회로 만든다. 실패 시 빈 dict.
+    """{6자리코드: 종목명} dict를 정적 마스터 파일에서 로드한다. 실패 시 빈 dict.
 
-    get_market_price_change_by_ticker(from, to, market)는 시장 전체 종목의
-    '종목명' 컬럼을 한 번에 반환하므로 종목당 개별 호출이 필요 없다.
+    public/assets/krx_companies.json (KRX 전체 종목 마스터, ~2700개)을 쓴다.
+    pykrx/KRX 직접 호출은 GitHub Actions 해외 IP에서 빈 응답을 받으므로
+    네트워크 의존 없는 정적 파일을 종목명 소스로 사용한다.
+    분기(코스피200·코스닥150 리뷰) 단위로 이 파일만 교체하면 된다.
     """
     try:
-        from pykrx import stock as pkstock
-    except Exception:
+        with open(KRX_COMPANIES, encoding="utf-8") as f:
+            companies = json.load(f)
+    except Exception as e:
+        _warn(f"krx_companies.json 로드 실패: {e}")
         return {}
-    base_date = overnight_cutoff().strftime("%Y%m%d")
     name_map = {}
-    for market in ("KOSPI", "KOSDAQ"):
-        try:
-            df = pkstock.get_market_price_change_by_ticker(
-                base_date, base_date, market=market)
-            if df is None or df.empty or "종목명" not in df.columns:
-                continue
-            for ticker, name in df["종목명"].items():
-                if name:
-                    name_map[str(ticker).zfill(6)] = str(name)
-        except Exception as e:
-            _warn(f"pykrx 종목명 일괄 조회 실패 ({market}): {e}")
+    for c in companies:
+        code = str(c.get("code", "")).zfill(6)
+        name = c.get("name")
+        if code and name:
+            name_map[code] = name
     return name_map
 
 
