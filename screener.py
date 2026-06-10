@@ -69,9 +69,10 @@ else:
 KST = datetime.timezone(datetime.timedelta(hours=9))
 
 # ---- tunables -------------------------------------------------------------
-N_FINAL        = int(os.environ.get("SCREEN_N_FINAL", "10"))       # 최종 선정 종목 수
+N_FINAL        = int(os.environ.get("SCREEN_N_FINAL", "10"))       # 1회 실행 최대 선정 종목 수
 PRICE_BACKUP   = int(os.environ.get("SCREEN_PRICE_BACKUP", "15"))  # ⓑ 가격 보조 후보 수
 MAX_CANDIDATES = int(os.environ.get("SCREEN_MAX_CANDIDATES", "40"))  # LLM에 넘길 후보 상한
+INTRADAY_CAP   = int(os.environ.get("SCREEN_INTRADAY_CAP", "20"))  # 장중 누적 관심종목 상한 (0=무제한)
 KOSPI_TOP      = 200   # 코스피200 근사 (시총 상위)
 KOSDAQ_TOP     = 150   # 코스닥150 근사 (시총 상위)
 ENRICH_WORKERS = int(os.environ.get("SCREEN_ENRICH_WORKERS", "8"))
@@ -132,6 +133,14 @@ EXCLUDE_KEYWORDS = [
 
 def _warn(msg):
     print(f"[screener] {msg}", file=sys.stderr)
+
+
+def _load_json(path, default=None):
+    try:
+        with open(path, encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return default
 
 
 # ----------------------------------------------------------------------------
@@ -657,7 +666,9 @@ SYSTEM_INTRADAY = """\
      "catalyst": "핵심 촉매 한 줄"}
   ]
 }
-picks 는 정확히 {n}개."""
+**중요: picks 는 근거(촉매 공시·당일 뉴스·미국 테마 연결)가 충분한 종목만 담는다. 최대 {n}개이며,
+근거가 분명한 종목이 그보다 적으면 적게 담고, 마땅한 종목이 없으면 빈 배열([])도 허용한다.
+개수를 채우려고 근거가 약한 종목을 억지로 넣지 마라.**"""
 
 
 _STR = {"type": "string"}
@@ -715,6 +726,10 @@ def llm_select(us_brief, pool):
                 "catalyst": p.get("catalyst", ""),
             })
     if not picks:
+        # 장중: 근거가 충분한 종목이 없으면 빈 결과도 정상(억지로 채우지 않는다).
+        # 장전: 기존대로 None 을 반환해 호출부가 기계적 fallback 으로 채운다.
+        if IS_INTRADAY:
+            return {"marketView": result.get("marketView", ""), "picks": []}
         return None
     return {"marketView": result.get("marketView", ""), "picks": picks[:N_FINAL]}
 
@@ -741,14 +756,34 @@ def fallback_select(pool):
 def write_outputs(selection, us_brief):
     today = datetime.datetime.now(KST).strftime("%Y-%m-%d")
     picks = selection["picks"]
+    os.makedirs(SELECTION_DIR, exist_ok=True)
+    selection_path = os.path.join(SELECTION_DIR, f"{today}.json")
 
-    watchlist = [{"code": p["code"], "name": p["name"], "market": p["market"]} for p in picks]
+    if IS_INTRADAY:
+        # 장중은 매 회차 결과를 누적(append)한다 — 워크플로가 30분마다 돌며 그날 새로 포착한
+        # 종목을 기존 관심종목에 더한다. 당일 첫 실행(오늘 selection 파일이 아직 없음)이면
+        # 전일 누적이 이어지지 않도록 리셋하고 새로 시작한다. 중복은 code 로 제거한다.
+        first_run = not os.path.exists(selection_path)
+        prev = [] if first_run else (_load_json(WATCHLIST, []) or [])
+        seen = {str(p.get("code")) for p in prev if isinstance(p, dict)}
+        watchlist = [p for p in prev if isinstance(p, dict)]
+        added = 0
+        for p in picks:
+            if p["code"] in seen:
+                continue
+            watchlist.append({"code": p["code"], "name": p["name"], "market": p["market"]})
+            seen.add(p["code"])
+            added += 1
+        if INTRADAY_CAP and len(watchlist) > INTRADAY_CAP:    # 상한 초과 시 최근 종목 우선 유지
+            watchlist = watchlist[-INTRADAY_CAP:]
+        print(f"  Intraday append   : +{added} new (first_run={first_run}) → 누적 {len(watchlist)}종목")
+    else:
+        watchlist = [{"code": p["code"], "name": p["name"], "market": p["market"]} for p in picks]
+
     with open(WATCHLIST, "w", encoding="utf-8") as f:
         json.dump(watchlist, f, ensure_ascii=False, indent=2)
     print(f"  Updated watchlist : {WATCHLIST} ({len(watchlist)} stocks)")
 
-    os.makedirs(SELECTION_DIR, exist_ok=True)
-    selection_path = os.path.join(SELECTION_DIR, f"{today}.json")
     payload = {
         "date": today,
         "mode": MODE,                                              # "pre" | "intraday"
@@ -794,7 +829,12 @@ def main():
             r.setdefault("news", [])
 
     print("4) LLM 최종 선정...")
-    selection = llm_select(us_brief, pool) or fallback_select(pool)
+    selection = llm_select(us_brief, pool)
+    if selection is None:
+        # 장중: LLM 호출 실패 시 기계적으로 채우지 않고 이번 회차를 비운다(기존 누적 유지).
+        # 장전: 파이프라인이 항상 돌도록 후보 점수 상위로 채운다.
+        selection = ({"marketView": "장중 LLM 선정 실패 — 이번 회차는 신규 선정 없이 기존 관심종목을 유지합니다.",
+                      "picks": []} if IS_INTRADAY else fallback_select(pool))
 
     write_outputs(selection, us_brief)
     print("   선정 종목: " + ", ".join(f"{p['name']}({p['code']})" for p in selection["picks"]))
