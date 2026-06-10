@@ -2262,6 +2262,9 @@
       tbody.innerHTML = "";
 
       stockData.forEach((stock, idx) => {
+        // 이월(carriedOver) 종목은 워치리스트 테이블에 표시하지 않는다.
+        // 데이터는 stockData 에 유지되어 계좌 평가·자동 익절/손절에는 계속 반영된다(보유 자산 보호).
+        if (stock.carriedOver) return;
         const tr = document.createElement("tr");
         tr.id = `stock-row-${idx}`;
         tr.setAttribute("onclick", `openDetailDrawer(${idx})`);

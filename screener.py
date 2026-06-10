@@ -265,13 +265,16 @@ def _load_constituents():
         return None
 
 
-def _krx_name_map():
-    """{6자리코드: 종목명} dict를 정적 마스터 파일에서 로드한다. 실패 시 빈 dict.
+def _krx_master_map():
+    """{6자리코드: {"name", "market"}} dict를 정적 마스터 파일에서 로드한다. 실패 시 빈 dict.
 
     public/assets/krx_companies.json (KRX 전체 종목 마스터, ~2700개)을 쓴다.
     pykrx/KRX 직접 호출은 GitHub Actions 해외 IP에서 빈 응답을 받으므로
-    네트워크 의존 없는 정적 파일을 종목명 소스로 사용한다.
-    분기(코스피200·코스닥150 리뷰) 단위로 이 파일만 교체하면 된다.
+    네트워크 의존 없는 정적 파일을 사용한다. 분기(코스피200·코스닥150 리뷰) 단위로 교체.
+
+    market 은 "KOSPI"(유가증권) | "KOSDAQ"(코스닥) | None(코넥스/기타)로 정규화한다.
+    종목코드별 시장 구분의 단일 진실 소스(SSOT) — index_constituents.json 의 분류 오류로
+    .KS/.KQ suffix 가 반대로 붙어 yfinance 시세가 누락되는 문제를 여기서 바로잡는다.
     """
     try:
         with open(KRX_COMPANIES, encoding="utf-8") as f:
@@ -279,13 +282,20 @@ def _krx_name_map():
     except Exception as e:
         _warn(f"krx_companies.json 로드 실패: {e}")
         return {}
-    name_map = {}
+    out = {}
     for c in companies:
         code = str(c.get("code", "")).zfill(6)
-        name = c.get("name")
-        if code and name:
-            name_map[code] = name
-    return name_map
+        if not code:
+            continue
+        raw = c.get("market", "") or ""
+        market = "KOSPI" if "유가" in raw else ("KOSDAQ" if "코스닥" in raw else None)
+        out[code] = {"name": c.get("name"), "market": market}
+    return out
+
+
+def _krx_name_map():
+    """{6자리코드: 종목명} — _krx_master_map 에서 파생(기존 호출부 호환)."""
+    return {code: m["name"] for code, m in _krx_master_map().items() if m.get("name")}
 
 
 def _load_universe_yfinance():
@@ -439,6 +449,18 @@ def load_universe():
     if df is None or df.empty:
         raise RuntimeError("모든 유니버스 소스 실패 (yfinance, fdr, pykrx)")
     df["Code"] = df["Code"].astype(str).str.zfill(6)
+
+    # 시장 구분을 KRX 마스터로 보정한다(SSOT). yfinance/fdr/index_constituents 분류가
+    # 어긋나 .KS/.KQ suffix 가 반대로 붙으면 generate_report·/api/prices 의 yfinance 조회가
+    # 실패해 일부 종목 시세가 누락된다(예: SK바이오팜 326030 을 KOSDAQ 으로 → .KQ 조회 실패).
+    # 이 보정은 시장별 시총 상위(nlargest) 분류 전에 적용돼야 한다.
+    master = _krx_master_map()
+    if master:
+        corrected = df["Code"].map(lambda c: (master.get(c) or {}).get("market"))
+        mismatch = corrected.notna() & (corrected != df["Market"])
+        if int(mismatch.sum()):
+            _warn(f"시장 구분 보정(KRX 마스터): {int(mismatch.sum())}종목")
+        df["Market"] = corrected.where(corrected.notna(), df["Market"])
 
     explicit = _load_constituents()
     if explicit:
