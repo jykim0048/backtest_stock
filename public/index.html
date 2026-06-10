@@ -336,6 +336,88 @@
       border-radius: 2px;
     }
 
+    .board-subtitle {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-muted);
+    }
+
+    /* 메인 탭: 장전 워치리스트 / 장중 관심종목 (드로어 toptab과 동일 패턴) */
+    .main-tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 20px;
+    }
+    .main-tab {
+      flex: 1;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 12px 10px;
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.15s ease;
+      font-family: inherit;
+    }
+    .main-tab:hover { color: var(--text-main); border-color: var(--kospi-blue); }
+    .main-tab.active {
+      background: var(--kospi-blue);
+      color: #06121f;
+      border-color: var(--kospi-blue);
+      box-shadow: 0 0 14px rgba(0, 240, 255, 0.25);
+    }
+    /* 관심종목 탭은 활성 시 빨강으로 — 워치리스트와 직관적 구분 */
+    .main-tab.active[data-maintab="intraday"] {
+      background: var(--up-red);
+      color: #1a0608;
+      border-color: var(--up-red);
+      box-shadow: 0 0 14px rgba(244, 63, 94, 0.28);
+    }
+
+    .watch-header h2::before {
+      background: var(--up-red);
+    }
+
+    .watch-asof {
+      font-size: 12px;
+      color: var(--text-muted);
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* '장중' 표식 배지 (종목 정보 셀) */
+    .intraday-badge {
+      display: inline-block;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 1px 6px;
+      border-radius: 4px;
+      background: var(--up-red-dim, rgba(244, 63, 94, 0.15));
+      color: var(--up-red);
+      border: 1px solid var(--up-red);
+      margin-left: 4px;
+      vertical-align: middle;
+    }
+
+    .watch-catalyst {
+      font-size: 12px;
+      line-height: 1.5;
+      color: var(--text-main);
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      max-width: 360px;
+    }
+
+    .watch-empty-row td {
+      text-align: center;
+      color: var(--text-muted);
+      padding: 28px 0;
+      font-size: 13px;
+    }
+
     /* Trading Switch */
     .trading-toggle-btn {
       background: rgba(255, 255, 255, 0.05);
@@ -1242,29 +1324,62 @@
       
       <!-- Left Panel: Stocks Table -->
       <section class="board-container">
-        <div class="board-header">
-          <h2>모멘텀 관심종목 실시간 계좌현황 및 리포트</h2>
-          <button class="trading-toggle-btn running" id="trading-toggle-btn" onclick="toggleTradingEngine()">
-            <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:currentColor; margin-right:4px;"></span>
-            <span id="toggle-btn-txt">AUTO TRADING ON</span>
-          </button>
+
+        <!-- 메인 탭: 장전 워치리스트 / 장중 관심종목 (드로어 Account/Deep Research 패턴) -->
+        <div class="main-tabs">
+          <button class="main-tab active" data-maintab="watchlist" onclick="selectMainTab('watchlist')">📋 장전 워치리스트</button>
+          <button class="main-tab" data-maintab="intraday" onclick="selectMainTab('intraday')">🔴 장중 관심종목</button>
         </div>
 
-        <table class="stocks-table">
-          <thead>
-            <tr>
-              <th style="width: 200px;">종목 정보</th>
-              <th style="text-align: right; width: 120px;">실시간 현재가</th>
-              <th style="text-align: right; width: 100px;">실시간 등락률</th>
-              <th style="width: 220px;">실시간 보유잔고 (수익률)</th>
-              <th style="width: 100px; text-align: center;">미니 차트</th>
-              <th>매매 한도선 (진입/익절/손절)</th>
-            </tr>
-          </thead>
-          <tbody id="stocks-tbody">
-            <!-- Populated via Javascript -->
-          </tbody>
-        </table>
+        <!-- ① 장전 워치리스트 패널 (자동매매 대상) -->
+        <div id="main-watchlist-pane">
+          <div class="board-header">
+            <h2>📋 장전 워치리스트 <span class="board-subtitle">— 실시간 계좌현황 · 자동매매</span></h2>
+            <button class="trading-toggle-btn running" id="trading-toggle-btn" onclick="toggleTradingEngine()">
+              <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:currentColor; margin-right:4px;"></span>
+              <span id="toggle-btn-txt">AUTO TRADING ON</span>
+            </button>
+          </div>
+
+          <table class="stocks-table">
+            <thead>
+              <tr>
+                <th style="width: 200px;">종목 정보</th>
+                <th style="text-align: right; width: 120px;">실시간 현재가</th>
+                <th style="text-align: right; width: 100px;">실시간 등락률</th>
+                <th style="width: 220px;">실시간 보유잔고 (수익률)</th>
+                <th style="width: 100px; text-align: center;">미니 차트</th>
+                <th>매매 한도선 (진입/익절/손절)</th>
+              </tr>
+            </thead>
+            <tbody id="stocks-tbody">
+              <!-- Populated via Javascript -->
+            </tbody>
+          </table>
+        </div>
+
+        <!-- ② 장중 관심종목 패널 (모니터링 전용 — 자동매매·계좌 비대상) -->
+        <div id="main-intraday-pane" style="display:none;">
+          <div class="board-header watch-header">
+            <h2>🔴 장중 관심종목 <span class="board-subtitle">— 장중 이슈 모니터링 (매매 비대상)</span></h2>
+            <span class="watch-asof" id="watch-asof">갱신 대기</span>
+          </div>
+
+          <table class="stocks-table">
+            <thead>
+              <tr>
+                <th style="width: 200px;">종목 정보</th>
+                <th style="text-align: right; width: 120px;">실시간 현재가</th>
+                <th style="text-align: right; width: 100px;">실시간 등락률</th>
+                <th style="width: 100px; text-align: center;">미니 차트</th>
+                <th>핵심 촉매 · 딥리서치</th>
+              </tr>
+            </thead>
+            <tbody id="watch-tbody">
+              <!-- Populated via Javascript (watchData) -->
+            </tbody>
+          </table>
+        </div>
       </section>
 
       <!-- Right Panel: Side Controls, Portfolio Summary, and Logs -->
@@ -1366,10 +1481,20 @@
     // 종목 데이터는 window.onload에서 daily_market_report.json으로 채운다.
     const stockData = [];
 
+    // 장중 관심종목(모니터링 전용). intraday_report.json으로 채운다.
+    // stockData(자동매매 대상)와 완전히 분리 — 계좌/시초매수/익절손절 로직에 끼지 않는다.
+    const watchData = [];
+
     let isTradingOn = true;
     let selectedStockIndex = 0;
+    // 드로어가 보고 있는 종목의 소스 배열: "main"(워치리스트) | "watch"(관심종목)
+    let selectedSource = "main";
     let useSimulatedData = false;
     let isOpeningOrderExecuted = false;
+
+    // 드로어/렌더가 참조할 현재 선택 소스 배열
+    function listFor(source) { return source === "watch" ? watchData : stockData; }
+    function selectedList() { return listFor(selectedSource); }
 
     // --- Persistent paper-trading account (localStorage) ---------------------
     // 모의투자 계좌를 브라우저에 영속화한다. 새로고침/장 마감/다음 거래일에도
@@ -1635,6 +1760,40 @@
       }
     }
 
+    // Load 장중 관심종목 (intraday_report.json) into watchData. Monitoring only —
+    // never touches portfolio/auto-trading. Safe to call repeatedly (polling).
+    async function loadIntradayData() {
+      const url = `intraday_report.json?t=${Date.now()}`;
+      try {
+        const response = await fetch(url, { cache: "no-store" });
+        if (!response.ok) return;
+        const data = await response.json();
+        if (!Array.isArray(data)) return;
+        watchData.length = 0;
+        data.forEach(item => {
+          watchData.push({
+            code:      item.code,
+            name:      item.name,
+            market:    item.market,
+            basePrice: item.basePrice,
+            entry:     item.entry,
+            target:    item.target,
+            stop:      item.stop,
+            stars:     item.stars    || "⭐⭐⭐",
+            catalyst:  item.catalyst || "",
+            scenario:  item.scenario || "",
+            analysis:  item.analysis || null,
+            // live fields (filled by fetchRealPrices); seed from basePrice
+            price:     item.basePrice || 0,
+            rate:      0,
+            history:   [item.basePrice || 0],
+          });
+        });
+      } catch (err) {
+        console.warn(`Failed to load intraday report from ${url}.`, err);
+      }
+    }
+
     // Called when user picks a different date
     async function onReportDateChange(date) {
       const live = (!date || date === "today");
@@ -1662,6 +1821,7 @@
     window.onload = async function() {
       await loadReportIndex();
       await loadDynamicReportData("today");
+      await loadIntradayData();
       isLiveView = true;
       // 저장된 모의투자 계좌를 복원 (없으면 깨끗한 계좌). 새로고침/장 마감 후에도 누적 유지.
       const saved = restorePortfolio();
@@ -1670,6 +1830,8 @@
         executeOpeningOrder();
       }
       renderTable();
+      renderWatchTable();
+      updateWatchAsof();
       if (saved && saved.logsHtml) {
         const logsBox = document.getElementById("logs-box");
         logsBox.innerHTML = saved.logsHtml;
@@ -1685,7 +1847,30 @@
       setInterval(fetchRealPrices, 5000);
       setInterval(tickSimulation, 1500);
       setInterval(updateEngineStatusIndicator, 5000);
+      // 장중 관심종목은 30분 간격으로 서버에서 갱신되므로 5분마다 다시 로드한다.
+      setInterval(async () => {
+        await loadIntradayData();
+        renderWatchTable();
+        updateWatchAsof();
+      }, 300000);
     };
+
+    // intraday_report.json 갱신 시각 표시 (selection/intraday/<date>.json 의 asof)
+    async function updateWatchAsof() {
+      const el = document.getElementById("watch-asof");
+      if (!el) return;
+      if (!watchData.length) { el.innerText = "갱신 대기"; return; }
+      try {
+        const kst = new Date(Date.now() + (9 * 60 + new Date().getTimezoneOffset()) * 60000);
+        const today = kst.toISOString().slice(0, 10);
+        const res = await fetch(`reports/selection/intraday/${today}.json?t=${Date.now()}`, { cache: "no-store" });
+        if (res.ok) {
+          const sel = await res.json();
+          if (sel && sel.asof) { el.innerText = `갱신 ${sel.asof} KST · ${watchData.length}종목`; return; }
+        }
+      } catch (_) {}
+      el.innerText = `${watchData.length}종목`;
+    }
 
     // Rule 3: Regardless of the Gap filter, buy 5% of allocation or 1 share (whichever is larger) at market open
     function executeOpeningOrder() {
@@ -1907,10 +2092,41 @@
               // Update sparkline canvas
               drawSparkline(idx);
 
-              // Update drawer details live if active
-              if (selectedStockIndex === idx && document.getElementById("detail-drawer").classList.contains("active")) {
+              // Update drawer details live if active (워치리스트 종목을 보고 있을 때만)
+              if (selectedSource === "main" && selectedStockIndex === idx && document.getElementById("detail-drawer").classList.contains("active")) {
                 updateDrawerLivePrices(idx);
               }
+            }
+          });
+
+          // 장중 관심종목 시세 갱신 — 모니터링 전용. 매매/계좌 로직 없이 가격·등락률·차트만.
+          watchData.forEach((stock, idx) => {
+            const apiStock = data.stocks[stock.code];
+            if (!apiStock) return;
+            const prevPrice = stock.price;
+            stock.price = apiStock.price || stock.basePrice;
+            stock.rate = apiStock.rate || 0;
+
+            if (isMarketOpen()) {
+              stock.history.push(stock.price);
+              if (stock.history.length > 8) stock.history.shift();
+            }
+
+            const priceTd = document.getElementById(`wprice-${idx}`);
+            const rateTd = document.getElementById(`wrate-${idx}`);
+            if (priceTd && rateTd) {
+              priceTd.innerText = stock.price.toLocaleString() + "원";
+              const rateSign = stock.rate >= 0 ? "+" : "";
+              rateTd.innerText = `${rateSign}${stock.rate.toFixed(2)}%`;
+              rateTd.style.color = stock.rate >= 0 ? "var(--up-red)" : "var(--down-blue)";
+              if (stock.price > prevPrice) priceTd.className = "stock-price-col tick-up";
+              else if (stock.price < prevPrice) priceTd.className = "stock-price-col tick-down";
+            }
+            drawWatchSparkline(idx);
+
+            // Update drawer if it's showing this intraday stock
+            if (selectedSource === "watch" && selectedStockIndex === idx && document.getElementById("detail-drawer").classList.contains("active")) {
+              updateDrawerLivePrices(idx);
             }
           });
 
@@ -2124,14 +2340,12 @@
     }
 
     // Sparkline Trend Generator
-    function drawSparkline(idx) {
-      const canvas = document.getElementById(`canvas-${idx}`);
-      if (!canvas) return;
+    function drawSparklineCanvas(canvas, history, market) {
+      if (!canvas || !Array.isArray(history) || history.length < 2) return;
       const ctx = canvas.getContext("2d");
-      const history = stockData[idx].history;
-      
+
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.strokeStyle = stockData[idx].market === "KOSPI" ? "#00f0ff" : "#10b981";
+      ctx.strokeStyle = market === "KOSPI" ? "#00f0ff" : "#10b981";
       ctx.lineWidth = 1.8;
       ctx.lineCap = "round";
       ctx.lineJoin = "round";
@@ -2150,11 +2364,94 @@
       ctx.stroke();
     }
 
-    // Open sliding side drawer for stock details
-    function openDetailDrawer(idx) {
+    function drawSparkline(idx) {
+      drawSparklineCanvas(document.getElementById(`canvas-${idx}`),
+                          stockData[idx].history, stockData[idx].market);
+    }
+
+    function drawWatchSparkline(idx) {
+      drawSparklineCanvas(document.getElementById(`wcanvas-${idx}`),
+                          watchData[idx].history, watchData[idx].market);
+    }
+
+    // 장중 관심종목 테이블 렌더 (모니터링 전용 — 매매/보유 컬럼 없음).
+    function renderWatchTable() {
+      const tbody = document.getElementById("watch-tbody");
+      if (!tbody) return;
+      tbody.innerHTML = "";
+
+      if (!watchData.length) {
+        tbody.innerHTML = `<tr class="watch-empty-row"><td colspan="5">장중 스크리너가 아직 관심종목을 선정하지 않았습니다. (장중 30분 간격 갱신)</td></tr>`;
+        return;
+      }
+
+      watchData.forEach((stock, idx) => {
+        const tr = document.createElement("tr");
+        tr.id = `watch-row-${idx}`;
+        tr.setAttribute("onclick", `openDetailDrawer(${idx}, 'watch')`);
+
+        const badgeClass = stock.market === "KOSPI" ? "kospi" : "kosdaq";
+        const rateSign = stock.rate >= 0 ? "+" : "";
+        const rateColor = stock.rate >= 0 ? "var(--up-red)" : "var(--down-blue)";
+        const hasResearch = !!stock.analysis;
+
+        tr.innerHTML = `
+          <td>
+            <div class="stock-info">
+              <div class="stock-name-row">
+                <span class="stock-name">${stock.name}</span>
+                <span class="market-badge ${badgeClass}">${stock.market}</span>
+                <span class="intraday-badge">장중</span>
+              </div>
+              <span class="stock-code">${stock.code}</span>
+            </div>
+          </td>
+          <td style="text-align: right; font-weight: bold;" class="stock-price-col" id="wprice-${idx}">
+            ${(stock.price || 0).toLocaleString()}원
+          </td>
+          <td style="text-align: right; color: ${rateColor}; font-weight: 600;" id="wrate-${idx}">
+            ${rateSign}${(stock.rate || 0).toFixed(2)}%
+          </td>
+          <td style="text-align: center;">
+            <canvas id="wcanvas-${idx}" width="90" height="28" class="sparkline-canvas"></canvas>
+          </td>
+          <td>
+            <div class="watch-catalyst">${escapeHtml(stock.catalyst || "촉매 정보 없음")}</div>
+            <div style="margin-top:4px; font-size:11px; color:var(--text-muted);">
+              ${stock.stars || ""} ${hasResearch ? "· 🔬 딥리서치 보기" : "· 분석 준비중"}
+            </div>
+          </td>
+        `;
+
+        tbody.appendChild(tr);
+        drawWatchSparkline(idx);
+      });
+    }
+
+    // 메인 탭 전환: "watchlist"(장전 워치리스트) | "intraday"(장중 관심종목).
+    // 드로어의 selectDrawerPane 과 동일하게 패널 display 를 토글한다.
+    function selectMainTab(tab) {
+      document.querySelectorAll(".main-tab").forEach(btn => {
+        btn.classList.toggle("active", btn.getAttribute("data-maintab") === tab);
+      });
+      document.getElementById("main-watchlist-pane").style.display = (tab === "watchlist") ? "" : "none";
+      document.getElementById("main-intraday-pane").style.display = (tab === "intraday") ? "" : "none";
+      // 숨겨진 동안 canvas 는 그려지지 않으므로, 표시되는 패널의 스파크라인을 다시 그린다.
+      if (tab === "intraday") {
+        watchData.forEach((_, idx) => drawWatchSparkline(idx));
+      } else {
+        stockData.forEach((_, idx) => drawSparkline(idx));
+      }
+    }
+
+    // Open sliding side drawer for stock details.
+    // source: "main"(워치리스트) | "watch"(장중 관심종목)
+    function openDetailDrawer(idx, source = "main") {
       selectedStockIndex = idx;
-      const stock = stockData[idx];
-      
+      selectedSource = source;
+      const stock = listFor(source)[idx];
+      if (!stock) return;
+
       const drawer = document.getElementById("detail-drawer");
       const overlay = document.getElementById("drawer-overlay");
       
@@ -2247,7 +2544,7 @@
 
     function renderAnalysisContent() {
       const box = document.getElementById("analysis-content");
-      const stock = stockData[selectedStockIndex];
+      const stock = selectedList()[selectedStockIndex];
       const a = stock && stock.analysis;
       if (!a) {
         box.innerHTML = `<span class="analysis-empty">이 종목은 아직 심층 리서치 데이터가 없습니다. (현재 한미약품만 프로토타입 제공)</span>`;
@@ -2328,7 +2625,8 @@
     }
 
     function updateDrawerLivePrices(idx) {
-      const stock = stockData[idx];
+      const stock = selectedList()[idx];
+      if (!stock) return;
       const priceSpan = document.getElementById("drawer-price");
       const rateSpan = document.getElementById("drawer-rate");
       

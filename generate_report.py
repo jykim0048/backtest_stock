@@ -15,9 +15,23 @@ import pandas as pd
 import yfinance as yf
 
 ROOT           = os.path.dirname(os.path.abspath(__file__))
-WATCHLIST_PATH = os.path.join(ROOT, 'watchlist.json')
-REPORTS_DIR    = os.path.join(ROOT, 'public', 'reports')
-DAILY_PATH     = os.path.join(ROOT, 'public', 'daily_market_report.json')
+
+# Input/output are env-overridable so the same generator serves both the
+# 장전 워치리스트 (defaults) and the 장중 관심종목 pipeline:
+#   REPORT_WATCHLIST=intraday_watchlist.json
+#   REPORT_OUT=public/intraday_report.json
+#   REPORT_ARCHIVE=0   # 장중은 최신본만 — 날짜별 아카이브/index 드롭다운에 섞지 않음
+WATCHLIST_PATH = os.environ.get('REPORT_WATCHLIST') or os.path.join(ROOT, 'watchlist.json')
+DAILY_PATH     = os.environ.get('REPORT_OUT')       or os.path.join(ROOT, 'public', 'daily_market_report.json')
+REPORTS_DIR    = os.environ.get('REPORT_ARCHIVE_DIR') or os.path.join(ROOT, 'public', 'reports')
+ARCHIVE        = os.environ.get('REPORT_ARCHIVE', '1') != '0'   # 날짜별 아카이브 + index.json 갱신 여부
+
+if not os.path.isabs(WATCHLIST_PATH):
+    WATCHLIST_PATH = os.path.join(ROOT, WATCHLIST_PATH)
+if not os.path.isabs(DAILY_PATH):
+    DAILY_PATH = os.path.join(ROOT, DAILY_PATH)
+if not os.path.isabs(REPORTS_DIR):
+    REPORTS_DIR = os.path.join(ROOT, REPORTS_DIR)
 
 
 def load_watchlist():
@@ -110,30 +124,33 @@ def generate_report():
             ),
         })
 
-    os.makedirs(REPORTS_DIR, exist_ok=True)
-
-    dated_path = os.path.join(REPORTS_DIR, f'{today}.json')
-    with open(dated_path, 'w', encoding='utf-8') as f:
-        json.dump(report, f, ensure_ascii=False, indent=2)
-    print(f"  Saved archive : {dated_path}")
-
+    os.makedirs(os.path.dirname(DAILY_PATH), exist_ok=True)
     with open(DAILY_PATH, 'w', encoding='utf-8') as f:
         json.dump(report, f, ensure_ascii=False, indent=2)
     print(f"  Updated       : {DAILY_PATH}")
 
-    index_path = os.path.join(REPORTS_DIR, 'index.json')
-    index = []
-    if os.path.exists(index_path):
-        with open(index_path, 'r', encoding='utf-8') as f:
-            index = json.load(f)
+    # 장중 모드(REPORT_ARCHIVE=0)는 최신본만 갱신하고, 날짜별 아카이브와
+    # index.json(날짜 드롭다운)에는 끼우지 않는다. 장전 워치리스트만 아카이브한다.
+    if ARCHIVE:
+        os.makedirs(REPORTS_DIR, exist_ok=True)
+        dated_path = os.path.join(REPORTS_DIR, f'{today}.json')
+        with open(dated_path, 'w', encoding='utf-8') as f:
+            json.dump(report, f, ensure_ascii=False, indent=2)
+        print(f"  Saved archive : {dated_path}")
 
-    if today not in index:
-        index.append(today)
-        index.sort(reverse=True)
+        index_path = os.path.join(REPORTS_DIR, 'index.json')
+        index = []
+        if os.path.exists(index_path):
+            with open(index_path, 'r', encoding='utf-8') as f:
+                index = json.load(f)
 
-    with open(index_path, 'w', encoding='utf-8') as f:
-        json.dump(index, f, ensure_ascii=False, indent=2)
-    print(f"  Updated index : {index_path} ({len(index)} entries)")
+        if today not in index:
+            index.append(today)
+            index.sort(reverse=True)
+
+        with open(index_path, 'w', encoding='utf-8') as f:
+            json.dump(index, f, ensure_ascii=False, indent=2)
+        print(f"  Updated index : {index_path} ({len(index)} entries)")
     print("=== Done ===")
 
 

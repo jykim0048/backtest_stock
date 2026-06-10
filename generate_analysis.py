@@ -30,10 +30,22 @@ from analysis import sources       # imports yfinance + redirects its cache to /
 import yfinance as yf
 
 ROOT          = os.path.dirname(os.path.abspath(__file__))
-WATCHLIST     = os.path.join(ROOT, "watchlist.json")
 PEERS_PATH    = os.path.join(ROOT, "analysis", "peers.json")
 REPORTS_DIR   = os.path.join(ROOT, "public", "reports")
-DAILY_PATH    = os.path.join(ROOT, "public", "daily_market_report.json")
+
+# Input watchlist / merge-target report are env-overridable so the same deep-research
+# generator serves both the 장전 워치리스트 (defaults) and the 장중 관심종목 pipeline:
+#   ANALYSIS_WATCHLIST=intraday_watchlist.json
+#   ANALYSIS_REPORT=public/intraday_report.json
+#   ANALYSIS_ARCHIVE=0   # 장중은 최신본만 — 날짜별 아카이브 파일에는 병합하지 않음
+WATCHLIST     = os.environ.get("ANALYSIS_WATCHLIST") or os.path.join(ROOT, "watchlist.json")
+DAILY_PATH    = os.environ.get("ANALYSIS_REPORT")    or os.path.join(ROOT, "public", "daily_market_report.json")
+ARCHIVE       = os.environ.get("ANALYSIS_ARCHIVE", "1") != "0"
+
+if not os.path.isabs(WATCHLIST):
+    WATCHLIST = os.path.join(ROOT, WATCHLIST)
+if not os.path.isabs(DAILY_PATH):
+    DAILY_PATH = os.path.join(ROOT, DAILY_PATH)
 
 MAX_TOKENS  = 8192   # one full analysis is ~3.4-5.3k tokens; 4096 truncated mid-JSON
 # Default low — free-tier LLM providers cap requests-per-minute; raise if you
@@ -317,14 +329,17 @@ def main():
     merge_into_report(DAILY_PATH, analysis_by_code)
     print(f"  Updated {DAILY_PATH}")
 
-    # KST, to match generate_report.py / archive_report.yml — the CI cron runs
-    # at 23:00 UTC, so a UTC date would point at the wrong dated report file.
-    kst = datetime.timezone(datetime.timedelta(hours=9))
-    today = datetime.datetime.now(kst).strftime("%Y-%m-%d")
-    dated = os.path.join(REPORTS_DIR, f"{today}.json")
-    if os.path.exists(dated):
-        merge_into_report(dated, analysis_by_code)
-        print(f"  Updated {dated}")
+    # 장전 워치리스트만 날짜별 아카이브에 병합한다. 장중 관심종목(ANALYSIS_ARCHIVE=0)은
+    # 최신본(intraday_report.json)만 갱신하므로 이 단계를 건너뛴다.
+    if ARCHIVE:
+        # KST, to match generate_report.py / archive_report.yml — the CI cron runs
+        # at 23:00 UTC, so a UTC date would point at the wrong dated report file.
+        kst = datetime.timezone(datetime.timedelta(hours=9))
+        today = datetime.datetime.now(kst).strftime("%Y-%m-%d")
+        dated = os.path.join(REPORTS_DIR, f"{today}.json")
+        if os.path.exists(dated):
+            merge_into_report(dated, analysis_by_code)
+            print(f"  Updated {dated}")
 
     print(f"=== Done: {len(analysis_by_code)}/{len(watchlist)} stocks analyzed ===")
 

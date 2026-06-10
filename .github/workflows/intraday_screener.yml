@@ -1,0 +1,89 @@
+name: Intraday Watchlist Screener
+
+on:
+  schedule:
+    # 장중 30분 간격. UTC 00:00~06:30 = KST 09:00~15:30 (KST=UTC+9, 같은 날짜).
+    # 월–금. 장중 '관심종목'(모니터링 전용)을 갱신한다.
+    - cron: '0,30 0-6 * * 1-5'
+  workflow_dispatch: # allow manual trigger for testing
+
+# Serialize with the daily report so the two never race on push to main.
+concurrency:
+  group: report-push
+  cancel-in-progress: false
+
+jobs:
+  intraday-screen:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    env:
+      # 장중 관심종목 수 (장전 워치리스트 10개보다 적게). 필요시 repo Variable로 조정.
+      SCREEN_N_FINAL: '6'
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0   # full history so the push-time rebase is clean
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Screen intraday surge candidates
+        continue-on-error: true   # best-effort; on failure keep the previous intraday list
+        env:
+          SCREEN_MODE:         intraday
+          GEMINI_API_KEY:      ${{ secrets.GEMINI_API_KEY }}
+          LLM_CHAIN:           ${{ vars.LLM_CHAIN }}
+          ANTHROPIC_API_KEY:   ${{ secrets.ANTHROPIC_API_KEY }}
+          DART_API_KEY:        ${{ secrets.DART_API_KEY }}
+          TAVILY_API_KEY:      ${{ secrets.TAVILY_API_KEY }}
+          NAVER_CLIENT_ID:     ${{ secrets.NAVER_CLIENT_ID }}
+          NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
+        run: python screener.py
+
+      - name: Generate intraday price-level report
+        env:
+          REPORT_WATCHLIST: intraday_watchlist.json
+          REPORT_OUT:       public/intraday_report.json
+          REPORT_ARCHIVE:   '0'   # 최신본만 — 날짜 드롭다운/아카이브에 섞지 않음
+        run: python generate_report.py
+
+      - name: Generate intraday deep research analysis
+        continue-on-error: true   # best-effort; never block the price report
+        env:
+          ANALYSIS_WATCHLIST:  intraday_watchlist.json
+          ANALYSIS_REPORT:     public/intraday_report.json
+          ANALYSIS_ARCHIVE:    '0'
+          GEMINI_API_KEY:      ${{ secrets.GEMINI_API_KEY }}
+          LLM_CHAIN:           ${{ vars.LLM_CHAIN }}
+          ANTHROPIC_API_KEY:   ${{ secrets.ANTHROPIC_API_KEY }}
+          DART_API_KEY:        ${{ secrets.DART_API_KEY }}
+          TAVILY_API_KEY:      ${{ secrets.TAVILY_API_KEY }}
+          NAVER_CLIENT_ID:     ${{ secrets.NAVER_CLIENT_ID }}
+          NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
+        run: python generate_analysis.py
+
+      - name: Commit and push intraday report
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add intraday_watchlist.json public/intraday_report.json public/reports/selection/intraday/
+          git diff --staged --quiet && echo "No changes to commit" && exit 0
+          git commit -m "chore: auto-generate intraday watchlist $(date -u +'%Y-%m-%d %H:%MZ')"
+          # Remote may have advanced (daily report or concurrent pushes); push, and
+          # on rejection rebase onto the latest main and retry.
+          for i in $(seq 1 5); do
+            if git push origin HEAD:main; then echo "pushed (attempt $i)"; exit 0; fi
+            echo "push attempt $i rejected; rebasing onto latest main..."
+            git fetch origin main
+            git rebase FETCH_HEAD || { git rebase --abort; echo "::error::rebase conflict"; exit 1; }
+            sleep $((RANDOM % 4 + 2))
+          done
+          echo "::error::push failed after 5 attempts" && exit 1

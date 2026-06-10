@@ -9,8 +9,9 @@
 
 ## 주요 기능
 
-- **장전 종목 자동 선정** — 매일 장 시작 전, 전일 미국시장 + 국내 뉴스/공시를 분석해 코스피200·코스닥150에서 '오늘 급등 예상 종목'을 선별
-- **실시간 시세 피드** — Yahoo Finance(yfinance)에서 관심 종목 현재가를 5초마다 갱신
+- **장전 종목 자동 선정** — 매일 장 시작 전, 전일 미국시장 + 국내 뉴스/공시를 분석해 코스피200·코스닥150에서 '오늘 급등 예상 종목'을 선별(**워치리스트**, 자동매매 대상)
+- **장중 관심종목 스크리닝** — 장중 30분 간격으로 '지금 막 이슈가 터진 종목'을 선별(**관심종목**, 모니터링 전용). 대시보드에서 워치리스트와 탭으로 전환해 조회
+- **실시간 시세 피드** — Yahoo Finance(yfinance)에서 워치리스트·관심종목 현재가를 5초마다 갱신
 - **자동매매 시뮬레이션** — 시초가 갭 필터, 분할 매수, 익절/손절 로직을 대시보드에서 시각화
 - **딥리서치 분석** — 선정 종목별 peer 시세·뉴스·커뮤니티·DART 공시를 LLM이 요약
 - **일일 리포트 자동 생성** — 매일 GitHub Actions가 종목별 진입가·목표가·손절가를 산출
@@ -29,24 +30,28 @@ backtest_stock/
 │   ├── server.py             # 로컬 개발용 통합 서버 (정적 파일 + API)
 │   └── news_mcp.py           # 종목 뉴스 MCP 서버
 ├── public/                   # Vercel 정적 서빙 디렉토리
-│   ├── index.html            # 대시보드 UI (단일 파일)
-│   ├── daily_market_report.json  # 최신 리포트 (대시보드가 로드)
+│   ├── index.html            # 대시보드 UI (단일 파일, 워치리스트/관심종목 탭 전환)
+│   ├── daily_market_report.json  # 최신 워치리스트 리포트 (대시보드가 로드)
+│   ├── intraday_report.json  # 최신 장중 관심종목 리포트 (대시보드가 로드)
 │   ├── assets/
 │   │   └── krx_companies.json
 │   └── reports/
-│       ├── index.json        # 사용 가능한 리포트 날짜 목록
+│       ├── index.json        # 사용 가능한 리포트 날짜 목록 (워치리스트만)
 │       ├── selection/        # 일자별 종목 선정 근거 (장전 스크리닝 결과)
-│       └── YYYY-MM-DD.json   # 일자별 리포트 아카이브
+│       │   └── intraday/     # 장중 스크리닝 선정 근거 (당일 최신)
+│       └── YYYY-MM-DD.json   # 일자별 워치리스트 리포트 아카이브
 ├── .github/workflows/
-│   └── daily_report.yml      # 매일 08:00 KST 스크리닝 → 리포트 자동 생성
+│   ├── daily_report.yml      # 장전: 08:30 KST 스크리닝 → 워치리스트 리포트
+│   └── intraday_screener.yml # 장중: 09:00~15:30 KST 30분 간격 관심종목 갱신
 ├── analysis/                 # 딥리서치용 RAW 데이터 수집기 (뉴스·DART·peer)
 ├── data/
 │   └── index_constituents.json  # (선택) 코스피200·코스닥150 정확 멤버십 코드
-├── screener.py               # 장전 종목 선정 스크립트 (1차 스크리닝)
-├── generate_report.py        # 리포트 생성 스크립트
-├── generate_analysis.py      # 딥리서치 분석 생성 스크립트
-├── ticker_utils.py           # 종목코드 → Yahoo 티커 변환 (공유 모듈)
-├── watchlist.json            # 선정 종목 (screener.py 가 매일 자동 갱신)
+├── screener.py               # 종목 선정 스크립트 (SCREEN_MODE=pre|intraday)
+├── generate_report.py        # 리포트 생성 (REPORT_* env로 입출력 지정)
+├── generate_analysis.py      # 딥리서치 분석 생성 (ANALYSIS_* env로 입출력 지정)
+├── ticker_utils.py           # 종목코드 → Yahoo 티커 변환 (워치리스트 ∪ 관심종목)
+├── watchlist.json            # 장전 선정 종목 (screener.py pre 모드가 갱신)
+├── intraday_watchlist.json   # 장중 선정 종목 (screener.py intraday 모드가 갱신)
 ├── requirements.txt
 └── vercel.json               # Vercel 라우팅 설정
 ```
@@ -117,12 +122,35 @@ python local_server/server.py
 
 상세 설계는 [`docs/DEEP_RESEARCH.md`](docs/DEEP_RESEARCH.md) 참고.
 
+### 장중 관심종목 파이프라인 — `intraday_screener.yml`
+
+장전 워치리스트와 **별개의 트랙**으로, 장중(**09:00~15:30 KST, 30분 간격, 월–금**) '지금 막 이슈가 터진 종목'을 선별해 대시보드 **'관심종목'** 탭에 띄웁니다. **모니터링 전용**이라 자동매매·계좌에는 포함되지 않습니다.
+
+같은 스크립트를 환경변수로 모드만 바꿔 재사용합니다.
+
+```
+① screener.py (SCREEN_MODE=intraday)         → intraday_watchlist.json
+② generate_report.py (REPORT_*=intraday 경로)  → public/intraday_report.json
+③ generate_analysis.py (ANALYSIS_*=intraday)   → intraday_report.json 에 analysis 병합
+```
+
+- **시간창**: 장전은 '전일 장마감~', 장중은 '당일 09:00~현재'로 뉴스·공시를 좁혀 *오늘 장 들어 나온* 촉매만 본다.
+- **등락률**: 장중에는 yfinance 일봉의 당일 진행봉이 마지막 행이 되어 `ChagesRatio`가 자동으로 장중 등락률이 된다.
+- **산출물 분리**: 워치리스트(`watchlist.json`/`daily_market_report.json`)와 관심종목(`intraday_watchlist.json`/`intraday_report.json`)은 서로 덮어쓰지 않는다. 관심종목은 날짜 드롭다운/아카이브에 섞지 않고 **최신본만** 갱신한다.
+- **실시간 시세**: `/api/prices`는 `ticker_utils`가 두 리스트를 합쳐 양쪽 모두에 시세를 제공한다(`vercel.json`의 `includeFiles`에 두 파일 포함).
+
 ### 수동 실행
 
 ```bash
+# 장전 워치리스트 (기본)
 python screener.py          # 종목 선정 → watchlist.json 갱신
 python generate_report.py   # 가격 레벨 리포트 생성
 python generate_analysis.py # 딥리서치 분석 병합 (API 키 필요)
+
+# 장중 관심종목 (모드/경로를 env로 지정)
+SCREEN_MODE=intraday python screener.py
+REPORT_WATCHLIST=intraday_watchlist.json REPORT_OUT=public/intraday_report.json REPORT_ARCHIVE=0 python generate_report.py
+ANALYSIS_WATCHLIST=intraday_watchlist.json ANALYSIS_REPORT=public/intraday_report.json ANALYSIS_ARCHIVE=0 python generate_analysis.py
 ```
 
 ---

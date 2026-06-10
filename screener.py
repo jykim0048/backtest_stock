@@ -49,10 +49,22 @@ import llm                          # provider-agnostic LLM with fallback chain
 from analysis import sources
 
 ROOT          = os.path.dirname(os.path.abspath(__file__))
-WATCHLIST     = os.path.join(ROOT, "watchlist.json")
 CONSTITUENTS  = os.path.join(ROOT, "data", "index_constituents.json")
 KRX_COMPANIES = os.path.join(ROOT, "public", "assets", "krx_companies.json")
-SELECTION_DIR = os.path.join(ROOT, "public", "reports", "selection")
+
+# ---- mode -----------------------------------------------------------------
+# "pre"      : 장마감 후~장전 스크리닝 (대시보드 '워치리스트', 자동매매 대상)
+# "intraday" : 장중 스크리닝 (대시보드 '관심종목', 모니터링 전용)
+MODE        = os.environ.get("SCREEN_MODE", "pre").strip().lower()
+IS_INTRADAY = MODE == "intraday"
+
+# 모드별 산출 파일. 장전/장중이 서로의 결과를 덮어쓰지 않도록 분리한다.
+if IS_INTRADAY:
+    WATCHLIST     = os.path.join(ROOT, "intraday_watchlist.json")
+    SELECTION_DIR = os.path.join(ROOT, "public", "reports", "selection", "intraday")
+else:
+    WATCHLIST     = os.path.join(ROOT, "watchlist.json")
+    SELECTION_DIR = os.path.join(ROOT, "public", "reports", "selection")
 
 KST = datetime.timezone(datetime.timedelta(hours=9))
 
@@ -136,6 +148,24 @@ def overnight_cutoff(now=None):
     while d.weekday() >= 5:                       # 토(5)/일(6) 건너뜀
         d -= datetime.timedelta(days=1)
     return datetime.datetime.combine(d, datetime.time(15, 30), tzinfo=KST)
+
+
+def intraday_cutoff(now=None):
+    """장중 모드 뉴스/공시 시간창 시작 = 당일 장 시작(09:00 KST).
+
+    장중(09:00~15:30)에 30분 간격으로 도므로 '오늘 장 들어 나온 이슈'만 본다.
+    장 시작 전(09:00 이전)에 돌면 음수 창이 되지 않도록 직전 거래일 마감으로 당긴다.
+    """
+    now = now or datetime.datetime.now(KST)
+    today_open = datetime.datetime.combine(now.date(), datetime.time(9, 0), tzinfo=KST)
+    if now < today_open or now.weekday() >= 5:
+        return overnight_cutoff(now)
+    return today_open
+
+
+def news_cutoff(now=None):
+    """현재 모드의 뉴스/공시 수집 시작 시각."""
+    return intraday_cutoff(now) if IS_INTRADAY else overnight_cutoff(now)
 
 
 def _parse_pubdate(s):
@@ -462,7 +492,7 @@ def disclosure_candidates(universe_codes):
     거래일 단위로 근사한다(직전 거래일 + 당일). 가격민감 공시는 대부분 장 마감 후
     접수되어 overnight 과 실무상 거의 일치한다.
     """
-    bgn = overnight_cutoff().strftime("%Y%m%d")            # 직전 거래일
+    bgn = news_cutoff().strftime("%Y%m%d")                 # pre=직전 거래일 / intraday=당일
     end = datetime.datetime.now(KST).strftime("%Y%m%d")    # 당일
     items = []
     for cls in ("Y", "K"):                                 # 유가증권 + 코스닥
@@ -533,8 +563,8 @@ def _news_one(row, cutoff):
 
 
 def enrich_news(pool):
-    """후보별 '전일 장마감~실행시각' 네이버 뉴스를 병렬 수집해 각 row에 붙인다."""
-    cutoff = overnight_cutoff()
+    """후보별 뉴스(pre=전일 장마감~ / intraday=당일 09:00~)를 병렬 수집해 각 row에 붙인다."""
+    cutoff = news_cutoff()
     _warn(f"news window: {cutoff.strftime('%Y-%m-%d %H:%M')} KST ~ now")
     news_by_code = {}
     workers = max(1, min(ENRICH_WORKERS, len(pool)))
@@ -579,6 +609,35 @@ SYSTEM = """\
 picks 는 정확히 {n}개."""
 
 
+SYSTEM_INTRADAY = """\
+너는 한국 주식 데이 트레이딩 애널리스트다. **지금은 장중**이다. 이미 거래가 진행 중인 상태에서,
+'지금부터 추가 급등 여지가 큰' 한국 종목 {n}개를 선정한다.
+
+입력:
+- us_market: 전일 미국 지수/섹터 ETF 등락 + 급등 특징주(movers). 국내 동조/밸류체인 연결 추론용.
+- candidates: 코스피200/코스닥150 유니버스에서 1차 선별된 후보. 각 후보는 source('공시'=당일 촉매 공시
+  보유 / '가격'=장중 거래대금·등락 상위), **장중 실시간 등락률(changePct, 전일 종가 대비 현재가)**,
+  거래대금(amountKRW), **당일 장중 접수 공시(disclosures)**, 당일 뉴스(news)를 포함한다.
+
+선정 원칙(중요도 순):
+1) **오늘 장중에 새로 나온 촉매 공시**(공급계약·수주·실적·임상/허가·투자·자사주 등)를 가진 종목 최우선.
+2) 당일 우호적 뉴스가 막 나온 종목, 전일 미국시장 강세 섹터·급등 특징주와 테마/밸류체인이 연결된 종목.
+3) 장중 등락률·거래대금은 '시장이 이미 반응 중인 강도' 확인용. 다만 **이미 상한가 근처까지 급등해
+   추격 여력이 적은 종목보다, 촉매가 분명하고 모멘텀이 막 붙기 시작한 종목**을 우선한다.
+- 근거(당일 공시/뉴스/미국 테마) 없는 단순 가격 급등은 넣지 마라. 후보 목록 안에서만 고른다.
+
+반드시 아래 스키마와 정확히 동일한 JSON만 출력한다. 마크다운 펜스/설명 금지.
+{
+  "marketView": "현재 장중 시장 상황과 오늘 주목할 테마 3-4문장 (한국어)",
+  "picks": [
+    {"code": "6자리", "name": "종목명", "market": "KOSPI|KOSDAQ",
+     "reason": "선정 사유 1-2문장 (당일 공시/미국테마/뉴스 근거 명시)",
+     "catalyst": "핵심 촉매 한 줄"}
+  ]
+}
+picks 는 정확히 {n}개."""
+
+
 _STR = {"type": "string"}
 SELECT_SCHEMA = {
     "type": "object", "additionalProperties": False,
@@ -614,7 +673,7 @@ def llm_select(us_brief, pool):
         })
 
     user = json.dumps({"us_market": us_brief, "candidates": candidates}, ensure_ascii=False)
-    system = SYSTEM.replace("{n}", str(N_FINAL))
+    system = (SYSTEM_INTRADAY if IS_INTRADAY else SYSTEM).replace("{n}", str(N_FINAL))
     try:
         result = llm.generate_json(system, user, max_tokens=MAX_TOKENS, schema=SELECT_SCHEMA)
     except Exception as e:
@@ -670,6 +729,8 @@ def write_outputs(selection, us_brief):
     selection_path = os.path.join(SELECTION_DIR, f"{today}.json")
     payload = {
         "date": today,
+        "mode": MODE,                                              # "pre" | "intraday"
+        "asof": datetime.datetime.now(KST).strftime("%Y-%m-%d %H:%M"),
         "usMarket": us_brief,
         "marketView": selection.get("marketView", ""),
         "picks": picks,
@@ -681,7 +742,8 @@ def write_outputs(selection, us_brief):
 
 def main():
     today = datetime.datetime.now(KST).strftime("%Y-%m-%d")
-    print(f"=== Pre-market screener ({today}) ===")
+    label = "Intraday screener (장중 관심종목)" if IS_INTRADAY else "Pre-market screener (장전 워치리스트)"
+    print(f"=== {label} ({today}) ===")
 
     print("1) 전일 미국시장 분석 (지수·섹터·급등 특징주)...")
     us_brief = us_market_brief()
