@@ -2,10 +2,11 @@ name: Intraday Watchlist Screener
 
 on:
   schedule:
-    # 장중 30분 간격, 월–금. UTC 00:07~06:37 = KST 09:07~15:37 (KST=UTC+9, 같은 날짜).
+    # 장중 30분 간격, 월–금. UTC 00:07~05:37 = KST 09:07~14:37 (KST=UTC+9, 같은 날짜).
+    # 마감(15:30) 직전 회차(15:07)·마감 후 회차(15:37)는 두지 않는다.
     # 분을 정각(:00,:30)에서 7분 어긋나게 둬 전 세계 cron 이 몰리는 정시 혼잡을 피한다
     # (GitHub Actions schedule 은 정각에 지연·누락이 잦다).
-    - cron: '7,37 0-6 * * 1-5'
+    - cron: '7,37 0-5 * * 1-5'
   workflow_dispatch: # allow manual trigger for testing
 
 # 장중 관심종목은 자체 그룹으로 직렬화한다. 장전(daily_report)·아카이브와 group 을 공유하면
