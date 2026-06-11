@@ -181,16 +181,20 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main():
-    # Warm the DART corp map (static file if bundled, else one-time download) so the
-    # first request isn't slow.
-    try:
-        ga.sources._load_corp_map()
-    except Exception as ex:
-        print(f"[research] corp map warmup skipped: {ex}", file=sys.stderr)
-
     port = int(os.environ.get("PORT", "8080"))
     srv = ThreadingHTTPServer(("0.0.0.0", port), Handler)
-    print(f"[research] listening on :{port}  (master={len(_BY_CODE)} stocks)")
+    print(f"[research] listening on :{port}  (master={len(_BY_CODE)} stocks)", flush=True)
+
+    # Warm the DART corp map in background so the server starts accepting requests
+    # immediately (corpCode.xml download can take minutes on cold start).
+    def _warmup():
+        try:
+            ga.sources._load_corp_map()
+            print("[research] corp map ready", flush=True)
+        except Exception as ex:
+            print(f"[research] corp map warmup skipped: {ex}", file=sys.stderr, flush=True)
+
+    threading.Thread(target=_warmup, daemon=True).start()
     srv.serve_forever()
 
 
