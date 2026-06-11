@@ -1325,6 +1325,14 @@
       <!-- Left Panel: Stocks Table -->
       <section class="board-container">
 
+        <!-- 온디맨드 딥리서치 검색: 종목명/코드 → /api/research (비동기) -->
+        <div class="od-search">
+          <input id="od-input" type="text" autocomplete="off"
+                 placeholder="🔬 종목명 또는 6자리 코드로 딥리서치 (예: 삼성전자 / 005930)"
+                 onkeydown="if(event.key==='Enter')odRun()" />
+          <button onclick="odRun()">딥리서치</button>
+        </div>
+
         <!-- 메인 탭: 장전 워치리스트 / 장중 관심종목 (드로어 Account/Deep Research 패턴) -->
         <div class="main-tabs">
           <button class="main-tab active" data-maintab="watchlist" onclick="selectMainTab('watchlist')">📋 장전 워치리스트</button>
@@ -2545,22 +2553,18 @@
       renderAnalysisContent();
     }
 
-    function renderAnalysisContent() {
-      const box = document.getElementById("analysis-content");
-      const stock = selectedList()[selectedStockIndex];
-      const a = stock && stock.analysis;
-      if (!a) {
-        box.innerHTML = `<span class="analysis-empty">이 종목은 아직 심층 리서치 데이터가 없습니다. (현재 한미약품만 프로토타입 제공)</span>`;
-        return;
-      }
+    // Pure renderer: build analysis HTML for a given analysis object + tab.
+    // Shared by the stock drawer (renderAnalysisContent) and the on-demand modal (odTab).
+    function analysisHTML(a, tab) {
+      if (!a) return `<span class="analysis-empty">심층 리서치 데이터가 없습니다.</span>`;
       const modelBadge = a.generatedBy
         ? `<div class="analysis-model">🤖 분석 생성 모델: ${escapeHtml(a.generatedBy)}</div>` : "";
-      const sec = a[currentAnalysisTab];
-      if (!sec) { box.innerHTML = modelBadge + `<span class="analysis-empty">데이터 없음</span>`; return; }
+      const sec = a[tab];
+      if (!sec) return modelBadge + `<span class="analysis-empty">데이터 없음</span>`;
 
       let html = modelBadge + (sec.summary ? `<div class="analysis-summary">${escapeHtml(sec.summary)}</div>` : "");
 
-      if (currentAnalysisTab === "peers") {
+      if (tab === "peers") {
         html += (sec.items || []).map(it => {
           const up = (it.changePct || 0) >= 0;
           const sign = up ? "+" : "";
@@ -2583,7 +2587,7 @@
               <div class="analysis-item-note">${escapeHtml(it.summary)}</div>
             </div>`).join("");
         }
-      } else if (currentAnalysisTab === "news") {
+      } else if (tab === "news") {
         html += (sec.items || []).map(it => `<div class="analysis-item">
             <div class="analysis-item-head">
               <span class="analysis-item-title">${linkTitle(it.title, it.url)}</span>
@@ -2592,7 +2596,7 @@
             <div class="analysis-item-meta">${escapeHtml(it.source)} · ${escapeHtml(it.date)}</div>
             <div class="analysis-item-note">${escapeHtml(it.insight)}</div>
           </div>`).join("");
-      } else if (currentAnalysisTab === "community") {
+      } else if (tab === "community") {
         if (sec.sentimentLabel) html += `<div class="analysis-subhead">종합 분위기 · ${escapeHtml(sec.sentimentLabel)}</div>`;
         const renderList = (arr) => (arr || []).map(it => `<div class="analysis-item">
             <div class="analysis-item-head">
@@ -2602,7 +2606,7 @@
             <div class="analysis-item-note">${escapeHtml(it.summary)}</div>
           </div>`).join("") || `<span class="analysis-empty">수집된 글 없음</span>`;
         html += `<div class="analysis-subhead">🟢 네이버 / 종목토론방</div>${renderList(sec.naver)}`;
-      } else if (currentAnalysisTab === "dart") {
+      } else if (tab === "dart") {
         if (sec.highlights && sec.highlights.length) {
           html += `<div class="analysis-subhead">재무 하이라이트</div>`;
           html += sec.highlights.map(h => `<div class="analysis-item">
@@ -2624,7 +2628,18 @@
             </div>`).join("");
         }
       }
-      box.innerHTML = html;
+      return html;
+    }
+
+    function renderAnalysisContent() {
+      const box = document.getElementById("analysis-content");
+      const stock = selectedList()[selectedStockIndex];
+      const a = stock && stock.analysis;
+      if (!a) {
+        box.innerHTML = `<span class="analysis-empty">이 종목은 아직 심층 리서치 데이터가 없습니다. 상단 검색창에서 온디맨드 딥리서치를 실행할 수 있습니다.</span>`;
+        return;
+      }
+      box.innerHTML = analysisHTML(a, currentAnalysisTab);
     }
 
     function updateDrawerLivePrices(idx) {
@@ -2793,6 +2808,140 @@
         valSpan.innerText = (slider.value / 10).toFixed(1) + "%";
       }
     }
+
+    // ===== On-demand Deep Research (search box -> /api/research) =====
+    // 리서치 백엔드(상시 서버, 예: Railway)의 베이스 URL.
+    // 예: "https://backtest-stock-research.up.railway.app". 같은 오리진이면 "" 로 둔다.
+    const RESEARCH_API_BASE = "";
+    const odState = { analysis: null };
+
+    function odOpen()  { document.getElementById("od-overlay").classList.add("active"); }
+    function odClose() { document.getElementById("od-overlay").classList.remove("active"); }
+
+    function odSetStatus(msg, busy) {
+      document.getElementById("od-status").innerHTML =
+        (busy ? `<span class="od-spinner"></span> ` : "") + escapeHtml(msg);
+    }
+
+    function odSetHeader(d) {
+      document.getElementById("od-name").innerText = d.name || "—";
+      document.getElementById("od-code").innerText = d.code || "";
+      const mk = document.getElementById("od-market");
+      mk.innerText = d.market || "";
+      mk.className = "market-badge " + (d.market === "KOSPI" ? "kospi" : "kosdaq");
+    }
+
+    function odTab(t) {
+      document.querySelectorAll("[data-odtab]").forEach(b =>
+        b.classList.toggle("active", b.getAttribute("data-odtab") === t));
+      document.getElementById("od-content").innerHTML = analysisHTML(odState.analysis, t);
+    }
+
+    function odShow(a, generatedAt, cached) {
+      odState.analysis = a;
+      odSetStatus(`✅ 완료${cached ? " (캐시)" : ""}${generatedAt ? " · " + generatedAt : ""}`, false);
+      const cbox = document.getElementById("od-catalyst-box");
+      if (a && a.catalyst) {
+        document.getElementById("od-catalyst").innerText = a.catalyst;
+        cbox.style.display = "";
+      } else { cbox.style.display = "none"; }
+      document.getElementById("od-body").style.display = "";
+      odTab("peers");
+    }
+
+    async function odRun() {
+      const q = document.getElementById("od-input").value.trim();
+      if (!q) return;
+      odOpen();
+      document.getElementById("od-body").style.display = "none";
+      document.getElementById("od-catalyst-box").style.display = "none";
+      odSetHeader({ name: q, code: "", market: "" });
+      odSetStatus("🔬 딥리서치 수행 중… 뉴스·공시·해외 peer·LLM 분석 (최대 1~2분)", true);
+      try {
+        // 상시 서버(Railway 등) 동기 호출 — 결과를 한 번에 받는다 (스피너 유지).
+        const r = await fetch(`${RESEARCH_API_BASE}/api/research?q=${encodeURIComponent(q)}`);
+        const d = await r.json();
+        if (d.code || d.name) odSetHeader(d);
+        if (d.status !== "done" || !d.result) {
+          odSetStatus("⚠️ " + (d.message || "분석에 실패했습니다."), false);
+          return;
+        }
+        odShow(d.result, d.generatedAt, d.cached);
+      } catch (e) {
+        odSetStatus("⚠️ 네트워크 오류: " + e + " (리서치 서버 주소를 확인하세요)", false);
+      }
+    }
   </script>
+
+  <style>
+    .od-search { display: flex; gap: 8px; margin-bottom: 14px; }
+    .od-search input {
+      flex: 1; padding: 10px 14px; font-size: 13px;
+      background: rgba(15, 23, 42, 0.6); color: var(--text-main);
+      border: 1px solid var(--border-color); border-radius: 8px; outline: none;
+    }
+    .od-search input:focus { border-color: var(--kospi-blue); }
+    .od-search button {
+      padding: 0 18px; font-size: 13px; font-weight: 600; cursor: pointer;
+      background: var(--kospi-blue); color: #fff; border: none; border-radius: 8px;
+      white-space: nowrap;
+    }
+    .od-search button:hover { filter: brightness(1.1); }
+
+    .od-overlay {
+      position: fixed; inset: 0; z-index: 1000; display: none;
+      background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(2px);
+      align-items: flex-start; justify-content: center;
+      padding: 48px 16px; overflow-y: auto;
+    }
+    .od-overlay.active { display: flex; }
+    .od-modal {
+      width: min(680px, 100%); max-height: 88vh; overflow-y: auto;
+      background: #0f172a; border: 1px solid var(--border-color);
+      border-radius: 14px; padding: 22px; box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+    }
+    .od-modal-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+    .od-title { font-size: 18px; font-weight: 700; color: var(--text-main); }
+    .od-code { color: var(--text-muted); margin-left: 8px; font-size: 13px; font-variant-numeric: tabular-nums; }
+    .od-modal-head .market-badge { margin-left: 8px; }
+    .od-close { background: none; border: none; color: var(--text-muted); font-size: 20px; cursor: pointer; line-height: 1; }
+    .od-close:hover { color: var(--text-main); }
+    .od-status { margin: 14px 0; font-size: 13px; color: var(--text-muted); min-height: 18px; }
+    .od-spinner {
+      display: inline-block; width: 12px; height: 12px; vertical-align: -1px;
+      border: 2px solid var(--text-muted); border-top-color: transparent;
+      border-radius: 50%; animation: od-spin 0.8s linear infinite;
+    }
+    @keyframes od-spin { to { transform: rotate(360deg); } }
+    #od-body .analysis-tabs { margin-top: 4px; }
+  </style>
+
+  <!-- 온디맨드 딥리서치 결과 모달 (기존 analysis 렌더러 재사용) -->
+  <div id="od-overlay" class="od-overlay" onclick="if(event.target===this)odClose()">
+    <div class="od-modal">
+      <div class="od-modal-head">
+        <div>
+          <span id="od-name" class="od-title">—</span>
+          <span id="od-code" class="od-code"></span>
+          <span id="od-market" class="market-badge"></span>
+        </div>
+        <button class="od-close" onclick="odClose()" title="닫기">✕</button>
+      </div>
+      <div id="od-status" class="od-status"></div>
+      <div id="od-catalyst-box" class="drawer-catalyst-box" style="display:none;">
+        <h4>🎯 Market Moving Catalyst</h4>
+        <p id="od-catalyst"></p>
+      </div>
+      <div id="od-body" style="display:none;">
+        <div class="analysis-tabs">
+          <button class="analysis-tab active" data-odtab="peers" onclick="odTab('peers')">🌐 해외 Peer</button>
+          <button class="analysis-tab" data-odtab="news" onclick="odTab('news')">📰 뉴스 분석</button>
+          <button class="analysis-tab" data-odtab="community" onclick="odTab('community')">💬 토론방</button>
+          <button class="analysis-tab" data-odtab="dart" onclick="odTab('dart')">📑 DART</button>
+        </div>
+        <div id="od-content" class="analysis-content"></div>
+      </div>
+    </div>
+  </div>
 </body>
 </html>

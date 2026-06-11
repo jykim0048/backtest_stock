@@ -13,6 +13,7 @@ Env vars (GitHub Actions secrets):
 import io
 import os
 import sys
+import json
 import zipfile
 import datetime
 import threading
@@ -259,9 +260,30 @@ def reddit_search(query, max_results=5, period="year"):
 _CORP_MAP = None  # stock_code(6) -> corp_code(8), cached per process
 _CORP_LOCK = threading.Lock()  # guard the one-time (large) corpCode.xml download
 
+# Bundled static stock_code -> corp_code map (built by tools/build_dart_corp_map.py).
+# Serverless (Vercel /api/research) loads this to skip the ~tens-of-MB corpCode.xml
+# download on every cold start. Absent → fall back to the live DART download below.
+_STATIC_CORP_MAP_PATH = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    "public", "assets", "dart_corp_map.json")
+
 
 def _dart_key():
     return os.environ.get("DART_API_KEY")
+
+
+def _load_static_corp_map():
+    """Load the bundled stock_code->corp_code map, or None if missing/empty."""
+    try:
+        with open(_STATIC_CORP_MAP_PATH, encoding="utf-8") as f:
+            m = json.load(f)
+        if isinstance(m, dict) and m:
+            return {str(k).zfill(6): str(v) for k, v in m.items()}
+    except FileNotFoundError:
+        return None
+    except Exception as e:
+        _warn(f"static corp map load failed: {e}")
+    return None
 
 
 def _load_corp_map():
@@ -271,6 +293,13 @@ def _load_corp_map():
     with _CORP_LOCK:
         if _CORP_MAP is not None:          # another thread populated it while we waited
             return _CORP_MAP
+        # Fast path: bundled static map (no network, no DART key needed) — serverless.
+        static = _load_static_corp_map()
+        if static is not None:
+            _warn(f"corp map: static file ({len(static)} listed codes)")
+            _CORP_MAP = static
+            return _CORP_MAP
+        # Fallback: download the full corpCode.xml from DART (needs DART_API_KEY).
         m = {}
         key = _dart_key()
         if not key:
