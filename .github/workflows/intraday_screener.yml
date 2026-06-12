@@ -17,7 +17,37 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # GitHub Actions schedule 은 혼잡 시간대에 수십 분~수 시간 지연·이월된다. cron 을
+  # 09:07~14:37(KST)로 좁혀도 지연 트리거가 KST 18시대(장 마감 후)에 실행되는 일이 잦다.
+  # 그래서 실제 실행 시점의 KST 가 장중(09:00~15:00 평일)이 아니면 본 작업을 스킵한다.
+  # 수동 workflow_dispatch 는 테스트용이라 항상 통과시킨다.
+  guard:
+    runs-on: ubuntu-latest
+    outputs:
+      proceed: ${{ steps.check.outputs.proceed }}
+    steps:
+      - id: check
+        name: Run only during KST market hours (defend against delayed schedule)
+        run: |
+          if [ "${{ github.event_name }}" != "schedule" ]; then
+            echo "event=${{ github.event_name }} (manual) — proceeding"
+            echo "proceed=true" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          NOW=$(( 10#$(TZ=Asia/Seoul date +%H) * 60 + 10#$(TZ=Asia/Seoul date +%M) ))
+          DOW=$(TZ=Asia/Seoul date +%u)   # 1=Mon … 7=Sun
+          HM=$(TZ=Asia/Seoul date +%H:%M)
+          # 장중 회차는 09:07~14:37(KST). 정상 지연 여유를 둬 09:00~15:00(540~900분) 평일만 허용.
+          if [ "$DOW" -le 5 ] && [ "$NOW" -ge 540 ] && [ "$NOW" -le 900 ]; then
+            echo "KST $HM (min=$NOW dow=$DOW) — within market hours; proceeding"
+            echo "proceed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "KST $HM (min=$NOW dow=$DOW) — outside market hours; skipping (delayed schedule)"
+            echo "proceed=false" >> "$GITHUB_OUTPUT"
+          fi
+
   intraday-screen:
+    needs: guard
+    if: needs.guard.outputs.proceed == 'true'
     runs-on: ubuntu-latest
 
     permissions:
