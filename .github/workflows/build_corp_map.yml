@@ -1,0 +1,57 @@
+name: Build DART Corp Map
+
+# public/assets/dart_corp_map.json (종목코드→DART corp_code 정적 맵)을 클라우드에서 생성한다.
+# 클라우드 러너에는 사내 SSL 인터셉션/약한 DH 문제가 없어 우회 없이 평범한 requests 로 동작한다
+# (로컬 PC 에선 막혀서 일회성 우회로 만들었었음 — 이제 이 워크플로로 대체).
+on:
+  workflow_dispatch:        # 신규상장/폐지 등으로 갱신이 필요할 때 수동 실행(기본 사용법)
+  schedule:
+    # 월 1회 자동 갱신(보조). 매월 1일 UTC 18:13 = KST 2일 03:13. 정시·혼잡 회피용 odd-minute.
+    # corp map 은 시각 민감도가 없어 schedule 지연이 무관하다. 변경 없으면 커밋하지 않는다.
+    - cron: '13 18 1 * *'
+
+# corp map push 는 자체 그룹으로 직렬화(다른 자동 커밋과 레이스 방지).
+concurrency:
+  group: corpmap-push
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0   # full history so the push-time rebase is clean
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Build static corp map
+        env:
+          DART_API_KEY: ${{ secrets.DART_API_KEY }}
+        run: python tools/build_dart_corp_map.py
+
+      - name: Commit and push if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add public/assets/dart_corp_map.json
+          git diff --staged --quiet && echo "No changes — corp map up to date" && exit 0
+          git commit -m "chore: refresh dart_corp_map.json $(date -u +'%Y-%m-%d')"
+          # Remote may have advanced (other auto-commits); push, and on rejection rebase and retry.
+          for i in $(seq 1 5); do
+            if git push origin HEAD:main; then echo "pushed (attempt $i)"; exit 0; fi
+            echo "push attempt $i rejected; rebasing onto latest main..."
+            git fetch origin main
+            git rebase FETCH_HEAD || { git rebase --abort; echo "::error::rebase conflict"; exit 1; }
+            sleep $((RANDOM % 4 + 2))
+          done
+          echo "::error::push failed after 5 attempts" && exit 1
