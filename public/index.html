@@ -1853,6 +1853,7 @@
       }
       fetchRealPrices();
       setInterval(fetchRealPrices, 5000);
+      setInterval(refreshIndices, 15000);   // 트레이딩 OFF 여도 지수는 유지
       setInterval(tickSimulation, 1500);
       setInterval(updateEngineStatusIndicator, 5000);
       // 장중 관심종목은 30분 간격으로 서버에서 갱신되므로 5분마다 다시 로드한다.
@@ -2005,17 +2006,48 @@
       savePortfolio();
     }
 
+    // 코스피/코스닥 지수 span 갱신. 데이터 소스는 /api/prices 의 indices(yfinance ^KS11/^KQ11,
+    // 약 15~20분 지연). 트레이딩 ON/OFF 와 무관하게 항상 반영한다.
+    function applyOneIndex(key, v) {
+      if (!v || typeof v.price !== "number") return;
+      const priceEl = document.getElementById(`${key}-index-price`);
+      const rateEl  = document.getElementById(`${key}-index-rate`);
+      if (priceEl) priceEl.innerText = v.price.toLocaleString(undefined,
+        { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      if (rateEl) {
+        const up = (v.rate || 0) >= 0;
+        rateEl.innerText = (up ? "▲ +" : "▼ ") + (v.rate || 0).toFixed(2) + "%";
+        rateEl.className = "rate-badge " + (up ? "up" : "down");
+      }
+    }
+    function applyIndices(indices) {
+      if (!indices) return;
+      applyOneIndex("kospi", indices.kospi);
+      applyOneIndex("kosdaq", indices.kosdaq);
+    }
+    // 트레이딩 OFF 면 fetchRealPrices 가 멈추므로, 지수만 따로 갱신한다(ON 이면 중복 회피).
+    async function refreshIndices() {
+      if (isTradingOn) return;
+      try {
+        const r = await fetch("/api/prices");
+        if (!r.ok) return;
+        const d = await r.json();
+        applyIndices(d.indices);
+      } catch (_) {}
+    }
+
     async function fetchRealPrices() {
       if (!isTradingOn) return;
-      
+
       const logsBox = document.getElementById("logs-box");
       const time = new Date().toTimeString().split(" ")[0];
 
       try {
         const response = await fetch("/api/prices");
         if (!response.ok) throw new Error("Server responded with error");
-        
+
         const data = await response.json();
+        applyIndices(data.indices);
         if (data.status === "success" && data.stocks) {
           if (useSimulatedData && !document.getElementById("demo-mode-toggle").checked) {
             useSimulatedData = false;

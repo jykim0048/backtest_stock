@@ -88,11 +88,38 @@ class handler(BaseHTTPRequestHandler):
             time_val = now.hour * 100 + now.minute
             if now.weekday() < 5 and 900 <= time_val <= 1530:
                 market_state = "REGULAR"
-            
+
+            # Market indices (KOSPI ^KS11 / KOSDAQ ^KQ11) via Yahoo Finance.
+            # KRX direct calls are blocked from datacenter IPs, but Yahoo is not.
+            # NOTE: Yahoo index data is delayed ~15-20min (not tick-level realtime).
+            indices = {}
+            try:
+                idx_map = {"kospi": "^KS11", "kosdaq": "^KQ11"}
+                idx_df = yf.download(list(idx_map.values()), period="2d",
+                                     group_by="ticker", progress=False, threads=True)
+                for key, tk in idx_map.items():
+                    try:
+                        d = idx_df[tk] if len(idx_map) > 1 else idx_df
+                        if d.empty:
+                            continue
+                        cur = float(d['Close'].iloc[-1])
+                        if math.isnan(cur):
+                            continue
+                        prev = float(d['Close'].iloc[-2]) if len(d) >= 2 else cur
+                        if math.isnan(prev) or prev <= 0:
+                            prev = cur
+                        rate = ((cur - prev) / prev) * 100 if prev > 0 else 0.0
+                        indices[key] = {"price": cur, "rate": rate}
+                    except Exception as ex:
+                        print(f"Error parsing index {tk}: {ex}")
+            except Exception as ex:
+                print(f"Index download failed: {ex}")
+
             response_payload = {
                 "status": "success",
                 "marketState": market_state,
-                "stocks": formatted_data
+                "stocks": formatted_data,
+                "indices": indices
             }
             
             self.send_response(200)
