@@ -1,13 +1,9 @@
 name: Daily Market Report
 
 on:
-  schedule:
-    # 07:43 KST = 22:43 UTC (the PREVIOUS calendar day). Runs Mon–Fri.
-    # 개장(09:00) 전 여유를 두고, 정각/반정각(:00,:30) 혼잡을 피한 홀수 분에 둔다.
-    #   GitHub Actions schedule 은 고부하 시간(정시 등)에 지연·누락이 잦아, 08:30 처럼
-    #   :30 에 두면 개장 후로 밀리거나 드롭된다. 전 거래일 종가 데이터를 쓰므로 당겨도 무방.
-    - cron: '43 22 * * 0-4'
-  workflow_dispatch: # allow manual trigger for testing
+  # 정기 실행은 Railway 상시 서버 스케줄러(railway_server._scheduler)가 평일 07:43 KST 에
+  # workflow_dispatch 로 트리거한다. GitHub 자체 schedule 은 1~3h 지연·드롭이 잦아 제거했다.
+  workflow_dispatch: # 수동 실행 + Railway 스케줄러 트리거 진입점
 
 # Serialize report-writing workflows so they never race each other on push.
 concurrency:

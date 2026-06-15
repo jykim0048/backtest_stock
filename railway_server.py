@@ -24,6 +24,8 @@ import json
 import time
 import datetime
 import threading
+import urllib.request
+import urllib.error
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs
 
@@ -180,6 +182,68 @@ class Handler(BaseHTTPRequestHandler):
         sys.stderr.write("[research] " + (fmt % args) + "\n")
 
 
+# ---------------------------------------------------------------------------
+# Scheduled GitHub Actions trigger.
+# GitHub's own `schedule:` is best-effort — it delays by 1~3h and sometimes drops
+# entirely. This always-on server fires workflow_dispatch at EXACT KST times, so
+# the schedule: blocks in those workflows can be removed (workflow_dispatch stays
+# for manual runs). Needs GH_DISPATCH_TOKEN (fine-grained PAT, Actions: write).
+# ---------------------------------------------------------------------------
+GH_REPO  = os.environ.get("GH_REPO", "jykim0048/backtest_stock")
+GH_REF   = os.environ.get("GH_REF", "main")
+GH_TOKEN = os.environ.get("GH_DISPATCH_TOKEN", "")
+
+DAILY_WF     = "daily_report.yml"
+INTRADAY_WF  = "intraday_screener.yml"
+INTRADAY_MIN = {7, 37}            # KST 09:07~14:37, 30분 간격 (장 마감 전후 회차 제외)
+
+
+def _dispatch(workflow_file):
+    if not GH_TOKEN:
+        print("[sched] GH_DISPATCH_TOKEN 미설정 — 트리거 생략", file=sys.stderr, flush=True)
+        return False
+    url = f"https://api.github.com/repos/{GH_REPO}/actions/workflows/{workflow_file}/dispatches"
+    data = json.dumps({"ref": GH_REF}).encode("utf-8")
+    req = urllib.request.Request(url, data=data, method="POST")
+    req.add_header("Authorization", f"Bearer {GH_TOKEN}")
+    req.add_header("Accept", "application/vnd.github+json")
+    req.add_header("User-Agent", "railway-scheduler")
+    req.add_header("Content-Type", "application/json")
+    try:
+        with urllib.request.urlopen(req, timeout=20) as r:
+            print(f"[sched] dispatched {workflow_file} -> HTTP {r.status}", flush=True)
+            return True
+    except urllib.error.HTTPError as e:
+        body = e.read()[:200].decode("utf-8", "replace")
+        print(f"[sched] {workflow_file} dispatch 실패: HTTP {e.code} {body}", file=sys.stderr, flush=True)
+    except Exception as e:
+        print(f"[sched] {workflow_file} dispatch 오류: {e}", file=sys.stderr, flush=True)
+    return False
+
+
+def _scheduler():
+    print(f"[sched] started (repo={GH_REPO} ref={GH_REF} "
+          f"token={'set' if GH_TOKEN else 'MISSING'})", flush=True)
+    fired = set()                                  # (date, key) — 같은 시각 중복 트리거 방지
+    while True:
+        try:
+            now = datetime.datetime.now(KST)
+            today = now.strftime("%Y-%m-%d")
+            fired = {(d, k) for (d, k) in fired if d == today}   # 날짜 바뀌면 정리
+            if now.weekday() <= 4:                               # 월~금
+                if now.hour == 7 and now.minute == 43:           # 장전 리포트 07:43 KST
+                    key = (today, "daily")
+                    if key not in fired and _dispatch(DAILY_WF):
+                        fired.add(key)
+                if 9 <= now.hour <= 14 and now.minute in INTRADAY_MIN:   # 장중 09:07~14:37
+                    key = (today, f"intraday-{now.hour:02d}{now.minute:02d}")
+                    if key not in fired and _dispatch(INTRADAY_WF):
+                        fired.add(key)
+        except Exception as e:
+            print(f"[sched] loop error: {e}", file=sys.stderr, flush=True)
+        time.sleep(20)
+
+
 def main():
     port = int(os.environ.get("PORT", "8080"))
     srv = ThreadingHTTPServer(("0.0.0.0", port), Handler)
@@ -195,6 +259,7 @@ def main():
             print(f"[research] corp map warmup skipped: {ex}", file=sys.stderr, flush=True)
 
     threading.Thread(target=_warmup, daemon=True).start()
+    threading.Thread(target=_scheduler, daemon=True).start()
     srv.serve_forever()
 
 
