@@ -81,9 +81,10 @@ jobs:
 
       - name: Generate intraday price-level report
         env:
-          REPORT_WATCHLIST: intraday_watchlist.json
-          REPORT_OUT:       public/intraday_report.json
-          REPORT_ARCHIVE:   '0'   # 최신본만 — 날짜 드롭다운/아카이브에 섞지 않음
+          REPORT_WATCHLIST:   intraday_watchlist.json
+          REPORT_OUT:         public/intraday_report.json
+          REPORT_ARCHIVE:     '1'                       # 날짜별 아카이브(나중에 과거 조회)
+          REPORT_ARCHIVE_DIR: public/reports/intraday   # 장전(reports/)과 분리된 장중 전용
         run: python generate_report.py
 
       - name: Generate intraday deep research analysis
@@ -105,7 +106,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add intraday_watchlist.json public/intraday_report.json public/reports/selection/intraday/
+          git add intraday_watchlist.json public/intraday_report.json public/reports/intraday/ public/reports/selection/intraday/
           git diff --staged --quiet && echo "No changes to commit" && exit 0
           git commit -m "chore: auto-generate intraday watchlist $(date -u +'%Y-%m-%d %H:%MZ')"
           # Remote may have advanced (daily report or concurrent pushes); push, and
