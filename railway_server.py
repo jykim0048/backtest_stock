@@ -154,6 +154,8 @@ class Handler(BaseHTTPRequestHandler):
         u = urlparse(self.path)
         if u.path in ("/", "/healthz"):
             return self._send(200, {"status": "ok"})
+        if u.path == "/api/krxtest":
+            return self._krxtest()
         if u.path != "/api/research":
             return self._send(404, {"status": "error", "message": "not found"})
         try:
@@ -177,6 +179,34 @@ class Handler(BaseHTTPRequestHandler):
                                     "generatedAt": entry["generatedAt"], "result": entry["result"]})
         except Exception as ex:
             return self._send(500, {"status": "error", "message": str(ex)[:300]})
+
+    def _krxtest(self):
+        """진단 전용: Railway IP 에서 pykrx(KRX 직접 스크래핑)가 실제로 데이터를 받는지 확인.
+        차단이면 빈 응답(rows=0)/에러, 정상이면 행 다수. 결과 보고 후 본 엔드포인트는 제거한다."""
+        result = {"region_hint": os.environ.get("RAILWAY_REPLICA_REGION", "unknown"), "checks": {}}
+        end = datetime.datetime.now(KST)
+        start = end - datetime.timedelta(days=12)
+        s, e = start.strftime("%Y%m%d"), end.strftime("%Y%m%d")
+        try:
+            from pykrx import stock as pk
+            try:
+                df = pk.get_market_ohlcv(s, e, "005930")
+                ok = df is not None and not df.empty
+                result["checks"]["ohlcv_005930"] = {
+                    "ok": bool(ok), "rows": int(len(df)) if ok else 0,
+                    "last_close": float(df["종가"].iloc[-1]) if ok else None}
+            except Exception as ex:
+                result["checks"]["ohlcv_005930"] = {"ok": False, "error": str(ex)[:300]}
+            try:
+                lst = pk.get_market_ticker_list(e, market="KOSPI")
+                result["checks"]["kospi_tickers"] = {"ok": len(lst) > 0, "count": len(lst)}
+            except Exception as ex:
+                result["checks"]["kospi_tickers"] = {"ok": False, "error": str(ex)[:300]}
+        except Exception as ex:
+            result["checks"]["import"] = {"ok": False, "error": str(ex)[:300]}
+        verdict = any(c.get("ok") for c in result["checks"].values())
+        result["verdict"] = "KRX reachable from Railway ✅" if verdict else "KRX blocked/empty ❌"
+        return self._send(200, result)
 
     def log_message(self, fmt, *args):                # compact request logging
         sys.stderr.write("[research] " + (fmt % args) + "\n")
