@@ -156,6 +156,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(200, {"status": "ok"})
         if u.path == "/api/krxtest":
             return self._krxtest()
+        if u.path == "/api/srctest":
+            return self._srctest()
         if u.path != "/api/research":
             return self._send(404, {"status": "error", "message": "not found"})
         try:
@@ -207,6 +209,51 @@ class Handler(BaseHTTPRequestHandler):
         verdict = any(c.get("ok") for c in result["checks"].values())
         result["verdict"] = "KRX reachable from Railway ✅" if verdict else "KRX blocked/empty ❌"
         return self._send(200, result)
+
+    def _srctest(self):
+        """진단 전용: DART 공시·재무 + Reddit(Tavily/직접) 소스가 실제로 데이터를 받는지 확인.
+        삼성전자(005930) + 해외 peer 예시로 각 소스를 호출해 성공/빈/에러를 반환한다."""
+        src = ga.sources
+        out = {"env": {k: bool(os.environ.get(k)) for k in
+                       ("DART_API_KEY", "TAVILY_API_KEY", "NAVER_CLIENT_ID", "NAVER_CLIENT_SECRET")},
+               "checks": {}}
+        code = "005930"
+        # 1) DART corp_code 매핑 (정적맵 우선)
+        try:
+            corp = src.dart_corp_code(code)
+            out["checks"]["dart_corp_code"] = {"ok": bool(corp), "corp_code": corp}
+        except Exception as ex:
+            out["checks"]["dart_corp_code"] = {"ok": False, "error": str(ex)[:300]}
+            corp = None
+        # 2) DART 공시
+        if corp:
+            try:
+                disc = src.dart_disclosures(corp, days=120)
+                out["checks"]["dart_disclosures"] = {
+                    "ok": len(disc) > 0, "count": len(disc),
+                    "latest": (disc[0].get("date"), disc[0].get("title")) if disc else None}
+            except Exception as ex:
+                out["checks"]["dart_disclosures"] = {"ok": False, "error": str(ex)[:300]}
+            try:
+                fin = src.dart_financials(corp)
+                out["checks"]["dart_financials"] = {
+                    "ok": bool(fin), "keys": list(fin.keys())[:6] if isinstance(fin, dict) else None}
+            except Exception as ex:
+                out["checks"]["dart_financials"] = {"ok": False, "error": str(ex)[:300]}
+        # 3) Tavily (Reddit 도메인) — peer 그룹 Reddit 의 primary 소스
+        try:
+            tv = src.tavily_search("Eli Lilly stock discussion", max_results=3,
+                                   include_domains=["reddit.com"])
+            out["checks"]["tavily_reddit"] = {"ok": len(tv) > 0, "count": len(tv)}
+        except Exception as ex:
+            out["checks"]["tavily_reddit"] = {"ok": False, "error": str(ex)[:300]}
+        # 4) 직접 Reddit (datacenter IP 에서 403 예상)
+        try:
+            rd = src.reddit_search("Eli Lilly stock", max_results=3)
+            out["checks"]["reddit_direct"] = {"ok": len(rd) > 0, "count": len(rd)}
+        except Exception as ex:
+            out["checks"]["reddit_direct"] = {"ok": False, "error": str(ex)[:300]}
+        return self._send(200, out)
 
     def log_message(self, fmt, *args):                # compact request logging
         sys.stderr.write("[research] " + (fmt % args) + "\n")
