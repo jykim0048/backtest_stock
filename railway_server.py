@@ -240,13 +240,27 @@ class Handler(BaseHTTPRequestHandler):
                     "ok": bool(fin), "keys": list(fin.keys())[:6] if isinstance(fin, dict) else None}
             except Exception as ex:
                 out["checks"]["dart_financials"] = {"ok": False, "error": str(ex)[:300]}
-        # 3) Tavily (Reddit 도메인) — peer 그룹 Reddit 의 primary 소스
-        try:
-            tv = src.tavily_search("Eli Lilly stock discussion", max_results=3,
-                                   include_domains=["reddit.com"])
-            out["checks"]["tavily_reddit"] = {"ok": len(tv) > 0, "count": len(tv)}
-        except Exception as ex:
-            out["checks"]["tavily_reddit"] = {"ok": False, "error": str(ex)[:300]}
+        # 3) Tavily 상세 — 키 유효성(일반검색) vs include_domains 필터(reddit) 구분
+        tkey = os.environ.get("TAVILY_API_KEY", "")
+        for label, dom in (("tavily_plain", None), ("tavily_reddit_domain", ["reddit.com"])):
+            try:
+                payload = {"api_key": tkey, "query": "Eli Lilly stock discussion",
+                           "max_results": 5, "search_depth": "basic"}
+                if dom:
+                    payload["include_domains"] = dom
+                req = urllib.request.Request(
+                    "https://api.tavily.com/search",
+                    data=json.dumps(payload).encode("utf-8"), method="POST",
+                    headers={"Content-Type": "application/json"})
+                with urllib.request.urlopen(req, timeout=25) as resp:
+                    body = json.loads(resp.read().decode("utf-8"))
+                    out["checks"][label] = {"http": resp.status,
+                                            "results": len(body.get("results", []))}
+            except urllib.error.HTTPError as ex:
+                out["checks"][label] = {"http": ex.code,
+                                        "error": ex.read()[:200].decode("utf-8", "replace")}
+            except Exception as ex:
+                out["checks"][label] = {"error": str(ex)[:300]}
         # 4) 직접 Reddit (datacenter IP 에서 403 예상)
         try:
             rd = src.reddit_search("Eli Lilly stock", max_results=3)
