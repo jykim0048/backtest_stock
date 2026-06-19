@@ -206,6 +206,43 @@ def tavily_search(query, max_results=5, include_domains=None):
         return []
 
 
+def brave_search(query, max_results=5, include_domains=None):
+    """Brave Web Search (Tavily 한도초과 432 시 폴백). 반환 형태는 tavily_search 와 동일.
+
+    무료 티어: 2,000 쿼리/월, 1 req/s. include_domains 는 쿼리에 site: 로 반영한다.
+    """
+    key = os.environ.get("BRAVE_API_KEY")
+    if not key:
+        _warn("BRAVE_API_KEY missing")
+        return []
+    q = f"{query} site:{include_domains[0]}" if include_domains else query
+    try:
+        r = requests.get(
+            "https://api.search.brave.com/res/v1/web/search",
+            params={"q": q, "count": min(max_results, 20)},
+            headers={"Accept": "application/json", "X-Subscription-Token": key},
+            timeout=25,
+        )
+        r.raise_for_status()
+        results = ((r.json().get("web") or {}).get("results")) or []
+        return [{
+            "title": it.get("title", ""),
+            "url": it.get("url", ""),
+            "content": it.get("description", ""),
+        } for it in results[:max_results]]
+    except Exception as e:
+        _warn(f"brave_search({query}) failed: {e}")
+        return []
+
+
+def web_search(query, max_results=5, include_domains=None):
+    """웹 검색 통합 진입점: Tavily 우선, 빈 결과/한도초과(432)·오류 시 Brave 폴백."""
+    res = tavily_search(query, max_results, include_domains)
+    if res:
+        return res
+    return brave_search(query, max_results, include_domains)
+
+
 # ----------------------------------------------------------------------------
 # 3b) Reddit public JSON search (keyless). Tavily is the PRIMARY source in the
 #     caller — Reddit 403s from datacenter/CI IPs, so this is a residential-only

@@ -215,7 +215,8 @@ class Handler(BaseHTTPRequestHandler):
         삼성전자(005930) + 해외 peer 예시로 각 소스를 호출해 성공/빈/에러를 반환한다."""
         src = ga.sources
         out = {"env": {k: bool(os.environ.get(k)) for k in
-                       ("DART_API_KEY", "TAVILY_API_KEY", "NAVER_CLIENT_ID", "NAVER_CLIENT_SECRET")},
+                       ("DART_API_KEY", "TAVILY_API_KEY", "BRAVE_API_KEY",
+                        "NAVER_CLIENT_ID", "NAVER_CLIENT_SECRET")},
                "checks": {}}
         code = "005930"
         # 1) DART corp_code 매핑 (정적맵 우선)
@@ -267,6 +268,18 @@ class Handler(BaseHTTPRequestHandler):
             out["checks"]["reddit_direct"] = {"ok": len(rd) > 0, "count": len(rd)}
         except Exception as ex:
             out["checks"]["reddit_direct"] = {"ok": False, "error": str(ex)[:300]}
+        # 5) Brave 폴백 (Tavily 432 시 대체)
+        try:
+            bv = src.brave_search("Eli Lilly stock discussion", max_results=3,
+                                  include_domains=["reddit.com"])
+            out["checks"]["brave_reddit"] = {"ok": len(bv) > 0, "count": len(bv)}
+        except Exception as ex:
+            out["checks"]["brave_reddit"] = {"ok": False, "error": str(ex)[:300]}
+        try:
+            bn = src.brave_search("Samsung Electronics stock news", max_results=3)
+            out["checks"]["brave_news"] = {"ok": len(bn) > 0, "count": len(bn)}
+        except Exception as ex:
+            out["checks"]["brave_news"] = {"ok": False, "error": str(ex)[:300]}
         return self._send(200, out)
 
     def log_message(self, fmt, *args):                # compact request logging

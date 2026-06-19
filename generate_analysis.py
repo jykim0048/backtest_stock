@@ -148,8 +148,8 @@ def fetch_peer_reddit(peer_list):
         return []
     posts = []
     for p in peer_list[:2]:                      # top 2 peers (bellwethers)
-        posts += sources.tavily_search(f"{p['name']} stock discussion",
-                                       max_results=3, include_domains=["reddit.com"])
+        posts += sources.web_search(f"{p['name']} stock discussion",
+                                    max_results=3, include_domains=["reddit.com"])
     if not posts:                                # residential-only fallback
         for p in peer_list[:2]:
             posts += sources.reddit_search(f"{p['name']} stock", max_results=3)
@@ -231,7 +231,7 @@ def gather_raw(stock, peer_list):
         "peers_items": peers,                                   # deterministic, reused verbatim
         "peers_reddit": fetch_peer_reddit(peer_list),           # Reddit on the peer group
         "naver_news": sources.naver_search("news", name, display=8),
-        "overseas_news": sources.tavily_search(f"{name} stock news", max_results=5),
+        "overseas_news": sources.web_search(f"{name} stock news", max_results=5),
         "naver_cafe": sources.naver_search("cafearticle", name, display=6),  # 국내 community
         "naver_board": sources.naver_board(code, pages=2),                   # 종목토론방(개인투자자)
         "dart": {},
