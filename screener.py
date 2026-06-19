@@ -545,14 +545,29 @@ def disclosure_candidates(universe_codes):
 # ----------------------------------------------------------------------------
 # 후보 풀 구성: ⓐ 공시(우선) ∪ ⓑ 가격(보조)
 # ----------------------------------------------------------------------------
+def _pre_watchlist_codes():
+    """장중 모드에서 제외할 장전 워치리스트(watchlist.json) 종목코드 집합.
+    pre 모드면 빈 집합(자기 자신을 제외할 필요 없음)."""
+    if not IS_INTRADAY:
+        return set()
+    data = _load_json(os.path.join(ROOT, "watchlist.json"), []) or []
+    return {str(s.get("code", "")).zfill(6) for s in data
+            if isinstance(s, dict) and s.get("code")}
+
+
 def build_pool(uni, disclosure_map):
     scored = mechanical_score(uni)
     by_code = {r["Code"]: r for r in scored.to_dict("records")}
 
     pool, seen = [], set()
 
+    # 장중 관심종목은 장전 워치리스트와 겹치지 않게 한다 — 장전 종목을 제외 집합에 미리 넣어
+    # 공시(ⓐ)·가격(ⓑ) 후보 양쪽에서 스킵한다.
+    exclude = _pre_watchlist_codes()
+    seen |= exclude
+
     # ⓐ 공시 촉매 종목 — 우선. 동률 시 가격 점수 순.
-    disc_codes = [c for c in disclosure_map if c in by_code]
+    disc_codes = [c for c in disclosure_map if c in by_code and c not in exclude]
     disc_codes.sort(key=lambda c: by_code[c]["score"], reverse=True)
     for c in disc_codes:
         if len(pool) >= MAX_CANDIDATES:
@@ -765,11 +780,16 @@ def write_outputs(selection, us_brief):
         # 전일 누적이 이어지지 않도록 리셋하고 새로 시작한다. 중복은 code 로 제거한다.
         first_run = not os.path.exists(selection_path)
         prev = [] if first_run else (_load_json(WATCHLIST, []) or [])
-        seen = {str(p.get("code")) for p in prev if isinstance(p, dict)}
-        watchlist = [p for p in prev if isinstance(p, dict)]
+        # 장전 워치리스트와 겹치는 종목은 제외한다. 기존 누적(prev)에 남아있던 중복도
+        # 정리하고, picks 의 장전 중복도 seen 으로 막는다.
+        pre_codes = _pre_watchlist_codes()
+        prev = [p for p in prev if isinstance(p, dict)
+                and str(p.get("code", "")).zfill(6) not in pre_codes]
+        seen = {str(p.get("code")) for p in prev} | pre_codes
+        watchlist = list(prev)
         added = 0
         for p in picks:
-            if p["code"] in seen:
+            if p["code"] in seen or str(p["code"]).zfill(6) in pre_codes:
                 continue
             watchlist.append({"code": p["code"], "name": p["name"], "market": p["market"]})
             seen.add(p["code"])
