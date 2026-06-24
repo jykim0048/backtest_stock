@@ -22,7 +22,7 @@ except ImportError:
 import yfinance as yf
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from ticker_utils import get_ticker_map, _krx_ticker_lookup
+from ticker_utils import get_ticker_map
 from urllib.parse import urlparse, parse_qs
 
 class handler(BaseHTTPRequestHandler):
@@ -40,19 +40,22 @@ class handler(BaseHTTPRequestHandler):
             codes_param = (parse_qs(urlparse(self.path).query).get("codes") or [""])[0].strip()
             is_codes = bool(codes_param)
             if is_codes:
-                krx = _krx_ticker_lookup()
+                # 대시보드가 .KS/.KQ 까지 붙여 보낸다(코스피200→.KS, 코스닥150→.KQ).
+                # KRX 마스터 로드(Vercel 번들 경로 이슈)에 의존하지 않는다.
                 ticker_map = {}
-                for c in codes_param.split(","):
-                    c = c.strip().zfill(6)
-                    tk = krx.get(c)
-                    if tk:
-                        ticker_map[c] = tk      # KRX 마스터에 없는 코드(ETN 등)는 스킵
+                for tk in codes_param.split(","):
+                    tk = tk.strip()
+                    if not tk:
+                        continue
+                    code = tk.split(".")[0].zfill(6)
+                    ticker_map[code] = tk if "." in tk else tk + ".KS"
             else:
                 ticker_map = get_ticker_map()
             tickers_list = list(ticker_map.values())
 
-            # Download data from Yahoo Finance
-            df = yf.download(tickers_list, period="2d", group_by="ticker", progress=False, threads=True)
+            # Download data from Yahoo Finance (조회 종목 없으면 빈 응답으로 안전)
+            df = (yf.download(tickers_list, period="2d", group_by="ticker",
+                              progress=False, threads=True) if tickers_list else None)
             
             formatted_data = {}
             market_state = "CLOSED"

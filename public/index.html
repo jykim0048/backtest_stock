@@ -2956,14 +2956,21 @@
     const _VI_KIND = { "1": "정적", "2": "동적", "3": "정적&동적" };
 
     // VI 탭은 코스피200 + 코스닥150 구성종목만 표시한다.
-    let _idxCodes = null;   // 구성종목 코드 set
+    let _idxCodes = null;   // 구성종목 코드 set (필터용)
+    let _idxData  = null;   // {KOSPI200, KOSDAQ150} — 시장 구분(.KS/.KQ ticker)용
     async function loadIdxCodes() {
       try {
         const r = await fetch("assets/index_constituents.json");
         if (!r.ok) return;
         const d = await r.json();
+        _idxData  = d;
         _idxCodes = new Set([...(d.KOSPI200 || []), ...(d.KOSDAQ150 || [])]);
       } catch (_) { /* 실패 시 필터 없이 전체 표시 */ }
+    }
+    // 구성종목 소속으로 야후 ticker 결정 (코스닥150→.KQ, 그 외→.KS)
+    function _codeToTicker(code) {
+      if (_idxData && (_idxData.KOSDAQ150 || []).indexOf(code) >= 0) return code + ".KQ";
+      return code + ".KS";
     }
 
     function _fmtHms(t) {
@@ -2998,7 +3005,8 @@
       let q = {};
       if (codes.length) {
         try {
-          const pr = await fetch(`/api/prices?codes=${codes.join(",")}`, { cache: "no-store" });
+          const tickers = codes.map(_codeToTicker);   // .KS/.KQ 붙여 전달
+          const pr = await fetch(`/api/prices?codes=${tickers.join(",")}`, { cache: "no-store" });
           if (pr.ok) q = (await pr.json()).stocks || {};
         } catch (_) { /* 시세 실패 시 — 표시만 생략 */ }
       }
