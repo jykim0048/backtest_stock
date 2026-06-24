@@ -3031,7 +3031,7 @@
       if (!VI_API_BASE) return;   // URL 미설정 시 폴링 안 함
       if (!_idxCodes) await loadIdxCodes();   // VI 필터용 구성종목 set 보장
       try {
-        const r = await fetch(`${VI_API_BASE}/status?t=${Date.now()}`, { cache: "no-store" });
+        const r = await fetch(`${VI_API_BASE}/status`, { cache: "no-store" });
         if (!r.ok) return;
         const d = await r.json();
         renderViTable(d.vi || [], d.vi_asof || "");
