@@ -22,7 +22,8 @@ except ImportError:
 import yfinance as yf
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from ticker_utils import get_ticker_map
+from ticker_utils import get_ticker_map, _krx_ticker_lookup
+from urllib.parse import urlparse, parse_qs
 
 class handler(BaseHTTPRequestHandler):
     def do_OPTIONS(self):
@@ -34,9 +35,22 @@ class handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         try:
-            ticker_map = get_ticker_map()
+            # ?codes=005930,000660 → 임의 종목(예: VI/상하한가)의 현재가·등락률 조회.
+            # 없으면 기존처럼 워치리스트+장중 종목 전체. KRX 마스터로 정확한 .KS/.KQ ticker.
+            codes_param = (parse_qs(urlparse(self.path).query).get("codes") or [""])[0].strip()
+            is_codes = bool(codes_param)
+            if is_codes:
+                krx = _krx_ticker_lookup()
+                ticker_map = {}
+                for c in codes_param.split(","):
+                    c = c.strip().zfill(6)
+                    tk = krx.get(c)
+                    if tk:
+                        ticker_map[c] = tk      # KRX 마스터에 없는 코드(ETN 등)는 스킵
+            else:
+                ticker_map = get_ticker_map()
             tickers_list = list(ticker_map.values())
-            
+
             # Download data from Yahoo Finance
             df = yf.download(tickers_list, period="2d", group_by="ticker", progress=False, threads=True)
             
@@ -94,9 +108,10 @@ class handler(BaseHTTPRequestHandler):
             # NOTE: Yahoo index data is delayed ~15-20min (not tick-level realtime).
             indices = {}
             try:
-                idx_map = {"kospi": "^KS11", "kosdaq": "^KQ11"}
-                idx_df = yf.download(list(idx_map.values()), period="2d",
-                                     group_by="ticker", progress=False, threads=True)
+                idx_map = {} if is_codes else {"kospi": "^KS11", "kosdaq": "^KQ11"}
+                idx_df = (yf.download(list(idx_map.values()), period="2d",
+                                      group_by="ticker", progress=False, threads=True)
+                          if idx_map else None)
                 for key, tk in idx_map.items():
                     try:
                         d = idx_df[tk] if len(idx_map) > 1 else idx_df

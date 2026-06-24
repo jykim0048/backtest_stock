@@ -1408,12 +1408,14 @@
           <table class="stocks-table">
             <thead>
               <tr>
-                <th style="width: 220px;">종목 정보</th>
-                <th style="width: 90px;">상태</th>
-                <th style="width: 90px;">종류</th>
-                <th style="text-align: right; width: 110px;">발동가</th>
-                <th style="text-align: right; width: 100px;">동적괴리율</th>
-                <th style="width: 90px;">발동시각</th>
+                <th style="width: 190px;">종목 정보</th>
+                <th style="text-align: right; width: 110px;">실시간 현재가</th>
+                <th style="text-align: right; width: 100px;">실시간 등락률</th>
+                <th style="width: 80px;">상태</th>
+                <th style="width: 80px;">종류</th>
+                <th style="text-align: right; width: 100px;">발동가</th>
+                <th style="text-align: right; width: 90px;">동적괴리율</th>
+                <th style="width: 85px;">발동시각</th>
               </tr>
             </thead>
             <tbody id="vi-tbody"><!-- Populated via Javascript --></tbody>
@@ -2980,7 +2982,7 @@
       odRun();
     }
 
-    function renderViTable(items, asof) {
+    async function renderViTable(items, asof) {
       // 코스피200 + 코스닥150 구성종목만 (set 로드 전이면 전체)
       if (_idxCodes) items = items.filter(it => _idxCodes.has(it.code));
       const tb = document.getElementById("vi-tbody");
@@ -2988,13 +2990,28 @@
       if (as) as.innerText = asof ? `갱신 ${asof} · ${items.length}건` : `${items.length}건`;
       if (!tb) return;
       if (!items.length) {
-        tb.innerHTML = `<tr><td colspan="6" class="analysis-empty">VI 발동 종목이 없습니다. (장중에 갱신)</td></tr>`;
+        tb.innerHTML = `<tr><td colspan="8" class="analysis-empty">VI 발동 종목이 없습니다. (장중에 갱신)</td></tr>`;
         return;
+      }
+      // 실시간 현재가/등락률 — 장전/장중과 동일하게 yfinance(/api/prices) 우회. 6자리 종목만.
+      const codes = items.filter(it => /^\d{6}$/.test(it.code)).map(it => it.code);
+      let q = {};
+      if (codes.length) {
+        try {
+          const pr = await fetch(`/api/prices?codes=${codes.join(",")}`, { cache: "no-store" });
+          if (pr.ok) q = (await pr.json()).stocks || {};
+        } catch (_) { /* 시세 실패 시 — 표시만 생략 */ }
       }
       tb.innerHTML = items.map(it => {
         const on = !!it.vi_on;
+        const s = q[it.code];
+        const price = s ? Number(s.price).toLocaleString() + "원" : "—";
+        const rate  = s ? (s.rate >= 0 ? "+" : "") + s.rate.toFixed(2) + "%" : "—";
+        const rcol  = s ? (s.rate >= 0 ? "var(--up-red)" : "var(--down-blue)") : "var(--text-muted)";
         return `<tr>
           <td>${_viName(it.code, it.name)}<div style="color:var(--text-muted);font-size:11px;">${it.code}</div></td>
+          <td style="text-align:right;">${price}</td>
+          <td style="text-align:right;color:${rcol};">${rate}</td>
           <td><span class="rate-badge ${on ? "up" : "down"}">${on ? "🔴 발동중" : "해제"}</span></td>
           <td>${_VI_KIND[it.kind] || it.kind || ""}</td>
           <td style="text-align:right;">${Number(it.vi_prc || 0).toLocaleString()}</td>
@@ -3034,7 +3051,7 @@
         const r = await fetch(`${VI_API_BASE}/status`, { cache: "no-store" });
         if (!r.ok) return;
         const d = await r.json();
-        renderViTable(d.vi || [], d.vi_asof || "");
+        await renderViTable(d.vi || [], d.vi_asof || "");
         renderLimitTable(d.upper || [], d.lower || [], d.limit_asof || "");
       } catch (_) { /* 네트워크 오류 무시 — 다음 폴링에서 재시도 */ }
     }
