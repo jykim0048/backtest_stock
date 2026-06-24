@@ -62,7 +62,12 @@ class handler(BaseHTTPRequestHandler):
             
             for code, ticker in ticker_map.items():
                 try:
-                    ticker_df = df[ticker] if len(tickers_list) > 1 else df
+                    # yfinance는 리스트 1개 입력도 group_by="ticker"로 MultiIndex 반환(최신 버전).
+                    # len==1 일 때 df 그대로 쓰면 df['Close']가 Series → math.isnan ValueError.
+                    try:
+                        ticker_df = df[ticker]
+                    except (KeyError, TypeError):
+                        ticker_df = df
                     
                     if ticker_df.empty or len(ticker_df) < 1:
                         continue
