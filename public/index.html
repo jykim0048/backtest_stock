@@ -1337,6 +1337,8 @@
         <div class="main-tabs">
           <button class="main-tab active" data-maintab="watchlist" onclick="selectMainTab('watchlist')">📋 장전 워치리스트</button>
           <button class="main-tab" data-maintab="intraday" onclick="selectMainTab('intraday')">🔴 장중 관심종목</button>
+          <button class="main-tab" data-maintab="vi" onclick="selectMainTab('vi')">⚡ VI 발동</button>
+          <button class="main-tab" data-maintab="limit" onclick="selectMainTab('limit')">📈 상/하한가</button>
         </div>
 
         <!-- ① 장전 워치리스트 패널 (자동매매 대상) -->
@@ -1394,6 +1396,47 @@
             <tbody id="watch-tbody">
               <!-- Populated via Javascript (watchData) -->
             </tbody>
+          </table>
+        </div>
+
+        <!-- ③ VI 발동 종목 (KIS 허브 실시간, kis:vi → vi_limit_monitor /status) -->
+        <div id="main-vi-pane" style="display:none;">
+          <div class="board-header watch-header">
+            <h2>⚡ VI 발동 종목 <span class="board-subtitle">— 변동성완화장치 (KIS 실시간, 최근 30건)</span></h2>
+            <span class="watch-asof" id="vi-asof">갱신 대기</span>
+          </div>
+          <table class="stocks-table">
+            <thead>
+              <tr>
+                <th style="width: 220px;">종목 정보</th>
+                <th style="width: 90px;">상태</th>
+                <th style="width: 90px;">종류</th>
+                <th style="text-align: right; width: 110px;">발동가</th>
+                <th style="text-align: right; width: 100px;">동적괴리율</th>
+                <th style="width: 90px;">발동시각</th>
+              </tr>
+            </thead>
+            <tbody id="vi-tbody"><!-- Populated via Javascript --></tbody>
+          </table>
+        </div>
+
+        <!-- ④ 상/하한가 종목 (KIS 등락률순위, |등락률|≥29%) -->
+        <div id="main-limit-pane" style="display:none;">
+          <div class="board-header watch-header">
+            <h2>📈 상/하한가 종목 <span class="board-subtitle">— 등락률 ±29%↑ (KIS 실시간)</span></h2>
+            <span class="watch-asof" id="limit-asof">갱신 대기</span>
+          </div>
+          <table class="stocks-table">
+            <thead>
+              <tr>
+                <th style="width: 240px;">종목 정보</th>
+                <th style="width: 90px;">구분</th>
+                <th style="text-align: right; width: 120px;">현재가</th>
+                <th style="text-align: right; width: 100px;">등락률</th>
+                <th style="text-align: right; width: 140px;">거래량</th>
+              </tr>
+            </thead>
+            <tbody id="limit-tbody"><!-- Populated via Javascript --></tbody>
           </table>
         </div>
       </section>
@@ -1901,6 +1944,8 @@
       fetchRealPrices();
       setInterval(fetchRealPrices, 5000);
       setInterval(refreshIndices, 15000);   // 트레이딩 OFF 여도 지수는 유지
+      loadViLimit();                        // VI 발동 / 상하한가 (KIS 허브)
+      setInterval(loadViLimit, 15000);
       setInterval(tickSimulation, 1500);
       setInterval(updateEngineStatusIndicator, 5000);
       // 장중 관심종목은 30분 간격으로 서버에서 갱신되므로 5분마다 다시 로드한다.
@@ -2537,12 +2582,16 @@
       });
       document.getElementById("main-watchlist-pane").style.display = (tab === "watchlist") ? "" : "none";
       document.getElementById("main-intraday-pane").style.display = (tab === "intraday") ? "" : "none";
+      document.getElementById("main-vi-pane").style.display       = (tab === "vi") ? "" : "none";
+      document.getElementById("main-limit-pane").style.display    = (tab === "limit") ? "" : "none";
       // 숨겨진 동안 canvas 는 그려지지 않으므로, 표시되는 패널의 스파크라인을 다시 그린다.
       if (tab === "intraday") {
         watchData.forEach((_, idx) => drawWatchSparkline(idx));
-      } else {
+      } else if (tab === "watchlist") {
         stockData.forEach((_, idx) => drawSparkline(idx));
       }
+      // VI/상하한가 탭으로 전환 시 최신 데이터 즉시 갱신
+      if (tab === "vi" || tab === "limit") loadViLimit();
     }
 
     // Open sliding side drawer for stock details.
@@ -2897,6 +2946,97 @@
       } else if (param === 'stop') {
         valSpan.innerText = (slider.value / 10).toFixed(1) + "%";
       }
+    }
+
+    // ===== VI 발동 / 상하한가 (KIS 허브 vi_limit_monitor /status) =====
+    // 새 Railway 서비스(vi_limit_monitor)의 public URL. 같은 오리진이면 "" 로 둔다.
+    const VI_API_BASE = "https://tradingstrategies-production-09d4.up.railway.app";
+    const _VI_KIND = { "1": "정적", "2": "동적", "3": "정적&동적" };
+
+    // VI 탭은 코스피200 + 코스닥150 구성종목만 표시한다.
+    let _idxCodes = null;   // 구성종목 코드 set
+    async function loadIdxCodes() {
+      try {
+        const r = await fetch("assets/index_constituents.json");
+        if (!r.ok) return;
+        const d = await r.json();
+        _idxCodes = new Set([...(d.KOSPI200 || []), ...(d.KOSDAQ150 || [])]);
+      } catch (_) { /* 실패 시 필터 없이 전체 표시 */ }
+    }
+
+    function _fmtHms(t) {
+      return (t && t.length === 6) ? `${t.slice(0,2)}:${t.slice(2,4)}:${t.slice(4,6)}` : (t || "");
+    }
+    // 6자리 일반종목만 딥리서치 클릭 가능(ETN 등 Q접두/비표준 코드는 비활성)
+    function _viName(code, name) {
+      const nm = (name || code || "");
+      return /^\d{6}$/.test(code)
+        ? `<a href="#" onclick="odRunCode('${code}');return false;" style="color:var(--kospi-blue);">${nm}</a>`
+        : `<span title="딥리서치 미지원(비표준 코드)">${nm}</span>`;
+    }
+    function odRunCode(code) {
+      const input = document.getElementById("od-input");
+      if (input) input.value = code;
+      odRun();
+    }
+
+    function renderViTable(items, asof) {
+      // 코스피200 + 코스닥150 구성종목만 (set 로드 전이면 전체)
+      if (_idxCodes) items = items.filter(it => _idxCodes.has(it.code));
+      const tb = document.getElementById("vi-tbody");
+      const as = document.getElementById("vi-asof");
+      if (as) as.innerText = asof ? `갱신 ${asof} · ${items.length}건` : `${items.length}건`;
+      if (!tb) return;
+      if (!items.length) {
+        tb.innerHTML = `<tr><td colspan="6" class="analysis-empty">VI 발동 종목이 없습니다. (장중에 갱신)</td></tr>`;
+        return;
+      }
+      tb.innerHTML = items.map(it => {
+        const on = !!it.vi_on;
+        return `<tr>
+          <td>${_viName(it.code, it.name)}<div style="color:var(--text-muted);font-size:11px;">${it.code}</div></td>
+          <td><span class="rate-badge ${on ? "up" : "down"}">${on ? "🔴 발동중" : "해제"}</span></td>
+          <td>${_VI_KIND[it.kind] || it.kind || ""}</td>
+          <td style="text-align:right;">${Number(it.vi_prc || 0).toLocaleString()}</td>
+          <td style="text-align:right;">${it.dmc_dprt || "0.00"}%</td>
+          <td>${_fmtHms(it.vi_time)}</td>
+        </tr>`;
+      }).join("");
+    }
+
+    function renderLimitTable(upper, lower, asof) {
+      const tb = document.getElementById("limit-tbody");
+      const as = document.getElementById("limit-asof");
+      const total = upper.length + lower.length;
+      if (as) as.innerText = asof ? `갱신 ${asof} · 상한 ${upper.length} 하한 ${lower.length}` : `${total}건`;
+      if (!tb) return;
+      if (!total) {
+        tb.innerHTML = `<tr><td colspan="5" class="analysis-empty">상/하한가 종목이 없습니다. (장중에 갱신)</td></tr>`;
+        return;
+      }
+      const row = (it, kind) => {
+        const up = kind === "상한";
+        return `<tr>
+          <td>${_viName(it.code, it.name)}<div style="color:var(--text-muted);font-size:11px;">${it.code}</div></td>
+          <td><span class="rate-badge ${up ? "up" : "down"}">${up ? "▲ 상한" : "▼ 하한"}</span></td>
+          <td style="text-align:right;">${Number(it.price || 0).toLocaleString()}원</td>
+          <td style="text-align:right;color:${up ? "var(--up-red)" : "var(--down-blue)"};">${it.chg_rate > 0 ? "+" : ""}${it.chg_rate}%</td>
+          <td style="text-align:right;">${Number(it.volume || 0).toLocaleString()}</td>
+        </tr>`;
+      };
+      tb.innerHTML = upper.map(it => row(it, "상한")).join("") + lower.map(it => row(it, "하한")).join("");
+    }
+
+    async function loadViLimit() {
+      if (!VI_API_BASE) return;   // URL 미설정 시 폴링 안 함
+      if (!_idxCodes) await loadIdxCodes();   // VI 필터용 구성종목 set 보장
+      try {
+        const r = await fetch(`${VI_API_BASE}/status?t=${Date.now()}`, { cache: "no-store" });
+        if (!r.ok) return;
+        const d = await r.json();
+        renderViTable(d.vi || [], d.vi_asof || "");
+        renderLimitTable(d.upper || [], d.lower || [], d.limit_asof || "");
+      } catch (_) { /* 네트워크 오류 무시 — 다음 폴링에서 재시도 */ }
     }
 
     // ===== On-demand Deep Research (search box -> /api/research) =====
