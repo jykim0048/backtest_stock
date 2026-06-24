@@ -1,0 +1,49 @@
+name: Investment Warning Update
+
+on:
+  workflow_dispatch:
+  # 07:50 KST (= UTC 22:50 전날) 평일 실행. 장전에 미리 갱신.
+  # 1~3h 지연 허용 — 일간 데이터라 정확한 시각이 불필요.
+  schedule:
+    - cron: '50 22 * * 0-4'  # UTC Sun-Thu 22:50 = KST Mon-Fri 07:50
+
+concurrency:
+  group: report-push
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install requests beautifulsoup4
+
+      - name: Fetch investment warning/caution data from KIND
+        run: python fetch_investment_warning.py
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add public/data/investment_warning.json
+          git diff --staged --quiet && echo "No changes to commit" && exit 0
+          git commit -m "chore: update investment warning list $(date +'%Y-%m-%d')"
+          for i in $(seq 1 5); do
+            if git push origin HEAD:main; then echo "pushed (attempt $i)"; exit 0; fi
+            echo "push rejected; rebasing..."
+            git fetch origin main
+            git rebase FETCH_HEAD || { git rebase --abort; echo "::error::rebase conflict"; exit 1; }
+            sleep $((RANDOM % 4 + 2))
+          done
+          echo "::error::push failed after 5 attempts" && exit 1

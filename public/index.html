@@ -1339,6 +1339,7 @@
           <button class="main-tab" data-maintab="intraday" onclick="selectMainTab('intraday')">🔴 장중 관심종목</button>
           <button class="main-tab" data-maintab="vi" onclick="selectMainTab('vi')">⚡ VI 발동</button>
           <button class="main-tab" data-maintab="limit" onclick="selectMainTab('limit')">📈 상/하한가</button>
+          <button class="main-tab" data-maintab="invwarn" onclick="selectMainTab('invwarn')">⚠️ 투자주의/경고</button>
         </div>
 
         <!-- ① 장전 워치리스트 패널 (자동매매 대상) -->
@@ -1440,6 +1441,49 @@
             </thead>
             <tbody id="limit-tbody"><!-- Populated via Javascript --></tbody>
           </table>
+        </div>
+
+        <!-- ⑤ 투자주의/경고/위험종목 (KIND 공시, 매일 08:00 갱신) -->
+        <div id="main-invwarn-pane" style="display:none;">
+          <div class="board-header watch-header">
+            <h2>⚠️ 투자주의/경고 <span class="board-subtitle">— KIND 거래소 공시 (매일 갱신)</span></h2>
+            <span class="watch-asof" id="invwarn-asof">로딩중...</span>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;align-items:start;">
+            <div>
+              <h3 style="color:#f59e0b;margin:12px 0 8px;font-size:0.95rem;">⚠️ 투자주의 <span id="caution-count">(0)</span></h3>
+              <table class="stocks-table">
+                <thead><tr>
+                  <th style="width:150px;">종목</th>
+                  <th>지정사유</th>
+                  <th style="width:90px;">지정일</th>
+                </tr></thead>
+                <tbody id="caution-tbody"></tbody>
+              </table>
+            </div>
+            <div>
+              <h3 style="color:var(--up-red);margin:12px 0 8px;font-size:0.95rem;">🚨 투자경고 <span id="warning-count">(0)</span></h3>
+              <table class="stocks-table">
+                <thead><tr>
+                  <th style="width:150px;">종목</th>
+                  <th>지정사유</th>
+                  <th style="width:90px;">지정일</th>
+                </tr></thead>
+                <tbody id="warning-tbody"></tbody>
+              </table>
+            </div>
+            <div>
+              <h3 style="color:#ef4444;margin:12px 0 8px;font-size:0.95rem;">🛑 투자위험 <span id="danger-count">(0)</span></h3>
+              <table class="stocks-table">
+                <thead><tr>
+                  <th style="width:150px;">종목</th>
+                  <th>지정사유</th>
+                  <th style="width:90px;">지정일</th>
+                </tr></thead>
+                <tbody id="danger-tbody"></tbody>
+              </table>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -2586,6 +2630,7 @@
       document.getElementById("main-intraday-pane").style.display = (tab === "intraday") ? "" : "none";
       document.getElementById("main-vi-pane").style.display       = (tab === "vi") ? "" : "none";
       document.getElementById("main-limit-pane").style.display    = (tab === "limit") ? "" : "none";
+      document.getElementById("main-invwarn-pane").style.display  = (tab === "invwarn") ? "" : "none";
       // 숨겨진 동안 canvas 는 그려지지 않으므로, 표시되는 패널의 스파크라인을 다시 그린다.
       if (tab === "intraday") {
         watchData.forEach((_, idx) => drawWatchSparkline(idx));
@@ -2594,6 +2639,8 @@
       }
       // VI/상하한가 탭으로 전환 시 최신 데이터 즉시 갱신
       if (tab === "vi" || tab === "limit") loadViLimit();
+      // 투자주의/경고 탭: 정적 JSON 1회 로드
+      if (tab === "invwarn") loadInvWarn();
     }
 
     // Open sliding side drawer for stock details.
@@ -3050,6 +3097,48 @@
         </tr>`;
       };
       tb.innerHTML = upper.map(it => row(it, "상한")).join("") + lower.map(it => row(it, "하한")).join("");
+    }
+
+    // ===== 투자주의/경고/위험종목 (KIND 공시 정적 JSON, 탭 첫 진입 시 1회 로드) =====
+    let _invWarnLoaded = false;
+
+    async function loadInvWarn() {
+      if (_invWarnLoaded) return;
+      const asof = document.getElementById("invwarn-asof");
+      try {
+        const r = await fetch("/data/investment_warning.json?t=" + Date.now(), { cache: "no-store" });
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        const d = await r.json();
+        if (asof) asof.innerText = d.updated ? `갱신 ${d.updated}` : "갱신일 없음";
+
+        const renderRows = (items) => {
+          if (!items || !items.length)
+            return `<tr><td colspan="3" class="analysis-empty">해당 종목 없음</td></tr>`;
+          return items.map(it => `<tr>
+            <td>
+              <span class="stock-name" style="cursor:pointer;color:var(--accent-teal);"
+                    onclick="odRunCode('${it.code}')">${it.name}</span><br>
+              <span class="stock-code">${it.code}</span>
+              <span class="market-badge ${it.market === 'KOSDAQ' ? 'kosdaq' : ''}"
+                    style="margin-left:4px;font-size:0.65rem;">${it.market || ""}</span>
+            </td>
+            <td style="font-size:0.8rem;color:var(--text-muted);">${it.reason || "—"}</td>
+            <td style="font-size:0.8rem;">${it.date || "—"}</td>
+          </tr>`).join("");
+        };
+
+        const c = d.caution || [], w = d.warning || [], g = d.danger || [];
+        document.getElementById("caution-count").innerText = `(${c.length})`;
+        document.getElementById("warning-count").innerText = `(${w.length})`;
+        document.getElementById("danger-count").innerText  = `(${g.length})`;
+        document.getElementById("caution-tbody").innerHTML = renderRows(c);
+        document.getElementById("warning-tbody").innerHTML = renderRows(w);
+        document.getElementById("danger-tbody").innerHTML  = renderRows(g);
+        _invWarnLoaded = true;
+      } catch (e) {
+        if (asof) asof.innerText = "데이터 로드 실패";
+        console.error("loadInvWarn:", e);
+      }
     }
 
     async function loadViLimit() {
