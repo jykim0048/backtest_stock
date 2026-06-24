@@ -3005,11 +3005,6 @@
     }
 
     function renderLimitTable(upper, lower, asof) {
-      // 코스피200 + 코스닥150 구성종목만 (set 로드 전이면 전체)
-      if (_idxCodes) {
-        upper = upper.filter(it => _idxCodes.has(it.code));
-        lower = lower.filter(it => _idxCodes.has(it.code));
-      }
       const tb = document.getElementById("limit-tbody");
       const as = document.getElementById("limit-asof");
       const total = upper.length + lower.length;
