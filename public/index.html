@@ -1477,7 +1477,6 @@
               <table class="stocks-table">
                 <thead><tr>
                   <th style="width:150px;">종목</th>
-                  <th>지정사유</th>
                   <th style="width:90px;">지정일</th>
                 </tr></thead>
                 <tbody id="warning-tbody"></tbody>
@@ -1488,7 +1487,6 @@
               <table class="stocks-table">
                 <thead><tr>
                   <th style="width:150px;">종목</th>
-                  <th>지정사유</th>
                   <th style="width:90px;">지정일</th>
                 </tr></thead>
                 <tbody id="danger-tbody"></tbody>
@@ -3122,29 +3120,33 @@
         const d = await r.json();
         if (asof) asof.innerText = d.updated ? `갱신 ${d.updated}` : "갱신일 없음";
 
-        const renderRows = (items) => {
+        // withReason=true: 투자주의(종목·지정사유·지정일), false: 경고/위험(종목·지정일)
+        const renderRows = (items, withReason) => {
+          const cols = withReason ? 3 : 2;
           if (!items || !items.length)
-            return `<tr><td colspan="3" class="analysis-empty">해당 종목 없음</td></tr>`;
-          return items.map(it => `<tr>
-            <td>
+            return `<tr><td colspan="${cols}" class="analysis-empty">해당 종목 없음</td></tr>`;
+          return items.map(it => {
+            const stockCell = `<td>
               <span class="stock-name" style="cursor:pointer;color:var(--accent-teal);"
                     onclick="odRunCode('${it.code}')">${it.name}</span><br>
               <span class="stock-code">${it.code}</span>
               <span class="market-badge ${it.market === '코스닥' ? 'kosdaq' : ''}"
                     style="margin-left:4px;font-size:0.65rem;">${it.market || ""}</span>
-            </td>
-            <td style="font-size:0.8rem;color:var(--text-muted);">${it.reason || "—"}</td>
-            <td style="font-size:0.8rem;">${it.date || "—"}</td>
-          </tr>`).join("");
+            </td>`;
+            const reasonCell = withReason
+              ? `<td style="font-size:0.8rem;color:var(--text-muted);">${it.reason || "—"}</td>`
+              : "";
+            return `<tr>${stockCell}${reasonCell}<td style="font-size:0.8rem;">${it.date || "—"}</td></tr>`;
+          }).join("");
         };
 
         const c = d.caution || [], w = d.warning || [], g = d.danger || [];
         document.getElementById("caution-count").innerText = `(${c.length})`;
         document.getElementById("warning-count").innerText = `(${w.length})`;
         document.getElementById("danger-count").innerText  = `(${g.length})`;
-        document.getElementById("caution-tbody").innerHTML = renderRows(c);
-        document.getElementById("warning-tbody").innerHTML = renderRows(w);
-        document.getElementById("danger-tbody").innerHTML  = renderRows(g);
+        document.getElementById("caution-tbody").innerHTML = renderRows(c, true);
+        document.getElementById("warning-tbody").innerHTML = renderRows(w, false);
+        document.getElementById("danger-tbody").innerHTML  = renderRows(g, false);
         _invWarnLoaded = true;
       } catch (e) {
         if (asof) asof.innerText = "데이터 로드 실패";
