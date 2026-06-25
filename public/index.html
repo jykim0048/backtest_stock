@@ -1426,8 +1426,9 @@
                 <th style="width: 80px;">상태</th>
                 <th style="width: 80px;">종류</th>
                 <th style="text-align: right; width: 100px;">발동가</th>
-                <th style="text-align: right; width: 90px;">동적괴리율</th>
-                <th style="width: 85px;">발동시각</th>
+                <th style="text-align: right; width: 110px;">괴리율</th>
+                <th style="width: 80px;">발동시각</th>
+                <th style="width: 80px;">해제시각</th>
               </tr>
             </thead>
             <tbody id="vi-tbody"><!-- Populated via Javascript --></tbody>
@@ -3031,7 +3032,7 @@
       if (as) as.innerText = asof ? `갱신 ${asof} · ${items.length}건` : `${items.length}건`;
       if (!tb) return;
       if (!items.length) {
-        tb.innerHTML = `<tr><td colspan="8" class="analysis-empty">VI 발동 종목이 없습니다. (장중에 갱신)</td></tr>`;
+        tb.innerHTML = `<tr><td colspan="9" class="analysis-empty">VI 발동 종목이 없습니다. (장중에 갱신)</td></tr>`;
         return;
       }
       // 실시간 현재가/등락률 — 장전/장중과 동일하게 yfinance(/api/prices) 우회. 6자리 종목만.
@@ -3044,12 +3045,23 @@
           if (pr.ok) q = (await pr.json()).stocks || {};
         } catch (_) { /* 시세 실패 시 — 표시만 생략 */ }
       }
+      // 괴리율 — 정적(stc_dprt)/동적(dmc_dprt) 둘 다 표시. 0·빈값은 생략.
+      const fmtDprt = (v) => {
+        if (v == null || v === "" || isNaN(Number(v)) || Number(v) === 0) return null;
+        const n = Number(v);
+        return `<span style="color:${n >= 0 ? "var(--up-red)" : "var(--down-blue)"};">${n >= 0 ? "+" : ""}${n.toFixed(2)}%</span>`;
+      };
       tb.innerHTML = items.map(it => {
         const on = !!it.vi_on;
         const s = q[it.code];
         const price = s ? Number(s.price).toLocaleString() + "원" : "—";
         const rate  = s ? (s.rate >= 0 ? "+" : "") + s.rate.toFixed(2) + "%" : "—";
         const rcol  = s ? (s.rate >= 0 ? "var(--up-red)" : "var(--down-blue)") : "var(--text-muted)";
+        const stc = fmtDprt(it.stc_dprt), dmc = fmtDprt(it.dmc_dprt);
+        const dprtCell = [stc ? `정 ${stc}` : null, dmc ? `동 ${dmc}` : null]
+          .filter(Boolean).join("<br>") || "—";
+        const cncl = (it.cncl_time && it.cncl_time !== "000000")
+          ? _fmtHms(it.cncl_time) : "—";
         return `<tr>
           <td>${_viName(it.code, it.name)}<div style="color:var(--text-muted);font-size:11px;">${it.code}</div></td>
           <td style="text-align:right;">${price}</td>
@@ -3057,8 +3069,9 @@
           <td><span class="rate-badge ${on ? "up" : "down"}">${on ? "🔴 발동중" : "해제"}</span></td>
           <td>${_VI_KIND[it.kind] || it.kind || ""}</td>
           <td style="text-align:right;">${Number(it.vi_prc || 0).toLocaleString()}</td>
-          <td style="text-align:right;">${it.dmc_dprt || "0.00"}%</td>
+          <td style="text-align:right;font-size:11px;line-height:1.5;">${dprtCell}</td>
           <td>${_fmtHms(it.vi_time)}</td>
+          <td>${cncl}</td>
         </tr>`;
       }).join("");
     }
