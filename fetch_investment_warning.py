@@ -10,17 +10,26 @@ import datetime
 import requests
 from bs4 import BeautifulSoup
 
-BASE = "https://kind.krx.co.kr"
-URL  = BASE + "/investwarn/investattentwarnrisky.do"
-UA   = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+BASE  = "https://kind.krx.co.kr"
+URL   = BASE + "/investwarn/investattentwarnrisky.do"
+UA    = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
 DEBUG = os.environ.get("DEBUG_KIND") == "1"
 
-# 단계 컬럼 값 → 분류 키
 LEVEL_MAP = {"주의": "caution", "경고": "warning", "위험": "danger"}
 
+HDRS = {
+    "User-Agent":      UA,
+    "Referer":         URL + "?method=investattentwarnriskyMain",
+    "Accept":          "text/html,application/xhtml+xml,*/*;q=0.9",
+    "Accept-Language": "ko-KR,ko;q=0.9,en;q=0.8",
+    "Content-Type":    "application/x-www-form-urlencoded; charset=utf-8",
+}
+
+
+# ── HTML 파싱 ──────────────────────────────────────────────────────────────────
 
 def _parse(html: str) -> dict:
-    """HTML 에서 6자리 코드 행을 추출 → {caution, warning, danger} 분류."""
+    """6자리 코드 행 추출 → {caution, warning, danger} 분류."""
     soup = BeautifulSoup(html, "html.parser")
     result = {"caution": [], "warning": [], "danger": []}
 
@@ -29,25 +38,23 @@ def _parse(html: str) -> dict:
         rows_found = False
         for tr in tbody.find_all("tr"):
             tds = tr.find_all("td")
-            if len(tds) < 3:
+            if len(tds) < 2:
                 continue
-            # 6자리 숫자 코드 컬럼 탐색
-            code_idx = None
-            for i, td in enumerate(tds):
-                t = re.sub(r"\s+", "", td.get_text())
-                if re.fullmatch(r"\d{6}", t):
-                    code_idx = i
-                    break
+            code_idx = next(
+                (i for i, td in enumerate(tds)
+                 if re.fullmatch(r"\d{6}", re.sub(r"\s+", "", td.get_text()))),
+                None,
+            )
             if code_idx is None:
                 continue
-
             rows_found = True
+
             def cell(i):
                 return tds[i].get_text(" ", strip=True) if len(tds) > i else ""
 
-            # 단계(주의/경고/위험) 컬럼 탐색 — 보통 code 이후 몇 번째 셀에 있음
-            level_key = "caution"  # 기본값
-            for i, td in enumerate(tds):
+            # 단계(주의/경고/위험) 컬럼 탐색
+            level_key = "caution"
+            for td in tds:
                 txt = td.get_text(strip=True)
                 for kw, key in LEVEL_MAP.items():
                     if kw in txt:
@@ -63,56 +70,87 @@ def _parse(html: str) -> dict:
             })
 
         if rows_found:
-            break  # 데이터 테이블 찾으면 중단
-
+            break
     return result
 
 
-def _fetch(session: requests.Session) -> dict:
-    headers = {
-        "User-Agent":      UA,
-        "Referer":         URL,
-        "Accept":          "text/html,application/xhtml+xml,*/*",
-        "Accept-Language": "ko-KR,ko;q=0.9,en;q=0.8",
-        "Content-Type":    "application/x-www-form-urlencoded; charset=utf-8",
-    }
+# ── 메인 페이지에서 hidden 필드 추출 ──────────────────────────────────────────
 
-    # 시도 1: POST (서브 메서드)
-    for method_name in ("investattentwarnriskySub", "searchInvestAttentwarnriskySub"):
-        payload = {
-            "method":          method_name,
-            "forward":         "investattentwarnrisky_sub",
-            "pageIndex":       "1",
-            "rowCountPerPage": "3000",
-        }
-        r = session.post(URL, data=payload, headers=headers, timeout=25)
-        r.encoding = "utf-8"
-        print(f"POST {method_name} → status={r.status_code} len={len(r.text)}", flush=True)
-        if DEBUG:
-            _save_debug(f"post_{method_name}", r.text)
-        parsed = _parse(r.text)
-        total = sum(len(v) for v in parsed.values())
-        if total > 0:
-            return parsed
-
-    # 시도 2: GET (메인 페이지 — 일부 KIND 페이지는 메인에 전체 데이터 포함)
-    r2 = session.get(URL, params={"method": "investattentwarnriskyMain"},
-                     headers=headers, timeout=25)
-    r2.encoding = "utf-8"
-    print(f"GET  main → status={r2.status_code} len={len(r2.text)}", flush=True)
+def _get_hidden(session: requests.Session) -> dict:
+    r = session.get(URL, params={"method": "investattentwarnriskyMain"},
+                    headers=HDRS, timeout=20)
+    r.encoding = "utf-8"
+    print(f"[main] GET status={r.status_code} len={len(r.text)}", flush=True)
     if DEBUG:
-        _save_debug("get_main", r2.text)
-    return _parse(r2.text)
+        _save_debug("main_page", r.text, limit=30000)
+
+    soup = BeautifulSoup(r.text, "html.parser")
+    hidden = {}
+    for inp in soup.find_all("input", {"type": "hidden"}):
+        name = inp.get("name") or inp.get("id", "")
+        if name:
+            hidden[name] = inp.get("value", "")
+    print(f"[main] hidden fields: {list(hidden.keys())}", flush=True)
+    return hidden
 
 
-def _save_debug(key: str, html: str):
+# ── 데이터 요청 시도 목록 ──────────────────────────────────────────────────────
+
+def _fetch(session: requests.Session) -> dict:
+    hidden = _get_hidden(session)
+
+    attempts = [
+        # 시도 A: hidden 필드 포함 POST (가장 정확)
+        ("POST", {**hidden, "method": "investattentwarnriskySub",
+                  "pageIndex": "1", "rowCountPerPage": "3000"}),
+        # 시도 B: 최소 필드 POST
+        ("POST", {"method": "investattentwarnriskySub",
+                  "pageIndex": "1", "rowCountPerPage": "3000"}),
+        # 시도 C: forward 포함 POST
+        ("POST", {**hidden, "method": "investattentwarnriskySub",
+                  "forward": "investattentwarnrisky_sub",
+                  "pageIndex": "1", "rowCountPerPage": "3000"}),
+        # 시도 D: GET sub
+        ("GET",  {"method": "investattentwarnriskySub",
+                  "pageIndex": "1", "rowCountPerPage": "3000"}),
+    ]
+
+    for label, payload in attempts:
+        try:
+            if label == "POST":
+                r = session.post(URL, data=payload, headers=HDRS, timeout=25)
+            else:
+                r = session.get(URL, params=payload, headers=HDRS, timeout=25)
+            r.encoding = "utf-8"
+            txt = r.text
+            print(f"[{label}] method={payload.get('method')} "
+                  f"status={r.status_code} len={len(txt)} "
+                  f"preview={txt.strip()[:80].replace(chr(10),' ')!r}", flush=True)
+            if DEBUG:
+                _save_debug(f"attempt_{label}_{payload.get('method')}", txt)
+            parsed = _parse(txt)
+            total = sum(len(v) for v in parsed.values())
+            if total > 0:
+                print(f"  → {total}건 확인", flush=True)
+                return parsed
+        except Exception as e:
+            print(f"[{label}] 오류: {e}", file=sys.stderr)
+
+    return {"caution": [], "warning": [], "danger": []}
+
+
+# ── 디버그 저장 ────────────────────────────────────────────────────────────────
+
+def _save_debug(key: str, html: str, limit: int = 8000):
     out_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "public", "data")
     os.makedirs(out_dir, exist_ok=True)
     path = os.path.join(out_dir, f"debug_kind_{key}.txt")
     with open(path, "w", encoding="utf-8") as f:
-        f.write(html[:8000])
-    print(f"  debug saved → {path}", flush=True)
+        f.write(html[:limit])
+    print(f"  debug → {path}", flush=True)
 
+
+# ── 메인 ──────────────────────────────────────────────────────────────────────
 
 def main():
     kst = datetime.timezone(datetime.timedelta(hours=9))
@@ -123,7 +161,7 @@ def main():
         resp = session.get(BASE, headers={"User-Agent": UA}, timeout=10)
         print(f"[init] KIND 홈 status={resp.status_code}", flush=True)
     except Exception as e:
-        print(f"[warn] KIND 세션 초기화 실패: {e}", file=sys.stderr)
+        print(f"[warn] KIND 홈 실패: {e}", file=sys.stderr)
 
     try:
         parsed = _fetch(session)

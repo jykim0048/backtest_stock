@@ -38,14 +38,19 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add public/data/investment_warning.json public/data/debug_kind_*.txt || true
+          git add public/data/investment_warning.json public/data/debug_kind_*.txt 2>/dev/null || true
           git diff --staged --quiet && echo "No changes to commit" && exit 0
           git commit -m "chore: update investment warning list $(date +'%Y-%m-%d')"
           for i in $(seq 1 5); do
             if git push origin HEAD:main; then echo "pushed (attempt $i)"; exit 0; fi
             echo "push rejected; rebasing..."
             git fetch origin main
-            git rebase FETCH_HEAD || { git rebase --abort; echo "::error::rebase conflict"; exit 1; }
+            # 충돌 시 우리가 생성한 파일(JSON/디버그)을 우선 적용
+            git rebase FETCH_HEAD -X theirs || {
+              git rebase --abort
+              echo "::error::rebase conflict after -X theirs"
+              exit 1
+            }
             sleep $((RANDOM % 4 + 2))
           done
           echo "::error::push failed after 5 attempts" && exit 1
