@@ -227,8 +227,8 @@ def _fetch(session: requests.Session, today: str, one_year_ago: str) -> dict:
 def main():
     kst = datetime.timezone(datetime.timedelta(hours=9))
     now  = datetime.datetime.now(kst)
-    today        = now.strftime("%Y%m%d")          # KIND 날짜 형식
-    one_year_ago = (now - datetime.timedelta(days=365)).strftime("%Y%m%d")
+    today        = now.strftime("%Y-%m-%d")          # KIND 날짜 형식 (폼 확인: 2026-06-25)
+    one_year_ago = (now - datetime.timedelta(days=365)).strftime("%Y-%m-%d")
     now_str      = now.strftime("%Y-%m-%d %H:%M KST")
 
     session = requests.Session()
