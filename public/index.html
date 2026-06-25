@@ -3104,9 +3104,9 @@
         if (!r.ok) throw new Error("HTTP " + r.status);
         const d = await r.json();
 
-        // 위험 → 경고 → 주의 순으로 한 테이블에 통합. 각 항목에 _cat 부여.
+        // 주의 → 경고 → 위험 순으로 한 테이블에 통합. 각 항목에 _cat 부여.
         const items = [];
-        for (const cat of ["danger", "warning", "caution"]) {
+        for (const cat of ["caution", "warning", "danger"]) {
           for (const it of (d[cat] || [])) items.push({ ...it, _cat: cat });
         }
 
@@ -3119,12 +3119,13 @@
           return;
         }
 
-        // 실시간 현재가/등락률 — VI 탭과 동일하게 /api/prices(yfinance) 사용. 6자리만.
-        const codes = items.filter(it => /^\d{6}$/.test(it.code)).map(it => it.code);
+        // 실시간 현재가/등락률 — yfinance(/api/prices). KIND market 으로 .KS/.KQ 결정(정확).
+        const priceItems = items.filter(it => /^\d{6}$/.test(it.code));
         let q = {};
-        if (codes.length) {
+        if (priceItems.length) {
           try {
-            const tickers = codes.map(_codeToTicker);   // .KS/.KQ 부여
+            const tickers = priceItems.map(it =>
+              it.market === "코스닥" ? it.code + ".KQ" : it.code + ".KS");
             const pr = await fetch(`/api/prices?codes=${tickers.join(",")}`, { cache: "no-store" });
             if (pr.ok) q = (await pr.json()).stocks || {};
           } catch (_) { /* 시세 실패 시 — 표시만 생략 */ }
