@@ -342,31 +342,50 @@
       color: var(--text-muted);
     }
 
-    /* 메인 탭: 장전 워치리스트 / 장중 관심종목 (드로어 toptab과 동일 패턴) */
+    /* 메인 탭: 2행 레이아웃
+       상단(primary): 장전 워치리스트 / 장중 관심종목 — 크게
+       하단(secondary): VI 발동 / 상하한가 / 투자주의경고 — 작게 */
     .main-tabs {
       display: flex;
-      gap: 8px;
+      flex-direction: column;
+      gap: 6px;
       margin-bottom: 20px;
+    }
+    .main-tabs-row {
+      display: flex;
+      gap: 8px;
     }
     .main-tab {
       flex: 1;
       background: rgba(255, 255, 255, 0.03);
       border: 1px solid var(--border-color);
       border-radius: 10px;
-      padding: 12px 10px;
-      font-size: 14px;
       font-weight: 700;
       color: var(--text-muted);
       cursor: pointer;
       transition: all 0.15s ease;
       font-family: inherit;
     }
-    .main-tab:hover { color: var(--text-main); border-color: var(--kospi-blue); }
+    /* 상단 주탭 — 크게 */
+    .main-tabs-row.primary .main-tab {
+      padding: 14px 10px;
+      font-size: 15px;
+    }
+    /* 하단 보조탭 — 작게 */
+    .main-tabs-row.secondary .main-tab {
+      padding: 8px 10px;
+      font-size: 12px;
+      border-radius: 8px;
+      font-weight: 600;
+      opacity: 0.85;
+    }
+    .main-tab:hover { color: var(--text-main); border-color: var(--kospi-blue); opacity: 1; }
     .main-tab.active {
       background: var(--kospi-blue);
       color: #06121f;
       border-color: var(--kospi-blue);
       box-shadow: 0 0 14px rgba(0, 240, 255, 0.25);
+      opacity: 1;
     }
     /* 관심종목 탭은 활성 시 빨강으로 — 워치리스트와 직관적 구분 */
     .main-tab.active[data-maintab="intraday"] {
@@ -1333,13 +1352,19 @@
           <button onclick="odRun()">Search</button>
         </div>
 
-        <!-- 메인 탭: 장전 워치리스트 / 장중 관심종목 (드로어 Account/Deep Research 패턴) -->
+        <!-- 메인 탭: 2행 레이아웃 -->
         <div class="main-tabs">
-          <button class="main-tab active" data-maintab="watchlist" onclick="selectMainTab('watchlist')">📋 장전 워치리스트</button>
-          <button class="main-tab" data-maintab="intraday" onclick="selectMainTab('intraday')">🔴 장중 관심종목</button>
-          <button class="main-tab" data-maintab="vi" onclick="selectMainTab('vi')">⚡ VI 발동</button>
-          <button class="main-tab" data-maintab="limit" onclick="selectMainTab('limit')">📈 상/하한가</button>
-          <button class="main-tab" data-maintab="invwarn" onclick="selectMainTab('invwarn')">⚠️ 투자주의/경고</button>
+          <!-- 상단 주탭 (크게) -->
+          <div class="main-tabs-row primary">
+            <button class="main-tab active" data-maintab="watchlist" onclick="selectMainTab('watchlist')">📋 장전 워치리스트</button>
+            <button class="main-tab" data-maintab="intraday" onclick="selectMainTab('intraday')">🔴 장중 관심종목</button>
+          </div>
+          <!-- 하단 보조탭 (작게) -->
+          <div class="main-tabs-row secondary">
+            <button class="main-tab" data-maintab="vi" onclick="selectMainTab('vi')">⚡ VI 발동</button>
+            <button class="main-tab" data-maintab="limit" onclick="selectMainTab('limit')">📈 상/하한가</button>
+            <button class="main-tab" data-maintab="invwarn" onclick="selectMainTab('invwarn')">⚠️ 투자주의/경고</button>
+          </div>
         </div>
 
         <!-- ① 장전 워치리스트 패널 (자동매매 대상) -->
