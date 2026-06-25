@@ -1,0 +1,54 @@
+name: Index Constituents Update
+
+# 코스피200·코스닥150 정기변경(6·12월 둘째 금요일 다음 영업일)에 맞춰 갱신.
+# pykrx(data.krx.co.kr) 가 Actions 해외 IP 에서 차단될 수 있어 우선 수동 검증.
+on:
+  workflow_dispatch:
+  schedule:
+    # 6월·12월 셋째 월요일 무렵 07:00 KST (= UTC 22:00 전날). 정기변경 반영 후.
+    - cron: '0 22 14-20 6,12 *'
+
+concurrency:
+  group: report-push
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install pykrx
+
+      - name: Fetch K200/KQ150 constituents from KRX (pykrx)
+        run: python fetch_index_constituents.py
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/index_constituents.json public/assets/index_constituents.json
+          git diff --staged --quiet && echo "No changes to commit" && exit 0
+          git commit -m "chore: update K200/KQ150 constituents $(date +'%Y-%m-%d')"
+          for i in $(seq 1 5); do
+            if git push origin HEAD:main; then echo "pushed (attempt $i)"; exit 0; fi
+            echo "push rejected; rebasing..."
+            git fetch origin main
+            git rebase FETCH_HEAD -X theirs || {
+              git rebase --abort
+              echo "::error::rebase conflict after -X theirs"
+              exit 1
+            }
+            sleep $((RANDOM % 4 + 2))
+          done
+          echo "::error::push failed after 5 attempts" && exit 1
