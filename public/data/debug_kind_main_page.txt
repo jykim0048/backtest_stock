@@ -554,4 +554,1462 @@
 				<li><input type="checkbox" id="chkEdit47" name="checkboxMenu" value="ULDDST80400" /> <label for="chkEdit47">투자지표</label></li>
 			
 				<li><input type="checkbox" id="chkEdit48" name="checkboxMenu" value="ULDDST80500" /> <label for="chkEdit48">인덱스</label></li>
-				<li><input type="checkbox" id="chkEdit52" name="checkboxMenu" va
+				<li><input type="checkbox" id="chkEdit52" name="checkboxMenu" value="ULDDST80800" /> <label for="chkEdit52">고배당기업</label></li>
+				<li><input type="checkbox" id="chkEdit49" name="checkboxMenu" value="ULDDST80600" /> <label for="chkEdit49">밸류업 우수기업</label></li>
+				<li><input type="checkbox" id="chkEdit51" name="checkboxMenu" value="ULDDST80X00" /> <label for="chkEdit51">밸류업 보고서</label></li>
+				<li><input type="checkbox" id="chkEdit50" name="checkboxMenu" value="ULDDST80700" /> <label for="chkEdit50">자료실</label></li>
+			</ul>
+		</article>
+		<article class="list">
+			<h3>투자유의사항</h3>
+			<ul>
+				<li><input type="checkbox" id="chkEdit25" name="checkboxMenu" value="ULDDST30000" /> <label for="chkEdit25">관리종목</label></li>
+				<li><input type="checkbox" id="chkEdit26" name="checkboxMenu" value="ULDDST30900" /> <label for="chkEdit26">투자주의환기종목(코)</label></li>
+							
+				<li><input type="checkbox" id="chkEdit27" name="checkboxMenu" value="ULDDST30400" /> <label for="chkEdit27">매매거래정지종목</label></li>
+							
+				<li><input type="checkbox" id="chkEdit28" name="checkboxMenu" value="ULDDST30100" /> <label for="chkEdit28">불성실공시법인</label></li>
+			
+				<li><input type="checkbox" id="chkEdit29" name="checkboxMenu" value="ULDDST30500" /> <label for="chkEdit29">투자주의경고위험</label></li>
+			
+				<li><input type="checkbox" id="chkEdit30" name="checkboxMenu" value="ULDDST05900" /> <label for="chkEdit30">실질심사법인</label></li>
+				<li><input type="checkbox" id="chkEdit31" name="checkboxMenu" value="ULDDST30301" /> <label for="chkEdit31">횡령 등</label></li>
+				<li><input type="checkbox" id="chkEdit32" name="checkboxMenu" value="ULDDST30302" /> <label for="chkEdit32">최대주주변경2회이상</label></li>
+				<li><input type="checkbox" id="chkEdit33" name="checkboxMenu" value="ULDDST30301" /> <label for="chkEdit33">기타사항</label></li>
+			</ul>
+		</article>
+		<article class="list">
+			<h3>IPO현황</h3>
+			<ul>
+						
+				<li><input type="checkbox" id="chkEdit20" name="checkboxMenu" value="ULDDST71000" /> <label for="chkEdit20">예비심사기업</label></li>
+				
+				<li><input type="checkbox" id="chkEdit38" name="checkboxMenu" value="ULDDST71100" /> <label for="chkEdit38">코넥스 상장신청기업</label></li>
+				<li><input type="checkbox" id="chkEdit21" name="checkboxMenu" value="ULDDST72000" /> <label for="chkEdit21">공모기업</label></li>
+							
+				<li><input type="checkbox" id="chkEdit22" name="checkboxMenu" value="ULDDST70000" /> <label for="chkEdit22">신규상장기업</label></li>
+								
+				<li><input type="checkbox" id="chkEdit23" name="checkboxMenu" value="ULDDST73000" /> <label for="chkEdit23">신규상장통계</label></li>
+				<li><input type="checkbox" id="chkEdit24" name="checkboxMenu" value="ULDDST75000" /> <label for="chkEdit24">상장심사가이드</label></li>
+			</ul>
+			<h3>정보실</h3>
+			<ul>
+				<li><input type="checkbox" id="chkEdit34" name="checkboxMenu" value="ULDDST35100" /> <label for="chkEdit34">공지사항</label></li>
+				<!-- li><input type="checkbox" id="chkEdit35" name="checkboxMenu" value="ULDDST25000" /> <label for="chkEdit35">증시뉴스</label></li -->
+				<li><input type="checkbox" id="chkEdit36" name="checkboxMenu" value="ULDDST35400" /> <label for="chkEdit36">제도해설</label></li>
+				<li><input type="checkbox" id="chkEdit37" name="checkboxMenu" value="ULDDST35700" /> <label for="chkEdit37">자료실</label></li>
+			</ul>			
+		</article>		
+
+	</section>
+	<div class="clear"></div>
+	<div class="wrapper-close">
+		<a href="#" class="btn_sitemap-close"><img src="../images/common/btn_sitemap_close.gif" alt="전체메뉴닫기"/></a>
+	</div>
+</section>
+<script type="text/javascript">
+$(document).ready(function(){
+	fnInMyMenu();
+	sitemap_init();
+});
+var cnt=0;
+function sitemap_init()
+{					
+	if($('section.sitemap').length<1) return;
+	/*$('a.btn.sitemap.open').bind("click",function(e){
+		e.preventDefault();
+		$(this).addClass('hide');
+		setTimeout(function(){
+			$('section.sitemap').slideToggle(400);
+		},200);
+	});*/
+	
+	$('a.btn.sitemap.open').bind("click focus",function(e){
+		e.preventDefault();		
+		if(cnt==0){
+			$(this).addClass('hide');
+			cnt=1;
+			setTimeout(function(){
+				$('section.sitemap').slideToggle(400);
+			},200);
+		}else if(cnt==1){
+			setTimeout(function(){
+				$('section.sitemap').slideToggle(400);				
+			},200);			
+			setTimeout(function(){
+				$('a.btn.sitemap.open').removeClass('hide');
+			},400);
+			
+			cnt=0;
+		}
+	});
+	$('a.btn_sitemap-close').bind("click",function(e){
+		e.preventDefault();
+		setTimeout(function(){
+			$('section.sitemap').slideToggle(400,function(){
+				cnt=0;
+				$('a.btn.sitemap.open').removeClass('hide');
+			});
+		},100);
+	});
+	
+	$('section.sitemap a.first').bind("mouseover focus",function(){
+		$('section.sitemap article').removeClass("active");
+		$(this).parent().addClass("active");
+		$(this).parent().parent().parent().addClass("active");
+	});
+	$('section.sitemap a.first').bind("mouseout focusout",function(){
+		$(this).parent().removeClass("active");
+	});
+
+	$('section.sitemap span , section.sitemap input[type=checkbox]').bind("mouseover focus",function(){
+		$('section.sitemap article').removeClass("active");
+		$(this).parent().parent().addClass("active");
+		$(this).parent().parent().parent().parent().addClass("active");
+	});
+	$('section.sitemap span , section.sitemap input[type=checkbox]').bind("mouseout focusout",function(){
+		$(this).parent().parent().removeClass("active");
+	});
+
+	$('section.sitemap article').bind("mouseleave focusout",function(){
+		$(this).removeClass("active");
+	});
+	$('section.sitemap a.btn_sitemap-set').click(function(e){
+		e.preventDefault();
+		if(!$('section.sitemap').hasClass("chkon"))
+		{
+			$('section.sitemap section.list-wrapper.links').hide();
+			$('section.sitemap section.list-wrapper.config').show();
+			$('section.sitemap').addClass("chkon");
+			$(this).children("img").attr("src",$(this).children("img").attr("src").replace("_set","_active"));
+			$(this).children("img").attr("alt","확인");
+		}
+		else
+		{
+			fnSetCookieMyMenu();
+			$('section.sitemap section.list-wrapper.links').show();
+			$('section.sitemap section.list-wrapper.config').hide();
+			$('section.sitemap').removeClass("chkon");
+			$(this).children("img").attr("src",$(this).children("img").attr("src").replace("_active","_set"));
+			$(this).children("img").attr("alt","설정");
+		}
+	});
+	
+	try
+	{
+		if($.browser.msie && $.browser.version == "7.0") {
+			$('div.gnb1-wrapper').css("top"	, -3);
+		}
+
+		var btnMore = $('div.gnb1-wrapper'); //submenu
+		var imgArrow = $('#sub nav#gnb1 div.lnb div.wrapper img.arrow'); //화살표
+		$('section.sitemap a.first').bind("mouseover focus",function(){
+			fnSubClose(btnMore, -1); //모든 submenu 닫기
+		});
+
+		$('section.sitemap article li a.more').each(function(i) {
+			$(this).bind("mouseover focus",function(){	
+				$(this).parent().addClass("active");
+				$(this).parent().parent().parent().addClass("active");
+				$(this).children("span").children("img").attr("src","../images/common/bg_gnb_gmn2_active.gif");
+										
+				fnSubClose(btnMore, i) //모든 submenu 닫기
+
+				var left1	= $(this).parent().offset().left;				
+				var left2	= $(this).children("span").children("img").offset().left;
+				var leftVal = left2 - left1 - 2;
+				if(i == 7){
+					leftVal = leftVal - 6;
+				}
+				imgArrow.eq(i).css("left", leftVal);    
+				btnMore.eq(i).show();
+			});
+
+			btnMore.eq(i).bind("mouseleave",function(){
+				btnMore.eq(i).hide();
+			});
+			
+			$(this).bind("mouseout focusout",function(){
+				$(this).parent().removeClass("active");
+				$(this).children("span").children("img").attr("src","../images/common/bg_gnb_gmn2.gif");
+			});						
+		});
+			
+	}catch(e){console.error(e.message);}
+		
+}
+
+function fnInMyMenu(){
+	var cookies = GetCookie('krxMenu');
+	var cookieValue = "";
+	if(cookies == null ){
+		cookieValue = cookieValue + "ULDDST00000,오늘의공시/";
+		cookieValue = cookieValue + "ULDDST00100,회사별검색/";
+		cookieValue = cookieValue + "ULDDST00300,상세검색/";
+		cookieValue = cookieValue + "ULDDST00200,통합검색/";
+		cookieValue = cookieValue + "ULDDST71000,예비심사기업/";
+		SetCookie('krxMenu',cookieValue ,'7');
+	} else {
+
+	}
+
+	fnUpdateInMyMenu();
+}
+
+function fnSetCookieMyMenu(){
+	var cookieValue = "";
+	$('input:checkbox[name="checkboxMenu"]:checked').each(function(){
+		var menuName = $("label[for="+this.id+"]").text().replace("/","");
+		cookieValue += $(this).val()+","+menuName+"/";
+	});
+	SetCookie('krxMenu',cookieValue ,'7');
+	fnUpdateInMyMenu();
+}
+
+function fnUpdateInMyMenu(){
+	var cookies = GetCookie('krxMenu');
+	if(cookies != null ){
+		$("#myMenuTop").empty();
+		var items = cookies.split("/");
+		for(var i in items){
+			var item = items[i].split(",");
+			var menuId	 = item[0];
+			var menuName = item[1];
+			if(undefined != menuName){
+				var url = fnGetInMyMenuUrl(menuId);
+				// My Menu 설정을 많이 해서 스크롤이 생겼을 경우 길이가 8자 이상인 메뉴명이 포함되어 있으면 메뉴 부분이 깨지는 현상이 있어서 ..으로 처리함.
+				if(menuId == "ULDDST00400") {		// 'ETF ETN ELW 상장형수익증권' 메뉴명은 영어로 구성되어 있어서 6자리 보다 11자리를 짜름. 
+					menuName = menuName.substring(0,11) + "..";
+				}
+				else {
+					if(menuName.length >= '8') {
+						menuName = menuName.substring(0,6) + "..";
+					}
+				}
+				
+				// 신규 추가 된 밸류업 보고서의 링크는 새창에서 열려야 하기 때문에 target 추가함. 2025.08.29
+				if(menuId == "ULDDST80X00") {
+					$("#myMenuTop").append("<li><a href='"+url+"' target='_brank'>"+menuName+"</a></li>");
+				} 
+				else {
+					$("#myMenuTop").append("<li><a href='"+url+"'>"+menuName+"</a></li>");
+				}
+				
+			}
+
+			$('input:checkbox[name="checkboxMenu"]').each(function(){
+				if($(this).val() == menuId)
+					this.checked = true;
+			});
+		}
+	}
+}
+
+function fnGetInMyMenuUrl(menuId){
+
+	var url = {
+			"ULDDST00000":"/disclosure/todaydisclosure.do?method=searchTodayDisclosureMain",											/*오늘의공시*/
+			"ULDDST00100":"/disclosure/searchdisclosurebycorp.do?method=searchDisclosureByCorpMain",									/*회사별검색*/
+			"ULDDST00300":"/disclosure/details.do?method=searchDetailsMain",															/*상세검색*/
+			"ULDDST00200":"/disclosure/searchtotalinfo.do?method=searchTotalInfoMain",													/*통합검색*/
+			"ULDDST00700":"/disclosure/searchbondcorpdisclosure.do?method=searchBondCorpDisclosureMain",								/*채권공시*/
+			"ULDDST00400":"/disclosure/disclosurebystocktype.do?method=searchDisclosureByStockTypeEtf",									/*ETF/ELW/ETN*/
+			"JLDDST00403":"/disclosure/disclosurebystocktype.do?method=searchDisclosureByStockTypeRestinvstcom",						/*펀드공시*/
+			"ULDDST01300":"/disclosure/misccorpdiscls.do?method=searchMiscCorpDisclsMain",												/*기타법인공시*/
+			"ULDDST01500":"/disclosure/disclosurebyvote.do?method=searchDisclosurebyVoteMain",											/*의결권공시*/
+			"ULDDST10400":"/corpdetail/chart.do?method=loadInitPage",																	/*공시차트*/
+			"ULDDST01600":"/disclosure/searchErrorTradeRelief.do?method=searchErrorTradeReliefMain",									/*착오매매구제신청*/
+			"ULDDST10000":"/corpdetail/totalinfo.do?method=loadInitPage",																/*종합정보*/
+			"ULDDST05000":"/corpgeneral/listedIssueStatus.do?method=loadInitPage",														/*상장종목현황*/
+			"ULDDST05100":"/corpgeneral/corpList.do?method=loadInitPage",																/*상장법인목록*/
+			"ULDDST38150":"/corpgeneral/companyGovernance.do?method=loadInitPage",		 												/*기업지배구조*/	
+			//"ULDDST20000":"/digital/digitalList.do?method=digitalList",																/* 신종증권 메뉴 제외 */
+			"ULDDST06000":"/corpgeneral/stockissuelist.do?method=loadInitPage",															/*주식발행내역*/
+			"ULDDST05300":"/corpgeneral/treasurystk.do?method=loadInitPage",															/*자사추취득처분*/
+			"ULDDST05600":"/corpgeneral/irschedule.do?method=searchIRScheduleMain&gubun=iRScheduleCalendar",							/*IR일정IR자료실*/
+			"ULDDST38010":"/corpgeneral/companyAnalysisReport.do?method=listingForeignCompanyMain&searchGubun=companyAnalysisReport",	/*기업분석보고서*/
+			"ULDDST05800":"/corpgeneral/corpGroup.do?method=loadInitPage",																/*기업진단*/
+			"ULDDST36400":"/disclosureinfo/dividendinfo.do?method=searchDividendInfoMain",												/*배당정보*/
+			"ULDDST15400":"/compfinance/financialinfo.do?method=loadInitPage&searchgubun=corporation",									/*회사재무비교*/
+			"JLDDST38140":"/corpgeneral/excntDisclsCompany.do?method=loadInitPage",														/*공시우수법인*/	
+			"JLDDST11000":"/corpdetail/ventureFundInvest.do?method=corpListMain",														/*벤처펀드투자기업(코)*/	
+			//"JLDDST30200":"/digital/digitalCorpList.do?method=digitalCorpList",														/*신종증권 상장종목(신종증권) - 신종증권 메뉴 제외*/
+
+			"ULDDST80100":"/valueup/intro.do?method=valueupIntroMain",							/*기업밸류업소개*/
+			"ULDDST80200":"/valueup/notice.do?method=valueupNoticeMain",						/*공지사항*/
+			"ULDDST80300":"/valueup/disclsstat.do?method=valueupDisclsStatMain",				/*공시현황*/
+			"ULDDST80400":"/valueup/invstindicsectors.do?method=valueupInvstIndicRankIndMain",	/*투자지표*/
+			"ULDDST80500":"/valueup/idx.do?method=valueupIdxMain",								/*인덱스*/
+			"ULDDST80800":"/valueup/dividend.do?method=valueupHighDividendMain",				/*기업 밸류업 고배당기업*/
+			"ULDDST80600":"/valueup/excntcorp.do?method=valueupExcntCorpMain",					/*기업 밸류업 우수법인*/
+			"ULDDST80X00":"https://www.kirs.or.kr/research/valueup.html",						/*밸류업 보고서*/
+			"ULDDST80700":"/valueup/resoroom.do?method=valueupResoroomMain",					/*자료실*/
+
+			"ULDDST30000":"/investwarn/adminissue.do?method=searchAdminIssueList",										/*관리종목*/
+			"ULDDST30900":"/investwarn/hwangiissue.do?method=searchHwangiIssueMain",									/*투자주의환기종목(코)*/
+			"ULDDST30400":"/investwarn/tradinghaltissue.do?method=searchTradingHaltIssueMain",							/*매매거래정지종목*/
+			"ULDDST30100":"/investwarn/undisclosure.do?method=searchUnfaithfulDisclosureCorpList",						/*불성실공시법인*/
+			"ULDDST30500":"/investwarn/investattentwarnrisky.do?method=investattentwarnriskyMain",						/*투자주의-경고-위험종목*/
+			"ULDDST05900":"/corpgeneral/delistRealInvstg.do?method=searchDelistRealInvstgMain",							/*실질심사법인*/
+			"ULDDST30301":"/investwarn/investattentEmbezzlement.do?method=searchInvestAttentEmbezzlementMain",			/*횡령 등*/
+			"ULDDST30302":"/investwarn/investattentLargeShareChange.do?method=searchInvestAttentLargeShareChangeMain",	/*최대주주변경2회이상*/
+			"ULDDST30301":"/investwarn/investattentEtcMarket.do?method=searchInvestAttentEtcMarketMain",				/*기타사항*/
+
+			"ULDDST71000":"/listinvstg/listinvstgcom.do?method=searchListInvstgCorpMain",		/*예비심사기업*/
+			"ULDDST71100":"/listinvstg/listapplcom.do?method=searchListApplCorpMain",			/*코넥스상장신청기업*/
+			"ULDDST72000":"/listinvstg/pubofrprogcom.do?method=searchPubofrProgComMain",		/*공모기업*/
+			"ULDDST70000":"/listinvstg/listingcompany.do?method=searchListingTypeMain",			/*신규상장기업*/
+			"ULDDST73000":"/listinvstg/listtypestat.do?method=searchListTypeStatusMain",		/*신규상장통계*/
+			"ULDDST75000":"/listinvstg/listinvstginfo.do?method=searchListInvstgInfoMain",		/*상장심사가이드*/		
+					
+			"ULDDST35100":"/disclosureinfo/notice.do?method=searchNoticeMain",				/*공지사항*/
+			//"ULDDST25000":"/news/searchnews.do?method=searchNewsMain", /*증시뉴스*/
+			"ULDDST35400":"/disclosureinfo/explanationsystem.do?method=searchSysInfo",		/*제도해설*/
+			"ULDDST35700":"/disclosureinfo/searchmaterials.do?method=searchMaterialsMain"	/*자료실*/
+
+	}
+
+	return url[menuId];
+}
+
+function fnSubClose(array, i)
+{
+	for(var a=0;a<array.length;a++){
+		if(a != i){ array.eq(a).hide(); }
+	}
+}
+
+</script>
+	<!-- TOP MENU END -->
+</div>
+	<div class="gnb-wrapper">
+		<nav id="gnb">
+			<dl>
+				<dt><a href="/">홈</a></dt>
+				
+				
+					
+					<!-- Lv1 -->
+					
+					
+						<dd>
+							<a href="#" class="gmn">투자유의사항</a>
+							<div class="lnb">
+								<div class="wrapper">
+								
+									
+										
+										
+										<a href="/disclosure/todaydisclosure.do?method=searchTodayDisclosureMain" class="lmn ">공시</a>
+										
+									
+								
+									
+										
+										
+										<a href="/corpdetail/totalinfo.do?method=loadInitPage" class="lmn ">상장법인상세정보</a>
+										
+									
+								
+									
+										
+										
+										<a href="/valueup/intro.do?method=valueupIntroMain" class="lmn ">기업 밸류업 정보</a>
+										
+									
+								
+									
+										
+										
+										<a href="/investwarn/adminissue.do?method=searchAdminIssueList" class="lmn active">투자유의사항</a>
+										
+									
+								
+									
+										
+										
+										<a href="/listinvstg/listinvstgcom.do?method=searchListInvstgCorpMain" class="lmn ">IPO현황</a>
+										
+									
+								
+									
+										
+										
+										<a href="/disclosureinfo/notice.do?method=searchNoticeMain" class="lmn ">정보실</a>
+										
+									
+								
+									<img src="../images/common/lnb_arrow.png" class="arrow" />
+									<img src="../images/common/lnb_tl.png" class="tl" />
+									<img src="../images/common/lnb_tr.png" class="tr" />
+									<img src="../images/common/lnb_bl.png" class="bl" />
+									<img src="../images/common/lnb_br.png" class="br" />
+								</div>
+							</div>
+						</dd>
+					
+					
+					
+					<!-- Lv2 -->
+					
+					
+						<dd>
+							<a href="#" class="gmn">투자주의/경고/위험종목</a>
+							<div class="lnb">
+								<div class="wrapper">
+									
+										
+											
+											
+											
+												<a href="/investwarn/adminissue.do?method=searchAdminIssueList" class="lmn ">관리종목</a>
+											
+										
+									
+										
+											
+											
+											
+												<a href="/investwarn/hwangiissue.do?method=searchHwangiIssueMain" class="lmn ">투자주의환기종목(코)</a>
+											
+										
+									
+										
+											
+											
+											
+												<a href="/investwarn/tradinghaltissue.do?method=searchTradingHaltIssueMain" class="lmn ">매매거래정지종목</a>
+											
+										
+									
+										
+											
+											
+											
+												<a href="/investwarn/undisclosure.do?method=searchUnfaithfulDisclosureCorpList" class="lmn ">불성실공시법인</a>
+											
+										
+									
+										
+											
+											
+											
+												<a href="/investwarn/investattentwarnrisky.do?method=investattentwarnriskyMain" class="lmn active">투자주의/경고/위험종목</a>
+											
+										
+									
+										
+											
+											
+											
+												<a href="/corpgeneral/delistRealInvstg.do?method=searchDelistRealInvstgMain" class="lmn ">실질심사법인</a>
+											
+										
+									
+										
+											
+											
+											
+												<a href="/investwarn/investattentEmbezzlement.do?method=searchInvestAttentEmbezzlementMain" class="lmn ">횡령 등</a>
+											
+										
+									
+										
+											
+											
+											
+												<a href="/investwarn/investattentLargeShareChange.do?method=searchInvestAttentLargeShareChangeMain" class="lmn ">최대주주변경2회이상</a>
+											
+										
+									
+										
+											
+											
+											
+												<a href="/investwarn/investattentEtcMarket.do?method=searchInvestAttentEtcMarketMain" class="lmn ">기타사항</a>
+											
+										
+									
+									<img src="../images/common/lnb_arrow.png" class="arrow" />
+									<img src="../images/common/lnb_tl.png" class="tl" />
+									<img src="../images/common/lnb_tr.png" class="tr" />
+									<img src="../images/common/lnb_bl.png" class="bl" />
+									<img src="../images/common/lnb_br.png" class="br" />
+								</div>
+							</div>
+						</dd>
+					
+					
+					<!-- Lv3 -->
+					
+					
+					
+					<!-- Lv4 -->
+					
+					
+					
+				
+				
+				
+			</dl>
+		</nav>
+	</div>
+	
+
+<nav class="aside">
+	<dl>
+		<dt><a href="#"><span>마이페이지</span></a></dt>
+		<dd class="mymenu first">
+			<a href="#" class="bmn"><span>나만의 메뉴</span></a>
+			<div class="list">
+				<a href="#" class="btn-prev"><span>이전</span></a>
+				<div class="inner">
+					<ul id="myMenu" class="slider">
+						<li></li>
+					</ul>
+				</div>
+				<a href="#" class="btn-next"><span>다음</span></a>
+			</div>
+		</dd>
+		<dd class="cache_company">
+			<a href="#" class="bmn"><span>내가 본 회사</span></a>
+			<div class="list">
+				<a href="#" class="btn-prev"><span>이전</span></a>
+				<div class="inner">
+					<ul id="myMenuCorp" class="slider">
+						<li></li>
+					</ul>
+				</div>
+				<a href="#" class="btn-next"><span>다음</span></a>
+			</div>
+		</dd>
+		<dd class="cache_disclosure">
+			<a href="#" class="bmn"><span>내가 본 공시</span></a>
+			<div class="list">
+				<a href="#" class="btn-prev"><span>이전</span></a>
+				<div class="inner">
+					<ul id="myMenuDisclosure" class="slider">
+						<li><a href="#"></a></li>
+					</ul>
+				</div>
+				<a href="#" class="btn-next"><span>다음</span></a>
+			</div>
+		</dd>		
+		<dd class="link_top">
+			<a href="#" class="bmn top"><span>위로</span></a>
+		</dd>
+	</dl>
+</nav>
+<script type="text/javascript">
+$(document).ready(function(){	
+	fnMyPage();
+	fnMyCrop();
+	fnMyDisclosure();
+});
+
+function fnMyPage(){
+	var cookies = GetCookie('krxMenu');
+	if(cookies != null ){
+		$("#myMenu").empty();
+		var items = cookies.split("/");
+		for(var i in items){
+			var item = items[i].split(",");
+			var menuId	 = item[0];
+			var menuName = item[1];
+			if(undefined != menuName){
+				var url = fnGetInMyMenuUrl(menuId);
+				$("#myMenu").append("<li><a href='"+url+"' title='"+menuName+"'>"+menuName+"</a></li>");
+			}
+		}
+	}	
+}
+
+function fnMyCrop(){
+	var cookieName	= "krxComp";
+	var cookies		= GetCookie(cookieName);
+	if(cookies != null ){
+		$("#myMenuCorp").empty();
+		var items = cookies.split("/");
+		for(var i in items){
+			var item = items[i].split(",");
+			var repIsuSrtCd	= item[1];
+			var corpName	= item[2];
+			var isurcd		= item[3];
+			if(undefined != corpName || undefined != isurcd){
+				var url = "/disclosureSimpleSearch.do?method=disclosureSimpleSearchMain&repIsuSrtCd="+repIsuSrtCd+"&isurCd="+isurcd+"&searchCorpName="+corpName;
+				$("#myMenuCorp").append("<li><a href=\""+url+"\" title=\""+corpName+" 검색\">"+corpName+"</a></li>");
+			}
+		}
+	}
+}
+
+function fnMyDisclosure(){
+	var cookies = GetCookie('krxDisc');
+	if(cookies != null ){
+		$("#myMenuDisclosure").empty();
+		var items = cookies.split("/");
+		for(var i in items){
+			var item = items[i].split(",");
+			var acptNo	= item[1];
+			var title	= item[0];
+			if("" != title && undefined != acptNo){
+				$("#myMenuDisclosure").append("<li class='ellipsis'><a href=\"#\" onclick=\"openDisclsViewer('"+acptNo+"','');\">"+title+"</a></li>");
+			}
+		}
+	}
+}
+
+function fnGuidePop(){
+	window.open("../common/guide.html","KIND소개","top=100,left=100,width=870,height=700,scrollbars=yes,toolbar=no,resizable=yes");
+}
+
+</script>
+</header>
+<!-- HEADER 영역 END -->
+
+<section class="wrapper-contents">
+	<!-- 본문영역 START -->
+	<section class="contents">
+		<hgroup class="title type-00">
+			<h1 id="titleValue">투자주의/경고/위험종목</h1>
+		</hgroup>
+		
+
+
+
+
+<form id="searchForm" name="searchForm" method="post">
+<input type="hidden" id="method"          name="method"          value=""/>
+<input type="hidden" id="currentPageSize" name="currentPageSize" value="15"/>
+<input type="hidden" id="pageIndex"       name="pageIndex"       value=""/>
+<input type="hidden" id="orderMode"       name="orderMode"       value=""/>
+<input type="hidden" id="orderStat"       name="orderStat"       value=""/>
+<input type="hidden" id="searchCodeType"  name="searchCodeType"  value=""/>      <!--number:종목코드 char:종목명-->
+<input type="hidden" id="searchCorpName"  name="searchCorpName"  value=""/>      <!--number:종목코드 char:종목명-->
+<input type="hidden" id="repIsuSrtCd"     name="repIsuSrtCd"     value=""/>      <!--법인코드-->
+<input type="hidden" id="menuIndex"       name="menuIndex"       value="1"/>
+<input type="hidden" id="forward"         name="forward"         value=""/>
+<input type="hidden" id="searchFromDate"	name="searchFromDate"	value="2026-06-25" />
+
+<section class="search-group type-00">
+	<div class="wrapper">
+		<div class="form-search type-00 type-multi">
+			<table summary="시장구분,회사명,기간">
+				<caption>조회</caption>
+				<colgroup>
+					<col width="70" />
+					<col width="*" />
+					<col width="70" />
+					<col width="*" />
+				</colgroup>
+				<tbody>
+					<tr class="first" id="hCoumn1">
+							<th scope="row"><label for="rAll">시장구분</label></th>
+							<td>
+								<input type="radio" id="rAll"        name="marketType" title="전체" value="" checked="checked" class="rad-00" /> <label for="rAll">전체</label>
+								<input type="radio" id="rWertpapier" name="marketType" title="유가증권" value="1" class="rad-00" /> <label for="rWertpapier">유가증권</label>
+								<input type="radio" id="rKosdaq"     name="marketType" title="코스닥" value="2" class="rad-00" /> <label for="rKosdaq">코스닥</label>
+								<input type="radio" id="rKonex"      name="marketType" title="코넥스" value="6" class="rad-00" /> <label for="rKonex">코넥스</label>
+							</td>
+							<th scope="row"><label for="AKCKwd">회사명</label></th>
+							<td>
+								<section class="auto_complete company">
+									<div class="autoKey">
+										<input class="txt middle" type="text" id="AKCKwd" name="searchCorpNameTmp" autocomplete=off onblur="chkValidChar(this);" />
+										<div class="tselect">
+											<img id="AKCArrow" class="autoc_open" src="../images/common/icn_autoc_open.gif" alt="자동완성 열기" />
+											<div id="AKCDiv" class="AKCDiv" style="display:none;">
+												<iframe id="AKCIfrm" name="AKCIfrm" title="자동완성" style="height: 130px;" src="../common/akc.html" frameborder="0" scrolling="no" ></iframe>
+											</div>
+										</div>
+									</div>
+									<a href="#searchComp" title="회사명 찾기" onclick="fnFindCorpName2(); return false;" class="btn-sprite type-01 vmiddle btn-company"><span>찾기</span></a>
+									<div class="clear"></div>
+								</section>
+							</td>
+					</tr>
+					<tr class="first" id="hCoumn2">
+						<th scope="row"><label for="rAll">시장구분</label></th>
+						<td>
+							<input type="radio" id="rEts" name="marketType" title="배출권" value="E" class="rad-00" /> <label for="rEts">배출권</label>
+						</td>
+						<th scope="row"><label for="rIsuKorNm">종목명</label></th>
+						<td>
+							<input class="txt middle" type="text" id="etsIsuSrtCd" name="etsIsuSrtCd" value="" style="width:100px;" />
+							<a href="#" class="btn-sprite type-00 vtop btn-find" onclick="findEtsIsu();return false;" title="종목명찾기" title="종목명 찾기"><span>찾기</span></a>
+						</td>
+					</tr>	
+					<!-- 디지털증권 메뉴 제외 --> 		
+					<!--<tr class="first" id="hCoumn3">
+						<th scope="row"><label for="rAll">시장구분</label></th>
+						<td>
+							<input type="radio" id="tcIc" name="marketType" title="디지털증권" value="TCIC" class="rad-00" /> <label for="tcIc">디지털증권</label>
+						</td>
+						<th scope="row"><label for="rIsuKorNm">종목명</label></th>
+						<td>
+							<input class="txt middle" type="text" id="digitalIsuSrtCd" name="digitalIsuSrtCd" value="" style="width:100px;" />
+							<a href="#" class="btn-sprite type-00 vtop btn-find" onclick="findDigitalIsu(3);return false;" title="종목명찾기" title="종목명 찾기"><span>찾기</span></a>
+						</td>
+					</tr>-->		
+								
+					<tr>
+						<th scope="row"><label for="cal_00">기간</label></th>
+						<td colspan="3">
+							<div class="fleft">
+								<input type="text" id="startDate" name="startDate" value="" class="txt  input-calendar" alt="기간 선택 첫번째" title="기간 선택 첫번째" size="10" onfocus="cal_offMask('document.searchForm.startDate');return false;" onkeyup="chkDate('document.searchForm.startDate');return false;"/> ~ <input type="text" id="endDate" name="endDate" value="" class="txt  input-calendar" alt="기간 선택 두번째" title="기간 선택 두번째" size="10" onfocus="cal_offMask('document.searchForm.endDate');return false;" onkeyup="chkDate('document.searchForm.endDate');return false;" />
+							</div>
+							<div class="fleft pl10" id="search-btn-dates">
+							</div>
+							<div class="clear"></div>
+						</td>
+					</tr>
+					<tr></tr>
+				</tbody>
+			</table>
+		</div>
+		<div class="clear"></div>
+		<div class="btn-group type-bt">
+			<a href="#" title="검색" class="btn-sprite type-00 vmiddle search-btn" onclick="fnSearchCorpName(); return false;"><span>검색</span></a>
+			<a href="#" title="EXCEL" class="btn-sprite type-00 vmiddle xls-btn" onclick="fnDownload(); return false;"><span>EXCEL</span></a>
+		</div>
+	</div>
+</section>
+</form>
+
+<nav class="tabgroup type-10 mt30">
+	<ul>
+		<li class="first active" id="menuType"><a href="#" title="투자주의종목" onclick="fnViewTab(0);"><span>투자주의종목</span></a></li>
+		<li id="menuType"><a href="#" title="투자경고종목" onclick="fnViewTab(1);"><span>투자경고종목</span></a></li>
+		<li id="menuType"><a href="#" title="투자위험종목" onclick="fnViewTab(2);"><span>투자위험종목</span></a></li>
+		<li id="menuType"><a href="#" title="ELW" onclick="fnViewTab(3);"><span>ELW 투자주의</span></a></li>
+		<li class="last" id="menuType"><a href="#" title="ETS" onclick="fnViewTab(4);"><span>파생 투자주의</span></a></li>
+		
+		<!-- 디지털증권 메뉴 제외 -->
+		<!--<li id="menuType"><a href="#" title="ETS" onclick="fnViewTab(4);"><span>파생 투자주의</span></a></li> 	
+		    <li class="last" id="menuType"><a href="#" title="디지털 투자주의" onclick="fnViewTab(5);"><span>디지털 투자주의</span></a></li>-->
+	</ul>
+</nav>
+
+<article id="main-contents" class="pcontents">
+</article>
+
+<script language="javascript" type="text/JavaScript">
+document.onkeypress = function(e){
+	var result = "";
+	if(typeof(e)!='undefined'){
+		result = e.which;
+	}else{
+		result = event.keyCode;
+	}
+	keyEvent(result);
+}
+
+function keyEvent(e){
+	if(document.all){//IE
+		if(window.event.keyCode==13){
+            if(fnAKCKwdSearchCodeType(eval(document.searchForm.searchCorpNameTmp))) {
+            	fnSearchCorpName();
+            }
+		}
+	}else{
+		if(e==13){
+            if(fnAKCKwdSearchCodeType(eval(document.searchForm.searchCorpNameTmp))) {
+            	fnSearchCorpName();
+            }
+		}
+	}
+}
+
+$(document).ready(function(){
+	fnInit();
+	
+	$("#hCoumn1").show();
+	$("#hCoumn2").hide();
+	//디지털증권 메뉴 제외
+	//$("#hCoumn3").hide();
+});
+
+function fnInit(){
+	fnDisplaySearchBtnDatesOnlyPeriod(-1);	// [전체] 버튼 삭제 2025.08.18 
+	if($("#searchFromDate").val() != ''){
+		$("#startDate").val($("#searchFromDate").val());
+		$("#endDate").val($("#searchFromDate").val());
+	}
+	fnSearchInit();
+}
+
+function fnSearchInit() {
+	var		valMenuIdx = $("#searchForm > #menuIndex").val();
+	if (valMenuIdx == '2' || valMenuIdx == '3'){
+		fnOrder("3", "D");
+	}else {
+		fnOrder("4", "D");
+	}
+}
+
+/*
+*
+*법인명, 종목코드, 일자, 적용구분의 order by 조건
+*/
+function fnOrder(mode, stat){
+	$("#searchForm > #orderMode").val(mode);
+	$("#searchForm > #orderStat").val(stat);
+	$("#searchForm > #pageIndex").val("1");
+
+	fnSearch();
+}
+
+function fnViewTab(tabDiv) {
+
+	$(document).find("li[id=menuType]").each(function (index){
+		if($(this).hasClass("active")) {
+			$(this).removeClass("active");
+		}
+
+		if(index == tabDiv) {
+			$(this).addClass("active");
+		}
+	});
+	
+	$("#searchForm > #menuIndex").val(tabDiv+1);
+	fnSearchInit();
+}
+
+/** 법인명찾기 팝업의 자바스크립트에서 호출하는 Callback 함수 */
+function setCorpInfo(isurCd, kisComCd, repIsuSrtCd, comNm, comAbbrv, isurSymbl, fssUnqNo){
+    var  str = "";
+            str += "isurCd : " + isurCd + "\n";
+            str += "kisComCd : " + kisComCd + "\n";
+            str += "repIsuSrtCd : " + repIsuSrtCd + "\n";
+            str += "comNm : " + comNm + "\n";
+            str += "comAbbrv : " + comAbbrv + "\n";
+            str += "isurSymbl : " + isurSymbl + "\n";
+            str += "fssUnqNo : " + fssUnqNo + "\n";
+    //alert(str);
+
+	$("#searchForm").find("input:text[name=searchCorpNameTmp]").val(comAbbrv);	//법인명
+	$("#searchForm > #repIsuSrtCd").val("A"+repIsuSrtCd);						//법인코드
+	$("#searchForm > #searchCodeType").val("char");
+}
+
+//검색버튼 눌렀을경우 법인명 먼저 조회한다
+function fnSearchCorpName(){
+	$("#searchForm > #repIsuSrtCd").val("");
+
+	if($("#searchForm").find("input:text[name=searchCorpNameTmp]").val() != ""){
+    	$("#searchForm > #searchCorpName").val($("#searchForm").find("input:text[name=searchCorpNameTmp]").val());
+		fnAKCKwdSearchCorpName();
+	}else{
+		fnSearchInit();
+	}
+}
+
+function fnSearchCorpNameAllCallBack(items)  { 
+	if(items.length == 1) {
+		fnSearchCorpCode(items[0].repisusrtcd);
+	} else if(items.length > 1) {
+		fnFindCorpName2();
+	} else {
+		fnSearchCorpCode('');
+	}
+}
+
+//법인명 조회 결과
+function fnSearchCorpCode(repIsuSrtCd){
+	if(repIsuSrtCd == ""){
+		$("#searchForm > #repIsuSrtCd").val("");
+
+		var		valSearchCodeType = $("#searchForm > #searchCodeType").val();
+		if(valSearchCodeType == "number"){
+			alert("조회한 종목명이 존재하지 않습니다.");
+		}else {
+			alert("조회한 종목코드가 존재하지 않습니다.");
+		}
+	}else{
+		$("#searchForm > #repIsuSrtCd").val(repIsuSrtCd);
+		fnSearchInit();
+	}
+}
+
+/*
+ *
+ *검색버튼 클릭시
+*/
+function fnSearch() {
+
+	if(!fCheckDate($("#searchForm").find("input:text[name=startDate]").val())){
+		alert("시작일자 형식이 틀립니다");
+		return;
+	}
+	if(!fCheckDate($("#searchForm").find("input:text[name=endDate]").val())){
+		alert("종료일자 형식이 틀립니다");
+		return;
+	}
+	
+	if(!chkPeriod_Emedit($("#searchForm").find("input:text[name=startDate]").val(), $("#searchForm").find("input:text[name=endDate]").val())){
+		return;
+	}
+	
+	// 시스템 부하로 검색기간을 3년으로 제한함. 2025.08.18
+	if(dateAddDel($("#searchForm").find("input:text[name=startDate]").val(), 3 ,'y') < dateAddDel($("#searchForm").find("input:text[name=endDate]").val(), 0 ,'y')){
+		alert("조회기간은 3년 이내만 가능합니다.");
+		return;
+	}
+
+	var		valMenuIdx = $("#searchForm > #menuIndex").val();
+	var		radioArr =   $(document).find("input:radio[name=marketType]");
+	
+	//디지털증권 오픈 시 아래 내용와 바꾸면 됨
+	$("#hCoumn1").show();	//시장구분 전체
+	$("#hCoumn2").hide();	//시장구분 전체
+	if(valMenuIdx == '1') {
+		$("#searchForm > #forward").val("invstcautnisu_sub");
+	} else if(valMenuIdx == '2') {
+		$("#searchForm > #forward").val("invstwarnisu_sub");
+	} else if(valMenuIdx == '3') {
+		$("#searchForm > #forward").val("invstriskisu_sub");
+	} else if(valMenuIdx == '4') {
+		$("#searchForm > #forward").val("invstcautnisuelw_sub");
+	} else if(valMenuIdx == '5') {
+		$("#hCoumn1").hide();
+		$("#hCoumn2").show();
+		$("#searchForm > #forward").val("invstcautnisuets_sub");		
+	} else {
+		return;
+	}
+	
+	if(valMenuIdx == '5') {
+		radioArr[4].checked = true;
+	} else if(valMenuIdx != '5' && radioArr[4].checked) {
+		radioArr[0].checked = true;
+	}
+	
+	//디지털증권 메뉴 제외
+	/*
+	$("#hCoumn1").show();	//시장구분 전체
+	$("#hCoumn2").hide();	//시장구분 전체
+	$("#hCoumn3").hide();	//시장구분 전체
+	if(valMenuIdx == '1') {
+		$("#searchForm > #forward").val("invstcautnisu_sub");
+	} else if(valMenuIdx == '2') {
+		$("#searchForm > #forward").val("invstwarnisu_sub");
+	} else if(valMenuIdx == '3') {
+		$("#searchForm > #forward").val("invstriskisu_sub");
+	} else if(valMenuIdx == '4') {
+		$("#searchForm > #forward").val("invstcautnisuelw_sub");
+	} else if(valMenuIdx == '5') {
+		$("#hCoumn1").hide();
+		$("#hCoumn2").show();
+		$("#hCoumn3").hide();
+		$("#searchForm > #forward").val("invstcautnisuets_sub");		
+	} else if(valMenuIdx == '6') {  // 디지털증권 추가
+		$("#hCoumn1").hide();
+		$("#hCoumn2").hide();
+		$("#hCoumn3").show();
+		$("#searchForm > #forward").val("invstcautnisu_tcic_sub");		
+	} else {
+		return;
+	}
+	
+	if(valMenuIdx == '5') {
+		radioArr[4].checked = true;
+	} else if(valMenuIdx == '6') { // 디지털증권 추가
+		radioArr[5].checked = true;
+	} else if(valMenuIdx != '5' && radioArr[4].checked) {
+		radioArr[0].checked = true;
+	} else if(valMenuIdx != '6' && radioArr[5].checked) { // 디지털증권 추가
+		radioArr[0].checked = true;
+	} 
+	*/
+	$("#searchForm > #searchCorpName").val($("#searchForm").find("input:text[name=searchCorpNameTmp]").val());
+    if($(document).find("select[id=currentPageSize]").val() != undefined) {
+    	$("#searchForm > #currentPageSize").val($(document).find("select[id=currentPageSize]").val());
+    }
+	$("#searchForm > #method").val("investattentwarnriskySub");
+	$("#searchForm").ajaxSubmit({
+		  ajaxUrl : '/investwarn/investattentwarnrisky.do'
+		, ajaxCallBack: fnSearchCallBack
+	});
+}
+
+function fnSearchCallBack(data){
+	$("#main-contents").empty().append(data);
+	$("tr:even").addClass("active");
+	
+	fnLegendTooltip();
+}
+
+function fnSearch1() {
+	$("#searchForm > #pageIndex").val("1");
+	$("#searchForm > #currentPageSize").val($(document).find("select[id=currentPageSize]").val());
+	fnSearch();
+}
+
+function fnDownload() {
+	if(!fCheckDate($("#searchForm").find("input:text[name=startDate]").val())){
+		alert("시작일자 형식이 틀립니다");
+		return;
+	}
+	if(!fCheckDate($("#searchForm").find("input:text[name=endDate]").val())){
+		alert("종료일자 형식이 틀립니다");
+		return;
+	}
+	
+	if(!chkPeriod_Emedit($("#searchForm").find("input:text[name=startDate]").val(), $("#searchForm").find("input:text[name=endDate]").val())){
+		return;
+	}
+
+	// 시스템 부하로 검색기간을 3년으로 제한함. 2025.08.18
+	if(dateAddDel($("#searchForm").find("input:text[name=startDate]").val(), 3 ,'y') < dateAddDel($("#searchForm").find("input:text[name=endDate]").val(), 0 ,'y')){
+		alert("조회기간은 3년 이내만 가능합니다.");
+		return;
+	}
+	
+	var		valMenuIdx = $("#searchForm > #menuIndex").val();
+	if(valMenuIdx == '1') {
+		$("#searchForm > #forward").val("invstcautnisu_down");
+	} else if(valMenuIdx == '2') {
+		$("#searchForm > #forward").val("invstwarnisu_down");
+	} else if(valMenuIdx == '3') {
+		$("#searchForm > #forward").val("invstriskisu_down");
+	} else if(valMenuIdx == '4') {
+		$("#searchForm > #forward").val("invstcautnisuelw_down");
+	} else if(valMenuIdx == '5') {
+		$("#searchForm > #forward").val("invstcautnisuets_down");		
+	} 
+	//디지털증권 제외
+	/*else if(valMenuIdx == '6') {
+		$("#searchForm > #forward").val("invstcautnisu_tcic_down"); // 디지털증권 추가
+	}*/ 
+	else {
+		return;
+	}
+
+	$("#searchForm > #searchCorpName").val($("#searchForm").find("input:text[name=searchCorpNameTmp]").val());
+	$("#searchForm > #currentPageSize").val("3000");
+	$("#searchForm > #pageIndex").val("1");	
+
+	$("#searchForm > #method").val("investattentwarnriskySub");
+	$("#searchForm").attr('action', '/investwarn/investattentwarnrisky.do').submit();
+}
+
+/*
+*
+*ETS종목명 찾기 결과
+*/
+function setEtsInfo(isuSrtCd, isuKorAbbrv){
+	$("#searchForm").find("input:text[name=etsIsuSrtCd]").val(isuSrtCd);
+}
+
+
+/*
+*종목명 찾기 결과
+*/
+//디지털증권 제외
+/*function setDigitalInfo(isuSrtCd, isuKorAbbrv, isuCd){
+	$("#digitalIsuSrtCd").val(isuSrtCd); 
+}*/
+
+
+
+</script>
+	</section>
+	<!-- 본문영역 END -->
+
+	<!-- 오른쪽 메뉴 START -->
+	<aside class="contents">
+	
+	
+		
+		
+		
+			
+			
+				<h3><span class="">투자유의사항</span></h3>
+			
+		
+		<ul>
+			
+				
+				
+				
+				
+									
+									
+				
+				
+				
+							
+				
+					<li><a href="/investwarn/adminissue.do?method=searchAdminIssueList" class="">관리종목</a><div class="dash"></div></li>	
+					
+				
+			
+			
+				
+				
+				
+				
+									
+									
+				
+				
+				
+							
+				
+					<li><a href="/investwarn/hwangiissue.do?method=searchHwangiIssueMain" class="">투자주의환기종목(코)</a><div class="dash"></div></li>	
+					
+				
+			
+			
+				
+				
+				
+				
+									
+									
+				
+				
+				
+							
+				
+					<li><a href="/investwarn/tradinghaltissue.do?method=searchTradingHaltIssueMain" class="">매매거래정지종목</a><div class="dash"></div></li>	
+					
+				
+			
+			
+				
+				
+				
+				
+									
+									
+				
+				
+				
+							
+				
+					<li><a href="/investwarn/undisclosure.do?method=searchUnfaithfulDisclosureCorpList" class="">불성실공시법인</a><div class="dash"></div></li>	
+					
+				
+			
+			
+				
+				
+				
+				
+									
+									
+				
+				
+				
+							
+				
+					<li><a href="/investwarn/investattentwarnrisky.do?method=investattentwarnriskyMain" class="active">투자주의/경고/위험종목</a><div class="dash"></div></li>	
+					
+				
+			
+			
+				
+				
+				
+				
+									
+									
+				
+				
+				
+							
+				
+					<li><a href="/corpgeneral/delistRealInvstg.do?method=searchDelistRealInvstgMain" class="">실질심사법인</a><div class="dash"></div></li>	
+					
+				
+			
+			
+				
+				
+				
+				
+									
+									
+				
+				
+				
+							
+				
+					<li><a href="/investwarn/investattentEmbezzlement.do?method=searchInvestAttentEmbezzlementMain" class="">횡령 등</a><div class="dash"></div></li>	
+					
+				
+			
+			
+				
+				
+				
+				
+									
+									
+				
+				
+				
+							
+				
+					<li><a href="/investwarn/investattentLargeShareChange.do?method=searchInvestAttentLargeShareChangeMain" class="">최대주주변경2회이상</a><div class="dash"></div></li>	
+					
+				
+			
+			
+				
+				
+				
+				
+									
+									
+				
+				
+				
+							
+				
+					<li><a href="/investwarn/investattentEtcMarket.do?method=searchInvestAttentEtcMarketMain" class="">기타사항</a><div class="dash"></div></li>	
+					
+				
+			
+			
+		</ul>
+		<form name="menuUrlFrm" >
+			<input type="hidden" name="menuUrl" value="/investwarn/investattentwarnrisky.do?method=investattentwarnriskyMain"/>
+		</form>
+	
+	
+	</aside>
+	<!-- 오른쪽 메뉴 END -->
+	<div class="clear"></div>
+</section>
+
+<!-- FOOTER 영역 START -->
+<footer class="container">
+	
+
+
+
+
+
+<section class="footer_map">
+	<div class="wrapper">
+		<article class="list first">
+			<h3>공시</h3>
+			<ul>
+				<li><a href="/disclosure/todaydisclosure.do?method=searchTodayDisclosureMain">오늘의공시</a></li>
+				<li><a href="/disclosure/searchdisclosurebycorp.do?method=searchDisclosureByCorpMain">회사별검색</a></li>
+				<li><a href="/disclosure/details.do?method=searchDetailsMain">상세검색</a></li>
+				<li><a href="#" onclick="krxPaPago_open(); return false;">KRX-Papago번역기</a></li>
+				<li><a href="/disclosure/searchtotalinfo.do?method=searchTotalInfoMain">통합검색</a></li>
+				<li><a href="/disclosure/searchbondcorpdisclosure.do?method=searchBondCorpDisclosureMain">채권공시</a></li>
+				<li><a href="/disclosure/disclosurebystocktype.do?method=searchDisclosureByStockTypeEtf">ETF/ELW/ETN/상장형수익증권</a></li> <!-- 2025.10 오픈. 주석 풀면 됨.-->
+				<li><a href="/disclosure/disclosurebystocktype.do?method=searchDisclosureByStockTypeRestinvstcom">펀드공시</a></li>
+				<li><a href="/disclosure/misccorpdiscls.do?method=searchMiscCorpDisclsMain">기타법인공시</a></li>
+				<li><a href="/disclosure/disclosurebyvote.do?method=searchDisclosurebyVoteMain">의결권행사공시</a></li>
+				
+				<li><a href="/corpdetail/chart.do?method=loadInitPage">공시차트</a></li>
+			
+			<li><a href="/disclosure/searchErrorTradeRelief.do?method=searchErrorTradeReliefMain">착오매매구제신청</a></li>
+			<!-- 신종증권 메뉴 제외 -->
+			<!--<li><a href="/digital/digitalList.do?method=digitalList">신종증권</a></li>--><!-- 20231201 신종증권 추가 -->
+			</ul>
+		</article>
+		<article class="list">
+			<h3>상장법인상세정보</h3>
+			<ul>
+				
+				<li><a href="/corpdetail/totalinfo.do?method=loadInitPage">종합정보</a></li>
+				<li><a href="/corpgeneral/listedIssueStatus.do?method=loadInitPage">상장종목현황</a></li>
+			
+				<li><a href="/corpgeneral/corpList.do?method=loadInitPage">상장법인목록</a></li>
+				<li><a href="/corpgeneral/stockissuelist.do?method=loadInitPage">주식발행내역</a></li>
+				<li><a href="/corpgeneral/companyGovernance.do?method=loadInitPage">기업지배구조</a></li>
+				<li><a href="/corpgeneral/treasurystk.do?method=loadInitPage">자사주취득/처분</a></li>
+				<li><a href="/corpgeneral/irschedule.do?method=searchIRScheduleMain&gubun=iRScheduleCalendar">IR일정/IR자료실</a></li>
+				
+				<li><a href="/corpgeneral/companyAnalysisReport.do?method=listingForeignCompanyMain&searchGubun=companyAnalysisReport">기업분석보고서</a></li>
+			
+				<li><a href="/corpgeneral/corpGroup.do?method=loadInitPage">기업집단</a></li>
+				<li><a href="/disclosureinfo/dividendinfo.do?method=searchDividendInfoMain">배당정보</a></li>
+				<li><a href="/compfinance/financialinfo.do?method=loadInitPage&searchgubun=corporation">회사재무비교</a></li>
+				<li><a href="/corpgeneral/excntDisclsCompany.do?method=loadInitPage">공시우수법인</a></li>
+				<li><a href="/corpdetail/ventureFundInvest.do?method=corpListMain">벤처펀드투자대상기업(코)</a></li>
+				<!-- 신종증권 메뉴 제외 -->
+				<!--<li><a href="/digital/digitalCorpList.do?method=digitalCorpList">상장종목(신종증권)</a></li>--><!-- 20231201 신종증권 추가 -->
+			</ul>
+		</article>
+		<article class="list">
+			<h3>기업 밸류업 정보</h3>
+			<ul>
+				<li><a href="/valueup/intro.do?method=valueupIntroMain">기업 밸류업 소개</a></li>
+				<li><a href="/valueup/notice.do?method=valueupNoticeMain">공지사항</a></li>
+				<li><a href="/valueup/disclsstat.do?method=valueupDisclsStatMain">공시현황</a></li>
+				
+				<li><a href="/valueup/invstindicsectors.do?method=valueupInvstIndicRankIndMain">투자지표</a></li>
+				<li><a href="/valueup/idx.do?method=valueupIdxMain">인덱스</a></li>
+				
+				<li><a href="/valueup/dividend.do?method=valueupHighDividendMain">고배당기업</a></li>
+				<li><a href="/valueup/excntcorp.do?method=valueupExcntCorpMain">밸류업 우수기업</a></li>
+				<li><a href="https://www.kirs.or.kr/research/valueup.html" target="_blank">밸류업 보고서</a></li>
+				<li><a href="/valueup/resoroom.do?method=valueupResoroomMain">자료실</a></li>
+			</ul>
+		</article>
+		<article class="list">
+			<h3>투자유의사항</h3>
+			<ul>
+				<li><a href="/investwarn/adminissue.do?method=searchAdminIssueList">관리종목</a></li>
+				<li><a href="/investwarn/hwangiissue.do?method=searchHwangiIssueMain">투자주의환기종목(코)</a></li>
+				
+				<li><a href="/investwarn/tradinghaltissue.do?method=searchTradingHaltIssueMain">매매거래정지종목</a></li>
+			
+				<li><a href="/investwarn/undisclosure.do?method=searchUnfaithfulDisclosureCorpList">불성실공시법인</a></li>
+				
+				<li><a href="/investwarn/investattentwarnrisky.do?method=investattentwarnriskyMain">투자주의/경고/위험종목</a></li>
+			
+				<li><a href="/corpgeneral/delistRealInvstg.do?method=searchDelistRealInvstgMain">실질심사법인</a></li>
+				<li><a href="/investwarn/investattentEmbezzlement.do?method=searchInvestAttentEmbezzlementMain">횡령 등</a></li>
+				<li><a href="/investwarn/investattentLargeShareChange.do?method=searchInvestAttentLargeShareChangeMain">최대주주변경2회이상</a></li>
+				<li><a href="/investwarn/investattentEtcMarket.do?method=searchInvestAttentEtcMarketMain">기타사항</a></li>
+			</ul>
+		</article>
+		<article class="list">
+			<h3>IPO현황</h3>
+			<ul>
+				
+				<li><a href="/listinvstg/listinvstgcom.do?method=searchListInvstgCorpMain">예비심사기업</a></li>
+				<li><a href="/listinvstg/listapplcom.do?method=searchListApplCorpMain">코넥스 상장신청기업</a></li>
+				<li><a href="/listinvstg/pubofrprogcom.do?method=searchPubofrProgComMain">공모기업</a></li>
+				<li><a href="/listinvstg/listingcompany.do?method=searchListingTypeMain">신규상장기업</a></li>
+								
+				<li><a href="/listinvstg/listtypestat.do?method=searchListTypeStatusMain">신규상장통계</a></li>
+				<li><a href="/listinvstg/listinvstginfo.do?method=searchListInvstgInfoMain">상장심사가이드</a></li>
+			</ul>
+			<br>
+			<h3>정보실</h3>
+			<ul>
+				<li><a href="/disclosureinfo/notice.do?method=searchNoticeMain">공지사항</a></li>
+				<!--  li><a href="/news/searchnews.do?method=searchNewsMain">증시뉴스</a></li -->
+				<li><a href="/disclosureinfo/explanationsystem.do?method=searchSysInfo">제도해설</a></li>
+				<li><a href="/disclosureinfo/searchmaterials.do?method=searchMaterialsMain">자료실</a></li>
+			</ul>
+		</article>
+		<div class="clear"></div>
+	</div>
+</section>
+
+<section class="footer">
+	<div class="wrapper">
+		<h5 class="logo"><img src="../images/main/logo_bt.gif" alt="대한민국 대표 기업공시채널 KIND"/></h5>
+		<nav class="util">
+			<ul>
+				<li class="first"><a href="#" onclick="winCommPopOpen('2'); return false;">운영기관안내</a></li>
+				<li><a href="http://info.krx.co.kr/contents/KRX/06/06070600/KRX06070600.jsp" target="_blank" title="이용자유의사항 새창">이용자유의사항</a></li>
+				<li><a href="http://info.krx.co.kr/contents/KRX/06/06070200/KRX06070200.jsp"  target="_blank" title="법적고지 새창">법적고지</a></li>
+				<li><a href="http://info.krx.co.kr/contents/KRX/06/06070100/KRX06070100.jsp"   target="_blank" title="개인정보처리방침 새창">개인정보처리방침</a></li>
+				<li><a href="#" onclick="winCommPopOpen('5'); return false;">뷰어다운로드</a></li>
+			</ul>
+			<div class="clear"></div>
+		</nav>
+		
+		<div class="copyright">
+		본 사 : (우) 48400 부산광역시 남구 문현금융로 40(문현동)  TEL : 051-662-2000   사업자등록번호 : 602-81-35420 <br/>
+		서 울 : (우) 07329 서울특별시 영등포구 여의나루로 76(여의도동)  TEL : 1577-0088, 02-3774-9000 / 통신판매업신고 부산동구004호<br/>
+		Copyright(c) 2014 by KOREA EXCHANGE. All rights reserved.
+		</div>
+	</div>
+</section>
+
+</footer>
+<!-- FOOTER 영역 START -->
+
+<!-- 범례 START -->
+
+    
+<div style="position:absolute; display:none" id="marketSection">
+	<section class="icn_tbox" style="width:400px;top:-30px; left:10px">
+		<ul>
+			<li>
+				<img src="../images/common/icn_t_yu.gif" class="vmiddle" alt="유가증권" /> 유가증권
+			</li>
+			<li>
+				<img src="../images/common/icn_t_ko.gif" class="vmiddle" alt="코스닥" /> 코스닥
+			</li>
+			<li>
+				<img src="../images/common/icn_t_konex.gif" class="vmiddle" alt="코넥스" /> 코넥스
+			</li>
+			<li>
+				<img src="../images/common/icn_t_kwan.gif" class="vmiddle" alt="관리종목" /> 관리종목
+			</li>
+			<li>
+				<img src="../images/common/icn_t_hwan.gif" class="vmiddle" alt="투자주의환기종목" /> 투자주의환기종목
+			</li>
+			<li>
+				<img src="../images/common/icn_t_bul.gif" class="vmiddle" alt="불성실공시법인" /> 불성실공시법인
+			</li>
+			<li>
+				<img src="../images/common/icn_t_pe.gif" class="vmiddle" alt="폐지법인" /> 폐지법인
+			</li>
+			<li>
+				<img src="../images/common/icn_t_v100.gif" class="vmiddle" alt="코리아밸류업" /> 코리아밸류업
+			</li>
+			<li>
+				<img src="../images/common/icn_t_k200.gif" class="vmiddle" alt="KOSPI200" /> KOSPI200
+			</li>
+			<li>
+				<img src="../images/common/icn_t_q150.gif" class="vmiddle" alt="KOSDAQ150" /> KOSDAQ150
+			</li>
+			<li>
+				<img src="../images/common/icn_t_x300.gif" class="vmiddle" alt="KRX300" /> KRX300
+			</li>
+			<li>
+				<img src="../images/common/icn_t_ktop.gif" class="vmiddle" alt="KTOP30" /> KTOP30
+			</li>
+			<li>
+				<img src="../images/common/icn_t_jung.gif" class="vmiddle" alt="정정있음" /> 정정있음
+			</li>
+			<li>
+				<img src="../images/common/icn_t_joo.gif" class="vmiddle" alt="투자주의" /> 투자주의
+			</li>
+			<li>
+				<img src="../images/common/icn_t_kyung.gif" class="vmiddle" alt="투자경고" /> 투자경고
+			</li>
+			<li>
+				<img src="../images/common/icn_t_wii.gif" class="vmiddle" alt="투자위험" /> 투자위험
+			</li>
+		</ul>
+		<div class="clear"></div>
+		<img src="../images/common/icn_tbox_tl.png" class="tl" alt="" />
+		<img src="../images/common/icn_tbox_bl.gif" class="bl" alt="" />
+		<img src="../images/common/icn_tbox_tr.gif" class="tr" alt="" />
+		<img src="../images/common/icn_tbox_br.gif" class="br" alt="" />
+		<div class="tm"></div>
+		<div class="lm"></div>
+		<div class="bm"></div>
+		<div class="rm"></div>		
+	</section>
+</div>
+<!-- 범례 END -->
+
+<div id='dialog-loading' title='자료를 조회 중입니다.' class='loading' style="display: none;">
+	<span>
+		<img src='/images/loader/ajax-loader01.gif' />
+	</span>
+</div>
+
+<div id='dialog-message' style="display: none;"></div>
+
+<div id='dialog-alert' style="display: none;">
+	<div id="img"></div>
+	<div id="msg" class="ui-message"></div>
+</div>
+
+<script type="text/javascript">
+	$(document).ready(function(){
+		$('input').placeholder();
+	});
+	
+</script>		
+</body>
+</html>
