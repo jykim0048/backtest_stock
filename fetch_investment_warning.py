@@ -236,7 +236,7 @@ def _fetch_category(session: requests.Session,
         print(f"  [POST menu={menu_idx}] status={r.status_code} "
               f"len={len(r.text)} preview={preview!r}", flush=True)
         if DEBUG:
-            _save_debug(f"html_menu{menu_idx}", r.text)
+            _save_debug(f"html_menu{menu_idx}", r.text, limit=600000)
         if len(r.text) > 2000:
             rows = _parse_html(r.text, menu_idx, default_reason)
             print(f"  -> HTML 파싱: {len(rows)}건", flush=True)
@@ -304,10 +304,12 @@ def main():
             rows = _fetch_category(session, menu_idx, forward,
                                    default_reason, today, one_year_ago)
             total = len(rows)
+            total_open = sum(1 for r in rows if not r.get("release"))  # 진단: 미해제
 
             # ① K200/KQ150 필터 — KIND 뱃지(KOSPI200/KOSDAQ150)가 있는 종목만
             rows = [r for r in rows if r.get("index")]
             after_idx = len(rows)
+            idx_open = sum(1 for r in rows if not r.get("release"))    # 진단: 지수+미해제
 
             if category == "caution":
                 # ② 투자주의: 1일 효력 → 최근 지정일(=당일)만 남김
@@ -321,7 +323,8 @@ def main():
                 # ③ 경고/위험: 해제일 공란(현재 지정 중)만 남김
                 rows = [r for r in rows if not r.get("release")]
                 rows = _dedup(rows)
-                print(f"  -> [{category}] 전체 {total} -> 지수 {after_idx} "
+                print(f"  -> [{category}] 전체 {total}(미해제 {total_open}) "
+                      f"-> 지수 {after_idx}(미해제 {idx_open}) "
                       f"-> 현재지정 {len(rows)}건", flush=True)
 
             result[category] = rows
