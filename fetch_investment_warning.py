@@ -2,6 +2,9 @@
 
 출처: https://kind.krx.co.kr/investwarn/investattentwarnrisky.do
 
+필터: public/assets/index_constituents.json 의 KOSPI200 + KOSDAQ150 종목만 포함.
+중복 제거: 같은 종목코드가 여러 행이면 지정일(date) 최신 항목 하나만 유지.
+
 JS 분석 결과 (fnSearch() forward 매핑):
   menuIndex 1 -> invstcautnisu_sub  (투자주의)
   menuIndex 2 -> invstwarnisu_sub   (투자경고)
@@ -31,11 +34,11 @@ UA    = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
          "Chrome/125.0.0.0 Safari/537.36")
 DEBUG = os.environ.get("DEBUG_KIND") == "1"
 
-# menuIndex -> (forward, result key)
+# menuIndex -> (forward, result key, 기본 사유 레이블)
 MENU_MAP = [
-    ("1", "invstcautnisu_sub", "caution"),
-    ("2", "invstwarnisu_sub",  "warning"),
-    ("3", "invstriskisu_sub",  "danger"),
+    ("1", "invstcautnisu_sub", "caution", "투자주의"),
+    ("2", "invstwarnisu_sub",  "warning", "투자경고"),
+    ("3", "invstriskisu_sub",  "danger",  "투자위험"),
 ]
 
 # jQuery AJAX POST 헤더
@@ -59,12 +62,42 @@ HDRS_GET = {
 }
 
 
+# -- 인덱스 구성종목 로드 -------------------------------------------------------
+
+def _load_index_codes() -> set:
+    """KOSPI200 + KOSDAQ150 종목코드 집합 반환.
+
+    public/assets/index_constituents.json 에서 로드.
+    파일이 없거나 파싱 실패시 빈 set (필터 비활성 = 전종목 포함).
+    """
+    here = os.path.dirname(os.path.abspath(__file__))
+    path = os.path.join(here, "public", "assets", "index_constituents.json")
+    if not os.path.exists(path):
+        print("[warn] index_constituents.json 없음 — 필터 비활성", flush=True)
+        return set()
+    try:
+        with open(path, encoding="utf-8") as f:
+            data = json.load(f)
+        codes = set()
+        for key in ("KOSPI200", "KOSDAQ150"):
+            for c in data.get(key, []):
+                # 6자리 숫자만 유효 코드로 취급 (오류 방어)
+                if re.fullmatch(r"\d{6}", c):
+                    codes.add(c)
+        print(f"[index] K200+KQ150 {len(codes)}종목 로드", flush=True)
+        return codes
+    except Exception as e:
+        print(f"[warn] index_constituents 로드 실패: {e}", file=sys.stderr)
+        return set()
+
+
 # -- HTML 파싱 -----------------------------------------------------------------
 
-def _parse_html(html: str, menu_idx: str = "1") -> list:
+def _parse_html(html: str, menu_idx: str = "1",
+                default_reason: str = "") -> list:
     """KIND 투자주의/경고/위험 테이블에서 종목 정보 추출.
 
-    종목코드는 td 텍스트가 아닌 onclick 내 companysummary_open() 인자에서 추출.
+    종목코드는 onclick 내 companysummary_open() 인자에서 추출.
     """
     soup = BeautifulSoup(html, "html.parser")
     rows = []
@@ -76,7 +109,7 @@ def _parse_html(html: str, menu_idx: str = "1") -> list:
             if len(tds) < 4:
                 continue
 
-            # 종목명 td 찾기: <a id="companysum"> 포함
+            # 종목명 td: <a id="companysum"> 포함
             name_td = next(
                 (td for td in tds if td.find("a", id="companysum")), None
             )
@@ -86,7 +119,7 @@ def _parse_html(html: str, menu_idx: str = "1") -> list:
             a_tag   = name_td.find("a")
             img_tag = name_td.find("img")
 
-            # companysummary_open('XXXXX') 에서 내부 코드 추출 -> 6자리 패딩
+            # companysummary_open('XXXXX') -> 6자리 패딩
             onclick  = a_tag.get("onclick", "") if a_tag else ""
             m        = re.search(r"companysummary_open\('([^']+)'\)", onclick)
             raw_code = m.group(1) if m else ""
@@ -104,12 +137,13 @@ def _parse_html(html: str, menu_idx: str = "1") -> list:
 
             if menu_idx == "1":
                 # 번호 | 종목명 | 유형 | 공시일 | 지정일
-                reason = cell(1)   # 유형
-                date   = cell(3)   # 지정일
+                reason = cell(1) or default_reason   # 유형
+                date   = cell(3)                     # 지정일
             else:
                 # 번호 | 종목명 | 공시일 | 지정일 | 해제일
-                reason = ""
-                date   = cell(2)   # 지정일
+                # 유형 컬럼 없음 -> 카테고리 레이블로 대체
+                reason = default_reason
+                date   = cell(2)                     # 지정일
 
             rows.append({
                 "code":   code,
@@ -125,10 +159,22 @@ def _parse_html(html: str, menu_idx: str = "1") -> list:
     return rows
 
 
+# -- 중복 제거 -----------------------------------------------------------------
+
+def _dedup(rows: list) -> list:
+    """같은 code 가 여러 행이면 date 최신 항목 하나만 유지."""
+    best: dict = {}
+    for row in rows:
+        code = row["code"]
+        if code not in best or row["date"] > best[code]["date"]:
+            best[code] = row
+    return list(best.values())
+
+
 # -- Excel 파싱 (fallback) ----------------------------------------------------
 
 def _parse_excel(data: bytes) -> list:
-    """Excel(xls/xlsx) 바이너리에서 종목 추출."""
+    """Excel(xls/xlsx) 바이너리에서 종목 추출 (fallback)."""
     rows = []
     try:
         import openpyxl
@@ -159,7 +205,8 @@ def _parse_excel(data: bytes) -> list:
 # -- 디버그 저장 ---------------------------------------------------------------
 
 def _save_debug(key: str, content, limit: int = 8000):
-    out_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "public", "data")
+    out_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                           "public", "data")
     os.makedirs(out_dir, exist_ok=True)
     path = os.path.join(out_dir, f"debug_kind_{key}.txt")
     if isinstance(content, bytes):
@@ -175,6 +222,7 @@ def _save_debug(key: str, content, limit: int = 8000):
 
 def _fetch_category(session: requests.Session,
                     menu_idx: str, forward: str,
+                    default_reason: str,
                     today: str, one_year_ago: str) -> list:
     """POST -> HTML 파싱. 실패 시 Excel download fallback."""
 
@@ -202,13 +250,12 @@ def _fetch_category(session: requests.Session,
         if DEBUG:
             _save_debug(f"html_menu{menu_idx}", r.text)
         if len(r.text) > 2000:
-            rows = _parse_html(r.text, menu_idx)
+            rows = _parse_html(r.text, menu_idx, default_reason)
             print(f"  -> HTML 파싱: {len(rows)}건", flush=True)
             if rows:
                 return rows
-            else:
-                print(f"  [warn] HTML 수신됐으나 파싱 0건 (menu={menu_idx})",
-                      flush=True)
+            print(f"  [warn] HTML 수신됐으나 파싱 0건 (menu={menu_idx})",
+                  flush=True)
     except Exception as e:
         print(f"  [POST menu={menu_idx}] 오류: {e}", file=sys.stderr)
 
@@ -244,6 +291,9 @@ def main():
     one_year_ago = (now - datetime.timedelta(days=365)).strftime("%Y-%m-%d")
     now_str      = now.strftime("%Y-%m-%d %H:%M KST")
 
+    # K200 + KQ150 구성종목 코드 집합 (빈 set = 필터 없음)
+    index_codes = _load_index_codes()
+
     session = requests.Session()
 
     # 홈 -> 타겟 페이지 방문으로 세션/쿠키 확보
@@ -264,9 +314,18 @@ def main():
         print(f"[warn] 타겟 페이지 GET 실패: {e}", file=sys.stderr)
 
     result = {"caution": [], "warning": [], "danger": []}
-    for menu_idx, forward, category in MENU_MAP:
+    for menu_idx, forward, category, default_reason in MENU_MAP:
         try:
-            rows = _fetch_category(session, menu_idx, forward, today, one_year_ago)
+            rows = _fetch_category(session, menu_idx, forward,
+                                   default_reason, today, one_year_ago)
+            # 중복 제거 (같은 코드, 최신 날짜 우선)
+            rows = _dedup(rows)
+            # K200/KQ150 필터 (index_codes 가 비어있으면 전종목 허용)
+            if index_codes:
+                before = len(rows)
+                rows = [r for r in rows if r["code"] in index_codes]
+                print(f"  -> K200/KQ150 필터: {before}건 -> {len(rows)}건",
+                      flush=True)
             result[category] = rows
         except Exception as e:
             print(f"[error] menu={menu_idx} 실패: {e}", file=sys.stderr)
@@ -275,7 +334,8 @@ def main():
         print(f"{k}: {len(v)}건", flush=True)
 
     out = {"updated": now_str, **result}
-    out_dir  = os.path.join(os.path.dirname(os.path.abspath(__file__)), "public", "data")
+    out_dir  = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                            "public", "data")
     os.makedirs(out_dir, exist_ok=True)
     out_path = os.path.join(out_dir, "investment_warning.json")
     with open(out_path, "w", encoding="utf-8") as f:

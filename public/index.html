@@ -3130,7 +3130,7 @@
               <span class="stock-name" style="cursor:pointer;color:var(--accent-teal);"
                     onclick="odRunCode('${it.code}')">${it.name}</span><br>
               <span class="stock-code">${it.code}</span>
-              <span class="market-badge ${it.market === 'KOSDAQ' ? 'kosdaq' : ''}"
+              <span class="market-badge ${it.market === '코스닥' ? 'kosdaq' : ''}"
                     style="margin-left:4px;font-size:0.65rem;">${it.market || ""}</span>
             </td>
             <td style="font-size:0.8rem;color:var(--text-muted);">${it.reason || "—"}</td>
