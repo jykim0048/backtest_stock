@@ -2,7 +2,10 @@
 
 출처: https://kind.krx.co.kr/investwarn/investattentwarnrisky.do
 
-필터: public/assets/index_constituents.json 의 KOSPI200 + KOSDAQ150 종목만 포함.
+필터:
+  - 지수: KIND HTML 의 <img alt='KOSPI200'/'KOSDAQ150'> 뱃지가 있는 종목만.
+  - 투자주의: 1일 효력 → 최근 지정일(=당일) 종목만.
+  - 투자경고/위험: 해제일 공란(현재 지정 중) 종목만.
 중복 제거: 같은 종목코드가 여러 행이면 지정일(date) 최신 항목 하나만 유지.
 
 JS 분석 결과 (fnSearch() forward 매핑):
@@ -62,35 +65,6 @@ HDRS_GET = {
 }
 
 
-# -- 인덱스 구성종목 로드 -------------------------------------------------------
-
-def _load_index_codes() -> set:
-    """KOSPI200 + KOSDAQ150 종목코드 집합 반환.
-
-    public/assets/index_constituents.json 에서 로드.
-    파일이 없거나 파싱 실패시 빈 set (필터 비활성 = 전종목 포함).
-    """
-    here = os.path.dirname(os.path.abspath(__file__))
-    path = os.path.join(here, "public", "assets", "index_constituents.json")
-    if not os.path.exists(path):
-        print("[warn] index_constituents.json 없음 — 필터 비활성", flush=True)
-        return set()
-    try:
-        with open(path, encoding="utf-8") as f:
-            data = json.load(f)
-        codes = set()
-        for key in ("KOSPI200", "KOSDAQ150"):
-            for c in data.get(key, []):
-                # 6자리 숫자만 유효 코드로 취급 (오류 방어)
-                if re.fullmatch(r"\d{6}", c):
-                    codes.add(c)
-        print(f"[index] K200+KQ150 {len(codes)}종목 로드", flush=True)
-        return codes
-    except Exception as e:
-        print(f"[warn] index_constituents 로드 실패: {e}", file=sys.stderr)
-        return set()
-
-
 # -- HTML 파싱 -----------------------------------------------------------------
 
 def _parse_html(html: str, menu_idx: str = "1",
@@ -98,6 +72,8 @@ def _parse_html(html: str, menu_idx: str = "1",
     """KIND 투자주의/경고/위험 테이블에서 종목 정보 추출.
 
     종목코드는 onclick 내 companysummary_open() 인자에서 추출.
+    종목명 td 안의 <img alt='KOSPI200'/'KOSDAQ150'> 뱃지로 지수 편입 판단.
+    경고/위험(menu2/3)은 해제일 컬럼(release)을 파싱 — 공란이면 현재 지정 중.
     """
     soup = BeautifulSoup(html, "html.parser")
     rows = []
@@ -116,8 +92,8 @@ def _parse_html(html: str, menu_idx: str = "1",
             if name_td is None:
                 continue
 
-            a_tag   = name_td.find("a")
-            img_tag = name_td.find("img")
+            a_tag = name_td.find("a")
+            imgs  = name_td.find_all("img")
 
             # companysummary_open('XXXXX') -> 6자리 패딩
             onclick  = a_tag.get("onclick", "") if a_tag else ""
@@ -125,9 +101,18 @@ def _parse_html(html: str, menu_idx: str = "1",
             raw_code = m.group(1) if m else ""
             code     = raw_code.zfill(6) if raw_code.isdigit() else raw_code
 
-            name   = (a_tag.get("title") or
-                      a_tag.get_text(strip=True)) if a_tag else ""
-            market = img_tag.get("alt", "") if img_tag else ""
+            name = (a_tag.get("title") or
+                    a_tag.get_text(strip=True)) if a_tag else ""
+
+            # 첫 img alt = 시장(유가증권/코스닥), 나머지 = 지수 뱃지
+            alts   = [img.get("alt", "") for img in imgs]
+            market = alts[0] if alts else ""
+            # 지수 편입: KOSPI200 또는 KOSDAQ150 뱃지 보유 여부
+            index_name = ""
+            for a in alts:
+                if a in ("KOSPI200", "KOSDAQ150"):
+                    index_name = a
+                    break
 
             ni = tds.index(name_td)
 
@@ -137,20 +122,23 @@ def _parse_html(html: str, menu_idx: str = "1",
 
             if menu_idx == "1":
                 # 번호 | 종목명 | 유형 | 공시일 | 지정일
-                reason = cell(1) or default_reason   # 유형
-                date   = cell(3)                     # 지정일
+                reason  = cell(1) or default_reason   # 유형
+                date    = cell(3)                     # 지정일
+                release = ""                          # 투자주의는 해제일 없음
             else:
                 # 번호 | 종목명 | 공시일 | 지정일 | 해제일
-                # 유형 컬럼 없음 -> 카테고리 레이블로 대체
-                reason = default_reason
-                date   = cell(2)                     # 지정일
+                reason  = default_reason              # 유형 컬럼 없음
+                date    = cell(2)                     # 지정일
+                release = cell(3)                     # 해제일(공란=현재 지정중)
 
             rows.append({
-                "code":   code,
-                "name":   name.strip(),
-                "market": market,
-                "reason": reason,
-                "date":   date,
+                "code":    code,
+                "name":    name.strip(),
+                "market":  market,
+                "index":   index_name,
+                "reason":  reason,
+                "date":    date,
+                "release": release,
             })
 
         if rows:
@@ -291,9 +279,6 @@ def main():
     one_year_ago = (now - datetime.timedelta(days=365)).strftime("%Y-%m-%d")
     now_str      = now.strftime("%Y-%m-%d %H:%M KST")
 
-    # K200 + KQ150 구성종목 코드 집합 (빈 set = 필터 없음)
-    index_codes = _load_index_codes()
-
     session = requests.Session()
 
     # 홈 -> 타겟 페이지 방문으로 세션/쿠키 확보
@@ -318,14 +303,27 @@ def main():
         try:
             rows = _fetch_category(session, menu_idx, forward,
                                    default_reason, today, one_year_ago)
-            # 중복 제거 (같은 코드, 최신 날짜 우선)
-            rows = _dedup(rows)
-            # K200/KQ150 필터 (index_codes 가 비어있으면 전종목 허용)
-            if index_codes:
-                before = len(rows)
-                rows = [r for r in rows if r["code"] in index_codes]
-                print(f"  -> K200/KQ150 필터: {before}건 -> {len(rows)}건",
-                      flush=True)
+            total = len(rows)
+
+            # ① K200/KQ150 필터 — KIND 뱃지(KOSPI200/KOSDAQ150)가 있는 종목만
+            rows = [r for r in rows if r.get("index")]
+            after_idx = len(rows)
+
+            if category == "caution":
+                # ② 투자주의: 1일 효력 → 최근 지정일(=당일)만 남김
+                rows = _dedup(rows)
+                if rows:
+                    latest = max(r["date"] for r in rows if r["date"])
+                    rows = [r for r in rows if r["date"] == latest]
+                print(f"  -> [{category}] 전체 {total} -> 지수 {after_idx} "
+                      f"-> 당일지정 {len(rows)}건", flush=True)
+            else:
+                # ③ 경고/위험: 해제일 공란(현재 지정 중)만 남김
+                rows = [r for r in rows if not r.get("release")]
+                rows = _dedup(rows)
+                print(f"  -> [{category}] 전체 {total} -> 지수 {after_idx} "
+                      f"-> 현재지정 {len(rows)}건", flush=True)
+
             result[category] = rows
         except Exception as e:
             print(f"[error] menu={menu_idx} 실패: {e}", file=sys.stderr)
