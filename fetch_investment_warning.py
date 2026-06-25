@@ -217,6 +217,53 @@ def _save_debug(key: str, content, limit: int = 8000):
     print(f"  debug -> {path}", flush=True)
 
 
+# -- 진단: 날짜 파라미터 변형 테스트 (DEBUG 시 1회) ----------------------------
+
+def _probe_date_variants(session: requests.Session, today: str):
+    """투자경고(menu2)로 날짜 조합을 바꿔가며 '현재 지정(미해제)'을 주는 조합 탐색.
+
+    화면 기본(현재 지정 17건)과 일치하는 startDate/endDate 조합을 찾기 위함.
+    각 변형의 (행수, 미해제 수)를 로그로 출력.
+    """
+    one_year   = (datetime.datetime.strptime(today, "%Y-%m-%d")
+                  - datetime.timedelta(days=365)).strftime("%Y-%m-%d")
+    far_future = "2027-12-31"
+    base = {
+        "method": "investattentwarnriskySub", "forward": "invstwarnisu_sub",
+        "menuIndex": "2", "currentPageSize": "1000", "pageIndex": "1",
+        "orderMode": "4", "orderStat": "D", "searchFromDate": today,
+        "marketType": "",
+    }
+    variants = [
+        ("empty",        "",        ""),
+        ("today_today",  today,     today),
+        ("year_today",   one_year,  today),
+        ("today_future", today,     far_future),
+        ("year_future",  one_year,  far_future),
+        ("future_only",  "",        far_future),
+    ]
+    print("=== [probe] 날짜 변형 테스트 (menu2/투자경고) ===", flush=True)
+    for name, sd, ed in variants:
+        p = {**base, "startDate": sd, "endDate": ed}
+        try:
+            r = session.post(URL, data=p, headers=HDRS_AJAX, timeout=30)
+            r.encoding = "utf-8"
+            txt = r.text
+            if len(txt) < 2000:
+                print(f"  [probe {name:12}] sd={sd!r:12} ed={ed!r:12} "
+                      f"ERROR len={len(txt)}", flush=True)
+                continue
+            rows = _parse_html(txt, "2", "투자경고")
+            open_cnt = sum(1 for x in rows if not x.get("release"))
+            idx_open = sum(1 for x in rows if not x.get("release") and x.get("index"))
+            print(f"  [probe {name:12}] sd={sd!r:12} ed={ed!r:12} "
+                  f"rows={len(rows)} 미해제={open_cnt} 지수+미해제={idx_open}",
+                  flush=True)
+        except Exception as e:
+            print(f"  [probe {name:12}] EXC {e}", flush=True)
+    print("=== [probe] 끝 ===", flush=True)
+
+
 # -- 단일 카테고리 fetch -------------------------------------------------------
 
 def _fetch_category(session: requests.Session,
@@ -238,8 +285,8 @@ def _fetch_category(session: requests.Session,
         "orderMode":       "4",
         "orderStat":       "D",
         "searchFromDate":  today,
-        "startDate":       "",       # 비움 → 현재 지정 종목만
-        "endDate":         "",
+        "startDate":       today,    # 오늘 기준일 → 현재 지정 현황(가설)
+        "endDate":         today,
         "marketType":      "",
     }
 
@@ -308,9 +355,16 @@ def main():
         r.encoding = "utf-8"
         print(f"[main] GET status={r.status_code} len={len(r.text)}", flush=True)
         if DEBUG:
-            _save_debug("main_page", r.text, limit=30000)
+            _save_debug("main_page", r.text, limit=90000)
     except Exception as e:
         print(f"[warn] 타겟 페이지 GET 실패: {e}", file=sys.stderr)
+
+    # 진단: 어떤 날짜 조합이 현재 지정 종목을 주는지 1회 탐색
+    if DEBUG:
+        try:
+            _probe_date_variants(session, today)
+        except Exception as e:
+            print(f"[warn] probe 실패: {e}", file=sys.stderr)
 
     result = {"caution": [], "warning": [], "danger": []}
     for menu_idx, forward, category, default_reason in MENU_MAP:
