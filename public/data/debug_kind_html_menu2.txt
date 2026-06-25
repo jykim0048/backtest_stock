@@ -202,30 +202,4 @@
 			
 		</tbody>
 	</table>
-</section>
-
-<!-- 페이징 START -->
-<section class="paging-group">
-	<div class='paging type-00'><a href='#prevPage10' class='pprev' onclick='return false;'><span>이전10개 페이지</span></a><a href='#prevPage' class='prev' onclick='return false;'><span>이전 페이지</span></a>
-<a href='#page_link_1' class='active' onclick='return false;'>1</a>
-<a href='#nextPage' class='next' onclick='return false;'><span>다음 페이지</span></a><a href='#nextPage10' class='nnext' onclick='return false;'><span>다음10개 페이지</span></a></div><div class="info type-00">
-전체 <em>17</em>건 : <strong>1</strong>/1&nbsp;&nbsp;&nbsp;
-<select id='currentPageSize' name='currentPageSize'>
-<option value='15'  >15건</option>
-<option value='30'  >30건</option>
-<option value='50'  >50건</option>
-<option value='100' >100건</option>
-</select>&nbsp;&nbsp;<a href='#' onclick="fnSearch1();return false;" class='btn-sprite btn-go vmiddle' title='GO'><span>GO</span></a>
-</div>
-</section>
-<!-- 페이징 END -->
-
-<dl class="info-group type-00 bgtype-01 pt10">
-<dt>조회기간 중에 투자경고종목으로 지정중인 종목을 조회할 수 있습니다.<br /><br /><strong class="red">투자경고종목이란</strong> 특정종목의 주가가 비정상적으로 급등한 경우 투자자에게 주의를 환기시키고 불공정거래를 사전에 방지하기 위하여 투자경고종목(과거 감리종목 또는 이상급등종목)으로 지정합니다.<br />이는 가수요를 억제하고 주가급등을 진정시키는 등 시장안정화를 위한 조치입니다.</dt>
-</dl>
-
-<script language="javascript" type="text/JavaScript">
-$(document).ready(function(){
-	fn_InitTitle("번호,종목명,공시일,지정일,해제일", "false,true,false,true,false");
-});
-</script>
+</section>
