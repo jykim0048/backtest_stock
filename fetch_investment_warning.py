@@ -2,10 +2,12 @@
 
 출처: https://kind.krx.co.kr/investwarn/investattentwarnrisky.do
 
+쿼리: startDate/endDate 를 비워 KIND 화면 기본값(현재 지정 종목)을 받는다.
+      날짜를 주면 '지정→해제 이력'이 나오므로 비운다.
 필터:
-  - 지수: KIND HTML 의 <img alt='KOSPI200'/'KOSDAQ150'> 뱃지가 있는 종목만.
+  - 지수 뱃지: K200/Q150/X300/V100 중 하나라도 달린 종목만.
   - 투자주의: 1일 효력 → 최근 지정일(=당일) 종목만.
-  - 투자경고/위험: 해제일 공란(현재 지정 중) 종목만.
+  - 투자경고/위험: 해제일 공란/"-"(현재 지정 중) 종목만.
 중복 제거: 같은 종목코드가 여러 행이면 지정일(date) 최신 항목 하나만 유지.
 
 JS 분석 결과 (fnSearch() forward 매핑):
@@ -43,6 +45,15 @@ MENU_MAP = [
     ("2", "invstwarnisu_sub",  "warning", "투자경고"),
     ("3", "invstriskisu_sub",  "danger",  "투자위험"),
 ]
+
+# KIND 지수 뱃지 alt -> 화면 약어. 이 뱃지 중 하나라도 달린 종목만 통과.
+#   KOSPI200=K200, KOSDAQ150=Q150, KRX300=X300, V100(=KRX100/대형주지수)
+INDEX_BADGE_ABBR = {
+    "KOSPI200":  "K200",
+    "KOSDAQ150": "Q150",
+    "KRX300":    "X300",
+    "V100":      "V100",
+}
 
 # jQuery AJAX POST 헤더
 HDRS_AJAX = {
@@ -104,15 +115,12 @@ def _parse_html(html: str, menu_idx: str = "1",
             name = (a_tag.get("title") or
                     a_tag.get_text(strip=True)) if a_tag else ""
 
-            # 첫 img alt = 시장(유가증권/코스닥), 나머지 = 지수 뱃지
+            # 첫 img alt = 시장(유가증권/코스닥), 나머지 = 지수/구분 뱃지
             alts   = [img.get("alt", "") for img in imgs]
             market = alts[0] if alts else ""
-            # 지수 편입: KOSPI200 또는 KOSDAQ150 뱃지 보유 여부
-            index_name = ""
-            for a in alts:
-                if a in ("KOSPI200", "KOSDAQ150"):
-                    index_name = a
-                    break
+            # 지수 뱃지(K200/Q150/X300/V100) 수집 — 중복 제거, 순서 유지
+            matched = [INDEX_BADGE_ABBR[a] for a in alts if a in INDEX_BADGE_ABBR]
+            index_name = " ".join(dict.fromkeys(matched))   # "" 면 미편입
 
             ni = tds.index(name_td)
 
@@ -129,7 +137,10 @@ def _parse_html(html: str, menu_idx: str = "1",
                 # 번호 | 종목명 | 공시일 | 지정일 | 해제일
                 reason  = default_reason              # 유형 컬럼 없음
                 date    = cell(2)                     # 지정일
-                release = cell(3)                     # 해제일(공란=현재 지정중)
+                release = cell(3)                     # 해제일
+                # "-" / 빈칸 = 미해제(현재 지정 중) → "" 로 정규화
+                if release in ("", "-"):
+                    release = ""
 
             rows.append({
                 "code":    code,
@@ -211,9 +222,13 @@ def _save_debug(key: str, content, limit: int = 8000):
 def _fetch_category(session: requests.Session,
                     menu_idx: str, forward: str,
                     default_reason: str,
-                    today: str, one_year_ago: str) -> list:
-    """POST -> HTML 파싱. 실패 시 Excel download fallback."""
+                    today: str) -> list:
+    """POST -> HTML 파싱. 실패 시 Excel download fallback.
 
+    날짜 범위(startDate/endDate)를 비우면 KIND 화면 기본값과 동일하게
+    '현재 지정 중인 종목'(투자주의는 당일)을 반환한다. 날짜를 주면
+    그 기간의 '지정→해제 이력'이 나오므로 비워 둔다.
+    """
     payload = {
         "method":          "investattentwarnriskySub",
         "forward":         forward,
@@ -223,8 +238,8 @@ def _fetch_category(session: requests.Session,
         "orderMode":       "4",
         "orderStat":       "D",
         "searchFromDate":  today,
-        "startDate":       one_year_ago,
-        "endDate":         today,
+        "startDate":       "",       # 비움 → 현재 지정 종목만
+        "endDate":         "",
         "marketType":      "",
     }
 
@@ -275,9 +290,8 @@ def _fetch_category(session: requests.Session,
 def main():
     kst = datetime.timezone(datetime.timedelta(hours=9))
     now  = datetime.datetime.now(kst)
-    today        = now.strftime("%Y-%m-%d")
-    one_year_ago = (now - datetime.timedelta(days=365)).strftime("%Y-%m-%d")
-    now_str      = now.strftime("%Y-%m-%d %H:%M KST")
+    today   = now.strftime("%Y-%m-%d")
+    now_str = now.strftime("%Y-%m-%d %H:%M KST")
 
     session = requests.Session()
 
@@ -302,14 +316,12 @@ def main():
     for menu_idx, forward, category, default_reason in MENU_MAP:
         try:
             rows = _fetch_category(session, menu_idx, forward,
-                                   default_reason, today, one_year_ago)
+                                   default_reason, today)
             total = len(rows)
-            total_open = sum(1 for r in rows if not r.get("release"))  # 진단: 미해제
 
-            # ① K200/KQ150 필터 — KIND 뱃지(KOSPI200/KOSDAQ150)가 있는 종목만
+            # ① 지수 뱃지 필터 — K200/Q150/X300/V100 중 하나라도 달린 종목만
             rows = [r for r in rows if r.get("index")]
             after_idx = len(rows)
-            idx_open = sum(1 for r in rows if not r.get("release"))    # 진단: 지수+미해제
 
             if category == "caution":
                 # ② 투자주의: 1일 효력 → 최근 지정일(=당일)만 남김
@@ -317,15 +329,13 @@ def main():
                 if rows:
                     latest = max(r["date"] for r in rows if r["date"])
                     rows = [r for r in rows if r["date"] == latest]
-                print(f"  -> [{category}] 전체 {total} -> 지수 {after_idx} "
-                      f"-> 당일지정 {len(rows)}건", flush=True)
             else:
                 # ③ 경고/위험: 해제일 공란(현재 지정 중)만 남김
                 rows = [r for r in rows if not r.get("release")]
                 rows = _dedup(rows)
-                print(f"  -> [{category}] 전체 {total}(미해제 {total_open}) "
-                      f"-> 지수 {after_idx}(미해제 {idx_open}) "
-                      f"-> 현재지정 {len(rows)}건", flush=True)
+
+            print(f"  -> [{category}] 전체 {total} -> 지수뱃지 {after_idx} "
+                  f"-> 최종 {len(rows)}건", flush=True)
 
             result[category] = rows
         except Exception as e:
