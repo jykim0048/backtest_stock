@@ -76,6 +76,57 @@ HDRS_GET = {
 }
 
 
+# -- KRX 마스터(SSOT) 로드 + 코드 보정 -----------------------------------------
+
+def _load_krx_master():
+    """public/assets/krx_companies.json -> (by_code, by_name) 딕셔너리.
+
+    각 항목: {name, code, market, ticker}. 코드/시장/티커의 단일 진실 소스.
+    """
+    here = os.path.dirname(os.path.abspath(__file__))
+    path = os.path.join(here, "public", "assets", "krx_companies.json")
+    by_code, by_name = {}, {}
+    try:
+        with open(path, encoding="utf-8") as f:
+            data = json.load(f)
+        for e in data:
+            code = str(e.get("code", "")).zfill(6)
+            if code:
+                by_code[code] = e
+            nm = e.get("name", "")
+            if nm:
+                by_name.setdefault(nm, e)
+        print(f"[krx] 마스터 {len(by_code)}종목 로드", flush=True)
+    except Exception as e:
+        print(f"[warn] krx_companies.json 로드 실패: {e}", file=sys.stderr)
+    return by_code, by_name
+
+
+def _resolve_code(raw_code: str, code1: str, name: str,
+                  by_code: dict, by_name: dict):
+    """KIND 코드를 KRX 마스터로 교차검증해 (정확한 code, master_entry) 반환.
+
+    1) 5자리+0 / 6자리 후보를 마스터 코드에서 확인.
+    2) 실패 시 종목명으로 마스터 조회(우선주 등 끝자리 0 아닌 경우 보정).
+    """
+    cands = []
+    if raw_code.isdigit():
+        if len(raw_code) == 5:
+            cands.append(raw_code + "0")        # 끝 0 복원
+            # 우선주(끝 5/7) 가능성 — 마스터에 없으면 종목명으로 보정
+        elif len(raw_code) == 6:
+            cands.append(raw_code)
+    if code1 and code1 not in cands:
+        cands.append(code1)
+    for c in cands:
+        if c in by_code:
+            return c, by_code[c]
+    if name in by_name:
+        e = by_name[name]
+        return str(e.get("code", "")).zfill(6), e
+    return (cands[0] if cands else code1), None
+
+
 # -- HTML 파싱 -----------------------------------------------------------------
 
 def _parse_html(html: str, menu_idx: str = "1",
@@ -106,11 +157,17 @@ def _parse_html(html: str, menu_idx: str = "1",
             a_tag = name_td.find("a")
             imgs  = name_td.find_all("img")
 
-            # companysummary_open('XXXXX') -> 6자리 패딩
+            # companysummary_open('XXXXX') — KIND 인자는 종목코드 앞5자리(끝 0 생략).
+            # 5자리면 뒤에 0 복원, 6자리면 그대로. (main 에서 KRX 마스터로 재검증)
             onclick  = a_tag.get("onclick", "") if a_tag else ""
             m        = re.search(r"companysummary_open\('([^']+)'\)", onclick)
             raw_code = m.group(1) if m else ""
-            code     = raw_code.zfill(6) if raw_code.isdigit() else raw_code
+            if raw_code.isdigit() and len(raw_code) == 5:
+                code = raw_code + "0"
+            elif raw_code.isdigit() and len(raw_code) == 6:
+                code = raw_code
+            else:
+                code = raw_code.zfill(6)
 
             name = (a_tag.get("title") or
                     a_tag.get_text(strip=True)) if a_tag else ""
@@ -143,13 +200,14 @@ def _parse_html(html: str, menu_idx: str = "1",
                     release = ""
 
             rows.append({
-                "code":    code,
-                "name":    name.strip(),
-                "market":  market,
-                "index":   index_name,
-                "reason":  reason,
-                "date":    date,
-                "release": release,
+                "code":     code,
+                "raw_code": raw_code,
+                "name":     name.strip(),
+                "market":   market,
+                "index":    index_name,
+                "reason":   reason,
+                "date":     date,
+                "release":  release,
             })
 
         if rows:
@@ -312,12 +370,27 @@ def main():
     except Exception as e:
         print(f"[warn] 타겟 페이지 GET 실패: {e}", file=sys.stderr)
 
+    by_code, by_name = _load_krx_master()
+
     result = {"caution": [], "warning": [], "danger": []}
     for menu_idx, forward, category, default_reason in MENU_MAP:
         try:
             rows = _fetch_category(session, menu_idx, forward,
                                    default_reason, today)
             total = len(rows)
+
+            # ⓪ KRX 마스터로 코드/시장/티커 보정 (KIND 5자리 코드 → 정확한 6자리)
+            for r in rows:
+                code, e = _resolve_code(r.get("raw_code", ""), r.get("code", ""),
+                                        r.get("name", ""), by_code, by_name)
+                r["code"] = code
+                if e:
+                    r["market"] = e.get("market", r.get("market", ""))
+                    r["ticker"] = e.get("ticker", "")
+                else:
+                    r["ticker"] = code + (".KQ" if r.get("market") == "코스닥"
+                                          else ".KS")
+                r.pop("raw_code", None)
 
             # ① 지수 뱃지 필터 — K200/Q150/X300/V100 중 하나라도 달린 종목만
             rows = [r for r in rows if r.get("index")]

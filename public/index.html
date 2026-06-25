@@ -3119,13 +3119,13 @@
           return;
         }
 
-        // 실시간 현재가/등락률 — yfinance(/api/prices). KIND market 으로 .KS/.KQ 결정(정확).
+        // 실시간 현재가/등락률 — yfinance(/api/prices). JSON 의 ticker(KRX 마스터 검증) 우선.
         const priceItems = items.filter(it => /^\d{6}$/.test(it.code));
         let q = {};
         if (priceItems.length) {
           try {
             const tickers = priceItems.map(it =>
-              it.market === "코스닥" ? it.code + ".KQ" : it.code + ".KS");
+              it.ticker || (it.market === "코스닥" ? it.code + ".KQ" : it.code + ".KS"));
             const pr = await fetch(`/api/prices?codes=${tickers.join(",")}`, { cache: "no-store" });
             if (pr.ok) q = (await pr.json()).stocks || {};
           } catch (_) { /* 시세 실패 시 — 표시만 생략 */ }
