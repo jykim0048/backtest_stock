@@ -3027,6 +3027,15 @@
     async function renderViTable(items, asof) {
       // 코스피200 + 코스닥150 구성종목만 (set 로드 전이면 전체)
       if (_idxCodes) items = items.filter(it => _idxCodes.has(it.code));
+      // 같은 종목코드 중복 제거 — 발동시각(vi_time) 최신 1건만 유지 후 최신순 정렬.
+      // (KIS VI현황 TR 이 같은 종목의 발동/해제 이력을 최근 30건 안에 여러 번 줌)
+      const _byCode = {};
+      for (const it of items) {
+        const prev = _byCode[it.code];
+        if (!prev || (it.vi_time || "") > (prev.vi_time || "")) _byCode[it.code] = it;
+      }
+      items = Object.values(_byCode)
+        .sort((a, b) => (b.vi_time || "").localeCompare(a.vi_time || ""));
       const tb = document.getElementById("vi-tbody");
       const as = document.getElementById("vi-asof");
       if (as) as.innerText = asof ? `갱신 ${asof} · ${items.length}건` : `${items.length}건`;
