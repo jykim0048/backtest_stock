@@ -2179,12 +2179,16 @@
       const time = new Date().toTimeString().split(" ")[0];
 
       try {
-        const response = await fetch("/api/prices");
-        if (!response.ok) throw new Error("Server responded with error");
+        // 종목 현재가/등락률은 KIS 허브(fetchPrices), 지수는 yfinance(/api/prices) 유지.
+        const _codeSet = new Set();
+        stockData.forEach(s => { if (/^\d{6}$/.test(s.code)) _codeSet.add(s.code); });
+        if (isWatchLiveView) watchData.forEach(s => { if (/^\d{6}$/.test(s.code)) _codeSet.add(s.code); });
+        const stocks = await fetchPrices([..._codeSet]);
+        // 지수만 yfinance 에서 비동기 갱신
+        fetch("/api/prices").then(r => r.ok ? r.json() : null)
+          .then(d => { if (d) applyIndices(d.indices); }).catch(() => {});
 
-        const data = await response.json();
-        applyIndices(data.indices);
-        if (data.status === "success" && data.stocks) {
+        if (Object.keys(stocks).length) {
           if (useSimulatedData && !document.getElementById("demo-mode-toggle").checked) {
             useSimulatedData = false;
             logsBox.innerHTML += `<div class="log-line" style="color:var(--kosdaq-green);"><span class="log-time">[${time}]</span> [SERVER INFO] Connection restored. Switched to REALTIME market feeds.</div>`;
@@ -2195,7 +2199,7 @@
 
           // Update the 8 stocks in stockData
           stockData.forEach((stock, idx) => {
-            const apiStock = data.stocks[stock.code];
+            const apiStock = stocks[stock.code];
             if (apiStock) {
               const prevPrice = stock.price;
               stock.price = apiStock.price || stock.basePrice;
@@ -2278,7 +2282,7 @@
           // 장중 관심종목 시세 갱신 — 모니터링 전용. 매매/계좌 로직 없이 가격·등락률·차트만.
           // 과거 날짜 열람 중에는 실시간 시세로 덮어쓰지 않는다(정적 종가 유지).
           if (isWatchLiveView) watchData.forEach((stock, idx) => {
-            const apiStock = data.stocks[stock.code];
+            const apiStock = stocks[stock.code];
             if (!apiStock) return;
             const prevPrice = stock.price;
             stock.price = apiStock.price || stock.basePrice;
@@ -2990,6 +2994,18 @@
     const VI_API_BASE = "https://tradingstrategies-production-09d4.up.railway.app";
     const _VI_KIND = { "1": "정적", "2": "동적", "3": "정적&동적" };
 
+    // KIS 허브에서 종목 현재가/등락률 조회 (yfinance 대체). codes: 6자리 코드 배열.
+    // 반환 { code: {price, rate, volume, open, prevClose} }. 실패 시 빈 객체.
+    async function fetchPrices(codes) {
+      const list = (codes || []).filter(c => /^\d{6}$/.test(c));
+      if (!list.length) return {};
+      try {
+        const r = await fetch(`${VI_API_BASE}/prices?codes=${list.join(",")}`, { cache: "no-store" });
+        if (!r.ok) return {};
+        return (await r.json()).stocks || {};
+      } catch (_) { return {}; }
+    }
+
     // VI 탭은 코스피200 + 코스닥150 구성종목만 표시한다.
     let _idxCodes = null;   // 구성종목 코드 set (필터용)
     let _idxData  = null;   // {KOSPI200, KOSDAQ150} — 시장 구분(.KS/.KQ ticker)용
@@ -3035,16 +3051,9 @@
         tb.innerHTML = `<tr><td colspan="9" class="analysis-empty">VI 발동 종목이 없습니다. (장중에 갱신)</td></tr>`;
         return;
       }
-      // 실시간 현재가/등락률 — 장전/장중과 동일하게 yfinance(/api/prices) 우회. 6자리 종목만.
+      // 실시간 현재가/등락률 — KIS 허브(fetchPrices). 6자리 종목만.
       const codes = items.filter(it => /^\d{6}$/.test(it.code)).map(it => it.code);
-      let q = {};
-      if (codes.length) {
-        try {
-          const tickers = codes.map(_codeToTicker);   // .KS/.KQ 붙여 전달
-          const pr = await fetch(`/api/prices?codes=${tickers.join(",")}`, { cache: "no-store" });
-          if (pr.ok) q = (await pr.json()).stocks || {};
-        } catch (_) { /* 시세 실패 시 — 표시만 생략 */ }
-      }
+      const q = await fetchPrices(codes);
       // 괴리율 — 정적(stc_dprt)/동적(dmc_dprt) 둘 다 표시. 0·빈값은 생략.
       const fmtDprt = (v) => {
         if (v == null || v === "" || isNaN(Number(v)) || Number(v) === 0) return null;
@@ -3132,17 +3141,9 @@
           return;
         }
 
-        // 실시간 현재가/등락률 — yfinance(/api/prices). JSON 의 ticker(KRX 마스터 검증) 우선.
-        const priceItems = items.filter(it => /^\d{6}$/.test(it.code));
-        let q = {};
-        if (priceItems.length) {
-          try {
-            const tickers = priceItems.map(it =>
-              it.ticker || (it.market === "코스닥" ? it.code + ".KQ" : it.code + ".KS"));
-            const pr = await fetch(`/api/prices?codes=${tickers.join(",")}`, { cache: "no-store" });
-            if (pr.ok) q = (await pr.json()).stocks || {};
-          } catch (_) { /* 시세 실패 시 — 표시만 생략 */ }
-        }
+        // 실시간 현재가/등락률 — KIS 허브(fetchPrices). 6자리 종목만.
+        const codes = items.filter(it => /^\d{6}$/.test(it.code)).map(it => it.code);
+        const q = await fetchPrices(codes);
 
         tb.innerHTML = items.map(it => {
           const c = _INVWARN_CAT[it._cat] || { label: it._cat, color: "var(--text-muted)" };
