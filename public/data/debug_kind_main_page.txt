@@ -1,10 +1,557 @@
-<HTML><HEAD>
-<TITLE>Access Denied</TITLE>
-</HEAD><BODY>
-<H1>Access Denied</H1>
+
+
+
+
+
+
+
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta http-equiv="content-type" content="text/html; charset=utf-8" />
+<meta http-equiv="content-language" content="kr" />
+<meta http-equiv="content-style-type" content="text/css" />
+<meta http-equiv="pragma" content="no-cache" />
+<meta http-equiv="cache-control" content="no-cache" />
+<meta http-equiv="imagetoolbar" content="no" />
+<meta name="copyright" content="대한민국 대표 기업공시채널 KIND(c)2014" />
+<meta name="description" content="대한민국 대표 기업공시채널 KIND" />
+<meta name="keywords" content="대한민국 대표 기업공시채널 KIND" />
+<title>대한민국 대표 기업공시채널 KIND</title>
+<link rel="shortcut icon" href="../images/kind.ico" />
+<link rel="stylesheet" type="text/css" href="../js/jquery/themes-base/jquery-ui.min.css" media="all" />
+<link rel="stylesheet" type="text/css" href="../css/default_new.css" media="all" />
+<link rel="stylesheet" type="text/css" href="../css/common.css?version=20251219" media="all" />
+<link rel="stylesheet" type="text/css" href="../css/style.css?version=20250509" media="all" />
+<link rel="stylesheet" type="text/css" href="../esg/notoSans.css?20240524" media="all" />
+<!--[if lt IE 9]>
+<script type="text/javascript" src="../js/html5shiv.js"></script>
+<![endif]-->
+<script type="text/javascript" src="../js/dtree.js"></script>
+<script type="text/javascript" src="../js/trans.js"></script>
+<script type="text/javascript" src="../js/jquery/jquery.js" ></script>
+<script type="text/javascript" src="../js/jquery/jquery-ui.min.js"></script>
+<script type="text/javascript" src="../js/jquery/jquery.placeholder.js"></script>
+<script type="text/javascript" src="../js/common.js?version=20251219"></script>
+<script type="text/javascript" src="../js/common-ajax.js"></script>
+<script type="text/javascript" src="../js/JCommon.js?version=20260417"></script>
+<script type="text/javascript" src="../js/common-sort.js"></script>
+
+</head>
+
+	
+	
+	
+		<body>
+		
+  
+<!-- 화면 확대/축소 안내 START-->
+
+
+<section class="notice popup modal type-00 hide">
+	<div class="container">
+		<div class="wrapper">
+			<hgroup class="handle"><h2>화면 확대/축소 안내</h2></hgroup>
+			<a href="#" class="btn-pop-close btn_close">닫기</a>
+			<section class="body">
+				<ul class="msg type-99 fc01">
+					<li>※ IE8 이하의 웹브라우저에서는 다음과 같은 방법으로 화면의 확대/축소 기능을 이용하실 수 있습니다.</li>
+				</ul>
+				<img src="../images/common/notice.png"  alt="화면확대 화면축소" />				
+			</section>
+		</div>
+		<img src="../images/common/pop-type-00-tl.png" class="tl" alt="배경이미지"/>
+		<img src="../images/common/pop-type-00-bl.png" class="bl" alt="배경이미지"/>
+		<img src="../images/common/pop-type-00-tr.png" class="tr" alt="배경이미지"/>
+		<img src="../images/common/pop-type-00-br.png" class="br" alt="배경이미지"/>
+		<div class="tm"></div>
+		<div class="lm"></div>
+		<div class="bm"></div>
+		<div class="rm"></div>
+	</div>
+</section>
  
-You don't have permission to access "http&#58;&#47;&#47;kind&#46;krx&#46;co&#46;kr&#47;investwarn&#47;investattentwarnrisky&#46;do&#63;" on this server.<P>
-Reference&#32;&#35;18&#46;5b17dd17&#46;1782773425&#46;31e5ffd7
-<P>https&#58;&#47;&#47;errors&#46;edgesuite&#46;net&#47;18&#46;5b17dd17&#46;1782773425&#46;31e5ffd7</P>
-</BODY>
-</HTML>
+<!-- HEADER 영역 START -->
+<header class="container">
+	
+
+
+
+
+
+
+
+<div class="container_line">
+	<div class="wrapper-super">
+		<hgroup>
+			<h1 class="logo"><a href="/main.do?method=loadInitPage&scrnmode=1" title="대한민국 대표 기업공시채널 KIND"><img src="../images/main/logo.gif" alt="대한민국 대표 기업공시채널 KIND"/></a></h1>
+		</hgroup>
+		<ul class="util">
+			<li class="first"><a href="/common/JLDDST35000.html" onclick="winCommPopOpen('1'); return false;" title="KIND 소개 새창"><img src="../images/common/util_intro.gif" alt="KIND 소개"/></a></li>
+			<li>
+				<a href="https://engkind.krx.co.kr/" title="KIND 영문사이트 바로가기" target="_blank"><img src="../images/common/util_eng.gif" alt="ENGLISH KIND"/></a>
+			</li>
+			<li class="btn-group">
+				<img src="../images/common/ttl_screen.gif" class="ttl" alt="화면크기"/>
+				<a href="#" class="plus zoom_btn-in"><span>확대</span></a>
+				<a href="#" class="reset zoom_btn-reset"><span>원래대로</span></a>
+				<a href="#" class="minus zoom_btn-out"><span>축소</span></a>
+			</li>
+		</ul>
+		<div class="clear"></div>
+		<form id="AKCFrm" name="AKCFrm">
+		<input type="hidden" name="method"			id="method" 		value="disclosureSimpleSearchMain"/>
+		<input type="hidden" name="searchCodeType"	id="searchCodeType" value=""/>
+		<input type="hidden" name="repIsuSrtCd"		id="repIsuSrtCd" 	value=""/>
+		<input type="hidden" name="isurCd"			id="isurCd" 		value=""/>
+		<input type="hidden" name="AKCKwdCode"		id="AKCKwdCode" 	value=""/>
+		<section class="search auto_complete top-akc-sub">
+			<div class="autoKey">
+				<input type="text" id="AKCKwdTop" name="searchCorpName" placeholder="회사명 또는 종목코드를 입력해 주세요." class="search-txt dval" onblur="chkValidChar_top(this); fnMainCorpType();" autocomplete=off />
+				<div class="tselect">
+					<img id="AKCArrowTop" class="autoc_open" src="../images/common/icn_autoc_open.gif" alt="자동완성 열기" />
+					<div id="AKCDivTop" class="AKCDivTop" style="display:none;">
+						<iframe id="AKCIfrmTop" name="AKCIfrmTop" title="자동완성" src="../common/akc_top.html?version=20220624" frameborder="0" scrolling="no" ></iframe>
+					</div>
+				</div>
+			</div>
+			<input type="image" src="../images/common/btn_search.gif" alt="검색" class="submit" onclick="fnTopAKCKwdSearch(); return false;"/>
+			<div class="clear"></div>
+		</section>
+		</form>
+		<a href="#" class="btn sitemap open"><img src="../images/common/btn_sitemap.gif" alt="전체메뉴보기"/></a>
+	</div>
+</div>
+
+<div class="sitemap-wrapper">
+	<!-- TOP MENU START -->
+	
+
+
+
+
+
+<section class="sitemap">
+	<article class="mymenu">
+		<h3><img src="../images/common/ttl_sitemap_my.png" alt="나만의 메뉴"/></h3>
+		<div class="list">
+			<ul id="myMenuTop">
+				<li class="active"><a href="/disclosure/todaydisclosure.do?method=searchTodayDisclosureMain">오늘의공시</a></li>
+				<li><a href="/disclosure/searchdisclosurebycorp.do?method=searchDisclosureByCorpMain">회사별검색</a></li>
+				<li><a href="/disclosure/searchtotalinfo.do?method=searchTotalInfoMain">통합검색</a></li>
+				<li><a href="/disclosure/details.do?method=searchDetailsMain">상세검색</a></li>
+				<li><a href="/corpdetail/totalinfo.do?method=loadInitPage">종합정보</a></li>
+			</ul>
+		</div>
+		<a href="#" class="btn_sitemap-set"><img src="../images/common/btn_sitemap_set.png" alt="설정"/></a>
+	</article>
+	<section class="list-wrapper links">
+		<article class="list">
+			<h3>공시</h3>
+			<ul>
+				<li><a href="/disclosure/todaydisclosure.do?method=searchTodayDisclosureMain" class="first">오늘의공시</a></li>
+				<li><a href="/disclosure/searchdisclosurebycorp.do?method=searchDisclosureByCorpMain" class="first">회사별검색</a></li>
+				<li><a href="/disclosure/details.do?method=searchDetailsMain" class="first">상세검색</a></li>
+				<li><a href="#" onclick="krxPaPago_open(); return false;" class="first">KRX-Papago번역기</a></li>
+				<li><a href="/disclosure/searchtotalinfo.do?method=searchTotalInfoMain" class="first">통합검색</a></li>
+				<li><a href="/disclosure/searchbondcorpdisclosure.do?method=searchBondCorpDisclosureMain" class="first">채권공시</a></li>
+				<li style="height:32px;"><a href="#" class="more">ETF/ELW/ETN/<br>상장형수익증권<span><img src="../images/common/bg_gnb_gmn2.gif" alt="메뉴 더보기"/></span></a></li> <!-- 상장형수익증권이 추가 되면서 간격조정을 위해 해당 메뉴만 높이를 34px로 잡음 2025.02.14 -->
+						<DIV id="sub" class="gnb1-wrapper">
+							<nav id="gnb1"><DL>
+							<DD>
+							<DIV class="lnb">
+								<DIV class="wrapper">
+									<A class="lmn" href="/disclosure/disclosurebystocktype.do?method=searchDisclosureByStockTypeEtf">ETF</A>
+									<A class="lmn" href="/disclosure/disclosurebystocktype.do?method=searchDisclosureByStockTypeElw">ELW</A>
+									<A class="lmn" href="/disclosure/disclosurebystocktype.do?method=searchDisclosureByStockTypeEtn">ETN</A>
+									<A class="lmn" href="/disclosure/disclosurebystocktype.do?method=searchDisclosureByStockTypePf">상장형수익증권</A>
+									<IMG class="arrow" src="../images/common/lnb_arrow_sub.png" />
+									<IMG class="tl" src="../images/common/lnb_tl.png" />
+									<IMG class="tr" src="../images/common/lnb_tr.png" />
+									<IMG class="bl" src="../images/common/lnb_bl.png" />
+									<IMG class="br" src="../images/common/lnb_br.png" /> 
+								</DIV>
+							</DIV>
+							</DD>
+							</DL></nav>
+						</DIV>
+				<li><a href="#" class="more">펀드공시<span><img src="../images/common/bg_gnb_gmn2.gif" alt="메뉴 더보기"/></span></a></li>
+						<DIV id="sub" class="gnb1-wrapper">
+							<nav id="gnb1"><DL>
+							<DD>
+							<DIV class="lnb">
+								<DIV class="wrapper">
+									<A class="lmn" href="/disclosure/disclosurebystocktype.do?method=searchDisclosureByStockTypeRestinvstcom">부동산투자회사</A>
+									<A class="lmn" href="/disclosure/disclosurebystocktype.do?method=searchDisclosureByStockTypeShipinvstcom">선박투자회사</A>
+									<A class="lmn" href="/disclosure/disclosurebystocktype.do?method=searchDisclosureByStockTypeInvstcom">투자회사</A>
+									<A class="lmn" href="/disclosure/disclosurebystocktype.do?method=searchDisclosureByStockTypeBenfcert">수익증권</A>
+									<A class="lmn" href="/disclosure/disclosurebystocktype.do?method=searchDisclosureByStockTypeBdc">BDC</A>
+									<IMG class="arrow" src="../images/common/lnb_arrow_sub.png" />
+									<IMG class="tl" src="../images/common/lnb_tl.png" />
+									<IMG class="tr" src="../images/common/lnb_tr.png" />
+									<IMG class="bl" src="../images/common/lnb_bl.png" />
+									<IMG class="br" src="../images/common/lnb_br.png" /> 
+								</DIV>
+							</DIV>
+							</DD>
+							</DL></nav>
+						</DIV>	
+				<li><a href="/disclosure/misccorpdiscls.do?method=searchMiscCorpDisclsMain" class="first">기타법인공시</a></li>
+				<li><a href="#" class="more">의결권행사공시<span><img src="../images/common/bg_gnb_gmn2.gif" alt="메뉴 더보기"/></span></a></li>
+						<DIV id="sub" class="gnb1-wrapper">
+							<nav id="gnb1"><DL>
+							<DD>
+							<DIV class="lnb">
+								<DIV class="wrapper">
+									<A class="lmn" href="/disclosure/disclosurebyvote.do?method=searchDisclosurebyVoteMain">의결권행사공시</A>	
+									<A class="lmn" href="https://dis.kofia.or.kr/websquare/index.jsp?w2xPath=/wq/compann/DISFndVoteRightView.xml&divisionId=MDIS02003010000000&serviceId=SDIS02003010000#!" target="_blank">운용사 펀드의결권행사공시</A>
+									<A class="lmn" href="https://dis.kofia.or.kr/websquare/index.jsp?w2xPath=/wq/compann/DISFndVoteRightViewDet.xml&divisionId=MDIS02003011000000&serviceId=SDIS02003011000" target="_blank">펀드별 의결권행사공시</A>									
+									<IMG class="arrow" src="../images/common/lnb_arrow_sub.png" />
+									<IMG class="tl" src="../images/common/lnb_tl.png" />
+									<IMG class="tr" src="../images/common/lnb_tr.png" />
+									<IMG class="bl" src="../images/common/lnb_bl.png" />
+									<IMG class="br" src="../images/common/lnb_br.png" /> 
+								</DIV>
+							</DIV>
+							</DD>
+							</DL></nav>
+						</DIV>					
+				
+			
+				<li><a href="/corpdetail/chart.do?method=loadInitPage" class="first">공시차트</a></li>
+			
+				<li><a href="/disclosure/searchErrorTradeRelief.do?method=searchErrorTradeReliefMain" class="first">착오매매구제신청</a></li>
+
+				<!-- 신종증권 메뉴 제외 -->
+				<!--<li><a href="#" class="more">신종증권<span><img src="../images/common/bg_gnb_gmn2.gif" alt="메뉴 더보기"/></span></a></li>
+						<DIV id="sub" class="gnb1-wrapper">
+							<nav id="gnb1">
+							<DL>
+							<DD>
+							<DIV class="lnb">
+								<DIV class="wrapper">
+									<A class="lmn" href="/digital/digitalList.do?method=digitalList">비금전신탁수익증권</A>
+									<A class="lmn" href="/digital/digitalInvstList.do?method=digitalInvstList">투자계약증권</A>
+									<IMG class="arrow" src="../images/common/lnb_arrow_sub.png" />
+									<IMG class="tl" src="../images/common/lnb_tl.png" />
+									<IMG class="tr" src="../images/common/lnb_tr.png" />
+									<IMG class="bl" src="../images/common/lnb_bl.png" />
+									<IMG class="br" src="../images/common/lnb_br.png" />
+								</DIV>
+							</DIV>
+							</DD>
+							</DL>
+							</nav>
+						</DIV>			
+						-->				
+			</ul>
+		</article>
+		<article class="list">
+			<h3>상장법인상세정보</h3>
+			<ul>
+						
+				<li><a href="/corpdetail/totalinfo.do?method=loadInitPage" class="first">종합정보</a></li>
+				<li><a href="/corpgeneral/listedIssueStatus.do?method=loadInitPage" class="first">상장종목현황</a></li>
+							
+				<li><a href="/corpgeneral/corpList.do?method=loadInitPage" class="first">상장법인목록</a></li>									
+				<li><a href="/corpgeneral/stockissuelist.do?method=loadInitPage" class="first">주식발행내역</a></li>
+				<li><a href="#" class="more">기업지배구조<span><img src="../images/common/bg_gnb_gmn2.gif" alt="메뉴 더보기"/></span></a></li>
+						<DIV id="sub" class="gnb1-wrapper">
+							<nav id="gnb1"><DL>
+							<DD>
+							<DIV class="lnb">
+								<DIV class="wrapper">
+									<A class="lmn" href="/corpgeneral/companyGovernance.do?method=loadInitPage">기업지배구조 보고서</A>
+									<A class="lmn" href="http://www.cgs.or.kr/business/esg_tab04.jsp" target="_blank">ESG등급</A>									
+									<IMG class="arrow" src="../images/common/lnb_arrow_sub.png" />
+									<IMG class="tl" src="../images/common/lnb_tl.png" />
+									<IMG class="tr" src="../images/common/lnb_tr.png" />
+									<IMG class="bl" src="../images/common/lnb_bl.png" />
+									<IMG class="br" src="../images/common/lnb_br.png" /> 
+								</DIV>
+							</DIV>
+							</DD>
+							</DL></nav>
+						</DIV>
+				<li><a href="/corpgeneral/treasurystk.do?method=loadInitPage" class="first">자사주취득/처분</a></li>
+				<li><a href="#" class="more">IR일정/IR자료실<span><img src="../images/common/bg_gnb_gmn2.gif" alt="메뉴 더보기"/></span></a></li>
+						<DIV id="sub" class="gnb1-wrapper">
+							<nav id="gnb1"><DL>
+							<DD>
+							<DIV class="lnb">
+								<DIV class="wrapper">
+									<A class="lmn" href="/corpgeneral/irschedule.do?method=searchIRScheduleMain&gubun=iRSchedule">IR일정</A>
+									<A class="lmn" href="/corpgeneral/irschedule.do?method=searchIRScheduleMain&gubun=iRMaterials">IR자료실</A>
+									<A class="lmn" href="https://www.youtube.com/playlist?list=PLAgvDyD2zN6ry9AVlh2emmvoJy4K39KT7" target="_blank">영상자료</A>
+									<A class="lmn" href="/corpgeneral/irschedule.do?method=searchIRScheduleMain&gubun=iRScheduleCalendar">IR일정 달력</A>
+									<IMG class="arrow" src="../images/common/lnb_arrow_sub.png" />
+									<IMG class="tl" src="../images/common/lnb_tl.png" />
+									<IMG class="tr" src="../images/common/lnb_tr.png" />
+									<IMG class="bl" src="../images/common/lnb_bl.png" />
+									<IMG class="br" src="../images/common/lnb_br.png" /> 
+								</DIV>
+							</DIV>
+							</DD>
+							</DL></nav>
+						</DIV>				
+			
+				<li><a href="#" class="more">기업분석보고서<span><img src="../images/common/bg_gnb_gmn2.gif" alt="메뉴 더보기"/></span></a></li>
+						<DIV id="sub" class="gnb1-wrapper">
+							<nav id="gnb1"><DL>
+							<DD>
+							<DIV class="lnb">
+								<DIV class="wrapper">
+									<A class="lmn" href="/corpgeneral/companyAnalysisReport.do?method=listingForeignCompanyMain&searchGubun=companyAnalysisReport">기업분석리포트</A>
+									<A class="lmn" href="/corpgeneral/newListingForeignCompany.do?method=listingForeignCompanyMain&searchGubun=newListingForeignCompany">신규상장기업분석보고서</A>
+									<A class="lmn" href="/corpgeneral/growthReport.do?method=listingForeignCompanyMain&searchGubun=growthReport">사업모델 평가보고서 및 기업 계속성 보고서</A>
+									
+									<IMG class="arrow" src="../images/common/lnb_arrow_sub.png" />
+									<IMG class="tl" src="../images/common/lnb_tl.png" />
+									<IMG class="tr" src="../images/common/lnb_tr.png" />
+									<IMG class="bl" src="../images/common/lnb_bl.png" />
+									<IMG class="br" src="../images/common/lnb_br.png" /> 
+								</DIV>
+							</DIV>
+							</DD>
+							</DL></nav>
+						</DIV>				
+			
+				<li><a href="/corpgeneral/corpGroup.do?method=loadInitPage" class="first">기업집단</a></li>				
+				<li><a href="#" class="more">배당정보<span><img src="../images/common/bg_gnb_gmn2.gif" alt="메뉴 더보기"/></span></a></li>
+				<DIV id="sub" class="gnb1-wrapper">
+							<nav id="gnb1"><DL>
+							<DD>
+							<DIV class="lnb">
+								<DIV class="wrapper">
+									<A class="lmn" href="/disclosureinfo/dividendinfo.do?method=searchDividendInfoMain">배당정보</A>
+									<A class="lmn" href="http://data.krx.co.kr/contents/MDC/MDI/mdiLoader/index.cmd?menuId=MDC0201010107" target="_blank">업종배당수익률</A>									
+									<IMG class="arrow" src="../images/common/lnb_arrow_sub.png" />
+									<IMG class="tl" src="../images/common/lnb_tl.png" />
+									<IMG class="tr" src="../images/common/lnb_tr.png" />
+									<IMG class="bl" src="../images/common/lnb_bl.png" />
+									<IMG class="br" src="../images/common/lnb_br.png" /> 
+								</DIV>
+							</DIV>
+							</DD>
+							</DL></nav>
+						</DIV>
+				<li><a href="/compfinance/financialinfo.do?method=loadInitPage&searchgubun=corporation" class="first">회사재무비교</a></li>
+				<li><a href="/corpgeneral/excntDisclsCompany.do?method=loadInitPage" class="first">공시우수법인</a></li>
+				<li><a href="/corpdetail/ventureFundInvest.do?method=corpListMain" class="first">벤처펀드투자기업(코)</a></li>
+				<!-- 신종증권 메뉴 제외 -->
+				<!--<li><a href="/digital/digitalCorpList.do?method=digitalCorpList" class="first">상장종목(신종증권)</a></li>-->
+			</ul>
+		</article>
+		<article class="list">
+			<h3>기업 밸류업 정보</h3>
+			<ul>
+				<li><a href="/valueup/intro.do?method=valueupIntroMain" class="first">기업 밸류업 소개</a></li>
+				<li><a href="/valueup/notice.do?method=valueupNoticeMain" class="first">공지사항</a></li>
+				<li><a href="/valueup/disclsstat.do?method=valueupDisclsStatMain" class="first">공시현황</a></li>
+			
+				<li><a href="#" class="more">투자지표<span><img src="../images/common/bg_gnb_gmn2.gif" alt="메뉴 더보기"/></span></a></li>
+						<DIV id="sub" class="gnb1-wrapper">
+							<nav id="gnb1"><DL>
+								<DD>
+								<DIV class="lnb">
+								<DIV class="wrapper">
+								<A class="lmn" href="/valueup/invstindicsectors.do?method=valueupInvstIndicRankIndMain">업종별 투자지표 순위</A>
+								<A class="lmn" href="/valueup/invstindicstocks.do?method=valueupInvstIndicRankIsuMain">종목별 투자지표 추이</A>
+								<IMG class="arrow" src="../images/common/lnb_arrow_sub.png" />
+								<IMG class="tl" src="../images/common/lnb_tl.png" />
+								<IMG class="tr" src="../images/common/lnb_tr.png" />
+								<IMG class="bl" src="../images/common/lnb_bl.png" />
+								<IMG class="br" src="../images/common/lnb_br.png" /> 
+								</DIV>
+								</DIV>
+								</DD>
+							</DL></nav>
+						</DIV>
+				<li><a href="/valueup/idx.do?method=valueupIdxMain" class="first">인덱스</a></li>
+			
+				<li><a href="/valueup/dividend.do?method=valueupHighDividendMain" class="first">고배당기업</a></li>
+				<li><a href="/valueup/excntcorp.do?method=valueupExcntCorpMain" class="first">밸류업 우수기업</a></li>
+				<li><a href="https://www.kirs.or.kr/research/valueup.html" class="first" target="_blank">밸류업 보고서</a></li>
+				<li><a href="/valueup/resoroom.do?method=valueupResoroomMain" class="first">자료실</a></li>
+			</ul>
+		</article>		
+		
+		<article class="list weight">
+			<h3>투자유의사항</h3>
+			<ul>
+				<li><a href="/investwarn/adminissue.do?method=searchAdminIssueList" class="first">관리종목</a></li>
+				<li><a href="/investwarn/hwangiissue.do?method=searchHwangiIssueMain" class="first">투자주의환기종목(코)</a></li>
+							
+				<li><a href="/investwarn/tradinghaltissue.do?method=searchTradingHaltIssueMain" class="first">매매거래정지종목</a></li>
+			
+				<li><a href="/investwarn/undisclosure.do?method=searchUnfaithfulDisclosureCorpList" class="first">불성실공시법인</a></li>
+			
+				<li><a href="/investwarn/investattentwarnrisky.do?method=investattentwarnriskyMain" class="first">투자주의/경고/위험종목</a></li>
+			
+				<li><a href="/corpgeneral/delistRealInvstg.do?method=searchDelistRealInvstgMain" class="first">실질심사법인</a></li>
+				<li><a href="/investwarn/investattentEmbezzlement.do?method=searchInvestAttentEmbezzlementMain" class="first">횡령 등</a></li>
+				<li><a href="/investwarn/investattentLargeShareChange.do?method=searchInvestAttentLargeShareChangeMain" class="first">최대주주변경2회이상</a></li>
+				<li><a href="#" class="more">기타사항<span><img src="../images/common/bg_gnb_gmn2.gif" alt="메뉴 더보기"/></span></a></li>
+						<DIV id="sub" class="gnb1-wrapper">
+							<nav id="gnb1"><DL>
+							<DD>
+							<DIV class="lnb">
+								<DIV class="wrapper">
+									<A class="lmn" href="/investwarn/investattentEtcMarket.do?method=searchInvestAttentEtcMarketMain">기타 시장안내</A>
+									<A class="lmn" href="/investwarn/prtdepoStat.do?method=searchPrtdepoStatMain">의무보유현황(유가)</A>
+									<A class="lmn" href="/investwarn/penalty.do?method=searchPenaltyImprovementList">벌점및개선계획서 현황</A>
+									<A class="lmn" href="/investwarn/delcompany.do?method=searchDelCompanyMain">상장폐지현황</A>
+									<A class="lmn" href="/investwarn/delListDelibRec.do?method=searchDelListDelibRecMain">상장폐지최종심의의사록</A>
+									<A class="lmn" href="/investwarn/investwarnGuide.do?method=searchInvestGuideMain">투자유의안내</A>
+									
+									<A class="lmn" href="/disclosureinfo/nfaithdisclsdecl.do?method=insertNfaithdisclsDeclMain">불성실공시 신고포상</A>
+									 
+									<IMG class="arrow" src="../images/common/lnb_arrow_sub.png" />
+									<IMG class="tl" src="../images/common/lnb_tl.png" />
+									<IMG class="tr" src="../images/common/lnb_tr.png" />
+									<IMG class="bl" src="../images/common/lnb_bl.png" />
+									<IMG class="br" src="../images/common/lnb_br.png" /> 
+								</DIV>
+							</DIV>
+							</DD>
+							</DL></nav>
+						</DIV>
+			</ul>
+		</article>
+		<article class="list">
+			<h3>IPO현황</h3>
+			<ul>
+			
+				<li><a href="/listinvstg/listinvstgcom.do?method=searchListInvstgCorpMain" class="first">예비심사기업</a></li>
+				<li><a href="/listinvstg/listapplcom.do?method=searchListApplCorpMain" class="first">코넥스 상장신청기업</a></li>
+				<li><a href="#" class="more">공모기업<span><img src="../images/common/bg_gnb_gmn2.gif" alt="메뉴 더보기"/></span></a></li>
+						<DIV id="sub" class="gnb1-wrapper">
+							<nav id="gnb1"><DL>
+								<DD>
+								<DIV class="lnb">
+								<DIV class="wrapper">
+								<A class="lmn" href="/listinvstg/pubofrprogcom.do?method=searchPubofrProgComMain">공모기업현황</A>
+								<A class="lmn" href="/listinvstg/pubofrschdl.do?method=searchPubofrScholMain">공모일정</A>
+								<IMG class="arrow" src="../images/common/lnb_arrow_sub.png" />
+								<IMG class="tl" src="../images/common/lnb_tl.png" />
+								<IMG class="tr" src="../images/common/lnb_tr.png" />
+								<IMG class="bl" src="../images/common/lnb_bl.png" />
+								<IMG class="br" src="../images/common/lnb_br.png" /> 
+								</DIV>
+								</DIV>
+								</DD>
+							</DL></nav>
+						</DIV>			
+				<li><a href="#" class="more">신규상장기업<span><img src="../images/common/bg_gnb_gmn2.gif" alt="메뉴 더보기"/></span></a></li>
+						<DIV id="sub" class="gnb1-wrapper">
+							<nav id="gnb1"><DL>
+								<DD>
+								<DIV class="lnb">
+								<DIV class="wrapper">
+								<A class="lmn" href="/listinvstg/listingcompany.do?method=searchListingTypeMain">신규상장기업현황</A>
+								<A class="lmn" href="/listinvstg/mergeListingCompany.do?method=searchMergeListingCompMain">합병상장기업현황</A>
+								<A class="lmn " href="/listinvstg/genfinance.do?method=searchGenFinanaceMain">재무현황</A>
+								<A class="lmn " href="/listinvstg/pubprcCmpStkprcByIssue.do?method=pubprcCmpStkprcByIssueMain">공모가대비주가정보</A> 
+								<IMG class="arrow" src="../images/common/lnb_arrow_sub.png" />
+								<IMG class="tl" src="../images/common/lnb_tl.png" />
+								<IMG class="tr" src="../images/common/lnb_tr.png" />
+								<IMG class="bl" src="../images/common/lnb_bl.png" />
+								<IMG class="br" src="../images/common/lnb_br.png" /> 
+								</DIV>
+								</DIV>
+								</DD>
+							</DL></nav>
+						</DIV>
+								
+				<li><a href="#" class="more">신규상장통계<span><img src="../images/common/bg_gnb_gmn2.gif" alt="메뉴 더보기"/></span></a></li>
+						<DIV id="sub" class="gnb1-wrapper">
+							<nav id="gnb1"><DL>
+								<DD>
+								<DIV class="lnb">
+								<DIV class="wrapper">
+								<A class="lmn" href="/listinvstg/listtypestat.do?method=searchListTypeStatusMain">상장통계</A>
+								
+								<A class="lmn " href="/listinvstg/puboframt.do?method=searchPubofrAmtMain">공모통계</A>
+								<A class="lmn " href="/listinvstg/ipoprfm.do?method=searchIpoPrfmMain">상장주선인 IPO실적</A>
+								
+								<A class="lmn " href="/listinvstg/advseripoprfm.do?method=searchAdvserIpoPrfmMain">지정자문인 상장실적</A>
+								<IMG class="arrow" src="../images/common/lnb_arrow_sub.png" />
+								<IMG class="tl" src="../images/common/lnb_tl.png" />
+								<IMG class="tr" src="../images/common/lnb_tr.png" />
+								<IMG class="bl" src="../images/common/lnb_bl.png" />
+								<IMG class="br" src="../images/common/lnb_br.png" /> 
+								</DIV>
+								</DIV>
+								</DD>
+							</DL></nav>
+						</DIV>				
+				<li><a href="/listinvstg/listinvstginfo.do?method=searchListInvstgInfoMain" class="first">상장심사가이드</a></li>
+			</ul>
+			<h3>정보실</h3>
+			<ul>
+				<li><a href="/disclosureinfo/notice.do?method=searchNoticeMain" class="first">공지사항</a></li>
+				<!-- li><a href="/news/searchnews.do?method=searchNewsMain" class="first">증시뉴스</a></li -->
+				<li><a href="/disclosureinfo/explanationsystem.do?method=searchSysInfo" class="first">제도해설</a></li>
+				<li><a href="/disclosureinfo/searchmaterials.do?method=searchMaterialsMain" class="first">자료실</a></li>
+			</ul>			
+		</article>		
+	</section>
+	<section class="list-wrapper config"><!-- 나만의 메뉴 설정 -->
+		<article class="list">
+			<h3>공시</h3>
+			<ul>
+				<li><input type="checkbox" id="chkEdit01" name="checkboxMenu" value="ULDDST00000" /> <label for="chkEdit01">오늘의공시</label></li>
+				<li><input type="checkbox" id="chkEdit02" name="checkboxMenu" value="ULDDST00100" /> <label for="chkEdit02">회사별검색</label></li>
+				<li><input type="checkbox" id="chkEdit03" name="checkboxMenu" value="ULDDST00300" /> <label for="chkEdit03">상세검색</label></li>
+				<li><input type="checkbox" id="chkEdit04" name="checkboxMenu" value="ULDDST00200" /> <label for="chkEdit04">통합검색</label></li>
+				<li><input type="checkbox" id="chkEdit05" name="checkboxMenu" value="ULDDST00700" /> <label for="chkEdit05">채권공시</label></li>
+				<li style="height:32px;"><input type="checkbox" id="chkEdit06" name="checkboxMenu" value="ULDDST00400" /> <label for="chkEdit06">ETF ELW ETN <br>상장형수익증권</label></li>
+				<li><input type="checkbox" id="chkEdit07" name="checkboxMenu" value="JLDDST00403" /> <label for="chkEdit07">펀드공시</label></li>
+				<li><input type="checkbox" id="chkEdit08" name="checkboxMenu" value="ULDDST01300" /> <label for="chkEdit08">기타법인공시</label></li>
+				<li><input type="checkbox" id="chkEdit010" name="checkboxMenu" value="ULDDST01500" /> <label for="chkEdit010">의결권행사공시</label></li>
+			
+				<li><input type="checkbox" id="chkEdit09" name="checkboxMenu" value="ULDDST10400" /> <label for="chkEdit09">공시차트</label></li>
+			
+			<li><input type="checkbox" id="chkEdit40" name="checkboxMenu" value="ULDDST01600" /> <label for="chkEdit40">착오매매구제신청</label></li>
+			<!-- 신종증권 메뉴 제외 -->
+			<!--<li><input type="checkbox" id="chkEdit50" name="checkboxMenu" value="ULDDST20000" /><label for="chkEdit50">신종증권</label></li>-->
+			</ul>
+		</article>
+		<article class="list">
+			<h3>상장법인상세정보</h3>
+			<ul>
+						
+				<li><input type="checkbox" id="chkEdit10" name="checkboxMenu" value="ULDDST10000" /> <label for="chkEdit10">종합정보</label></li>
+				<li><input type="checkbox" id="chkEdit11" name="checkboxMenu" value="ULDDST05000" /> <label for="chkEdit11">상장종목현황</label></li>
+			
+				<li><input type="checkbox" id="chkEdit12" name="checkboxMenu" value="ULDDST05100" /> <label for="chkEdit12">상장법인목록</label></li>
+				<li><input type="checkbox" id="chkEdit13" name="checkboxMenu" value="ULDDST06000" /> <label for="chkEdit13">주식발행내역</label></li>
+				<li><input type="checkbox" id="chkEdit41" name="checkboxMenu" value="ULDDST38150" /> <label for="chkEdit41">기업지배구조</label></li>
+				<li><input type="checkbox" id="chkEdit14" name="checkboxMenu" value="ULDDST05300" /> <label for="chkEdit14">자사주취득처분</label></li>
+				<li><input type="checkbox" id="chkEdit15" name="checkboxMenu" value="ULDDST05600" /> <label for="chkEdit15">IR일정IR자료실</label></li>
+			
+				<li><input type="checkbox" id="chkEdit16" name="checkboxMenu" value="ULDDST38010" /> <label for="chkEdit16">기업분석보고서</label></li>
+			
+				<li><input type="checkbox" id="chkEdit17" name="checkboxMenu" value="ULDDST05800" /> <label for="chkEdit17">기업진단</label></li>
+			
+				<li><input type="checkbox" id="chkEdit18" name="checkboxMenu" value="ULDDST36400" /> <label for="chkEdit18">배당정보</label></li>
+			
+				<li><input type="checkbox" id="chkEdit19" name="checkboxMenu" value="ULDDST15400" /> <label for="chkEdit19">회사재무비교</label></li>
+				<li><input type="checkbox" id="chkEdit39" name="checkboxMenu" value="JLDDST38140" /> <label for="chkEdit39">공시우수법인</label></li>
+				<li><input type="checkbox" id="chkEdit42" name="checkboxMenu" value="JLDDST11000" /> <label for="chkEdit42">벤처펀드투자대상기업(코)</label></li>
+				<!-- 신종증권 메뉴 제외 -->
+				<!--<li><input type="checkbox" id="chkEdit43" name="checkboxMenu" value="JLDDST30200" /> <label for="chkEdit43">상장종목(신종증권)</label></li>-->
+			</ul>
+		</article>
+		<article class="list">
+			<h3>기업 밸류업 정보</h3>
+			<ul>	
+				<li><input type="checkbox" id="chkEdit44" name="checkboxMenu" value="ULDDST80100" /> <label for="chkEdit44">기업 밸류업 소개</label></li>
+				<li><input type="checkbox" id="chkEdit45" name="checkboxMenu" value="ULDDST80200" /> <label for="chkEdit45">공지사항</label></li>
+				<li><input type="checkbox" id="chkEdit46" name="checkboxMenu" value="ULDDST80300" /> <label for="chkEdit46">공시현황</label></li>
+								
+				<li><input type="checkbox" id="chkEdit47" name="checkboxMenu" value="ULDDST80400" /> <label for="chkEdit47">투자지표</label></li>
+			
+				<li><input type="checkbox" id="chkEdit48" name="checkboxMenu" value="ULDDST80500" /> <label for="chkEdit48">인덱스</label></li>
+				<li><input type="checkbox" id="chkEdit52" name="checkboxMenu" va
