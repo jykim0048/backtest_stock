@@ -426,6 +426,29 @@ def main():
         json.dump(out, f, ensure_ascii=False, indent=2)
     print(f"saved -> {out_path}", flush=True)
 
+    # 날짜별 아카이브 (대시보드에서 리포트 날짜로 과거 조회) + index.json
+    root = os.path.dirname(os.path.abspath(__file__))
+    archive_dir = os.path.join(root, "public", "reports", "invwarn")
+    os.makedirs(archive_dir, exist_ok=True)
+    arc_path = os.path.join(archive_dir, f"{today}.json")
+    with open(arc_path, "w", encoding="utf-8") as f:
+        json.dump(out, f, ensure_ascii=False, indent=2)
+
+    index_path = os.path.join(archive_dir, "index.json")
+    dates = []
+    if os.path.exists(index_path):
+        try:
+            with open(index_path, encoding="utf-8") as f:
+                dates = json.load(f)
+        except Exception:
+            dates = []
+    if today not in dates:
+        dates.append(today)
+    dates = sorted(set(dates), reverse=True)
+    with open(index_path, "w", encoding="utf-8") as f:
+        json.dump(dates, f, ensure_ascii=False, indent=2)
+    print(f"archived -> {arc_path} (index {len(dates)}일)", flush=True)
+
 
 if __name__ == "__main__":
     main()

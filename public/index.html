@@ -1908,6 +1908,9 @@
       await loadIntradayData(date);
       renderWatchTable();
       await updateWatchAsof(date);
+
+      // 투자주의/경고도 같은 날짜로 연동
+      loadInvWarn(date);
       const logsBox = document.getElementById("logs-box");
       const time = new Date().toTimeString().split(" ")[0];
       const label = (date === "today") ? "최신 리포트" : `${date} 리포트`;
@@ -2593,8 +2596,8 @@
       }
       // VI/상하한가 탭으로 전환 시 최신 데이터 즉시 갱신
       if (tab === "vi" || tab === "limit") loadViLimit();
-      // 투자주의/경고 탭: 정적 JSON 1회 로드
-      if (tab === "invwarn") loadInvWarn();
+      // 투자주의/경고 탭: 현재 '리포트 날짜' 기준으로 로드
+      if (tab === "invwarn") loadInvWarn(document.getElementById("report-date-select").value || "today");
     }
 
     // Open sliding side drawer for stock details.
@@ -3075,21 +3078,27 @@
     }
 
     // ===== 투자주의/경고/위험종목 (KIND 공시 정적 JSON, 탭 첫 진입 시 1회 로드) =====
-    let _invWarnLoaded = false;
-
     const _INVWARN_CAT = {
       caution: { label: "투자주의", color: "#f59e0b" },
       warning: { label: "투자경고", color: "var(--up-red)" },
       danger:  { label: "투자위험", color: "#ef4444" },
     };
 
-    async function loadInvWarn() {
-      if (_invWarnLoaded) return;
+    async function loadInvWarn(date) {
+      // 상단 '리포트 날짜' 연동. live(오늘)면 최신본, 과거면 날짜별 아카이브.
+      const live = (!date || date === "today");
       const asof = document.getElementById("invwarn-asof");
       const tb   = document.getElementById("invwarn-tbody");
+      const url  = live ? "/data/investment_warning.json"
+                        : `/reports/invwarn/${date}.json`;
       try {
-        const r = await fetch("/data/investment_warning.json?t=" + Date.now(), { cache: "no-store" });
-        if (!r.ok) throw new Error("HTTP " + r.status);
+        const r = await fetch(url + "?t=" + Date.now(), { cache: "no-store" });
+        if (!r.ok) {
+          // 과거 날짜에 투자주의 데이터 없음(아카이브 시작 이전)
+          if (asof) asof.innerText = "해당 날짜 데이터 없음";
+          if (tb) tb.innerHTML = `<tr><td colspan="6" class="analysis-empty">해당 날짜의 투자주의/경고 데이터가 없습니다.</td></tr>`;
+          return;
+        }
         const d = await r.json();
 
         // 주의 → 경고 → 위험 순으로 한 테이블에 통합. 각 항목에 _cat 부여.
@@ -3103,7 +3112,6 @@
 
         if (!items.length) {
           tb.innerHTML = `<tr><td colspan="6" class="analysis-empty">현재 지정된 K200/KQ150 종목이 없습니다.</td></tr>`;
-          _invWarnLoaded = true;
           return;
         }
 
@@ -3140,8 +3148,6 @@
             <td style="font-size:0.8rem;">${it.date || "—"}</td>
           </tr>`;
         }).join("");
-
-        _invWarnLoaded = true;
       } catch (e) {
         if (asof) asof.innerText = "데이터 로드 실패";
         if (tb) tb.innerHTML = `<tr><td colspan="6" class="analysis-empty">데이터 로드 실패</td></tr>`;
