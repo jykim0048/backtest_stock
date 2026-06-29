@@ -47,7 +47,7 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add public/reports/
           git diff --staged --quiet && exit 0
-          git commit -m "chore: archive report $(TZ=Asia/Seoul date +'%Y-%m-%d')"
+          git commit -m "chore: archive report $(TZ=Asia/Seoul date +'%Y-%m-%d') [skip railway]"
           # Remote may have advanced; push, and on rejection rebase and retry.
           for i in $(seq 1 5); do
             if git push origin HEAD:main; then echo "pushed (attempt $i)"; exit 0; fi

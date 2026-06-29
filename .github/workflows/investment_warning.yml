@@ -38,7 +38,7 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add public/data/investment_warning.json public/reports/invwarn/ public/data/debug_kind_*.txt 2>/dev/null || true
           git diff --staged --quiet && echo "No changes to commit" && exit 0
-          git commit -m "chore: update investment warning list $(date +'%Y-%m-%d')"
+          git commit -m "chore: update investment warning list $(date +'%Y-%m-%d') [skip railway]"
           for i in $(seq 1 5); do
             if git push origin HEAD:main; then echo "pushed (attempt $i)"; exit 0; fi
             echo "push rejected; rebasing..."
