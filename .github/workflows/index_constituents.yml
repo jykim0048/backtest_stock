@@ -3,10 +3,9 @@ name: Index Constituents Update
 # 코스피200·코스닥150 정기변경(6·12월 둘째 금요일 다음 영업일)에 맞춰 갱신.
 # pykrx(data.krx.co.kr) 가 Actions 해외 IP 에서 차단될 수 있어 우선 수동 검증.
 on:
+  # 정기 실행은 Railway 스케줄러(railway_server._scheduler)가 6·12월 16일 07:00 KST 에
+  # workflow_dispatch 로 트리거한다. GitHub 자체 schedule 은 드롭이 잦아 제거했다.
   workflow_dispatch:
-  schedule:
-    # 6월·12월 셋째 월요일 무렵 07:00 KST (= UTC 22:00 전날). 정기변경 반영 후.
-    - cron: '0 22 14-20 6,12 *'
 
 concurrency:
   group: report-push

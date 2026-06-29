@@ -4,11 +4,9 @@ name: Build DART Corp Map
 # 클라우드 러너에는 사내 SSL 인터셉션/약한 DH 문제가 없어 우회 없이 평범한 requests 로 동작한다
 # (로컬 PC 에선 막혀서 일회성 우회로 만들었었음 — 이제 이 워크플로로 대체).
 on:
-  workflow_dispatch:        # 신규상장/폐지 등으로 갱신이 필요할 때 수동 실행(기본 사용법)
-  schedule:
-    # 월 1회 자동 갱신(보조). 매월 1일 UTC 18:13 = KST 2일 03:13. 정시·혼잡 회피용 odd-minute.
-    # corp map 은 시각 민감도가 없어 schedule 지연이 무관하다. 변경 없으면 커밋하지 않는다.
-    - cron: '13 18 1 * *'
+  # 정기 실행은 Railway 스케줄러(railway_server._scheduler)가 매월 2일 03:13 KST 에
+  # workflow_dispatch 로 트리거한다. GitHub 자체 schedule 은 드롭이 잦아 제거했다.
+  workflow_dispatch:        # 수동 실행(신규상장/폐지 시) + Railway 스케줄러 트리거 진입점
 
 # corp map push 는 자체 그룹으로 직렬화(다른 자동 커밋과 레이스 방지).
 concurrency:

@@ -1,11 +1,9 @@
 name: Investment Warning Update
 
 on:
-  workflow_dispatch:
-  # 07:50 KST (= UTC 22:50 전날) 평일 실행. 장전에 미리 갱신.
-  # 1~3h 지연 허용 — 일간 데이터라 정확한 시각이 불필요.
-  schedule:
-    - cron: '50 22 * * 0-4'  # UTC Sun-Thu 22:50 = KST Mon-Fri 07:50
+  # 정기 실행은 Railway 상시 서버 스케줄러(railway_server._scheduler)가 평일 07:50 KST 에
+  # workflow_dispatch 로 트리거한다. GitHub 자체 schedule 은 1~3h 지연·드롭이 잦아 제거했다.
+  workflow_dispatch: # 수동 실행 + Railway 스케줄러 트리거 진입점
 
 concurrency:
   group: report-push

@@ -299,6 +299,9 @@ GH_TOKEN = os.environ.get("GH_DISPATCH_TOKEN", "")
 
 DAILY_WF     = "daily_report.yml"
 INTRADAY_WF  = "intraday_screener.yml"
+INVWARN_WF   = "investment_warning.yml"
+CORPMAP_WF   = "build_corp_map.yml"
+INDEXCON_WF  = "index_constituents.yml"
 INTRADAY_MIN = {7, 37}            # KST 09:07~14:37, 30분 간격 (장 마감 전후 회차 제외)
 
 
@@ -339,10 +342,24 @@ def _scheduler():
                     key = (today, "daily")
                     if key not in fired and _dispatch(DAILY_WF):
                         fired.add(key)
+                if now.hour == 7 and now.minute == 50:           # 투자주의/경고 07:50 KST
+                    key = (today, "invwarn")
+                    if key not in fired and _dispatch(INVWARN_WF):
+                        fired.add(key)
                 if 9 <= now.hour <= 14 and now.minute in INTRADAY_MIN:   # 장중 09:07~14:37
                     key = (today, f"intraday-{now.hour:02d}{now.minute:02d}")
                     if key not in fired and _dispatch(INTRADAY_WF):
                         fired.add(key)
+            # 평일 무관(시각 민감도 낮음) — 월 1회 / 반기
+            if now.day == 2 and now.hour == 3 and now.minute == 13:       # 매월 2일 03:13 corp map
+                key = (today, "corpmap")
+                if key not in fired and _dispatch(CORPMAP_WF):
+                    fired.add(key)
+            if now.month in (6, 12) and now.day == 16 and \
+               now.hour == 7 and now.minute == 0:                          # 6·12월 16일 07:00 반기 지수구성
+                key = (today, "indexcon")
+                if key not in fired and _dispatch(INDEXCON_WF):
+                    fired.add(key)
         except Exception as e:
             print(f"[sched] loop error: {e}", file=sys.stderr, flush=True)
         time.sleep(20)
