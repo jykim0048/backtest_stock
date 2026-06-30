@@ -265,11 +265,12 @@ def _parse_excel(data: bytes) -> list:
 # 투자경고(제3조의3⑤)·투자위험(제3조의4⑤): 지정일부터 10매매거래일 경과 후,
 #   아래 '유지조건'이 깨지면 다음 매매거래일 해제.
 #
-# 해제기준가(release_price) = 15일 최고가선 = 직전 15거래일 종가의 최고값.
+# 해제기준가(release_price) = 15일 최고가선 = 직전 14거래일(전일까지) 종가의 최고값.
 #   규정 제1항 모든 주요 지정 호(1~5·8·9호)의 '나목'은 공통으로
 #   "당일 종가가 최근 15일 중 최고가" → 지정경로(호)와 무관하게,
 #   당일 종가가 이 선 미만(=15일 신고가 미갱신)이면 가격요건 충족.
 #   종가가 release_price 미만 + 10매매거래일 경과 시 해제요건 충족.
+#   * '당일(오늘 날짜)' 실시간 바는 제외하되 전일까지의 완료 종가는 반영한다.
 #
 #   ※ 5·15일 상승선(5일전×1.6, 15일전×2.0)은 1·2호 경로 전용 기준이라
 #     호를 모르면 부정확(다른 호로 지정된 종목엔 과대 산출)하므로
@@ -390,15 +391,24 @@ def _compute_release(rows: list, category: str, today: str) -> None:
             if prev_close is not None:
                 r["designate_price"] = int(round(prev_close))
 
-            high15_line = max(closes[-15:-1])           # 직전 15거래일 최고 종가
-            rise5_line  = closes[-6]  * 1.60            # 5거래일 전 × 1.60 (참고)
-            rise15_line = closes[-16] * 2.00            # 15거래일 전 × 2.00 (참고)
-            rise_line   = min(rise5_line, rise15_line)  # 1·2호 경로 참고값
+            # '완료된' 종가만 사용 — 당일(오늘 날짜) 바는 제외해 실시간 가격은 반영하지
+            # 않되, 전일까지의 종가는 모두 반영. (장전 07:50 실행이면 전일이 최신 완료 종가)
+            cc = [cl for dt, cl in zip(dates, closes) if dt < today]
+            if len(cc) < 15:
+                print(f"  [release] {ticker} 완료 종가 부족({len(cc)}건)",
+                      file=sys.stderr)
+                continue
 
-            # 해제기준가 = 15일 최고가선 (지정경로 무관 공통 나목). 상승률선은 참고만.
+            # 해제기준가 = 15일 최고가선 = 직전 14거래일(전일 포함) 최고 종가.
+            #   지정경로 무관 공통 나목("당일 종가가 최근 15일 중 최고가") 기준.
+            high15_line = max(cc[-14:])
             r["release_high15"] = int(round(high15_line))
-            r["release_rise"]   = int(round(rise_line))
             r["release_price"]  = int(round(high15_line))
+
+            # 상승률선(1·2호 경로 참고값) — 해제기준가엔 미반영, 데이터 충분 시만
+            if len(cc) >= 16:
+                rise_line = min(cc[-6] * 1.60, cc[-16] * 2.00)
+                r["release_rise"] = int(round(rise_line))
         except Exception as e:
             print(f"  [release] {ticker} 계산 실패: {e}", file=sys.stderr)
 
