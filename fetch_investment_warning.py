@@ -265,13 +265,15 @@ def _parse_excel(data: bytes) -> list:
 # 투자경고(제3조의3⑤)·투자위험(제3조의4⑤): 지정일부터 10매매거래일 경과 후,
 #   아래 '유지조건'이 깨지면 다음 매매거래일 해제.
 #
-# 유지조건(표준 1·2호 지정경로 가정 — KIND가 정확한 지정 호를 노출하지 않음):
-#   당일 종가가 [최근 15일 중 최고가]  AND  (최근5일 상승률 ≥ 60%  OR  최근15일 상승률 ≥ 100%)
-# → 해제기준가(release_price) = max( 15일최고가선,  min(5일상승선, 15일상승선) )
-#   · 15일최고가선  = 직전 14거래일 종가의 최고값 (이하로 마감하면 '15일 최고가' 미갱신)
-#   · 5일상승선     = 5거래일 전 종가 × 1.60   (이 미만이면 5일 상승률 < 60%)
-#   · 15일상승선    = 15거래일 전 종가 × 2.00  (이 미만이면 15일 상승률 < 100%)
-#   종가가 release_price '미만'이고 10매매거래일 경과 시 해제요건 충족.
+# 해제기준가(release_price) = 15일 최고가선 = 직전 15거래일 종가의 최고값.
+#   규정 제1항 모든 주요 지정 호(1~5·8·9호)의 '나목'은 공통으로
+#   "당일 종가가 최근 15일 중 최고가" → 지정경로(호)와 무관하게,
+#   당일 종가가 이 선 미만(=15일 신고가 미갱신)이면 가격요건 충족.
+#   종가가 release_price 미만 + 10매매거래일 경과 시 해제요건 충족.
+#
+#   ※ 5·15일 상승선(5일전×1.6, 15일전×2.0)은 1·2호 경로 전용 기준이라
+#     호를 모르면 부정확(다른 호로 지정된 종목엔 과대 산출)하므로
+#     해제기준가에서 제외하고 release_rise 로 '참고값'만 남긴다.
 # 거래일 계산은 주말만 제외(공휴일 미반영) → release_date 는 '추정'.
 
 
@@ -296,9 +298,9 @@ def _compute_release(rows: list, category: str, today: str) -> None:
       release_type   "auto"(주의) | "cond"(경고·위험)
       release_date   해제(예정) 최소일 — 주의=익일, 경고·위험=지정일+10매매거래일(추정)
       release_passed 10매매거래일 경과 여부(경고·위험만 의미)
-      release_price  해제기준가(경고·위험) — 종가가 이 값 미만이면 가격요건 충족
-      release_high15 15일 최고가선(참고)
-      release_rise   상승률선(참고, 5·15일 중 낮은 선)
+      release_price  해제기준가(경고·위험) = 15일 최고가선. 종가 < 이 값이면 가격요건 충족
+      release_high15 15일 최고가선(= release_price, 참고)
+      release_rise   상승률선(1·2호 경로 참고값, 해제기준가엔 미반영)
     """
     # 투자주의: 1일 효력 → 익일 자동 해제. 가격요건 없음.
     if category == "caution":
@@ -337,15 +339,15 @@ def _compute_release(rows: list, category: str, today: str) -> None:
                 hist.columns = hist.columns.get_level_values(0)
             closes = [float(c) for c in hist["Close"].tolist()]
 
-            high15_line = max(closes[-15:-1])           # 직전 14거래일 최고 종가
-            rise5_line  = closes[-6]  * 1.60            # 5거래일 전 × 1.60
-            rise15_line = closes[-16] * 2.00            # 15거래일 전 × 2.00
-            rise_line   = min(rise5_line, rise15_line)  # OR 조건 → 낮은 선
-            release_price = max(high15_line, rise_line) # 둘 다 깨져야 해제 → 높은 선
+            high15_line = max(closes[-15:-1])           # 직전 15거래일 최고 종가
+            rise5_line  = closes[-6]  * 1.60            # 5거래일 전 × 1.60 (참고)
+            rise15_line = closes[-16] * 2.00            # 15거래일 전 × 2.00 (참고)
+            rise_line   = min(rise5_line, rise15_line)  # 1·2호 경로 참고값
 
+            # 해제기준가 = 15일 최고가선 (지정경로 무관 공통 나목). 상승률선은 참고만.
             r["release_high15"] = int(round(high15_line))
             r["release_rise"]   = int(round(rise_line))
-            r["release_price"]  = int(round(release_price))
+            r["release_price"]  = int(round(high15_line))
         except Exception as e:
             print(f"  [release] {ticker} 계산 실패: {e}", file=sys.stderr)
 
