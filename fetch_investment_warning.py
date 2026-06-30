@@ -274,11 +274,44 @@ def _parse_excel(data: bytes) -> list:
 #   ※ 5·15일 상승선(5일전×1.6, 15일전×2.0)은 1·2호 경로 전용 기준이라
 #     호를 모르면 부정확(다른 호로 지정된 종목엔 과대 산출)하므로
 #     해제기준가에서 제외하고 release_rise 로 '참고값'만 남긴다.
-# 거래일 계산은 주말만 제외(공휴일 미반영) → release_date 는 '추정'.
+# 거래일 계산은 KRX 공식 캘린더(exchange_calendars XKRX)로 공휴일·대체공휴일·
+# 연말 폐장일까지 반영. 캘린더 로드 실패 시에만 주말 기준으로 폴백한다.
+
+_KRX_CAL = None   # XKRX 캘린더 캐시 (None=미시도, False=로드실패)
+
+
+def _krx_cal():
+    global _KRX_CAL
+    if _KRX_CAL is None:
+        try:
+            import exchange_calendars as xcals
+            _KRX_CAL = xcals.get_calendar("XKRX")
+        except Exception as e:
+            print(f"  [cal] XKRX 캘린더 로드 실패, 주말 기준 폴백: {e}",
+                  file=sys.stderr)
+            _KRX_CAL = False
+    return _KRX_CAL
 
 
 def _add_trading_days(start_str: str, n: int) -> str:
-    """start_str(매매거래일) 로부터 n 매매거래일 뒤 날짜(ISO). 주말만 제외(추정)."""
+    """start_str(매매거래일) 로부터 n 매매거래일 뒤 날짜(ISO).
+
+    KRX 공휴일·대체공휴일·폐장일을 반영(XKRX). start_str 이 거래일이면
+    그날을 0번째로 보고 n번째 거래일(배타적)을 반환 — 주말 기준 셈과 동일 의미.
+    """
+    cal = _krx_cal()
+    if cal:
+        try:
+            import pandas as pd
+            end = (pd.Timestamp(start_str)
+                   + pd.Timedelta(days=n * 2 + 40)).strftime("%Y-%m-%d")
+            sess = cal.sessions_in_range(start_str, end)
+            if len(sess) > n:
+                return sess[n].strftime("%Y-%m-%d")
+        except Exception as e:
+            print(f"  [cal] {start_str}+{n} 계산 실패, 폴백: {e}",
+                  file=sys.stderr)
+    # 폴백: 주말만 제외
     try:
         d = datetime.date.fromisoformat(start_str)
     except Exception:
@@ -286,7 +319,7 @@ def _add_trading_days(start_str: str, n: int) -> str:
     added = 0
     while added < n:
         d += datetime.timedelta(days=1)
-        if d.weekday() < 5:            # 월~금 (공휴일 미반영)
+        if d.weekday() < 5:
             added += 1
     return d.isoformat()
 
@@ -298,9 +331,10 @@ def _compute_release(rows: list, category: str, today: str) -> None:
       release_type   "auto"(주의) | "cond"(경고·위험)
       release_date   해제(예정) 최소일 — 주의=익일, 경고·위험=지정일+10매매거래일(추정)
       release_passed 10매매거래일 경과 여부(경고·위험만 의미)
-      release_price  해제기준가(경고·위험) = 15일 최고가선. 종가 < 이 값이면 가격요건 충족
-      release_high15 15일 최고가선(= release_price, 참고)
-      release_rise   상승률선(1·2호 경로 참고값, 해제기준가엔 미반영)
+      release_price   해제기준가(경고·위험) = 15일 최고가선. 종가 < 이 값이면 가격요건 충족
+      release_high15  15일 최고가선(= release_price, 참고)
+      release_rise    상승률선(1·2호 경로 참고값, 해제기준가엔 미반영)
+      designate_price 지정가격 = 지정일 종가(KIND 미제공 → yfinance 종가). 당일지정은 None
     """
     # 투자주의: 1일 효력 → 익일 자동 해제. 가격요건 없음.
     if category == "caution":
@@ -338,6 +372,13 @@ def _compute_release(rows: list, category: str, today: str) -> None:
             if isinstance(hist.columns, pd.MultiIndex):
                 hist.columns = hist.columns.get_level_values(0)
             closes = [float(c) for c in hist["Close"].tolist()]
+            dates  = [d.strftime("%Y-%m-%d") for d in hist.index]
+
+            # 지정가격 = 지정일 종가 (KIND 미제공 → yfinance 종가로 대체).
+            # 당일 지정(장중·장 마감 전)이면 hist 에 없어 None.
+            dprice = dict(zip(dates, closes)).get(r.get("date", ""))
+            if dprice is not None:
+                r["designate_price"] = int(round(dprice))
 
             high15_line = max(closes[-15:-1])           # 직전 15거래일 최고 종가
             rise5_line  = closes[-6]  * 1.60            # 5거래일 전 × 1.60 (참고)

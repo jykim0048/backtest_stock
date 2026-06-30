@@ -25,7 +25,7 @@ jobs:
           python-version: '3.11'
 
       - name: Install dependencies
-        run: pip install requests beautifulsoup4 openpyxl yfinance pandas
+        run: pip install requests beautifulsoup4 openpyxl yfinance pandas exchange_calendars
 
       - name: Fetch investment warning/caution data from KIND
         env:
