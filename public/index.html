@@ -1459,7 +1459,7 @@
               <th>종목</th>
               <th style="width:104px;text-align:right;">현재가</th>
               <th style="width:80px;text-align:right;">등락률</th>
-              <th style="width:104px;" title="지정일 및 지정가격(=지정일 종가). KIND가 지정가격을 제공하지 않아 지정일 종가로 대체. 당일 지정 종목은 장 마감 후 반영.">지정일 ⓘ</th>
+              <th style="width:104px;" title="지정일 및 지정 기준가. 규정엔 '지정가격' 개념이 없고 모든 주가는 종가 기준(제3조의7④). 지정은 조건충족 '당일'의 다음 매매거래일부터이므로, 비교시점인 지정일 전일 종가를 지정 기준가로 표시(제3조의5·6의 거래정지 판단도 '지정일 전일' 기준).">지정일 ⓘ</th>
               <th style="width:140px;text-align:right;"
                   title="15일 최고가선 = 직전 15거래일 최고 종가. 종가가 이 값 미만(=15일 신고가 미갱신)으로 마감하면 가격요건 충족. 규정상 모든 지정 호(號)의 공통 기준이라 지정경로와 무관. 추정치.">해제 기준가 ⓘ</th>
               <th style="width:120px;"
@@ -1470,7 +1470,8 @@
           <p class="board-subtitle" style="margin:6px 2px 0;font-size:11px;line-height:1.5;">
             ※ 시장감시규정 시행세칙 제3조의3·3조의4 기준 <b>추정치</b>입니다. 투자주의는 1일 효력(익일 자동해제),
             투자경고·위험은 <b>지정일+10매매거래일</b>(KRX 공휴일 반영) 경과 후 종가가 <b>해제 기준가 미만</b>이면 다음 매매거래일에 해제됩니다.
-            지정가격은 KIND 미제공으로 <b>지정일 종가</b>로 대체했으며, 정확한 지정 호(號)는 미반영되어 실제와 차이가 있을 수 있습니다.
+            모든 주가는 <b>종가 기준</b>(제3조의7④)이며, 규정엔 '지정가격' 개념이 없어 비교시점인 <b>지정일 전일 종가</b>를 지정 기준가로 표시했습니다.
+            정확한 지정 호(號)는 미반영되어 실제와 차이가 있을 수 있습니다.
           </p>
         </div>
       </section>
@@ -3188,7 +3189,7 @@
             </td>
             <td style="text-align:right;">${price}</td>
             <td style="text-align:right;color:${rcol};">${rate}</td>
-            <td style="font-size:0.8rem;white-space:nowrap;">${it.date || "—"}${it.designate_price ? `<div style="color:var(--text-muted);font-size:11px;">지정가 ${it.designate_price.toLocaleString()}원</div>` : ""}</td>
+            <td style="font-size:0.8rem;white-space:nowrap;">${it.date || "—"}${it.designate_price ? `<div style="color:var(--text-muted);font-size:11px;">지정기준가 ${it.designate_price.toLocaleString()}원</div>` : ""}</td>
             <td style="text-align:right;font-size:0.82rem;white-space:nowrap;">${relPrice}</td>
             <td style="font-size:0.8rem;white-space:nowrap;">${relDate}</td>
           </tr>`;

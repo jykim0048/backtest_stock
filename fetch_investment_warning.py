@@ -334,7 +334,7 @@ def _compute_release(rows: list, category: str, today: str) -> None:
       release_price   해제기준가(경고·위험) = 15일 최고가선. 종가 < 이 값이면 가격요건 충족
       release_high15  15일 최고가선(= release_price, 참고)
       release_rise    상승률선(1·2호 경로 참고값, 해제기준가엔 미반영)
-      designate_price 지정가격 = 지정일 종가(KIND 미제공 → yfinance 종가). 당일지정은 None
+      designate_price 지정 기준가 = 지정일 '전일' 종가(규정상 종가 기준·비교시점). yfinance
     """
     # 투자주의: 1일 효력 → 익일 자동 해제. 가격요건 없음.
     if category == "caution":
@@ -374,11 +374,21 @@ def _compute_release(rows: list, category: str, today: str) -> None:
             closes = [float(c) for c in hist["Close"].tolist()]
             dates  = [d.strftime("%Y-%m-%d") for d in hist.index]
 
-            # 지정가격 = 지정일 종가 (KIND 미제공 → yfinance 종가로 대체).
-            # 당일 지정(장중·장 마감 전)이면 hist 에 없어 None.
-            dprice = dict(zip(dates, closes)).get(r.get("date", ""))
-            if dprice is not None:
-                r["designate_price"] = int(round(dprice))
+            # 지정 기준가 = 지정일 '전일' 종가.
+            #   규정엔 '지정가격' 개념이 없고 모든 주가는 종가 기준(제3조의7④).
+            #   투자경고/위험은 조건 충족 '당일'의 다음 매매거래일부터 지정되므로
+            #   지정일 전일 종가 = 조건 확정(비교시점) 종가 = 지정 기준 종가.
+            #   (제3조의5·6 의 거래정지 판단도 '지정일 전일 주가' 기준)
+            #   당일 지정 종목도 전일 종가는 존재 → 항상 산출 가능.
+            ddate = r.get("date", "")
+            prev_close = None
+            for dt, cl in zip(dates, closes):    # dates 오름차순
+                if dt < ddate:
+                    prev_close = cl
+                else:
+                    break
+            if prev_close is not None:
+                r["designate_price"] = int(round(prev_close))
 
             high15_line = max(closes[-15:-1])           # 직전 15거래일 최고 종가
             rise5_line  = closes[-6]  * 1.60            # 5거래일 전 × 1.60 (참고)
