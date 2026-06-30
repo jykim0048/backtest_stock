@@ -1455,15 +1455,23 @@
           </div>
           <table class="stocks-table invwarn-table">
             <thead><tr>
-              <th style="width:88px;">구분</th>
+              <th style="width:84px;">구분</th>
               <th>종목</th>
-              <th style="width:110px;text-align:right;">현재가</th>
-              <th style="width:92px;text-align:right;">등락률</th>
-              <th style="width:30%;">지정사유</th>
-              <th style="width:104px;">지정일</th>
+              <th style="width:104px;text-align:right;">현재가</th>
+              <th style="width:80px;text-align:right;">등락률</th>
+              <th style="width:96px;">지정일</th>
+              <th style="width:140px;text-align:right;"
+                  title="종가가 이 가격 미만으로 마감하면 가격요건 충족. = max(직전 15거래일 최고가선, 5일 상승선·15일 상승선 중 낮은 값). 표준 지정경로 가정·추정치.">해제 기준가 ⓘ</th>
+              <th style="width:120px;"
+                  title="투자주의=익일 자동해제. 투자경고·위험=지정일+10매매거래일(주말만 제외한 추정). 이 날 이후 가격요건 충족 시 다음 매매거래일 해제.">해제 가능최소일 ⓘ</th>
             </tr></thead>
             <tbody id="invwarn-tbody"></tbody>
           </table>
+          <p class="board-subtitle" style="margin:6px 2px 0;font-size:11px;line-height:1.5;">
+            ※ 시장감시규정 시행세칙 제3조의3·3조의4 기준 <b>추정치</b>입니다. 투자주의는 1일 효력(익일 자동해제),
+            투자경고·위험은 <b>지정일+10매매거래일</b> 경과 후 종가가 <b>해제 기준가 미만</b>이면 다음 매매거래일에 해제됩니다.
+            공휴일·정확한 지정 호(號)는 미반영되어 실제와 차이가 있을 수 있습니다.
+          </p>
         </div>
       </section>
 
@@ -3096,7 +3104,7 @@
         if (!r.ok) {
           // 과거 날짜에 투자주의 데이터 없음(아카이브 시작 이전)
           if (asof) asof.innerText = "해당 날짜 데이터 없음";
-          if (tb) tb.innerHTML = `<tr><td colspan="6" class="analysis-empty">해당 날짜의 투자주의/경고 데이터가 없습니다.</td></tr>`;
+          if (tb) tb.innerHTML = `<tr><td colspan="7" class="analysis-empty">해당 날짜의 투자주의/경고 데이터가 없습니다.</td></tr>`;
           return;
         }
         const d = await r.json();
@@ -3111,7 +3119,7 @@
           ? `갱신 ${d.updated} · ${items.length}건` : `${items.length}건`;
 
         if (!items.length) {
-          tb.innerHTML = `<tr><td colspan="6" class="analysis-empty">현재 지정된 K200/KQ150 종목이 없습니다.</td></tr>`;
+          tb.innerHTML = `<tr><td colspan="7" class="analysis-empty">현재 지정된 K200/KQ150 종목이 없습니다.</td></tr>`;
           return;
         }
 
@@ -3130,27 +3138,64 @@
         tb.innerHTML = items.map(it => {
           const c = _INVWARN_CAT[it._cat] || { label: it._cat, color: "var(--text-muted)" };
           const s = q[it.code];
-          const price = s ? Number(s.price).toLocaleString() + "원" : "—";
+          const cur   = s ? Number(s.price) : null;
+          const price = s ? cur.toLocaleString() + "원" : "—";
           const rate  = s ? (s.rate >= 0 ? "+" : "") + s.rate.toFixed(2) + "%" : "—";
           const rcol  = s ? (s.rate >= 0 ? "var(--up-red)" : "var(--down-blue)") : "var(--text-muted)";
-          // 지정사유는 투자주의만 표시(경고/위험은 공란)
-          const reason = it._cat === "caution" ? (it.reason || "—") : "";
+          // 지정사유: 투자주의만 의미(경고/위험은 공란) → 종목 하위에 작게 표기
+          const reason = it._cat === "caution" && it.reason ? it.reason : "";
+
+          // 해제 기준가 셀 (경고·위험만 가격요건, 주의는 익일 자동해제)
+          let relPrice;
+          const rp = it.release_price;
+          if (it.release_type === "auto" || rp == null) {
+            relPrice = `<span style="color:var(--text-muted);">—</span>`;
+          } else {
+            let sub = "";
+            if (cur != null) {
+              if (cur < rp) {
+                sub = `<div style="color:var(--down-blue);font-size:11px;">✓ 가격요건 충족</div>`;
+              } else {
+                const gap = ((cur - rp) / rp) * 100;
+                sub = `<div style="color:var(--text-muted);font-size:11px;">▼${gap.toFixed(1)}% 하락 시</div>`;
+              }
+            }
+            relPrice = `${rp.toLocaleString()}원${sub}`;
+          }
+
+          // 해제 가능최소일 셀 (release_type 없는 구형 데이터는 _cat 으로 보정)
+          let relDate;
+          const rtype = it.release_type || (it._cat === "caution" ? "auto" : "cond");
+          if (!it.release_date) {
+            relDate = `<span style="color:var(--text-muted);">—</span>`;
+          } else if (rtype === "auto") {
+            relDate = `${it.release_date}`
+              + `<div style="color:var(--text-muted);font-size:11px;">익일 자동</div>`;
+          } else {
+            const tag = it.release_passed
+              ? `<span style="color:var(--up-red);">10일 경과</span>`
+              : `<span style="color:var(--text-muted);">경과 전</span>`;
+            relDate = `${it.release_date}`
+              + `<div style="font-size:11px;">${tag}</div>`;
+          }
+
           return `<tr>
             <td><span class="rate-badge" style="background:${c.color};color:#fff;">${c.label}</span></td>
             <td>
               <span class="stock-name" style="cursor:pointer;color:var(--accent-teal);"
                     onclick="odRunCode('${it.code}')">${it.name}</span>
-              <div style="color:var(--text-muted);font-size:11px;">${it.code}${it.index ? " · " + it.index : ""}</div>
+              <div style="color:var(--text-muted);font-size:11px;">${it.code}${it.index ? " · " + it.index : ""}${reason ? " · " + reason : ""}</div>
             </td>
             <td style="text-align:right;">${price}</td>
             <td style="text-align:right;color:${rcol};">${rate}</td>
-            <td style="font-size:0.8rem;color:var(--text-muted);">${reason}</td>
-            <td style="font-size:0.8rem;">${it.date || "—"}</td>
+            <td style="font-size:0.8rem;white-space:nowrap;">${it.date || "—"}</td>
+            <td style="text-align:right;font-size:0.82rem;white-space:nowrap;">${relPrice}</td>
+            <td style="font-size:0.8rem;white-space:nowrap;">${relDate}</td>
           </tr>`;
         }).join("");
       } catch (e) {
         if (asof) asof.innerText = "데이터 로드 실패";
-        if (tb) tb.innerHTML = `<tr><td colspan="6" class="analysis-empty">데이터 로드 실패</td></tr>`;
+        if (tb) tb.innerHTML = `<tr><td colspan="7" class="analysis-empty">데이터 로드 실패</td></tr>`;
         console.error("loadInvWarn:", e);
       }
     }

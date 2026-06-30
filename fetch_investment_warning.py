@@ -259,6 +259,97 @@ def _parse_excel(data: bytes) -> list:
     return rows
 
 
+# -- 지정해제 요건 계산 (시장감시규정 시행세칙 제3조의3·3조의4) -----------------
+#
+# 투자주의(제3조): 1매매거래일 단발 지정 → 다음 매매거래일 자동 해제(가격요건 없음).
+# 투자경고(제3조의3⑤)·투자위험(제3조의4⑤): 지정일부터 10매매거래일 경과 후,
+#   아래 '유지조건'이 깨지면 다음 매매거래일 해제.
+#
+# 유지조건(표준 1·2호 지정경로 가정 — KIND가 정확한 지정 호를 노출하지 않음):
+#   당일 종가가 [최근 15일 중 최고가]  AND  (최근5일 상승률 ≥ 60%  OR  최근15일 상승률 ≥ 100%)
+# → 해제기준가(release_price) = max( 15일최고가선,  min(5일상승선, 15일상승선) )
+#   · 15일최고가선  = 직전 14거래일 종가의 최고값 (이하로 마감하면 '15일 최고가' 미갱신)
+#   · 5일상승선     = 5거래일 전 종가 × 1.60   (이 미만이면 5일 상승률 < 60%)
+#   · 15일상승선    = 15거래일 전 종가 × 2.00  (이 미만이면 15일 상승률 < 100%)
+#   종가가 release_price '미만'이고 10매매거래일 경과 시 해제요건 충족.
+# 거래일 계산은 주말만 제외(공휴일 미반영) → release_date 는 '추정'.
+
+
+def _add_trading_days(start_str: str, n: int) -> str:
+    """start_str(매매거래일) 로부터 n 매매거래일 뒤 날짜(ISO). 주말만 제외(추정)."""
+    try:
+        d = datetime.date.fromisoformat(start_str)
+    except Exception:
+        return ""
+    added = 0
+    while added < n:
+        d += datetime.timedelta(days=1)
+        if d.weekday() < 5:            # 월~금 (공휴일 미반영)
+            added += 1
+    return d.isoformat()
+
+
+def _compute_release(rows: list, category: str, today: str) -> None:
+    """rows 각 항목에 해제요건 필드를 추가(best-effort, 실패해도 JSON 출력 유지).
+
+    추가 필드:
+      release_type   "auto"(주의) | "cond"(경고·위험)
+      release_date   해제(예정) 최소일 — 주의=익일, 경고·위험=지정일+10매매거래일(추정)
+      release_passed 10매매거래일 경과 여부(경고·위험만 의미)
+      release_price  해제기준가(경고·위험) — 종가가 이 값 미만이면 가격요건 충족
+      release_high15 15일 최고가선(참고)
+      release_rise   상승률선(참고, 5·15일 중 낮은 선)
+    """
+    # 투자주의: 1일 효력 → 익일 자동 해제. 가격요건 없음.
+    if category == "caution":
+        for r in rows:
+            r["release_type"] = "auto"
+            r["release_date"] = _add_trading_days(r.get("date", ""), 1)
+            r["release_passed"] = True
+            r["release_price"] = None
+        return
+
+    # 투자경고/위험: 종가 이력으로 해제기준가 + 10매매거래일 경과 판정.
+    try:
+        import yfinance as yf
+        import pandas as pd
+    except Exception as e:
+        print(f"  [release] yfinance/pandas 미설치 — 건너뜀: {e}",
+              file=sys.stderr)
+        return
+
+    for r in rows:
+        r["release_type"] = "cond"
+        r["release_date"] = _add_trading_days(r.get("date", ""), 10)
+        r["release_passed"] = bool(r["release_date"]) and today >= r["release_date"]
+        r["release_price"] = None
+        ticker = r.get("ticker", "")
+        if not ticker:
+            continue
+        try:
+            hist = yf.download(ticker, period="3mo", progress=False,
+                               auto_adjust=True)
+            if hist is None or len(hist) < 16:
+                print(f"  [release] {ticker} 데이터 부족({0 if hist is None else len(hist)}건)",
+                      file=sys.stderr)
+                continue
+            if isinstance(hist.columns, pd.MultiIndex):
+                hist.columns = hist.columns.get_level_values(0)
+            closes = [float(c) for c in hist["Close"].tolist()]
+
+            high15_line = max(closes[-15:-1])           # 직전 14거래일 최고 종가
+            rise5_line  = closes[-6]  * 1.60            # 5거래일 전 × 1.60
+            rise15_line = closes[-16] * 2.00            # 15거래일 전 × 2.00
+            rise_line   = min(rise5_line, rise15_line)  # OR 조건 → 낮은 선
+            release_price = max(high15_line, rise_line) # 둘 다 깨져야 해제 → 높은 선
+
+            r["release_high15"] = int(round(high15_line))
+            r["release_rise"]   = int(round(rise_line))
+            r["release_price"]  = int(round(release_price))
+        except Exception as e:
+            print(f"  [release] {ticker} 계산 실패: {e}", file=sys.stderr)
+
+
 # -- 디버그 저장 ---------------------------------------------------------------
 
 def _save_debug(key: str, content, limit: int = 8000):
@@ -409,6 +500,9 @@ def main():
 
             print(f"  -> [{category}] 전체 {total} -> 지수뱃지 {after_idx} "
                   f"-> 최종 {len(rows)}건", flush=True)
+
+            # ④ 지정해제 요건(해제기준가·해제가능최소일) 계산해 각 행에 추가
+            _compute_release(rows, category, today)
 
             result[category] = rows
         except Exception as e:
