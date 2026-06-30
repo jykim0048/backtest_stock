@@ -21,7 +21,7 @@
 <title>대한민국 대표 기업공시채널 KIND</title>
 <link rel="shortcut icon" href="../images/kind.ico" />
 <link rel="stylesheet" type="text/css" href="../js/jquery/themes-base/jquery-ui.min.css" media="all" />
-<link rel="stylesheet" type="text/css" href="../css/default_new.css" media="all" />
+<link rel="stylesheet" type="text/css" href="../css/default_new.css?version=20260630" media="all" />
 <link rel="stylesheet" type="text/css" href="../css/common.css?version=20251219" media="all" />
 <link rel="stylesheet" type="text/css" href="../css/style.css?version=20250509" media="all" />
 <link rel="stylesheet" type="text/css" href="../esg/notoSans.css?20240524" media="all" />
@@ -368,7 +368,24 @@
 								</DD>
 							</DL></nav>
 						</DIV>
-				<li><a href="/valueup/idx.do?method=valueupIdxMain" class="first">인덱스</a></li>
+				<li><a href="#" class="more">인덱스<span><img src="../images/common/bg_gnb_gmn2.gif" alt="메뉴 더보기"/></span></a></li>
+						<DIV id="sub" class="gnb1-wrapper">
+							<nav id="gnb1"><DL>
+							<DD>
+							<DIV class="lnb">
+								<DIV class="wrapper">
+									<A class="lmn" href="/valueup/idx.do?method=valueupIdxMain">코리아 밸류업 지수</A>
+									<A class="lmn" href="/valueup/sharpeidx.do?method=valueupSharpeIdxMain">K-샤프지수</A>									
+									<IMG class="arrow" src="../images/common/lnb_arrow_sub.png" />
+									<IMG class="tl" src="../images/common/lnb_tl.png" />
+									<IMG class="tr" src="../images/common/lnb_tr.png" />
+									<IMG class="bl" src="../images/common/lnb_bl.png" />
+									<IMG class="br" src="../images/common/lnb_br.png" /> 
+								</DIV>
+							</DIV>
+							</DD>
+							</DL></nav>
+						</DIV>
 			
 				<li><a href="/valueup/dividend.do?method=valueupHighDividendMain" class="first">고배당기업</a></li>
 				<li><a href="/valueup/excntcorp.do?method=valueupExcntCorpMain" class="first">밸류업 우수기업</a></li>
@@ -544,14 +561,4 @@
 				<!--<li><input type="checkbox" id="chkEdit43" name="checkboxMenu" value="JLDDST30200" /> <label for="chkEdit43">상장종목(신종증권)</label></li>-->
 			</ul>
 		</article>
-		<article class="list">
-			<h3>기업 밸류업 정보</h3>
-			<ul>	
-				<li><input type="checkbox" id="chkEdit44" name="checkboxMenu" value="ULDDST80100" /> <label for="chkEdit44">기업 밸류업 소개</label></li>
-				<li><input type="checkbox" id="chkEdit45" name="checkboxMenu" value="ULDDST80200" /> <label for="chkEdit45">공지사항</label></li>
-				<li><input type="checkbox" id="chkEdit46" name="checkboxMenu" value="ULDDST80300" /> <label for="chkEdit46">공시현황</label></li>
-								
-				<li><input type="checkbox" id="chkEdit47" name="checkboxMenu" value="ULDDST80400" /> <label for="chkEdit47">투자지표</label></li>
-			
-				<li><input type="checkbox" id="chkEdit48" name="checkboxMenu" value="ULDDST80500" /> <label for="chkEdit48">인덱스</label></li>
-				<li><input type="checkbox" id="chkEdit52" name="checkboxMenu" va
+		<article class=
