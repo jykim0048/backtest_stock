@@ -368,9 +368,39 @@
     .briefing-wl th { font-size: 11px; color: var(--text-muted); text-align: left; padding: 0 2px 5px; border-bottom: 1px solid var(--border-color); font-weight: 400; }
     .briefing-wl td { font-size: 12px; padding: 6px 2px; border-bottom: 1px solid rgba(255,255,255,.04); vertical-align: top; }
     .briefing-foot { font-size: 11px; color: var(--text-muted); text-align: right; margin-top: 10px; }
+    /* 브리핑 상단 섹터분석 카드(국면·센티먼트·섹터ETF) — 구 섹터탭에서 이관 */
+    .briefing-sectortop { display: flex; flex-direction: column; gap: 12px; margin-bottom: 12px; }
+    .briefing-sectorrow { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: start; }
+    .sector-card { background: rgba(15,23,42,.4); border: 1px solid var(--border-color); border-radius: 10px; padding: 13px 15px; }
+    .sector-card .sc-h { font-size: 13px; font-weight: 700; margin-bottom: 10px; display: flex; align-items: center; gap: 7px; }
+    .sector-card .sc-h .sc-tag { font-size: 10px; font-weight: 600; color: var(--text-muted); }
+    .sector-regime-badge { font-size: 12px; font-weight: 700; padding: 3px 11px; border-radius: 999px; }
+    .sector-summary { font-size: 11.5px; line-height: 1.65; color: #cbd5e1; margin-top: 8px; }
+    .sector-disclaimer { font-size: 10px; color: var(--text-muted); font-style: italic; margin-top: 4px; }
+    .sector-ind-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 7px; }
+    .sector-ind { background: rgba(255,255,255,.03); border-radius: 7px; padding: 7px 9px; }
+    .sector-ind .si-name { font-size: 10.5px; color: var(--text-muted); }
+    .sector-ind .si-val { font-size: 14px; font-weight: 700; margin-top: 2px; }
+    .sector-ind .si-prev { font-size: 10px; color: var(--text-muted); margin-top: 1px; }
+    .fg-gauge { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+    .fg-score { font-size: 40px; font-weight: 800; line-height: 1; }
+    .fg-rating { font-size: 13px; font-weight: 700; margin-top: 4px; }
+    .fg-bar { flex: 1; min-width: 180px; height: 10px; border-radius: 999px;
+      background: linear-gradient(90deg,#3b82f6 0%,#22d3ee 25%,#a3e635 50%,#fbbf24 75%,#ef4444 100%); position: relative; }
+    .fg-bar .fg-needle { position: absolute; top: -4px; width: 3px; height: 18px; background: #fff; border-radius: 2px; box-shadow: 0 0 4px #000; }
+    .fg-comps { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px,1fr)); gap: 6px; margin-top: 10px; }
+    .fg-comp { background: rgba(255,255,255,.03); border-radius: 6px; padding: 5px 7px; text-align: center; }
+    .fg-comp .fc-name { font-size: 9.5px; color: var(--text-muted); }
+    .fg-comp .fc-score { font-size: 13px; font-weight: 700; }
+    .sector-heat { display: grid; grid-template-columns: repeat(auto-fit, minmax(84px, 1fr)); gap: 5px; }
+    .sector-heat .sh-cell { border-radius: 7px; padding: 7px 4px; text-align: center; }
+    .sector-heat .sh-etf { font-size: 11px; font-weight: 700; }
+    .sector-heat .sh-name { font-size: 9px; color: rgba(255,255,255,.75); }
+    .sector-heat .sh-val { font-size: 12px; font-weight: 700; margin-top: 2px; }
     @media (max-width: 640px) {
       .flow-row { grid-template-columns: 1fr; }
       .flow-arrow { transform: rotate(90deg); margin: 2px 0; }
+      .briefing-sectorrow { grid-template-columns: 1fr; }
     }
 
     /* Core grid layout */
@@ -1934,7 +1964,14 @@
         if (!res.ok) { banner.style.display = "none"; return; }
         const data = await res.json();
         if (!data || !data.stance) { banner.style.display = "none"; return; }
-        renderBriefing(data);
+        // 섹터분석(국면·센티먼트·섹터ETF)도 함께 로드해 브리핑 상단에 얹는다(best-effort).
+        let sec = null;
+        try {
+          const sbase = live ? "sector_analysis.json" : `reports/sector/${date}.json`;
+          const sr = await fetch(`${sbase}?t=${Date.now()}`, { cache: "no-store" });
+          if (sr.ok) { const sj = await sr.json(); if (sj && sj.macro) sec = sj; }
+        } catch (_) {}
+        renderBriefing(data, sec);
         banner.style.display = "";
       } catch (_) {
         banner.style.display = "none";
@@ -1953,7 +1990,68 @@
         .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     }
 
-    function renderBriefing(d) {
+    // 섹터분석(구 섹터탭) 국면·센티먼트·섹터ETF 3카드를 브리핑 상단용 HTML로. sec 없으면 "".
+    function _sectorRegimeColor(r) {
+      return ({ "과열": "#ef4444", "확장": "#22c55e", "침체": "#3b82f6", "회복": "#fbbf24" })[r] || "var(--text-muted)";
+    }
+    function _sectorHeatBg(v) {
+      if (v == null) return "rgba(255,255,255,.04)";
+      const a = Math.min(Math.abs(v) / 20, 1) * 0.55 + 0.12;
+      return (v >= 0) ? `rgba(239,68,68,${a.toFixed(2)})` : `rgba(59,130,246,${a.toFixed(2)})`;
+    }
+    function _briefingSectorTop(sec) {
+      if (!sec || !sec.macro) return "";
+      const macro = sec.macro || {}, sent = sec.sentiment || {};
+      const inds = (macro.indicators || []).map(m => {
+        const unit = (m.unit && m.unit !== "idx" && m.unit !== "pt") ? m.unit : "";
+        const val = (m.latest == null) ? "—" : (Number(m.latest).toLocaleString() + unit);
+        const prev = (m.prev == null) ? "" : `전기 ${Number(m.prev).toLocaleString()}${unit}`;
+        return `<div class="sector-ind"><div class="si-name">${_brEsc(m.name)}</div>`
+             + `<div class="si-val">${val}</div><div class="si-prev">${_brEsc(prev)}</div></div>`;
+      }).join("");
+      const rc = _sectorRegimeColor(macro.regime);
+      const macroCard = `<div class="sector-card">
+        <div class="sc-h"><span class="sector-regime-badge" style="background:${rc}22;color:${rc};border:1px solid ${rc}">국면 · ${_brEsc(macro.regime || "—")}</span>
+        <span class="sc-tag">FRED 매크로</span></div>
+        <div class="sector-ind-grid">${inds || '<div class="board-subtitle">FRED 데이터 없음 (FRED_API_KEY 확인)</div>'}</div>
+        ${macro.summary ? `<div class="sector-summary">${_brEsc(macro.summary)}</div>`
+          : (macro.regimeReason ? `<div class="sector-summary">${_brEsc(macro.regimeReason)}</div>` : "")}
+        ${(macro.preferredSectors||[]).length ? `<div class="sector-summary">선호 섹터: ${(macro.preferredSectors||[]).map(_brEsc).join(" · ")}</div>` : ""}
+      </div>`;
+      const sc = sent.score;
+      const comps = (sent.components || []).map(c =>
+        `<div class="fg-comp"><div class="fc-name">${_brEsc(c.name)}</div>`
+        + `<div class="fc-score">${c.score == null ? "—" : c.score}</div></div>`).join("");
+      const fgCard = `<div class="sector-card">
+        <div class="sc-h">🌡️ 시장 센티먼트 <span class="sc-tag">${_brEsc(sent.source || "")}</span></div>
+        <div class="fg-gauge">
+          <div style="text-align:center;min-width:70px;">
+            <div class="fg-score" style="color:${sc==null?'var(--text-muted)':_brPctColor((sc-50))}">${sc==null?"—":sc}</div>
+            <div class="fg-rating">${_brEsc(sent.rating || "")}</div>
+          </div>
+          <div class="fg-bar">${sc==null?"":`<div class="fg-needle" style="left:calc(${Math.max(0,Math.min(100,sc))}% - 1.5px)"></div>`}</div>
+        </div>
+        ${comps ? `<div class="fg-comps">${comps}</div>` : ""}
+        ${sent.strategyHint ? `<div class="sector-summary">전략 힌트 · ${_brEsc(sent.strategyHint)}</div>` : ""}
+        ${sent.summary ? `<div class="sector-summary">${_brEsc(sent.summary)}</div>` : ""}
+        ${sent.note ? `<div class="sector-disclaimer">${_brEsc(sent.note)}</div>` : ""}
+      </div>`;
+      const heat = (sec.sectors || []).map(s => {
+        const v = s.ret3M;
+        return `<div class="sh-cell" style="background:${_sectorHeatBg(v)}">`
+          + `<div class="sh-etf">${_brEsc(s.etf)}</div><div class="sh-name">${_brEsc(s.name)}</div>`
+          + `<div class="sh-val">${v==null?"—":_brPctFmt(v)}</div></div>`;
+      }).join("");
+      const heatCard = `<div class="sector-card">
+        <div class="sc-h">📈 섹터 ETF 3개월 모멘텀 <span class="sc-tag">Yahoo Finance</span></div>
+        <div class="sector-heat">${heat || '<div class="board-subtitle">섹터 ETF 데이터 없음</div>'}</div>
+      </div>`;
+      return `<div class="briefing-sectortop">`
+           + `<div class="briefing-sectorrow">${macroCard}${heatCard}</div>`
+           + `${fgCard}</div>`;
+    }
+
+    function renderBriefing(d, sec) {
       const us = d.usMarket || {};
       const indices = us.indices || [];
       const sectors = us.sectors || [];
@@ -2050,6 +2148,7 @@
 
       document.getElementById("briefing-body").innerHTML = `
         <div class="briefing-reason">스탠스 근거 · ${_brEsc(d.stanceReason)}</div>
+        ${_briefingSectorTop(sec)}
         <div class="briefing-panel">
           <div class="briefing-sub"><span class="briefing-dot" style="background:var(--up-red)"></span>전일 미국장 리뷰</div>
           <div class="briefing-chips">${chips}</div>
