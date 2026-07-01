@@ -290,6 +290,82 @@
       color: var(--down-blue);
     }
 
+    /* 📰 모닝 브리핑 배너 (전일 미국장 리뷰 + 당일 한국시장 프리뷰) */
+    .briefing-banner {
+      background: var(--panel-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      margin-bottom: 30px;
+      overflow: hidden;
+      backdrop-filter: blur(10px);
+    }
+    .briefing-head {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 10px; padding: 13px 18px; cursor: pointer;
+      border-bottom: 1px solid var(--border-color);
+    }
+    .briefing-banner.collapsed .briefing-head { border-bottom: none; }
+    .briefing-head-left { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
+    .briefing-icon { font-size: 16px; }
+    .briefing-title { font-weight: 700; font-size: 15px; }
+    .briefing-badge {
+      background: var(--kospi-blue-dim); color: var(--kospi-blue);
+      font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 5px; letter-spacing: .5px;
+    }
+    .briefing-date { font-size: 11px; color: var(--text-muted); }
+    .briefing-head-right { display: flex; align-items: center; gap: 10px; }
+    .briefing-stance {
+      font-size: 12px; font-weight: 700; padding: 3px 11px; border-radius: 20px;
+      display: inline-flex; align-items: center; gap: 4px; border: 1px solid transparent;
+    }
+    .briefing-stance.on { background: var(--kosdaq-green-dim); color: var(--kosdaq-green); border-color: rgba(16,185,129,.4); }
+    .briefing-stance.off { background: var(--down-blue-dim); color: var(--down-blue); border-color: rgba(59,130,246,.4); }
+    .briefing-stance.neutral { background: rgba(148,163,184,.15); color: var(--text-muted); border-color: rgba(148,163,184,.3); }
+    .briefing-toggle { font-size: 11px; color: var(--text-muted); transition: transform .2s; }
+    .briefing-banner.collapsed .briefing-toggle { transform: rotate(180deg); }
+    .briefing-body { padding: 14px 18px 16px; }
+    .briefing-banner.collapsed .briefing-body { display: none; }
+    .briefing-reason { font-size: 11.5px; color: var(--text-muted); margin-bottom: 13px; }
+    .briefing-reason b { font-weight: 600; }
+    .briefing-panel {
+      background: rgba(15,23,42,.4); border: 1px solid var(--border-color);
+      border-radius: 10px; padding: 11px 12px; margin-bottom: 12px;
+    }
+    .briefing-sub { display: flex; align-items: center; gap: 6px; font-weight: 600; font-size: 12.5px; margin-bottom: 9px; }
+    .briefing-dot { width: 7px; height: 7px; border-radius: 2px; display: inline-block; }
+    .briefing-chips { display: grid; grid-template-columns: repeat(auto-fit, minmax(56px, 1fr)); gap: 5px; margin-bottom: 9px; }
+    .briefing-chip { text-align: center; background: rgba(255,255,255,.03); border-radius: 6px; padding: 5px 2px; }
+    .briefing-chip .c-name { font-size: 10.5px; color: var(--text-muted); }
+    .briefing-chip .c-val { font-size: 12px; font-weight: 600; }
+    .briefing-heat { display: grid; grid-template-columns: repeat(auto-fit, minmax(48px, 1fr)); gap: 4px; }
+    .briefing-heat .h-cell { border-radius: 5px; padding: 4px 2px; text-align: center; }
+    .briefing-heat .h-name { font-size: 10px; }
+    .briefing-heat .h-val { font-size: 11px; font-weight: 600; }
+    .briefing-flowlabels { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+    .briefing-flowlabels .flow-lbl { font-size: 11px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; }
+    .briefing-flowlabels .flow-lbl .fl-dot { width: 6px; height: 6px; border-radius: 50%; }
+    .flow-row { display: grid; grid-template-columns: 1fr 26px 1fr; align-items: center; gap: 4px; margin-bottom: 8px; }
+    .flow-us { background: rgba(251,146,60,.08); border: 1px solid rgba(251,146,60,.25); border-radius: 9px; padding: 9px 11px; }
+    .flow-us .fu-theme { font-size: 12px; font-weight: 600; color: #fdba74; }
+    .flow-us .fu-syms { font-size: 10.5px; color: var(--text-muted); font-family: monospace; margin-top: 2px; }
+    .flow-arrow { text-align: center; color: var(--kospi-blue); font-size: 17px; }
+    .flow-kr { background: rgba(0,240,255,.06); border: 1px solid rgba(0,240,255,.22); border-radius: 9px; padding: 9px 11px; }
+    .flow-kr .fk-theme { font-size: 12px; font-weight: 600; }
+    .flow-kr .fk-names { margin-top: 4px; display: flex; gap: 4px; flex-wrap: wrap; }
+    .flow-kr .fk-name { background: rgba(0,240,255,.10); color: #a5f3fc; font-size: 10.5px; padding: 1px 7px; border-radius: 20px; }
+    .briefing-catalyst { background: rgba(0,240,255,.05); border: 1px solid rgba(0,240,255,.15); border-radius: 9px; padding: 9px 11px; margin: 12px 0; }
+    .briefing-catalyst .cat-h { display: flex; align-items: center; gap: 5px; font-size: 10.5px; color: var(--kospi-blue); margin-bottom: 4px; }
+    .briefing-catalyst .cat-b { font-size: 11px; line-height: 1.6; color: #cbd5e1; }
+    .briefing-wl .wl-h { font-size: 10.5px; color: var(--text-muted); margin-bottom: 8px; }
+    .briefing-wl table { width: 100%; border-collapse: collapse; }
+    .briefing-wl th { font-size: 10px; color: var(--text-muted); text-align: left; padding: 0 2px 5px; border-bottom: 1px solid var(--border-color); font-weight: 400; }
+    .briefing-wl td { font-size: 11px; padding: 6px 2px; border-bottom: 1px solid rgba(255,255,255,.04); vertical-align: top; }
+    .briefing-foot { font-size: 10px; color: var(--text-muted); text-align: right; margin-top: 10px; }
+    @media (max-width: 640px) {
+      .flow-row { grid-template-columns: 1fr; }
+      .flow-arrow { transform: rotate(90deg); margin: 2px 0; }
+    }
+
     /* Core grid layout */
     .main-grid {
       display: grid;
@@ -1324,6 +1400,23 @@
       </div>
     </section>
 
+    <!-- 📰 모닝 브리핑: 전일 미국장 리뷰 + 당일 한국시장 프리뷰 (briefing/latest.json). 데이터 없으면 숨김. -->
+    <section class="briefing-banner" id="briefing-banner" style="display:none;">
+      <div class="briefing-head" onclick="toggleBriefing()">
+        <div class="briefing-head-left">
+          <span class="briefing-icon">📰</span>
+          <span class="briefing-title">모닝 브리핑</span>
+          <span class="briefing-badge">US → KR</span>
+          <span class="briefing-date" id="briefing-date"></span>
+        </div>
+        <div class="briefing-head-right">
+          <span class="briefing-stance neutral" id="briefing-stance">—</span>
+          <span class="briefing-toggle" id="briefing-toggle">▲</span>
+        </div>
+      </div>
+      <div class="briefing-body" id="briefing-body"></div>
+    </section>
+
     <!-- Main Workspace Layout -->
     <div class="main-grid">
       
@@ -1821,6 +1914,129 @@
       } catch (_) {}
     }
 
+    // 📰 모닝 브리핑 로드/렌더. briefing/latest.json(오늘) 또는 briefing/<date>.json(과거).
+    // 데이터 없으면 배너를 숨긴다(브리핑 미생성 날짜/구버전 graceful).
+    async function loadBriefing(date) {
+      const banner = document.getElementById("briefing-banner");
+      const live = (!date || date === "today");
+      const base = live ? "briefing/latest.json" : `briefing/${date}.json`;
+      const url = `${base}?t=${Date.now()}`;
+      try {
+        const res = await fetch(url, { cache: "no-store" });
+        if (!res.ok) { banner.style.display = "none"; return; }
+        const data = await res.json();
+        if (!data || !data.stance) { banner.style.display = "none"; return; }
+        renderBriefing(data);
+        banner.style.display = "";
+      } catch (_) {
+        banner.style.display = "none";
+      }
+    }
+
+    function toggleBriefing() {
+      document.getElementById("briefing-banner").classList.toggle("collapsed");
+    }
+
+    // 한국식 등락 색상(상승=빨강, 하락=파랑)과 부호 표기.
+    function _brPctColor(v) { return (v >= 0) ? "var(--up-red)" : "var(--down-blue)"; }
+    function _brPctFmt(v) { return ((v >= 0) ? "+" : "−") + Math.abs(Number(v)).toFixed(2); }
+    function _brEsc(s) {
+      return String(s == null ? "" : s)
+        .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
+
+    function renderBriefing(d) {
+      const us = d.usMarket || {};
+      const indices = us.indices || [];
+      const sectors = us.sectors || [];
+      const movers  = us.movers  || [];
+      const flow    = (d.flow || []).slice();
+      const picks   = d.picks || [];
+
+      // 헤더: 날짜 + 스탠스 뱃지
+      document.getElementById("briefing-date").textContent =
+        `${d.date || ""}${d.sourceAsof ? " · 미국장 " + d.sourceAsof + " 기준" : ""}`;
+      const stanceEl = document.getElementById("briefing-stance");
+      const stance = d.stance || "중립";
+      const cls = (stance === "위험선호") ? "on" : (stance === "위험회피") ? "off" : "neutral";
+      const arrow = (stance === "위험선호") ? "▲" : (stance === "위험회피") ? "▼" : "—";
+      stanceEl.className = "briefing-stance " + cls;
+      stanceEl.textContent = arrow + " " + stance;
+
+      // symbol → 등락률 맵(플로우의 미국 티커에 % 병기)
+      const moverPct = {};
+      movers.forEach(m => { if (m && m.symbol != null) moverPct[m.symbol] = m.changePct; });
+
+      // 지수 칩
+      const shortName = { "S&P500": "S&P500", "나스닥": "나스닥", "다우": "다우",
+                          "필라델피아 반도체": "필라델피아", "VIX 변동성": "VIX" };
+      const chips = indices.map(i => {
+        const nm = shortName[i.name] || i.name;
+        return `<div class="briefing-chip"><div class="c-name">${_brEsc(nm)}</div>`
+             + `<div class="c-val" style="color:${_brPctColor(i.changePct)}">${_brPctFmt(i.changePct)}</div></div>`;
+      }).join("");
+
+      // 섹터 히트맵(강→약, |등락|에 비례한 배경 농도)
+      const maxAbs = Math.max(0.01, ...sectors.map(s => Math.abs(s.changePct || 0)));
+      const heat = sectors.map(s => {
+        const v = s.changePct || 0, up = (v >= 0);
+        const alpha = (0.05 + 0.14 * Math.min(1, Math.abs(v) / maxAbs)).toFixed(3);
+        const bg = up ? `rgba(239,68,68,${alpha})` : `rgba(59,130,246,${alpha})`;
+        const nameColor = up ? "#fca5a5" : "#93c5fd";
+        return `<div class="h-cell" style="background:${bg}"><div class="h-name" style="color:${nameColor}">${_brEsc(s.name)}</div>`
+             + `<div class="h-val" style="color:${_brPctColor(v)}">${_brPctFmt(v)}</div></div>`;
+      }).join("");
+
+      // 밸류체인 플로우(연결 있는 것 우선, 최대 5줄)
+      flow.sort((a, b) => (b.krNames || []).length - (a.krNames || []).length);
+      const flowRows = flow.slice(0, 5).map(f => {
+        const syms = (f.usSymbols || []).map(sym => {
+          const p = moverPct[sym];
+          return (p == null) ? _brEsc(sym) : `${_brEsc(sym)} ${_brPctFmt(p)}`;
+        }).join(" · ");
+        const names = (f.krNames || []).map(n => `<span class="fk-name">${_brEsc(n)}</span>`).join("");
+        return `<div class="flow-row">`
+             + `<div class="flow-us"><div class="fu-theme">${_brEsc(f.usTheme)}</div><div class="fu-syms">${syms}</div></div>`
+             + `<div class="flow-arrow">→</div>`
+             + `<div class="flow-kr"><div class="fk-theme">${_brEsc(f.krTheme)}</div><div class="fk-names">${names}</div></div>`
+             + `</div>`;
+      }).join("");
+
+      // 워치리스트 요약(picks)
+      const rows = picks.map(p => {
+        const mkColor = (p.market === "KOSDAQ") ? "var(--kosdaq-green)" : "var(--kospi-blue)";
+        return `<tr><td style="font-weight:600">${_brEsc(p.name)}</td>`
+             + `<td style="color:${mkColor};font-size:10px">${_brEsc(p.market)}</td>`
+             + `<td style="color:#cbd5e1">${_brEsc(p.catalyst)}</td></tr>`;
+      }).join("");
+
+      const usNarr = (d.usReview && d.usReview.narrative) || "";
+      const catB = (d.krPreview && d.krPreview.catalystSummary) || "";
+      const genLabel = (d.generatedBy === "mechanical")
+        ? "기계적 요약" : ("LLM 기반" + (d.generatedBy ? " (" + _brEsc(d.generatedBy) + ")" : ""));
+
+      document.getElementById("briefing-body").innerHTML = `
+        <div class="briefing-reason">스탠스 근거 · ${_brEsc(d.stanceReason)}</div>
+        <div class="briefing-panel">
+          <div class="briefing-sub"><span class="briefing-dot" style="background:var(--up-red)"></span>전일 미국장 리뷰</div>
+          <div class="briefing-chips">${chips}</div>
+          <div style="font-size:10px;color:var(--text-muted);margin-bottom:4px;">섹터 히트 (강→약)</div>
+          <div class="briefing-heat">${heat}</div>
+          ${usNarr ? `<div style="font-size:11.5px;line-height:1.65;color:#cbd5e1;margin-top:10px;">${_brEsc(usNarr)}</div>` : ""}
+        </div>
+        <div class="briefing-flowlabels">
+          <span class="flow-lbl" style="color:#fb923c"><span class="fl-dot" style="background:#fb923c"></span>미국 급등 테마</span>
+          <span style="font-size:10.5px;color:var(--text-muted)">당일 한국시장 프리뷰</span>
+          <span class="flow-lbl" style="color:var(--kospi-blue)">국내 밸류체인 <span class="fl-dot" style="background:var(--kospi-blue)"></span></span>
+        </div>
+        ${flowRows}
+        ${catB ? `<div class="briefing-catalyst"><div class="cat-h">⚡ 전일 장마감 후 국내 촉매</div><div class="cat-b">${_brEsc(catB)}</div></div>` : ""}
+        ${picks.length ? `<div class="briefing-wl"><div class="wl-h">오늘의 워치리스트 (장전 선정 ${picks.length}종목)</div>`
+          + `<table><thead><tr><th style="width:84px">종목</th><th style="width:58px">시장</th><th>핵심 촉매</th></tr></thead><tbody>${rows}</tbody></table></div>` : ""}
+        <div class="briefing-foot">자동 생성 · ${genLabel} · 투자 판단 참고용</div>
+      `;
+    }
+
     // Load a report by date string (YYYY-MM-DD) or "today"
     async function loadDynamicReportData(date) {
       const base = (!date || date === "today")
@@ -1922,6 +2138,8 @@
 
       // 투자주의/경고도 같은 날짜로 연동
       loadInvWarn(date);
+      // 모닝 브리핑도 같은 날짜로 연동(과거 날짜는 briefing/<date>.json)
+      loadBriefing(date);
       const logsBox = document.getElementById("logs-box");
       const time = new Date().toTimeString().split(" ")[0];
       const label = (date === "today") ? "최신 리포트" : `${date} 리포트`;
@@ -1934,6 +2152,7 @@
       await loadReportIndex();
       await loadDynamicReportData("today");
       await loadIntradayData();
+      loadBriefing("today");   // 📰 모닝 브리핑(전일 미국장 리뷰 + 당일 한국 프리뷰)
       isLiveView = true;
       // 저장된 모의투자 계좌를 복원 (없으면 깨끗한 계좌). 새로고침/장 마감 후에도 누적 유지.
       const saved = restorePortfolio();

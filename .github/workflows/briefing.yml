@@ -1,0 +1,63 @@
+name: Morning Briefing
+
+on:
+  # 수동 전용(검토 단계). 품질 확인 후 daily_report.yml 정기 스텝으로 편입 예정.
+  # 입력 데이터(public/reports/selection/<date>.json)는 이미 레포에 있으므로
+  # 장전 스크리너를 다시 돌리지 않고 최신 selection 으로 바로 브리핑을 생성한다.
+  workflow_dispatch:
+    inputs:
+      date:
+        description: '대상 날짜 YYYY-MM-DD (비우면 KST 오늘, 오늘자 없으면 최신 selection 사용)'
+        required: false
+        default: ''
+
+# 리포트 계열 워크플로와 push 를 직렬화한다(daily_report·intraday 와 group 공유).
+concurrency:
+  group: report-push
+  cancel-in-progress: false
+
+jobs:
+  briefing:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0   # full history so the push-time rebase is clean
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Generate morning briefing
+        continue-on-error: true   # best-effort; LLM 실패해도 기계적 폴백으로 산출
+        env:
+          BRIEFING_DATE:       ${{ github.event.inputs.date }}
+          GEMINI_API_KEY:      ${{ secrets.GEMINI_API_KEY }}
+          LLM_CHAIN:           ${{ vars.LLM_CHAIN }}
+          ANTHROPIC_API_KEY:   ${{ secrets.ANTHROPIC_API_KEY }}
+        run: python generate_briefing.py
+
+      - name: Commit and push briefing
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add public/briefing/
+          git diff --staged --quiet && echo "No changes to commit" && exit 0
+          git commit -m "chore: morning briefing $(date -u +'%Y-%m-%d %H:%MZ') [skip railway]"
+          # Remote may have advanced (other report workflows); push, and on rejection
+          # rebase onto the latest main and retry.
+          for i in $(seq 1 5); do
+            if git push origin HEAD:main; then echo "pushed (attempt $i)"; exit 0; fi
+            echo "push attempt $i rejected; rebasing onto latest main..."
+            git fetch origin main
+            git rebase FETCH_HEAD || { git rebase --abort; echo "::error::rebase conflict"; exit 1; }
+            sleep $((RANDOM % 4 + 2))
+          done
+          echo "::error::push failed after 5 attempts" && exit 1
