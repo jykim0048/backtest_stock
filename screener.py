@@ -191,7 +191,7 @@ def _parse_pubdate(s):
 
 
 # ----------------------------------------------------------------------------
-# 1) 전일 미국시장 분석 (지수 + 섹터 + 급등 특징주)
+# 1) 전일 미국시장 분석 (지수 + 섹터 + 급등/급락 특징주)
 # ----------------------------------------------------------------------------
 def us_market_brief():
     items = US_INDICES + US_SECTORS
@@ -229,33 +229,50 @@ def us_market_brief():
         "indices": pack(US_INDICES) if df is not None else [],
         "sectors": sorted(pack(US_SECTORS), key=lambda d: d["changePct"], reverse=True) if df is not None else [],
         "movers": us_movers(),
+        "losers": us_losers(),
         "asof": datetime.datetime.now(KST).strftime("%Y-%m-%d"),
     }
 
 
-def us_movers(top=US_MOVERS_TOP):
-    """미국 당일 급등 특징주 (yfinance predefined screener 'day_gainers'). 시총 하한 없음.
+def _us_screen(screen_id):
+    """yfinance predefined screener 결과를 [{symbol,name,changePct}]로 파싱.
 
     야후 비공식 엔드포인트라 실패하면 빈 리스트로 흡수한다.
     """
     try:
-        r = yf.screen("day_gainers")
+        r = yf.screen(screen_id)
         quotes = r.get("quotes", []) if isinstance(r, dict) else []
     except Exception as e:
-        _warn(f"day_gainers screen failed: {e}")
+        _warn(f"{screen_id} screen failed: {e}")
         return []
-    movers = []
+    out = []
     for q in quotes:
         sym = q.get("symbol")
         pct = q.get("regularMarketChangePercent")
         if sym and pct is not None:
-            movers.append({
+            out.append({
                 "symbol": sym,
                 "name": q.get("shortName") or q.get("longName") or sym,
                 "changePct": round(float(pct), 2),
             })
+    return out
+
+
+def us_movers(top=US_MOVERS_TOP):
+    """미국 당일 급등 특징주 (day_gainers). 등락률 내림차순 상위 N. 시총 하한 없음."""
+    movers = _us_screen("day_gainers")
     movers.sort(key=lambda d: d["changePct"], reverse=True)
     return movers[:top]
+
+
+def us_losers(top=US_MOVERS_TOP):
+    """미국 당일 급락 특징주 (day_losers). 등락률 오름차순(최대 낙폭) 상위 N.
+
+    급락 테마(국내 약세 주의) 추론용. movers 와 대칭.
+    """
+    losers = _us_screen("day_losers")
+    losers.sort(key=lambda d: d["changePct"])
+    return losers[:top]
 
 
 # ----------------------------------------------------------------------------

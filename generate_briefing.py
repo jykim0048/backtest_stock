@@ -81,7 +81,8 @@ SYSTEM = """\
 입력:
 - usMarket.indices : 전일 미국 주요 지수/VIX 등락(changePct). 시장 위험선호도 판단용.
 - usMarket.sectors : 미국 섹터 ETF 등락(강→약 정렬). 어떤 섹터가 주도했는지.
-- usMarket.movers  : 미국 당일 급등 특징주(symbol/name/changePct). 테마·밸류체인 추론용.
+- usMarket.movers  : 미국 당일 급등 특징주(symbol/name/changePct). 상승 테마·밸류체인 추론용.
+- usMarket.losers  : 미국 당일 급락 특징주(symbol/name/changePct). 하락 테마·국내 약세 주의 추론용.
 - picks            : 장전 스크리너가 오늘 뽑은 국내 워치리스트(code/name/market/catalyst/reason).
 - marketView       : 스크리너가 남긴 간단 시황 코멘트(참고).
 
@@ -89,16 +90,23 @@ SYSTEM = """\
 1) stance: 전일 미국장 위험선호도를 '위험선호|중립|위험회피' 중 하나로 판정한다.
    나스닥·필라델피아 반도체 강세 + VIX 하락 = 위험선호. 반대면 위험회피.
 2) usReview.narrative: 전일 미국장(지수·섹터·급등 특징주)을 2~3문장으로 요약한다.
-3) flow: **미국에서 강했던 급등 테마 → 국내 밸류체인/동조 종목** 연결을 2~4개 만든다(핵심).
+3) flow: **미국에서 강했던 급등 테마 → 국내 밸류체인/동조(강세 기대) 종목** 연결을 2~4개 만든다(핵심).
    각 항목:
-     - usTheme  : 미국 쪽 테마명(예: 반도체·장비, 자율주행·라이다, 방산·우주, 에너지·수소).
+     - usTheme  : 미국 쪽 상승 테마명(예: 반도체·장비, 자율주행·라이다, 방산·우주, 에너지·수소).
      - usSymbols: 그 테마의 대표 급등주 티커. 반드시 입력 movers 안의 symbol 에서만 고른다(2~4개).
      - krTheme  : 연결되는 국내 테마명(예: 반도체 소부장, 자율주행·전장, 전력·AI 인프라).
      - krNames  : 관련 국내 종목명. **가능하면 picks 안의 종목명을 우선**, 대표 종목명 추가 가능(1~4개).
      - rationale: 미국→한국이 왜 연결되는지 한 줄.
-4) krPreview.narrative: 당일 국내 관점 1~2문장. catalystSummary: 전일 장마감 후 국내 촉매
+4) downFlow: **미국에서 급락한 테마 → 국내 약세 주의 섹터/종목** 연결을 0~3개 만든다(flow 와 대칭, 하락).
+   losers 가 비었거나 뚜렷한 급락 테마가 없으면 빈 배열([])로 둔다.
+     - usTheme  : 미국 쪽 급락 테마명.
+     - usSymbols: 그 테마의 대표 급락주 티커. 반드시 입력 losers 안의 symbol 에서만 고른다(2~4개).
+     - krTheme  : 약세가 우려되는 국내 테마/섹터명.
+     - krNames  : 주의할 국내 대표 종목명(0~4개, 없으면 빈 배열). picks 강세주와 억지로 엮지 마라.
+     - rationale: 왜 국내에 부담(약세)이 될 수 있는지 한 줄.
+5) krPreview.narrative: 당일 국내 관점 1~2문장. catalystSummary: 전일 장마감 후 국내 촉매
    (picks 의 catalyst)를 1~2문장으로 압축.
-5) 과장·투자권유 표현을 피하고, 담백한 데스크 코멘트 톤으로 한국어로 쓴다.
+6) 과장·투자권유 표현을 피하고, 담백한 데스크 코멘트 톤으로 한국어로 쓴다.
 
 반드시 아래 스키마와 정확히 동일한 JSON만 출력한다. 마크다운 펜스/설명 금지.
 {
@@ -106,8 +114,12 @@ SYSTEM = """\
   "stanceReason": "지수·VIX 근거 한 줄",
   "usReview": {"narrative": "전일 미국장 2~3문장"},
   "flow": [
-    {"usTheme": "미국 테마", "usSymbols": ["TICKER", ...],
+    {"usTheme": "미국 상승 테마", "usSymbols": ["TICKER", ...],
      "krTheme": "국내 테마", "krNames": ["종목명", ...], "rationale": "미국→한국 연결 근거"}
+  ],
+  "downFlow": [
+    {"usTheme": "미국 급락 테마", "usSymbols": ["TICKER", ...],
+     "krTheme": "국내 약세 주의 섹터", "krNames": ["종목명", ...], "rationale": "국내 부담 근거"}
   ],
   "krPreview": {
     "narrative": "당일 국내 관점 1~2문장",
@@ -132,13 +144,18 @@ BRIEF_SCHEMA = {
             "properties": {"usTheme": _STR, "usSymbols": _STRLIST,
                            "krTheme": _STR, "krNames": _STRLIST, "rationale": _STR},
             "required": ["usTheme", "usSymbols", "krTheme", "krNames", "rationale"]}},
+        "downFlow": {"type": "array", "items": {
+            "type": "object", "additionalProperties": False,
+            "properties": {"usTheme": _STR, "usSymbols": _STRLIST,
+                           "krTheme": _STR, "krNames": _STRLIST, "rationale": _STR},
+            "required": ["usTheme", "usSymbols", "krTheme", "krNames", "rationale"]}},
         "krPreview": {
             "type": "object", "additionalProperties": False,
             "properties": {"narrative": _STR, "catalystSummary": _STR},
             "required": ["narrative", "catalystSummary"],
         },
     },
-    "required": ["stance", "stanceReason", "usReview", "flow", "krPreview"],
+    "required": ["stance", "stanceReason", "usReview", "flow", "downFlow", "krPreview"],
 }
 
 
@@ -149,6 +166,7 @@ def _llm_input(sel):
             "indices": us.get("indices", []),
             "sectors": us.get("sectors", []),
             "movers":  us.get("movers", [])[:15],
+            "losers":  us.get("losers", [])[:15],
         },
         "picks": [{"name": p.get("name"), "market": p.get("market"),
                    "catalyst": p.get("catalyst", ""), "reason": p.get("reason", "")}
@@ -213,6 +231,7 @@ def _mechanical(sel):
     indices = us.get("indices", [])
     sectors = us.get("sectors", [])
     movers  = us.get("movers", [])
+    losers  = us.get("losers", [])
     picks   = sel.get("picks", [])
     mv      = sel.get("marketView", "")
 
@@ -272,6 +291,25 @@ def _mechanical(sel):
             "rationale": "테마 미분류 상위 급등주 — 국내는 장전 촉매주 중심",
         })
 
+    # 미국 losers → 급락 테마 → 국내 약세 주의 downFlow.
+    # 하락 주의는 picks(강세 후보)와 엮지 않는다 → krNames 는 비운다(테마 레벨 주의).
+    down_flow, dused = [], set()
+    for tname, kws in _MOVER_THEMES:
+        syms = [m["symbol"] for m in losers
+                if any(k in (m.get("name", "").lower()) for k in kws)]
+        syms = [s for s in syms if s not in dused]
+        if not syms:
+            continue
+        kr_theme, _ = _US_TO_KR.get(tname, (tname, []))
+        down_flow.append({
+            "usTheme": tname,
+            "usSymbols": syms[:4],
+            "krTheme": kr_theme,
+            "krNames": [],
+            "rationale": f"미국 {tname} 급락 → 국내 {kr_theme} 약세 주의",
+        })
+        dused.update(syms)
+
     catalyst = " / ".join(f"{p['name']}: {p.get('catalyst', '')}".strip(": ")
                           for p in picks[:5]) or "특이 촉매 없음"
 
@@ -282,6 +320,7 @@ def _mechanical(sel):
             "narrative": mv or "전일 미국장 데이터 기반 자동 요약입니다.",
         },
         "flow": flow,
+        "downFlow": down_flow,
         "krPreview": {
             "narrative": "미국 강세 테마·급등주와 국내 밸류체인 동조 흐름을 관찰합니다. "
                          "(LLM 미가동 — 기계적 요약)",
@@ -346,6 +385,7 @@ def main():
         "stanceReason": brief["stanceReason"],
         "usReview": brief["usReview"],
         "flow": brief.get("flow", []),
+        "downFlow": brief.get("downFlow", []),
         "krPreview": brief["krPreview"],
         # 카드·테이블 렌더용 원본 데이터(프런트가 그대로 사용)
         "usMarket": sel.get("usMarket", {}),

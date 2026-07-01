@@ -306,113 +306,68 @@
     }
     .briefing-banner.collapsed .briefing-head { border-bottom: none; }
     .briefing-head-left { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
-    .briefing-icon { font-size: 16px; }
-    .briefing-title { font-weight: 700; font-size: 15px; }
+    .briefing-icon { font-size: 17px; }
+    .briefing-title { font-weight: 700; font-size: 16px; }
     .briefing-badge {
       background: var(--kospi-blue-dim); color: var(--kospi-blue);
-      font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 5px; letter-spacing: .5px;
+      font-size: 11px; font-weight: 700; padding: 2px 6px; border-radius: 5px; letter-spacing: .5px;
     }
-    .briefing-date { font-size: 11px; color: var(--text-muted); }
+    .briefing-date { font-size: 12px; color: var(--text-muted); }
     .briefing-head-right { display: flex; align-items: center; gap: 10px; }
     .briefing-stance {
-      font-size: 12px; font-weight: 700; padding: 3px 11px; border-radius: 20px;
+      font-size: 13px; font-weight: 700; padding: 3px 11px; border-radius: 20px;
       display: inline-flex; align-items: center; gap: 4px; border: 1px solid transparent;
     }
     .briefing-stance.on { background: var(--kosdaq-green-dim); color: var(--kosdaq-green); border-color: rgba(16,185,129,.4); }
     .briefing-stance.off { background: var(--down-blue-dim); color: var(--down-blue); border-color: rgba(59,130,246,.4); }
     .briefing-stance.neutral { background: rgba(148,163,184,.15); color: var(--text-muted); border-color: rgba(148,163,184,.3); }
-    .briefing-toggle { font-size: 11px; color: var(--text-muted); transition: transform .2s; }
+    .briefing-toggle { font-size: 12px; color: var(--text-muted); transition: transform .2s; }
     .briefing-banner.collapsed .briefing-toggle { transform: rotate(180deg); }
     .briefing-body { padding: 14px 18px 16px; }
     .briefing-banner.collapsed .briefing-body { display: none; }
-    .briefing-reason { font-size: 11.5px; color: var(--text-muted); margin-bottom: 13px; }
+    .briefing-reason { font-size: 12.5px; color: var(--text-muted); margin-bottom: 13px; }
     .briefing-reason b { font-weight: 600; }
     .briefing-panel {
       background: rgba(15,23,42,.4); border: 1px solid var(--border-color);
       border-radius: 10px; padding: 11px 12px; margin-bottom: 12px;
     }
-    /* --- 섹터분석 탭 --- */
-    .sector-content { display: flex; flex-direction: column; gap: 14px; }
-    .sector-card {
-      background: rgba(15,23,42,.4); border: 1px solid var(--border-color);
-      border-radius: 10px; padding: 13px 15px;
-    }
-    .sector-card .sc-h { font-size: 13px; font-weight: 700; margin-bottom: 10px; display: flex; align-items: center; gap: 7px; }
-    .sector-card .sc-h .sc-tag { font-size: 10px; font-weight: 600; color: var(--text-muted); }
-    .sector-regime-badge { font-size: 12px; font-weight: 700; padding: 3px 11px; border-radius: 999px; }
-    .sector-summary { font-size: 11.5px; line-height: 1.65; color: #cbd5e1; margin-top: 8px; }
-    .sector-ind-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 7px; }
-    .sector-ind { background: rgba(255,255,255,.03); border-radius: 7px; padding: 7px 9px; }
-    .sector-ind .si-name { font-size: 10.5px; color: var(--text-muted); }
-    .sector-ind .si-val { font-size: 14px; font-weight: 700; margin-top: 2px; }
-    .sector-ind .si-prev { font-size: 10px; color: var(--text-muted); margin-top: 1px; }
-    .fg-gauge { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
-    .fg-score { font-size: 40px; font-weight: 800; line-height: 1; }
-    .fg-rating { font-size: 13px; font-weight: 700; margin-top: 4px; }
-    .fg-bar { flex: 1; min-width: 180px; height: 10px; border-radius: 999px;
-      background: linear-gradient(90deg,#3b82f6 0%,#22d3ee 25%,#a3e635 50%,#fbbf24 75%,#ef4444 100%); position: relative; }
-    .fg-bar .fg-needle { position: absolute; top: -4px; width: 3px; height: 18px; background: #fff; border-radius: 2px; box-shadow: 0 0 4px #000; }
-    .fg-comps { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px,1fr)); gap: 6px; margin-top: 10px; }
-    .fg-comp { background: rgba(255,255,255,.03); border-radius: 6px; padding: 5px 7px; text-align: center; }
-    .fg-comp .fc-name { font-size: 9.5px; color: var(--text-muted); }
-    .fg-comp .fc-score { font-size: 13px; font-weight: 700; }
-    .sector-heat { display: grid; grid-template-columns: repeat(auto-fit, minmax(84px, 1fr)); gap: 5px; }
-    .sector-heat .sh-cell { border-radius: 7px; padding: 7px 4px; text-align: center; }
-    .sector-heat .sh-etf { font-size: 11px; font-weight: 700; }
-    .sector-heat .sh-name { font-size: 9px; color: rgba(255,255,255,.75); }
-    .sector-heat .sh-val { font-size: 12px; font-weight: 700; margin-top: 2px; }
-    .sector-target { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
-    .sector-target .st-item { flex: 1; min-width: 150px; background: rgba(0,240,255,.06);
-      border: 1px solid rgba(0,240,255,.22); border-radius: 9px; padding: 9px 11px; }
-    .sector-target .st-name { font-size: 12.5px; font-weight: 700; }
-    .sector-target .st-rec { font-size: 10px; font-weight: 700; padding: 1px 7px; border-radius: 999px; margin-left: 6px; }
-    .sector-target .st-why { font-size: 11px; line-height: 1.55; color: #cbd5e1; margin-top: 5px; }
-    .sector-theme { border: 1px solid var(--border-color); border-radius: 9px; padding: 11px 12px; margin-top: 9px; }
-    .sector-theme .th-head { font-size: 12.5px; font-weight: 700; margin-bottom: 3px; }
-    .sector-theme .th-flow { font-size: 10.5px; color: var(--text-muted); margin-bottom: 8px; }
-    .sector-stock { background: rgba(255,255,255,.03); border-radius: 8px; padding: 9px 11px; margin-top: 7px; }
-    .sector-stock .ss-top { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
-    .sector-stock .ss-name { font-size: 12.5px; font-weight: 700; }
-    .sector-stock .ss-code { font-size: 10px; color: var(--text-muted); font-family: monospace; }
-    .sector-stock .ss-val { font-size: 10.5px; color: var(--text-muted); }
-    .sector-stock .ss-point { font-size: 11px; line-height: 1.55; color: #cbd5e1; margin-top: 5px; }
-    .sector-stock .ss-risk { font-size: 10.5px; line-height: 1.5; color: #fca5a5; margin-top: 3px; }
-    .sector-stock .ss-filing { font-size: 10px; margin-top: 4px; }
-    .sector-stock .ss-filing a { color: var(--kospi-blue); text-decoration: none; }
-    .sector-risklist { margin: 4px 0 0; padding-left: 18px; }
-    .sector-risklist li { font-size: 11px; line-height: 1.7; color: #fca5a5; }
-    .sector-sources { font-size: 10px; color: var(--text-muted); line-height: 1.6; margin-top: 6px; }
-    .sector-disclaimer { font-size: 10px; color: var(--text-muted); font-style: italic; margin-top: 4px; }
-    .briefing-sub { display: flex; align-items: center; gap: 6px; font-weight: 600; font-size: 12.5px; margin-bottom: 9px; }
+    .briefing-sub { display: flex; align-items: center; gap: 6px; font-weight: 600; font-size: 13.5px; margin-bottom: 9px; }
     .briefing-dot { width: 7px; height: 7px; border-radius: 2px; display: inline-block; }
     .briefing-chips { display: grid; grid-template-columns: repeat(auto-fit, minmax(56px, 1fr)); gap: 5px; margin-bottom: 9px; }
     .briefing-chip { text-align: center; background: rgba(255,255,255,.03); border-radius: 6px; padding: 5px 2px; }
-    .briefing-chip .c-name { font-size: 10.5px; color: var(--text-muted); }
-    .briefing-chip .c-val { font-size: 12px; font-weight: 600; }
+    .briefing-chip .c-name { font-size: 11.5px; color: var(--text-muted); }
+    .briefing-chip .c-val { font-size: 13px; font-weight: 600; }
     .briefing-heat { display: grid; grid-template-columns: repeat(auto-fit, minmax(48px, 1fr)); gap: 4px; }
     .briefing-heat .h-cell { border-radius: 5px; padding: 4px 2px; text-align: center; }
-    .briefing-heat .h-name { font-size: 10px; }
-    .briefing-heat .h-val { font-size: 11px; font-weight: 600; }
+    .briefing-heat .h-name { font-size: 11px; }
+    .briefing-heat .h-val { font-size: 12px; font-weight: 600; }
     .briefing-flowlabels { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
-    .briefing-flowlabels .flow-lbl { font-size: 11px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; }
+    .briefing-flowlabels .flow-lbl { font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; }
     .briefing-flowlabels .flow-lbl .fl-dot { width: 6px; height: 6px; border-radius: 50%; }
     .flow-row { display: grid; grid-template-columns: 1fr 26px 1fr; align-items: center; gap: 4px; margin-bottom: 8px; }
     .flow-us { background: rgba(251,146,60,.08); border: 1px solid rgba(251,146,60,.25); border-radius: 9px; padding: 9px 11px; }
-    .flow-us .fu-theme { font-size: 12px; font-weight: 600; color: #fdba74; }
-    .flow-us .fu-syms { font-size: 10.5px; color: var(--text-muted); font-family: monospace; margin-top: 2px; }
-    .flow-arrow { text-align: center; color: var(--kospi-blue); font-size: 17px; }
+    .flow-us .fu-theme { font-size: 13px; font-weight: 600; color: #fdba74; }
+    .flow-us .fu-syms { font-size: 11.5px; color: var(--text-muted); font-family: monospace; margin-top: 2px; }
+    .flow-arrow { text-align: center; color: var(--kospi-blue); font-size: 18px; }
     .flow-kr { background: rgba(0,240,255,.06); border: 1px solid rgba(0,240,255,.22); border-radius: 9px; padding: 9px 11px; }
-    .flow-kr .fk-theme { font-size: 12px; font-weight: 600; }
+    .flow-kr .fk-theme { font-size: 13px; font-weight: 600; }
     .flow-kr .fk-names { margin-top: 4px; display: flex; gap: 4px; flex-wrap: wrap; }
-    .flow-kr .fk-name { background: rgba(0,240,255,.10); color: #a5f3fc; font-size: 10.5px; padding: 1px 7px; border-radius: 20px; }
+    .flow-kr .fk-name { background: rgba(0,240,255,.10); color: #a5f3fc; font-size: 11.5px; padding: 1px 7px; border-radius: 20px; }
+    /* 급락 테마(downFlow): 미국 급락(파랑) → 국내 약세 주의(앰버) */
+    .briefing-downflow .flow-us { background: rgba(59,130,246,.08); border-color: rgba(59,130,246,.28); }
+    .briefing-downflow .flow-us .fu-theme { color: #93c5fd; }
+    .briefing-downflow .flow-arrow { color: var(--text-muted); }
+    .briefing-downflow .flow-kr { background: rgba(245,158,11,.07); border-color: rgba(245,158,11,.28); }
+    .briefing-downflow .flow-kr .fk-theme { color: #fcd34d; }
+    .briefing-downflow .flow-kr .fk-name { background: rgba(245,158,11,.12); color: #fcd34d; }
     .briefing-catalyst { background: rgba(0,240,255,.05); border: 1px solid rgba(0,240,255,.15); border-radius: 9px; padding: 9px 11px; margin: 12px 0; }
-    .briefing-catalyst .cat-h { display: flex; align-items: center; gap: 5px; font-size: 10.5px; color: var(--kospi-blue); margin-bottom: 4px; }
-    .briefing-catalyst .cat-b { font-size: 11px; line-height: 1.6; color: #cbd5e1; }
-    .briefing-wl .wl-h { font-size: 10.5px; color: var(--text-muted); margin-bottom: 8px; }
+    .briefing-catalyst .cat-h { display: flex; align-items: center; gap: 5px; font-size: 11.5px; color: var(--kospi-blue); margin-bottom: 4px; }
+    .briefing-catalyst .cat-b { font-size: 12px; line-height: 1.6; color: #cbd5e1; }
+    .briefing-wl .wl-h { font-size: 11.5px; color: var(--text-muted); margin-bottom: 8px; }
     .briefing-wl table { width: 100%; border-collapse: collapse; }
-    .briefing-wl th { font-size: 10px; color: var(--text-muted); text-align: left; padding: 0 2px 5px; border-bottom: 1px solid var(--border-color); font-weight: 400; }
-    .briefing-wl td { font-size: 11px; padding: 6px 2px; border-bottom: 1px solid rgba(255,255,255,.04); vertical-align: top; }
-    .briefing-foot { font-size: 10px; color: var(--text-muted); text-align: right; margin-top: 10px; }
+    .briefing-wl th { font-size: 11px; color: var(--text-muted); text-align: left; padding: 0 2px 5px; border-bottom: 1px solid var(--border-color); font-weight: 400; }
+    .briefing-wl td { font-size: 12px; padding: 6px 2px; border-bottom: 1px solid rgba(255,255,255,.04); vertical-align: top; }
+    .briefing-foot { font-size: 11px; color: var(--text-muted); text-align: right; margin-top: 10px; }
     @media (max-width: 640px) {
       .flow-row { grid-template-columns: 1fr; }
       .flow-arrow { transform: rotate(90deg); margin: 2px 0; }
@@ -1495,7 +1450,6 @@
             <button class="main-tab" data-maintab="vi" onclick="selectMainTab('vi')">⚡ VI 발동</button>
             <button class="main-tab" data-maintab="limit" onclick="selectMainTab('limit')">📈 상/하한가</button>
             <button class="main-tab" data-maintab="invwarn" onclick="selectMainTab('invwarn')">⚠️ 투자주의/경고</button>
-            <button class="main-tab" data-maintab="sector" onclick="selectMainTab('sector')">📊 섹터분석</button>
           </div>
         </div>
 
@@ -1622,17 +1576,6 @@
             <div>· 정확한 지정 호(號)는 미반영되어 실제와 차이가 있을 수 있습니다.</div>
           </div>
         </div>
-
-        <!-- ⑥ 섹터분석 패널 (탑다운: 매크로→센티먼트→섹터→테마종목) -->
-        <div id="main-sector-pane" style="display:none;">
-          <div class="board-header watch-header">
-            <h2>📊 섹터·테마 분석 <span class="board-subtitle">— 매크로(FRED) · 센티먼트(F&G) · 섹터ETF · 테마종목</span></h2>
-            <span class="watch-asof" id="sector-asof">로딩중...</span>
-          </div>
-          <div id="sector-content" class="sector-content">
-            <div class="board-subtitle" style="padding:24px 4px;">섹터 분석 데이터를 불러오는 중입니다…</div>
-          </div>
-        </div>
       </section>
 
       <!-- Right Panel: Side Controls, Portfolio Summary, and Logs -->
@@ -1738,9 +1681,6 @@
     // stockData(자동매매 대상)와 완전히 분리 — 계좌/시초매수/익절손절 로직에 끼지 않는다.
     const watchData = [];
 
-    // 섹터·테마 분석(탑다운). sector_analysis.json(정적) 또는 /api/sector(폴백)로 채운다.
-    let sectorData = null;
-    let sectorLoaded = false;
     let isWatchLiveView = true;   // 장중: 최신(실시간) 보기 vs 과거 날짜 아카이브 열람
 
     let isTradingOn = true;
@@ -2070,11 +2010,36 @@
              + `</div>`;
       }).join("");
 
+      // 급락 테마(downFlow): 미국 급락 → 국내 약세 주의 (losers 로 % 병기)
+      const losers = us.losers || [];
+      const loserPct = {};
+      losers.forEach(m => { if (m && m.symbol != null) loserPct[m.symbol] = m.changePct; });
+      const downFlow = (d.downFlow || []).slice();
+      const downRows = downFlow.slice(0, 4).map(f => {
+        const syms = (f.usSymbols || []).map(sym => {
+          const p = loserPct[sym];
+          return (p == null) ? _brEsc(sym) : `${_brEsc(sym)} ${_brPctFmt(p)}`;
+        }).join(" · ");
+        const names = (f.krNames || []).map(n => `<span class="fk-name">${_brEsc(n)}</span>`).join("");
+        return `<div class="flow-row">`
+             + `<div class="flow-us"><div class="fu-theme">${_brEsc(f.usTheme)}</div><div class="fu-syms">${syms}</div></div>`
+             + `<div class="flow-arrow">→</div>`
+             + `<div class="flow-kr"><div class="fk-theme">${_brEsc(f.krTheme)}</div><div class="fk-names">${names}</div></div>`
+             + `</div>`;
+      }).join("");
+      const downSection = downRows ? `
+        <div class="briefing-flowlabels" style="margin-top:12px">
+          <span class="flow-lbl" style="color:#60a5fa"><span class="fl-dot" style="background:#60a5fa"></span>미국 급락 테마</span>
+          <span style="font-size:11.5px;color:var(--text-muted)">국내 약세 주의</span>
+          <span class="flow-lbl" style="color:#fcd34d">주의 섹터 <span class="fl-dot" style="background:#fcd34d"></span></span>
+        </div>
+        <div class="briefing-downflow">${downRows}</div>` : "";
+
       // 워치리스트 요약(picks)
       const rows = picks.map(p => {
         const mkColor = (p.market === "KOSDAQ") ? "var(--kosdaq-green)" : "var(--kospi-blue)";
         return `<tr><td style="font-weight:600">${_brEsc(p.name)}</td>`
-             + `<td style="color:${mkColor};font-size:10px">${_brEsc(p.market)}</td>`
+             + `<td style="color:${mkColor};font-size:11px">${_brEsc(p.market)}</td>`
              + `<td style="color:#cbd5e1">${_brEsc(p.catalyst)}</td></tr>`;
       }).join("");
 
@@ -2088,176 +2053,22 @@
         <div class="briefing-panel">
           <div class="briefing-sub"><span class="briefing-dot" style="background:var(--up-red)"></span>전일 미국장 리뷰</div>
           <div class="briefing-chips">${chips}</div>
-          <div style="font-size:10px;color:var(--text-muted);margin-bottom:4px;">섹터 히트 (강→약)</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">섹터 히트 (강→약)</div>
           <div class="briefing-heat">${heat}</div>
-          ${usNarr ? `<div style="font-size:11.5px;line-height:1.65;color:#cbd5e1;margin-top:10px;">${_brEsc(usNarr)}</div>` : ""}
+          ${usNarr ? `<div style="font-size:12.5px;line-height:1.65;color:#cbd5e1;margin-top:10px;">${_brEsc(usNarr)}</div>` : ""}
         </div>
         <div class="briefing-flowlabels">
           <span class="flow-lbl" style="color:#fb923c"><span class="fl-dot" style="background:#fb923c"></span>미국 급등 테마</span>
-          <span style="font-size:10.5px;color:var(--text-muted)">당일 한국시장 프리뷰</span>
+          <span style="font-size:11.5px;color:var(--text-muted)">당일 한국시장 프리뷰</span>
           <span class="flow-lbl" style="color:var(--kospi-blue)">국내 밸류체인 <span class="fl-dot" style="background:var(--kospi-blue)"></span></span>
         </div>
         ${flowRows}
+        ${downSection}
         ${catB ? `<div class="briefing-catalyst"><div class="cat-h">⚡ 전일 장마감 후 국내 촉매</div><div class="cat-b">${_brEsc(catB)}</div></div>` : ""}
         ${picks.length ? `<div class="briefing-wl"><div class="wl-h">오늘의 워치리스트 (장전 선정 ${picks.length}종목)</div>`
           + `<table><thead><tr><th style="width:84px">종목</th><th style="width:58px">시장</th><th>핵심 촉매</th></tr></thead><tbody>${rows}</tbody></table></div>` : ""}
         <div class="briefing-foot">자동 생성 · ${genLabel} · 투자 판단 참고용</div>
       `;
-    }
-
-    // ── 섹터·테마 분석 ─────────────────────────────────────────────
-    // 정적 public/sector_analysis.json 우선, 404면 Railway /api/sector 폴백.
-    async function loadSectorAnalysis(date) {
-      const content = document.getElementById("sector-content");
-      const asof = document.getElementById("sector-asof");
-      const live = (!date || date === "today");
-      try {
-        const base = live ? "sector_analysis.json" : `reports/sector/${date}.json`;
-        let res = await fetch(`${base}?t=${Date.now()}`, { cache: "no-store" });
-        let data = res.ok ? await res.json() : null;
-        if (!data) {   // 정적 파일이 아직 없으면 실시간 엔드포인트로 폴백
-          const r2 = await fetch(`${RESEARCH_API_BASE}/api/sector`, { cache: "no-store" });
-          if (r2.ok) { const j = await r2.json(); if (j && j.status !== "error") data = j; }
-        }
-        if (!data || !data.macro) {
-          asof.textContent = "데이터 없음";
-          content.innerHTML = `<div class="board-subtitle" style="padding:24px 4px;">섹터 분석 데이터가 아직 생성되지 않았습니다. (generate_sector.py 실행 또는 Railway /api/sector 확인)</div>`;
-          return;
-        }
-        sectorData = data;
-        asof.textContent = (data.asof || data.date || "") + (data.generatedBy ? " · " + data.generatedBy : "");
-        renderSectorAnalysis(data);
-      } catch (e) {
-        asof.textContent = "로드 실패";
-        content.innerHTML = `<div class="board-subtitle" style="padding:24px 4px;">섹터 분석을 불러오지 못했습니다: ${_brEsc(String(e).slice(0,120))}</div>`;
-      }
-    }
-
-    function _sectorRegimeColor(r) {
-      return ({ "과열": "#ef4444", "확장": "#22c55e", "침체": "#3b82f6", "회복": "#fbbf24" })[r] || "var(--text-muted)";
-    }
-    function _sectorRecColor(rec) {
-      const r = String(rec || "").toUpperCase();
-      if (r.startsWith("OW") || r.includes("비중확대") || r === "매수") return "var(--up-red)";
-      if (r.startsWith("UW") || r.includes("비중축소")) return "var(--down-blue)";
-      return "var(--text-muted)";
-    }
-    // 히트맵 셀 배경: 등락률 → 빨강(상승)/파랑(하락) 농도 (briefing과 동일 색 규칙)
-    function _sectorHeatBg(v) {
-      if (v == null) return "rgba(255,255,255,.04)";
-      const a = Math.min(Math.abs(v) / 20, 1) * 0.55 + 0.12;
-      return (v >= 0) ? `rgba(239,68,68,${a.toFixed(2)})` : `rgba(59,130,246,${a.toFixed(2)})`;
-    }
-
-    function renderSectorAnalysis(d) {
-      const macro = d.macro || {}, sent = d.sentiment || {};
-      // 1) 매크로 국면
-      const inds = (macro.indicators || []).map(m => {
-        const unit = (m.unit && m.unit !== "idx" && m.unit !== "pt") ? m.unit : "";
-        const val = (m.latest == null) ? "—" : (Number(m.latest).toLocaleString() + unit);
-        const prev = (m.prev == null) ? "" : `전기 ${Number(m.prev).toLocaleString()}${unit}`;
-        return `<div class="sector-ind"><div class="si-name">${_brEsc(m.name)}</div>`
-             + `<div class="si-val">${val}</div><div class="si-prev">${_brEsc(prev)}</div></div>`;
-      }).join("");
-      const rc = _sectorRegimeColor(macro.regime);
-      const macroCard = `<div class="sector-card">
-        <div class="sc-h"><span class="sector-regime-badge" style="background:${rc}22;color:${rc};border:1px solid ${rc}">국면 · ${_brEsc(macro.regime || "—")}</span>
-        <span class="sc-tag">FRED 매크로</span></div>
-        <div class="sector-ind-grid">${inds || '<div class="board-subtitle">FRED 데이터 없음 (FRED_API_KEY 확인)</div>'}</div>
-        ${macro.summary ? `<div class="sector-summary">${_brEsc(macro.summary)}</div>`
-          : (macro.regimeReason ? `<div class="sector-summary">${_brEsc(macro.regimeReason)}</div>` : "")}
-        ${(macro.preferredSectors||[]).length ? `<div class="sector-summary">선호 섹터: ${(macro.preferredSectors||[]).map(_brEsc).join(" · ")}</div>` : ""}
-      </div>`;
-
-      // 2) Fear & Greed 게이지
-      const sc = sent.score;
-      const comps = (sent.components || []).map(c =>
-        `<div class="fg-comp"><div class="fc-name">${_brEsc(c.name)}</div>`
-        + `<div class="fc-score">${c.score == null ? "—" : c.score}</div></div>`).join("");
-      const fgCard = `<div class="sector-card">
-        <div class="sc-h">🌡️ 시장 센티먼트 <span class="sc-tag">${_brEsc(sent.source || "")}</span></div>
-        <div class="fg-gauge">
-          <div style="text-align:center;min-width:70px;">
-            <div class="fg-score" style="color:${sc==null?'var(--text-muted)':_brPctColor((sc-50))}">${sc==null?"—":sc}</div>
-            <div class="fg-rating">${_brEsc(sent.rating || "")}</div>
-          </div>
-          <div class="fg-bar">${sc==null?"":`<div class="fg-needle" style="left:calc(${Math.max(0,Math.min(100,sc))}% - 1.5px)"></div>`}</div>
-        </div>
-        ${comps ? `<div class="fg-comps">${comps}</div>` : ""}
-        ${sent.strategyHint ? `<div class="sector-summary">전략 힌트 · ${_brEsc(sent.strategyHint)}</div>` : ""}
-        ${sent.summary ? `<div class="sector-summary">${_brEsc(sent.summary)}</div>` : ""}
-        ${sent.note ? `<div class="sector-disclaimer">${_brEsc(sent.note)}</div>` : ""}
-      </div>`;
-
-      // 3) 섹터 ETF 히트맵 (3M 기준 정렬됨)
-      const heat = (d.sectors || []).map(s => {
-        const v = s.ret3M;
-        return `<div class="sh-cell" style="background:${_sectorHeatBg(v)}">`
-          + `<div class="sh-etf">${_brEsc(s.etf)}</div><div class="sh-name">${_brEsc(s.name)}</div>`
-          + `<div class="sh-val">${v==null?"—":_brPctFmt(v)}</div></div>`;
-      }).join("");
-      const heatCard = `<div class="sector-card">
-        <div class="sc-h">📈 섹터 ETF 3개월 모멘텀 <span class="sc-tag">Yahoo Finance</span></div>
-        <div class="sector-heat">${heat || '<div class="board-subtitle">섹터 ETF 데이터 없음</div>'}</div>
-      </div>`;
-
-      // 4) 타깃 섹터
-      const targets = (d.targetSectors || []).map(t => {
-        const rcol = _sectorRecColor(t.recommend);
-        return `<div class="st-item"><div class="st-name">${_brEsc(t.name)}${t.etf?` <span class="ss-code">${_brEsc(t.etf)}</span>`:""}`
-          + `${t.recommend?`<span class="st-rec" style="background:${rcol}22;color:${rcol}">${_brEsc(t.recommend)}</span>`:""}</div>`
-          + `<div class="st-why">${_brEsc(t.rationale || "")}</div></div>`;
-      }).join("");
-      const targetCard = targets ? `<div class="sector-card">
-        <div class="sc-h">🎯 타깃 섹터 <span class="sc-tag">매크로·모멘텀 종합</span></div>
-        <div class="sector-target">${targets}</div>
-      </div>` : "";
-
-      // 5) 테마 종목 카드
-      const themes = (d.themes || []).map(t => {
-        const stocks = (t.stocks || []).map(s => {
-          const val = [s.per!=null?`PER ${s.per}`:"", s.pbr!=null?`PBR ${s.pbr}`:"",
-                       s.roe!=null?`ROE ${s.roe}%`:"", s.revGrowth!=null?`매출성장 ${s.revGrowth}%`:""]
-                      .filter(Boolean).join("  ·  ");
-          const filing = s.recentFiling ? `<div class="ss-filing">📄 ${_brEsc(s.recentFiling.date)} `
-            + (s.recentFiling.url ? `<a href="${_brEsc(s.recentFiling.url)}" target="_blank" rel="noopener">${_brEsc(s.recentFiling.title)}</a>` : _brEsc(s.recentFiling.title)) + `</div>` : "";
-          const mkColor = (s.market === "KOSDAQ") ? "var(--kosdaq-green)" : "var(--kospi-blue)";
-          return `<div class="sector-stock">
-            <div class="ss-top"><span class="ss-name">${_brEsc(s.name)}</span>`
-            + `${s.code?`<span class="ss-code" style="color:${mkColor}">${_brEsc(s.code)} ${_brEsc(s.market||"")}</span>`:`<span class="ss-code">${_brEsc(s.note||"미해결")}</span>`}`
-            + `${val?`<span class="ss-val">${_brEsc(val)}</span>`:""}</div>`
-            + `${s.point?`<div class="ss-point">💡 ${_brEsc(s.point)}</div>`:""}`
-            + `${s.risk?`<div class="ss-risk">⚠️ ${_brEsc(s.risk)}</div>`:""}`
-            + filing + `</div>`;
-        }).join("");
-        return `<div class="sector-theme">
-          <div class="th-head">${_brEsc(t.krTheme || "")}</div>
-          <div class="th-flow">${_brEsc(t.usTheme || "")} ${(t.usSymbols||[]).length?"("+(t.usSymbols||[]).map(_brEsc).join(", ")+")":""} → 국내 밸류체인</div>
-          ${t.summary?`<div class="sector-summary" style="margin-top:0">${_brEsc(t.summary)}</div>`:""}
-          ${stocks}
-        </div>`;
-      }).join("");
-      const themeCard = `<div class="sector-card">
-        <div class="sc-h">🧩 테마 종목 <span class="sc-tag">브리핑 도출 + DART/Yahoo</span></div>
-        ${themes || '<div class="board-subtitle">테마 종목 데이터 없음</div>'}
-      </div>`;
-
-      // 종합 전략 · 리스크 · 출처
-      const risks = (d.risks || []).map(r => `<li>${_brEsc(r)}</li>`).join("");
-      const strategyCard = (d.strategy || risks) ? `<div class="sector-card">
-        ${d.strategy?`<div class="sc-h">🧭 종합 전략</div><div class="sector-summary" style="margin-top:0">${_brEsc(d.strategy)}</div>`:""}
-        ${risks?`<div class="sc-h" style="margin-top:12px">⚠️ 리스크</div><ul class="sector-risklist">${risks}</ul>`:""}
-      </div>` : "";
-
-      const srcs = (d.sources || []).map(s => `<div>· ${_brEsc(s)}</div>`).join("");
-      const footCard = `<div class="sector-card">
-        <div class="sc-h" style="margin-bottom:6px">📚 데이터 출처</div>
-        <div class="sector-sources">${srcs}</div>
-        ${d.disclaimer?`<div class="sector-disclaimer">${_brEsc(d.disclaimer)}</div>`:""}
-      </div>`;
-
-      document.getElementById("sector-content").innerHTML =
-        macroCard + fgCard + heatCard + targetCard + themeCard + strategyCard + footCard;
     }
 
     // Load a report by date string (YYYY-MM-DD) or "today"
@@ -3041,7 +2852,6 @@
       document.getElementById("main-vi-pane").style.display       = (tab === "vi") ? "" : "none";
       document.getElementById("main-limit-pane").style.display    = (tab === "limit") ? "" : "none";
       document.getElementById("main-invwarn-pane").style.display  = (tab === "invwarn") ? "" : "none";
-      document.getElementById("main-sector-pane").style.display   = (tab === "sector") ? "" : "none";
       // 숨겨진 동안 canvas 는 그려지지 않으므로, 표시되는 패널의 스파크라인을 다시 그린다.
       if (tab === "intraday") {
         watchData.forEach((_, idx) => drawWatchSparkline(idx));
@@ -3052,8 +2862,6 @@
       if (tab === "vi" || tab === "limit") loadViLimit();
       // 투자주의/경고 탭: 현재 '리포트 날짜' 기준으로 로드
       if (tab === "invwarn") loadInvWarn(document.getElementById("report-date-select").value || "today");
-      // 섹터분석 탭: 최초 진입 시에만 로드(무거운 실시간 폴백 방지)
-      if (tab === "sector" && !sectorLoaded) { sectorLoaded = true; loadSectorAnalysis("today"); }
     }
 
     // Open sliding side drawer for stock details.
