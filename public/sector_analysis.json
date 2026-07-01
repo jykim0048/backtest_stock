@@ -1,0 +1,440 @@
+{
+  "date": "2026-07-01",
+  "asof": "2026-07-02 07:47 KST",
+  "generatedBy": "gemini-3.1-flash-lite",
+  "macro": {
+    "regime": "과열",
+    "regimeReason": "금리·물가 동반 상승 국면",
+    "preferredSectors": [
+      "Energy",
+      "Materials",
+      "Industrials"
+    ],
+    "summary": "",
+    "indicators": [
+      {
+        "name": "기준금리",
+        "latest": 3.63,
+        "prev": 3.63,
+        "unit": "%",
+        "source": "FRED, FEDFUNDS, as of 2026-06-01"
+      },
+      {
+        "name": "10Y 국채금리",
+        "latest": 4.44,
+        "prev": 4.38,
+        "unit": "%",
+        "source": "FRED, DGS10, as of 2026-06-30"
+      },
+      {
+        "name": "2Y 국채금리",
+        "latest": 4.14,
+        "prev": 4.1,
+        "unit": "%",
+        "source": "FRED, DGS2, as of 2026-06-30"
+      },
+      {
+        "name": "장단기 스프레드",
+        "latest": 0.31,
+        "prev": 0.3,
+        "unit": "%p",
+        "source": "FRED, T10Y2Y, as of 2026-07-01"
+      },
+      {
+        "name": "CPI",
+        "latest": 333.979,
+        "prev": 332.407,
+        "unit": "idx",
+        "source": "FRED, CPIAUCSL, as of 2026-05-01"
+      },
+      {
+        "name": "Core CPI",
+        "latest": 336.121,
+        "prev": 335.423,
+        "unit": "idx",
+        "source": "FRED, CPILFESL, as of 2026-05-01"
+      },
+      {
+        "name": "실업률",
+        "latest": 4.3,
+        "prev": 4.3,
+        "unit": "%",
+        "source": "FRED, UNRATE, as of 2026-05-01"
+      },
+      {
+        "name": "산업생산",
+        "latest": 102.6475,
+        "prev": 102.509,
+        "unit": "idx",
+        "source": "FRED, INDPRO, as of 2026-05-01"
+      },
+      {
+        "name": "ISM 제조업 PMI",
+        "latest": null,
+        "prev": null,
+        "unit": "pt",
+        "source": "FRED, NAPMPI [Data Unavailable]"
+      },
+      {
+        "name": "VIX",
+        "latest": 16.45,
+        "prev": 17.65,
+        "unit": "pt",
+        "source": "FRED, VIXCLS, as of 2026-06-30"
+      },
+      {
+        "name": "HY 스프레드",
+        "latest": 2.75,
+        "prev": 2.8,
+        "unit": "%",
+        "source": "FRED, BAMLH0A0HYM2, as of 2026-06-30"
+      }
+    ]
+  },
+  "sentiment": {
+    "score": 32,
+    "rating": "fear",
+    "prevClose": 31.2285714285714,
+    "prevWeek": 25.9714285714286,
+    "prevMonth": 56.5428571428571,
+    "components": [
+      {
+        "name": "Momentum",
+        "score": 50,
+        "rating": "neutral"
+      },
+      {
+        "name": "Strength",
+        "score": 35,
+        "rating": "fear"
+      },
+      {
+        "name": "Breadth",
+        "score": 16,
+        "rating": "extreme fear"
+      },
+      {
+        "name": "Put/Call",
+        "score": 34,
+        "rating": "fear"
+      },
+      {
+        "name": "Volatility",
+        "score": 50,
+        "rating": "neutral"
+      },
+      {
+        "name": "Junk Bond",
+        "score": 11,
+        "rating": "extreme fear"
+      },
+      {
+        "name": "Safe Haven",
+        "score": 27,
+        "rating": "fear"
+      }
+    ],
+    "strategyHint": "Fear — 선별적 매수, 실적 확인된 Quality Growth 중심",
+    "summary": "",
+    "note": "",
+    "source": "CNN Fear & Greed Index, 2026-07-02"
+  },
+  "sectors": [
+    {
+      "etf": "SMH",
+      "name": "Semiconductors",
+      "ret1M": 2.08,
+      "ret3M": 61.83,
+      "ret6M": 70.36,
+      "retYTD": 66.21,
+      "ret1Y": null,
+      "source": "Yahoo Finance, SMH, 2026-07-02"
+    },
+    {
+      "etf": "XLK",
+      "name": "Technology",
+      "ret1M": -5.07,
+      "ret3M": 39.84,
+      "ret6M": 27.56,
+      "retYTD": 28.95,
+      "ret1Y": null,
+      "source": "Yahoo Finance, XLK, 2026-07-02"
+    },
+    {
+      "etf": "XLI",
+      "name": "Industrials",
+      "ret1M": 6.62,
+      "ret3M": 13.65,
+      "ret6M": 17.5,
+      "retYTD": 16.68,
+      "ret1Y": null,
+      "source": "Yahoo Finance, XLI, 2026-07-02"
+    },
+    {
+      "etf": "XLF",
+      "name": "Financials",
+      "ret1M": 6.89,
+      "ret3M": 11.35,
+      "ret6M": -0.12,
+      "retYTD": 0.59,
+      "ret1Y": null,
+      "source": "Yahoo Finance, XLF, 2026-07-02"
+    },
+    {
+      "etf": "XLV",
+      "name": "Healthcare",
+      "ret1M": 8.39,
+      "ret3M": 9.3,
+      "ret6M": 3.27,
+      "retYTD": 3.47,
+      "ret1Y": null,
+      "source": "Yahoo Finance, XLV, 2026-07-02"
+    },
+    {
+      "etf": "XLRE",
+      "name": "Real Estate",
+      "ret1M": 3.0,
+      "ret3M": 9.15,
+      "ret6M": 10.43,
+      "retYTD": 11.11,
+      "ret1Y": null,
+      "source": "Yahoo Finance, XLRE, 2026-07-02"
+    },
+    {
+      "etf": "XLY",
+      "name": "Consumer Discretionary",
+      "ret1M": 0.11,
+      "ret3M": 8.58,
+      "ret6M": -1.89,
+      "retYTD": 0.18,
+      "ret1Y": null,
+      "source": "Yahoo Finance, XLY, 2026-07-02"
+    },
+    {
+      "etf": "XLB",
+      "name": "Materials",
+      "ret1M": 0.57,
+      "ret3M": 2.48,
+      "ret6M": 12.46,
+      "retYTD": 11.53,
+      "ret1Y": null,
+      "source": "Yahoo Finance, XLB, 2026-07-02"
+    },
+    {
+      "etf": "XLP",
+      "name": "Consumer Staples",
+      "ret1M": 2.25,
+      "ret3M": 2.32,
+      "ret6M": 7.75,
+      "retYTD": 8.57,
+      "ret1Y": null,
+      "source": "Yahoo Finance, XLP, 2026-07-02"
+    },
+    {
+      "etf": "XLC",
+      "name": "Communication Services",
+      "ret1M": -4.83,
+      "ret3M": -0.75,
+      "ret6M": -6.37,
+      "retYTD": -5.58,
+      "ret1Y": null,
+      "source": "Yahoo Finance, XLC, 2026-07-02"
+    },
+    {
+      "etf": "XLU",
+      "name": "Utilities",
+      "ret1M": 4.54,
+      "ret3M": -1.82,
+      "ret6M": 5.86,
+      "retYTD": 5.07,
+      "ret1Y": null,
+      "source": "Yahoo Finance, XLU, 2026-07-02"
+    },
+    {
+      "etf": "XLE",
+      "name": "Energy",
+      "ret1M": -7.17,
+      "ret3M": -13.17,
+      "ret6M": 19.99,
+      "retYTD": 17.28,
+      "ret1Y": null,
+      "source": "Yahoo Finance, XLE, 2026-07-02"
+    }
+  ],
+  "targetSectors": [],
+  "themes": [
+    {
+      "usTheme": "반도체 및 장비",
+      "usSymbols": [
+        "MXL",
+        "PENG"
+      ],
+      "krTheme": "반도체 소부장 및 대형주",
+      "rationale": "필라델피아 반도체 지수 급등과 미국 반도체 장비·솔루션 기업들의 강세가 국내 전공정 장비 및 검사 소켓 밸류체인으로 낙수효과를 줄 것으로 기대됩니다.",
+      "stocks": [
+        {
+          "code": "005930",
+          "name": "삼성전자",
+          "market": "KOSPI",
+          "per": null,
+          "pbr": null,
+          "roe": 18.9,
+          "revGrowth": 69.2,
+          "recentFiling": {
+            "date": "2026-07-01",
+            "title": "임원ㆍ주요주주특정증권등소유상황보고서",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260701000525"
+          },
+          "point": "",
+          "risk": ""
+        },
+        {
+          "code": "281820",
+          "name": "케이씨텍",
+          "market": "KOSPI",
+          "per": null,
+          "pbr": null,
+          "roe": 14.9,
+          "revGrowth": 101.0,
+          "recentFiling": {
+            "date": "2026-06-05",
+            "title": "임원ㆍ주요주주특정증권등소유상황보고서",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260605000063"
+          },
+          "point": "",
+          "risk": ""
+        },
+        {
+          "code": "240810",
+          "name": "원익IPS",
+          "market": "KOSDAQ",
+          "per": null,
+          "pbr": null,
+          "roe": 11.9,
+          "revGrowth": 32.8,
+          "recentFiling": {
+            "date": "2026-07-01",
+            "title": "주식등의대량보유상황보고서(약식)",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260701000648"
+          },
+          "point": "",
+          "risk": ""
+        },
+        {
+          "code": "131290",
+          "name": "티에스이",
+          "market": "KOSDAQ",
+          "per": null,
+          "pbr": null,
+          "roe": null,
+          "revGrowth": null,
+          "recentFiling": {
+            "date": "2026-07-01",
+            "title": "주식등의대량보유상황보고서(일반)",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260701000400"
+          },
+          "point": "",
+          "risk": ""
+        }
+      ],
+      "summary": ""
+    },
+    {
+      "usTheme": "자율주행 및 라이다",
+      "usSymbols": [
+        "MBLY",
+        "OUST",
+        "HSAI"
+      ],
+      "krTheme": "자율주행 및 전장 부품",
+      "rationale": "모빌아이와 오우스터 등 미국 자율주행 및 ADAS 핵심 기업들의 급등으로 국내 대표 카메라 모듈 및 전장 부품 공급사인 LG이노텍의 수혜가 부각됩니다.",
+      "stocks": [
+        {
+          "code": "011070",
+          "name": "LG이노텍",
+          "market": "KOSPI",
+          "per": null,
+          "pbr": null,
+          "roe": 8.5,
+          "revGrowth": 11.1,
+          "recentFiling": {
+            "date": "2026-07-01",
+            "title": "주식등의대량보유상황보고서(약식)",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260701000315"
+          },
+          "point": "",
+          "risk": ""
+        }
+      ],
+      "summary": ""
+    },
+    {
+      "usTheme": "수소 및 에너지 인프라",
+      "usSymbols": [
+        "FCEL"
+      ],
+      "krTheme": "전력 설비 및 AI 데이터센터 인프라",
+      "rationale": "미국 친환경 에너지 및 인프라 관련주 급등과 맞물려, AI 데이터센터발 전력망 확충 및 MLCC 공급 계약 모멘텀을 보유한 국내 전력·소재 기업들의 동조화가 예상됩니다.",
+      "stocks": [
+        {
+          "code": "010120",
+          "name": "엘에스일렉트릭",
+          "market": "KOSPI",
+          "per": null,
+          "pbr": null,
+          "roe": 16.7,
+          "revGrowth": 33.4,
+          "recentFiling": {
+            "date": "2026-06-05",
+            "title": "[기재정정]단일판매ㆍ공급계약체결(자율공시)              ",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260605800568"
+          },
+          "point": "",
+          "risk": ""
+        },
+        {
+          "code": "062040",
+          "name": "산일전기",
+          "market": "KOSPI",
+          "per": null,
+          "pbr": null,
+          "roe": 31.2,
+          "revGrowth": 52.1,
+          "recentFiling": {
+            "date": "2026-07-01",
+            "title": "주식등의대량보유상황보고서(약식)",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260701000271"
+          },
+          "point": "",
+          "risk": ""
+        },
+        {
+          "code": "009150",
+          "name": "삼성전기",
+          "market": "KOSPI",
+          "per": null,
+          "pbr": null,
+          "roe": 8.8,
+          "revGrowth": 17.2,
+          "recentFiling": {
+            "date": "2026-07-01",
+            "title": "주식등의대량보유상황보고서(약식)",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260701000266"
+          },
+          "point": "",
+          "risk": ""
+        }
+      ],
+      "summary": ""
+    }
+  ],
+  "strategy": "",
+  "risks": [],
+  "sources": [
+    "FRED (api.stlouisfed.org) — FEDFUNDS, DGS10, DGS2, T10Y2Y, CPIAUCSL, CPILFESL, UNRATE, INDPRO, NAPMPI, VIXCLS, BAMLH0A0HYM2",
+    "Yahoo Finance — 섹터 ETF 12종 + 테마 종목 재무",
+    "CNN Fear & Greed Index, 2026-07-02",
+    "DART OpenAPI — 테마 종목 최근 공시"
+  ],
+  "disclaimer": "본 리포트는 퀀트 모델 기반 참고 자료이며 투자 권유가 아닙니다. 최종 투자 판단은 자격을 갖춘 전문가와 검토하십시오."
+}
