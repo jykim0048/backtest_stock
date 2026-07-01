@@ -81,18 +81,22 @@ jobs:
 
       - name: Generate intraday price-level report
         env:
-          REPORT_WATCHLIST:   intraday_watchlist.json
-          REPORT_OUT:         public/intraday_report.json
-          REPORT_ARCHIVE:     '1'                       # 날짜별 아카이브(나중에 과거 조회)
-          REPORT_ARCHIVE_DIR: public/reports/intraday   # 장전(reports/)과 분리된 장중 전용
+          REPORT_WATCHLIST:      intraday_watchlist.json
+          REPORT_OUT:            public/intraday_report.json
+          REPORT_ARCHIVE:        '1'                    # 날짜별 아카이브(나중에 과거 조회)
+          REPORT_ARCHIVE_DIR:    public/reports/intraday   # 장전(reports/)과 분리된 장중 전용
+          REPORT_CARRY_ANALYSIS: '1'                    # 직전 리포트 deep-research 이월(증분 분석)
         run: python generate_report.py
 
       - name: Generate intraday deep research analysis
         continue-on-error: true   # best-effort; never block the price report
         env:
-          ANALYSIS_WATCHLIST:  intraday_watchlist.json
-          ANALYSIS_REPORT:     public/intraday_report.json
-          ANALYSIS_ARCHIVE:    '0'
+          ANALYSIS_WATCHLIST:    intraday_watchlist.json
+          ANALYSIS_REPORT:       public/intraday_report.json
+          ANALYSIS_ARCHIVE:      '0'
+          ANALYSIS_INCREMENTAL:  '1'    # 신규/TTL/가격급변/신규공시만 재분석(LLM 비용 절감)
+          ANALYSIS_TTL_HOURS:    '2'    # 이월 분석 유효시간(경과 시 1회 새로고침)
+          ANALYSIS_PRICE_MOVE_PCT: '5'  # 분석 시점 대비 가격 급변 임계(재분석 트리거)
           GEMINI_API_KEY:      ${{ secrets.GEMINI_API_KEY }}
           LLM_CHAIN:           ${{ vars.LLM_CHAIN }}
           ANTHROPIC_API_KEY:   ${{ secrets.ANTHROPIC_API_KEY }}

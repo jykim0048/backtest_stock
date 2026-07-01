@@ -25,6 +25,9 @@ WATCHLIST_PATH = os.environ.get('REPORT_WATCHLIST') or os.path.join(ROOT, 'watch
 DAILY_PATH     = os.environ.get('REPORT_OUT')       or os.path.join(ROOT, 'public', 'daily_market_report.json')
 REPORTS_DIR    = os.environ.get('REPORT_ARCHIVE_DIR') or os.path.join(ROOT, 'public', 'reports')
 ARCHIVE        = os.environ.get('REPORT_ARCHIVE', '1') != '0'   # 날짜별 아카이브 + index.json 갱신 여부
+# 장중 증분 분석: 직전 리포트의 deep-research(analysis/catalyst)를 코드별로 이월해
+# generate_analysis 가 신규/갱신 대상만 다시 분석하게 한다(반복 재분석 LLM 비용 절감).
+CARRY_ANALYSIS = os.environ.get('REPORT_CARRY_ANALYSIS') == '1'
 
 if not os.path.isabs(WATCHLIST_PATH):
     WATCHLIST_PATH = os.path.join(ROOT, WATCHLIST_PATH)
@@ -89,6 +92,18 @@ def generate_report():
 
     print(f"=== Generating daily market report ({today}) ===")
 
+    # 직전 리포트에서 deep-research(analysis/catalyst)를 코드별로 로드해 이월(carry-over).
+    prev_by_code = {}
+    if CARRY_ANALYSIS and os.path.exists(DAILY_PATH):
+        try:
+            with open(DAILY_PATH, encoding='utf-8') as f:
+                for e in json.load(f):
+                    if isinstance(e, dict) and e.get('code') and e.get('analysis'):
+                        prev_by_code[e['code']] = e
+            print(f"  Carry-over    : 직전 analysis {len(prev_by_code)}종목 로드")
+        except Exception as ex:
+            print(f"  [carry] 직전 리포트 로드 실패: {ex}", file=sys.stderr)
+
     report = []
     for stock in watchlist:
         code, name, market = stock['code'], stock['name'], stock['market']
@@ -103,7 +118,7 @@ def generate_report():
         sign      = '+' if chg >= 0 else ''
         direction = '상승' if chg >= 0 else '하락'
 
-        report.append({
+        entry = {
             'code':      code,
             'name':      name,
             'market':    market,
@@ -122,7 +137,14 @@ def generate_report():
                 f"진입 상한가 {data['entry']:,}원 이하에서 분할 매수하고, "
                 f"목표 익절가 {data['target']:,}원, 손절선 {data['stop']:,}원으로 리스크를 관리하세요."
             ),
-        })
+        }
+        # 이월된 deep-research 가 있으면 붙인다(신규/갱신은 generate_analysis 가 덮어씀).
+        prev = prev_by_code.get(code)
+        if prev:
+            entry['analysis'] = prev['analysis']
+            if prev.get('catalyst'):
+                entry['catalyst'] = prev['catalyst']   # 이월된 실제 촉매 유지
+        report.append(entry)
 
     os.makedirs(os.path.dirname(DAILY_PATH), exist_ok=True)
     with open(DAILY_PATH, 'w', encoding='utf-8') as f:

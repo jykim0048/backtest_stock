@@ -52,6 +52,15 @@ MAX_TOKENS  = 8192   # one full analysis is ~3.4-5.3k tokens; 4096 truncated mid
 # have headroom (each stock makes up to 2 calls: peer resolution + analysis).
 CONCURRENCY = int(os.environ.get("ANALYSIS_CONCURRENCY", "3"))  # stocks processed in parallel
 
+KST = datetime.timezone(datetime.timedelta(hours=9))
+
+# 증분 분석(장중 비용 절감): 켜지면 이미 분석된 종목은 재분석하지 않고 이월본을 유지하되,
+#   ① TTL 경과(ANALYSIS_TTL_HOURS) ② 지정 대비 가격 급변(ANALYSIS_PRICE_MOVE_PCT)
+#   ③ 신규 공시 감지 시에만 다시 분석한다. (generate_report 의 REPORT_CARRY_ANALYSIS 와 짝)
+INCREMENTAL    = os.environ.get("ANALYSIS_INCREMENTAL") == "1"
+TTL_HOURS      = float(os.environ.get("ANALYSIS_TTL_HOURS", "2"))
+PRICE_MOVE_PCT = float(os.environ.get("ANALYSIS_PRICE_MOVE_PCT", "5"))
+
 SYSTEM = """\
 너는 한국 주식 투자 리서치 애널리스트다. 주어진 RAW 데이터(해외 peer 시세, peer 그룹 Reddit
 여론, 국내외 뉴스, 국내 커뮤니티 글, DART 공시/재무)를 분석해 대시보드용 `analysis` JSON
@@ -194,6 +203,55 @@ def _valid_tickers(peer_list):
     return keep
 
 
+def _filing_key(disclosures):
+    """최신 공시 1건의 시그니처('접수일자|보고서명'). 없으면 ''."""
+    if disclosures:
+        d = disclosures[0]
+        return f"{d.get('date','')}|{d.get('title','')}"
+    return ""
+
+
+def _latest_filing_key(code):
+    """현재 최신 공시 시그니처를 가볍게 조회(DART). 실패/미상은 None(재분석 강제 안 함)."""
+    try:
+        corp = sources.dart_corp_code(code)
+        if not corp:
+            return None
+        return _filing_key(sources.dart_disclosures(corp) or [])
+    except Exception:
+        return None
+
+
+def _needs_analysis(stock, entry, now):
+    """증분 모드 재분석 여부 판정 → (bool, 사유).
+
+    entry: 리포트 항목(이월된 analysis + 현재가 basePrice 포함). 판정 순서는 비용 오름차순:
+    신규 → TTL → 가격급변(무료) → 신규공시(DART 1콜) 순으로 확인한다.
+    """
+    a = (entry or {}).get("analysis")
+    if not a:
+        return True, "신규"
+    meta = a.get("_meta") or {}
+    asof = meta.get("asOf")
+    if not asof:
+        return True, "메타없음"
+    try:
+        age_h = (now - datetime.datetime.fromisoformat(asof)).total_seconds() / 3600
+    except Exception:
+        return True, "asOf파싱실패"
+    if age_h >= TTL_HOURS:
+        return True, f"TTL({age_h:.1f}h≥{TTL_HOURS}h)"
+    base, cur = meta.get("price"), (entry or {}).get("basePrice")
+    if base and cur and base > 0:
+        move = abs(cur - base) / base * 100
+        if move >= PRICE_MOVE_PCT:
+            return True, f"가격급변({move:.1f}%≥{PRICE_MOVE_PCT}%)"
+    cur_key = _latest_filing_key(stock["code"])
+    if cur_key is not None and cur_key != meta.get("filingKey", ""):
+        return True, "신규공시"
+    return False, f"캐시({age_h:.1f}h)"
+
+
 def resolve_peers(stock, peer_cfg):
     """정적 peers.json 을 우선 사용하고, 없으면 LLM 이 해외 peer 를 제안 → ticker 유효성 검증.
 
@@ -269,6 +327,9 @@ def analyze_stock(stock, peer_cfg):
          "filer": d.get("filer", ""), "url": d.get("url", "")}
         for d in disclosures[:5]
     ]
+    # 증분 분석용 메타: 최신 공시 시그니처(신규 공시 감지). asOf/price 는 main 에서 채운다.
+    if INCREMENTAL:
+        analysis["_meta"] = {"filingKey": _filing_key(disclosures)}
     return analysis
 
 
@@ -306,24 +367,52 @@ def main():
     # Pre-warm the (large) DART corpCode map once so parallel workers don't race on it.
     sources._load_corp_map()
 
-    workers = max(1, min(CONCURRENCY, len(watchlist)))
-    print(f"=== Generating deep research for {len(watchlist)} stocks "
+    # 증분 모드: 리포트(이월된 analysis + 현재가 포함)를 읽어 재분석 대상만 추린다.
+    now = datetime.datetime.now(KST)
+    if INCREMENTAL:
+        entry_by_code = {e.get("code"): e for e in (load_json(DAILY_PATH, []) or [])
+                         if isinstance(e, dict)}
+        targets = []
+        for s in watchlist:
+            need, why = _needs_analysis(s, entry_by_code.get(s["code"]), now)
+            if need:
+                targets.append(s)
+                print(f"  [분석] {s['name']} ({s['code']}) — {why}")
+            else:
+                print(f"  [스킵] {s['name']} ({s['code']}) — {why}")
+        print(f"=== 증분: 전체 {len(watchlist)} 중 {len(targets)}종목만 분석 "
+              f"(이월 {len(watchlist) - len(targets)}) ===")
+    else:
+        targets = watchlist
+
+    workers = max(1, min(CONCURRENCY, len(targets) or 1))
+    print(f"=== Generating deep research for {len(targets)} stocks "
           f"({workers}-way parallel) ===")
     analysis_by_code = {}
     with ThreadPoolExecutor(max_workers=workers) as pool:
         futures = {pool.submit(analyze_stock, s, peer_cfg): s
-                   for s in watchlist}
+                   for s in targets}
         for fut in as_completed(futures):
             stock = futures[fut]
             name = stock["name"]
             try:
-                analysis_by_code[stock["code"]] = fut.result()
+                a = fut.result()
+                if INCREMENTAL:
+                    # 증분 메타 스탬프: 분석 시각·분석 시점 현재가(가격급변 감지 기준)
+                    m = a.setdefault("_meta", {})
+                    m["asOf"] = now.isoformat()
+                    e = entry_by_code.get(stock["code"])
+                    if e and e.get("basePrice"):
+                        m["price"] = e["basePrice"]
+                analysis_by_code[stock["code"]] = a
                 print(f"  Done {name} ({stock['code']})")
             except Exception as e:
                 print(f"  Skipped {name}: {e}", file=sys.stderr)
 
     if not analysis_by_code:
-        print("No analysis produced; leaving reports unchanged.", file=sys.stderr)
+        # 증분 모드에서 재분석 0건은 정상(이월본이 이미 리포트에 있음).
+        print("재분석 대상 없음 — 이월된 분석 유지." if INCREMENTAL
+              else "No analysis produced; leaving reports unchanged.", file=sys.stderr)
         return
 
     merge_into_report(DAILY_PATH, analysis_by_code)
