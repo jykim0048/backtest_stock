@@ -56,11 +56,21 @@ jobs:
           NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
         run: python generate_analysis.py
 
+      - name: Generate sector & theme analysis
+        continue-on-error: true   # best-effort; never block the price report
+        env:
+          FRED_API_KEY:        ${{ secrets.FRED_API_KEY }}   # 매크로(FRED) 수집 — 없으면 매크로 국면 스킵
+          GEMINI_API_KEY:      ${{ secrets.GEMINI_API_KEY }}
+          LLM_CHAIN:           ${{ vars.LLM_CHAIN }}   # optional override; empty = default chain
+          ANTHROPIC_API_KEY:   ${{ secrets.ANTHROPIC_API_KEY }}
+          DART_API_KEY:        ${{ secrets.DART_API_KEY }}
+        run: python generate_sector.py
+
       - name: Commit and push report
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add watchlist.json public/daily_market_report.json public/reports/
+          git add watchlist.json public/daily_market_report.json public/reports/ public/sector_analysis.json
           git diff --staged --quiet && echo "No changes to commit" && exit 0
           git commit -m "chore: auto-generate daily market report $(date +'%Y-%m-%d') [skip railway]"
           # Remote may have advanced (manual or concurrent pushes); push, and on

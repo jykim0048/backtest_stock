@@ -1,0 +1,527 @@
+"""
+Sector & theme quant analysis — top-down (macro -> sentiment -> sector -> stock).
+
+Implements the sector-theme-research skill's 5-phase workflow using the same
+REST-direct pattern as analysis/sources.py (no MCP): FRED for macro, CNN Fear &
+Greed for sentiment, yfinance for sector ETFs and stock financials, and the
+existing analysis/sources.py (DART/Naver/Tavily) for theme-stock catalysts. The
+LLM step (llm.generate_json) synthesizes the collected RAW data into the report.
+
+All fetchers degrade gracefully: on any error they return an empty result and
+log to stderr, so a single failing API never kills the run. Every number is
+tagged with its source (skill best-practices requirement).
+
+Env vars: FRED_API_KEY (macro), plus the sources.py / llm.py keys.
+"""
+import os
+import sys
+import json
+import datetime
+
+import requests
+
+# yfinance writes a cache; on read-only CI point it at a writable dir.
+for _mod in ("appdirs", "platformdirs"):
+    try:
+        _m = __import__(_mod)
+        _m.user_cache_dir = lambda *a, **k: "/tmp"
+    except Exception:
+        pass
+
+import pandas as pd
+import yfinance as yf
+
+import llm
+from analysis import sources
+
+UA = {"User-Agent": "Mozilla/5.0 (quant-antigravity sector)"}
+KST = datetime.timezone(datetime.timedelta(hours=9))
+
+
+def _warn(msg):
+    print(f"[sector] {msg}", file=sys.stderr)
+
+
+# ----------------------------------------------------------------------------
+# Phase 1) FRED macro
+# ----------------------------------------------------------------------------
+# (series_id, display name, unit) — skill workflow.md Step 1-1
+FRED_SERIES = [
+    ("FEDFUNDS",   "기준금리",        "%"),
+    ("DGS10",      "10Y 국채금리",    "%"),
+    ("DGS2",       "2Y 국채금리",     "%"),
+    ("T10Y2Y",     "장단기 스프레드", "%p"),
+    ("CPIAUCSL",   "CPI",             "idx"),
+    ("CPILFESL",   "Core CPI",        "idx"),
+    ("UNRATE",     "실업률",          "%"),
+    ("INDPRO",     "산업생산",        "idx"),
+    ("NAPMPI",     "ISM 제조업 PMI",  "pt"),
+    ("VIXCLS",     "VIX",             "pt"),
+    ("BAMLH0A0HYM2", "HY 스프레드",   "%"),
+]
+
+
+def _fred_key():
+    return os.environ.get("FRED_API_KEY")
+
+
+def fred_series(series_id, limit=24):
+    """Return newest-first observations [{date, value}] for a FRED series.
+    Empty list if key missing or on error (graceful degradation)."""
+    key = _fred_key()
+    if not key:
+        _warn("FRED_API_KEY missing")
+        return []
+    try:
+        r = requests.get(
+            "https://api.stlouisfed.org/fred/series/observations",
+            params={"series_id": series_id, "api_key": key, "file_type": "json",
+                    "sort_order": "desc", "limit": limit},
+            timeout=20,
+        )
+        r.raise_for_status()
+        out = []
+        for o in r.json().get("observations", []):
+            v = o.get("value")
+            if v in (None, ".", ""):
+                continue
+            try:
+                out.append({"date": o.get("date", ""), "value": float(v)})
+            except ValueError:
+                continue
+        return out
+    except Exception as e:
+        _warn(f"fred_series({series_id}) failed: {e}")
+        return []
+
+
+def fetch_macro():
+    """Phase 1: collect FRED series -> {id: {name, unit, latest, prev, observations}}."""
+    macro = {}
+    for sid, name, unit in FRED_SERIES:
+        obs = fred_series(sid, limit=13)
+        latest = obs[0]["value"] if obs else None
+        prev = obs[1]["value"] if len(obs) > 1 else None
+        macro[sid] = {
+            "name": name, "unit": unit,
+            "latest": latest, "prev": prev,
+            "asof": obs[0]["date"] if obs else None,
+            "source": f"FRED, {sid}" + (f", as of {obs[0]['date']}" if obs else " [Data Unavailable]"),
+        }
+    return macro
+
+
+def classify_regime(macro):
+    """4-quadrant regime (확장/과열/침체/회복) from FRED (skill workflow.md Step 1-2).
+    Rate direction (FEDFUNDS trend) x inflation direction (Core CPI trend)."""
+    def _dir(sid):
+        m = macro.get(sid, {})
+        a, b = m.get("latest"), m.get("prev")
+        if a is None or b is None:
+            return 0
+        return 1 if a > b else (-1 if a < b else 0)
+
+    rate_up = _dir("FEDFUNDS") >= 0
+    infl_up = _dir("CPILFESL") >= 0
+    inverted = (macro.get("T10Y2Y", {}).get("latest") or 0) < 0
+
+    if rate_up and infl_up:
+        regime = "과열"
+        reason = "금리·물가 동반 상승 국면"
+        prefer = ["Energy", "Materials", "Industrials"]
+    elif rate_up and not infl_up:
+        regime = "침체" if inverted else "확장"
+        reason = "긴축 사이클 속 물가 둔화" + (" · 장단기 금리 역전" if inverted else "")
+        prefer = ["Utilities", "Healthcare", "Staples"] if inverted else ["Tech", "Discretionary", "Financials"]
+    elif not rate_up and infl_up:
+        regime = "침체"
+        reason = "금리 하락에도 물가 압력 지속(스태그 우려)"
+        prefer = ["Utilities", "Healthcare", "Staples"]
+    else:
+        regime = "회복"
+        reason = "금리·물가 동반 안정 → 완화적 환경"
+        prefer = ["Financials", "Industrials", "Real Estate"]
+    return {"regime": regime, "regimeReason": reason, "preferredSectors": prefer,
+            "yieldInverted": inverted}
+
+
+# ----------------------------------------------------------------------------
+# Phase 2) CNN Fear & Greed
+# ----------------------------------------------------------------------------
+def _rating_for(score):
+    if score < 25:  return "Extreme Fear"
+    if score < 45:  return "Fear"
+    if score <= 55: return "Neutral"
+    if score <= 74: return "Greed"
+    return "Extreme Greed"
+
+
+def fetch_fear_greed():
+    """Phase 2: CNN Fear & Greed (7 components + history). Falls back to
+    alternative.me on error. Returns dict; empty-ish on total failure."""
+    try:
+        r = requests.get(
+            "https://production.dataviz.cnn.io/index/fearandgreed/graphdata",
+            headers=UA, timeout=20)
+        r.raise_for_status()
+        d = r.json()
+        fg = d.get("fear_and_greed", {}) or {}
+        score = round(float(fg.get("score", 0)))
+        comp_keys = [
+            ("market_momentum_sp500", "Momentum"),
+            ("stock_price_strength", "Strength"),
+            ("stock_price_breadth", "Breadth"),
+            ("put_call_options", "Put/Call"),
+            ("market_volatility_vix", "Volatility"),
+            ("junk_bond_demand", "Junk Bond"),
+            ("safe_haven_demand", "Safe Haven"),
+        ]
+        components = []
+        for k, label in comp_keys:
+            c = d.get(k, {}) or {}
+            if "score" in c or "rating" in c:
+                s = c.get("score")
+                components.append({
+                    "name": label,
+                    "score": round(float(s)) if isinstance(s, (int, float)) else None,
+                    "rating": c.get("rating", ""),
+                })
+        return {
+            "score": score,
+            "rating": fg.get("rating") or _rating_for(score),
+            "prevClose": fg.get("previous_close"),
+            "prevWeek": fg.get("previous_1_week"),
+            "prevMonth": fg.get("previous_1_month"),
+            "prevYear": fg.get("previous_1_year"),
+            "components": components,
+            "source": "CNN Fear & Greed Index, "
+                      + datetime.datetime.now(KST).strftime("%Y-%m-%d"),
+        }
+    except Exception as e:
+        _warn(f"CNN fear&greed failed: {e} — alternative.me 폴백")
+    try:
+        r = requests.get("https://api.alternative.me/fng/?limit=8", timeout=15)
+        r.raise_for_status()
+        data = r.json().get("data", [])
+        if not data:
+            return {"score": None, "rating": "[Data Unavailable]", "components": [],
+                    "source": "[Data Unavailable]"}
+        cur = data[0]
+        score = int(cur.get("value", 0))
+        return {
+            "score": score,
+            "rating": cur.get("value_classification") or _rating_for(score),
+            "prevClose": int(data[1]["value"]) if len(data) > 1 else None,
+            "prevWeek": int(data[7]["value"]) if len(data) > 7 else None,
+            "prevMonth": None, "prevYear": None,
+            "components": [],
+            "note": "CNN 미가용 — alternative.me(크립토 지수) 대체값",
+            "source": "alternative.me Fear & Greed (crypto), "
+                      + datetime.datetime.now(KST).strftime("%Y-%m-%d"),
+        }
+    except Exception as e:
+        _warn(f"alternative.me fear&greed failed: {e}")
+        return {"score": None, "rating": "[Data Unavailable]", "components": [],
+                "source": "[Data Unavailable]"}
+
+
+def interpret_sentiment(score):
+    """Skill workflow.md Step 2-2 strategy direction from F&G score."""
+    if score is None:
+        return "센티먼트 데이터 미가용"
+    if score < 25:
+        return "Extreme Fear — 역발상: 품질 우량주 매수 기회 탐색, Defensives 확인"
+    if score < 45:
+        return "Fear — 선별적 매수, 실적 확인된 Quality Growth 중심"
+    if score <= 55:
+        return "Neutral — 모멘텀 추종 + 밸류 균형"
+    if score <= 74:
+        return "Greed — 모멘텀 전략, 강한 성장 섹터 추종"
+    return "Extreme Greed — 리스크 관리 강화, 비중 축소·Trailing Stop"
+
+
+# ----------------------------------------------------------------------------
+# Phase 3) Sector ETF performance (yfinance)
+# ----------------------------------------------------------------------------
+US_SECTOR_ETFS = [
+    ("XLK", "Technology"), ("XLV", "Healthcare"), ("XLF", "Financials"),
+    ("XLE", "Energy"), ("XLI", "Industrials"), ("XLP", "Consumer Staples"),
+    ("XLY", "Consumer Discretionary"), ("XLB", "Materials"),
+    ("XLRE", "Real Estate"), ("XLU", "Utilities"), ("XLC", "Communication Services"),
+    ("SMH", "Semiconductors"),
+]
+
+
+def _returns_from_close(close):
+    """Compute 1M/3M/6M/YTD/1Y % returns from a daily close Series (oldest->newest)."""
+    if close is None or len(close) < 2:
+        return {}
+    last = float(close.iloc[-1])
+
+    def _ret(days):
+        if len(close) <= days:
+            return None
+        base = float(close.iloc[-1 - days])
+        return round((last / base - 1) * 100, 2) if base else None
+
+    # YTD: first trading day of current year
+    ytd = None
+    try:
+        yr = close.index[-1].year
+        ys = close[close.index >= f"{yr}-01-01"]
+        if len(ys) >= 1:
+            base = float(ys.iloc[0])
+            ytd = round((last / base - 1) * 100, 2) if base else None
+    except Exception:
+        pass
+    return {"ret1M": _ret(21), "ret3M": _ret(63), "ret6M": _ret(126),
+            "retYTD": ytd, "ret1Y": _ret(252)}
+
+
+def fetch_sector_etfs():
+    """Phase 3: 12 sector ETFs, 1Y daily -> period returns. Source-tagged rows."""
+    tickers = [t for t, _ in US_SECTOR_ETFS]
+    rows = []
+    try:
+        df = yf.download(tickers, period="1y", interval="1d", group_by="ticker",
+                         progress=False, threads=True, auto_adjust=True)
+    except Exception as e:
+        _warn(f"sector ETF download failed: {e}")
+        df = None
+    for tk, name in US_SECTOR_ETFS:
+        close = None
+        try:
+            if df is not None:
+                if isinstance(df.columns, pd.MultiIndex):
+                    if tk in df.columns.get_level_values(0):
+                        close = df[tk]["Close"].dropna()
+                elif "Close" in df.columns:
+                    close = df["Close"].dropna()
+        except Exception as e:
+            _warn(f"sector ETF parse {tk}: {e}")
+        rets = _returns_from_close(close)
+        rows.append({
+            "etf": tk, "name": name, **rets,
+            "source": f"Yahoo Finance, {tk}, "
+                      + datetime.datetime.now(KST).strftime("%Y-%m-%d")
+                      + ("" if rets else " [Data Unavailable]"),
+        })
+    # sort by 3M momentum (skill scoring proxy), unknowns last
+    rows.sort(key=lambda r: (r.get("ret3M") is None, -(r.get("ret3M") or -999)))
+    return rows
+
+
+# ----------------------------------------------------------------------------
+# Phase 4) Theme stocks (from briefing flow[]) — catalysts + valuation
+# ----------------------------------------------------------------------------
+def _yf_valuation(code, market):
+    """Best-effort PER/PBR/ROE via yfinance .info. Empty on error."""
+    suffix = ".KS" if market == "KOSPI" else ".KQ"
+    try:
+        info = yf.Ticker(f"{code}{suffix}").info or {}
+        def _pct(x):
+            return round(x * 100, 1) if isinstance(x, (int, float)) else None
+        return {
+            "per": round(info["trailingPE"], 1) if isinstance(info.get("trailingPE"), (int, float)) else None,
+            "pbr": round(info["priceToBook"], 2) if isinstance(info.get("priceToBook"), (int, float)) else None,
+            "roe": _pct(info.get("returnOnEquity")),
+            "revGrowth": _pct(info.get("revenueGrowth")),
+        }
+    except Exception as e:
+        _warn(f"yf valuation {code}: {e}")
+        return {}
+
+
+def theme_stocks(flow, resolve_fn, max_per_theme=4):
+    """Phase 4: resolve briefing flow[] krNames -> {code, market} + catalyst + valuation.
+    resolve_fn(name)->{code,name,market}|None (railway_server.resolve or a local map)."""
+    themes = []
+    for f in (flow or []):
+        stocks = []
+        for nm in (f.get("krNames") or [])[:max_per_theme]:
+            hit = resolve_fn(nm) if resolve_fn else None
+            if not hit:
+                stocks.append({"code": None, "name": nm, "market": None,
+                               "note": "종목코드 미해결"})
+                continue
+            code, market = hit["code"], hit.get("market", "KOSPI")
+            entry = {"code": code, "name": hit.get("name", nm), "market": market}
+            entry.update(_yf_valuation(code, market))
+            # latest DART disclosure as catalyst evidence (deterministic)
+            try:
+                corp = sources.dart_corp_code(code)
+                if corp:
+                    disc = sources.dart_disclosures(corp, days=60, page_count=5)
+                    if disc:
+                        entry["recentFiling"] = {
+                            "date": disc[0].get("date", ""),
+                            "title": disc[0].get("title", ""),
+                            "url": disc[0].get("url", ""),
+                        }
+            except Exception as e:
+                _warn(f"dart catalyst {code}: {e}")
+            stocks.append(entry)
+        themes.append({
+            "usTheme": f.get("usTheme", ""),
+            "usSymbols": f.get("usSymbols", []),
+            "krTheme": f.get("krTheme", ""),
+            "rationale": f.get("rationale", ""),
+            "stocks": stocks,
+        })
+    return themes
+
+
+# ----------------------------------------------------------------------------
+# Phase 5) LLM synthesis
+# ----------------------------------------------------------------------------
+SYSTEM = (
+    "당신은 글로벌 주식 섹터·테마를 분석하는 퀀트 리서치 애널리스트입니다. "
+    "제공된 RAW 데이터(FRED 매크로, CNN Fear&Greed 센티먼트, 섹터 ETF 퍼포먼스, "
+    "브리핑 도출 테마·종목)를 종합해 탑다운(매크로→센티먼트→섹터→종목) 분석을 "
+    "작성하세요.\n"
+    "규칙:\n"
+    "- 모든 판단은 제공된 RAW 데이터에 근거할 것. 데이터에 없는 수치를 지어내지 말 것.\n"
+    "- 매크로 국면과 센티먼트가 가리키는 방향의 정합성을 명시할 것.\n"
+    "- 섹터 12개 중 매크로·모멘텀 기준 타깃 상위 2~3개를 선정하고 근거를 제시할 것.\n"
+    "- 각 테마 종목에 대해 투자 포인트와 리스크를 균형 있게 서술할 것.\n"
+    "- Extreme Greed 구간이면 리스크 관리를 강조할 것.\n"
+    "- 출력은 지정된 JSON 스키마를 엄격히 따를 것. 한국어로 작성."
+)
+
+_STR = {"type": "string"}
+
+
+def _arr(items):
+    return {"type": "array", "items": items}
+
+
+def _obj(props, required=None):
+    return {"type": "object", "properties": props,
+            "required": required or list(props.keys())}
+
+
+SECTOR_SCHEMA = _obj({
+    "regimeSummary": _STR,          # 매크로 국면 2~3문장
+    "sentimentSummary": _STR,       # 센티먼트 해석 2~3문장
+    "targetSectors": _arr(_obj({
+        "name": _STR, "etf": _STR, "rationale": _STR,
+        "recommend": _STR,          # OW/N/UW
+    })),
+    "themes": _arr(_obj({
+        "krTheme": _STR,
+        "summary": _STR,            # 테마 종합
+        "stocks": _arr(_obj({
+            "name": _STR, "point": _STR, "risk": _STR,
+        })),
+    })),
+    "strategy": _STR,               # 종합 전략 방향
+    "risks": _arr(_STR),            # 매크로/섹터/종목 리스크 3~5개
+})
+
+
+def _build_raw(briefing, macro, regime, sentiment, sectors, themes):
+    return {
+        "asof": briefing.get("date", ""),
+        "macro": {sid: {k: v for k, v in m.items() if k in ("name", "latest", "prev", "unit")}
+                  for sid, m in macro.items()},
+        "regime": regime,
+        "sentiment": {k: sentiment.get(k) for k in ("score", "rating", "prevClose", "prevWeek", "prevMonth")},
+        "sectors": [{k: s.get(k) for k in ("etf", "name", "ret1M", "ret3M", "ret6M", "retYTD", "ret1Y")}
+                    for s in sectors],
+        "themes": [{"usTheme": t["usTheme"], "usSymbols": t["usSymbols"],
+                    "krTheme": t["krTheme"], "rationale": t["rationale"],
+                    "stocks": [{k: s.get(k) for k in ("name", "market", "per", "pbr", "roe", "revGrowth", "recentFiling")}
+                               for s in t["stocks"]]}
+                   for t in themes],
+    }
+
+
+def analyze_sectors(briefing, resolve_fn=None):
+    """End-to-end 5-phase sector analysis. `briefing` is the loaded
+    public/briefing/latest.json (needs .flow / .date). Returns a dict matching
+    the sector_analysis.json schema. Degrades gracefully at each phase."""
+    date = briefing.get("date") or datetime.datetime.now(KST).strftime("%Y-%m-%d")
+
+    # Phase 1-4: collect RAW (each is best-effort)
+    macro = fetch_macro()
+    regime = classify_regime(macro)
+    sentiment = fetch_fear_greed()
+    sentiment["strategyHint"] = interpret_sentiment(sentiment.get("score"))
+    sectors = fetch_sector_etfs()
+    themes = theme_stocks(briefing.get("flow", []), resolve_fn)
+
+    # Phase 5: LLM synthesis (optional — mechanical passthrough if unavailable)
+    synth, model_used = {}, None
+    if llm.configured():
+        try:
+            raw = _build_raw(briefing, macro, regime, sentiment, sectors, themes)
+            user = ("RAW 데이터(JSON):\n"
+                    + json.dumps(raw, ensure_ascii=False))
+            synth, model_used = llm.generate_json(
+                SYSTEM, user, max_tokens=6144, schema=SECTOR_SCHEMA, return_model=True)
+        except Exception as e:
+            _warn(f"LLM 종합 실패: {e} — 기계적 결과만 반환")
+    else:
+        _warn("LLM 미설정 — 기계적 결과만 반환")
+
+    # Assemble output. LLM fields overlay the deterministic data.
+    sources_used = [
+        "FRED (api.stlouisfed.org) — " + ", ".join(s for s, _, _ in FRED_SERIES),
+        "Yahoo Finance — 섹터 ETF 12종 + 테마 종목 재무",
+        sentiment.get("source", ""),
+        "DART OpenAPI — 테마 종목 최근 공시",
+    ]
+    return {
+        "date": date,
+        "asof": datetime.datetime.now(KST).strftime("%Y-%m-%d %H:%M KST"),
+        "generatedBy": model_used or "mechanical",
+        "macro": {
+            "regime": regime["regime"],
+            "regimeReason": regime["regimeReason"],
+            "preferredSectors": regime["preferredSectors"],
+            "summary": synth.get("regimeSummary", ""),
+            "indicators": [
+                {"name": m["name"], "latest": m["latest"], "prev": m["prev"],
+                 "unit": m["unit"], "source": m["source"]}
+                for m in macro.values()
+            ],
+        },
+        "sentiment": {
+            "score": sentiment.get("score"),
+            "rating": sentiment.get("rating"),
+            "prevClose": sentiment.get("prevClose"),
+            "prevWeek": sentiment.get("prevWeek"),
+            "prevMonth": sentiment.get("prevMonth"),
+            "components": sentiment.get("components", []),
+            "strategyHint": sentiment.get("strategyHint", ""),
+            "summary": synth.get("sentimentSummary", ""),
+            "note": sentiment.get("note", ""),
+            "source": sentiment.get("source", ""),
+        },
+        "sectors": sectors,
+        "targetSectors": synth.get("targetSectors", []),
+        "themes": _merge_theme_synth(themes, synth.get("themes", [])),
+        "strategy": synth.get("strategy", ""),
+        "risks": synth.get("risks", []),
+        "sources": [s for s in sources_used if s],
+        "disclaimer": "본 리포트는 퀀트 모델 기반 참고 자료이며 투자 권유가 아닙니다. "
+                      "최종 투자 판단은 자격을 갖춘 전문가와 검토하십시오.",
+    }
+
+
+def _merge_theme_synth(themes, synth_themes):
+    """Attach LLM point/risk to the deterministic theme-stock rows (matched by name)."""
+    by_theme = {t.get("krTheme", ""): t for t in synth_themes}
+    by_stock = {}
+    for t in synth_themes:
+        for s in (t.get("stocks") or []):
+            by_stock[s.get("name", "")] = s
+    out = []
+    for t in themes:
+        st = by_theme.get(t["krTheme"], {})
+        stocks = []
+        for s in t["stocks"]:
+            syn = by_stock.get(s.get("name", ""), {})
+            stocks.append({**s, "point": syn.get("point", ""), "risk": syn.get("risk", "")})
+        out.append({**t, "summary": st.get("summary", ""), "stocks": stocks})
+    return out

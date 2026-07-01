@@ -47,6 +47,10 @@ _INFLIGHT = {}              # code -> Lock (collapse duplicate concurrent reques
 _INFLIGHT_LOCK = threading.Lock()
 _RL = {}                    # ip -> [recent request timestamps]
 _RL_LOCK = threading.Lock()
+_SECTOR_CACHE = {}          # {"result", "ts"} — one shared 6h cache for /api/sector
+_SECTOR_LOCK = threading.Lock()
+
+BRIEFING_PATH = os.path.join(ROOT, "public", "briefing", "latest.json")
 
 
 # --- KRX master: resolve a free-text query (name or 6-digit code) to a stock ---
@@ -134,6 +138,26 @@ def run_research(stock):
         return entry, False
 
 
+def run_sector():
+    """Return (result, was_cached) for /api/sector. Single shared 6h cache;
+    reuses railway_server.resolve so KR theme names map to KRX codes."""
+    with _SECTOR_LOCK:
+        e = _SECTOR_CACHE.get("v")
+        if e and time.time() - e["ts"] < CACHE_TTL:
+            return e["result"], True
+    briefing = {}
+    try:
+        with open(BRIEFING_PATH, encoding="utf-8") as f:
+            briefing = json.load(f)
+    except Exception as ex:
+        print(f"[sector] briefing load failed: {ex}", file=sys.stderr)
+    from analysis import sector as sector_mod
+    result = sector_mod.analyze_sectors(briefing, resolve_fn=resolve)
+    with _SECTOR_LOCK:
+        _SECTOR_CACHE["v"] = {"result": result, "ts": time.time()}
+    return result, False
+
+
 class Handler(BaseHTTPRequestHandler):
     def _send(self, code, payload):
         body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
@@ -158,6 +182,12 @@ class Handler(BaseHTTPRequestHandler):
             return self._krxtest()
         if u.path == "/api/srctest":
             return self._srctest()
+        if u.path == "/api/sector":
+            try:
+                result, was_cached = run_sector()
+                return self._send(200, {"status": "done", "cached": was_cached, **result})
+            except Exception as ex:
+                return self._send(500, {"status": "error", "message": str(ex)[:300]})
         if u.path != "/api/research":
             return self._send(404, {"status": "error", "message": "not found"})
         try:
