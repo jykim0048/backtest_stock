@@ -363,10 +363,10 @@
     .briefing-catalyst { background: rgba(0,240,255,.05); border: 1px solid rgba(0,240,255,.15); border-radius: 9px; padding: 9px 11px; margin: 12px 0; }
     .briefing-catalyst .cat-h { display: flex; align-items: center; gap: 5px; font-size: 12.5px; color: var(--kospi-blue); margin-bottom: 4px; }
     .briefing-catalyst .cat-b { font-size: 13px; line-height: 1.6; color: #cbd5e1; }
-    .briefing-wl .wl-h { font-size: 12.5px; color: var(--text-muted); margin-bottom: 8px; }
+    .briefing-wl .wl-h { font-size: 13.5px; color: var(--text-muted); margin-bottom: 8px; }
     .briefing-wl table { width: 100%; border-collapse: collapse; }
-    .briefing-wl th { font-size: 12px; color: var(--text-muted); text-align: left; padding: 0 2px 5px; border-bottom: 1px solid var(--border-color); font-weight: 400; }
-    .briefing-wl td { font-size: 13px; padding: 6px 2px; border-bottom: 1px solid rgba(255,255,255,.04); vertical-align: top; }
+    .briefing-wl th { font-size: 13px; color: var(--text-muted); text-align: left; padding: 0 2px 5px; border-bottom: 1px solid var(--border-color); font-weight: 400; }
+    .briefing-wl td { font-size: 14px; padding: 6px 2px; border-bottom: 1px solid rgba(255,255,255,.04); vertical-align: top; }
     .briefing-foot { font-size: 12px; color: var(--text-muted); text-align: right; margin-top: 10px; }
     /* 브리핑 상단 섹터분석 카드(국면·센티먼트·섹터ETF) — 구 섹터탭에서 이관 */
     .briefing-sectortop { display: flex; flex-direction: column; gap: 12px; margin-bottom: 12px; }
@@ -377,11 +377,11 @@
     .sector-regime-badge { font-size: 12px; font-weight: 700; padding: 3px 11px; border-radius: 999px; }
     .sector-summary { font-size: 11.5px; line-height: 1.65; color: #cbd5e1; margin-top: 8px; }
     .sector-disclaimer { font-size: 10px; color: var(--text-muted); font-style: italic; margin-top: 4px; }
-    .sector-ind-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(78px, 1fr)); gap: 5px; }
-    .sector-ind { background: rgba(255,255,255,.03); border-radius: 6px; padding: 4px 6px; }
-    .sector-ind .si-name { font-size: 9px; color: var(--text-muted); line-height: 1.25; }
-    .sector-ind .si-val { font-size: 12px; font-weight: 700; margin-top: 1px; }
-    .sector-ind .si-prev { font-size: 8.5px; color: var(--text-muted); margin-top: 0; }
+    .sector-ind-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; }
+    .sector-ind { background: rgba(255,255,255,.03); border-radius: 7px; padding: 7px 8px; }
+    .sector-ind .si-name { font-size: 10px; color: var(--text-muted); line-height: 1.3; }
+    .sector-ind .si-val { font-size: 14px; font-weight: 700; margin-top: 2px; }
+    .sector-ind .si-prev { font-size: 9.5px; color: var(--text-muted); margin-top: 1px; }
     .fg-gauge { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
     .fg-score { font-size: 40px; font-weight: 800; line-height: 1; }
     .fg-rating { font-size: 13px; font-weight: 700; margin-top: 4px; }
@@ -2136,8 +2136,8 @@
       // 워치리스트 요약(picks)
       const rows = picks.map(p => {
         const mkColor = (p.market === "KOSDAQ") ? "var(--kosdaq-green)" : "var(--kospi-blue)";
-        return `<tr><td style="font-weight:600">${_brEsc(p.name)}</td>`
-             + `<td style="color:${mkColor};font-size:12px">${_brEsc(p.market)}</td>`
+        return `<tr><td style="font-weight:600;white-space:nowrap">${_brEsc(p.name)}</td>`
+             + `<td style="color:${mkColor};font-size:13px">${_brEsc(p.market)}</td>`
              + `<td style="color:#cbd5e1">${_brEsc(p.catalyst)}</td></tr>`;
       }).join("");
 
@@ -2165,7 +2165,7 @@
         ${downSection}
         ${catB ? `<div class="briefing-catalyst"><div class="cat-h">⚡ 전일 장마감 후 국내 촉매</div><div class="cat-b">${_brEsc(catB)}</div></div>` : ""}
         ${picks.length ? `<div class="briefing-wl"><div class="wl-h">오늘의 워치리스트 (장전 선정 ${picks.length}종목)</div>`
-          + `<table><thead><tr><th style="width:84px">종목</th><th style="width:58px">시장</th><th>핵심 촉매</th></tr></thead><tbody>${rows}</tbody></table></div>` : ""}
+          + `<table><thead><tr><th style="width:120px">종목</th><th style="width:58px">시장</th><th>핵심 촉매</th></tr></thead><tbody>${rows}</tbody></table></div>` : ""}
         <div class="briefing-foot">자동 생성 · ${genLabel} · 투자 판단 참고용</div>
       `;
     }
