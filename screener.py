@@ -102,6 +102,43 @@ US_SECTORS = [
     {"ticker": "XLY", "name": "임의소비재"},
 ]
 
+# 섹터별 대표 미국 종목(모닝 브리핑 급등/급락 테마의 '관련주' 표시용). 부분일치 아닌
+# 명시적 티커 목록 — 섹터 히트맵 상하위 테마가 뽑히면 이 안에서 등락률 상위(절대값)를 고른다.
+SECTOR_US_STOCKS = {
+    "기술":       [("AAPL", "Apple"), ("MSFT", "Microsoft"), ("ORCL", "Oracle"),
+                    ("CRM", "Salesforce"), ("ADBE", "Adobe"), ("IBM", "IBM")],
+    "반도체":     [("NVDA", "NVIDIA"), ("AMD", "AMD"), ("AVGO", "Broadcom"),
+                    ("TSM", "TSMC"), ("ASML", "ASML"), ("MU", "Micron")],
+    "헬스케어":   [("UNH", "UnitedHealth"), ("JNJ", "Johnson & Johnson"), ("LLY", "Eli Lilly"),
+                    ("PFE", "Pfizer"), ("ABBV", "AbbVie")],
+    "바이오":     [("REGN", "Regeneron"), ("VRTX", "Vertex Pharmaceuticals"), ("GILD", "Gilead Sciences"),
+                    ("MRNA", "Moderna"), ("AMGN", "Amgen")],
+    "에너지":     [("XOM", "ExxonMobil"), ("CVX", "Chevron"), ("COP", "ConocoPhillips"),
+                    ("SLB", "SLB"), ("EOG", "EOG Resources")],
+    "금융":       [("JPM", "JPMorgan Chase"), ("BAC", "Bank of America"), ("WFC", "Wells Fargo"),
+                    ("GS", "Goldman Sachs"), ("MS", "Morgan Stanley")],
+    "산업재":     [("CAT", "Caterpillar"), ("HON", "Honeywell"), ("GE", "GE Aerospace"),
+                    ("BA", "Boeing"), ("UPS", "UPS")],
+    "소재":       [("LIN", "Linde"), ("SHW", "Sherwin-Williams"), ("APD", "Air Products"),
+                    ("FCX", "Freeport-McMoRan"), ("NEM", "Newmont")],
+    "임의소비재": [("AMZN", "Amazon"), ("TSLA", "Tesla"), ("HD", "Home Depot"),
+                    ("MCD", "McDonald's"), ("NKE", "Nike")],
+}
+
+# 섹터별 대표 국내 종목 코드(모닝 브리핑 '국내 밸류체인' 표시용). 코스피200/코스닥150
+# 유니버스(load_universe)에 이미 있는 전일 등락률을 그대로 조회하므로 추가 네트워크 호출 없음.
+SECTOR_KR_STOCKS = {
+    "기술":       ["035420", "035720", "018260", "259960", "293490"],   # NAVER/카카오/삼성SDS/크래프톤/카카오게임즈
+    "반도체":     ["005930", "000660", "058470", "039030", "240810", "095340"],  # 삼성전자/SK하이닉스/리노공업/이오테크닉스/원익IPS/ISC
+    "헬스케어":   ["207940", "000100", "128940", "185750", "326030"],   # 삼성바이오로직스/유한양행/한미약품/종근당/SK바이오팜
+    "바이오":     ["068270", "196170", "145020", "214150", "141080"],   # 셀트리온/알테오젠/휴젤/클래시스/레고켐바이오
+    "에너지":     ["096770", "010950", "078930", "047050"],             # SK이노베이션/S-Oil/GS/포스코인터내셔널
+    "금융":       ["105560", "055550", "086790", "316140", "006800", "016360"],  # KB/신한/하나/우리금융지주+미래에셋·삼성증권
+    "산업재":     ["034020", "267270", "042670", "006360", "000150"],   # 두산에너빌리티/HD현대건설기계/HD현대인프라코어/GS건설/두산
+    "소재":       ["051910", "011170", "011780", "003670"],             # LG화학/롯데케미칼/금호석유/포스코퓨처엠
+    "임의소비재": ["139480", "004170", "008770", "383220"],             # 이마트/신세계/호텔신라/F&F
+}
+
 # 긍정 촉매 공시 키워드 (섹터별로 촉매 유형이 달라 광범위하게 포함). report_nm 부분일치.
 POSITIVE_KEYWORDS = [
     # 계약·수주·납품
@@ -196,8 +233,10 @@ def _parse_pubdate(s):
 def us_market_brief():
     items = US_INDICES + US_SECTORS
     tickers = [x["ticker"] for x in items]
+    sector_stock_tickers = sorted({t for lst in SECTOR_US_STOCKS.values() for t, _ in lst})
+    all_tickers = tickers + sector_stock_tickers
     try:
-        df = yf.download(tickers, period="5d", group_by="ticker",
+        df = yf.download(all_tickers, period="5d", group_by="ticker",
                          progress=False, threads=True, auto_adjust=True)
     except Exception as e:
         _warn(f"US market download failed: {e}")
@@ -225,11 +264,24 @@ def us_market_brief():
                             "price": price, "changePct": pct})
         return out
 
+    # 섹터별 대표 종목 등락률(모닝 브리핑 급등/급락 테마 '관련주' 표시용). 절대값 기준 정렬.
+    sector_stocks = {}
+    if df is not None:
+        for sector, stocks in SECTOR_US_STOCKS.items():
+            rows = []
+            for ticker, name in stocks:
+                _, pct = chg(ticker)
+                if pct is not None:
+                    rows.append({"symbol": ticker, "name": name, "changePct": pct})
+            rows.sort(key=lambda d: abs(d["changePct"]), reverse=True)
+            sector_stocks[sector] = rows
+
     return {
         "indices": pack(US_INDICES) if df is not None else [],
         "sectors": sorted(pack(US_SECTORS), key=lambda d: d["changePct"], reverse=True) if df is not None else [],
         "movers": us_movers(),
         "losers": us_losers(),
+        "sectorStocks": sector_stocks,
         "asof": datetime.datetime.now(KST).strftime("%Y-%m-%d"),
     }
 
@@ -756,6 +808,7 @@ def llm_select(us_brief, pool):
                 "market": valid[code]["Market"],
                 "reason": p.get("reason", ""),
                 "catalyst": p.get("catalyst", ""),
+                "changePct": round(float(valid[code]["ChagesRatio"]), 2),
             })
     if not picks:
         # 장중: 근거가 충분한 종목이 없으면 빈 결과도 정상(억지로 채우지 않는다).
@@ -777,6 +830,7 @@ def fallback_select(pool):
             "reason": (f"[{r.get('source','')}] 전일 등락률 {float(r['ChagesRatio']):+.2f}%, "
                        f"거래대금 {int(r['Amount']):,}원."),
             "catalyst": cat,
+            "changePct": round(float(r["ChagesRatio"]), 2),
         })
     return {"marketView": "LLM 선정을 사용할 수 없어 후보 점수 상위 종목으로 대체했습니다.",
             "picks": picks}
@@ -851,6 +905,21 @@ def main():
     print("2) 유니버스 + 후보 구성 (공시 촉매 + 가격)...")
     uni = load_universe()
     universe_codes = set(uni["Code"])
+
+    # 섹터별 대표 국내 종목의 전일 등락률(모닝 브리핑 '국내 밸류체인' 표시용).
+    # uni 에 이미 로드된 코스피200/코스닥150 데이터를 조회만 하므로 추가 네트워크 호출 없음.
+    code_to_row = {row["Code"]: row for row in uni.to_dict("records")}
+    kr_sector_stocks = {}
+    for sector, codes in SECTOR_KR_STOCKS.items():
+        rows = []
+        for code in codes:
+            row = code_to_row.get(code)
+            if row is not None:
+                rows.append({"code": code, "name": row["Name"],
+                             "changePct": round(float(row["ChagesRatio"]), 2)})
+        rows.sort(key=lambda d: abs(d["changePct"]), reverse=True)
+        kr_sector_stocks[sector] = rows
+    us_brief["krSectorStocks"] = kr_sector_stocks
     disclosure_map = disclosure_candidates(universe_codes)
     print(f"   공시 촉매 종목: {len(disclosure_map)}개")
     pool = build_pool(uni, disclosure_map)
