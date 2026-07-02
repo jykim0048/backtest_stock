@@ -97,10 +97,15 @@ SYSTEM = """\
      - krTheme  : 연결되는 국내 테마명(예: 반도체 소부장, 자율주행·전장, 전력·AI 인프라).
      - krNames  : 관련 국내 종목명. **가능하면 picks 안의 종목명을 우선**, 대표 종목명 추가 가능(1~4개).
      - rationale: 미국→한국이 왜 연결되는지 한 줄.
-4) downFlow: **미국에서 급락한 테마 → 국내 약세 주의 섹터/종목** 연결을 0~3개 만든다(flow 와 대칭, 하락).
-   losers 가 비었거나 뚜렷한 급락 테마가 없으면 빈 배열([])로 둔다.
-     - usTheme  : 미국 쪽 급락 테마명.
-     - usSymbols: 그 테마의 대표 급락주 티커. 반드시 입력 losers 안의 symbol 에서만 고른다(2~4개).
+4) downFlow: **미국에서 약했던 급락 테마 → 국내 약세 주의 섹터/종목** 연결을 0~3개 만든다(flow 와 대칭, 하락).
+   급락 재료는 두 곳에서 찾는다: (a) usMarket.losers 의 개별 급락주, (b) usMarket.sectors 중
+   큰 폭으로 하락한 섹터 ETF(예: 반도체 SMH, 기술 XLK). **개별 급락주가 약하거나 없어도,
+   섹터 ETF 가 뚜렷이 급락(예: -1.5% 이하)했으면 그 섹터를 usTheme 근거로 삼아 downFlow 를 만든다**
+   (당일 최대 하락은 개별주가 아니라 섹터/지수 레벨인 경우가 많으므로 놓치지 마라).
+   뚜렷한 급락 테마가 전혀 없으면 빈 배열([])로 둔다.
+     - usTheme  : 미국 쪽 급락 테마명(개별주 테마 또는 섹터명, 예: 반도체, 기술).
+     - usSymbols: 그 테마의 대표 급락 티커. **입력 losers 의 symbol 또는 usMarket.sectors 의
+       급락 섹터 ETF 티커에서만** 고른다(1~4개).
      - krTheme  : 약세가 우려되는 국내 테마/섹터명.
      - krNames  : 주의할 국내 대표 종목명(0~4개, 없으면 빈 배열). picks 강세주와 억지로 엮지 마라.
      - rationale: 왜 국내에 부담(약세)이 될 수 있는지 한 줄.
@@ -218,6 +223,21 @@ _US_TO_KR = {
     "기타 급등 특징주": ("장전 촉매주",    []),
 }
 
+# 미국 섹터 ETF명 → 국내 약세 주의 테마(폴백 downFlow 전용). 개별 급락주가 부족한 날,
+# 섹터 레벨 급락(예: 반도체 SMH)을 국내 약세 주의로 잇는다.
+_SECTOR_TO_KR = {
+    "반도체":     "반도체 소부장",
+    "기술":       "IT·소프트웨어",
+    "바이오":     "제약·바이오",
+    "헬스케어":   "헬스케어",
+    "에너지":     "정유·에너지",
+    "금융":       "은행·증권",
+    "산업재":     "산업재·기계",
+    "소재":       "소재·화학",
+    "임의소비재": "소비재·유통",
+}
+SECTOR_DROP_TH = -1.5   # 이 이하로 하락한 섹터 ETF 는 급락 테마로 간주(폴백)
+
 
 def _pct(items, name):
     for it in items:
@@ -309,6 +329,26 @@ def _mechanical(sel):
             "rationale": f"미국 {tname} 급락 → 국내 {kr_theme} 약세 주의",
         })
         dused.update(syms)
+
+    # 개별 급락주가 부족한 날 보완: 뚜렷이 급락한 섹터 ETF 를 국내 약세 주의로 잇는다
+    # (당일 최대 하락은 개별주가 아니라 섹터/지수 레벨인 경우가 많음).
+    for s in sorted(sectors, key=lambda d: d.get("changePct", 0)):
+        if len(down_flow) >= 3:
+            break
+        pct = s.get("changePct")
+        nm  = s.get("name", "")
+        if pct is None or pct > SECTOR_DROP_TH:
+            continue
+        kr_theme = _SECTOR_TO_KR.get(nm)
+        if not kr_theme or any(f.get("krTheme") == kr_theme for f in down_flow):
+            continue
+        down_flow.append({
+            "usTheme": nm,
+            "usSymbols": [s.get("ticker", nm)],
+            "krTheme": kr_theme,
+            "krNames": [],
+            "rationale": f"미국 {nm} 섹터 {pct:+.2f}% 급락 → 국내 {kr_theme} 약세 주의",
+        })
 
     catalyst = " / ".join(f"{p['name']}: {p.get('catalyst', '')}".strip(": ")
                           for p in picks[:5]) or "특이 촉매 없음"

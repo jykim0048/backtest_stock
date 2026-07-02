@@ -360,6 +360,19 @@
     .briefing-downflow .flow-kr { background: rgba(245,158,11,.07); border-color: rgba(245,158,11,.28); }
     .briefing-downflow .flow-kr .fk-theme { color: #fcd34d; }
     .briefing-downflow .flow-kr .fk-name { background: rgba(245,158,11,.12); color: #fcd34d; }
+    /* 급등 테마 | 급락 테마 대칭 2열 배치 */
+    .briefing-previewhead { font-size: 12.5px; color: var(--text-muted); text-align: center; margin: 6px 0 10px; }
+    .briefing-flowcols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
+    .briefing-flowcol { min-width: 0; }
+    .briefing-flowcols .flow-row { grid-template-columns: 1fr 20px 1fr; gap: 3px; }
+    .briefing-flowcols .flow-arrow { font-size: 16px; }
+    .briefing-flowcols .flow-us, .briefing-flowcols .flow-kr { padding: 8px 9px; }
+    .briefing-flowcols .fu-theme, .briefing-flowcols .fk-theme { font-size: 13px; }
+    .briefing-flowcols .fu-syms { font-size: 11.5px; }
+    .briefing-flowcols .fk-name { font-size: 11.5px; }
+    .briefing-flowempty { font-size: 12.5px; color: var(--text-muted); text-align: center;
+      padding: 16px 8px; border: 1px dashed var(--border-color); border-radius: 9px; }
+    @media (max-width: 760px) { .briefing-flowcols { grid-template-columns: 1fr; gap: 10px; } }
     .briefing-catalyst { background: rgba(0,240,255,.05); border: 1px solid rgba(0,240,255,.15); border-radius: 9px; padding: 9px 11px; margin: 12px 0; }
     .briefing-catalyst .cat-h { display: flex; align-items: center; gap: 5px; font-size: 12.5px; color: var(--kospi-blue); margin-bottom: 4px; }
     .briefing-catalyst .cat-b { font-size: 13px; line-height: 1.6; color: #cbd5e1; }
@@ -2108,14 +2121,17 @@
              + `</div>`;
       }).join("");
 
-      // 급락 테마(downFlow): 미국 급락 → 국내 약세 주의 (losers 로 % 병기)
+      // 급락 테마(downFlow): 미국 급락 → 국내 약세 주의
+      // % 병기는 losers(개별주) → sectors(섹터 ETF) 순으로 조회 (섹터 레벨 급락도 잡음)
       const losers = us.losers || [];
       const loserPct = {};
       losers.forEach(m => { if (m && m.symbol != null) loserPct[m.symbol] = m.changePct; });
+      const sectorPct = {};
+      sectors.forEach(s => { if (s && s.ticker != null) sectorPct[s.ticker] = s.changePct; });
       const downFlow = (d.downFlow || []).slice();
       const downRows = downFlow.slice(0, 4).map(f => {
         const syms = (f.usSymbols || []).map(sym => {
-          const p = loserPct[sym];
+          const p = (loserPct[sym] != null) ? loserPct[sym] : sectorPct[sym];
           return (p == null) ? _brEsc(sym) : `${_brEsc(sym)} ${_brPctFmt(p)}`;
         }).join(" · ");
         const names = (f.krNames || []).map(n => `<span class="fk-name">${_brEsc(n)}</span>`).join("");
@@ -2125,13 +2141,27 @@
              + `<div class="flow-kr"><div class="fk-theme">${_brEsc(f.krTheme)}</div><div class="fk-names">${names}</div></div>`
              + `</div>`;
       }).join("");
-      const downSection = downRows ? `
-        <div class="briefing-flowlabels" style="margin-top:12px">
-          <span class="flow-lbl" style="color:#60a5fa"><span class="fl-dot" style="background:#60a5fa"></span>미국 급락 테마</span>
-          <span style="font-size:12.5px;color:var(--text-muted)">국내 약세 주의</span>
-          <span class="flow-lbl" style="color:#fcd34d">주의 섹터 <span class="fl-dot" style="background:#fcd34d"></span></span>
-        </div>
-        <div class="briefing-downflow">${downRows}</div>` : "";
+      // 급등 테마 | 급락 테마를 같은 행에 대칭 배치 (좌: 강세 밸류체인 / 우: 약세 주의)
+      const upColInner   = flowRows || `<div class="briefing-flowempty">뚜렷한 급등 테마 없음</div>`;
+      const downColInner = downRows || `<div class="briefing-flowempty">뚜렷한 급락 테마 없음</div>`;
+      const flowCols = `
+        <div class="briefing-previewhead">— 당일 한국시장 프리뷰 · 미국 → 한국 밸류체인 연결 —</div>
+        <div class="briefing-flowcols">
+          <div class="briefing-flowcol">
+            <div class="briefing-flowlabels">
+              <span class="flow-lbl" style="color:#fb923c"><span class="fl-dot" style="background:#fb923c"></span>미국 급등 테마</span>
+              <span class="flow-lbl" style="color:var(--kospi-blue)">국내 밸류체인 <span class="fl-dot" style="background:var(--kospi-blue)"></span></span>
+            </div>
+            ${upColInner}
+          </div>
+          <div class="briefing-flowcol briefing-downflow">
+            <div class="briefing-flowlabels">
+              <span class="flow-lbl" style="color:#60a5fa"><span class="fl-dot" style="background:#60a5fa"></span>미국 급락 테마</span>
+              <span class="flow-lbl" style="color:#fcd34d">국내 약세 주의 <span class="fl-dot" style="background:#fcd34d"></span></span>
+            </div>
+            ${downColInner}
+          </div>
+        </div>`;
 
       // 워치리스트 요약(picks)
       const rows = picks.map(p => {
@@ -2156,13 +2186,7 @@
           <div class="briefing-heat">${heat}</div>
           ${usNarr ? `<div style="font-size:13.5px;line-height:1.65;color:#cbd5e1;margin-top:10px;">${_brEsc(usNarr)}</div>` : ""}
         </div>
-        <div class="briefing-flowlabels">
-          <span class="flow-lbl" style="color:#fb923c"><span class="fl-dot" style="background:#fb923c"></span>미국 급등 테마</span>
-          <span style="font-size:12.5px;color:var(--text-muted)">당일 한국시장 프리뷰</span>
-          <span class="flow-lbl" style="color:var(--kospi-blue)">국내 밸류체인 <span class="fl-dot" style="background:var(--kospi-blue)"></span></span>
-        </div>
-        ${flowRows}
-        ${downSection}
+        ${flowCols}
         ${catB ? `<div class="briefing-catalyst"><div class="cat-h">⚡ 전일 장마감 후 국내 촉매</div><div class="cat-b">${_brEsc(catB)}</div></div>` : ""}
         ${picks.length ? `<div class="briefing-wl"><div class="wl-h">오늘의 워치리스트 (장전 선정 ${picks.length}종목)</div>`
           + `<table><thead><tr><th style="width:120px">종목</th><th style="width:58px">시장</th><th>핵심 촉매</th></tr></thead><tbody>${rows}</tbody></table></div>` : ""}
