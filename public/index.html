@@ -2105,10 +2105,11 @@
              + `<div class="h-val" style="color:${_brPctColor(v)}">${_brPctFmt(v)}</div></div>`;
       }).join("");
 
-      // 밸류체인 플로우: 섹터 히트 상위(급등)/하위(급락) 3개씩, 각 테마당 관련주 3개 이상을
-      // 실제 등락률과 함께 표시(usStocks/krStocks 는 이미 screener.py 가 실측치로 채워서 넘겨줌).
+      // 밸류체인 플로우: 섹터 히트 상위(급등)/하위(급락) 3개씩, 각 테마당 관련주 3개 이상을 표시.
+      // 국내 종목은 종목명만(전일 등락률은 표기하지 않음 — 장전 프리뷰라 오늘자 변동이 아니므로
+      // 숫자를 보이면 "당일" 변동으로 오인될 수 있음). 정렬용 changePct 는 여전히 내부에서 사용.
       const _stockChips = (stocks, cls) => (stocks || []).map(s =>
-        `<span class="fk-name ${cls || ''}">${_brEsc(s.name)} ${_brPctFmt(s.changePct)}</span>`
+        `<span class="fk-name ${cls || ''}">${_brEsc(s.name)}</span>`
       ).join("");
       const _themeRow = (f) => {
         const usChips = (f.usStocks || []).map(s =>

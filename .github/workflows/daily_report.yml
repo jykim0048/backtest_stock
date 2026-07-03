@@ -56,6 +56,16 @@ jobs:
           NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
         run: python generate_analysis.py
 
+      # sector 스텝보다 반드시 먼저: generate_sector.py 가 브리핑의 flow[].krNames 를 입력으로
+      # 읽으므로(신선도 갭 방지), 이 순서를 지켜야 같은 날 데이터로 일관되게 맞물린다.
+      - name: Generate morning briefing
+        continue-on-error: true   # best-effort; LLM 실패해도 기계적 폴백으로 산출
+        env:
+          GEMINI_API_KEY:      ${{ secrets.GEMINI_API_KEY }}
+          LLM_CHAIN:           ${{ vars.LLM_CHAIN }}   # optional override; empty = default chain
+          ANTHROPIC_API_KEY:   ${{ secrets.ANTHROPIC_API_KEY }}
+        run: python generate_briefing.py
+
       - name: Generate sector & theme analysis
         continue-on-error: true   # best-effort; never block the price report
         env:
@@ -70,7 +80,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add watchlist.json public/daily_market_report.json public/reports/ public/sector_analysis.json
+          git add watchlist.json public/daily_market_report.json public/reports/ public/sector_analysis.json public/briefing/
           git diff --staged --quiet && echo "No changes to commit" && exit 0
           git commit -m "chore: auto-generate daily market report $(date +'%Y-%m-%d') [skip railway]"
           # Remote may have advanced (manual or concurrent pushes); push, and on
