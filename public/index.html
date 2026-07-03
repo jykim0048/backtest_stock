@@ -350,7 +350,8 @@
     .flow-row { display: grid; grid-template-columns: 1fr 26px 1fr; align-items: center; gap: 4px; margin-bottom: 8px; }
     .flow-us { background: rgba(251,146,60,.08); border: 1px solid rgba(251,146,60,.25); border-radius: 9px; padding: 9px 11px; }
     .flow-us .fu-theme { font-size: 14px; font-weight: 600; color: #fdba74; }
-    .flow-us .fu-syms { font-size: 12.5px; color: var(--text-muted); font-family: monospace; margin-top: 2px; }
+    .flow-us .fu-syms { margin-top: 4px; display: flex; gap: 4px; flex-wrap: wrap; }
+    .flow-us .fu-name { background: rgba(251,146,60,.12); color: #fdba74; font-size: 12.5px; font-family: monospace; padding: 1px 7px; border-radius: 20px; }
     .flow-arrow { text-align: center; color: var(--kospi-blue); font-size: 19px; }
     .flow-kr { background: rgba(0,240,255,.06); border: 1px solid rgba(0,240,255,.22); border-radius: 9px; padding: 9px 11px; }
     .flow-kr .fk-theme { font-size: 14px; font-weight: 600; }
@@ -359,6 +360,7 @@
     /* 급락 테마(downFlow): 미국 급락(파랑) → 국내 약세 주의(앰버) */
     .briefing-downflow .flow-us { background: rgba(59,130,246,.08); border-color: rgba(59,130,246,.28); }
     .briefing-downflow .flow-us .fu-theme { color: #93c5fd; }
+    .briefing-downflow .flow-us .fu-name { background: rgba(59,130,246,.12); color: #93c5fd; }
     .briefing-downflow .flow-arrow { color: var(--text-muted); }
     .briefing-downflow .flow-kr { background: rgba(245,158,11,.07); border-color: rgba(245,158,11,.28); }
     .briefing-downflow .flow-kr .fk-theme { color: #fcd34d; }
@@ -2111,13 +2113,14 @@
       const _stockChips = (stocks, cls) => (stocks || []).map(s =>
         `<span class="fk-name ${cls || ''}">${_brEsc(s.name)}</span>`
       ).join("");
+      const _usChips = (stocks) => (stocks || []).map(s =>
+        `<span class="fu-name">${_brEsc(s.symbol)} ${_brPctFmt(s.changePct)}</span>`
+      ).join("");
       const _themeRow = (f) => {
-        const usChips = (f.usStocks || []).map(s =>
-          `${_brEsc(s.symbol)} ${_brPctFmt(s.changePct)}`).join(" · ");
         return `<div class="flow-row">`
              + `<div class="flow-us"><div class="fu-theme">${_brEsc(f.usTheme)} `
              + `<span style="color:${_brPctColor(f.usChangePct)}">${_brPctFmt(f.usChangePct)}</span></div>`
-             + `<div class="fu-syms">${usChips}</div></div>`
+             + `<div class="fu-syms">${_usChips(f.usStocks)}</div></div>`
              + `<div class="flow-arrow">→</div>`
              + `<div class="flow-kr"><div class="fk-theme">${_brEsc(f.krTheme)}</div>`
              + `<div class="fk-names">${_stockChips(f.krStocks)}</div></div>`
