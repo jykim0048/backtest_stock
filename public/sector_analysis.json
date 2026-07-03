@@ -1,6 +1,6 @@
 {
   "date": "2026-07-03",
-  "asof": "2026-07-03 09:04 KST",
+  "asof": "2026-07-03 13:17 KST",
   "generatedBy": "gemini-3.1-flash-lite",
   "macro": {
     "regime": "과열",
@@ -92,11 +92,11 @@
     ]
   },
   "sentiment": {
-    "score": 31,
+    "score": 32,
     "rating": "fear",
-    "prevClose": 31.9142857142857,
-    "prevWeek": 24.3985347985348,
-    "prevMonth": 56.0571428571429,
+    "prevClose": 31.4285714285714,
+    "prevWeek": 25.1142857142857,
+    "prevMonth": 53.0285714285714,
     "components": [
       {
         "name": "Momentum",
@@ -125,7 +125,7 @@
       },
       {
         "name": "Junk Bond",
-        "score": 0,
+        "score": 1,
         "rating": "extreme fear"
       },
       {
@@ -159,6 +159,16 @@
       "retYTD": 25.45,
       "ret1Y": null,
       "source": "Yahoo Finance, XLK, 2026-07-03"
+    },
+    {
+      "etf": "XBI",
+      "name": "Biotech",
+      "ret1M": 25.72,
+      "ret3M": 24.95,
+      "ret6M": 32.01,
+      "retYTD": 32.17,
+      "ret1Y": null,
+      "source": "Yahoo Finance, XBI, 2026-07-03"
     },
     {
       "etf": "XLF",
@@ -265,26 +275,542 @@
   "themes": [
     {
       "usTheme": "헬스케어",
-      "usSymbols": [],
+      "usSymbols": [
+        "ABBV",
+        "JNJ",
+        "LLY",
+        "PFE",
+        "UNH"
+      ],
       "krTheme": "헬스케어",
-      "rationale": "미국 증시에서 헬스케어 섹터가 강세를 보임에 따라 국내 증시에서도 실적 개선 기대감이 높은 헬스케어 관련주로의 수급 이동이 기대됩니다.",
-      "stocks": [],
+      "rationale": "미국 헬스케어 섹터의 전반적인 강세가 국내 제약·바이오 종목들의 투자 심리 개선으로 이어질 전망입니다.",
+      "direction": "up",
+      "etf": "XLV",
+      "stocks": [
+        {
+          "code": "128940",
+          "name": "한미약품",
+          "market": "KOSPI",
+          "per": null,
+          "pbr": null,
+          "roe": 14.1,
+          "revGrowth": 0.5,
+          "recentFiling": {
+            "date": "2026-07-02",
+            "title": "임원ㆍ주요주주특정증권등소유상황보고서",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260702000334"
+          },
+          "point": "",
+          "risk": ""
+        },
+        {
+          "code": "207940",
+          "name": "삼성바이오로직스",
+          "market": "KOSPI",
+          "per": null,
+          "pbr": null,
+          "roe": 18.2,
+          "revGrowth": 25.8,
+          "recentFiling": {
+            "date": "2026-06-22",
+            "title": "[기재정정]단일판매ㆍ공급계약체결              ",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260622800686"
+          },
+          "point": "",
+          "risk": ""
+        },
+        {
+          "code": "000100",
+          "name": "유한양행",
+          "market": "KOSPI",
+          "per": null,
+          "pbr": null,
+          "roe": 8.9,
+          "revGrowth": 7.2,
+          "recentFiling": {
+            "date": "2026-07-02",
+            "title": "임원ㆍ주요주주특정증권등소유상황보고서",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260702000551"
+          },
+          "point": "",
+          "risk": ""
+        },
+        {
+          "code": "185750",
+          "name": "종근당",
+          "market": "KOSPI",
+          "per": null,
+          "pbr": null,
+          "roe": 14.5,
+          "revGrowth": 11.7,
+          "recentFiling": {
+            "date": "2026-07-01",
+            "title": "주식등의대량보유상황보고서(약식)",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260701000355"
+          },
+          "point": "",
+          "risk": ""
+        }
+      ],
+      "etfReturns": {
+        "ret1M": 12.34,
+        "ret3M": 11.33,
+        "ret6M": 6.08,
+        "retYTD": 6.19,
+        "ret1Y": null
+      },
+      "etfRank": 6,
+      "etfRankOf": 13,
       "summary": ""
     },
     {
       "usTheme": "바이오",
-      "usSymbols": [],
+      "usSymbols": [
+        "MRNA",
+        "VRTX",
+        "REGN",
+        "GILD",
+        "AMGN"
+      ],
       "krTheme": "제약·바이오",
-      "rationale": "미국 바이오 섹터의 온기가 국내 제약·바이오 업종으로 이어지며 기술 수출 및 신약 모멘텀을 보유한 종목들의 투자심리를 개선시킬 것입니다.",
-      "stocks": [],
+      "rationale": "모더나 등 미국 바이오 기업들의 급등세가 국내 관련주들의 실적 기대감과 맞물려 긍정적인 영향을 줄 것으로 보입니다.",
+      "direction": "up",
+      "etf": "XBI",
+      "stocks": [
+        {
+          "code": "141080",
+          "name": "리가켐바이오",
+          "market": "KOSDAQ",
+          "per": null,
+          "pbr": null,
+          "roe": -28.3,
+          "revGrowth": -30.4,
+          "recentFiling": {
+            "date": "2026-06-30",
+            "title": "기업설명회(IR)개최              ",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260630900227"
+          },
+          "point": "",
+          "risk": ""
+        },
+        {
+          "code": "145020",
+          "name": "휴젤",
+          "market": "KOSDAQ",
+          "per": null,
+          "pbr": null,
+          "roe": 16.4,
+          "revGrowth": 29.9,
+          "recentFiling": {
+            "date": "2026-07-02",
+            "title": "[기재정정]주식등의대량보유상황보고서(일반)",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260702000319"
+          },
+          "point": "",
+          "risk": ""
+        },
+        {
+          "code": "196170",
+          "name": "알테오젠",
+          "market": "KOSDAQ",
+          "per": null,
+          "pbr": null,
+          "roe": 25.2,
+          "revGrowth": -14.5,
+          "recentFiling": {
+            "date": "2026-06-16",
+            "title": "기업설명회(IR)개최              ",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260616900311"
+          },
+          "point": "",
+          "risk": ""
+        },
+        {
+          "code": "214150",
+          "name": "클래시스",
+          "market": "KOSDAQ",
+          "per": null,
+          "pbr": null,
+          "roe": 27.2,
+          "revGrowth": 13.0,
+          "recentFiling": {
+            "date": "2026-06-26",
+            "title": "최대주주변경을수반하는주식담보제공계약체결              ",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260626900920"
+          },
+          "point": "",
+          "risk": ""
+        }
+      ],
+      "etfReturns": {
+        "ret1M": 25.72,
+        "ret3M": 24.95,
+        "ret6M": 32.01,
+        "retYTD": 32.17,
+        "ret1Y": null
+      },
+      "etfRank": 3,
+      "etfRankOf": 13,
       "summary": ""
     },
     {
       "usTheme": "소재",
-      "usSymbols": [],
+      "usSymbols": [
+        "NEM",
+        "APD",
+        "LIN",
+        "SHW",
+        "FCX"
+      ],
       "krTheme": "소재·화학",
-      "rationale": "미국 소재 섹터의 상승세는 경기 방어적 성격과 맞물려 국내 소재·화학 업종의 저가 매수세 유입 촉매로 작용할 수 있습니다.",
-      "stocks": [],
+      "rationale": "미국 소재 섹터의 상승 흐름이 국내 관련 화학 및 소재 기업들의 저가 매수세 유입을 자극할 가능성이 있습니다.",
+      "direction": "up",
+      "etf": "XLB",
+      "stocks": [
+        {
+          "code": "003670",
+          "name": "포스코퓨처엠",
+          "market": "KOSPI",
+          "per": null,
+          "pbr": null,
+          "roe": -0.2,
+          "revGrowth": -10.4,
+          "recentFiling": {
+            "date": "2026-06-30",
+            "title": "임원ㆍ주요주주특정증권등소유상황보고서",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260630000995"
+          },
+          "point": "",
+          "risk": ""
+        },
+        {
+          "code": "011780",
+          "name": "금호석유화학",
+          "market": "KOSPI",
+          "per": null,
+          "pbr": null,
+          "roe": 4.2,
+          "revGrowth": -6.7,
+          "recentFiling": {
+            "date": "2026-07-03",
+            "title": "임원ㆍ주요주주특정증권등소유상황보고서",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260703000055"
+          },
+          "point": "",
+          "risk": ""
+        },
+        {
+          "code": "051910",
+          "name": "LG화학",
+          "market": "KOSPI",
+          "per": null,
+          "pbr": null,
+          "roe": -5.9,
+          "revGrowth": -2.6,
+          "recentFiling": {
+            "date": "2026-06-30",
+            "title": "투자판단관련주요경영사항              (제미다파엠서방정 국내 품목허가 신청)",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260630801304"
+          },
+          "point": "",
+          "risk": ""
+        },
+        {
+          "code": "011170",
+          "name": "롯데케미칼",
+          "market": "KOSPI",
+          "per": null,
+          "pbr": null,
+          "roe": -11.5,
+          "revGrowth": 1.8,
+          "recentFiling": {
+            "date": "2026-07-01",
+            "title": "[첨부정정]지속가능경영보고서등관련사항(자율공시)              ",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260701800213"
+          },
+          "point": "",
+          "risk": ""
+        }
+      ],
+      "etfReturns": {
+        "ret1M": 1.33,
+        "ret3M": 3.46,
+        "ret6M": 14.67,
+        "retYTD": 13.7,
+        "ret1Y": null
+      },
+      "etfRank": 10,
+      "etfRankOf": 13,
+      "summary": ""
+    },
+    {
+      "usTheme": "반도체",
+      "usSymbols": [
+        "MU",
+        "AMD",
+        "ASML",
+        "AVGO",
+        "TSM"
+      ],
+      "krTheme": "반도체 소부장",
+      "rationale": "미국 반도체 지수의 큰 폭 하락은 국내 반도체 소부장 관련주들의 단기적인 투자 심리 위축을 초래할 수 있습니다.",
+      "direction": "down",
+      "etf": "SMH",
+      "stocks": [
+        {
+          "code": "005930",
+          "name": "삼성전자",
+          "market": "KOSPI",
+          "per": null,
+          "pbr": null,
+          "roe": 18.9,
+          "revGrowth": 69.2,
+          "recentFiling": {
+            "date": "2026-07-01",
+            "title": "임원ㆍ주요주주특정증권등소유상황보고서",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260701000525"
+          },
+          "point": "",
+          "risk": ""
+        },
+        {
+          "code": "000660",
+          "name": "SK하이닉스",
+          "market": "KOSPI",
+          "per": null,
+          "pbr": null,
+          "roe": 61.2,
+          "revGrowth": 198.1,
+          "recentFiling": {
+            "date": "2026-07-01",
+            "title": "임원ㆍ주요주주특정증권등소유상황보고서",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260701000532"
+          },
+          "point": "",
+          "risk": ""
+        },
+        {
+          "code": "240810",
+          "name": "원익IPS",
+          "market": "KOSDAQ",
+          "per": null,
+          "pbr": null,
+          "roe": 11.9,
+          "revGrowth": 32.8,
+          "recentFiling": {
+            "date": "2026-07-01",
+            "title": "주식등의대량보유상황보고서(약식)",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260701000648"
+          },
+          "point": "",
+          "risk": ""
+        },
+        {
+          "code": "039030",
+          "name": "이오테크닉스",
+          "market": "KOSDAQ",
+          "per": null,
+          "pbr": null,
+          "roe": 11.3,
+          "revGrowth": 35.7,
+          "recentFiling": {
+            "date": "2026-07-01",
+            "title": "주식등의대량보유상황보고서(약식)",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260701000638"
+          },
+          "point": "",
+          "risk": ""
+        }
+      ],
+      "etfReturns": {
+        "ret1M": -6.31,
+        "ret3M": 51.11,
+        "ret6M": 63.03,
+        "retYTD": 58.66,
+        "ret1Y": null
+      },
+      "etfRank": 1,
+      "etfRankOf": 13,
+      "summary": ""
+    },
+    {
+      "usTheme": "기술",
+      "usSymbols": [
+        "AAPL",
+        "ADBE",
+        "CRM",
+        "MSFT",
+        "ORCL"
+      ],
+      "krTheme": "IT·플랫폼",
+      "rationale": "기술주 전반의 약세는 국내 IT 및 플랫폼 기업들의 주가 변동성을 확대시키는 요인으로 작용할 것입니다.",
+      "direction": "down",
+      "etf": "XLK",
+      "stocks": [
+        {
+          "code": "018260",
+          "name": "삼성에스디에스",
+          "market": "KOSPI",
+          "per": null,
+          "pbr": null,
+          "roe": 6.6,
+          "revGrowth": -3.9,
+          "recentFiling": {
+            "date": "2026-07-03",
+            "title": "임원ㆍ주요주주특정증권등소유상황보고서",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260703000133"
+          },
+          "point": "",
+          "risk": ""
+        },
+        {
+          "code": "293490",
+          "name": "카카오게임즈",
+          "market": "KOSDAQ",
+          "per": null,
+          "pbr": null,
+          "roe": -11.6,
+          "revGrowth": -32.5,
+          "recentFiling": {
+            "date": "2026-06-26",
+            "title": "지속가능경영보고서등관련사항(자율공시)              ",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260626900275"
+          },
+          "point": "",
+          "risk": ""
+        },
+        {
+          "code": "035420",
+          "name": "NAVER",
+          "market": "KOSPI",
+          "per": null,
+          "pbr": null,
+          "roe": 5.7,
+          "revGrowth": 16.3,
+          "recentFiling": {
+            "date": "2026-07-01",
+            "title": "주식등의대량보유상황보고서(약식)",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260701000252"
+          },
+          "point": "",
+          "risk": ""
+        },
+        {
+          "code": "035720",
+          "name": "카카오",
+          "market": "KOSPI",
+          "per": null,
+          "pbr": null,
+          "roe": 3.9,
+          "revGrowth": 11.1,
+          "recentFiling": {
+            "date": "2026-07-01",
+            "title": "주식등의대량보유상황보고서(약식)",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260701000328"
+          },
+          "point": "",
+          "risk": ""
+        }
+      ],
+      "etfReturns": {
+        "ret1M": -8.78,
+        "ret3M": 34.02,
+        "ret6M": 24.5,
+        "retYTD": 25.45,
+        "ret1Y": null
+      },
+      "etfRank": 2,
+      "etfRankOf": 13,
+      "summary": ""
+    },
+    {
+      "usTheme": "임의소비재",
+      "usSymbols": [
+        "TSLA",
+        "MCD",
+        "NKE",
+        "HD",
+        "AMZN"
+      ],
+      "krTheme": "소비재·유통",
+      "rationale": "테슬라 등 임의소비재 섹터의 부진은 국내 소비재 및 유통 관련주들의 투자 매력을 낮추는 부담으로 작용할 수 있습니다.",
+      "direction": "down",
+      "etf": "XLY",
+      "stocks": [
+        {
+          "code": "004170",
+          "name": "신세계",
+          "market": "KOSPI",
+          "per": null,
+          "pbr": null,
+          "roe": 2.0,
+          "revGrowth": 10.9,
+          "recentFiling": {
+            "date": "2026-07-02",
+            "title": "임원ㆍ주요주주특정증권등소유상황보고서",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260702000119"
+          },
+          "point": "",
+          "risk": ""
+        },
+        {
+          "code": "383220",
+          "name": "F&F",
+          "market": "KOSPI",
+          "per": null,
+          "pbr": null,
+          "roe": 28.8,
+          "revGrowth": 10.9,
+          "recentFiling": {
+            "date": "2026-06-10",
+            "title": "주식등의대량보유상황보고서(약식)",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260610000443"
+          },
+          "point": "",
+          "risk": ""
+        },
+        {
+          "code": "008770",
+          "name": "호텔신라",
+          "market": "KOSPI",
+          "per": null,
+          "pbr": null,
+          "roe": -13.4,
+          "revGrowth": 8.4,
+          "recentFiling": {
+            "date": "2026-07-01",
+            "title": "주식등의대량보유상황보고서(약식)",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260701000279"
+          },
+          "point": "",
+          "risk": ""
+        },
+        {
+          "code": "139480",
+          "name": "이마트",
+          "market": "KOSPI",
+          "per": null,
+          "pbr": null,
+          "roe": 1.8,
+          "revGrowth": -1.3,
+          "recentFiling": {
+            "date": "2026-06-30",
+            "title": "지속가능경영보고서등관련사항(자율공시)              ",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260630800997"
+          },
+          "point": "",
+          "risk": ""
+        }
+      ],
+      "etfReturns": {
+        "ret1M": -0.2,
+        "ret3M": 6.88,
+        "ret6M": -2.3,
+        "retYTD": -0.64,
+        "ret1Y": null
+      },
+      "etfRank": 8,
+      "etfRankOf": 13,
       "summary": ""
     }
   ],
