@@ -46,6 +46,10 @@ def _warn(msg):
 # Phase 1) FRED macro
 # ----------------------------------------------------------------------------
 # (series_id, display name, unit) — skill workflow.md Step 1-1
+# "NAPMPI"(ISM 제조업 PMI로 잘못 표시되던 항목)는 2026-07 제거함: 애초에 종합 PMI가
+# 아니라 그 하위지수인 "ISM Manufacturing: Production Index"였고, 그마저도 2016-06
+# ISM이 자사 데이터를 FRED에서 전부 내려달라 요청해 시리즈 자체가 폐기(discontinued)됐다.
+# FRED에는 대체 가능한 ISM 계열 시리즈가 없어 항목을 뺀다(잘못된 값을 보여주는 것보다 낫다).
 FRED_SERIES = [
     ("FEDFUNDS",   "기준금리",        "%"),
     ("DGS10",      "10Y 국채금리",    "%"),
@@ -55,7 +59,6 @@ FRED_SERIES = [
     ("CPILFESL",   "Core CPI",        "idx"),
     ("UNRATE",     "실업률",          "%"),
     ("INDPRO",     "산업생산",        "idx"),
-    ("NAPMPI",     "ISM 제조업 PMI",  "pt"),
     ("VIXCLS",     "VIX",             "pt"),
     ("BAMLH0A0HYM2", "HY 스프레드",   "%"),
 ]
@@ -107,6 +110,24 @@ def fetch_macro():
             "latest": latest, "prev": prev,
             "asof": obs[0]["date"] if obs else None,
             "source": f"FRED, {sid}" + (f", as of {obs[0]['date']}" if obs else " [Data Unavailable]"),
+        }
+
+    # 장단기 스프레드는 FRED 의 T10Y2Y 시리즈를 그대로 믿지 않고 DGS10-DGS2 를 직접 계산한다.
+    # DGS10/DGS2/T10Y2Y 는 서로 독립적으로 "최신 관측치"를 가져오는데, 국채금리 시리즈는
+    # 발표일이 하루씩 어긋나는 경우가 있어(예: DGS10 최신치가 화요일자인데 T10Y2Y 최신치는
+    # 월요일자) 화면에 보이는 10Y-2Y 값과 스프레드 숫자가 안 맞는 것처럼 보일 수 있다.
+    # 두 시리즈가 모두 있으면 항상 같은 latest/prev 위치끼리 빼서 내부 정합성을 보장하고,
+    # 어느 한쪽이라도 없으면 FRED 의 T10Y2Y 자체 값으로 폴백한다.
+    d10, d2 = macro.get("DGS10"), macro.get("DGS2")
+    if d10 and d2 and d10.get("latest") is not None and d2.get("latest") is not None:
+        prev_spread = (round(d10["prev"] - d2["prev"], 2)
+                       if d10.get("prev") is not None and d2.get("prev") is not None else None)
+        macro["T10Y2Y"] = {
+            "name": "장단기 스프레드", "unit": "%p",
+            "latest": round(d10["latest"] - d2["latest"], 2),
+            "prev": prev_spread,
+            "asof": d10.get("asof"),
+            "source": f"FRED, DGS10({d10.get('asof')}) - DGS2({d2.get('asof')}) 직접 계산",
         }
     return macro
 
