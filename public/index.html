@@ -1539,7 +1539,6 @@
             <button class="main-tab" data-maintab="vi" onclick="selectMainTab('vi')">⚡ VI 발동</button>
             <button class="main-tab" data-maintab="limit" onclick="selectMainTab('limit')">📈 상/하한가</button>
             <button class="main-tab" data-maintab="invwarn" onclick="selectMainTab('invwarn')">⚠️ 투자주의/경고</button>
-            <button class="main-tab" data-maintab="journal" onclick="selectMainTab('journal')">📓 매매일지</button>
           </div>
         </div>
 
@@ -1709,7 +1708,14 @@
 
       <!-- Right Panel: Side Controls, Portfolio Summary, and Logs -->
       <aside class="control-sidebar">
-        
+
+        <!-- 매매일지 탭 진입점. 버튼만 사이드바로 옮긴 것 — class="main-tab"/data-maintab
+             은 그대로 둬서 selectMainTab() 의 active 토글·전환 로직은 변경 없이 그대로 쓰고,
+             내용(main-journal-pane)은 기존처럼 메인(왼쪽) 패널 영역에 그대로 렌더된다. -->
+        <div style="display:flex; margin-bottom: 16px;">
+          <button class="main-tab" data-maintab="journal" onclick="selectMainTab('journal')">📓 Trading Journal</button>
+        </div>
+
         <!-- Live Portfolio Account Summary widget -->
         <div class="side-panel">
           <h3 style="display:flex; justify-content:space-between; align-items:center;">
