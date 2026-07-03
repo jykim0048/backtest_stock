@@ -308,8 +308,10 @@ def _returns_from_close(close):
 
 
 def fetch_sector_etfs():
-    """Phase 3: 12 sector ETFs, 1Y daily -> period returns. Source-tagged rows."""
-    tickers = [t for t, _ in US_SECTOR_ETFS]
+    """Phase 3: 13 sector ETFs + SPY benchmark, 1Y daily -> period returns.
+    Returns (rows, benchmark) — benchmark 는 SPY 의 수익률 dict (스코어카드의
+    상대 모멘텀 계산용). Source-tagged rows."""
+    tickers = [t for t, _ in US_SECTOR_ETFS] + ["SPY"]
     rows = []
     try:
         df = yf.download(tickers, period="1y", interval="1d", group_by="ticker",
@@ -317,18 +319,21 @@ def fetch_sector_etfs():
     except Exception as e:
         _warn(f"sector ETF download failed: {e}")
         df = None
-    for tk, name in US_SECTOR_ETFS:
-        close = None
+
+    def _close_of(tk):
         try:
             if df is not None:
                 if isinstance(df.columns, pd.MultiIndex):
                     if tk in df.columns.get_level_values(0):
-                        close = df[tk]["Close"].dropna()
+                        return df[tk]["Close"].dropna()
                 elif "Close" in df.columns:
-                    close = df["Close"].dropna()
+                    return df["Close"].dropna()
         except Exception as e:
             _warn(f"sector ETF parse {tk}: {e}")
-        rets = _returns_from_close(close)
+        return None
+
+    for tk, name in US_SECTOR_ETFS:
+        rets = _returns_from_close(_close_of(tk))
         rows.append({
             "etf": tk, "name": name, **rets,
             "source": f"Yahoo Finance, {tk}, "
@@ -337,28 +342,231 @@ def fetch_sector_etfs():
         })
     # sort by 3M momentum (skill scoring proxy), unknowns last
     rows.sort(key=lambda r: (r.get("ret3M") is None, -(r.get("ret3M") or -999)))
-    return rows
+    benchmark = _returns_from_close(_close_of("SPY"))
+    return rows, benchmark
+
+
+def fetch_etf_pes(tickers):
+    """스코어카드 밸류에이션 항목용 — 섹터 ETF 별 trailing PE (yfinance .info).
+    ETF 는 PE 미제공인 경우가 흔해 결측은 None 으로 남긴다."""
+    pes = {}
+    for tk in tickers:
+        try:
+            info = yf.Ticker(tk).info or {}
+            pe = info.get("trailingPE")
+            pes[tk] = round(pe, 1) if isinstance(pe, (int, float)) and pe > 0 else None
+        except Exception as e:
+            _warn(f"etf pe {tk}: {e}")
+            pes[tk] = None
+    return pes
+
+
+# --- Step 3-3 타깃 섹터 점수화 모델 (skill workflow.md) --------------------
+# 스킬 원본은 6항목 20점 만점이나, '공시·뉴스 모멘텀'(0–3)은 섹터 단위 데이터
+# 소스가 아직 없어 제외 — 5항목 17점 만점. verdict 는 비율 컷오프라 항목이
+# 추가돼도 기준이 유지된다 (>=70% OW, >=40% N, 미만 UW).
+_ETF_CANON = {  # ETF -> regime.preferredSectors 명칭
+    "XLK": "Tech", "SMH": "Tech", "XLC": "Tech",
+    "XLV": "Healthcare", "XBI": "Healthcare",
+    "XLF": "Financials", "XLE": "Energy", "XLI": "Industrials",
+    "XLP": "Staples", "XLY": "Discretionary", "XLB": "Materials",
+    "XLRE": "Real Estate", "XLU": "Utilities",
+}
+_SUB_ETFS = {"SMH", "XBI", "XLC"}          # 상위 섹터에서 파생된 서브섹터 ETF
+_GROWTH_ETFS = {"XLK", "SMH", "XLY", "XLC", "XBI"}
+_DEFENSIVE_ETFS = {"XLU", "XLP", "XLV"}
+
+
+def score_sectors(sectors, regime, sentiment_score, benchmark, etf_pes):
+    """섹터별 결정론적 스코어카드. 반환: {etf: {score,maxScore,verdict,parts[]}}"""
+    prefer = set(regime.get("preferredSectors") or [])
+    pes = [v for v in etf_pes.values() if v]
+    pe_median = sorted(pes)[len(pes) // 2] if pes else None
+    spy3m = (benchmark or {}).get("ret3M")
+    out = {}
+    for s in sectors:
+        tk = s["etf"]
+        parts = []
+
+        # ① 매크로 적합도 (0–5): 국면 선호 섹터 여부
+        canon = _ETF_CANON.get(tk, "")
+        if canon in prefer:
+            m = 4 if tk in _SUB_ETFS else 5
+            m_note = f"{regime.get('regime','')} 국면 선호 섹터" + (" (서브섹터)" if tk in _SUB_ETFS else "")
+        else:
+            m, m_note = 2, "국면 선호 섹터 아님 (중립)"
+        parts.append({"key": "macro", "label": "매크로 적합도", "score": m, "max": 5, "note": m_note})
+
+        # ② 센티먼트 정합성 (0–3): F&G 구간 x 성장/방어/시클리컬 성격
+        kind = "growth" if tk in _GROWTH_ETFS else ("defensive" if tk in _DEFENSIVE_ETFS else "cyclical")
+        if sentiment_score is None:
+            sc, sc_note = 0, "센티먼트 미가용"
+        elif sentiment_score >= 56:
+            sc = {"growth": 3, "cyclical": 2, "defensive": 1}[kind]
+            sc_note = f"Greed 구간({sentiment_score}) — 성장 섹터 우위"
+        elif sentiment_score >= 45:
+            sc, sc_note = 2, f"Neutral 구간({sentiment_score})"
+        else:
+            sc = {"defensive": 3, "cyclical": 2, "growth": 1}[kind]
+            sc_note = f"Fear 구간({sentiment_score}) — 방어 섹터 우위"
+        parts.append({"key": "sentiment", "label": "센티먼트 정합성", "score": sc, "max": 3, "note": sc_note})
+
+        # ③ 3M 모멘텀 vs SPY (0–3)
+        r3 = s.get("ret3M")
+        if r3 is None or spy3m is None:
+            mo, mo_note = 0, "수익률 미가용"
+        else:
+            ex = r3 - spy3m
+            mo = 3 if ex > 5 else (2 if ex > 0 else (1 if ex > -5 else 0))
+            mo_note = f"SPY 대비 {ex:+.1f}%p"
+        parts.append({"key": "momentum", "label": "3M 모멘텀 (vs SPY)", "score": mo, "max": 3, "note": mo_note})
+
+        # ④ 밸류에이션 매력도 (0–3): ETF trailing PE vs 섹터 중앙값
+        pe = etf_pes.get(tk)
+        if pe is None or pe_median is None:
+            va, va_note = 1, "ETF PE 미가용 (중립 1점)"
+        else:
+            ratio = pe / pe_median
+            va = 3 if ratio < 0.85 else (2 if ratio < 1.0 else (1 if ratio < 1.15 else 0))
+            va_note = f"PE {pe} vs 중앙값 {pe_median} ({ratio:.2f}배)"
+        parts.append({"key": "valuation", "label": "밸류에이션 매력도", "score": va, "max": 3, "note": va_note})
+
+        # ⑤ 이익성장 모멘텀 근사 (0–3): 최근 3M vs 직전 3M 수익률 가속도
+        r6 = s.get("ret6M")
+        if r3 is None or r6 is None:
+            gr, gr_note = 0, "수익률 미가용"
+        else:
+            accel = r3 - (r6 - r3)
+            gr = 3 if accel > 3 else (2 if accel > 0 else (1 if accel > -3 else 0))
+            gr_note = f"3M 가속도 {accel:+.1f}%p"
+        parts.append({"key": "growth", "label": "이익성장 모멘텀", "score": gr, "max": 3, "note": gr_note})
+
+        total = sum(p["score"] for p in parts)
+        max_score = sum(p["max"] for p in parts)
+        pct = total / max_score if max_score else 0
+        verdict = "OW" if pct >= 0.70 else ("N" if pct >= 0.40 else "UW")
+        out[tk] = {"etf": tk, "name": s["name"], "score": total, "maxScore": max_score,
+                   "verdict": verdict, "parts": parts,
+                   "source": "결정론적 산출 (skill Step 3-3 점수화 모델, 공시·뉴스 항목 제외)"}
+    return out
 
 
 # ----------------------------------------------------------------------------
 # Phase 4) Theme stocks (from briefing flow[]) — catalysts + valuation
 # ----------------------------------------------------------------------------
 def _yf_valuation(code, market):
-    """Best-effort PER/PBR/ROE via yfinance .info. Empty on error."""
+    """Best-effort valuation/momentum/target via yfinance. Empty on error.
+    skill Phase 4(퀄리티 스코어 입력) + Phase 5(목표주가·상승여력) 항목 수집."""
     suffix = ".KS" if market == "KOSPI" else ".KQ"
     try:
-        info = yf.Ticker(f"{code}{suffix}").info or {}
+        tkr = yf.Ticker(f"{code}{suffix}")
+        info = tkr.info or {}
+        def _num(x, nd=1):
+            return round(x, nd) if isinstance(x, (int, float)) else None
         def _pct(x):
             return round(x * 100, 1) if isinstance(x, (int, float)) else None
-        return {
-            "per": round(info["trailingPE"], 1) if isinstance(info.get("trailingPE"), (int, float)) else None,
-            "pbr": round(info["priceToBook"], 2) if isinstance(info.get("priceToBook"), (int, float)) else None,
+
+        out = {
+            "per": _num(info.get("trailingPE")),
+            "pbr": _num(info.get("priceToBook"), 2),
             "roe": _pct(info.get("returnOnEquity")),
             "revGrowth": _pct(info.get("revenueGrowth")),
+            "beta": _num(info.get("beta"), 2),
+            "debtToEquity": _num(info.get("debtToEquity")),  # yfinance 는 % 단위
+            "marketCap": info.get("marketCap") if isinstance(info.get("marketCap"), (int, float)) else None,
         }
+
+        # 3M 수익률 (Q점수 모멘텀 입력) — 일봉 히스토리에서 직접 계산
+        price = None
+        try:
+            close = tkr.history(period="4mo")["Close"].dropna()
+            if len(close) >= 2:
+                price = float(close.iloc[-1])
+                base = float(close.iloc[-63]) if len(close) > 63 else float(close.iloc[0])
+                if base:
+                    out["ret3M"] = round((price / base - 1) * 100, 2)
+        except Exception as e:
+            _warn(f"yf history {code}: {e}")
+        if price is None:
+            p = info.get("regularMarketPrice") or info.get("currentPrice")
+            price = float(p) if isinstance(p, (int, float)) else None
+
+        # 52주 고점 대비 이격 (하방 여유 참고)
+        hi = info.get("fiftyTwoWeekHigh")
+        if price and isinstance(hi, (int, float)) and hi:
+            out["from52WHigh"] = round((price / hi - 1) * 100, 1)
+
+        # Phase 5 — 애널리스트 컨센서스 목표주가 -> 상승여력.
+        # 의견 2건 미만이면 신뢰도가 낮아 미표시 (skill Step 5-2 검증 취지).
+        tgt = info.get("targetMeanPrice")
+        n_op = info.get("numberOfAnalystOpinions")
+        out["analystCount"] = n_op if isinstance(n_op, int) else None
+        if (price and isinstance(tgt, (int, float)) and tgt
+                and isinstance(n_op, int) and n_op >= 2):
+            out["targetUpside"] = round((tgt / price - 1) * 100, 1)
+
+        return _validate_valuation(out)
     except Exception as e:
         _warn(f"yf valuation {code}: {e}")
         return {}
+
+
+def _validate_valuation(v):
+    """skill Step 5-2 데이터 검증 — 이상치는 None 처리하고 사유를 남긴다."""
+    warns = []
+    checks = [
+        ("per", lambda x: 0 < x <= 500, "PER 이상치"),
+        ("pbr", lambda x: 0 < x <= 50, "PBR 이상치"),
+        ("roe", lambda x: -100 <= x <= 100, "ROE 이상치"),
+        ("debtToEquity", lambda x: 0 <= x <= 2000, "부채비율 이상치"),
+        ("targetUpside", lambda x: -90 <= x <= 200, "목표가 괴리 이상치"),
+    ]
+    for key, ok, label in checks:
+        x = v.get(key)
+        if x is not None and not ok(x):
+            warns.append(f"{label}({x}) 제외")
+            v[key] = None
+    if warns:
+        v["dataWarnings"] = warns
+    return v
+
+
+def _lin(x, lo, hi):
+    """x 를 [lo, hi] -> [0, 100] 으로 선형 매핑 (lo>hi 역방향 허용, 클램프)."""
+    if hi == lo:
+        return 50.0
+    return max(0.0, min(100.0, (x - lo) / (hi - lo) * 100))
+
+
+def quality_score(v):
+    """skill Step 4-3 퀄리티 스코어 (0–100) — 모멘텀 30% + 밸류에이션 25%
+    + 성장성 25% + 재무건전성 20%. 결측 항목은 가중치 재배분하되,
+    가용 가중치 50% 미만이면 미산출(None)."""
+    comps = {}
+    if v.get("ret3M") is not None:
+        comps["momentum"] = _lin(v["ret3M"], -20, 30)
+    val_parts = []
+    if v.get("per") is not None:
+        val_parts.append(_lin(v["per"], 40, 5))
+    if v.get("pbr") is not None:
+        val_parts.append(_lin(v["pbr"], 8, 0.5))
+    if val_parts:
+        comps["valuation"] = sum(val_parts) / len(val_parts)
+    if v.get("revGrowth") is not None:
+        comps["growth"] = _lin(v["revGrowth"], -10, 40)
+    health_parts = []
+    if v.get("debtToEquity") is not None:
+        health_parts.append(_lin(v["debtToEquity"], 200, 0))
+    if v.get("roe") is not None:
+        health_parts.append(_lin(v["roe"], -10, 30))
+    if health_parts:
+        comps["health"] = sum(health_parts) / len(health_parts)
+
+    weights = {"momentum": 0.30, "valuation": 0.25, "growth": 0.25, "health": 0.20}
+    avail = sum(weights[k] for k in comps)
+    if avail < 0.5:
+        return None
+    return round(sum(weights[k] * s for k, s in comps.items()) / avail)
 
 
 def _theme_stock_seeds(f, max_per_theme):
@@ -394,6 +602,7 @@ def theme_stocks(flow, resolve_fn, max_per_theme=4, direction="up"):
             code, market = hit["code"], hit.get("market", "KOSPI")
             entry = {"code": code, "name": hit.get("name", seed["name"]), "market": market}
             entry.update(_yf_valuation(code, market))
+            entry["qScore"] = quality_score(entry)
             # latest DART disclosure as catalyst evidence (deterministic)
             try:
                 corp = sources.dart_corp_code(code)
@@ -431,7 +640,10 @@ SYSTEM = (
     "규칙:\n"
     "- 모든 판단은 제공된 RAW 데이터에 근거할 것. 데이터에 없는 수치를 지어내지 말 것.\n"
     "- 매크로 국면과 센티먼트가 가리키는 방향의 정합성을 명시할 것.\n"
-    "- 섹터 12개 중 매크로·모멘텀 기준 타깃 상위 2~3개를 선정하고 근거를 제시할 것.\n"
+    "- 타깃 섹터의 OW/N/UW 판정은 RAW 의 sectorScores(결정론적 스코어카드)의 verdict 를\n"
+    "  그대로 따를 것. 당신의 역할은 판정을 바꾸는 것이 아니라 점수 구성(매크로 적합도·\n"
+    "  센티먼트·모멘텀·밸류·성장)을 근거로 rationale 한두 문장을 서술하는 것이다.\n"
+    "- 종목 서술 시 qScore(퀄리티 스코어)·targetUpside(목표가 괴리)가 있으면 근거로 활용할 것.\n"
     "- 각 테마 종목에 대해 투자 포인트와 리스크를 균형 있게 서술할 것.\n"
     "- 테마의 direction 이 'down'(미국 급락 테마)이면 매수 관점이 아니라 **약세 주의 관점**으로:\n"
     "  summary 는 국내 파급 경로·경계 포인트를, 종목 point 는 '이 종목이 왜 영향권인지'를,\n"
@@ -471,7 +683,7 @@ SECTOR_SCHEMA = _obj({
 })
 
 
-def _build_raw(briefing, macro, regime, sentiment, sectors, themes):
+def _build_raw(briefing, macro, regime, sentiment, sectors, themes, sector_scores=None):
     return {
         "asof": briefing.get("date", ""),
         "macro": {sid: {k: v for k, v in m.items() if k in ("name", "latest", "prev", "unit")}
@@ -480,11 +692,19 @@ def _build_raw(briefing, macro, regime, sentiment, sectors, themes):
         "sentiment": {k: sentiment.get(k) for k in ("score", "rating", "prevClose", "prevWeek", "prevMonth")},
         "sectors": [{k: s.get(k) for k in ("etf", "name", "ret1M", "ret3M", "ret6M", "retYTD", "ret1Y")}
                     for s in sectors],
+        "sectorScores": [{"etf": sc["etf"], "name": sc["name"], "score": sc["score"],
+                          "maxScore": sc["maxScore"], "verdict": sc["verdict"],
+                          "parts": [{"label": p["label"], "score": p["score"],
+                                     "max": p["max"], "note": p["note"]}
+                                    for p in sc["parts"]]}
+                         for sc in (sector_scores or {}).values()],
         "themes": [{"usTheme": t["usTheme"], "usSymbols": t["usSymbols"],
                     "krTheme": t["krTheme"], "rationale": t["rationale"],
                     "direction": t.get("direction", "up"),
                     "etf": t.get("etf"), "etfReturns": t.get("etfReturns"),
-                    "stocks": [{k: s.get(k) for k in ("name", "market", "per", "pbr", "roe", "revGrowth", "recentFiling")}
+                    "stocks": [{k: s.get(k) for k in ("name", "market", "per", "pbr", "roe",
+                                                      "revGrowth", "qScore", "targetUpside",
+                                                      "beta", "from52WHigh", "recentFiling")}
                                for s in t["stocks"]]}
                    for t in themes],
     }
@@ -501,12 +721,14 @@ def analyze_sectors(briefing, resolve_fn=None):
     regime = classify_regime(macro)
     sentiment = fetch_fear_greed()
     sentiment["strategyHint"] = interpret_sentiment(sentiment.get("score"))
-    sectors = fetch_sector_etfs()
+    sectors, benchmark = fetch_sector_etfs()
+    etf_pes = fetch_etf_pes([s["etf"] for s in sectors])
+    sector_scores = score_sectors(sectors, regime, sentiment.get("score"), benchmark, etf_pes)
     # 급등(flow) + 급락(downFlow) 6개 테마 전부 분석 — 대시보드 테마 클릭 심층분석용.
     themes = (theme_stocks(briefing.get("flow", []), resolve_fn, direction="up")
               + theme_stocks(briefing.get("downFlow", []), resolve_fn, direction="down"))
 
-    # 테마별로 해당 섹터 ETF 의 phase 3 수익률 + 12개 중 3M 모멘텀 순위를 붙인다.
+    # 테마별로 해당 섹터 ETF 의 phase 3 수익률 + 12개 중 3M 모멘텀 순위 + 스코어카드.
     etf_rows = {s["etf"]: s for s in sectors}
     ranked = [s["etf"] for s in sectors if s.get("ret3M") is not None]
     for t in themes:
@@ -516,12 +738,14 @@ def analyze_sectors(briefing, resolve_fn=None):
                                ("ret1M", "ret3M", "ret6M", "retYTD", "ret1Y")}
             t["etfRank"] = (ranked.index(t["etf"]) + 1) if t["etf"] in ranked else None
             t["etfRankOf"] = len(ranked)
+        if t.get("etf") in sector_scores:
+            t["scorecard"] = sector_scores[t["etf"]]
 
     # Phase 5: LLM synthesis (optional — mechanical passthrough if unavailable)
     synth, model_used = {}, None
     if llm.configured():
         try:
-            raw = _build_raw(briefing, macro, regime, sentiment, sectors, themes)
+            raw = _build_raw(briefing, macro, regime, sentiment, sectors, themes, sector_scores)
             user = ("RAW 데이터(JSON):\n"
                     + json.dumps(raw, ensure_ascii=False))
             synth, model_used = llm.generate_json(
@@ -534,7 +758,7 @@ def analyze_sectors(briefing, resolve_fn=None):
     # Assemble output. LLM fields overlay the deterministic data.
     sources_used = [
         "FRED (api.stlouisfed.org) — " + ", ".join(s for s, _, _ in FRED_SERIES),
-        "Yahoo Finance — 섹터 ETF 12종 + 테마 종목 재무",
+        "Yahoo Finance — 섹터 ETF 13종+SPY 벤치마크, ETF PE, 테마 종목 재무·목표주가 컨센서스",
         sentiment.get("source", ""),
         "DART OpenAPI — 테마 종목 최근 공시",
     ]
@@ -566,7 +790,8 @@ def analyze_sectors(briefing, resolve_fn=None):
             "source": sentiment.get("source", ""),
         },
         "sectors": sectors,
-        "targetSectors": synth.get("targetSectors", []),
+        "sectorScores": list(sector_scores.values()),
+        "targetSectors": _override_verdicts(synth.get("targetSectors", []), sector_scores),
         "themes": _merge_theme_synth(themes, synth.get("themes", [])),
         "strategy": synth.get("strategy", ""),
         "risks": synth.get("risks", []),
@@ -574,6 +799,19 @@ def analyze_sectors(briefing, resolve_fn=None):
         "disclaimer": "본 리포트는 퀀트 모델 기반 참고 자료이며 투자 권유가 아닙니다. "
                       "최종 투자 판단은 자격을 갖춘 전문가와 검토하십시오.",
     }
+
+
+def _override_verdicts(target_sectors, sector_scores):
+    """LLM targetSectors 의 recommend 를 결정론적 스코어카드 verdict 로 강제 통일.
+    (LLM 은 rationale 서술만 담당 — 판정 환각 방지)"""
+    out = []
+    for t in target_sectors:
+        sc = sector_scores.get(t.get("etf"))
+        if sc:
+            t = {**t, "recommend": sc["verdict"],
+                 "score": sc["score"], "maxScore": sc["maxScore"]}
+        out.append(t)
+    return out
 
 
 def _merge_theme_synth(themes, synth_themes):

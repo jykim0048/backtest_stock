@@ -405,6 +405,24 @@
       border-radius: 9px; padding: 10px 12px; }
     .sd-risks { margin: 6px 0 0; padding-left: 18px; font-size: 12.5px; line-height: 1.7; color: #fca5a5; }
     .sd-foot { margin-top: 14px; font-size: 11px; color: var(--text-muted); }
+    /* 타깃 섹터 스코어카드(결정론적) + 종목 Q점수/목표가 열 — skill Phase 3~5 */
+    .sd-score-head { display: flex; align-items: baseline; gap: 12px; margin: 4px 0 8px; }
+    .sd-score-total { font-size: 26px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+    .sd-score-total .max { font-size: 14px; font-weight: 400; color: var(--text-muted); }
+    .sd-sc-row { display: flex; align-items: center; gap: 9px; padding: 3px 0; font-size: 12px; }
+    .sd-sc-row .lbl { flex: 0 0 126px; color: var(--text-muted); }
+    .sd-sc-row .bar { flex: 1; height: 6px; background: rgba(255,255,255,.06); border-radius: 3px; overflow: hidden; }
+    .sd-sc-row .bar span { display: block; height: 100%; background: var(--kosdaq-green); border-radius: 3px; }
+    .sd-sc-row .val { flex: 0 0 30px; text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+    .sd-sc-row .note { flex: 0 1 auto; max-width: 185px; font-size: 10.5px; color: var(--text-muted);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    @media (max-width: 560px) { .sd-sc-row .note { display: none; } }
+    .sd-q { display: inline-block; min-width: 26px; text-align: center; font-size: 11.5px;
+      font-weight: 700; padding: 1px 7px; border-radius: 10px; }
+    .sd-q.good { background: rgba(16,185,129,.15); color: #10b981; }
+    .sd-q.mid  { background: rgba(255,255,255,.07); color: #cbd5e1; }
+    .sd-q.bad  { background: rgba(239,68,68,.15); color: #f87171; }
+    .sd-tbl-note { font-size: 10.5px; color: var(--text-muted); margin-top: 5px; line-height: 1.5; }
     .briefing-catalyst { background: rgba(0,240,255,.05); border: 1px solid rgba(0,240,255,.15); border-radius: 9px; padding: 9px 11px; margin: 12px 0; }
     .briefing-catalyst .cat-h { display: flex; align-items: center; gap: 5px; font-size: 12.5px; color: var(--kospi-blue); margin-bottom: 4px; }
     .briefing-catalyst .cat-b { font-size: 13px; line-height: 1.6; color: #cbd5e1; }
@@ -4039,15 +4057,38 @@
         <div class="sd-sec-h">📈 섹터 ETF 모멘텀 <span class="sc-tag">${_brEsc(theme.etf)}${rankTxt} · Yahoo Finance</span></div>
         ${_sdRetChips(theme.etfReturns)}` : "";
 
-      // ② Phase 5 — LLM 타깃섹터 판정(OW/N/UW). ETF 또는 섹터명으로 매칭.
+      // ② Phase 3(Step 3-3) — 결정론적 타깃섹터 스코어카드. 판정(OW/N/UW)은 점수
+      //    컷오프로 산출되고 LLM 은 rationale 서술만 담당. 스코어카드가 없는 구버전
+      //    JSON 은 기존 LLM 판정 표시로 폴백.
       const tgt = (sec.targetSectors || []).find(t =>
         (theme.etf && t.etf === theme.etf) || t.name === theme.usTheme || t.name === krTheme);
-      const recCls = tgt ? ({ "OW": "ow", "UW": "uw" }[String(tgt.recommend || "").toUpperCase()] || "n") : null;
-      const targetSection = tgt ? `
+      const card = theme.scorecard;
+      let targetSection = "";
+      if (card) {
+        const vCls = { "OW": "ow", "UW": "uw" }[card.verdict] || "n";
+        const vTxt = { "OW": "OW · 비중확대", "N": "N · 중립", "UW": "UW · 비중축소" }[card.verdict] || _brEsc(card.verdict || "");
+        const scRows = (card.parts || []).map(p => {
+          const pct = p.max ? Math.round((p.score / p.max) * 100) : 0;
+          return `<div class="sd-sc-row"><span class="lbl">${_brEsc(p.label)}</span>`
+               + `<span class="bar"><span style="width:${pct}%"></span></span>`
+               + `<span class="val">${p.score}/${p.max}</span>`
+               + `<span class="note" title="${_brEsc(p.note || "")}">${_brEsc(p.note || "")}</span></div>`;
+        }).join("");
+        targetSection = `
+        <div class="sd-sec-h">🎯 타깃 섹터 스코어카드 <span class="sd-badge ${vCls}">${vTxt}</span>
+          <span class="sc-tag">결정론적 산출 · 총점 70%↑ OW / 40%↑ N / 미만 UW</span></div>
+        <div class="sd-score-head"><span class="sd-score-total">${card.score}<span class="max">/${card.maxScore}</span></span></div>
+        ${scRows}
+        ${tgt && tgt.rationale ? `<div class="sd-summary" style="margin-top:8px;">${_brEsc(tgt.rationale)}</div>` : ""}`;
+      } else if (tgt) {
+        const recCls = { "OW": "ow", "UW": "uw" }[String(tgt.recommend || "").toUpperCase()] || "n";
+        targetSection = `
         <div class="sd-sec-h">🎯 타깃 섹터 판정 <span class="sd-badge ${recCls}">${_brEsc(tgt.recommend)}</span></div>
-        <div class="sd-summary">${_brEsc(tgt.rationale)}</div>` : "";
+        <div class="sd-summary">${_brEsc(tgt.rationale)}</div>`;
+      }
 
-      // ③ Phase 4 — 종목 밸류에이션 테이블 (+ 최근 DART 공시 링크)
+      // ③ Phase 4~5 — 종목 밸류에이션 + Q점수 + 목표가 괴리 (+ 최근 DART 공시 링크)
+      const hasQ = (theme.stocks || []).some(s => "qScore" in s || "targetUpside" in s);
       const stockRows = (theme.stocks || []).map(s => {
         const filing = s.recentFiling && s.recentFiling.title
           ? `<a href="${_brEsc(s.recentFiling.url)}" target="_blank" rel="noopener"
@@ -4058,23 +4099,36 @@
             ${s.point ? `<div class="p">▲ ${_brEsc(s.point)}</div>` : ""}
             ${s.risk ? `<div class="r">▼ ${_brEsc(s.risk)}</div>` : ""}
           </div>` : "";
+        const qCls = (s.qScore == null) ? "mid" : (s.qScore >= 70 ? "good" : (s.qScore >= 40 ? "mid" : "bad"));
+        const qCell = hasQ ? `<td style="text-align:center;">
+            <span class="sd-q ${qCls}">${s.qScore == null ? "—" : s.qScore}</span></td>` : "";
+        const upCell = hasQ ? `<td style="text-align:right;">${s.targetUpside == null
+            ? `<span style="color:var(--text-muted)">—</span>`
+            : `<span style="color:${_brPctColor(s.targetUpside)}; font-weight:600;">${_brPctFmt(s.targetUpside)}%</span>`}</td>` : "";
         return `<tr>
           <td style="white-space:nowrap; font-weight:600;">${_brEsc(s.name)}
             <div style="font-size:11px; color:var(--text-muted); font-weight:400;">${_brEsc(s.market || "")}</div></td>
+          ${qCell}
           <td style="text-align:right;">${_sdValFmt(s.per, "배")}</td>
           <td style="text-align:right;">${_sdValFmt(s.pbr, "배")}</td>
           <td style="text-align:right;">${_sdValFmt(s.roe, "%")}</td>
           <td style="text-align:right;">${_sdValFmt(s.revGrowth, "%")}</td>
+          ${upCell}
           <td>${filing}${pr}</td>
         </tr>`;
       }).join("");
       const stocksSection = stockRows ? `
-        <div class="sd-sec-h">📊 국내 밸류체인 종목 <span class="sc-tag">Yahoo Finance 재무 · DART 최근 공시</span></div>
+        <div class="sd-sec-h">📊 국내 밸류체인 종목 <span class="sc-tag">Yahoo Finance 재무·목표주가 · DART 최근 공시</span></div>
         <table class="sd-table">
-          <thead><tr><th>종목</th><th style="text-align:right;">PER</th><th style="text-align:right;">PBR</th>
-            <th style="text-align:right;">ROE</th><th style="text-align:right;">매출성장</th><th>최근 공시 · 포인트/리스크</th></tr></thead>
+          <thead><tr><th>종목</th>${hasQ ? `<th style="text-align:center;">Q점수</th>` : ""}
+            <th style="text-align:right;">PER</th><th style="text-align:right;">PBR</th>
+            <th style="text-align:right;">ROE</th><th style="text-align:right;">매출성장</th>
+            ${hasQ ? `<th style="text-align:right;">목표가 괴리</th>` : ""}<th>최근 공시 · 포인트/리스크</th></tr></thead>
           <tbody>${stockRows}</tbody>
-        </table>` : "";
+        </table>
+        ${hasQ ? `<div class="sd-tbl-note">Q점수 = 모멘텀 30% + 밸류에이션 25% + 성장성 25% + 재무건전성 20%
+          (결측 항목 가중치 재배분 · 가용 가중치 50% 미만 시 미산출) ·
+          목표가 괴리 = 애널리스트 컨센서스 목표가 대비 현재가 이격 (의견 2건 미만 시 미표시)</div>` : ""}` : "";
 
       // ④ Phase 5 — 테마 종합 + 전략·리스크
       const themeSummary = theme.summary ? `
