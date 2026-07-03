@@ -248,8 +248,16 @@ US_SECTOR_ETFS = [
     ("XLE", "Energy"), ("XLI", "Industrials"), ("XLP", "Consumer Staples"),
     ("XLY", "Consumer Discretionary"), ("XLB", "Materials"),
     ("XLRE", "Real Estate"), ("XLU", "Utilities"), ("XLC", "Communication Services"),
-    ("SMH", "Semiconductors"),
+    ("SMH", "Semiconductors"), ("XBI", "Biotech"),
 ]
+
+# 브리핑 usTheme(스크리너 US_SECTORS 한글 섹터명) → 섹터 ETF 티커.
+# 테마별 심층분석에서 phase 3 수익률을 해당 테마에 붙일 때 사용.
+BRIEFING_THEME_ETF = {
+    "기술": "XLK", "반도체": "SMH", "헬스케어": "XLV", "바이오": "XBI",
+    "에너지": "XLE", "금융": "XLF", "산업재": "XLI", "소재": "XLB",
+    "임의소비재": "XLY",
+}
 
 
 def _returns_from_close(close):
@@ -332,20 +340,38 @@ def _yf_valuation(code, market):
         return {}
 
 
-def theme_stocks(flow, resolve_fn, max_per_theme=4):
-    """Phase 4: resolve briefing flow[] krNames -> {code, market} + catalyst + valuation.
+def _theme_stock_seeds(f, max_per_theme):
+    """브리핑 flow 항목에서 (이름, 코드) 시드를 뽑는다.
+    신 스키마(2026-07-03~)는 krStocks[{code,name,changePct}], 구 스키마는 krNames[]."""
+    seeds = []
+    for s in (f.get("krStocks") or [])[:max_per_theme]:
+        if s.get("name"):
+            seeds.append({"name": s["name"], "code": s.get("code")})
+    if not seeds:
+        for nm in (f.get("krNames") or [])[:max_per_theme]:
+            seeds.append({"name": nm, "code": None})
+    return seeds
+
+
+def theme_stocks(flow, resolve_fn, max_per_theme=4, direction="up"):
+    """Phase 4: briefing flow[]/downFlow[] 의 국내 종목 -> valuation + DART 촉매.
     resolve_fn(name)->{code,name,market}|None (railway_server.resolve or a local map)."""
     themes = []
     for f in (flow or []):
         stocks = []
-        for nm in (f.get("krNames") or [])[:max_per_theme]:
-            hit = resolve_fn(nm) if resolve_fn else None
+        for seed in _theme_stock_seeds(f, max_per_theme):
+            hit = None
+            if seed["code"]:
+                hit = (resolve_fn(seed["code"]) if resolve_fn else None) \
+                      or {"code": seed["code"], "name": seed["name"], "market": "KOSPI"}
+            elif resolve_fn:
+                hit = resolve_fn(seed["name"])
             if not hit:
-                stocks.append({"code": None, "name": nm, "market": None,
+                stocks.append({"code": None, "name": seed["name"], "market": None,
                                "note": "종목코드 미해결"})
                 continue
             code, market = hit["code"], hit.get("market", "KOSPI")
-            entry = {"code": code, "name": hit.get("name", nm), "market": market}
+            entry = {"code": code, "name": hit.get("name", seed["name"]), "market": market}
             entry.update(_yf_valuation(code, market))
             # latest DART disclosure as catalyst evidence (deterministic)
             try:
@@ -363,9 +389,11 @@ def theme_stocks(flow, resolve_fn, max_per_theme=4):
             stocks.append(entry)
         themes.append({
             "usTheme": f.get("usTheme", ""),
-            "usSymbols": f.get("usSymbols", []),
+            "usSymbols": f.get("usSymbols", []) or [s.get("symbol") for s in (f.get("usStocks") or [])],
             "krTheme": f.get("krTheme", ""),
             "rationale": f.get("rationale", ""),
+            "direction": direction,
+            "etf": BRIEFING_THEME_ETF.get(f.get("usTheme", "")),
             "stocks": stocks,
         })
     return themes
@@ -384,6 +412,9 @@ SYSTEM = (
     "- 매크로 국면과 센티먼트가 가리키는 방향의 정합성을 명시할 것.\n"
     "- 섹터 12개 중 매크로·모멘텀 기준 타깃 상위 2~3개를 선정하고 근거를 제시할 것.\n"
     "- 각 테마 종목에 대해 투자 포인트와 리스크를 균형 있게 서술할 것.\n"
+    "- 테마의 direction 이 'down'(미국 급락 테마)이면 매수 관점이 아니라 **약세 주의 관점**으로:\n"
+    "  summary 는 국내 파급 경로·경계 포인트를, 종목 point 는 '이 종목이 왜 영향권인지'를,\n"
+    "  risk 는 하방 시나리오를 서술할 것. 급락 테마 종목을 매수 추천처럼 쓰지 말 것.\n"
     "- Extreme Greed 구간이면 리스크 관리를 강조할 것.\n"
     "- 출력은 지정된 JSON 스키마를 엄격히 따를 것. 한국어로 작성."
 )
@@ -430,6 +461,8 @@ def _build_raw(briefing, macro, regime, sentiment, sectors, themes):
                     for s in sectors],
         "themes": [{"usTheme": t["usTheme"], "usSymbols": t["usSymbols"],
                     "krTheme": t["krTheme"], "rationale": t["rationale"],
+                    "direction": t.get("direction", "up"),
+                    "etf": t.get("etf"), "etfReturns": t.get("etfReturns"),
                     "stocks": [{k: s.get(k) for k in ("name", "market", "per", "pbr", "roe", "revGrowth", "recentFiling")}
                                for s in t["stocks"]]}
                    for t in themes],
@@ -448,7 +481,20 @@ def analyze_sectors(briefing, resolve_fn=None):
     sentiment = fetch_fear_greed()
     sentiment["strategyHint"] = interpret_sentiment(sentiment.get("score"))
     sectors = fetch_sector_etfs()
-    themes = theme_stocks(briefing.get("flow", []), resolve_fn)
+    # 급등(flow) + 급락(downFlow) 6개 테마 전부 분석 — 대시보드 테마 클릭 심층분석용.
+    themes = (theme_stocks(briefing.get("flow", []), resolve_fn, direction="up")
+              + theme_stocks(briefing.get("downFlow", []), resolve_fn, direction="down"))
+
+    # 테마별로 해당 섹터 ETF 의 phase 3 수익률 + 12개 중 3M 모멘텀 순위를 붙인다.
+    etf_rows = {s["etf"]: s for s in sectors}
+    ranked = [s["etf"] for s in sectors if s.get("ret3M") is not None]
+    for t in themes:
+        row = etf_rows.get(t.get("etf"))
+        if row:
+            t["etfReturns"] = {k: row.get(k) for k in
+                               ("ret1M", "ret3M", "ret6M", "retYTD", "ret1Y")}
+            t["etfRank"] = (ranked.index(t["etf"]) + 1) if t["etf"] in ranked else None
+            t["etfRankOf"] = len(ranked)
 
     # Phase 5: LLM synthesis (optional — mechanical passthrough if unavailable)
     synth, model_used = {}, None

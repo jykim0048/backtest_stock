@@ -378,6 +378,33 @@
     .briefing-flowempty { font-size: 12.5px; color: var(--text-muted); text-align: center;
       padding: 16px 8px; border: 1px dashed var(--border-color); border-radius: 9px; }
     @media (max-width: 760px) { .briefing-flowcols { grid-template-columns: 1fr; gap: 10px; } }
+    /* 테마 행 클릭(섹터 심층분석) 어포던스 */
+    .flow-clickable { cursor: pointer; transition: transform .12s ease; }
+    .flow-clickable:hover { transform: translateY(-1px); }
+    .flow-clickable:hover .flow-us, .flow-clickable:hover .flow-kr { filter: brightness(1.25); }
+    .flow-more { font-size: 11px; opacity: .45; margin-left: 3px; }
+    .flow-clickable:hover .flow-more { opacity: 1; }
+    /* 섹터 심층분석 모달 내부 */
+    .sd-ret-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin: 10px 0; }
+    .sd-ret { text-align: center; background: rgba(255,255,255,.03); border-radius: 8px; padding: 7px 2px; }
+    .sd-ret .r-lbl { font-size: 11.5px; color: var(--text-muted); }
+    .sd-ret .r-val { font-size: 14px; font-weight: 700; margin-top: 2px; }
+    .sd-badge { display: inline-block; font-size: 12px; font-weight: 700; padding: 2px 9px; border-radius: 20px; margin-left: 6px; }
+    .sd-badge.ow { background: rgba(16,185,129,.15); color: #10b981; border: 1px solid rgba(16,185,129,.4); }
+    .sd-badge.uw { background: rgba(239,68,68,.15); color: #ef4444; border: 1px solid rgba(239,68,68,.4); }
+    .sd-badge.n  { background: rgba(255,255,255,.06); color: var(--text-muted); border: 1px solid var(--border-color); }
+    .sd-sec-h { display: flex; align-items: center; gap: 6px; font-size: 13.5px; font-weight: 600; margin: 16px 0 8px; color: var(--text-main); }
+    .sd-sec-h .sc-tag { font-size: 11px; color: var(--text-muted); font-weight: 400; }
+    .sd-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .sd-table th { font-size: 12px; color: var(--text-muted); text-align: left; padding: 0 4px 5px; border-bottom: 1px solid var(--border-color); font-weight: 400; }
+    .sd-table td { padding: 7px 4px; border-bottom: 1px solid rgba(255,255,255,.05); vertical-align: top; }
+    .sd-pointrisk { font-size: 12.5px; line-height: 1.6; margin-top: 3px; }
+    .sd-pointrisk .p { color: #6ee7b7; }
+    .sd-pointrisk .r { color: #fca5a5; }
+    .sd-summary { font-size: 13px; line-height: 1.7; color: #cbd5e1; background: rgba(255,255,255,.03);
+      border-radius: 9px; padding: 10px 12px; }
+    .sd-risks { margin: 6px 0 0; padding-left: 18px; font-size: 12.5px; line-height: 1.7; color: #fca5a5; }
+    .sd-foot { margin-top: 14px; font-size: 11px; color: var(--text-muted); }
     .briefing-catalyst { background: rgba(0,240,255,.05); border: 1px solid rgba(0,240,255,.15); border-radius: 9px; padding: 9px 11px; margin: 12px 0; }
     .briefing-catalyst .cat-h { display: flex; align-items: center; gap: 5px; font-size: 12.5px; color: var(--kospi-blue); margin-bottom: 4px; }
     .briefing-catalyst .cat-b { font-size: 13px; line-height: 1.6; color: #cbd5e1; }
@@ -2217,7 +2244,11 @@
            + `${fgCard}</div>`;
     }
 
+    // 테마 클릭 심층분석 모달이 참조할 섹터분석 데이터 (renderBriefing 시점의 sector_analysis.json)
+    let _sectorDeepData = null;
+
     function renderBriefing(d, sec) {
+      _sectorDeepData = sec || null;
       const us = d.usMarket || {};
       const indices = us.indices || [];
       const sectors = us.sectors || [];
@@ -2264,18 +2295,19 @@
       const _usChips = (stocks) => (stocks || []).map(s =>
         `<span class="fu-name">${_brEsc(s.symbol)} ${_brPctFmt(s.changePct)}</span>`
       ).join("");
-      const _themeRow = (f) => {
-        return `<div class="flow-row">`
+      // 테마 행 클릭 → 섹터 심층분석 모달(3~5단계: ETF 모멘텀·타깃섹터 판정·종목 밸류에이션·전략)
+      const _themeRow = (f, direction) => {
+        return `<div class="flow-row flow-clickable" onclick="sdOpen('${_brEsc(f.krTheme)}','${direction}')" title="클릭 → 섹터 심층분석">`
              + `<div class="flow-us"><div class="fu-theme">${_brEsc(f.usTheme)} `
              + `<span style="color:${_brPctColor(f.usChangePct)}">${_brPctFmt(f.usChangePct)}</span></div>`
              + `<div class="fu-syms">${_usChips(f.usStocks)}</div></div>`
              + `<div class="flow-arrow">→</div>`
-             + `<div class="flow-kr"><div class="fk-theme">${_brEsc(f.krTheme)}</div>`
+             + `<div class="flow-kr"><div class="fk-theme">${_brEsc(f.krTheme)} <span class="flow-more">🔍</span></div>`
              + `<div class="fk-names">${_stockChips(f.krStocks)}</div></div>`
              + `</div>`;
       };
-      const flowRows = flow.map(_themeRow).join("");
-      const downRows = downFlow.map(_themeRow).join("");
+      const flowRows = flow.map(f => _themeRow(f, "up")).join("");
+      const downRows = downFlow.map(f => _themeRow(f, "down")).join("");
       // 급등 테마 | 급락 테마를 같은 행에 대칭 배치 (좌: 상승 밸류체인 / 우: 하락 밸류체인)
       const upColInner   = flowRows || `<div class="briefing-flowempty">뚜렷한 급등 테마 없음</div>`;
       const downColInner = downRows || `<div class="briefing-flowempty">뚜렷한 급락 테마 없음</div>`;
@@ -3936,6 +3968,115 @@
     function odOpen()  { document.getElementById("od-overlay").classList.add("active"); }
     function odClose() { document.getElementById("od-overlay").classList.remove("active"); }
 
+    // ===== 섹터 심층분석 모달 (모닝브리핑 테마 클릭 → sector_analysis 3~5단계 결과) =====
+    function sdClose() { document.getElementById("sd-overlay").classList.remove("active"); }
+
+    function _sdRetChips(rets) {
+      const items = [["ret1M","1M"],["ret3M","3M"],["ret6M","6M"],["retYTD","YTD"],["ret1Y","1Y"]];
+      return `<div class="sd-ret-grid">` + items.map(([k, lbl]) => {
+        const v = rets ? rets[k] : null;
+        const color = (v == null) ? "var(--text-muted)" : _brPctColor(v);
+        return `<div class="sd-ret"><div class="r-lbl">${lbl}</div>`
+             + `<div class="r-val" style="color:${color}">${v == null ? "—" : _brPctFmt(v)}%</div></div>`;
+      }).join("") + `</div>`;
+    }
+
+    function _sdValFmt(v, suffix) {
+      return (v == null) ? `<span style="color:var(--text-muted)">—</span>` : `${v}${suffix || ""}`;
+    }
+
+    function sdOpen(krTheme, direction) {
+      const overlay = document.getElementById("sd-overlay");
+      const body = document.getElementById("sd-body");
+      const titleEl = document.getElementById("sd-title");
+      const dirEl = document.getElementById("sd-dir-badge");
+
+      titleEl.textContent = "🔬 " + krTheme + " 심층분석";
+      const isUp = direction !== "down";
+      dirEl.textContent = isUp ? "미국 급등 테마 연계" : "미국 급락 테마 · 약세 주의";
+      dirEl.className = "sd-badge " + (isUp ? "ow" : "uw");
+
+      const sec = _sectorDeepData;
+      const theme = sec && (sec.themes || []).find(t => t.krTheme === krTheme
+                      && (t.direction || "up") === (isUp ? "up" : "down"))
+                 || sec && (sec.themes || []).find(t => t.krTheme === krTheme);
+
+      if (!sec || !theme) {
+        body.innerHTML = `<div class="od-status" style="margin-top:18px;">해당 테마의 섹터 심층분석이 아직 없습니다.<br>
+          <span style="font-size:12px;">섹터분석은 매 거래일 아침 브리핑 직후 생성됩니다. 다음 정기 실행 후 다시 확인해 주세요.</span></div>`;
+        overlay.classList.add("active");
+        return;
+      }
+
+      // ① Phase 3 — 해당 섹터 ETF 모멘텀 + 12개 중 순위
+      const rankTxt = (theme.etfRank && theme.etfRankOf)
+        ? ` · 3M 모멘텀 ${theme.etfRank}위 / ${theme.etfRankOf}개 섹터` : "";
+      const etfSection = theme.etf ? `
+        <div class="sd-sec-h">📈 섹터 ETF 모멘텀 <span class="sc-tag">${_brEsc(theme.etf)}${rankTxt} · Yahoo Finance</span></div>
+        ${_sdRetChips(theme.etfReturns)}` : "";
+
+      // ② Phase 5 — LLM 타깃섹터 판정(OW/N/UW). ETF 또는 섹터명으로 매칭.
+      const tgt = (sec.targetSectors || []).find(t =>
+        (theme.etf && t.etf === theme.etf) || t.name === theme.usTheme || t.name === krTheme);
+      const recCls = tgt ? ({ "OW": "ow", "UW": "uw" }[String(tgt.recommend || "").toUpperCase()] || "n") : null;
+      const targetSection = tgt ? `
+        <div class="sd-sec-h">🎯 타깃 섹터 판정 <span class="sd-badge ${recCls}">${_brEsc(tgt.recommend)}</span></div>
+        <div class="sd-summary">${_brEsc(tgt.rationale)}</div>` : "";
+
+      // ③ Phase 4 — 종목 밸류에이션 테이블 (+ 최근 DART 공시 링크)
+      const stockRows = (theme.stocks || []).map(s => {
+        const filing = s.recentFiling && s.recentFiling.title
+          ? `<a href="${_brEsc(s.recentFiling.url)}" target="_blank" rel="noopener"
+               style="color:var(--kospi-blue); font-size:12px;">${_brEsc(s.recentFiling.date)} · ${_brEsc(s.recentFiling.title)}</a>`
+          : `<span style="color:var(--text-muted); font-size:12px;">—</span>`;
+        const pr = (s.point || s.risk) ? `
+          <div class="sd-pointrisk">
+            ${s.point ? `<div class="p">▲ ${_brEsc(s.point)}</div>` : ""}
+            ${s.risk ? `<div class="r">▼ ${_brEsc(s.risk)}</div>` : ""}
+          </div>` : "";
+        return `<tr>
+          <td style="white-space:nowrap; font-weight:600;">${_brEsc(s.name)}
+            <div style="font-size:11px; color:var(--text-muted); font-weight:400;">${_brEsc(s.market || "")}</div></td>
+          <td style="text-align:right;">${_sdValFmt(s.per, "배")}</td>
+          <td style="text-align:right;">${_sdValFmt(s.pbr, "배")}</td>
+          <td style="text-align:right;">${_sdValFmt(s.roe, "%")}</td>
+          <td style="text-align:right;">${_sdValFmt(s.revGrowth, "%")}</td>
+          <td>${filing}${pr}</td>
+        </tr>`;
+      }).join("");
+      const stocksSection = stockRows ? `
+        <div class="sd-sec-h">📊 국내 밸류체인 종목 <span class="sc-tag">Yahoo Finance 재무 · DART 최근 공시</span></div>
+        <table class="sd-table">
+          <thead><tr><th>종목</th><th style="text-align:right;">PER</th><th style="text-align:right;">PBR</th>
+            <th style="text-align:right;">ROE</th><th style="text-align:right;">매출성장</th><th>최근 공시 · 포인트/리스크</th></tr></thead>
+          <tbody>${stockRows}</tbody>
+        </table>` : "";
+
+      // ④ Phase 5 — 테마 종합 + 전략·리스크
+      const themeSummary = theme.summary ? `
+        <div class="sd-sec-h">🧭 테마 종합</div>
+        <div class="sd-summary">${_brEsc(theme.summary)}</div>` : "";
+      const strategySection = sec.strategy ? `
+        <div class="sd-sec-h">📌 종합 전략 방향 <span class="sc-tag">전체 시장 관점</span></div>
+        <div class="sd-summary">${_brEsc(sec.strategy)}</div>` : "";
+      const risksSection = (sec.risks || []).length ? `
+        <div class="sd-sec-h">⚠️ 주요 리스크</div>
+        <ul class="sd-risks">${sec.risks.map(r => `<li>${_brEsc(r)}</li>`).join("")}</ul>` : "";
+
+      const genLabel = (sec.generatedBy === "mechanical") ? "기계적 산출" : `LLM 기반 (${_brEsc(sec.generatedBy || "")})`;
+      body.innerHTML = `
+        ${theme.rationale ? `<div class="od-status" style="margin:10px 0 0;">${_brEsc(theme.rationale)}</div>` : ""}
+        ${etfSection}
+        ${targetSection}
+        ${themeSummary}
+        ${stocksSection}
+        ${strategySection}
+        ${risksSection}
+        <div class="sd-foot">자동 생성 · ${genLabel} · ${_brEsc(sec.asof || "")} · 투자 판단 참고용<br>${_brEsc(sec.disclaimer || "")}</div>
+      `;
+      overlay.classList.add("active");
+    }
+
     function odSetStatus(msg, busy) {
       document.getElementById("od-status").innerHTML =
         (busy ? `<span class="od-spinner"></span> ` : "") + escapeHtml(msg);
@@ -4059,6 +4200,20 @@
         </div>
         <div id="od-content" class="analysis-content"></div>
       </div>
+    </div>
+  </div>
+
+  <!-- 섹터 심층분석 모달 (모닝브리핑 테마 클릭 → 3~5단계: ETF 모멘텀·타깃섹터·종목 밸류에이션·전략) -->
+  <div id="sd-overlay" class="od-overlay" onclick="if(event.target===this)sdClose()">
+    <div class="od-modal" style="width:min(760px,100%);">
+      <div class="od-modal-head">
+        <div>
+          <span id="sd-title" class="od-title">—</span>
+          <span id="sd-dir-badge" class="sd-badge n"></span>
+        </div>
+        <button class="od-close" onclick="sdClose()" title="닫기">✕</button>
+      </div>
+      <div id="sd-body"></div>
     </div>
   </div>
 </body>
