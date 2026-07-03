@@ -440,9 +440,16 @@
     .fg-comp .fc-name { font-size: 9.5px; color: var(--text-muted); }
     .fg-comp .fc-score { font-size: 13px; font-weight: 700; }
     /* 섹터 ETF 12~13개를 FRED 매크로 카드와 같은 2행으로 배치(7열 × 2행) — 셀 폰트/패딩은
-       FRED 카드(.sector-ind)와 동일해서, 행 수까지 맞추면 카드(창) 높이도 같아진다. */
-    .sector-heat { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
-    .sector-heat .sh-cell { border-radius: 7px; padding: 7px 8px; text-align: center; }
+       FRED 카드(.sector-ind)와 동일해서, 행 수까지 맞추면 카드(창) 높이도 같아진다.
+       grid-template-rows 를 명시하지 않으면 행 높이가 그 행에서 가장 긴 콘텐츠에 맞춰
+       auto 로 정해지는데, "Consumer Discretionary"/"Communication Services" 처럼 긴
+       섹터명이 줄바꿈되는 2행이 1행보다 커지는 문제가 있었다. repeat(2, 1fr) 로 두 행을
+       강제로 동일 높이로 만들고, .sector-heat 자체는 flex:1 로 늘어난 카드(.sector-card
+       가 FRED 카드와 stretch 로 높이를 맞춤) 높이를 꽉 채워 셀도 그만큼 커지게 한다. */
+    .sector-heat { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr));
+      grid-template-rows: repeat(2, minmax(0, 1fr)); gap: 6px; flex: 1; }
+    .sector-heat .sh-cell { border-radius: 7px; padding: 7px 8px; text-align: center;
+      display: flex; flex-direction: column; justify-content: center; }
     .sector-heat .sh-etf { font-size: 12px; font-weight: 700; }
     .sector-heat .sh-name { font-size: 10px; color: rgba(255,255,255,.75); line-height: 1.3; }
     .sector-heat .sh-val { font-size: 14px; font-weight: 700; margin-top: 2px; }
