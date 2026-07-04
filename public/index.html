@@ -1239,7 +1239,7 @@
     /* Deep Research analysis tabs */
     .analysis-tabs {
       display: grid;
-      grid-template-columns: repeat(2, 1fr);
+      grid-template-columns: repeat(3, 1fr);
       gap: 6px;
       margin-bottom: 12px;
     }
@@ -1440,6 +1440,7 @@
     <div class="drawer-section" id="drawer-analysis-sec">
       <h4 class="drawer-section-title">심층 리서치 (Deep Research)</h4>
       <div class="analysis-tabs">
+        <button class="analysis-tab" data-tab="research" onclick="selectAnalysisTab('research')">🧾 증권사 리포트</button>
         <button class="analysis-tab active" data-tab="peers" onclick="selectAnalysisTab('peers')">🌐 해외 Peer</button>
         <button class="analysis-tab" data-tab="news" onclick="selectAnalysisTab('news')">📰 뉴스 분석</button>
         <button class="analysis-tab" data-tab="community" onclick="selectAnalysisTab('community')">💬 토론방</button>
@@ -3606,6 +3607,35 @@
             <div class="analysis-item-note">${escapeHtml(it.summary)}</div>
           </div>`).join("") || `<span class="analysis-empty">수집된 글 없음</span>`;
         html += `<div class="analysis-subhead">🟢 네이버 / 종목토론방</div>${renderList(sec.naver)}`;
+      } else if (tab === "research") {
+        // 증권사 리포트: 제목 클릭 → 원문 PDF (없으면 네이버 상세). 목표주가·의견은 파싱 원문값.
+        const cons = sec.consensus;
+        if (cons) {
+          const upColor = (cons.upsidePct == null) ? "var(--text-muted)" : _brPctColor(cons.upsidePct);
+          const ops = cons.opinions
+            ? Object.entries(cons.opinions).map(([k, v]) => `${escapeHtml(k)} ${v}`).join(" · ") : "—";
+          const cell = (lbl, val) => `<div style="background:rgba(255,255,255,.03); border-radius:8px; padding:8px 10px; text-align:center;">
+              <div style="font-size:10.5px; color:var(--text-muted);">${lbl}</div>
+              <div style="font-size:14px; font-weight:700; margin-top:3px;">${val}</div></div>`;
+          html += `<div style="display:grid; grid-template-columns:repeat(4,1fr); gap:6px; margin:10px 0;">
+            ${cell("평균 목표주가", cons.avg ? `<span style="color:var(--kospi-blue)">${Number(cons.avg).toLocaleString()}원</span>` : "—")}
+            ${cell("현재가 대비", cons.upsidePct == null ? "—" : `<span style="color:${upColor}">${_brPctFmt(cons.upsidePct)}%</span>`)}
+            ${cell("최고 / 최저", (cons.high && cons.low) ? `${Number(cons.high).toLocaleString()} / ${Number(cons.low).toLocaleString()}` : "—")}
+            ${cell(`의견 (${cons.n}건)`, ops)}
+          </div>`;
+        }
+        html += (sec.items || []).map(it => {
+          const orig = it.pdfUrl || it.url;   // 원문(PDF) 우선
+          return `<div class="analysis-item">
+            <div class="analysis-item-head">
+              <span class="analysis-item-title">${linkTitle(it.title, orig)}</span>
+              <span class="peer-price">${it.targetPrice ? Number(it.targetPrice).toLocaleString() + "원" : ""}</span>
+            </div>
+            <div class="analysis-item-meta">${escapeHtml(it.broker)} · ${escapeHtml(it.date)}${it.opinion ? ` · <span style="color:var(--up-red); font-weight:600;">${escapeHtml(it.opinion)}</span>` : ""}
+              ${it.pdfUrl ? ` · <a href="${escapeHtml(it.pdfUrl)}" target="_blank" rel="noopener" style="color:var(--kospi-blue);">원문 PDF</a>` : ""}${it.url ? ` · <a href="${escapeHtml(it.url)}" target="_blank" rel="noopener" style="color:var(--text-muted);">네이버 상세</a>` : ""}</div>
+            ${it.note ? `<div class="analysis-item-note">${escapeHtml(it.note)}</div>` : ""}
+          </div>`;
+        }).join("") || `<span class="analysis-empty">최근 30일 발간된 증권사 리포트가 없습니다.</span>`;
       } else if (tab === "dart") {
         if (sec.highlights && sec.highlights.length) {
           html += `<div class="analysis-subhead">재무 하이라이트</div>`;
@@ -4332,6 +4362,7 @@
       </div>
       <div id="od-body" style="display:none;">
         <div class="analysis-tabs">
+          <button class="analysis-tab" data-odtab="research" onclick="odTab('research')">🧾 증권사 리포트</button>
           <button class="analysis-tab active" data-odtab="peers" onclick="odTab('peers')">🌐 해외 Peer</button>
           <button class="analysis-tab" data-odtab="news" onclick="odTab('news')">📰 뉴스 분석</button>
           <button class="analysis-tab" data-odtab="community" onclick="odTab('community')">💬 토론방</button>

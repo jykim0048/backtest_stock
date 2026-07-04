@@ -63,8 +63,8 @@ PRICE_MOVE_PCT = float(os.environ.get("ANALYSIS_PRICE_MOVE_PCT", "5"))
 
 SYSTEM = """\
 너는 한국 주식 투자 리서치 애널리스트다. 주어진 RAW 데이터(해외 peer 시세, peer 그룹 Reddit
-여론, 국내외 뉴스, 국내 커뮤니티 글, DART 공시/재무)를 분석해 대시보드용 `analysis` JSON
-한 개를 생성한다.
+여론, 국내외 뉴스, 국내 커뮤니티 글, DART 공시/재무, 증권사 종목분석 리포트)를 분석해
+대시보드용 `analysis` JSON 한 개를 생성한다.
 
 규칙:
 - 모든 서술형 필드는 한국어. 회사명/티커/기사 제목/URL은 원문 유지.
@@ -79,7 +79,8 @@ SYSTEM = """\
   "peers": { "summary": "2-3문장", "reddit": [ {"title","url","subreddit","sentiment","summary"} ] },
   "news": { "summary": "3-4문장", "items": [ {"title","source","date","sentiment","url","insight"} ] },
   "community": { "summary": "3-4문장", "sentimentLabel": "", "naver": [ {"title","url","sentiment","summary"} ] },
-  "dart": { "summary": "3-4문장", "highlights": [ {"label","value","note"} ] }
+  "dart": { "summary": "3-4문장", "highlights": [ {"label","value","note"} ] },
+  "research": { "summary": "2-3문장", "items": [ {"note"} ] }
 }
 
 - catalyst: 뉴스·공시·수급·peer 동향 중 '오늘 주가를 가장 크게 움직일' 단일 촉매를 투자자 관점으로
@@ -93,6 +94,11 @@ SYSTEM = """\
   수로 여론의 강도·쏠림을 가늠해 summary와 sentimentLabel에 반영한다.
 - dart: summary와 highlights(4-6개)만 작성한다. **recentFilings는 만들지 마라** — 코드가 DART
   최신 공시 5건을 결정적으로 채운다.
+- research: 입력 research_reports(증권사 리포트, 최근 30일)를 바탕으로 summary 2-3문장
+  (목표주가 컨센서스의 방향·의견 분포·공통 논거 포함)과, items 를 **입력 research_reports 와
+  같은 순서·같은 개수**로 작성한다. 각 item 은 그 리포트의 투자자 관점 한 줄 해석(note)만 담는다.
+  **목표주가·의견·증권사·날짜를 items 에 쓰지 마라** — 코드가 원문 값을 결정적으로 채운다.
+  research_reports 가 비어 있으면 summary 에 "최근 30일 발간 리포트 없음"을 명시하고 items 는 빈 배열.
 - 개수 가이드: news 5-7 (국내+해외 혼합), dart highlights 4-6.
 - peers.items 는 출력하지 마라 — 코드가 입력 시세를 결정적으로 채운다. peers 는 summary/reddit 만 작성한다."""
 
@@ -131,6 +137,10 @@ ANALYSIS_SCHEMA = _obj({
     "dart": _obj({
         "summary": _STR,
         "highlights": _arr({"label": _STR, "value": _STR, "note": _STR}),
+    }),
+    "research": _obj({
+        "summary": _STR,
+        "items": _arr({"note": _STR}),
     }),
 })
 
@@ -292,6 +302,7 @@ def gather_raw(stock, peer_list):
         "overseas_news": sources.web_search(f"{name} stock news", max_results=5),
         "naver_cafe": sources.naver_search("cafearticle", name, display=6),  # 국내 community
         "naver_board": sources.naver_board(code, pages=2),                   # 종목토론방(개인투자자)
+        "research_reports": sources.naver_research(code, days=30),           # 증권사 리포트(최근 30일)
         "dart": {},
     }
     corp = sources.dart_corp_code(code)
@@ -327,6 +338,33 @@ def analyze_stock(stock, peer_cfg):
          "filer": d.get("filer", ""), "url": d.get("url", "")}
         for d in disclosures[:5]
     ]
+
+    # 증권사 리포트: 원문 값(제목·증권사·날짜·목표주가·의견·링크)은 코드가 결정적으로
+    # 채우고 LLM 은 note(입력과 같은 순서) / summary 만 담당한다 (목표주가 환각 방지).
+    reports = raw.get("research_reports") or []
+    llm_notes = (analysis.get("research") or {}).get("items") or []
+    res = analysis.setdefault("research", {})
+    res["items"] = [
+        {**{k: r.get(k) for k in ("title", "broker", "date", "url", "pdfUrl",
+                                  "targetPrice", "opinion")},
+         "note": (llm_notes[i].get("note", "") if i < len(llm_notes)
+                  and isinstance(llm_notes[i], dict) else "")}
+        for i, r in enumerate(reports)
+    ]
+    tps = [r["targetPrice"] for r in reports if r.get("targetPrice")]
+    if tps:
+        cons = {"avg": round(sum(tps) / len(tps)), "high": max(tps), "low": min(tps),
+                "n": len(tps)}
+        base = stock.get("basePrice") or stock.get("price")
+        if base:
+            cons["upsidePct"] = round((cons["avg"] / base - 1) * 100, 1)
+        opinions = {}
+        for r in reports:
+            o = (r.get("opinion") or "").strip()
+            if o:
+                opinions[o] = opinions.get(o, 0) + 1
+        cons["opinions"] = opinions
+        res["consensus"] = cons
     # 증분 분석용 메타: 최신 공시 시그니처(신규 공시 감지). asOf/price 는 main 에서 채운다.
     if INCREMENTAL:
         analysis["_meta"] = {"filingKey": _filing_key(disclosures)}

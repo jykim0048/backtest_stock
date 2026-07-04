@@ -182,6 +182,94 @@ def naver_board(code, pages=1, limit=15):
 
 
 # ----------------------------------------------------------------------------
+# 2c) Naver Finance 증권사 종목분석 리포트 (HTML scrape — 공식 API 없음)
+#     목록: research/company_list.naver?searchType=itemCode&itemCode=<code>
+#     상세: research/company_read.naver?nid=<nid> (목표주가·투자의견·요약 본문)
+# ----------------------------------------------------------------------------
+def naver_research(code, days=30, limit=6, detail_top=3):
+    """증권사 종목분석 리포트 목록(+상위 detail_top 건 상세)을 파싱한다.
+
+    Returns list of {title, broker, date, url, pdfUrl, targetPrice, opinion,
+    summary} (최신순, days 일 이내). targetPrice/opinion/summary 는 상세를
+    조회한 상위 건에만 채워진다. 실패 시 [] (배치 중단 방지).
+    """
+    try:
+        from bs4 import BeautifulSoup
+    except Exception:
+        _warn("beautifulsoup4 not installed — naver_research skipped")
+        return []
+
+    try:
+        r = requests.get(
+            "https://finance.naver.com/research/company_list.naver",
+            params={"searchType": "itemCode", "itemCode": code},
+            headers={**UA, "Referer": "https://finance.naver.com/research/"},
+            timeout=15,
+        )
+        r.encoding = "euc-kr"
+        r.raise_for_status()
+    except Exception as e:
+        _warn(f"naver_research({code}) list failed: {e}")
+        return []
+
+    kst = datetime.timezone(datetime.timedelta(hours=9))
+    cutoff = datetime.datetime.now(kst).date() - datetime.timedelta(days=days)
+    out = []
+    for a in BeautifulSoup(r.text, "html.parser").select('a[href*="company_read.naver"]'):
+        tr = a.find_parent("tr")
+        if tr is None:
+            continue
+        tds = tr.find_all("td")      # 종목명 | 제목 | 증권사 | 첨부 | 날짜 | 조회수
+        if len(tds) < 5:
+            continue
+        raw_date = tds[4].get_text(strip=True)     # "26.07.03"
+        try:
+            d = datetime.datetime.strptime(raw_date, "%y.%m.%d").date()
+        except ValueError:
+            continue
+        if d < cutoff:
+            continue                 # 목록은 최신순 — 계속 훑어도 무방하나 어차피 걸러짐
+        pdf_a = tds[3].select_one("a[href]") if len(tds) > 3 else None
+        href = a.get("href", "")
+        out.append({
+            "title": a.get_text(strip=True),
+            "broker": tds[2].get_text(strip=True),
+            "date": d.strftime("%Y-%m-%d"),
+            "url": "https://finance.naver.com/research/" + href if not href.startswith("http") else href,
+            "pdfUrl": pdf_a.get("href") if pdf_a else "",
+            "targetPrice": None, "opinion": "", "summary": "",
+        })
+        if len(out) >= limit:
+            break
+
+    # 상위 detail_top 건만 상세 조회(요청 수 절약): 목표주가·투자의견·요약 본문
+    for rpt in out[:detail_top]:
+        try:
+            rd = requests.get(rpt["url"], headers={**UA, "Referer":
+                              "https://finance.naver.com/research/company_list.naver"},
+                              timeout=15)
+            rd.encoding = "euc-kr"
+            rd.raise_for_status()
+            soup = BeautifulSoup(rd.text, "html.parser")
+            money = soup.select_one("em.money")
+            if money:
+                try:
+                    rpt["targetPrice"] = int(money.get_text(strip=True).replace(",", ""))
+                except ValueError:
+                    pass
+            coment = soup.select_one("em.coment")
+            if coment:
+                rpt["opinion"] = coment.get_text(strip=True)
+            body = soup.select_one("td.view_cnt")
+            if body:
+                text = " ".join(body.get_text(" ", strip=True).split())
+                rpt["summary"] = text[:500]
+        except Exception as e:
+            _warn(f"naver_research detail({rpt.get('url','')}) failed: {e}")
+    return out
+
+
+# ----------------------------------------------------------------------------
 # 3) Tavily Search API (overseas news, reddit)
 # ----------------------------------------------------------------------------
 def tavily_search(query, max_results=5, include_domains=None):
