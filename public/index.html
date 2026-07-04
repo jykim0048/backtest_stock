@@ -2061,13 +2061,67 @@
       return tradeJournal.days[dateStr];
     }
 
-    // 체결(매수/매도) 1건을 오늘 매매일지에 구조화 기록한다.
-    // trade: {code, name, side:"BUY"|"SELL", type, qty, price, amount, pnl?}
-    function recordTrade(trade) {
-      const day = getOrCreateDayRecord(todayKST());
-      const time = new Date().toTimeString().split(" ")[0];
-      day.trades.push(Object.assign({ time }, trade));
+    // 체결(매수/매도) 1건을 매매일지에 구조화 기록한다. dateStr 생략 시 오늘.
+    // (지연 정산은 포지션을 연 날짜의 일지에 소급 기록하기 위해 dateStr 를 넘긴다.)
+    // trade: {code, name, side:"BUY"|"SELL", type, qty, price, amount, pnl?, time?}
+    function recordTrade(trade, dateStr) {
+      const day = getOrCreateDayRecord(dateStr || todayKST());
+      const time = trade.time || new Date().toTimeString().split(" ")[0];
+      day.trades.push(Object.assign({}, trade, { time }));
       saveTradeJournal();
+    }
+
+    // ===== 놓친 EOD 청산 소급 정산 =====
+    // 전 거래일(들)에 시초매수 후 15:15 청산을 못 한 채(탭 닫힘·절전) 이월된 포지션을,
+    // CI 가 발행한 확정 종가(reports/eod/<date>.json)로 그 날짜 일지에 소급 청산한다.
+    // 종가 파일이 없으면(휴장·미발행) 마지막 관측가(stock.price)로 폴백.
+    async function settleMissedLiquidation() {
+      if (!isLiveView) return;
+      const pendingDate = openingOrderDate;
+      if (!pendingDate || pendingDate === todayKST()) return;   // 오늘분은 기존 15:15 게이트가 처리
+      if (liquidationDate === pendingDate) return;              // 그날 청산 이미 완료
+      const held = stockData.filter(s => s.quantity > 0);
+      if (!held.length) { liquidationDate = pendingDate; savePortfolio(); return; }
+
+      let closes = {};
+      try {
+        const r = await fetch(`reports/eod/${pendingDate}.json`, { cache: "no-store" });
+        if (r.ok) closes = (await r.json()).prices || {};
+      } catch (_) { /* 파일 없음 — 폴백 사용 */ }
+
+      const logsBox = document.getElementById("logs-box");
+      const slip = getSlippagePct();
+      const day = getOrCreateDayRecord(pendingDate);
+      held.forEach(stock => {
+        const close = closes[stock.code] && closes[stock.code].close;
+        const basis = close || stock.price || stock.avgBuyPrice;
+        const fillPrice = Math.round(basis * (1 - slip / 100));
+        const realizedAmt = stock.quantity * fillPrice;
+        const pnl = realizedAmt - stock.investedCapital;
+        cashBalance += realizedAmt;
+        realizedPnl += pnl;
+        recordTrade({ code: stock.code, name: stock.name, side: "SELL",
+                      type: "EOD_LIQUIDATION", qty: stock.quantity, price: fillPrice,
+                      amount: realizedAmt, pnl,
+                      time: close ? "15:15 (종가 소급정산)" : "15:15 (최종관측가 소급정산)" },
+                    pendingDate);
+        if (logsBox) {
+          logsBox.innerHTML += `
+            <div class="log-line" style="color:${pnl >= 0 ? 'var(--kosdaq-green)' : 'var(--up-red)'};">
+              <span class="log-time">[소급]</span> [EOD 정산] <b>${stock.name}</b> ${pendingDate} 미청산분을
+              ${close ? '확정 종가' : '최종 관측가'} ${fillPrice.toLocaleString()}원에 정산 — ${pnl >= 0 ? '+' : ''}${pnl.toLocaleString()}원
+            </div>`;
+        }
+        stock.quantity = 0; stock.avgBuyPrice = 0; stock.investedCapital = 0;
+        stock.followBudget = 0; stock.pnl = 0; stock.pnlRate = 0; stock.hasFollowedUp = false;
+      });
+
+      day.endCapital = cashBalance;
+      totalCapital = cashBalance;      // 오늘 시작 자본으로 이월(복리)
+      liquidationDate = pendingDate;
+      saveTradeJournal();
+      savePortfolio();
+      if (logsBox) logsBox.scrollTop = logsBox.scrollHeight;
     }
 
     // Check KST Market Opening Hours
@@ -2121,7 +2175,11 @@
       const minutes = kstTime.getMinutes();
       const timeVal = hours * 100 + minutes;
 
-      return day >= 1 && day <= 5 && timeVal >= 1515 && timeVal <= 1530;
+      // 15:15 이후면 자정까지 참 — 상한(구 15:30)을 두면 그 15분 창에 탭이 닫혀 있던 날은
+      // 청산이 영영 실행되지 않아 매매일지에 EOD 체결·마감 손익이 누락된다.
+      // needsLiquidation() 의 날짜 가드가 있어 하루 1회 실행은 그대로 보장된다.
+      // (자정을 넘긴 미청산분은 settleMissedLiquidation 이 접속 시 종가로 소급 정산)
+      return day >= 1 && day <= 5 && timeVal >= 1515;
     }
 
     function needsLiquidation() {
@@ -2522,14 +2580,17 @@
       isLiveView = true;
       // 저장된 모의투자 계좌를 복원 (없으면 깨끗한 계좌). 새로고침/장 마감 후에도 누적 유지.
       const saved = restorePortfolio();
-      // 매매일지 로드 + 오늘자 레코드 확보(장전 워치리스트 스냅샷 + 시작 자본 고정).
+      // 매매일지 로드 → 전 거래일 미청산분 소급 정산(확정 종가) → 오늘자 레코드 확보.
+      // 순서 중요: 정산이 totalCapital(익일 시작 자본)을 갱신한 뒤에 오늘 레코드의
+      // startCapital 이 고정돼야 복리 이월이 이어진다.
       loadTradeJournal();
+      await settleMissedLiquidation();
       getOrCreateDayRecord(todayKST());
       // Only execute the opening buy if the market is open AND not yet done today.
       if (isMarketOpen() && needsOpeningOrder()) {
         executeOpeningOrder();
       }
-      // 새로고침 시점이 이미 15:15 이후인데 아직 그날 청산이 안 됐다면 즉시 처리.
+      // 새로고침 시점이 이미 15:15 이후(자정 전)인데 아직 오늘 청산이 안 됐다면 즉시 처리.
       if (isEndOfDayLiquidationTime() && needsLiquidation()) {
         executeEndOfDayLiquidation();
       }

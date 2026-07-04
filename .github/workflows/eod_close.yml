@@ -1,0 +1,78 @@
+name: EOD Close Settlement
+
+on:
+  schedule:
+    # 15:45 KST (06:45 UTC) 평일 — 장 마감(15:30) 후 yfinance 일봉 반영 여유를 둔다.
+    # Actions cron 지연이 잦지만 종가는 마감 후 고정값이라 몇 시간 늦어도 무방하다.
+    - cron: '45 6 * * 1-5'
+  workflow_dispatch:
+
+concurrency:
+  group: eod-close-push
+  cancel-in-progress: false
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    outputs:
+      proceed: ${{ steps.check.outputs.proceed }}
+    steps:
+      - id: check
+        name: Run only after KST market close on weekdays
+        run: |
+          if [ "${{ github.event_name }}" != "schedule" ]; then
+            echo "event=${{ github.event_name }} (manual) — proceeding"
+            echo "proceed=true" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          NOW=$(( 10#$(TZ=Asia/Seoul date +%H) * 60 + 10#$(TZ=Asia/Seoul date +%M) ))
+          DOW=$(TZ=Asia/Seoul date +%u)
+          HM=$(TZ=Asia/Seoul date +%H:%M)
+          # 15:35(935분) 이후 평일만 실행. 자정 넘긴 지연 실행은 날짜가 밀리므로 스킵.
+          if [ "$DOW" -le 5 ] && [ "$NOW" -ge 935 ]; then
+            echo "KST $HM (min=$NOW dow=$DOW) — after market close; proceeding"
+            echo "proceed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "KST $HM (min=$NOW dow=$DOW) — before close or weekend; skipping"
+            echo "proceed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  eod-close:
+    needs: guard
+    if: needs.guard.outputs.proceed == 'true'
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Generate EOD close settlement file
+        run: python generate_eod_close.py
+
+      - name: Commit and push EOD close file
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add public/reports/eod/
+          git diff --staged --quiet && echo "No changes to commit" && exit 0
+          git commit -m "chore: EOD close settlement $(TZ=Asia/Seoul date +'%Y-%m-%d') [skip railway]"
+          # Remote may have advanced (briefing or concurrent pushes); push, and
+          # on rejection rebase onto the latest main and retry.
+          for i in $(seq 1 5); do
+            if git push origin HEAD:main; then echo "pushed (attempt $i)"; exit 0; fi
+            echo "push attempt $i rejected; rebasing onto latest main..."
+            git fetch origin main
+            git rebase FETCH_HEAD || { git rebase --abort; echo "::error::rebase conflict"; exit 1; }
+            sleep $((RANDOM % 4 + 2))
+          done
+          echo "::error::push failed after 5 attempts" && exit 1
