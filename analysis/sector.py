@@ -624,6 +624,7 @@ def theme_stocks(flow, resolve_fn, max_per_theme=4, direction="up"):
             "rationale": f.get("rationale", ""),
             "direction": direction,
             "etf": BRIEFING_THEME_ETF.get(f.get("usTheme", "")),
+            "industryReports": f.get("industryReports") or [],   # 브리핑이 부착한 산업 리포트
             "stocks": stocks,
         })
     return themes
@@ -701,6 +702,8 @@ def _build_raw(briefing, macro, regime, sentiment, sectors, themes, sector_score
         "themes": [{"usTheme": t["usTheme"], "usSymbols": t["usSymbols"],
                     "krTheme": t["krTheme"], "rationale": t["rationale"],
                     "direction": t.get("direction", "up"),
+                    "industryReports": [{k: r.get(k) for k in ("category", "title", "broker", "date", "summary")}
+                                        for r in (t.get("industryReports") or [])],
                     "etf": t.get("etf"), "etfReturns": t.get("etfReturns"),
                     "stocks": [{k: s.get(k) for k in ("name", "market", "per", "pbr", "roe",
                                                       "revGrowth", "qScore", "targetUpside",

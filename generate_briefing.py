@@ -142,6 +142,55 @@ def _build_themes(sel):
 
 
 # ----------------------------------------------------------------------------
+# 네이버 산업분석 리포트 → 테마 부착.
+# 리포트는 종목이 아니라 '업종' 단위라, 스크리너 미국 섹터명 → 네이버 업종명 매핑으로
+# 붙인다. 이 파일의 "추가 네트워크 수집 없음" 원칙의 유일한 예외 — 키 불필요·실패 시
+# 빈 배열이라 파이프라인을 막지 않는다.
+# ----------------------------------------------------------------------------
+_SECTOR_UPJONG = {   # 미국 섹터명(usTheme) -> 네이버 리서치 업종명 후보(복수 허용)
+    "기술":       ["인터넷포탈", "IT", "게임", "미디어", "통신", "소프트웨어"],
+    "반도체":     ["반도체", "전기전자", "디스플레이"],
+    "헬스케어":   ["제약", "바이오", "의료"],
+    "바이오":     ["바이오", "제약"],
+    "에너지":     ["에너지", "석유화학", "유틸리티"],
+    "금융":       ["은행", "증권", "보험"],
+    "산업재":     ["기계", "조선", "건설", "운송", "자동차", "방산"],
+    "소재":       ["철강금속", "석유화학", "화학", "비철금속"],
+    "임의소비재": ["유통", "화장품", "의류", "음식료", "레저", "게임"],
+}
+THEME_REPORTS_MAX = 3
+
+
+def _attach_industry_reports(up_themes, down_themes):
+    """테마별 industryReports[] 부착 (최근 30일, 최신순 최대 3건).
+    각 테마의 최신 1건은 상세 요약(summary)까지 조회해 LLM rationale 근거로 쓴다."""
+    themes = up_themes + down_themes
+    for t in themes:
+        t["industryReports"] = []
+    try:
+        from analysis import sources
+        reports = sources.naver_industry_research(days=30)
+    except Exception as e:
+        _warn(f"산업 리포트 수집 실패: {e} — 생략")
+        return
+    if not reports:
+        return
+    fetched_detail = set()
+    for t in themes:
+        cats = _SECTOR_UPJONG.get(t.get("usTheme"), [])
+        matched = [r for r in reports
+                   if any(c in r.get("category", "") or r.get("category", "") in c
+                          for c in cats)]
+        t["industryReports"] = matched[:THEME_REPORTS_MAX]
+        # 테마당 최신 1건 요약 본문 (중복 URL 은 1회만 조회)
+        if matched and matched[0]["url"] not in fetched_detail:
+            fetched_detail.add(matched[0]["url"])
+            matched[0]["summary"] = sources.naver_industry_detail(matched[0]["url"])
+    print(f"  Industry rpts  : {len(reports)}건(30일) → 테마별 부착 "
+          f"{[len(t['industryReports']) for t in themes]}")
+
+
+# ----------------------------------------------------------------------------
 # LLM 브리핑 (전일 미국장 리뷰 + 당일 한국 프리뷰).
 # 테마의 종목·등락률은 이미 결정돼 있으므로(위 _build_themes), LLM 은 종목을
 # 새로 고르지 않고 각 테마의 rationale(한 줄 근거)과 서술형 텍스트만 작성한다.
@@ -159,6 +208,8 @@ SYSTEM = """\
 - downThemes : 섹터 히트맵 **하위 3개**(급락 테마). 구조는 upThemes 와 동일(대칭).
 - picks      : 장전 스크리너가 오늘 뽑은 국내 워치리스트(code/name/market/catalyst/reason/changePct).
 - marketView : 스크리너가 남긴 간단 시황 코멘트(참고).
+- 각 테마의 industryReports : 해당 업종의 최근 30일 증권사 산업분석 리포트
+  (category/title/broker/date, 최신 1건은 summary 요약 본문 포함). 없을 수 있다.
 
 **중요: upThemes/downThemes 의 usTheme·usStocks·krTheme·krStocks 는 이미 정해진 사실이다.
 너는 종목이나 등락률을 새로 만들거나 바꾸지 않는다. 오직 각 테마별 rationale(한 줄 근거)과
@@ -171,7 +222,8 @@ SYSTEM = """\
    요약한다(불릿 하나 = 한 문장, 문단이 아니라 리스트로 가독성 있게).
 3) upRationale: **upThemes 와 정확히 같은 개수·순서**로, 각 테마별 "왜 미국 이 섹터 강세가
    국내 이 테마로 이어지는지" 한 줄 근거. 주어진 usStocks/krStocks 종목명을 자연스럽게
-   인용해도 좋다(새 종목 언급 금지).
+   인용해도 좋다(새 종목 언급 금지). 테마에 industryReports 가 있으면 그 제목·summary 의
+   논거를 근거로 활용하라(리포트에 없는 내용을 지어내지 말 것).
 4) downRationale: **downThemes 와 정확히 같은 개수·순서**로, 각 테마별 "왜 미국 이 섹터
    약세가 국내에 부담이 될 수 있는지" 한 줄 근거.
 5) krPreview.narrative: 당일 국내 관점 1~2문장. catalystSummary: 전일 장마감 후 국내 촉매
@@ -376,6 +428,7 @@ def main():
     up_themes, down_themes = _build_themes(sel)
     print(f"  Themes         : up {[t['usTheme'] for t in up_themes]} "
           f"/ down {[t['usTheme'] for t in down_themes]}")
+    _attach_industry_reports(up_themes, down_themes)
 
     raw, model = llm_briefing(sel, up_themes, down_themes)
     if raw is None:

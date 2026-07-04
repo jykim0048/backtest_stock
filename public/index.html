@@ -423,6 +423,16 @@
     .sd-q.mid  { background: rgba(255,255,255,.07); color: #cbd5e1; }
     .sd-q.bad  { background: rgba(239,68,68,.15); color: #f87171; }
     .sd-tbl-note { font-size: 10.5px; color: var(--text-muted); margin-top: 5px; line-height: 1.5; }
+    /* 브리핑 테마 행: 산업 리포트 개수 칩 + 심층분석 모달의 산업 리포트 섹션 */
+    .fk-rpt { font-size: 10.5px; font-weight: 600; background: rgba(16,185,129,.13);
+      border: 1px solid rgba(16,185,129,.35); color: #10b981; padding: 1px 7px; border-radius: 8px; }
+    .sd-ind-row { border-bottom: 1px solid rgba(255,255,255,.05); padding: 7px 2px; }
+    .sd-ind-row:last-child { border-bottom: none; }
+    .sd-ind-meta { font-size: 11px; color: var(--text-muted); }
+    .sd-ind-cat { font-size: 10px; font-weight: 600; background: rgba(255,255,255,.07);
+      color: #cbd5e1; padding: 1px 6px; border-radius: 7px; margin-right: 5px; }
+    .sd-ind-title { font-size: 12.5px; margin-top: 2px; }
+    .sd-ind-sum { font-size: 11.5px; color: #cbd5e1; margin-top: 2px; line-height: 1.55; }
     .briefing-catalyst { background: rgba(0,240,255,.05); border: 1px solid rgba(0,240,255,.15); border-radius: 9px; padding: 9px 11px; margin: 12px 0; }
     .briefing-catalyst .cat-h { display: flex; align-items: center; gap: 5px; font-size: 12.5px; color: var(--kospi-blue); margin-bottom: 4px; }
     .briefing-catalyst .cat-b { font-size: 13px; line-height: 1.6; color: #cbd5e1; }
@@ -2404,7 +2414,10 @@
              + `<div class="fu-syms">${_usChips(f.usStocks)}</div></div>`
              + `<div class="flow-arrow">→</div>`
              + `<div class="flow-kr"><div class="fk-theme">${_brEsc(f.krTheme)} <span class="flow-more">🔍</span></div>`
-             + `<div class="fk-names">${_stockChips(f.krStocks)}</div></div>`
+             + `<div class="fk-names">${_stockChips(f.krStocks)}${
+                  (f.industryReports || []).length
+                    ? `<span class="fk-rpt">📄 산업리포트 ${f.industryReports.length}</span>` : ""
+                }</div></div>`
              + `</div>`;
       };
       const flowRows = flow.map(f => _themeRow(f, "up")).join("");
@@ -4184,6 +4197,23 @@
         <div class="sd-summary">${_brEsc(tgt.rationale)}</div>`;
       }
 
+      // ②-b 증권사 산업 리포트 (브리핑이 업종 매핑으로 부착 — 제목 클릭 → 원문 PDF)
+      const indRows = (theme.industryReports || []).map(r => {
+        const orig = r.pdfUrl || r.url;
+        const title = orig
+          ? `<a href="${_brEsc(orig)}" target="_blank" rel="noopener" style="color:var(--kospi-blue);">${_brEsc(r.title)}</a>`
+          : _brEsc(r.title);
+        return `<div class="sd-ind-row">
+          <div class="sd-ind-meta"><span class="sd-ind-cat">${_brEsc(r.category || "")}</span>${_brEsc(r.date || "")} · ${_brEsc(r.broker || "")}
+            ${r.pdfUrl ? ` · <a href="${_brEsc(r.pdfUrl)}" target="_blank" rel="noopener" style="color:var(--kospi-blue);">원문 PDF</a>` : ""}${r.url ? ` · <a href="${_brEsc(r.url)}" target="_blank" rel="noopener" style="color:var(--text-muted);">네이버 상세</a>` : ""}</div>
+          <div class="sd-ind-title">${title}</div>
+          ${r.summary ? `<div class="sd-ind-sum">${_brEsc(r.summary)}</div>` : ""}
+        </div>`;
+      }).join("");
+      const industrySection = indRows ? `
+        <div class="sd-sec-h">🏭 증권사 산업 리포트 <span class="sc-tag">네이버 리서치 · 최근 30일 · 제목 클릭 → 원문 PDF</span></div>
+        ${indRows}` : "";
+
       // ③ Phase 4~5 — 종목 밸류에이션 + Q점수 + 목표가 괴리 (+ 최근 DART 공시 링크)
       const hasQ = (theme.stocks || []).some(s => "qScore" in s || "targetUpside" in s);
       const stockRows = (theme.stocks || []).map(s => {
@@ -4243,6 +4273,7 @@
         ${theme.rationale ? `<div class="od-status" style="margin:10px 0 0;">${_brEsc(theme.rationale)}</div>` : ""}
         ${etfSection}
         ${targetSection}
+        ${industrySection}
         ${themeSummary}
         ${stocksSection}
         ${strategySection}

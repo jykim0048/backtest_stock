@@ -270,6 +270,86 @@ def naver_research(code, days=30, limit=6, detail_top=3):
 
 
 # ----------------------------------------------------------------------------
+# 2d) Naver Finance 증권사 산업분석 리포트 (HTML scrape)
+#     목록: research/industry_list.naver (업종명 | 제목 | 증권사 | PDF | 날짜)
+#     상세: research/industry_read.naver?nid=<nid> (요약 본문 — 목표주가 없음)
+# ----------------------------------------------------------------------------
+def naver_industry_research(days=30, max_pages=3):
+    """산업분석 리포트 최근 목록을 파싱한다 (업종 필터 없이 전체 → 호출측에서 매칭).
+
+    Returns list of {category, title, broker, date, url, pdfUrl} (최신순,
+    days 일 이내). 실패 시 [] (배치 중단 방지). 상세 본문은 요청 수 절약을
+    위해 별도 함수(naver_industry_detail)로 필요한 건만 조회한다.
+    """
+    try:
+        from bs4 import BeautifulSoup
+    except Exception:
+        _warn("beautifulsoup4 not installed — naver_industry_research skipped")
+        return []
+
+    kst = datetime.timezone(datetime.timedelta(hours=9))
+    cutoff = datetime.datetime.now(kst).date() - datetime.timedelta(days=days)
+    out, stop = [], False
+    for page in range(1, max_pages + 1):
+        try:
+            r = requests.get(
+                "https://finance.naver.com/research/industry_list.naver",
+                params={"page": page},
+                headers={**UA, "Referer": "https://finance.naver.com/research/"},
+                timeout=15,
+            )
+            r.encoding = "euc-kr"
+            r.raise_for_status()
+        except Exception as e:
+            _warn(f"naver_industry_research(p{page}) failed: {e}")
+            break
+        for a in BeautifulSoup(r.text, "html.parser").select('a[href*="industry_read.naver"]'):
+            tr = a.find_parent("tr")
+            if tr is None:
+                continue
+            tds = tr.find_all("td")      # 업종명 | 제목 | 증권사 | 첨부 | 날짜 | 조회수
+            if len(tds) < 5:
+                continue
+            try:
+                d = datetime.datetime.strptime(tds[4].get_text(strip=True), "%y.%m.%d").date()
+            except ValueError:
+                continue
+            if d < cutoff:
+                stop = True              # 목록은 최신순 — 컷오프 지나면 다음 페이지 불필요
+                break
+            pdf_a = tds[3].select_one("a[href]") if len(tds) > 3 else None
+            href = a.get("href", "")
+            out.append({
+                "category": tds[0].get_text(strip=True),
+                "title": a.get_text(strip=True),
+                "broker": tds[2].get_text(strip=True),
+                "date": d.strftime("%Y-%m-%d"),
+                "url": "https://finance.naver.com/research/" + href if not href.startswith("http") else href,
+                "pdfUrl": pdf_a.get("href") if pdf_a else "",
+            })
+        if stop:
+            break
+    return out
+
+
+def naver_industry_detail(url, max_chars=400):
+    """산업분석 리포트 상세페이지의 요약 본문 텍스트. 실패 시 ""."""
+    try:
+        from bs4 import BeautifulSoup
+        r = requests.get(url, headers={**UA, "Referer":
+                         "https://finance.naver.com/research/industry_list.naver"},
+                         timeout=15)
+        r.encoding = "euc-kr"
+        r.raise_for_status()
+        body = BeautifulSoup(r.text, "html.parser").select_one("td.view_cnt")
+        if body:
+            return " ".join(body.get_text(" ", strip=True).split())[:max_chars]
+    except Exception as e:
+        _warn(f"naver_industry_detail({url}) failed: {e}")
+    return ""
+
+
+# ----------------------------------------------------------------------------
 # 3) Tavily Search API (overseas news, reddit)
 # ----------------------------------------------------------------------------
 def tavily_search(query, max_results=5, include_domains=None):
