@@ -289,6 +289,21 @@ def resolve_peers(stock, peer_cfg):
     return valid
 
 
+def _norm_opinion(o):
+    """증권사별 투자의견 표기(매수/Buy/BUY/Outperform 등)를 매수·중립·매도로 정규화.
+    컨센서스 의견 분포 집계용 — 리포트 개별 표시는 원문을 유지한다."""
+    s = (o or "").strip().lower().replace(" ", "").replace("-", "")
+    if not s:
+        return ""
+    if any(k in s for k in ("buy", "매수", "outperform", "overweight", "비중확대", "적극", "상회")):
+        return "매수"
+    if any(k in s for k in ("sell", "underperform", "underweight", "매도", "비중축소", "reduce", "하회")):
+        return "매도"
+    if any(k in s for k in ("hold", "neutral", "중립", "marketperform", "시장수익률")):
+        return "중립"
+    return (o or "").strip()
+
+
 def gather_raw(stock, peer_list):
     """Collect raw data for one stock. peer_list is already resolved (static or LLM)."""
     code, name = stock["code"], stock["name"]
@@ -369,7 +384,7 @@ def analyze_stock(stock, peer_cfg):
             cons["upsidePct"] = round((cons["avg"] / base - 1) * 100, 1)
         opinions = {}
         for r in reports:
-            o = (r.get("opinion") or "").strip()
+            o = _norm_opinion(r.get("opinion"))
             if o:
                 opinions[o] = opinions.get(o, 0) + 1
         cons["opinions"] = opinions
