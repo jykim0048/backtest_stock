@@ -356,6 +356,15 @@ def analyze_stock(stock, peer_cfg):
         cons = {"avg": round(sum(tps) / len(tps)), "high": max(tps), "low": min(tps),
                 "n": len(tps)}
         base = stock.get("basePrice") or stock.get("price")
+        if not base:
+            # 온디맨드(Railway) 경로는 가격 없이 들어온다 — yfinance 로 현재가 보강.
+            try:
+                suffix = ".KS" if stock.get("market") == "KOSPI" else ".KQ"
+                px = yf.Ticker(f"{stock['code']}{suffix}").fast_info.last_price
+                base = float(px) if px else None
+            except Exception as e:
+                print(f"[research] base price fetch failed {stock.get('code')}: {e}",
+                      file=sys.stderr)
         if base:
             cons["upsidePct"] = round((cons["avg"] / base - 1) * 100, 1)
         opinions = {}
@@ -401,6 +410,14 @@ def main():
     watchlist = load_json(WATCHLIST, [])
     peer_cfg = {k: v for k, v in (load_json(PEERS_PATH, {}) or {}).items()
                 if not k.startswith("_")}
+
+    # 리포트의 현재가(basePrice)를 종목 dict 에 주입 — 증권사 리포트 목표주가
+    # 컨센서스의 '현재가 대비 괴리(upsidePct)' 계산에 필요 (watchlist.json 엔 가격이 없다).
+    _price_by_code = {e.get("code"): e.get("basePrice")
+                      for e in (load_json(DAILY_PATH, []) or []) if isinstance(e, dict)}
+    for s in watchlist:
+        if not s.get("basePrice") and _price_by_code.get(s.get("code")):
+            s["basePrice"] = _price_by_code[s["code"]]
 
     # Pre-warm the (large) DART corpCode map once so parallel workers don't race on it.
     sources._load_corp_map()

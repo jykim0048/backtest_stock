@@ -3561,7 +3561,13 @@
       const modelBadge = a.generatedBy
         ? `<div class="analysis-model">🤖 분석 생성 모델: ${escapeHtml(a.generatedBy)}</div>` : "";
       const sec = a[tab];
-      if (!sec) return modelBadge + `<span class="analysis-empty">데이터 없음</span>`;
+      if (!sec) {
+        // research 필드가 없는 분석 = 증권사 리포트 기능(2026-07-05) 이전에 생성된 구버전 데이터.
+        const msg = (tab === "research")
+          ? "이 분석은 증권사 리포트 기능 추가 전에 생성되어 리포트 데이터가 없습니다.<br>다음 정기 리포트 생성 시 자동으로 채워지며, 상단 검색창에서 온디맨드 딥리서치를 다시 실행해도 바로 채워집니다."
+          : "데이터 없음";
+        return modelBadge + `<span class="analysis-empty">${msg}</span>`;
+      }
 
       let html = modelBadge + (sec.summary ? `<div class="analysis-summary">${escapeHtml(sec.summary)}</div>` : "");
 
