@@ -4229,14 +4229,21 @@
         const qCls = (s.qScore == null) ? "mid" : (s.qScore >= 70 ? "good" : (s.qScore >= 40 ? "mid" : "bad"));
         const qCell = hasQ ? `<td style="text-align:center;">
             <span class="sd-q ${qCls}">${s.qScore == null ? "—" : s.qScore}</span></td>` : "";
+        // 목표가 괴리: 출처(야후 애널리스트 n명 / 네이버 컨센서스)와 목표가를 툴팁으로
+        const upTitle = _brEsc([s.targetSource, s.targetPrice != null ? `목표가 ${Number(s.targetPrice).toLocaleString()}원` : ""]
+          .filter(Boolean).join(" · "));
         const upCell = hasQ ? `<td style="text-align:right;">${s.targetUpside == null
             ? `<span style="color:var(--text-muted)">—</span>`
-            : `<span style="color:${_brPctColor(s.targetUpside)}; font-weight:600;">${_brPctFmt(s.targetUpside)}%</span>`}</td>` : "";
+            : `<span title="${upTitle}" style="color:${_brPctColor(s.targetUpside)}; font-weight:600;">${_brPctFmt(s.targetUpside)}%</span>`}</td>` : "";
+        // PER 셀: 동일업종 PER 병기(작은 글씨) + 추정PER 툴팁
+        const perSub = s.industryPer != null
+          ? `<div style="font-size:10px; color:var(--text-muted);">업종 ${_sdValFmt(s.industryPer, "배")}</div>` : "";
+        const perTitle = s.estPer != null ? ` title="추정PER(컨센서스) ${_brEsc(String(s.estPer))}배"` : "";
         return `<tr>
           <td style="white-space:nowrap; font-weight:600;">${_brEsc(s.name)}
             <div style="font-size:11px; color:var(--text-muted); font-weight:400;">${_brEsc(s.market || "")}</div></td>
           ${qCell}
-          <td style="text-align:right;">${_sdValFmt(s.per, "배")}</td>
+          <td style="text-align:right;"${perTitle}>${_sdValFmt(s.per, "배")}${perSub}</td>
           <td style="text-align:right;">${_sdValFmt(s.pbr, "배")}</td>
           <td style="text-align:right;">${_sdValFmt(s.roe, "%")}</td>
           <td style="text-align:right;">${_sdValFmt(s.revGrowth, "%")}</td>
@@ -4245,7 +4252,7 @@
         </tr>`;
       }).join("");
       const stocksSection = stockRows ? `
-        <div class="sd-sec-h">📊 국내 밸류체인 종목 <span class="sc-tag">Yahoo Finance 재무·목표주가 · DART 최근 공시</span></div>
+        <div class="sd-sec-h">📊 국내 밸류체인 종목 <span class="sc-tag">네이버증권 PER·PBR · Yahoo Finance 재무·목표주가 · DART 최근 공시</span></div>
         <table class="sd-table">
           <thead><tr><th>종목</th>${hasQ ? `<th style="text-align:center;">Q점수</th>` : ""}
             <th style="text-align:right;">PER</th><th style="text-align:right;">PBR</th>
@@ -4255,7 +4262,8 @@
         </table>
         ${hasQ ? `<div class="sd-tbl-note">Q점수 = 모멘텀 30% + 밸류에이션 25% + 성장성 25% + 재무건전성 20%
           (결측 항목 가중치 재배분 · 가용 가중치 50% 미만 시 미산출) ·
-          목표가 괴리 = 애널리스트 컨센서스 목표가 대비 현재가 이격 (의견 2건 미만 시 미표시)</div>` : ""}` : "";
+          밸류에이션 = 절대 PER + 업종 상대 PER + PBR 균등 평균 (PER·PBR·동일업종 PER: 네이버증권) ·
+          목표가 괴리 = 컨센서스 목표가 대비 현재가 이격 (야후 애널리스트 우선, 없으면 네이버 — 마우스오버로 출처 확인)</div>` : ""}` : "";
 
       // ④ Phase 5 — 테마 종합 + 전략·리스크
       const themeSummary = theme.summary ? `

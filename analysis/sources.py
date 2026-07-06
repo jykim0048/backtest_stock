@@ -12,6 +12,7 @@ Env vars (GitHub Actions secrets):
 """
 import io
 import os
+import re
 import sys
 import json
 import zipfile
@@ -347,6 +348,102 @@ def naver_industry_detail(url, max_chars=400):
     except Exception as e:
         _warn(f"naver_industry_detail({url}) failed: {e}")
     return ""
+
+
+# ----------------------------------------------------------------------------
+# 2f) Naver Finance 종목 밸류에이션 (item/main 우측 '투자정보' 패널 HTML scrape)
+#     Yahoo Finance 가 KRX 종목의 trailing EPS 를 제공하지 않아 PER/PBR 이 항상
+#     결측 — 네이버가 정본. 고정 id(_per/_pbr/...)는 id 로, 나머지는 테이블
+#     summary 속성 기준으로 파싱해 마크업 개편에 최대한 견고하게 둔다.
+# ----------------------------------------------------------------------------
+def naver_valuation(code):
+    """finance.naver.com/item/main 의 밸류에이션 지표를 파싱한다.
+
+    Returns {per, eps, estPer, estEps, pbr, bps, dividendYield, industryPer,
+    industryChangePct, opinionScore, opinionLabel, targetPrice, high52w, low52w}
+    — 값이 없거나 N/A(적자 등)면 None. 요청/파싱 실패 시 {} (배치 중단 방지).
+    per·eps 는 최근 4분기 실적 기준(trailing), estPer·estEps 는 증권사 추정
+    평균(컨센서스, 추정 3개사 미만이면 N/A)."""
+    try:
+        from bs4 import BeautifulSoup
+    except Exception:
+        _warn("beautifulsoup4 not installed — naver_valuation skipped")
+        return {}
+
+    try:
+        r = requests.get(
+            "https://finance.naver.com/item/main.naver",
+            params={"code": code},
+            headers={**UA, "Referer": "https://finance.naver.com/sise/"},
+            timeout=15,
+        )
+        r.encoding = r.apparent_encoding or "utf-8"   # 자동 감지 (현재 UTF-8, 과거 EUC-KR)
+        r.raise_for_status()
+    except Exception as e:
+        _warn(f"naver_valuation({code}) failed: {e}")
+        return {}
+
+    soup = BeautifulSoup(r.text, "html.parser")
+
+    def _num(el):
+        """<em>25.02</em> / <em>12,372</em> / <em>N/A</em> -> float|None"""
+        if el is None:
+            return None
+        t = el.get_text(strip=True).replace(",", "").replace("%", "")
+        try:
+            return float(t)
+        except ValueError:
+            return None
+
+    out = {
+        "per": _num(soup.select_one("#_per")),
+        "eps": _num(soup.select_one("#_eps")),
+        "estPer": _num(soup.select_one("#_cns_per")),
+        "estEps": _num(soup.select_one("#_cns_eps")),
+        "pbr": _num(soup.select_one("#_pbr")),
+        "bps": None,
+        "dividendYield": _num(soup.select_one("#_dvr")),
+        "industryPer": None, "industryChangePct": None,
+        "opinionScore": None, "opinionLabel": None, "targetPrice": None,
+        "high52w": None, "low52w": None,
+    }
+
+    # BPS 는 id 가 없음 — _pbr 과 같은 <td> 의 마지막 <em> ("4.30배 l 71,907원")
+    pbr_el = soup.select_one("#_pbr")
+    td = pbr_el.find_parent("td") if pbr_el else None
+    if td:
+        ems = td.find_all("em")
+        if len(ems) >= 2:
+            out["bps"] = _num(ems[-1])
+
+    # 동일업종 PER / 등락률
+    tbl = soup.select_one('table[summary="동일업종 PER 정보"]')
+    if tbl:
+        ems = tbl.find_all("em")
+        if ems:
+            out["industryPer"] = _num(ems[0])
+        if len(ems) > 1:
+            out["industryChangePct"] = _num(ems[1])
+
+    # 투자의견(점수+라벨) | 목표주가, 52주최고 | 최저
+    tbl = soup.select_one('table[summary="투자의견 정보"]')
+    for tr in (tbl.find_all("tr") if tbl else []):
+        th, ems = tr.find("th"), tr.find_all("em")
+        label = th.get_text(strip=True) if th else ""
+        if "투자의견" in label:
+            # <span class="f_up"><em>4.04</em>매수</span> <span class="bar">l</span> <em>505,625</em>
+            out["opinionScore"] = _num(ems[0]) if ems else None
+            if len(ems) >= 2:
+                out["targetPrice"] = _num(ems[-1])
+            span = ems[0].find_parent("span") if ems else None
+            if span:
+                lbl = re.sub(r"[\d.,\s]", "", span.get_text(strip=True))
+                out["opinionLabel"] = lbl or None
+        elif "52주" in label and len(ems) >= 2:
+            out["high52w"] = _num(ems[0])
+            out["low52w"] = _num(ems[1])
+
+    return out
 
 
 # ----------------------------------------------------------------------------

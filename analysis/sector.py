@@ -490,6 +490,8 @@ def _yf_valuation(code, market):
         if price is None:
             p = info.get("regularMarketPrice") or info.get("currentPrice")
             price = float(p) if isinstance(p, (int, float)) else None
+        if price:
+            out["price"] = int(round(price))   # 네이버 목표주가 괴리 계산·표시용
 
         # 52주 고점 대비 이격 (하방 여유 참고)
         hi = info.get("fiftyTwoWeekHigh")
@@ -516,6 +518,8 @@ def _validate_valuation(v):
     warns = []
     checks = [
         ("per", lambda x: 0 < x <= 500, "PER 이상치"),
+        ("estPer", lambda x: 0 < x <= 500, "추정PER 이상치"),
+        ("industryPer", lambda x: 0 < x <= 500, "업종PER 이상치"),
         ("pbr", lambda x: 0 < x <= 50, "PBR 이상치"),
         ("roe", lambda x: -100 <= x <= 100, "ROE 이상치"),
         ("debtToEquity", lambda x: 0 <= x <= 2000, "부채비율 이상치"),
@@ -527,8 +531,39 @@ def _validate_valuation(v):
             warns.append(f"{label}({x}) 제외")
             v[key] = None
     if warns:
-        v["dataWarnings"] = warns
+        v["dataWarnings"] = (v.get("dataWarnings") or []) + warns
     return v
+
+
+def _merge_naver_valuation(entry, code):
+    """Yahoo 가 한국 종목에 못 주는 밸류에이션을 네이버 증권으로 보완한다.
+
+    PER·PBR·동일업종 PER·추정PER 은 네이버가 정본(Yahoo 는 KRX trailing EPS
+    미제공으로 항상 결측 — 2026-07 확인), roe·revGrowth 등 나머지는 기존
+    yfinance 값을 유지. 목표가 괴리는 Yahoo 애널리스트 컨센서스를 1순위로
+    유지하고 없을 때만 네이버 목표주가로 계산한다."""
+    try:
+        nv = sources.naver_valuation(code)
+    except Exception as e:
+        _warn(f"naver valuation {code}: {e}")
+        nv = {}
+    if not nv:
+        entry["dataWarnings"] = (entry.get("dataWarnings") or []) + ["네이버 밸류에이션 조회 실패"]
+        return entry
+
+    for k in ("per", "pbr", "estPer", "industryPer", "industryChangePct", "dividendYield"):
+        if nv.get(k) is not None:
+            entry[k] = nv[k]
+
+    if entry.get("targetUpside") is not None:
+        n = entry.get("analystCount")
+        entry["targetSource"] = f"야후 애널리스트 {n}명 평균" if n else "야후 컨센서스"
+    elif entry.get("price") and nv.get("targetPrice"):
+        entry["targetUpside"] = round((nv["targetPrice"] / entry["price"] - 1) * 100, 1)
+        entry["targetPrice"] = int(nv["targetPrice"])
+        entry["targetSource"] = "네이버 컨센서스"
+
+    return _validate_valuation(entry)   # 네이버 값 포함 재검증
 
 
 def _lin(x, lo, hi):
@@ -541,13 +576,18 @@ def _lin(x, lo, hi):
 def quality_score(v):
     """skill Step 4-3 퀄리티 스코어 (0–100) — 모멘텀 30% + 밸류에이션 25%
     + 성장성 25% + 재무건전성 20%. 결측 항목은 가중치 재배분하되,
-    가용 가중치 50% 미만이면 미산출(None)."""
+    가용 가중치 50% 미만이면 미산출(None).
+    밸류에이션 = 절대 PER + 업종 상대 PER(있으면) + PBR 의 균등 평균 —
+    반도체처럼 업종 전체가 고PER 일 때 절대 PER 만으로 생기는 왜곡을 줄인다."""
     comps = {}
     if v.get("ret3M") is not None:
         comps["momentum"] = _lin(v["ret3M"], -20, 30)
     val_parts = []
     if v.get("per") is not None:
         val_parts.append(_lin(v["per"], 40, 5))
+        if v.get("industryPer"):
+            # 업종 대비 0.5배 이하 만점 ~ 2.0배 이상 0점
+            val_parts.append(_lin(v["per"] / v["industryPer"], 2.0, 0.5))
     if v.get("pbr") is not None:
         val_parts.append(_lin(v["pbr"], 8, 0.5))
     if val_parts:
@@ -602,6 +642,7 @@ def theme_stocks(flow, resolve_fn, max_per_theme=4, direction="up"):
             code, market = hit["code"], hit.get("market", "KOSPI")
             entry = {"code": code, "name": hit.get("name", seed["name"]), "market": market}
             entry.update(_yf_valuation(code, market))
+            _merge_naver_valuation(entry, code)   # PER·PBR·업종PER·목표가 폴백
             entry["qScore"] = quality_score(entry)
             # latest DART disclosure as catalyst evidence (deterministic)
             try:
@@ -705,7 +746,8 @@ def _build_raw(briefing, macro, regime, sentiment, sectors, themes, sector_score
                     "industryReports": [{k: r.get(k) for k in ("category", "title", "broker", "date", "summary")}
                                         for r in (t.get("industryReports") or [])],
                     "etf": t.get("etf"), "etfReturns": t.get("etfReturns"),
-                    "stocks": [{k: s.get(k) for k in ("name", "market", "per", "pbr", "roe",
+                    "stocks": [{k: s.get(k) for k in ("name", "market", "per", "estPer",
+                                                      "industryPer", "pbr", "roe",
                                                       "revGrowth", "qScore", "targetUpside",
                                                       "beta", "from52WHigh", "recentFiling")}
                                for s in t["stocks"]]}

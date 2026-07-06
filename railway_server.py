@@ -271,6 +271,16 @@ class Handler(BaseHTTPRequestHandler):
                     "ok": bool(fin), "keys": list(fin.keys())[:6] if isinstance(fin, dict) else None}
             except Exception as ex:
                 out["checks"]["dart_financials"] = {"ok": False, "error": str(ex)[:300]}
+        # 2b) 네이버 밸류에이션 (섹터분석 PER/PBR/동일업종PER 보완 소스)
+        try:
+            nv = src.naver_valuation(code)
+            out["checks"]["naver_valuation"] = {
+                "ok": bool(nv.get("per") or nv.get("pbr")),
+                "per": nv.get("per"), "pbr": nv.get("pbr"),
+                "industryPer": nv.get("industryPer"),
+                "targetPrice": nv.get("targetPrice"), "estPer": nv.get("estPer")}
+        except Exception as ex:
+            out["checks"]["naver_valuation"] = {"ok": False, "error": str(ex)[:300]}
         # 3) Tavily 상세 — 키 유효성(일반검색) vs include_domains 필터(reddit) 구분
         tkey = os.environ.get("TAVILY_API_KEY", "")
         for label, dom in (("tavily_plain", None), ("tavily_reddit_domain", ["reddit.com"])):
