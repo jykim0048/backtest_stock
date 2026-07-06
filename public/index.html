@@ -325,6 +325,17 @@
     .briefing-banner.collapsed .briefing-toggle { transform: rotate(180deg); }
     .briefing-body { padding: 14px 18px 16px; }
     .briefing-banner.collapsed .briefing-body { display: none; }
+    /* 매매일지 워치리스트 접기/펼치기 (모닝브리핑과 동일 패턴) */
+    .journal-collapse-head {
+      display: flex; align-items: center; justify-content: space-between; cursor: pointer;
+      user-select: none; font-size: 13.5px; color: var(--text-muted); margin: 4px 2px 6px;
+      padding: 7px 10px; border-radius: 6px; background: rgba(255,255,255,.03);
+      border: 1px solid var(--border-color);
+    }
+    .journal-collapse-head:hover { background: rgba(255,255,255,.06); }
+    .journal-collapse-toggle { font-size: 12px; transition: transform .2s; }
+    .journal-collapse.collapsed .journal-collapse-toggle { transform: rotate(180deg); }
+    .journal-collapse.collapsed .journal-collapse-body { display: none; }
     .briefing-reason { font-size: 13.5px; color: var(--text-muted); margin-bottom: 13px; }
     .briefing-reason b { font-weight: 600; }
     .briefing-panel {
@@ -1709,18 +1720,25 @@
 
           <div class="portfolio-summary-box" id="journal-summary-box" style="margin-bottom:16px;"></div>
 
-          <div style="font-size:13.5px; color:var(--text-muted); margin:4px 2px 6px;">장전 워치리스트</div>
-          <table class="stocks-table">
-            <thead><tr>
-              <th style="width: 200px;">종목 정보</th>
-              <th style="text-align: right; width: 100px;">기준가</th>
-              <th style="text-align: right; width: 100px;">진입상한</th>
-              <th style="text-align: right; width: 100px;">목표익절</th>
-              <th style="text-align: right; width: 100px;">손절선</th>
-              <th>촉매</th>
-            </tr></thead>
-            <tbody id="journal-watchlist-tbody"></tbody>
-          </table>
+          <div class="journal-collapse collapsed" id="journal-watchlist-section">
+            <div class="journal-collapse-head" onclick="toggleJournalWatchlist()">
+              <span>종목 스냅샷 <span style="opacity:.7;">· 장전 워치리스트 · 장중 진입</span></span>
+              <span class="journal-collapse-toggle">▲</span>
+            </div>
+            <div class="journal-collapse-body">
+              <table class="stocks-table">
+                <thead><tr>
+                  <th style="width: 200px;">종목 정보</th>
+                  <th style="text-align: right; width: 100px;">기준가</th>
+                  <th style="text-align: right; width: 100px;">진입상한</th>
+                  <th style="text-align: right; width: 100px;">목표익절</th>
+                  <th style="text-align: right; width: 100px;">손절선</th>
+                  <th>촉매</th>
+                </tr></thead>
+                <tbody id="journal-watchlist-tbody"></tbody>
+              </table>
+            </div>
+          </div>
 
           <div style="font-size:13.5px; color:var(--text-muted); margin:18px 2px 6px;">체결 내역</div>
           <table class="stocks-table">
@@ -2327,6 +2345,23 @@
 
     function toggleBriefing() {
       document.getElementById("briefing-banner").classList.toggle("collapsed");
+    }
+
+    // 매매일지 '종목 스냅샷' 섹션 접기/펼치기 — 체결내역 가독성을 위해 기본 접힘,
+    // 사용자가 편 상태는 localStorage 에 기억한다.
+    const JOURNAL_WL_KEY = "qa_journal_wl_open";
+    function toggleJournalWatchlist() {
+      const sec = document.getElementById("journal-watchlist-section");
+      if (!sec) return;
+      const collapsed = sec.classList.toggle("collapsed");
+      try { localStorage.setItem(JOURNAL_WL_KEY, collapsed ? "0" : "1"); } catch (_) {}
+    }
+    function applyJournalWatchlistState() {
+      const sec = document.getElementById("journal-watchlist-section");
+      if (!sec) return;
+      let open = false;   // 기본 접힘
+      try { open = localStorage.getItem(JOURNAL_WL_KEY) === "1"; } catch (_) {}
+      sec.classList.toggle("collapsed", !open);
     }
 
     // 한국식 등락 색상(상승=빨강, 하락=파랑)과 부호 표기.
@@ -3563,6 +3598,7 @@
 
     function renderJournal(dateStr) {
       loadJournalDateOptions();
+      applyJournalWatchlistState();   // 접힘/펼침 상태 복원(기본 접힘)
       const sel = document.getElementById("journal-date-select");
       if (!dateStr) dateStr = (sel && sel.value) || todayKST();
       if (sel && [...sel.options].some(o => o.value === dateStr)) sel.value = dateStr;
