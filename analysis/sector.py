@@ -725,6 +725,92 @@ SECTOR_SCHEMA = _obj({
 })
 
 
+# ----------------------------------------------------------------------------
+# Phase 4b) 증권사 산업 리포트 요약 (전용 LLM 패스)
+#   테마별로 부착된 산업 리포트의 본문(네이버 상세)을 읽어 2~3문장으로 요약한다.
+#   대형 종합 콜(analyze_sectors Phase 5)과 분리 — URL 중복 제거로 토큰을
+#   아끼고, 요약 실패가 종합 분석을 흔들지 않도록 독립적으로 best-effort 동작.
+# ----------------------------------------------------------------------------
+_REPORT_BODY_MIN = 250     # 이보다 짧으면 티저(본문은 PDF) — 요약하지 않는다
+_REPORT_BODY_MAX = 2000
+
+REPORT_SUMMARY_SYSTEM = (
+    "당신은 증권사 산업분석 리포트를 요약하는 리서치 에디터입니다. "
+    "각 리포트 본문(body)을 읽고 핵심을 한국어 2~3문장으로 요약하세요.\n"
+    "규칙:\n"
+    "- 본문에 실제로 있는 내용만 쓸 것. 없는 수치·전망을 지어내지 말 것.\n"
+    "- 업종 전망·핵심 논거·수혜(또는 피해) 포인트 중심으로 압축할 것.\n"
+    "- '이 리포트는' 같은 군말 없이 내용부터 서술할 것.\n"
+    "- 입력의 각 리포트 id 를 그대로 echo 하고, 모든 리포트를 빠짐없이 요약할 것.\n"
+    "- 출력은 {\"items\":[{\"id\":<문자열>,\"summary\":<문자열>}]} 스키마를 엄격히 따를 것."
+)
+
+REPORT_SUMMARY_SCHEMA = _obj({
+    "items": _arr(_obj({"id": _STR, "summary": _STR})),
+})
+
+
+def _collect_report_bodies(themes):
+    """테마들의 industryReports 를 URL 기준 중복 제거하고 본문을 조회한다.
+    반환: dict {url: {"title","body"}} — 본문이 _REPORT_BODY_MIN 이상인 것만
+    (티저성 짧은 본문은 요약 근거가 부족해 제외)."""
+    bodies = {}
+    for t in themes:
+        for r in (t.get("industryReports") or []):
+            url = r.get("url")
+            if not url or url in bodies:
+                continue
+            try:
+                body = sources.naver_industry_detail(url, max_chars=_REPORT_BODY_MAX)
+            except Exception as e:
+                _warn(f"industry detail {url}: {e}")
+                body = ""
+            if len(body) >= _REPORT_BODY_MIN:
+                bodies[url] = {"title": r.get("title", ""), "body": body}
+    return bodies
+
+
+def summarize_industry_reports(themes):
+    """전용 LLM 패스 — 고유 산업 리포트를 2~3문장으로 요약해 각 리포트 dict 에
+    llmSummary 를 부착한다. LLM 미설정/본문 없음/실패 시 무동작(best-effort)."""
+    if not llm.configured():
+        _warn("LLM 미설정 — 산업 리포트 요약 생략")
+        return
+    bodies = _collect_report_bodies(themes)
+    if not bodies:
+        _warn("요약할 산업 리포트 본문 없음 (티저/미수집)")
+        return
+    urls = list(bodies.keys())
+    items = [{"id": str(i), "title": bodies[u]["title"], "body": bodies[u]["body"]}
+             for i, u in enumerate(urls)]
+    user = "리포트 목록(JSON):\n" + json.dumps({"reports": items}, ensure_ascii=False)
+    try:
+        out = llm.generate_json(REPORT_SUMMARY_SYSTEM, user,
+                                max_tokens=2048, schema=REPORT_SUMMARY_SCHEMA)
+    except Exception as e:
+        _warn(f"산업 리포트 요약 LLM 실패: {e}")
+        return
+
+    by_url = {}
+    for it in (out.get("items") or []):
+        try:
+            idx = int(it.get("id"))
+        except (TypeError, ValueError):
+            continue
+        s = (it.get("summary") or "").strip()
+        if s and 0 <= idx < len(urls):
+            by_url[urls[idx]] = s
+
+    n = 0
+    for t in themes:
+        for r in (t.get("industryReports") or []):
+            s = by_url.get(r.get("url"))
+            if s:
+                r["llmSummary"] = s
+                n += 1
+    _warn(f"산업 리포트 요약: 본문 {len(bodies)}건 → LLM 요약 {len(by_url)}건 (테마 부착 {n})")
+
+
 def _build_raw(briefing, macro, regime, sentiment, sectors, themes, sector_scores=None):
     return {
         "asof": briefing.get("date", ""),
@@ -743,7 +829,7 @@ def _build_raw(briefing, macro, regime, sentiment, sectors, themes, sector_score
         "themes": [{"usTheme": t["usTheme"], "usSymbols": t["usSymbols"],
                     "krTheme": t["krTheme"], "rationale": t["rationale"],
                     "direction": t.get("direction", "up"),
-                    "industryReports": [{k: r.get(k) for k in ("category", "title", "broker", "date", "summary")}
+                    "industryReports": [{k: r.get(k) for k in ("category", "title", "broker", "date", "llmSummary")}
                                         for r in (t.get("industryReports") or [])],
                     "etf": t.get("etf"), "etfReturns": t.get("etfReturns"),
                     "stocks": [{k: s.get(k) for k in ("name", "market", "per", "estPer",
@@ -785,6 +871,12 @@ def analyze_sectors(briefing, resolve_fn=None):
             t["etfRankOf"] = len(ranked)
         if t.get("etf") in sector_scores:
             t["scorecard"] = sector_scores[t["etf"]]
+
+    # Phase 4b: 산업 리포트 전용 요약 패스 (llmSummary 를 industryReports 에 부착)
+    try:
+        summarize_industry_reports(themes)
+    except Exception as e:
+        _warn(f"산업 리포트 요약 패스 실패: {e}")
 
     # Phase 5: LLM synthesis (optional — mechanical passthrough if unavailable)
     synth, model_used = {}, None

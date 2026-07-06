@@ -432,7 +432,10 @@
     .sd-ind-cat { font-size: 10px; font-weight: 600; background: rgba(255,255,255,.07);
       color: #cbd5e1; padding: 1px 6px; border-radius: 7px; margin-right: 5px; }
     .sd-ind-title { font-size: 12.5px; margin-top: 2px; }
-    .sd-ind-sum { font-size: 11.5px; color: #cbd5e1; margin-top: 2px; line-height: 1.55; }
+    .sd-ind-sum { font-size: 11.5px; color: #cbd5e1; margin-top: 3px; line-height: 1.55; }
+    .sd-ind-sumtag { font-size: 10px; font-weight: 700; color: var(--kospi-blue);
+      background: rgba(0,240,255,.08); border: 1px solid rgba(0,240,255,.22);
+      padding: 1px 6px; border-radius: 7px; margin-right: 5px; white-space: nowrap; }
     .briefing-catalyst { background: rgba(0,240,255,.05); border: 1px solid rgba(0,240,255,.15); border-radius: 9px; padding: 9px 11px; margin: 12px 0; }
     .briefing-catalyst .cat-h { display: flex; align-items: center; gap: 5px; font-size: 12.5px; color: var(--kospi-blue); margin-bottom: 4px; }
     .briefing-catalyst .cat-b { font-size: 13px; line-height: 1.6; color: #cbd5e1; }
@@ -4203,15 +4206,19 @@
         const title = orig
           ? `<a href="${_brEsc(orig)}" target="_blank" rel="noopener" style="color:var(--kospi-blue);">${_brEsc(r.title)}</a>`
           : _brEsc(r.title);
+        // LLM 요약(llmSummary) 우선 — 없으면 네이버 원문 발췌(summary)로 폴백
+        const summaryHtml = r.llmSummary
+          ? `<div class="sd-ind-sum"><span class="sd-ind-sumtag">📝 핵심 요약</span> ${_brEsc(r.llmSummary)}</div>`
+          : (r.summary ? `<div class="sd-ind-sum">${_brEsc(r.summary)}</div>` : "");
         return `<div class="sd-ind-row">
           <div class="sd-ind-meta"><span class="sd-ind-cat">${_brEsc(r.category || "")}</span>${_brEsc(r.date || "")} · ${_brEsc(r.broker || "")}
             ${r.pdfUrl ? ` · <a href="${_brEsc(r.pdfUrl)}" target="_blank" rel="noopener" style="color:var(--kospi-blue);">원문 PDF</a>` : ""}${r.url ? ` · <a href="${_brEsc(r.url)}" target="_blank" rel="noopener" style="color:var(--text-muted);">네이버 상세</a>` : ""}</div>
           <div class="sd-ind-title">${title}</div>
-          ${r.summary ? `<div class="sd-ind-sum">${_brEsc(r.summary)}</div>` : ""}
+          ${summaryHtml}
         </div>`;
       }).join("");
       const industrySection = indRows ? `
-        <div class="sd-sec-h">🏭 증권사 산업 리포트 <span class="sc-tag">네이버 리서치 · 최근 30일 · 제목 클릭 → 원문 PDF</span></div>
+        <div class="sd-sec-h">🏭 증권사 산업 리포트 <span class="sc-tag">네이버 리서치 · 최근 30일 · LLM 요약 · 제목 클릭 → 원문 PDF</span></div>
         ${indRows}` : "";
 
       // ③ Phase 4~5 — 종목 밸류에이션 + Q점수 + 목표가 괴리 (+ 최근 DART 공시 링크)
