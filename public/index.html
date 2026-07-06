@@ -1847,9 +1847,13 @@
     // 종목 데이터는 window.onload에서 daily_market_report.json으로 채운다.
     const stockData = [];
 
-    // 장중 관심종목(모니터링 전용). intraday_report.json으로 채운다.
-    // stockData(자동매매 대상)와 완전히 분리 — 계좌/시초매수/익절손절 로직에 끼지 않는다.
+    // 장중 관심종목. intraday_report.json으로 채운다.
+    // (2026-07-06~) 장전 워치리스트(stockData)와 함께 자동매매 대상 — 장중 리스트에
+    // 처음 등장하면 감지 즉시 1회 진입, 이후 익절/손절/EOD청산은 장전과 동일 엔진 공유.
+    // 예수금(cashBalance)·손익·복리 이월은 장전과 하나의 글로벌 계좌를 공유한다.
     const watchData = [];
+    // 장중 신규 진입 마감 시각(KST HHMM). 이후엔 EOD 청산이 임박해 신규 진입하지 않는다.
+    const INTRADAY_ENTRY_CUTOFF = 1430;
 
     let isWatchLiveView = true;   // 장중: 최신(실시간) 보기 vs 과거 날짜 아카이브 열람
 
@@ -1915,20 +1919,27 @@
       if (!isLiveView) return;
       try {
         const positions = {};
-        stockData.forEach(s => {
-          positions[s.code] = {
-            quantity: s.quantity, avgBuyPrice: s.avgBuyPrice,
-            investedCapital: s.investedCapital, followBudget: s.followBudget,
-            pnl: s.pnl, pnlRate: s.pnlRate, hasFollowedUp: s.hasFollowedUp,
-            isGapFiltered: s.isGapFiltered, hasLoggedGapFilter: s.hasLoggedGapFilter,
-            openingGap: s.openingGap, price: s.price, history: s.history,
-            // 워치리스트에서 빠져도 종목을 다시 그릴 수 있도록 최소 스냅샷 보관
-            // (분석/딥리서치는 용량상 제외 — 오늘 워치리스트 종목은 리포트에서 다시 로드됨)
-            snapshot: { code: s.code, name: s.name, market: s.market,
-                        basePrice: s.basePrice, entry: s.entry, target: s.target,
-                        stop: s.stop, stars: s.stars || "", catalyst: s.catalyst || "",
-                        scenario: s.scenario || "" }
-          };
+        const serialize = (s, source) => ({
+          source,
+          quantity: s.quantity, avgBuyPrice: s.avgBuyPrice,
+          investedCapital: s.investedCapital, followBudget: s.followBudget,
+          pnl: s.pnl, pnlRate: s.pnlRate, hasFollowedUp: s.hasFollowedUp,
+          isGapFiltered: s.isGapFiltered, hasLoggedGapFilter: s.hasLoggedGapFilter,
+          openingGap: s.openingGap, price: s.price, history: s.history,
+          enteredDate: s.enteredDate || null,
+          // 워치리스트에서 빠져도 종목을 다시 그릴 수 있도록 최소 스냅샷 보관
+          // (분석/딥리서치는 용량상 제외 — 오늘 워치리스트 종목은 리포트에서 다시 로드됨)
+          snapshot: { code: s.code, name: s.name, market: s.market,
+                      basePrice: s.basePrice, entry: s.entry, target: s.target,
+                      stop: s.stop, stars: s.stars || "", catalyst: s.catalyst || "",
+                      scenario: s.scenario || "" }
+        });
+        // 장전(stockData) 우선 — 같은 코드가 양쪽에 있으면 장전 포지션을 정본으로.
+        stockData.forEach(s => { positions[s.code] = serialize(s, "main"); });
+        watchData.forEach(s => {
+          if (!positions[s.code] && (s.quantity > 0 || s.enteredDate)) {
+            positions[s.code] = serialize(s, "intraday");
+          }
         });
         const logsBox = document.getElementById("logs-box");
         // 로그는 누적되므로 용량 폭주 방지: 200KB 초과 시 저장에서 제외
@@ -1975,6 +1986,7 @@
         s.isGapFiltered = !!p.isGapFiltered;
         s.hasLoggedGapFilter = !!p.hasLoggedGapFilter;
         s.openingGap = p.openingGap || 0;
+        s.enteredDate = p.enteredDate || null;
         s.price = p.price || s.basePrice;
         s.rate = s.rate || 0;
         s.history = (Array.isArray(p.history) && p.history.length)
@@ -1982,21 +1994,28 @@
           : [s.basePrice, s.basePrice, s.basePrice, s.basePrice];
       };
 
+      // 같은 코드가 장전·장중 양쪽 리스트에 있을 수 있으므로 source 로 라우팅한다
+      // (레거시 저장본은 source 없음 → 장전으로 간주).
       const seen = new Set();
       stockData.forEach(s => {
         const p = saved.positions[s.code];
-        if (p) { restoreFields(s, p); seen.add(s.code); }
+        if (p && (p.source || "main") === "main") { restoreFields(s, p); seen.add(s.code); }
         else { applyDefaults(s); }
       });
+      // 장중 리스트는 source==="intraday" 포지션만 복원(진입이력 포함)
+      watchData.forEach(s => {
+        const p = saved.positions[s.code];
+        if (p && p.source === "intraday") { restoreFields(s, p); seen.add(s.code); }
+      });
 
-      // 워치리스트에서 빠졌지만 아직 보유 중인 종목 → 이월해 계속 표시/누적
+      // 리스트에서 빠졌지만 아직 보유 중인 종목 → 그 종목의 source 리스트로 이월해 계속 누적
       Object.keys(saved.positions).forEach(code => {
         if (seen.has(code)) return;
         const p = saved.positions[code];
         if (!p || !(p.quantity > 0) || !p.snapshot) return;
         const s = Object.assign({}, p.snapshot, { analysis: null, carriedOver: true });
         restoreFields(s, p);
-        stockData.push(s);
+        (p.source === "intraday" ? watchData : stockData).push(s);
       });
 
       return saved;
@@ -2012,6 +2031,14 @@
       for (let i = stockData.length - 1; i >= 0; i--) {
         if (stockData[i].carriedOver) stockData.splice(i, 1);
       }
+      // 장중 관심종목도 이월 제거 + 보유/진입이력 초기화
+      for (let i = watchData.length - 1; i >= 0; i--) {
+        if (watchData[i].carriedOver) watchData.splice(i, 1);
+      }
+      watchData.forEach(s => {
+        s.quantity = 0; s.avgBuyPrice = 0; s.investedCapital = 0;
+        s.pnl = 0; s.pnlRate = 0; s.enteredDate = null;
+      });
       totalCapital = INITIAL_CAPITAL;
       openingOrderDate = null;
       liquidationDate = null;
@@ -2020,6 +2047,7 @@
       getOrCreateDayRecord(todayKST());
       if (isMarketOpen()) executeOpeningOrder();
       renderTable();
+      renderWatchTable();
       updatePortfolioAccountSummary();
       const logsBox = document.getElementById("logs-box");
       if (logsBox) {
@@ -2094,7 +2122,7 @@
       const pendingDate = openingOrderDate;
       if (!pendingDate || pendingDate === todayKST()) return;   // 오늘분은 기존 15:15 게이트가 처리
       if (liquidationDate === pendingDate) return;              // 그날 청산 이미 완료
-      const held = stockData.filter(s => s.quantity > 0);
+      const held = [...stockData, ...watchData].filter(s => s.quantity > 0);   // 장전+장중 미청산분
       if (!held.length) { liquidationDate = pendingDate; savePortfolio(); return; }
 
       let closes = {};
@@ -2198,6 +2226,22 @@
 
     function needsLiquidation() {
       return liquidationDate !== todayKST();
+    }
+
+    // 장중 관심종목 신규 진입 가능 시간대: 장중이면서 컷오프(14:30) 이전.
+    // 데모 모드는 시장가·컷오프 게이트를 모두 우회(오토트레이딩 테스트용).
+    function isIntradayEntryWindow() {
+      const demoToggle = document.getElementById("demo-mode-toggle");
+      if (demoToggle && demoToggle.checked) return true;
+      if (!isMarketOpen()) return false;
+      const kst = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Seoul" }));
+      const timeVal = kst.getHours() * 100 + kst.getMinutes();
+      return timeVal < INTRADAY_ENTRY_CUTOFF;
+    }
+
+    // 같은 코드가 장전(stockData)에서 이미 보유 중인지 — 장중 중복 진입 방지(장전 우선).
+    function heldInPreMarket(code) {
+      return stockData.some(s => s.code === code && s.quantity > 0);
     }
 
     // ===== 슬리피지 / 손절선 슬라이더 → 실제 체결 로직 반영 =====
@@ -2529,9 +2573,18 @@
         if (!response.ok) { if (!live) watchData.length = 0; return; }
         const data = await response.json();
         if (!Array.isArray(data)) { if (!live) watchData.length = 0; return; }
+
+        // 라이브 폴링은 리스트를 통째로 갈아끼우면 보유 포지션이 유실되므로 코드 기준으로
+        // 보유/진입 상태를 보존하며 병합한다(레벨·촉매는 최신본 갱신). 과거 날짜 열람은
+        // 매매 대상이 아니므로 보존하지 않고 깨끗한 상태로 재구성한다.
+        const prevByCode = {};
+        if (live) watchData.forEach(s => { prevByCode[s.code] = s; });
+        const prevHeld = live ? watchData.filter(s => s.quantity > 0) : [];
+        const incomingCodes = new Set(data.map(it => it.code));
         watchData.length = 0;
         data.forEach(item => {
-          watchData.push({
+          const prev = prevByCode[item.code];
+          const s = {
             code:      item.code,
             name:      item.name,
             market:    item.market,
@@ -2543,11 +2596,23 @@
             catalyst:  item.catalyst || "",
             scenario:  item.scenario || "",
             analysis:  item.analysis || null,
+            // 포트폴리오 상태(보유/진입이력) — 이전 폴링 값 보존, 없으면 빈 상태
+            quantity:        prev ? prev.quantity : 0,
+            avgBuyPrice:     prev ? prev.avgBuyPrice : 0,
+            investedCapital: prev ? prev.investedCapital : 0,
+            pnl:             prev ? prev.pnl : 0,
+            pnlRate:         prev ? prev.pnlRate : 0,
+            enteredDate:     prev ? prev.enteredDate : null,
             // live fields (filled by fetchRealPrices); seed from basePrice
-            price:     item.basePrice || 0,
-            rate:      0,
-            history:   [item.basePrice || 0],
-          });
+            price:     prev ? prev.price : (item.basePrice || 0),
+            rate:      prev ? prev.rate : 0,
+            history:   prev ? prev.history : [item.basePrice || 0],
+          };
+          watchData.push(s);
+        });
+        // 리스트에서 빠졌지만 아직 보유 중인 종목은 carriedOver 로 유지(EOD 청산·손익 계속 반영)
+        prevHeld.forEach(s => {
+          if (!incomingCodes.has(s.code)) { s.carriedOver = true; watchData.push(s); }
         });
       } catch (err) {
         console.warn(`Failed to load intraday report from ${url}.`, err);
@@ -2563,18 +2628,19 @@
       }
       await loadDynamicReportData(date);
       isLiveView = live;
+      // 장중 관심종목을 계좌 복원 '전에' 로드해야, 복원 시 장중 보유 포지션이
+      // watchData 객체에 다시 붙는다(날짜 컨트롤 일원화 · 과거 날짜는 정적 열람).
+      isWatchLiveView = live;
+      await loadIntradayData(date);
+
       if (live) {
-        restorePortfolio();   // 영속 계좌 복원
+        restorePortfolio();   // 영속 계좌 복원 (stockData + watchData 포지션)
       } else {
         initializePortfolioState();   // 과거 리포트는 깨끗한 임시 계좌로 열람 (저장 안 함)
       }
       renderTable();
-      updatePortfolioAccountSummary();
-
-      // 장중 관심종목도 같은 날짜로 연동(날짜 컨트롤 일원화). 과거 날짜는 정적 열람.
-      isWatchLiveView = live;
-      await loadIntradayData(date);
       renderWatchTable();
+      updatePortfolioAccountSummary();
       await updateWatchAsof(date);
 
       // 투자주의/경고도 같은 날짜로 연동
@@ -2715,6 +2781,138 @@
       }
     }
 
+    // 보유 포지션 필드 초기화(전량 매도 후).
+    function resetPosition(stock) {
+      stock.quantity = 0;
+      stock.avgBuyPrice = 0;
+      stock.investedCapital = 0;
+      stock.followBudget = 0;
+      stock.pnl = 0;
+      stock.pnlRate = 0;
+      stock.hasFollowedUp = false;
+    }
+
+    // 익절/손절 판정 및 전량 매도 — 장전(stockData)·장중(watchData) 공용.
+    // 매도가 발생하면 true 반환(테이블 리렌더는 호출측 책임). source 는 매매일지 구분용.
+    function evaluateExit(stock, source) {
+      if (stock.quantity === 0) return false;
+      const logsBox = document.getElementById("logs-box");
+      const time = new Date().toTimeString().split(" ")[0];
+      const slip = getSlippagePct();
+      const tag = (source === "intraday") ? "[장중] " : "";
+
+      // 1. 익절 (목표가 도달)
+      if (stock.price >= stock.target) {
+        const fillPrice = Math.round(stock.price * (1 - slip / 100));   // 매도 슬리피지: 신호가보다 낮게 체결
+        const realizedAmt = stock.quantity * fillPrice;
+        const profit = realizedAmt - stock.investedCapital;
+        cashBalance += realizedAmt;
+        realizedPnl += profit;
+        recordTrade({ code: stock.code, name: stock.name, side: "SELL", type: "TAKE_PROFIT",
+                      qty: stock.quantity, price: fillPrice, amount: realizedAmt, pnl: profit, source });
+        if (logsBox) logsBox.innerHTML += `
+          <div class="log-line" style="color:var(--kosdaq-green); font-weight:bold;">
+            <span class="log-time">[${time}]</span> [ALGO SELL] ${tag}<b>${stock.name}</b> 목표 익절 달성 전량 매도 완료! 실시간 실현손익: +${profit.toLocaleString()}원
+          </div>`;
+        resetPosition(stock);
+        return true;
+      }
+
+      // 2. 손절 (지지선 붕괴) — ATR 손절선 vs 사용자 최대손절% 중 더 타이트한 값
+      if (stock.price <= getEffectiveStopPrice(stock)) {
+        const fillPrice = Math.round(stock.price * (1 - slip / 100));
+        const realizedAmt = stock.quantity * fillPrice;
+        const loss = stock.investedCapital - realizedAmt;
+        cashBalance += realizedAmt;
+        realizedPnl -= loss;
+        recordTrade({ code: stock.code, name: stock.name, side: "SELL", type: "STOP_LOSS",
+                      qty: stock.quantity, price: fillPrice, amount: realizedAmt, pnl: -loss, source });
+        if (logsBox) logsBox.innerHTML += `
+          <div class="log-line" style="color:var(--up-red); font-weight:bold;">
+            <span class="log-time">[${time}]</span> [ALGO SELL] ${tag}<b>${stock.name}</b> 손절 지지선 붕괴 전량 매도 완료. 실시간 실현손실: -${loss.toLocaleString()}원
+          </div>`;
+        resetPosition(stock);
+        return true;
+      }
+      return false;
+    }
+
+    // 장중 관심종목 신규 진입 — 리스트에 처음 등장 시 감지 즉시 배정액 1회 전량 매수.
+    // 익절/손절/EOD청산은 이후 장전과 동일 엔진(evaluateExit/EOD)이 처리한다.
+    function executeIntradayEntries() {
+      if (!isLiveView) return;                 // 과거 리포트 열람 중엔 매매 안 함
+      if (!isIntradayEntryWindow()) return;    // 장중 + 14:30 이전만
+      const logsBox = document.getElementById("logs-box");
+      const time = new Date().toTimeString().split(" ")[0];
+      const slip = getSlippagePct();
+      const gapLimit = parseFloat(document.getElementById("slider-gap").value);
+      let anyEntered = false;
+
+      watchData.forEach(stock => {
+        if (stock.quantity > 0) return;                  // 이미 보유
+        if (stock.enteredDate === todayKST()) return;    // 오늘 이미 진입(청산 후 재진입 방지)
+        if (heldInPreMarket(stock.code)) return;         // 장전에서 보유 중 → 장전 우선(중복 방지)
+
+        const price = stock.price || stock.basePrice;
+        if (!price) return;
+        if (price > stock.entry) return;                 // 진입 상한 초과 → 추격 매수 방지
+        const gapFromBase = stock.basePrice ? ((price / stock.basePrice - 1) * 100) : 0;
+        if (Math.abs(gapFromBase) > gapLimit) return;    // 기준가 대비 급변 → 갭 필터
+
+        const execPrice = Math.round(price * (1 + slip / 100));   // 매수 슬리피지 반영
+        const budget = Math.min(maxAllocationPerStock, cashBalance);
+        const qty = Math.floor(budget / execPrice);
+        if (qty < 1) return;                             // 예수금 부족
+        const cost = qty * execPrice;
+
+        cashBalance -= cost;
+        stock.quantity = qty;
+        stock.avgBuyPrice = execPrice;
+        stock.investedCapital = cost;
+        stock.pnl = 0;
+        stock.pnlRate = 0;
+        stock.enteredDate = todayKST();
+        anyEntered = true;
+
+        recordTrade({ code: stock.code, name: stock.name, side: "BUY", type: "INTRADAY_ENTRY",
+                      qty, price: execPrice, amount: cost, source: "intraday" });
+        addIntradayToJournal(stock);   // 일지 스냅샷에 장중 진입 종목 편입
+
+        if (logsBox) logsBox.innerHTML += `<div class="log-line" style="color:var(--kospi-blue);"><span class="log-time">[${time}]</span> <span class="log-buy">[장중 진입]</span> <b>${stock.name}</b> 장중 관심종목 진입선(${stock.entry.toLocaleString()}원) 이하 매수: ${qty.toLocaleString()}주 at <b>${execPrice.toLocaleString()}원</b>.</div>`;
+      });
+
+      if (anyEntered) {
+        renderWatchTable();
+        updatePortfolioAccountSummary();
+        savePortfolio();
+        if (logsBox) logsBox.scrollTop = logsBox.scrollHeight;
+      }
+    }
+
+    // 장중 보유 종목 익절/손절 판정(틱마다). EOD 청산은 executeEndOfDayLiquidation 이 담당.
+    function runIntradayExits() {
+      if (!isLiveView) return;
+      let sold = false;
+      watchData.forEach(stock => { if (evaluateExit(stock, "intraday")) sold = true; });
+      if (sold) {
+        renderWatchTable();
+        updatePortfolioAccountSummary();
+      }
+    }
+
+    // 장중 진입 종목을 그날 매매일지 스냅샷에 추가(장전 워치리스트와 source 로 구분).
+    function addIntradayToJournal(stock) {
+      const day = getOrCreateDayRecord(todayKST());
+      if (!day.watchlist.some(w => w.code === stock.code)) {
+        day.watchlist.push({
+          code: stock.code, name: stock.name, market: stock.market,
+          basePrice: stock.basePrice, entry: stock.entry, target: stock.target,
+          stop: stock.stop, catalyst: stock.catalyst || "", source: "intraday"
+        });
+        saveTradeJournal();
+      }
+    }
+
     function initializeLogs() {
       const logsBox = document.getElementById("logs-box");
       const time = new Date().toTimeString().split(" ")[0];
@@ -2769,6 +2967,10 @@
       let totalValuation = 0;
 
       stockData.forEach(stock => {
+        totalValuation += stock.quantity * stock.price;
+      });
+      // 장중 관심종목 보유분도 계좌 평가금액에 합산
+      watchData.forEach(stock => {
         totalValuation += stock.quantity * stock.price;
       });
 
@@ -2930,7 +3132,7 @@
             }
           });
 
-          // 장중 관심종목 시세 갱신 — 모니터링 전용. 매매/계좌 로직 없이 가격·등락률·차트만.
+          // 장중 관심종목 시세 갱신 + 보유 포지션 실시간 손익 배지 갱신.
           // 과거 날짜 열람 중에는 실시간 시세로 덮어쓰지 않는다(정적 종가 유지).
           if (isWatchLiveView) watchData.forEach((stock, idx) => {
             const apiStock = data.stocks[stock.code];
@@ -2944,6 +3146,12 @@
               if (stock.history.length > 8) stock.history.shift();
             }
 
+            // 보유 중이면 종목별 실시간 평가손익 계산
+            if (stock.quantity > 0) {
+              stock.pnl = (stock.quantity * stock.price) - stock.investedCapital;
+              stock.pnlRate = ((stock.price - stock.avgBuyPrice) / stock.avgBuyPrice) * 100;
+            }
+
             const priceTd = document.getElementById(`wprice-${idx}`);
             const rateTd = document.getElementById(`wrate-${idx}`);
             if (priceTd && rateTd) {
@@ -2953,6 +3161,17 @@
               rateTd.style.color = stock.rate >= 0 ? "var(--up-red)" : "var(--down-blue)";
               if (stock.price > prevPrice) priceTd.className = "stock-price-col tick-up";
               else if (stock.price < prevPrice) priceTd.className = "stock-price-col tick-down";
+            }
+
+            // 보유 배지 갱신 (renderWatchTable 이 그린 wpos-<idx> 슬롯)
+            const posTd = document.getElementById(`wpos-${idx}`);
+            if (posTd) {
+              if (stock.quantity > 0) {
+                const ps = stock.pnl >= 0 ? "+" : "";
+                posTd.innerHTML = `${stock.quantity.toLocaleString()}주 <span style="color:var(--text-muted); font-size:11px;">(평단 ${stock.avgBuyPrice.toLocaleString()}원)</span> <span class="pnl-badge ${stock.pnl >= 0 ? 'profit' : 'loss'}">${ps}${stock.pnl.toLocaleString()}원 (${ps}${stock.pnlRate.toFixed(2)}%)</span>`;
+              } else {
+                posTd.innerHTML = "";
+              }
             }
             drawWatchSparkline(idx);
 
@@ -2977,6 +3196,12 @@
             checkAndExecuteFollowUpAlgoTrading();
           }
 
+          // 장중 관심종목: 익절/손절 먼저, 그다음 신규 진입 (장전과 동일 엔진 공유)
+          if (isMarketOpen()) {
+            runIntradayExits();
+            executeIntradayEntries();
+          }
+
           updatePortfolioAccountSummary();
         }
       } catch (err) {
@@ -2999,66 +3224,10 @@
       stockData.forEach((stock, idx) => {
         if (stock.quantity === 0) return; // Skip if already fully liquidated
 
-        const targetLimit = stock.target;
-        const stopLimit = getEffectiveStopPrice(stock);   // ATR 손절선 vs 사용자 최대손절% 중 더 타이트한 값
         const entryLimit = stock.entry;
 
-        // 1. Take Profit (익절) - Anytime during market hours
-        if (stock.price >= targetLimit) {
-          const fillPrice = Math.round(stock.price * (1 - slip / 100));   // 매도 슬리피지: 신호가보다 낮게 체결
-          const realizedAmt = stock.quantity * fillPrice;
-          const profit = realizedAmt - stock.investedCapital;
-
-          logsBox.innerHTML += `
-            <div class="log-line" style="color:var(--kosdaq-green); font-weight:bold;">
-              <span class="log-time">[${time}]</span> [ALGO SELL] <b>${stock.name}</b> 목표 익절 달성 전량 매도 완료! 실시간 실현손익: +${profit.toLocaleString()}원
-            </div>
-          `;
-
-          // 전량 매도 → 매도대금을 글로벌 예수금으로 회수, 실현손익 누적
-          cashBalance += realizedAmt;
-          realizedPnl += profit;
-          recordTrade({ code: stock.code, name: stock.name, side: "SELL", type: "TAKE_PROFIT",
-                        qty: stock.quantity, price: fillPrice, amount: realizedAmt, pnl: profit });
-          stock.quantity = 0;
-          stock.avgBuyPrice = 0;
-          stock.investedCapital = 0;
-          stock.followBudget = 0;
-          stock.pnl = 0;
-          stock.pnlRate = 0;
-          stock.hasFollowedUp = false;
-
-          renderTable();
-          updatePortfolioAccountSummary();
-          logsBox.scrollTop = logsBox.scrollHeight;
-          return;
-        }
-
-        // 2. Stop Loss (손절) - Anytime during market hours
-        if (stock.price <= stopLimit) {
-          const fillPrice = Math.round(stock.price * (1 - slip / 100));   // 매도 슬리피지 반영
-          const realizedAmt = stock.quantity * fillPrice;
-          const loss = stock.investedCapital - realizedAmt;
-
-          logsBox.innerHTML += `
-            <div class="log-line" style="color:var(--up-red); font-weight:bold;">
-              <span class="log-time">[${time}]</span> [ALGO SELL] <b>${stock.name}</b> 손절 지지선 붕괴 전량 매도 완료. 실시간 실현손실: -${loss.toLocaleString()}원
-            </div>
-          `;
-
-          // 전량 매도 → 매도대금을 글로벌 예수금으로 회수, 실현손실 누적
-          cashBalance += realizedAmt;
-          realizedPnl -= loss;
-          recordTrade({ code: stock.code, name: stock.name, side: "SELL", type: "STOP_LOSS",
-                        qty: stock.quantity, price: fillPrice, amount: realizedAmt, pnl: -loss });
-          stock.quantity = 0;
-          stock.avgBuyPrice = 0;
-          stock.investedCapital = 0;
-          stock.followBudget = 0;
-          stock.pnl = 0;
-          stock.pnlRate = 0;
-          stock.hasFollowedUp = false;
-
+        // 1~2. 익절/손절 — 장전·장중 공용 판정(evaluateExit). 매도되면 리렌더 후 종료.
+        if (evaluateExit(stock, "main")) {
           renderTable();
           updatePortfolioAccountSummary();
           logsBox.scrollTop = logsBox.scrollHeight;
@@ -3119,9 +3288,11 @@
       const day = getOrCreateDayRecord(todayKST());
       let anySold = false;
 
-      stockData.forEach(stock => {
+      // 장전(stockData) + 장중(watchData) 보유 전량 청산. source 는 매매일지 구분용.
+      const liquidate = (list, source) => list.forEach(stock => {
         if (stock.quantity === 0) return;
         anySold = true;
+        const tag = (source === "intraday") ? "[장중] " : "";
 
         const fillPrice = Math.round(stock.price * (1 - slip / 100));
         const realizedAmt = stock.quantity * fillPrice;
@@ -3130,22 +3301,18 @@
         cashBalance += realizedAmt;
         realizedPnl += pnl;
         recordTrade({ code: stock.code, name: stock.name, side: "SELL", type: "EOD_LIQUIDATION",
-                      qty: stock.quantity, price: fillPrice, amount: realizedAmt, pnl });
+                      qty: stock.quantity, price: fillPrice, amount: realizedAmt, pnl, source });
 
         logsBox.innerHTML += `
           <div class="log-line" style="color:${pnl >= 0 ? 'var(--kosdaq-green)' : 'var(--up-red)'}; font-weight:bold;">
-            <span class="log-time">[${time}]</span> [EOD 청산] <b>${stock.name}</b> 15:15 장마감 전 전량 매도 — ${pnl >= 0 ? '+' : ''}${pnl.toLocaleString()}원
+            <span class="log-time">[${time}]</span> [EOD 청산] ${tag}<b>${stock.name}</b> 15:15 장마감 전 전량 매도 — ${pnl >= 0 ? '+' : ''}${pnl.toLocaleString()}원
           </div>
         `;
 
-        stock.quantity = 0;
-        stock.avgBuyPrice = 0;
-        stock.investedCapital = 0;
-        stock.followBudget = 0;
-        stock.pnl = 0;
-        stock.pnlRate = 0;
-        stock.hasFollowedUp = false;
+        resetPosition(stock);
       });
+      liquidate(stockData, "main");
+      liquidate(watchData, "intraday");
 
       // 청산 후 계좌는 전액 현금 — 이 금액이 오늘의 마감 평가금액이자 익일 시작 자본이다.
       const endCapital = cashBalance;
@@ -3164,6 +3331,7 @@
 
       saveTradeJournal();
       renderTable();
+      renderWatchTable();
       updatePortfolioAccountSummary();
       savePortfolio();
     }
@@ -3308,6 +3476,12 @@
         const rateSign = stock.rate >= 0 ? "+" : "";
         const rateColor = stock.rate >= 0 ? "var(--up-red)" : "var(--down-blue)";
         const hasResearch = !!stock.analysis;
+        // 보유 배지 초기 HTML(틱 루프가 wpos-<idx> 를 실시간 갱신)
+        let posInit = "";
+        if (stock.quantity > 0) {
+          const ps = stock.pnl >= 0 ? "+" : "";
+          posInit = `${stock.quantity.toLocaleString()}주 <span style="color:var(--text-muted); font-size:11px;">(평단 ${stock.avgBuyPrice.toLocaleString()}원)</span> <span class="pnl-badge ${stock.pnl >= 0 ? 'profit' : 'loss'}">${ps}${(stock.pnl||0).toLocaleString()}원 (${ps}${(stock.pnlRate||0).toFixed(2)}%)</span>`;
+        }
 
         tr.innerHTML = `
           <td>
@@ -3316,8 +3490,10 @@
                 <span class="stock-name">${stock.name}</span>
                 <span class="market-badge ${badgeClass}">${stock.market}</span>
                 <span class="intraday-badge">장중</span>
+                ${stock.carriedOver ? `<span class="intraday-badge" style="background:rgba(148,163,184,.18); color:var(--text-muted);">이월</span>` : ""}
               </div>
               <span class="stock-code">${stock.code}</span>
+              <div id="wpos-${idx}" style="margin-top:4px;">${posInit}</div>
             </div>
           </td>
           <td style="text-align: right; font-weight: bold;" class="stock-price-col" id="wprice-${idx}">
@@ -3370,7 +3546,7 @@
 
     // ===== 매매일지 렌더 (일자별 워치리스트·체결내역·손익 조회) =====
     const TRADE_TYPE_LABEL = {
-      OPENING: "시초매수", FOLLOWUP: "추가매수",
+      OPENING: "시초매수", FOLLOWUP: "추가매수", INTRADAY_ENTRY: "장중진입",
       TAKE_PROFIT: "익절매도", STOP_LOSS: "손절매도", EOD_LIQUIDATION: "장마감청산",
     };
 
@@ -3410,6 +3586,7 @@
       if (isToday) {
         let v = 0;
         stockData.forEach(s => v += s.quantity * s.price);
+        watchData.forEach(s => v += s.quantity * s.price);   // 장중 보유분 합산
         endCapital = v + cashBalance;
       }
       const dayPnl = endCapital - day.startCapital;
@@ -3440,6 +3617,7 @@
                   <div class="stock-name-row">
                     <span class="stock-name">${s.name}</span>
                     <span class="market-badge ${s.market === 'KOSPI' ? 'kospi' : 'kosdaq'}">${s.market}</span>
+                    ${s.source === 'intraday' ? `<span class="intraday-badge">장중</span>` : ""}
                   </div>
                   <span class="stock-code">${s.code}</span>
                 </div>
