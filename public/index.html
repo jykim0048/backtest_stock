@@ -2044,6 +2044,7 @@
       if (!confirm("모의투자 계좌를 초기화할까요?\n보유내역·예수금·실현손익·매매일지가 모두 삭제되고 1억원에서 다시 시작합니다.")) return;
       try { localStorage.removeItem(PORTFOLIO_KEY); } catch (_) {}
       try { localStorage.removeItem(JOURNAL_KEY); } catch (_) {}
+      try { localStorage.removeItem(JOURNAL_BAK_KEY); } catch (_) {}   // 백업도 함께 제거(명시적 초기화)
       tradeJournal = { days: {} };
       // 이월 종목 제거: 오늘 워치리스트만 남긴다
       for (let i = stockData.length - 1; i >= 0; i--) {
@@ -2079,16 +2080,31 @@
     // ===== 매매일지: 일자별 워치리스트 스냅샷 + 체결 내역(구조화 기록) =====
     // 별도 localStorage 키로 관리(계좌 상태와 분리). 최근 JOURNAL_MAX_DAYS 거래일만 보관.
     const JOURNAL_KEY = "qa_trade_journal_v1";
+    const JOURNAL_BAK_KEY = "qa_trade_journal_v1_bak";   // 마지막 정상본 백업(자동 복구용)
     const JOURNAL_MAX_DAYS = 90;
     let tradeJournal = { days: {} };
 
-    function loadTradeJournal() {
+    // 유효한 매매일지 객체면 반환, 아니면 null. (파싱 실패/구조 이상 방어)
+    function _parseJournal(raw) {
       try {
-        const raw = localStorage.getItem(JOURNAL_KEY);
-        tradeJournal = raw ? JSON.parse(raw) : { days: {} };
-        if (!tradeJournal || typeof tradeJournal !== "object") tradeJournal = { days: {} };
-        if (!tradeJournal.days) tradeJournal.days = {};
-      } catch (_) { tradeJournal = { days: {} }; }
+        const o = raw ? JSON.parse(raw) : null;
+        if (o && typeof o === "object" && o.days && typeof o.days === "object") return o;
+      } catch (_) {}
+      return null;
+    }
+
+    function loadTradeJournal() {
+      let j = _parseJournal(localStorage.getItem(JOURNAL_KEY));
+      // 메인이 비었거나 깨졌으면 백업에서 자동 복구(안전장치).
+      if (!j || Object.keys(j.days).length === 0) {
+        const bak = _parseJournal(localStorage.getItem(JOURNAL_BAK_KEY));
+        if (bak && Object.keys(bak.days).length > 0) {
+          j = bak;
+          try { localStorage.setItem(JOURNAL_KEY, JSON.stringify(bak)); } catch (_) {}
+        }
+      }
+      tradeJournal = j || { days: {} };
+      if (!tradeJournal.days) tradeJournal.days = {};
     }
 
     function saveTradeJournal() {
@@ -2097,7 +2113,18 @@
         if (dates.length > JOURNAL_MAX_DAYS) {
           dates.slice(0, dates.length - JOURNAL_MAX_DAYS).forEach(d => delete tradeJournal.days[d]);
         }
-        localStorage.setItem(JOURNAL_KEY, JSON.stringify(tradeJournal));
+        const hasData = Object.keys(tradeJournal.days).length > 0;
+        // 안전장치: 비어있는 일지로 기존(비어있지 않은) 저장본을 덮어쓰지 않는다.
+        // (파싱 실패 등으로 메모리가 비었을 때 실데이터를 지우는 사고 방지 —
+        //  진짜 초기화는 resetPortfolioAccount 가 두 키를 명시적으로 제거한다.)
+        if (!hasData) {
+          const stored = _parseJournal(localStorage.getItem(JOURNAL_KEY));
+          if (stored && Object.keys(stored.days).length > 0) return;
+        }
+        const payload = JSON.stringify(tradeJournal);
+        localStorage.setItem(JOURNAL_KEY, payload);
+        // 마지막 '정상(비어있지 않은)' 상태를 백업 키에도 남긴다(복구용).
+        if (hasData) { try { localStorage.setItem(JOURNAL_BAK_KEY, payload); } catch (_) {} }
       } catch (_) { /* localStorage 불가 — 저장 생략 */ }
     }
 
