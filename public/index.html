@@ -2980,8 +2980,13 @@
             return;
           }
         }
-      } catch (_) {}
-      el.innerText = live ? `${watchData.length}종목` : `${target} · ${watchData.length}종목`;
+      } catch (_) { /* 서버 asof 조회 실패 — 아래 클라이언트 시각 폴백으로 진행 */ }
+      // 서버가 asof 를 못 주더라도(배포 장애·네트워크 오류 등) 시각 정보 자체가
+      // 아예 사라지지 않도록, 이 화면이 실제로 갱신된 클라이언트 시각으로 폴백한다.
+      const nowKst = new Date(Date.now() + (9 * 60 + new Date().getTimezoneOffset()) * 60000);
+      const hhmm = nowKst.toISOString().slice(11, 16);
+      const prefix = live ? `갱신 ${hhmm} KST(로컬)` : `${target}`;
+      el.innerText = `${prefix} · ${watchData.length}종목`;
     }
 
     // Rule 3: Regardless of the Gap filter, buy 5% of allocation or 1 share (whichever is larger) at market open
