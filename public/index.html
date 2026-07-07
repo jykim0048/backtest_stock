@@ -442,6 +442,11 @@
     .sd-pointrisk .r { color: #fca5a5; }
     .sd-summary { font-size: 13px; line-height: 1.7; color: #cbd5e1; background: rgba(255,255,255,.03);
       border-radius: 9px; padding: 10px 12px; }
+    /* 테마 종합 불릿 (rationale + LLM 종합 문장 단위) */
+    .sd-summary-bullets { font-size: 13px; line-height: 1.7; color: #cbd5e1; background: rgba(255,255,255,.03);
+      border-radius: 9px; padding: 10px 14px 10px 30px; margin: 6px 0 0; }
+    .sd-summary-bullets li { margin: 3px 0; }
+    .sd-summary-bullets li::marker { color: var(--kospi-blue); }
     .sd-risks { margin: 6px 0 0; padding-left: 18px; font-size: 12.5px; line-height: 1.7; color: #fca5a5; }
     .sd-foot { margin-top: 14px; font-size: 11px; color: var(--text-muted); }
     /* 타깃 섹터 스코어카드(결정론적) + 종목 Q점수/목표가 열 — skill Phase 3~5 */
@@ -4737,7 +4742,7 @@
         // 목표가 괴리: 출처(야후 애널리스트 n명 / 네이버 컨센서스)와 목표가를 툴팁으로
         const upTitle = _brEsc([s.targetSource, s.targetPrice != null ? `목표가 ${Number(s.targetPrice).toLocaleString()}원` : ""]
           .filter(Boolean).join(" · "));
-        const upCell = hasQ ? `<td style="text-align:right;">${s.targetUpside == null
+        const upCell = hasQ ? `<td style="text-align:right; white-space:nowrap;">${s.targetUpside == null
             ? `<span style="color:var(--text-muted)">—</span>`
             : `<span title="${upTitle}" style="color:${_brPctColor(s.targetUpside)}; font-weight:600;">${_brPctFmt(s.targetUpside)}%</span>`}</td>` : "";
         // PER 셀: 동일업종 PER 병기(작은 글씨) + 추정PER 툴팁
@@ -4748,10 +4753,10 @@
           <td style="white-space:nowrap; font-weight:600;">${_brEsc(s.name)}
             <div style="font-size:11px; color:var(--text-muted); font-weight:400;">${_brEsc(s.market || "")}</div></td>
           ${qCell}
-          <td style="text-align:right;"${perTitle}>${_sdValFmt(s.per, "배")}${perSub}</td>
-          <td style="text-align:right;">${_sdValFmt(s.pbr, "배")}</td>
-          <td style="text-align:right;">${_sdValFmt(s.roe, "%")}</td>
-          <td style="text-align:right;">${_sdValFmt(s.revGrowth, "%")}</td>
+          <td style="text-align:right; white-space:nowrap;"${perTitle}>${_sdValFmt(s.per, "배")}${perSub}</td>
+          <td style="text-align:right; white-space:nowrap;">${_sdValFmt(s.pbr, "배")}</td>
+          <td style="text-align:right; white-space:nowrap;">${_sdValFmt(s.roe, "%")}</td>
+          <td style="text-align:right; white-space:nowrap;">${_sdValFmt(s.revGrowth, "%")}</td>
           ${upCell}
           <td>${filing}${pr}</td>
         </tr>`;
@@ -4770,10 +4775,17 @@
           밸류에이션 = 절대 PER + 업종 상대 PER + PBR 균등 평균 (PER·PBR·동일업종 PER: 네이버증권) ·
           목표가 괴리 = 컨센서스 목표가 대비 현재가 이격 (야후 애널리스트 우선, 없으면 네이버 — 마우스오버로 출처 확인)</div>` : ""}` : "";
 
-      // ④ Phase 5 — 테마 종합 + 전략·리스크
-      const themeSummary = theme.summary ? `
+      // ④ Phase 5 — 테마 종합(최상단) + 전략·리스크
+      // 브리핑 rationale(기존 상단 요약)과 LLM 테마 종합을 합쳐 문장 단위 불릿으로.
+      // 한글 문장 종결("...다.") 뒤 공백에서만 분리 — "31.43배", "1.5%" 등 소수점 오분리 방지.
+      const _sdBullets = [];
+      [theme.rationale, theme.summary].filter(Boolean).forEach(txt => {
+        String(txt).replace(/([가-힣]\.)\s+/g, "$1\u0000").split("\u0000")
+          .forEach(s => { const t = s.trim(); if (t) _sdBullets.push(t); });
+      });
+      const themeSummarySection = _sdBullets.length ? `
         <div class="sd-sec-h">🧭 테마 종합</div>
-        <div class="sd-summary">${_brEsc(theme.summary)}</div>` : "";
+        <ul class="sd-summary-bullets">${_sdBullets.map(b => `<li>${_brEsc(b)}</li>`).join("")}</ul>` : "";
       const strategySection = sec.strategy ? `
         <div class="sd-sec-h">📌 종합 전략 방향 <span class="sc-tag">전체 시장 관점</span></div>
         <div class="sd-summary">${_brEsc(sec.strategy)}</div>` : "";
@@ -4783,12 +4795,11 @@
 
       const genLabel = (sec.generatedBy === "mechanical") ? "기계적 산출" : `LLM 기반 (${_brEsc(sec.generatedBy || "")})`;
       body.innerHTML = `
-        ${theme.rationale ? `<div class="od-status" style="margin:10px 0 0;">${_brEsc(theme.rationale)}</div>` : ""}
+        ${themeSummarySection}
         ${etfSection}
         ${targetSection}
-        ${industrySection}
-        ${themeSummary}
         ${stocksSection}
+        ${industrySection}
         ${strategySection}
         ${risksSection}
         <div class="sd-foot">자동 생성 · ${genLabel} · ${_brEsc(sec.asof || "")} · 투자 판단 참고용<br>${_brEsc(sec.disclaimer || "")}</div>
@@ -4925,7 +4936,7 @@
 
   <!-- 섹터 심층분석 모달 (모닝브리핑 테마 클릭 → 3~5단계: ETF 모멘텀·타깃섹터·종목 밸류에이션·전략) -->
   <div id="sd-overlay" class="od-overlay" onclick="if(event.target===this)sdClose()">
-    <div class="od-modal" style="width:min(760px,100%);">
+    <div class="od-modal" style="width:min(1020px,96vw);">
       <div class="od-modal-head">
         <div>
           <span id="sd-title" class="od-title">—</span>
