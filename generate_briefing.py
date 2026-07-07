@@ -80,7 +80,9 @@ _SECTOR_KR_THEME = {
     # 부분일치(substring)로 매칭하므로, 다른 업종 촉매 문구에도 흔히 등장하는 범용 단어는
     # 피한다("AI"→전력/반도체 촉매에도 등장, "장비"→의료·건설장비, "진단"→"실적 진단" 관용구,
     # "지주"→업종 무관 지주회사 구조, "에너지"→이차전지 "에너지밀도" 등, "게임"→"게임체인저" 관용구,
-    # "증권"→"출자증권 취득"처럼 업종 무관 공시 유형명에도 등장).
+    # "증권"→"출자증권 취득"처럼 업종 무관 공시 유형명에도 등장). "증권사"도 "증권사 리포트/
+    # 분석"(애널리스트 커버리지)로 오매칭되므로 _theme_kr_stocks 가 홈섹터 배제 + 금융 이름
+    # 게이트로 2차 방어한다.
     "기술":       {"theme": "IT·플랫폼",     "kw": ["플랫폼", "소프트웨어", "클라우드", "인터넷", "게임사", "모바일게임"]},
     "반도체":     {"theme": "반도체 소부장", "kw": ["반도체", "웨이퍼", "파운드리", "소부장", "반도체장비", "공정장비", "패키징"]},
     "헬스케어":   {"theme": "헬스케어",      "kw": ["헬스케어", "의료기기", "체외진단", "진단기기", "병원"]},
@@ -94,29 +96,62 @@ _SECTOR_KR_THEME = {
 THEME_STOCKS_MAX = 5
 
 
-def _theme_kr_stocks(sector_name, picks):
+# 금융 테마는 촉매 텍스트("증권사 리포트/분석" 등 애널리스트 커버리지 언급)로 오매칭되기
+# 쉬워, 종목 '이름'에 아래 금융 토큰이 있는지로 한 번 더 검증한다(실제 증권/은행/지주는
+# 이름에 신호가 있고, S-Oil 같은 정유주는 없다).
+_FINANCIAL_NAME_TOKENS = ("증권", "은행", "뱅크", "금융", "보험", "지주", "화재", "생명", "캐피탈", "카드")
+
+
+def _theme_kr_stocks(sector_name, picks, home_sector=None):
     """국내 밸류체인 종목: 오늘 picks 중 테마 키워드 매칭(우선) + 대표 종목(대체·보강).
 
     matched(오늘 실제 선정된 촉매 종목)을 우선 배치하고, 3개 이상을 보장하기 위해
     대표 종목 목록으로 보강한다. 전부 changePct(전일 등락률) 있는 것만 남긴다.
+
+    오매칭 방지 2단:
+    ① 홈섹터 배제 — 다른 섹터의 대표 종목으로 등록된 코드는 키워드가 맞아도 제외
+       (home_sector: {code: 섹터명}, krSectorStocks 역맵). 예: S-Oil(에너지)→금융 차단.
+    ② 금융 이름 게이트 — 금융 테마는 종목명에 금융 토큰이 있어야 매칭(커버리지 문구
+       오매칭 차단). 대표 목록에 없는 비큐레이션 종목까지 일반적으로 보호한다.
     """
     meta = _SECTOR_KR_THEME.get(sector_name, {"theme": sector_name, "kw": []})
     kws = meta["kw"]
+    home_sector = home_sector or {}
     matched = []
     if kws:
         for p in picks:
+            name, code = p.get("name"), p.get("code")
+            if not name or p.get("changePct") is None:
+                continue
+            # ① 다른 섹터 대표 종목이면 스킵(홈섹터 우선)
+            if home_sector.get(code) and home_sector[code] != sector_name:
+                continue
             text = f"{p.get('reason', '')} {p.get('catalyst', '')}"
-            if any(k in text for k in kws) and p.get("name") and p.get("changePct") is not None:
-                matched.append({"code": p.get("code"), "name": p["name"],
-                                 "changePct": p["changePct"]})
+            if not any(k in text for k in kws):
+                continue
+            # ② 금융 테마는 종목명에 금융 토큰이 있어야 인정
+            if sector_name == "금융" and not any(t in name for t in _FINANCIAL_NAME_TOKENS):
+                continue
+            matched.append({"code": code, "name": name, "changePct": p["changePct"]})
     return meta["theme"], matched
 
 
-def _build_theme(sector_obj, sel):
+def _kr_home_sector(sel):
+    """krSectorStocks(섹터→대표 종목)를 code→섹터 역맵으로. 키워드 오매칭 배제용."""
+    kss = (sel.get("usMarket", {}) or {}).get("krSectorStocks", {}) or {}
+    home = {}
+    for sector, rows in kss.items():
+        for r in (rows or []):
+            if r.get("code"):
+                home.setdefault(r["code"], sector)
+    return home
+
+
+def _build_theme(sector_obj, sel, home_sector=None):
     name = sector_obj.get("name", "")
     us = sel.get("usMarket", {}) or {}
     us_stocks = list((us.get("sectorStocks", {}) or {}).get(name, []))[:THEME_STOCKS_MAX]
-    kr_theme, matched = _theme_kr_stocks(name, sel.get("picks", []))
+    kr_theme, matched = _theme_kr_stocks(name, sel.get("picks", []), home_sector)
     kr_rep = list((us.get("krSectorStocks", {}) or {}).get(name, []))
     seen = {m["name"] for m in matched}
     kr_stocks = matched + [r for r in kr_rep if r.get("name") not in seen]
@@ -137,8 +172,9 @@ def _build_themes(sel):
         return [], []
     up = sectors[:3]
     down = list(reversed(sectors[-3:]))     # 가장 급락한 섹터부터(= up 과 대칭)
-    return ([_build_theme(s, sel) for s in up],
-            [_build_theme(s, sel) for s in down])
+    home = _kr_home_sector(sel)             # code→홈섹터 역맵(키워드 오매칭 배제)
+    return ([_build_theme(s, sel, home) for s in up],
+            [_build_theme(s, sel, home) for s in down])
 
 
 # ----------------------------------------------------------------------------
