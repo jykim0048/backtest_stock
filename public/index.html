@@ -1864,10 +1864,20 @@
         <div class="side-panel">
           <h3 style="display:flex; justify-content:space-between; align-items:center;">
             <span>📊 Realtime Portfolio Summary</span>
-            <button onclick="resetPortfolioAccount()" title="모의투자 계좌를 1억원으로 초기화"
-              style="font-size:11px; padding:3px 8px; background:transparent; color:var(--text-muted);
-                     border:1px solid var(--border-color); border-radius:6px; cursor:pointer;">계좌 초기화</button>
+            <span style="display:flex; gap:4px;">
+              <button onclick="exportAccount()" title="계좌·매매일지를 JSON 파일로 저장 (다른 주소/브라우저로 이사할 때)"
+                style="font-size:11px; padding:3px 8px; background:transparent; color:var(--text-muted);
+                       border:1px solid var(--border-color); border-radius:6px; cursor:pointer;">내보내기</button>
+              <button onclick="document.getElementById('account-import-file').click()" title="내보내기로 저장한 계좌 파일을 불러와 현재 계좌를 교체"
+                style="font-size:11px; padding:3px 8px; background:transparent; color:var(--text-muted);
+                       border:1px solid var(--border-color); border-radius:6px; cursor:pointer;">가져오기</button>
+              <button onclick="resetPortfolioAccount()" title="모의투자 계좌를 1억원으로 초기화"
+                style="font-size:11px; padding:3px 8px; background:transparent; color:var(--text-muted);
+                       border:1px solid var(--border-color); border-radius:6px; cursor:pointer;">초기화</button>
+            </span>
           </h3>
+          <input type="file" id="account-import-file" accept=".json,application/json"
+                 style="display:none;" onchange="handleAccountImportFile(this)">
           <div class="portfolio-summary-box">
             <div class="port-item">
               <span class="port-lbl" title="매일 15:15 전량 청산 후 그날 마감 평가금액이 익일 시작 자본으로 이월됩니다(복리).">당일 시작 자본금 ⓘ</span>
@@ -2045,6 +2055,7 @@
     // 현재 계좌 상태를 localStorage에 저장 (라이브 뷰에서만).
     function savePortfolio() {
       if (!isLiveView) return;
+      if (accountImportInProgress) return;   // 가져오기→리로드 사이 틱 저장이 가져온 계좌를 덮어쓰지 않게
       try {
         const positions = {};
         const serialize = (s, source) => ({
@@ -2187,6 +2198,86 @@
       savePortfolio();
     }
 
+    // ===== 계좌 이사: 내보내기 / 가져오기 =====
+    // localStorage 는 도메인별이라 대시보드 주소가 바뀌면(예: Vercel → Railway) 계좌가
+    // 새로 시작된다. 기존 주소에서 '내보내기'한 파일을 새 주소에서 '가져오기'하면
+    // 보유내역·예수금·실현손익·매매일지가 그대로 이어진다. 브라우저 교체/백업 용도로도 사용.
+    let accountImportInProgress = false;
+
+    function exportAccount() {
+      let portfolio = null;
+      try { portfolio = JSON.parse(localStorage.getItem(PORTFOLIO_KEY) || "null"); } catch (_) {}
+      const journal = _parseJournal(localStorage.getItem(JOURNAL_KEY));
+      if (!portfolio && !journal) {
+        alert("내보낼 계좌 데이터가 없습니다.\n(이 브라우저에는 아직 모의투자 기록이 저장되지 않았습니다.)");
+        return;
+      }
+      const payload = JSON.stringify({
+        format: "qa_account_export", version: 1,
+        exportedAt: new Date().toISOString(),
+        origin: location.origin,
+        portfolio: portfolio, journal: journal
+      });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(new Blob([payload], { type: "application/json" }));
+      a.download = `quant-antigravity-account-${todayKST()}.json`;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+    }
+
+    function handleAccountImportFile(input) {
+      const file = input.files && input.files[0];
+      input.value = "";   // 같은 파일을 다시 선택해도 change 이벤트가 뜨도록 초기화
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        let data = null;
+        try { data = JSON.parse(reader.result); } catch (_) {}
+        if (!data || data.format !== "qa_account_export" || (!data.portfolio && !data.journal)) {
+          alert("계좌 파일 형식이 아닙니다.\n'내보내기' 버튼으로 저장한 JSON 파일을 선택해주세요.");
+          return;
+        }
+        const p = (data.portfolio && typeof data.portfolio === "object"
+                   && data.portfolio.positions && typeof data.portfolio.positions === "object")
+                  ? data.portfolio : null;
+        const j = (data.journal && typeof data.journal === "object"
+                   && data.journal.days && typeof data.journal.days === "object"
+                   && Object.keys(data.journal.days).length > 0)
+                  ? data.journal : null;
+        if (!p && !j) {
+          alert("파일 안의 계좌/매매일지 데이터가 비어있거나 손상되어 가져올 수 없습니다.");
+          return;
+        }
+        const nPos = p ? Object.values(p.positions).filter(x => x && x.quantity > 0).length : 0;
+        const cash = (p && typeof p.cashBalance === "number") ? Math.round(p.cashBalance).toLocaleString() + "원" : "—";
+        const exportedAt = data.exportedAt ? data.exportedAt.replace("T", " ").slice(0, 16) : "?";
+        const lines = [
+          "이 파일의 계좌로 교체할까요?", "",
+          `· 내보낸 시각: ${exportedAt} (${data.origin || "출처 미상"})`,
+          p ? `· 계좌: 보유 ${nPos}종목 · 예수금 ${cash}` : "· 계좌: 없음 (현재 계좌 유지)",
+          j ? `· 매매일지: ${Object.keys(j.days).length}일치` : "· 매매일지: 없음 (현재 일지 유지)",
+          "", "현재 브라우저의 해당 데이터는 이 내용으로 덮어써집니다."
+        ];
+        if (!confirm(lines.join("\n"))) return;
+        accountImportInProgress = true;   // 리로드 전까지 틱 저장 차단
+        try {
+          if (p) localStorage.setItem(PORTFOLIO_KEY, JSON.stringify(p));
+          if (j) {
+            const pj = JSON.stringify(j);
+            localStorage.setItem(JOURNAL_KEY, pj);
+            localStorage.setItem(JOURNAL_BAK_KEY, pj);   // 백업 키도 가져온 정본으로 교체
+          }
+        } catch (e) {
+          accountImportInProgress = false;
+          alert("저장에 실패했습니다 (localStorage 용량/권한): " + e);
+          return;
+        }
+        location.reload();   // 가져온 계좌로 전체 상태 재구성 (restorePortfolio 경유)
+      };
+      reader.readAsText(file);
+    }
+
     // ===== 매매일지: 일자별 워치리스트 스냅샷 + 체결 내역(구조화 기록) =====
     // 별도 localStorage 키로 관리(계좌 상태와 분리). 최근 JOURNAL_MAX_DAYS 거래일만 보관.
     const JOURNAL_KEY = "qa_trade_journal_v1";
@@ -2218,6 +2309,7 @@
     }
 
     function saveTradeJournal() {
+      if (accountImportInProgress) return;   // savePortfolio 와 동일한 가져오기 가드
       try {
         const dates = Object.keys(tradeJournal.days).sort();
         if (dates.length > JOURNAL_MAX_DAYS) {
@@ -2255,7 +2347,10 @@
         };
         saveTradeJournal();
       }
-      return tradeJournal.days[dateStr];
+      const day = tradeJournal.days[dateStr];
+      // 손상/수동편집된 일지(가져오기 포함)로 trades 배열이 없어도 죽지 않게 방어
+      if (!Array.isArray(day.trades)) day.trades = [];
+      return day;
     }
 
     // 체결(매수/매도) 1건을 매매일지에 구조화 기록한다. dateStr 생략 시 오늘.
@@ -2926,6 +3021,9 @@
       renderWatchTable();
       renderDownTable();
       renderWatchDownTable();
+      // 복원된 계좌(자본·예수금)를 즉시 위젯에 반영 — 장 마감 중엔 틱 갱신이 없어서
+      // 여기서 안 하면 기본값(1억)이 계속 보인다(가져오기/로그 없는 저장본 포함).
+      updatePortfolioAccountSummary();
       updateWatchAsof();
       if (saved && saved.logsHtml) {
         const logsBox = document.getElementById("logs-box");
