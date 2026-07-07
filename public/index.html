@@ -3674,9 +3674,9 @@
               <div class="stock-name-row">
                 <span class="stock-name">${stock.name}</span>
                 <span class="market-badge ${badgeClass}">${stock.market}</span>
-                ${stock.direction === "bearish" ? `<span class="bear-badge">⚠️ 하방 · 매수 제외</span>` : ""}
               </div>
               <span class="stock-code">${stock.code}</span>
+              ${stock.direction === "bearish" ? `<div style="margin-top:3px;"><span class="bear-badge">⚠️ 하방 · 매수 제외</span></div>` : ""}
             </div>
           </td>
           <td style="text-align: right; font-weight: bold;" class="stock-price-col" id="price-${idx}">
@@ -3808,9 +3808,9 @@
                 <span class="stock-name">${stock.name}</span>
                 <span class="market-badge ${badgeClass}">${stock.market}</span>
                 ${stock.carriedOver ? `<span class="intraday-badge" style="background:rgba(148,163,184,.18); color:var(--text-muted);">이월</span>` : ""}
-                ${stock.direction === "bearish" ? `<span class="bear-badge">⚠️ 하방 · 매수 제외</span>` : ""}
               </div>
               <span class="stock-code">${stock.code}</span>
+              ${stock.direction === "bearish" ? `<div style="margin-top:3px;"><span class="bear-badge">⚠️ 하방 · 매수 제외</span></div>` : ""}
             </div>
           </td>
           <td style="text-align: right; font-weight: bold;" class="stock-price-col" id="wprice-${idx}">
@@ -3878,10 +3878,11 @@
               <div class="stock-name-row">
                 <span class="stock-name">${stock.name}</span>
                 <span class="market-badge ${badgeClass}">${stock.market}</span>
-                ${viaAnalysis ? `<span class="bear-badge">⚠️ 하방 판정 · 매수 제외</span>`
-                              : `<span class="bear-badge">📉 하락 관찰</span>`}
               </div>
               <span class="stock-code">${stock.code}</span>
+              <div style="margin-top:3px;">${viaAnalysis
+                ? `<span class="bear-badge">⚠️ 하방 판정 · 매수 제외</span>`
+                : `<span class="bear-badge">📉 하락 관찰</span>`}</div>
             </div>
           </td>
           <td style="text-align: right; font-weight: bold;" class="stock-price-col" id="${prefix}price-${idx}">
