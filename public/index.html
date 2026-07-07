@@ -472,7 +472,9 @@
     .sd-q.good { background: rgba(16,185,129,.15); color: #10b981; }
     .sd-q.mid  { background: rgba(255,255,255,.07); color: #cbd5e1; }
     .sd-q.bad  { background: rgba(239,68,68,.15); color: #f87171; }
-    .sd-tbl-note { font-size: 10.5px; color: var(--text-muted); margin-top: 5px; line-height: 1.5; }
+    .sd-tbl-note { font-size: 10.5px; color: var(--text-muted); margin: 6px 0 0; padding-left: 16px; line-height: 1.5; }
+    .sd-tbl-note li { margin-bottom: 6px; }
+    .sd-tbl-note li:last-child { margin-bottom: 0; }
     /* 브리핑 테마 행: 산업 리포트 개수 칩 + 심층분석 모달의 산업 리포트 섹션 */
     .fk-rpt { font-size: 10.5px; font-weight: 600; background: rgba(16,185,129,.13);
       border: 1px solid rgba(16,185,129,.35); color: #10b981; padding: 1px 7px; border-radius: 8px; }
@@ -5092,11 +5094,13 @@
             ${hasQ ? `<th style="text-align:right;">목표가 괴리</th>` : ""}<th>최근 공시 · 포인트/리스크</th></tr></thead>
           <tbody>${stockRows}</tbody>
         </table>
-        ${hasQ ? `<div class="sd-tbl-note">Q점수 = 모멘텀 30% + 밸류에이션 25% + 성장성 25% + 재무건전성 20%
-          (결측 항목 가중치 재배분 · 가용 가중치 50% 미만 시 미산출) ·
-          밸류에이션 = 절대 PER + 업종 상대 PER + PBR 균등 평균 (PER·PBR·동일업종 PER: 네이버증권, 결측 시 FnGuide ·
-          적자 등으로 트레일링 PER 없으면 12M 선행 PER<sup>12M</sup>로 대체 평가) ·
-          목표가 괴리 = 컨센서스 목표가 대비 현재가 이격 (야후 애널리스트 우선, 없으면 네이버 — 마우스오버로 출처 확인)</div>` : ""}` : "";
+        ${hasQ ? `<ul class="sd-tbl-note">
+          <li>Q점수 = 모멘텀 30% + 밸류에이션 25% + 성장성 25% + 재무건전성 20%
+            (결측 항목 가중치 재배분 · 가용 가중치 50% 미만 시 미산출)</li>
+          <li>밸류에이션 = 절대 PER + 업종 상대 PER + PBR 균등 평균 (PER·PBR·동일업종 PER: 네이버증권, 결측 시 FnGuide ·
+            적자 등으로 트레일링 PER 없으면 12M 선행 PER<sup>12M</sup>로 대체 평가)</li>
+          <li>목표가 괴리 = 컨센서스 목표가 대비 현재가 이격 (야후 애널리스트 우선, 없으면 네이버 — 마우스오버로 출처 확인)</li>
+        </ul>` : ""}` : "";
 
       // ④ Phase 5 — 테마 종합(최상단) + 전략·리스크
       // 브리핑 rationale(기존 상단 요약)과 LLM 테마 종합을 합쳐 문장 단위 불릿으로.
