@@ -435,8 +435,14 @@
     .sd-sec-h { display: flex; align-items: center; gap: 6px; font-size: 13.5px; font-weight: 600; margin: 16px 0 8px; color: var(--text-main); }
     .sd-sec-h .sc-tag { font-size: 11px; color: var(--text-muted); font-weight: 400; }
     .sd-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    .sd-table th { font-size: 12px; color: var(--text-muted); text-align: left; padding: 0 4px 5px; border-bottom: 1px solid var(--border-color); font-weight: 400; }
-    .sd-table td { padding: 7px 4px; border-bottom: 1px solid rgba(255,255,255,.05); vertical-align: top; }
+    /* 헤더는 한 줄 유지(매출성장·목표가 괴리 등이 2줄로 꺾이지 않게).
+       마지막 '최근 공시·포인트/리스크' 컬럼만 프로즈라 줄바꿈 허용. */
+    .sd-table th { font-size: 12px; color: var(--text-muted); text-align: left; padding: 0 6px 5px; border-bottom: 1px solid var(--border-color); font-weight: 400; white-space: nowrap; }
+    .sd-table th:last-child { white-space: normal; }
+    .sd-table td { padding: 7px 6px; border-bottom: 1px solid rgba(255,255,255,.05); vertical-align: top; }
+    /* 종목~목표가 괴리(수치 컬럼)는 한 줄 유지, 마지막 프로즈 컬럼이 나머지 폭을 차지 */
+    .sd-table td:not(:last-child) { white-space: nowrap; }
+    .sd-table td:last-child { width: 42%; }
     .sd-pointrisk { font-size: 12.5px; line-height: 1.6; margin-top: 3px; }
     .sd-pointrisk .p { color: #6ee7b7; }
     .sd-pointrisk .r { color: #fca5a5; }
