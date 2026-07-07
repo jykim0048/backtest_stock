@@ -1934,6 +1934,12 @@
     const downData = [];
     let watchlistView = "up";   // 장전 패널 뷰: "up"(상승, 자동매매) | "down"(하락 관찰)
 
+    // 장중 리포트가 '오늘' 생성된 것인지 확인된 날짜 (selection/intraday/<date>.json 존재 기준).
+    // 장 시작 직후(09:00~첫 장중 회차 반영 전) intraday_report.json 에는 전일 리스트가
+    // 남아 있는데, 이를 오늘 신규 진입 대상으로 삼으면 전일 종목을 스테일 기준가로 일괄
+    // 매수하는 사고가 난다(2026-07-07 발생) — executeIntradayEntries 의 게이트로 쓴다.
+    let intradayDataDate = null;
+
     let isWatchLiveView = true;   // 장중: 최신(실시간) 보기 vs 과거 날짜 아카이브 열람
 
     let isTradingOn = true;
@@ -2884,6 +2890,8 @@
         if (res.ok) {
           const sel = await res.json();
           if (sel && sel.asof) {
+            // 해당 날짜의 장중 선정이 실제로 존재 — 오늘이면 신규 진입 게이트를 연다.
+            if (live) intradayDataDate = target;
             const prefix = live ? `갱신 ${sel.asof} KST` : `${target} 마감 기준`;
             el.innerText = `${prefix} · ${watchData.length}종목`;
             return;
@@ -3009,6 +3017,11 @@
     function executeIntradayEntries() {
       if (!isLiveView) return;                 // 과거 리포트 열람 중엔 매매 안 함
       if (!isIntradayEntryWindow()) return;    // 장중 + 14:30 이전만
+      // 스테일 게이트: 오늘자 장중 선정이 확인되기 전(장 시작 직후 전일 리스트 잔존 구간)
+      // 에는 신규 진입 금지 — 전일 종목을 전일 기준가로 일괄 매수하는 사고 방지.
+      // 데모 모드는 게이트 우회(오토트레이딩 테스트용).
+      const demoToggle = document.getElementById("demo-mode-toggle");
+      if (!(demoToggle && demoToggle.checked) && intradayDataDate !== todayKST()) return;
       const logsBox = document.getElementById("logs-box");
       const time = new Date().toTimeString().split(" ")[0];
       const slip = getSlippagePct();
@@ -3707,7 +3720,6 @@
               <div class="stock-name-row">
                 <span class="stock-name">${stock.name}</span>
                 <span class="market-badge ${badgeClass}">${stock.market}</span>
-                <span class="intraday-badge">장중</span>
                 ${stock.carriedOver ? `<span class="intraday-badge" style="background:rgba(148,163,184,.18); color:var(--text-muted);">이월</span>` : ""}
                 ${stock.direction === "bearish" ? `<span class="bear-badge">⚠️ 하방 · 매수 제외</span>` : ""}
               </div>
