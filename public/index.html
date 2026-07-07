@@ -2003,7 +2003,14 @@
     let isOpeningOrderExecuted = false;
 
     // 드로어/렌더가 참조할 현재 선택 소스 배열
-    function listFor(source) { return source === "watch" ? watchData : stockData; }
+    // "down"/"watchdown" 은 하락 관찰 뷰의 렌더 목록(스크리너 하락 + 딥리서치 재분류 병합)
+    // 을 가리킨다 — 하락 뷰 행 클릭으로 드로어(딥리서치)를 열 때의 인덱스 기준.
+    function listFor(source) {
+      if (source === "watch")     return watchData;
+      if (source === "down")      return downViewList;
+      if (source === "watchdown") return watchDownViewList;
+      return stockData;
+    }
     function selectedList() { return listFor(selectedSource); }
 
     // --- Persistent paper-trading account (localStorage) ---------------------
@@ -2847,8 +2854,15 @@
             market:    item.market,
             basePrice: item.basePrice,
             entry:     item.entry,
+            target:    item.target,
+            stop:      item.stop,
+            stars:     item.stars    || "",
+            scenario:  item.scenario || "",
             catalyst:  item.catalyst || "",
             reason:    item.reason || "",
+            // 딥리서치 (down 파이프라인 generate_analysis 산출) — 드로어 표시용
+            direction: item.direction || (item.analysis && item.analysis.direction) || null,
+            analysis:  item.analysis || null,
             price:     item.basePrice || 0,
             rate:      0,
             history:   [item.basePrice || 0],
@@ -2878,8 +2892,15 @@
             market:    item.market,
             basePrice: item.basePrice,
             entry:     item.entry,
+            target:    item.target,
+            stop:      item.stop,
+            stars:     item.stars    || "",
+            scenario:  item.scenario || "",
             catalyst:  item.catalyst || "",
             reason:    item.reason || "",
+            // 딥리서치 (down 파이프라인 generate_analysis 산출) — 드로어 표시용
+            direction: item.direction || (item.analysis && item.analysis.direction) || null,
+            analysis:  item.analysis || null,
             price:     item.basePrice || 0,
             rate:      0,
             history:   [item.basePrice || 0],
@@ -3561,7 +3582,7 @@
           // 하락 관찰 시세 갱신 — 표시 전용 (매매/계좌 로직 없음). 뷰 리스트(스크리너 하락
           // + 딥리서치 재분류) 기준. 재분류 종목(direction=bearish)은 stockData/watchData
           // 메인 루프가 이미 가격·history 를 갱신하는 공유 객체라 history 중복 push 를 피한다.
-          const updateDownView = (list, prefix, drawFn) => list.forEach((stock, idx) => {
+          const updateDownView = (list, prefix, drawFn, source) => list.forEach((stock, idx) => {
             const apiStock = data.stocks[stock.code];
             if (!apiStock) return;
             const prevPrice = stock.price;
@@ -3582,9 +3603,14 @@
               else if (stock.price < prevPrice) priceTd.className = "stock-price-col tick-down";
             }
             drawFn(idx);
+
+            // Update drawer if it's showing this down-watch stock
+            if (selectedSource === source && selectedStockIndex === idx && document.getElementById("detail-drawer").classList.contains("active")) {
+              updateDrawerLivePrices(idx);
+            }
           });
-          if (isLiveView) updateDownView(downViewList, "d", drawDownSparkline);
-          if (isWatchLiveView) updateDownView(watchDownViewList, "wd", drawWatchDownSparkline);
+          if (isLiveView) updateDownView(downViewList, "d", drawDownSparkline, "down");
+          if (isWatchLiveView) updateDownView(watchDownViewList, "wd", drawWatchDownSparkline, "watchdown");
 
           // Check and execute opening order when market first transitions to open
           if (isMarketOpen() && needsOpeningOrder()) {
@@ -3984,11 +4010,12 @@
     }
 
     // 하락 뷰 공용 행 HTML (장전 d-* / 장중 wd-* 프리픽스). 딥리서치 재분류는 출처 구분.
-    function _downRowHtml(stock, idx, prefix) {
+    // viaAnalysis 는 호출부가 목록 구성(스크리너 하락 vs 상승 재분류)으로 판별해 넘긴다
+    // — down 리포트도 자체 딥리서치 direction 을 가지므로 필드만으로는 구분 불가.
+    function _downRowHtml(stock, idx, prefix, viaAnalysis) {
       const badgeClass = stock.market === "KOSPI" ? "kospi" : "kosdaq";
       const rateSign = stock.rate >= 0 ? "+" : "";
       const rateColor = stock.rate >= 0 ? "var(--up-red)" : "var(--down-blue)";
-      const viaAnalysis = stock.direction === "bearish";   // 스크리너 하락 항목엔 direction 없음
       return `
           <td>
             <div class="stock-info">
@@ -4048,7 +4075,11 @@
       watchDownViewList.forEach((stock, idx) => {
         const tr = document.createElement("tr");
         tr.id = `watch-down-row-${idx}`;
-        tr.innerHTML = _downRowHtml(stock, idx, "wd");
+        // idx >= watchDownData.length ⇒ 상승 선정 후 딥리서치 하방 재분류 항목
+        tr.innerHTML = _downRowHtml(stock, idx, "wd", idx >= watchDownData.length);
+        tr.setAttribute("onclick", `openDetailDrawer(${idx}, 'watchdown')`);
+        tr.style.cursor = "pointer";
+        tr.title = "클릭 → 딥리서치";
         tbody.appendChild(tr);
         drawWatchDownSparkline(idx);
       });
@@ -4099,7 +4130,11 @@
       downViewList.forEach((stock, idx) => {
         const tr = document.createElement("tr");
         tr.id = `down-row-${idx}`;
-        tr.innerHTML = _downRowHtml(stock, idx, "d");
+        // idx >= downData.length ⇒ 상승 선정 후 딥리서치 하방 재분류 항목
+        tr.innerHTML = _downRowHtml(stock, idx, "d", idx >= downData.length);
+        tr.setAttribute("onclick", `openDetailDrawer(${idx}, 'down')`);
+        tr.style.cursor = "pointer";
+        tr.title = "클릭 → 딥리서치";
         tbody.appendChild(tr);
         drawDownSparkline(idx);
       });
@@ -4256,21 +4291,24 @@
 
     // Open sliding side drawer for stock details.
     // source: "main"(워치리스트) | "watch"(장중 관심종목)
+    //       | "down"(장전 하락 관찰) | "watchdown"(장중 하락 관찰) — 참고 전용, 매매 파라미터 없을 수 있음
     function openDetailDrawer(idx, source = "main") {
       selectedStockIndex = idx;
       selectedSource = source;
       const stock = listFor(source)[idx];
       if (!stock) return;
+      const isDownSrc = (source === "down" || source === "watchdown");
 
       const drawer = document.getElementById("detail-drawer");
       const overlay = document.getElementById("drawer-overlay");
-      
-      // Update basic fields
+
+      // Update basic fields (하락 관찰 항목은 catalyst/scenario/stars 가 빌 수 있다)
       document.getElementById("drawer-name").innerText = stock.name;
       document.getElementById("drawer-code").innerText = stock.code;
-      document.getElementById("drawer-catalyst").innerText = stock.catalyst;
-      document.getElementById("drawer-scenario").innerHTML = stock.scenario;
-      document.getElementById("drawer-stars").innerText = stock.stars;
+      document.getElementById("drawer-catalyst").innerText = stock.catalyst || "촉매 정보 없음";
+      document.getElementById("drawer-scenario").innerHTML =
+        stock.scenario || (stock.reason ? escapeHtml(stock.reason) : "표시할 시나리오가 없습니다.");
+      document.getElementById("drawer-stars").innerText = stock.stars || "—";
       
       // Market classification badge styling
       const marketSpan = document.getElementById("drawer-market");
@@ -4288,13 +4326,14 @@
         analysisSec.className = "drawer-section kosdaq-sec";
       }
 
-      // Parameters updates
-      document.getElementById("drawer-param-in").innerText = stock.entry.toLocaleString() + "원";
-      document.getElementById("drawer-param-tar").innerText = stock.target.toLocaleString() + "원";
-      document.getElementById("drawer-param-st").innerText = stock.stop.toLocaleString() + "원";
+      // Parameters updates (하락 관찰 항목은 target/stop 이 없을 수 있다 — 매매 비대상)
+      const fmtWon = v => (typeof v === "number") ? v.toLocaleString() + "원" : "—";
+      document.getElementById("drawer-param-in").innerText = fmtWon(stock.entry);
+      document.getElementById("drawer-param-tar").innerText = fmtWon(stock.target);
+      document.getElementById("drawer-param-st").innerText = fmtWon(stock.stop);
 
-      // Reset to Account pane, and prime deep-research tabs
-      selectDrawerPane("account");
+      // 하락 관찰은 계좌/매매 비대상이므로 딥리서치 패널을 바로 연다.
+      selectDrawerPane(isDownSrc ? "research" : "account");
       selectAnalysisTab("peers");
 
       // Live prices initial update in drawer

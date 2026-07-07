@@ -91,11 +91,12 @@ jobs:
       - name: Generate intraday down-watch report (하락 관찰, 참고용)
         continue-on-error: true   # best-effort; 하락 리스트 없으면 빈 리포트
         env:
-          REPORT_WATCHLIST:   intraday_watchlist_down.json
-          REPORT_OUT:         public/intraday_down_report.json
-          REPORT_ARCHIVE:     '1'
-          REPORT_ARCHIVE_DIR: public/reports/intraday_down   # 과거 날짜 조회용(상승과 분리)
-          REPORT_SIDE:        down
+          REPORT_WATCHLIST:      intraday_watchlist_down.json
+          REPORT_OUT:            public/intraday_down_report.json
+          REPORT_ARCHIVE:        '1'
+          REPORT_ARCHIVE_DIR:    public/reports/intraday_down   # 과거 날짜 조회용(상승과 분리)
+          REPORT_SIDE:           down
+          REPORT_CARRY_ANALYSIS: '1'   # 직전 deep-research 이월(증분 분석 + 아카이브에 분석 반영)
         run: python generate_report.py
 
       - name: Generate intraday deep research analysis
@@ -107,6 +108,24 @@ jobs:
           ANALYSIS_INCREMENTAL:  '1'    # 신규/TTL/가격급변/신규공시만 재분석(LLM 비용 절감)
           ANALYSIS_TTL_HOURS:    '2'    # 이월 분석 유효시간(경과 시 1회 새로고침)
           ANALYSIS_PRICE_MOVE_PCT: '5'  # 분석 시점 대비 가격 급변 임계(재분석 트리거)
+          GEMINI_API_KEY:      ${{ secrets.GEMINI_API_KEY }}
+          LLM_CHAIN:           ${{ vars.LLM_CHAIN }}
+          ANTHROPIC_API_KEY:   ${{ secrets.ANTHROPIC_API_KEY }}
+          DART_API_KEY:        ${{ secrets.DART_API_KEY }}
+          TAVILY_API_KEY:      ${{ secrets.TAVILY_API_KEY }}
+          NAVER_CLIENT_ID:     ${{ secrets.NAVER_CLIENT_ID }}
+          NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
+        run: python generate_analysis.py
+
+      - name: Generate intraday down-watch deep research (하락 관찰 딥리서치)
+        continue-on-error: true   # best-effort; 하락 리스트가 비면 no-op
+        env:
+          ANALYSIS_WATCHLIST:    intraday_watchlist_down.json
+          ANALYSIS_REPORT:       public/intraday_down_report.json
+          ANALYSIS_ARCHIVE:      '0'   # 상승과 동일 — 아카이브는 다음 회차 carry-over 로 반영
+          ANALYSIS_INCREMENTAL:  '1'   # 신규/TTL/가격급변/신규공시만 재분석(LLM 비용 절감)
+          ANALYSIS_TTL_HOURS:    '2'
+          ANALYSIS_PRICE_MOVE_PCT: '5'
           GEMINI_API_KEY:      ${{ secrets.GEMINI_API_KEY }}
           LLM_CHAIN:           ${{ vars.LLM_CHAIN }}
           ANTHROPIC_API_KEY:   ${{ secrets.ANTHROPIC_API_KEY }}

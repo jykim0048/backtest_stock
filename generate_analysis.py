@@ -31,21 +31,24 @@ import yfinance as yf
 
 ROOT          = os.path.dirname(os.path.abspath(__file__))
 PEERS_PATH    = os.path.join(ROOT, "analysis", "peers.json")
-REPORTS_DIR   = os.path.join(ROOT, "public", "reports")
 
 # Input watchlist / merge-target report are env-overridable so the same deep-research
-# generator serves both the 장전 워치리스트 (defaults) and the 장중 관심종목 pipeline:
+# generator serves the 장전 워치리스트 (defaults), 장중 관심종목, 하락 관찰 pipelines:
 #   ANALYSIS_WATCHLIST=intraday_watchlist.json
 #   ANALYSIS_REPORT=public/intraday_report.json
 #   ANALYSIS_ARCHIVE=0   # 장중은 최신본만 — 날짜별 아카이브 파일에는 병합하지 않음
+#   ANALYSIS_ARCHIVE_DIR=public/reports/down   # 하락 관찰 등 별도 아카이브 디렉터리
 WATCHLIST     = os.environ.get("ANALYSIS_WATCHLIST") or os.path.join(ROOT, "watchlist.json")
 DAILY_PATH    = os.environ.get("ANALYSIS_REPORT")    or os.path.join(ROOT, "public", "daily_market_report.json")
+REPORTS_DIR   = os.environ.get("ANALYSIS_ARCHIVE_DIR") or os.path.join(ROOT, "public", "reports")
 ARCHIVE       = os.environ.get("ANALYSIS_ARCHIVE", "1") != "0"
 
 if not os.path.isabs(WATCHLIST):
     WATCHLIST = os.path.join(ROOT, WATCHLIST)
 if not os.path.isabs(DAILY_PATH):
     DAILY_PATH = os.path.join(ROOT, DAILY_PATH)
+if not os.path.isabs(REPORTS_DIR):
+    REPORTS_DIR = os.path.join(ROOT, REPORTS_DIR)
 
 MAX_TOKENS  = 8192   # one full analysis is ~3.4-5.3k tokens; 4096 truncated mid-JSON
 # Default low — free-tier LLM providers cap requests-per-minute; raise if you
