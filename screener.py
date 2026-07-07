@@ -66,6 +66,10 @@ else:
     WATCHLIST     = os.path.join(ROOT, "watchlist.json")
     SELECTION_DIR = os.path.join(ROOT, "public", "reports", "selection")
 
+# 하락 관찰 리스트(장전 전용, 참고용 — 자동매매 제외). catalyst(하방 사유)를 함께 담아
+# generate_report 가 리포트에 그대로 노출한다.
+WATCHLIST_DOWN = os.path.join(ROOT, "watchlist_down.json")
+
 KST = datetime.timezone(datetime.timedelta(hours=9))
 
 # ---- tunables -------------------------------------------------------------
@@ -695,8 +699,8 @@ def enrich_news(pool):
 # 4) LLM 최종 선정
 # ----------------------------------------------------------------------------
 SYSTEM = """\
-너는 한국 주식 데이 트레이딩 애널리스트다. 장 시작 전, 주어진 데이터로 '오늘 급등 가능성이
-높은' 한국 종목 {n}개를 선정한다.
+너는 한국 주식 데이 트레이딩 애널리스트다. 장 시작 전, 주어진 데이터로 오늘의 종목을
+'상승 워치리스트(picks)'와 '하락 관찰 리스트(downPicks)'로 분류해 선정한다.
 
 입력:
 - us_market: 전일 미국 지수/섹터 ETF 등락 + 급등 특징주(movers). 어떤 섹터·테마가 강했는지,
@@ -706,11 +710,19 @@ SYSTEM = """\
   거래대금(amountKRW), 전일 장마감 이후 공시(disclosures)와 뉴스(news)를 포함한다.
 
 선정 원칙(중요도 순):
-1) 의미 있는 '촉매 공시'(공급계약·수주·실적·임상/허가·투자·자사주 등)가 있는 종목을 최우선.
-2) 전일 미국시장에서 강했던 섹터·급등 특징주와 테마/밸류체인이 연결된 종목.
-3) 우호적 뉴스 흐름이 있는 종목.
-4) 거래대금·모멘텀(가격)은 위 촉매의 '시장 반응 강도' 확인용으로만 쓴다.
-- 근거(공시/뉴스/미국 테마) 없는 단순 가격 상승 종목은 넣지 마라. 후보 목록 안에서만 고른다.
+1) **방향 게이트(최우선)**: 각 후보의 '지배적 재료'가 상방인지 하방인지 먼저 판정한다.
+   악재(계약 해지·수주 실패·기대감 소멸·규제·실적 쇼크·경쟁 심화·소송 등)가 지배적인 종목은
+   절대 picks 에 넣지 않는다 — 하방 근거가 분명하면 downPicks 로 분류한다.
+   picks 는 자동매매(매수)에 쓰이므로, 상승 근거가 분명한 종목만 담는다.
+2) picks: 의미 있는 '촉매 공시'(공급계약·수주·실적·임상/허가·투자·자사주 등)가 있는 종목 최우선.
+   전일 미국시장 강세 섹터·급등 특징주와 테마/밸류체인이 연결된 종목, 우호적 뉴스 흐름 종목.
+3) downPicks: 하방 재료가 뚜렷해 '오늘 하락 압력이 우려되는' 관찰 종목. reason 에 하방 근거를,
+   catalyst 에 핵심 하방 촉매 한 줄을 쓴다. 참고용이며 매매에 쓰이지 않는다.
+4) 거래대금·모멘텀(가격)은 위 재료의 '시장 반응 강도' 확인용으로만 쓴다.
+- 근거(공시/뉴스/미국 테마) 없는 단순 가격 등락 종목은 어느 리스트에도 넣지 마라.
+  후보 목록 안에서만 고른다. 같은 종목을 두 리스트에 중복해 넣지 마라.
+- **개수 제한 없음**: 근거가 충분한 종목은 모두 담고, 개수를 채우려고 근거가 약한 종목을
+  억지로 넣지 마라. 마땅한 종목이 없으면 빈 배열([])도 허용한다.
 
 반드시 아래 스키마와 정확히 동일한 JSON만 출력한다. 마크다운 펜스/설명 금지.
 {
@@ -719,9 +731,13 @@ SYSTEM = """\
     {"code": "6자리", "name": "종목명", "market": "KOSPI|KOSDAQ",
      "reason": "선정 사유 1-2문장 (공시/미국테마/뉴스 근거 명시)",
      "catalyst": "핵심 촉매 한 줄"}
+  ],
+  "downPicks": [
+    {"code": "6자리", "name": "종목명", "market": "KOSPI|KOSDAQ",
+     "reason": "하방 우려 사유 1-2문장 (악재 근거 명시)",
+     "catalyst": "핵심 하방 촉매 한 줄"}
   ]
-}
-picks 는 정확히 {n}개."""
+}"""
 
 
 SYSTEM_INTRADAY = """\
@@ -739,6 +755,8 @@ SYSTEM_INTRADAY = """\
 2) 당일 우호적 뉴스가 막 나온 종목, 전일 미국시장 강세 섹터·급등 특징주와 테마/밸류체인이 연결된 종목.
 3) 장중 등락률·거래대금은 '시장이 이미 반응 중인 강도' 확인용. 다만 **이미 상한가 근처까지 급등해
    추격 여력이 적은 종목보다, 촉매가 분명하고 모멘텀이 막 붙기 시작한 종목**을 우선한다.
+- **방향 게이트**: 지배적 재료가 하방(악재·계약 해지·기대감 소멸·규제·실적 쇼크 등)인 종목은
+  절대 넣지 마라. picks 는 자동매매(매수) 대상이다.
 - 근거(당일 공시/뉴스/미국 테마) 없는 단순 가격 급등은 넣지 마라. 후보 목록 안에서만 고른다.
 
 반드시 아래 스키마와 정확히 동일한 JSON만 출력한다. 마크다운 펜스/설명 금지.
@@ -756,15 +774,17 @@ SYSTEM_INTRADAY = """\
 
 
 _STR = {"type": "string"}
+_PICK_ITEMS = {"type": "array", "items": {
+    "type": "object", "additionalProperties": False,
+    "properties": {"code": _STR, "name": _STR, "market": _STR,
+                   "reason": _STR, "catalyst": _STR},
+    "required": ["code", "name", "market", "reason", "catalyst"]}}
 SELECT_SCHEMA = {
     "type": "object", "additionalProperties": False,
     "properties": {
         "marketView": _STR,
-        "picks": {"type": "array", "items": {
-            "type": "object", "additionalProperties": False,
-            "properties": {"code": _STR, "name": _STR, "market": _STR,
-                           "reason": _STR, "catalyst": _STR},
-            "required": ["code", "name", "market", "reason", "catalyst"]}},
+        "picks": _PICK_ITEMS,
+        "downPicks": _PICK_ITEMS,   # 하락 관찰(참고용) — 장전 모드에서만 사용
     },
     "required": ["marketView", "picks"],
 }
@@ -798,25 +818,34 @@ def llm_select(us_brief, pool):
         return None
 
     valid = {r["Code"]: r for r in pool}          # 후보 목록 안의 종목만 신뢰 (환각 방지)
-    picks = []
-    for p in result.get("picks", []):
-        code = str(p.get("code", "")).zfill(6)
-        if code in valid and not any(code == x["code"] for x in picks):
-            picks.append({
-                "code": code,
-                "name": valid[code]["Name"],
-                "market": valid[code]["Market"],
-                "reason": p.get("reason", ""),
-                "catalyst": p.get("catalyst", ""),
-                "changePct": round(float(valid[code]["ChagesRatio"]), 2),
-            })
+
+    def _validated(raw, exclude=()):
+        out = []
+        for p in raw or []:
+            code = str(p.get("code", "")).zfill(6)
+            if code in valid and code not in exclude \
+                    and not any(code == x["code"] for x in out):
+                out.append({
+                    "code": code,
+                    "name": valid[code]["Name"],
+                    "market": valid[code]["Market"],
+                    "reason": p.get("reason", ""),
+                    "catalyst": p.get("catalyst", ""),
+                    "changePct": round(float(valid[code]["ChagesRatio"]), 2),
+                })
+        return out
+
+    picks = _validated(result.get("picks"))
+    # 하락 관찰(장전 전용). 상승 리스트와 중복되면 상승을 우선하고 제외한다.
+    down = [] if IS_INTRADAY else _validated(result.get("downPicks"),
+                                             exclude={x["code"] for x in picks})
     if not picks:
         # 장중: 근거가 충분한 종목이 없으면 빈 결과도 정상(억지로 채우지 않는다).
         # 장전: 기존대로 None 을 반환해 호출부가 기계적 fallback 으로 채운다.
         if IS_INTRADAY:
             return {"marketView": result.get("marketView", ""), "picks": []}
         return None
-    return {"marketView": result.get("marketView", ""), "picks": picks[:N_FINAL]}
+    return {"marketView": result.get("marketView", ""), "picks": picks, "downPicks": down}
 
 
 def fallback_select(pool):
@@ -875,6 +904,17 @@ def write_outputs(selection, us_brief):
         json.dump(watchlist, f, ensure_ascii=False, indent=2)
     print(f"  Updated watchlist : {WATCHLIST} ({len(watchlist)} stocks)")
 
+    # 하락 관찰 리스트(장전 전용) — LLM 미가동(fallback) 실행이면 빈 리스트로 갱신해
+    # 전일 하락 리스트가 오늘 것처럼 남지 않게 한다.
+    down = selection.get("downPicks") or []
+    if not IS_INTRADAY:
+        with open(WATCHLIST_DOWN, "w", encoding="utf-8") as f:
+            json.dump([{"code": p["code"], "name": p["name"], "market": p["market"],
+                        "reason": p.get("reason", ""), "catalyst": p.get("catalyst", ""),
+                        "changePct": p.get("changePct")} for p in down],
+                      f, ensure_ascii=False, indent=2)
+        print(f"  Updated downlist  : {WATCHLIST_DOWN} ({len(down)} stocks)")
+
     payload = {
         "date": today,
         "mode": MODE,                                              # "pre" | "intraday"
@@ -882,6 +922,7 @@ def write_outputs(selection, us_brief):
         "usMarket": us_brief,
         "marketView": selection.get("marketView", ""),
         "picks": picks,
+        "downPicks": down,
     }
     with open(selection_path, "w", encoding="utf-8") as f:
         json.dump(payload, f, ensure_ascii=False, indent=2)
@@ -944,6 +985,9 @@ def main():
 
     write_outputs(selection, us_brief)
     print("   선정 종목: " + ", ".join(f"{p['name']}({p['code']})" for p in selection["picks"]))
+    down = selection.get("downPicks") or []
+    if down:
+        print("   하락 관찰: " + ", ".join(f"{p['name']}({p['code']})" for p in down))
     print("=== Done ===")
 
 

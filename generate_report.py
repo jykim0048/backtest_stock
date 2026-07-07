@@ -16,15 +16,17 @@ import yfinance as yf
 
 ROOT           = os.path.dirname(os.path.abspath(__file__))
 
-# Input/output are env-overridable so the same generator serves both the
-# 장전 워치리스트 (defaults) and the 장중 관심종목 pipeline:
+# Input/output are env-overridable so the same generator serves the
+# 장전 워치리스트 (defaults), 장중 관심종목, 하락 관찰 pipelines:
 #   REPORT_WATCHLIST=intraday_watchlist.json
 #   REPORT_OUT=public/intraday_report.json
 #   REPORT_ARCHIVE=0   # 장중은 최신본만 — 날짜별 아카이브/index 드롭다운에 섞지 않음
+#   REPORT_SIDE=down   # 하락 관찰(참고용) — 매수 안내 대신 관찰용 시나리오 문구
 WATCHLIST_PATH = os.environ.get('REPORT_WATCHLIST') or os.path.join(ROOT, 'watchlist.json')
 DAILY_PATH     = os.environ.get('REPORT_OUT')       or os.path.join(ROOT, 'public', 'daily_market_report.json')
 REPORTS_DIR    = os.environ.get('REPORT_ARCHIVE_DIR') or os.path.join(ROOT, 'public', 'reports')
 ARCHIVE        = os.environ.get('REPORT_ARCHIVE', '1') != '0'   # 날짜별 아카이브 + index.json 갱신 여부
+SIDE           = os.environ.get('REPORT_SIDE', 'up')            # 'up' | 'down'(하락 관찰)
 # 장중 증분 분석: 직전 리포트의 deep-research(analysis/catalyst)를 코드별로 이월해
 # generate_analysis 가 신규/갱신 대상만 다시 분석하게 한다(반복 재분석 LLM 비용 절감).
 CARRY_ANALYSIS = os.environ.get('REPORT_CARRY_ANALYSIS') == '1'
@@ -38,6 +40,10 @@ if not os.path.isabs(REPORTS_DIR):
 
 
 def load_watchlist():
+    # 하락 관찰 리스트는 LLM 이 못 돌았거나 도입 전이면 파일이 없을 수 있다 — 빈 리포트로.
+    if not os.path.exists(WATCHLIST_PATH):
+        print(f"  [watchlist] {WATCHLIST_PATH} 없음 — 빈 리스트로 진행", file=sys.stderr)
+        return []
     with open(WATCHLIST_PATH, 'r', encoding='utf-8') as f:
         return json.load(f)
 
@@ -132,12 +138,21 @@ def generate_report():
                 f"자동 생성 리포트 — 세부 촉매 분석은 수동 업데이트가 필요합니다."
             ),
             'scenario': (
+                f"<b>[하락 관찰 종목]</b><br>"
+                f"하방 재료가 관찰된 참고용 종목입니다 — 자동매매(매수) 대상이 아닙니다. "
+                f"전일 종가 {data['basePrice']:,}원. 반등 전환 시 관찰 레벨: {data['entry']:,}원."
+            ) if SIDE == 'down' else (
                 f"<b>[자동 생성 시나리오]</b><br>"
                 f"전일 종가 {data['basePrice']:,}원 기준으로 산출된 기술적 레벨입니다. "
                 f"진입 상한가 {data['entry']:,}원 이하에서 분할 매수하고, "
                 f"목표 익절가 {data['target']:,}원, 손절선 {data['stop']:,}원으로 리스크를 관리하세요."
             ),
         }
+        # 워치리스트가 자체 촉매를 갖고 있으면(하락 관찰 — 스크리너의 하방 사유) 우선 사용.
+        if stock.get('catalyst'):
+            entry['catalyst'] = stock['catalyst']
+        if stock.get('reason'):
+            entry['reason'] = stock['reason']
         # 이월된 deep-research 가 있으면 붙인다(신규/갱신은 generate_analysis 가 덮어씀).
         prev = prev_by_code.get(code)
         if prev:

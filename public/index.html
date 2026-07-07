@@ -325,6 +325,34 @@
     .briefing-banner.collapsed .briefing-toggle { transform: rotate(180deg); }
     .briefing-body { padding: 14px 18px 16px; }
     .briefing-banner.collapsed .briefing-body { display: none; }
+    /* 장전 워치리스트 상승/하락 뷰 토글 */
+    .wl-view-toggle {
+      display: flex; align-items: center; gap: 8px; margin: 2px 0 12px;
+    }
+    .wl-view-btn {
+      background: var(--panel-bg); color: var(--text-muted);
+      border: 1px solid var(--border-color); border-radius: 8px;
+      padding: 6px 14px; font-size: 13px; font-weight: 600; cursor: pointer;
+      transition: all .15s;
+    }
+    .wl-view-btn:hover { color: var(--text-main); }
+    .wl-view-btn.active {
+      background: var(--kospi-blue-dim); color: var(--kospi-blue);
+      border-color: rgba(0,240,255,.4);
+    }
+    .wl-view-btn#wl-view-down.active {
+      background: rgba(59,130,246,.12); color: var(--down-blue);
+      border-color: rgba(59,130,246,.45);
+    }
+    .wl-cnt { font-size: 11.5px; opacity: .8; }
+    .wl-view-note { font-size: 11.5px; color: var(--text-muted); margin-left: 2px; }
+    .down-catalyst { font-size: 12.5px; color: #cbd5e1; line-height: 1.5; }
+    .bear-badge {
+      font-size: 10px; font-weight: 700; color: var(--down-blue);
+      background: rgba(59,130,246,.12); border: 1px solid rgba(59,130,246,.35);
+      padding: 1px 6px; border-radius: 7px; white-space: nowrap;
+    }
+
     /* 매매일지 워치리스트 접기/펼치기 (모닝브리핑과 동일 패턴) */
     .journal-collapse-head {
       display: flex; align-items: center; justify-content: space-between; cursor: pointer;
@@ -1585,7 +1613,7 @@
           </div>
         </div>
 
-        <!-- ① 장전 워치리스트 패널 (자동매매 대상) -->
+        <!-- ① 장전 워치리스트 패널 (상승=자동매매 대상 / 하락=관찰 참고용, 토글 전환) -->
         <div id="main-watchlist-pane">
           <div class="board-header">
             <h2>📋 장전 워치리스트 <span class="board-subtitle">— 실시간 계좌현황 · 자동매매</span></h2>
@@ -1595,21 +1623,48 @@
             </button>
           </div>
 
-          <table class="stocks-table">
-            <thead>
-              <tr>
-                <th style="width: 200px;">종목 정보</th>
-                <th style="text-align: right; width: 120px;">실시간 현재가</th>
-                <th style="text-align: right; width: 100px;">실시간 등락률</th>
-                <th style="width: 220px;">실시간 보유잔고 (수익률)</th>
-                <th style="width: 100px; text-align: center;">미니 차트</th>
-                <th>매매 한도선 (진입/익절/손절)</th>
-              </tr>
-            </thead>
-            <tbody id="stocks-tbody">
-              <!-- Populated via Javascript -->
-            </tbody>
-          </table>
+          <!-- 상승/하락 뷰 토글 -->
+          <div class="wl-view-toggle">
+            <button class="wl-view-btn active" id="wl-view-up" onclick="selectWatchlistView('up')">📈 상승 <span class="wl-cnt" id="wl-up-cnt"></span></button>
+            <button class="wl-view-btn" id="wl-view-down" onclick="selectWatchlistView('down')">📉 하락 관찰 <span class="wl-cnt" id="wl-down-cnt"></span></button>
+            <span class="wl-view-note" id="wl-view-note">자동매매 대상</span>
+          </div>
+
+          <div id="wl-up-view">
+            <table class="stocks-table">
+              <thead>
+                <tr>
+                  <th style="width: 200px;">종목 정보</th>
+                  <th style="text-align: right; width: 120px;">실시간 현재가</th>
+                  <th style="text-align: right; width: 100px;">실시간 등락률</th>
+                  <th style="width: 220px;">실시간 보유잔고 (수익률)</th>
+                  <th style="width: 100px; text-align: center;">미니 차트</th>
+                  <th>매매 한도선 (진입/익절/손절)</th>
+                </tr>
+              </thead>
+              <tbody id="stocks-tbody">
+                <!-- Populated via Javascript -->
+              </tbody>
+            </table>
+          </div>
+
+          <!-- 하락 관찰 뷰 (참고 전용 — 자동매매·계좌 로직 완전 비대상) -->
+          <div id="wl-down-view" style="display:none;">
+            <table class="stocks-table">
+              <thead>
+                <tr>
+                  <th style="width: 200px;">종목 정보</th>
+                  <th style="text-align: right; width: 120px;">실시간 현재가</th>
+                  <th style="text-align: right; width: 100px;">실시간 등락률</th>
+                  <th style="width: 100px; text-align: center;">미니 차트</th>
+                  <th>하방 촉매 · 관찰 사유</th>
+                </tr>
+              </thead>
+              <tbody id="down-tbody">
+                <!-- Populated via Javascript (downData) -->
+              </tbody>
+            </table>
+          </div>
         </div>
 
         <!-- ② 장중 관심종목 패널 (모니터링 전용 — 자동매매·계좌 비대상) -->
@@ -1872,6 +1927,11 @@
     const watchData = [];
     // 장중 신규 진입 마감 시각(KST HHMM). 이후엔 EOD 청산이 임박해 신규 진입하지 않는다.
     const INTRADAY_ENTRY_CUTOFF = 1430;
+
+    // 하락 관찰 리스트(참고 전용). down_market_report.json 으로 채운다.
+    // 진입·청산·계좌평가·영속화·매매일지 어디에도 연결하지 않는다 — 표시만 한다.
+    const downData = [];
+    let watchlistView = "up";   // 장전 패널 뷰: "up"(상승, 자동매매) | "down"(하락 관찰)
 
     let isWatchLiveView = true;   // 장중: 최신(실시간) 보기 vs 과거 날짜 아카이브 열람
 
@@ -2610,6 +2670,7 @@
                 stars:     item.stars    || "⭐⭐⭐⭐",
                 catalyst:  item.catalyst || "",
                 scenario:  item.scenario || "",
+                direction: item.direction || null,   // 딥리서치 방향 판정 (bearish=매수 스킵)
                 analysis:  item.analysis || null
               });
             });
@@ -2617,6 +2678,37 @@
         }
       } catch (err) {
         console.warn(`Failed to load report from ${url}; stock list will be empty.`, err);
+      }
+    }
+
+    // 하락 관찰 리스트 로드 (down_market_report.json / 과거: reports/down/<date>.json).
+    // 표시 전용 — 매매·계좌 로직과 완전히 분리. 파일 없으면 빈 목록(도입 전 날짜 포함).
+    async function loadDownData(date) {
+      const live = (!date || date === "today");
+      const base = live ? "down_market_report.json" : `reports/down/${date}.json`;
+      const url = `${base}?t=${Date.now()}`;
+      downData.length = 0;
+      try {
+        const response = await fetch(url, { cache: "no-store" });
+        if (!response.ok) return;
+        const data = await response.json();
+        if (!Array.isArray(data)) return;
+        data.forEach(item => {
+          downData.push({
+            code:      item.code,
+            name:      item.name,
+            market:    item.market,
+            basePrice: item.basePrice,
+            entry:     item.entry,
+            catalyst:  item.catalyst || "",
+            reason:    item.reason || "",
+            price:     item.basePrice || 0,
+            rate:      0,
+            history:   [item.basePrice || 0],
+          });
+        });
+      } catch (err) {
+        console.warn(`Failed to load down report from ${url}.`, err);
       }
     }
 
@@ -2657,6 +2749,7 @@
             stars:     item.stars    || "⭐⭐⭐",
             catalyst:  item.catalyst || "",
             scenario:  item.scenario || "",
+            direction: item.direction || null,   // 딥리서치 방향 판정 (bearish=진입 스킵)
             analysis:  item.analysis || null,
             // 포트폴리오 상태(보유/진입이력) — 이전 폴링 값 보존, 없으면 빈 상태
             quantity:        prev ? prev.quantity : 0,
@@ -2694,6 +2787,7 @@
       // watchData 객체에 다시 붙는다(날짜 컨트롤 일원화 · 과거 날짜는 정적 열람).
       isWatchLiveView = live;
       await loadIntradayData(date);
+      await loadDownData(date);   // 하락 관찰도 같은 날짜로 연동
 
       if (live) {
         restorePortfolio();   // 영속 계좌 복원 (stockData + watchData 포지션)
@@ -2702,6 +2796,7 @@
       }
       renderTable();
       renderWatchTable();
+      renderDownTable();
       updatePortfolioAccountSummary();
       await updateWatchAsof(date);
 
@@ -2721,6 +2816,7 @@
       await loadReportIndex();
       await loadDynamicReportData("today");
       await loadIntradayData();
+      await loadDownData();    // 📉 하락 관찰(참고 전용)
       loadBriefing("today");   // 📰 모닝 브리핑(전일 미국장 리뷰 + 당일 한국 프리뷰)
       isLiveView = true;
       // 저장된 모의투자 계좌를 복원 (없으면 깨끗한 계좌). 새로고침/장 마감 후에도 누적 유지.
@@ -2741,6 +2837,7 @@
       }
       renderTable();
       renderWatchTable();
+      renderDownTable();
       updateWatchAsof();
       if (saved && saved.logsHtml) {
         const logsBox = document.getElementById("logs-box");
@@ -2808,6 +2905,13 @@
       stockData.forEach(stock => {
         if (stock.quantity > 0) return;   // 이미 보유(전일 이월 포함) → 중복 시초매수 방지
         if (stock.carriedOver) return;    // 워치리스트 밖 이월 종목엔 신규 시초매수 안 함
+        if (stock.direction === "bearish") {   // 딥리서치 하방 판정 → 신규 매수 스킵(관찰만)
+          if (!stock.hasLoggedBearFilter && logsBox) {
+            logsBox.innerHTML += `<div class="log-line" style="color:#60a5fa;"><span class="log-time">[${time}]</span> [ALGO FILTER] <b>${stock.name}</b> 딥리서치 하방(bearish) 판정 — 자동 매수에서 제외합니다 (관찰만).</div>`;
+            stock.hasLoggedBearFilter = true;
+          }
+          return;
+        }
 
         const signalPrice = stock.price || stock.basePrice;
         const executionPrice = Math.round(signalPrice * (1 + slip / 100));
@@ -2914,6 +3018,7 @@
         if (stock.quantity > 0) return;                  // 이미 보유
         if (stock.enteredDate === todayKST()) return;    // 오늘 이미 진입(청산 후 재진입 방지)
         if (heldInPreMarket(stock.code)) return;         // 장전에서 보유 중 → 장전 우선(중복 방지)
+        if (stock.direction === "bearish") return;       // 딥리서치 하방 판정 → 매수 스킵
 
         const price = stock.price || stock.basePrice;
         if (!price) return;
@@ -3243,6 +3348,30 @@
             }
           });
 
+          // 하락 관찰 시세 갱신 — 표시 전용 (매매/계좌 로직 없음)
+          if (isLiveView) downData.forEach((stock, idx) => {
+            const apiStock = data.stocks[stock.code];
+            if (!apiStock) return;
+            const prevPrice = stock.price;
+            stock.price = apiStock.price || stock.basePrice;
+            stock.rate = apiStock.rate || 0;
+            if (isMarketOpen()) {
+              stock.history.push(stock.price);
+              if (stock.history.length > 8) stock.history.shift();
+            }
+            const priceTd = document.getElementById(`dprice-${idx}`);
+            const rateTd = document.getElementById(`drate-${idx}`);
+            if (priceTd && rateTd) {
+              priceTd.innerText = stock.price.toLocaleString() + "원";
+              const rateSign = stock.rate >= 0 ? "+" : "";
+              rateTd.innerText = `${rateSign}${stock.rate.toFixed(2)}%`;
+              rateTd.style.color = stock.rate >= 0 ? "var(--up-red)" : "var(--down-blue)";
+              if (stock.price > prevPrice) priceTd.className = "stock-price-col tick-up";
+              else if (stock.price < prevPrice) priceTd.className = "stock-price-col tick-down";
+            }
+            drawDownSparkline(idx);
+          });
+
           // Check and execute opening order when market first transitions to open
           if (isMarketOpen() && needsOpeningOrder()) {
             executeOpeningOrder();
@@ -3401,6 +3530,7 @@
     function renderTable() {
       const tbody = document.getElementById("stocks-tbody");
       tbody.innerHTML = "";
+      updateWlViewCounts();   // 상승/하락 토글의 종목 수 갱신
 
       stockData.forEach((stock, idx) => {
         // 이월(carriedOver) 종목은 워치리스트 테이블에 표시하지 않는다.
@@ -3444,6 +3574,7 @@
               <div class="stock-name-row">
                 <span class="stock-name">${stock.name}</span>
                 <span class="market-badge ${badgeClass}">${stock.market}</span>
+                ${stock.direction === "bearish" ? `<span class="bear-badge">⚠️ 하방 · 매수 제외</span>` : ""}
               </div>
               <span class="stock-code">${stock.code}</span>
             </div>
@@ -3580,6 +3711,81 @@
       });
     }
 
+    // ===== 하락 관찰 뷰 (장전 패널 내 토글, 참고 전용) =====
+    function drawDownSparkline(idx) {
+      drawSparklineCanvas(document.getElementById(`dcanvas-${idx}`),
+                          downData[idx].history, downData[idx].market);
+    }
+
+    function updateWlViewCounts() {
+      const upEl = document.getElementById("wl-up-cnt");
+      const dnEl = document.getElementById("wl-down-cnt");
+      if (upEl) upEl.innerText = String(stockData.filter(s => !s.carriedOver).length);
+      if (dnEl) dnEl.innerText = String(downData.length);
+    }
+
+    // 하락 관찰 테이블 렌더 — 보유/매매 컬럼 없음(표시 전용).
+    function renderDownTable() {
+      const tbody = document.getElementById("down-tbody");
+      if (!tbody) return;
+      tbody.innerHTML = "";
+      updateWlViewCounts();
+
+      if (!downData.length) {
+        tbody.innerHTML = `<tr class="watch-empty-row"><td colspan="5">오늘 하방 재료가 뚜렷한 관찰 종목이 없습니다. (장전 스크리너 산출)</td></tr>`;
+        return;
+      }
+
+      downData.forEach((stock, idx) => {
+        const tr = document.createElement("tr");
+        tr.id = `down-row-${idx}`;
+        const badgeClass = stock.market === "KOSPI" ? "kospi" : "kosdaq";
+        const rateSign = stock.rate >= 0 ? "+" : "";
+        const rateColor = stock.rate >= 0 ? "var(--up-red)" : "var(--down-blue)";
+        tr.innerHTML = `
+          <td>
+            <div class="stock-info">
+              <div class="stock-name-row">
+                <span class="stock-name">${stock.name}</span>
+                <span class="market-badge ${badgeClass}">${stock.market}</span>
+                <span class="bear-badge">📉 하락 관찰</span>
+              </div>
+              <span class="stock-code">${stock.code}</span>
+            </div>
+          </td>
+          <td style="text-align: right; font-weight: bold;" class="stock-price-col" id="dprice-${idx}">
+            ${(stock.price || 0).toLocaleString()}원
+          </td>
+          <td style="text-align: right; color: ${rateColor}; font-weight: 600;" id="drate-${idx}">
+            ${rateSign}${(stock.rate || 0).toFixed(2)}%
+          </td>
+          <td style="text-align: center;">
+            <canvas id="dcanvas-${idx}" width="90" height="28" class="sparkline-canvas"></canvas>
+          </td>
+          <td>
+            <div class="down-catalyst">${escapeHtml(stock.catalyst || "하방 촉매 정보 없음")}</div>
+            ${stock.reason ? `<div style="margin-top:4px; font-size:11px; color:var(--text-muted);">${escapeHtml(stock.reason)}</div>` : ""}
+          </td>
+        `;
+        tbody.appendChild(tr);
+        drawDownSparkline(idx);
+      });
+    }
+
+    // 장전 패널 상승/하락 뷰 전환
+    function selectWatchlistView(v) {
+      watchlistView = v;
+      document.getElementById("wl-view-up").classList.toggle("active", v === "up");
+      document.getElementById("wl-view-down").classList.toggle("active", v === "down");
+      document.getElementById("wl-up-view").style.display = (v === "up") ? "" : "none";
+      document.getElementById("wl-down-view").style.display = (v === "down") ? "" : "none";
+      const note = document.getElementById("wl-view-note");
+      if (note) note.innerText = (v === "up") ? "자동매매 대상" : "참고 전용 · 자동매매 제외";
+      // 숨겨져 있던 동안 canvas 는 그려지지 않으므로 표시되는 뷰를 다시 그린다.
+      if (v === "down") downData.forEach((_, i) => drawDownSparkline(i));
+      else stockData.forEach((_, i) => drawSparkline(i));
+    }
+
     // 메인 탭 전환: "watchlist"(장전 워치리스트) | "intraday"(장중 관심종목).
     // 드로어의 selectDrawerPane 과 동일하게 패널 display 를 토글한다.
     function selectMainTab(tab) {
@@ -3596,7 +3802,8 @@
       if (tab === "intraday") {
         watchData.forEach((_, idx) => drawWatchSparkline(idx));
       } else if (tab === "watchlist") {
-        stockData.forEach((_, idx) => drawSparkline(idx));
+        if (watchlistView === "down") downData.forEach((_, idx) => drawDownSparkline(idx));
+        else stockData.forEach((_, idx) => drawSparkline(idx));
       }
       // VI/상하한가 탭으로 전환 시 최신 데이터 즉시 갱신
       if (tab === "vi" || tab === "limit") loadViLimit();

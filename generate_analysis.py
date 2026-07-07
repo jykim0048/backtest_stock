@@ -76,6 +76,7 @@ SYSTEM = """\
 스키마:
 {
   "catalyst": "오늘 이 종목의 주가를 움직일 핵심 촉매 2-3문장",
+  "direction": "bullish|neutral|bearish",
   "peers": { "summary": "2-3문장", "reddit": [ {"title","url","subreddit","sentiment","summary"} ] },
   "news": { "summary": "3-4문장", "items": [ {"title","source","date","sentiment","url","insight"} ] },
   "community": { "summary": "3-4문장", "sentimentLabel": "", "naver": [ {"title","url","sentiment","summary"} ] },
@@ -86,6 +87,10 @@ SYSTEM = """\
 - catalyst: 뉴스·공시·수급·peer 동향 중 '오늘 주가를 가장 크게 움직일' 단일 촉매를 투자자 관점으로
   요약한다. 대시보드의 'Market Moving Catalysts'에 그대로 노출되므로 placeholder/메타설명을 쓰지 말고
   구체적 내용으로 채운다. 근거가 빈약하면 거래대금·모멘텀 등 가격 동향 기반으로 신중히 서술한다.
+- direction: 위 catalyst 가 시사하는 '오늘의 지배적 방향' 판정. 상방 재료가 지배적이면 "bullish",
+  하방 재료(악재·기대감 소멸·규제·실적 쇼크 등)가 지배적이면 "bearish", 혼재/불분명하면 "neutral".
+  bearish 로 판정하면 자동매매가 이 종목의 신규 매수를 건너뛴다 — catalyst 서술과 방향이
+  일치해야 한다.
 - peers.reddit: 입력 peers_reddit(해외 peer/섹터에 대한 영어권 Reddit 글)을 바탕으로 3-5개.
   해외 peer 그룹에 대한 여론·논점을 요약한다. title/url/subreddit은 원문, summary는 한국어 한 줄.
   한국 종목이 직접 언급되지 않으면 peer/섹터 맥락으로 해석하고 summary에 그 점을 밝힌다.
@@ -119,6 +124,7 @@ def _arr(item_props):
 
 ANALYSIS_SCHEMA = _obj({
     "catalyst": _STR,
+    "direction": {"type": "string", "enum": ["bullish", "neutral", "bearish"]},
     "peers": _obj({
         "summary": _STR,
         "reddit": _arr({"title": _STR, "url": _STR, "subreddit": _STR,
@@ -409,6 +415,10 @@ def merge_into_report(path, analysis_by_code):
             # generate_report.py writes).
             if a.get("catalyst"):
                 stock["catalyst"] = a["catalyst"]
+            # 방향 판정 — bearish 면 대시보드 자동매매가 신규 매수를 건너뛴다.
+            d = str(a.get("direction", "")).lower()
+            if d in ("bullish", "neutral", "bearish"):
+                stock["direction"] = d
             changed = True
     if changed:
         with open(path, "w", encoding="utf-8") as f:

@@ -44,6 +44,15 @@ jobs:
       - name: Generate daily report
         run: python generate_report.py
 
+      - name: Generate down-watch report (하락 관찰, 참고용)
+        continue-on-error: true   # best-effort; 하락 리스트가 없으면 빈 리포트
+        env:
+          REPORT_WATCHLIST: watchlist_down.json
+          REPORT_OUT: public/down_market_report.json
+          REPORT_ARCHIVE_DIR: public/reports/down
+          REPORT_SIDE: down
+        run: python generate_report.py
+
       - name: Generate deep research analysis
         continue-on-error: true   # best-effort; never block the price report
         env:
@@ -81,6 +90,8 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add watchlist.json public/daily_market_report.json public/reports/ public/sector_analysis.json public/briefing/
+          # 하락 관찰 산출물 — 스크리너 실패 등으로 파일이 없으면 조용히 무시
+          git add watchlist_down.json public/down_market_report.json 2>/dev/null || true
           git diff --staged --quiet && echo "No changes to commit" && exit 0
           git commit -m "chore: auto-generate daily market report $(date +'%Y-%m-%d') [skip railway]"
           # Remote may have advanced (manual or concurrent pushes); push, and on
