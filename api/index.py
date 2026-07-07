@@ -52,14 +52,18 @@ class handler(BaseHTTPRequestHandler):
             else:
                 ticker_map = get_ticker_map()
             tickers_list = list(ticker_map.values())
+            # 종목 시세 지수 시세를 하나의 yf.download 호출로 합친다(이전엔 요청당
+            # 2회 다운로드 — Vercel Fluid Active CPU 를 불필요하게 배로 소모하던 지점).
+            idx_map = {} if is_codes else {"kospi": "^KS11", "kosdaq": "^KQ11"}
+            combined = tickers_list + [t for t in idx_map.values() if t not in tickers_list]
 
             # Download data from Yahoo Finance (조회 종목 없으면 빈 응답으로 안전)
-            df = (yf.download(tickers_list, period="2d", group_by="ticker",
-                              progress=False, threads=True) if tickers_list else None)
-            
+            df = (yf.download(combined, period="2d", group_by="ticker",
+                              progress=False, threads=True) if combined else None)
+
             formatted_data = {}
             market_state = "CLOSED"
-            
+
             for code, ticker in ticker_map.items():
                 try:
                     # yfinance는 리스트 1개 입력도 group_by="ticker"로 MultiIndex 반환(최신 버전).
@@ -111,32 +115,29 @@ class handler(BaseHTTPRequestHandler):
             if now.weekday() < 5 and 900 <= time_val <= 1530:
                 market_state = "REGULAR"
 
-            # Market indices (KOSPI ^KS11 / KOSDAQ ^KQ11) via Yahoo Finance.
+            # Market indices (KOSPI ^KS11 / KOSDAQ ^KQ11) via Yahoo Finance — 위에서
+            # 종목 시세와 함께 이미 받아온 df 를 재사용한다(별도 다운로드 없음).
             # KRX direct calls are blocked from datacenter IPs, but Yahoo is not.
             # NOTE: Yahoo index data is delayed ~15-20min (not tick-level realtime).
             indices = {}
-            try:
-                idx_map = {} if is_codes else {"kospi": "^KS11", "kosdaq": "^KQ11"}
-                idx_df = (yf.download(list(idx_map.values()), period="2d",
-                                      group_by="ticker", progress=False, threads=True)
-                          if idx_map else None)
-                for key, tk in idx_map.items():
+            for key, tk in idx_map.items():
+                try:
                     try:
-                        d = idx_df[tk] if len(idx_map) > 1 else idx_df
-                        if d.empty:
-                            continue
-                        cur = float(d['Close'].iloc[-1])
-                        if math.isnan(cur):
-                            continue
-                        prev = float(d['Close'].iloc[-2]) if len(d) >= 2 else cur
-                        if math.isnan(prev) or prev <= 0:
-                            prev = cur
-                        rate = ((cur - prev) / prev) * 100 if prev > 0 else 0.0
-                        indices[key] = {"price": cur, "rate": rate}
-                    except Exception as ex:
-                        print(f"Error parsing index {tk}: {ex}")
-            except Exception as ex:
-                print(f"Index download failed: {ex}")
+                        d = df[tk]
+                    except (KeyError, TypeError):
+                        d = df
+                    if d.empty:
+                        continue
+                    cur = float(d['Close'].iloc[-1])
+                    if math.isnan(cur):
+                        continue
+                    prev = float(d['Close'].iloc[-2]) if len(d) >= 2 else cur
+                    if math.isnan(prev) or prev <= 0:
+                        prev = cur
+                    rate = ((cur - prev) / prev) * 100 if prev > 0 else 0.0
+                    indices[key] = {"price": cur, "rate": rate}
+                except Exception as ex:
+                    print(f"Error parsing index {tk}: {ex}")
 
             response_payload = {
                 "status": "success",

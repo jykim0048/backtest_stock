@@ -3290,6 +3290,7 @@
     // 트레이딩 OFF 면 fetchRealPrices 가 멈추므로, 지수만 따로 갱신한다(ON 이면 중복 회피).
     async function refreshIndices() {
       if (isTradingOn) return;
+      if (!isMarketOpen()) return;   // fetchRealPrices 와 동일 — 장외 시간 폴링 방지
       try {
         const r = await fetch("/api/prices");
         if (!r.ok) return;
@@ -3300,6 +3301,10 @@
 
     async function fetchRealPrices() {
       if (!isTradingOn) return;
+      // 장 마감 시간(주말·야간)에는 /api/prices 를 호출하지 않는다 — 가격이 움직이지
+      // 않는 시간대에도 5초마다 서버리스 함수(yfinance 다운로드×2)를 때려 Vercel Active
+      // CPU 를 낭비하던 원인(2026-07 Fluid Active CPU 한도 초과). 데모 모드는 우회.
+      if (!isMarketOpen()) return;
 
       const logsBox = document.getElementById("logs-box");
       const time = new Date().toTimeString().split(" ")[0];
