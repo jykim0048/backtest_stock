@@ -4909,7 +4909,7 @@
     function sdClose() { document.getElementById("sd-overlay").classList.remove("active"); }
 
     function _sdRetChips(rets) {
-      const items = [["ret1M","1M"],["ret3M","3M"],["ret6M","6M"],["retYTD","YTD"],["ret1Y","1Y"]];
+      const items = [["ret1W","1W"],["ret1M","1M"],["ret3M","3M"],["ret6M","6M"],["retYTD","YTD"]];
       return `<div class="sd-ret-grid">` + items.map(([k, lbl]) => {
         const v = rets ? rets[k] : null;
         const color = (v == null) ? "var(--text-muted)" : _brPctColor(v);

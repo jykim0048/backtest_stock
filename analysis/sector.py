@@ -282,7 +282,9 @@ BRIEFING_THEME_ETF = {
 
 
 def _returns_from_close(close):
-    """Compute 1M/3M/6M/YTD/1Y % returns from a daily close Series (oldest->newest)."""
+    """Compute 1W/1M/3M/6M/YTD % returns from a daily close Series (oldest->newest).
+    1Y 는 표시하지 않는다 — period="1y" 다운로드(~250거래일)로는 252일 전 종가가
+    항상 부족해 공란이었고, 단기 트레이딩 대시보드에는 1W 가 더 유효한 신호."""
     if close is None or len(close) < 2:
         return {}
     last = float(close.iloc[-1])
@@ -303,8 +305,8 @@ def _returns_from_close(close):
             ytd = round((last / base - 1) * 100, 2) if base else None
     except Exception:
         pass
-    return {"ret1M": _ret(21), "ret3M": _ret(63), "ret6M": _ret(126),
-            "retYTD": ytd, "ret1Y": _ret(252)}
+    return {"ret1W": _ret(5), "ret1M": _ret(21), "ret3M": _ret(63),
+            "ret6M": _ret(126), "retYTD": ytd}
 
 
 def fetch_sector_etfs():
@@ -818,7 +820,7 @@ def _build_raw(briefing, macro, regime, sentiment, sectors, themes, sector_score
                   for sid, m in macro.items()},
         "regime": regime,
         "sentiment": {k: sentiment.get(k) for k in ("score", "rating", "prevClose", "prevWeek", "prevMonth")},
-        "sectors": [{k: s.get(k) for k in ("etf", "name", "ret1M", "ret3M", "ret6M", "retYTD", "ret1Y")}
+        "sectors": [{k: s.get(k) for k in ("etf", "name", "ret1W", "ret1M", "ret3M", "ret6M", "retYTD")}
                     for s in sectors],
         "sectorScores": [{"etf": sc["etf"], "name": sc["name"], "score": sc["score"],
                           "maxScore": sc["maxScore"], "verdict": sc["verdict"],
@@ -866,7 +868,7 @@ def analyze_sectors(briefing, resolve_fn=None):
         row = etf_rows.get(t.get("etf"))
         if row:
             t["etfReturns"] = {k: row.get(k) for k in
-                               ("ret1M", "ret3M", "ret6M", "retYTD", "ret1Y")}
+                               ("ret1W", "ret1M", "ret3M", "ret6M", "retYTD")}
             t["etfRank"] = (ranked.index(t["etf"]) + 1) if t["etf"] in ranked else None
             t["etfRankOf"] = len(ranked)
         if t.get("etf") in sector_scores:
