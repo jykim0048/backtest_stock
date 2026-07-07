@@ -1,15 +1,21 @@
 #!/usr/bin/env python3
-"""Persistent on-demand Deep Research server (Railway / any always-on host).
+"""Persistent dashboard + on-demand Deep Research server (Railway / always-on).
 
 Unlike Vercel serverless (60s cap, stateless), a long-running process can do the
-research SYNCHRONOUSLY and keep an in-memory cache + the DART corp map warm. The
-Vercel-hosted dashboard's search box calls this service's /api/research directly
-(set RESEARCH_API_BASE in public/index.html to this service's public URL).
+research SYNCHRONOUSLY and keep an in-memory cache + the DART corp map warm.
 
+(2026-07 B' 마이그레이션) Vercel Hobby CPU 한도 초과를 계기로, 이 서버가
+대시보드 전체를 병렬 서빙한다(Vercel 은 당분간 유지 — 비교 후 이전 결정):
+  GET /                       -> public/index.html (대시보드)
+  GET /<public 정적 경로>      -> 코드/에셋은 로컬, 데이터 JSON 은 GitHub raw
+                                 프록시(60s TTL)로 항상 최신 ([skip railway]
+                                 커밋으로 컨테이너 스냅샷이 얼어붙는 문제 대응)
+  GET /api/prices[?codes=..]  -> 실시간 시세 (Vercel api/index.py 이식,
+                                 4s TTL 캐시로 다중 탭 대응)
   GET /api/research?q=<name|code>
       -> {status:"done", code, name, market, result, generatedAt, cached}
       -> {status:"error", message, ...}
-  GET /healthz   -> {status:"ok"}
+  GET /healthz   -> {status:"ok", rawProxy:{...}}
 
 Reuses generate_analysis.analyze_stock — the same per-stock pipeline the CI batch
 uses (peers + news + DART + community + LLM). No external store needed.
@@ -21,13 +27,15 @@ Env (Railway variables): GEMINI_API_KEY (or LLM_CHAIN + matching keys),
 import os
 import sys
 import json
+import math
 import time
 import datetime
 import threading
+import mimetypes
 import urllib.request
 import urllib.error
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from urllib.parse import urlparse, parse_qs
+from urllib.parse import urlparse, parse_qs, unquote
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, ROOT)
@@ -158,6 +166,192 @@ def run_sector():
     return result, False
 
 
+# ---------------------------------------------------------------------------
+# 대시보드 정적 서빙 + 데이터 신선도 프록시 (Vercel 병렬 운영 — B' 마이그레이션)
+#
+# 이 서버가 Vercel 처럼 대시보드 전체(public/ + /api/prices)를 서빙한다.
+# 함정: 리포트 커밋은 [skip railway] 라 컨테이너의 public/*.json 은 마지막
+# '코드' 배포 시점 스냅샷으로 얼어붙는다. 그래서 파일을 두 부류로 나눈다.
+#   - 코드/에셋(index.html, assets/*): 로컬 디스크 (코드 커밋은 재배포됨 → 최신)
+#   - 데이터 JSON(리포트·브리핑 등): GitHub raw 프록시 + TTL 캐시 (레포가
+#     private 라 토큰 필요 — GH_RAW_TOKEN 또는 GH_DISPATCH_TOKEN 에
+#     Contents:read 권한. 실패 시 로컬 파일 폴백 = 다소 스테일하지만 동작)
+# ---------------------------------------------------------------------------
+PUBLIC_DIR = os.path.join(ROOT, "public")
+_RAW_REPO  = os.environ.get("GH_REPO", "jykim0048/backtest_stock")
+_RAW_REF   = os.environ.get("GH_REF", "main")
+_RAW_TOKEN = os.environ.get("GH_RAW_TOKEN") or os.environ.get("GH_DISPATCH_TOKEN", "")
+DATA_TTL   = int(os.environ.get("STATIC_DATA_TTL", "60"))   # 데이터 파일 raw 캐시(초)
+
+_RAW_CACHE = {}          # relpath -> {"body": bytes|None, "ts": float}
+_RAW_LOCK  = threading.Lock()
+_RAW_STATE = {"ok": None, "note": "unprobed"}   # /healthz 진단용
+
+
+def _raw_fetch(relpath):
+    """GitHub raw 에서 레포 최신 파일을 TTL 캐시로 가져온다. 실패/부재 시 None
+    (호출측이 로컬 파일로 폴백). 404 도 짧게 캐시해 반복 원격 조회를 막는다."""
+    now = time.time()
+    with _RAW_LOCK:
+        e = _RAW_CACHE.get(relpath)
+        if e and now - e["ts"] < DATA_TTL:
+            return e["body"]
+    url = f"https://raw.githubusercontent.com/{_RAW_REPO}/{_RAW_REF}/{relpath}"
+    req = urllib.request.Request(url)
+    if _RAW_TOKEN:
+        req.add_header("Authorization", f"token {_RAW_TOKEN}")
+    req.add_header("User-Agent", "railway-dashboard")
+    body = None
+    try:
+        with urllib.request.urlopen(req, timeout=10) as r:
+            body = r.read()
+        _RAW_STATE.update(ok=True, note=relpath)
+    except urllib.error.HTTPError as e:
+        # private 레포에 권한 없는 토큰도 404 로 온다 — 부팅 프로브가 구분해 로그.
+        if e.code != 404:
+            _RAW_STATE.update(ok=False, note=f"{relpath}: HTTP {e.code}")
+    except Exception as ex:
+        _RAW_STATE.update(ok=False, note=f"{relpath}: {str(ex)[:120]}")
+    with _RAW_LOCK:
+        _RAW_CACHE[relpath] = {"body": body, "ts": now}
+    return body
+
+
+def _is_data_path(relpath):
+    """항상 최신이어야 하는 데이터 파일 여부. assets/ 는 준정적(월/반기 갱신)이라
+    로컬본으로 충분 — 리포트·브리핑 등 .json 만 raw 프록시 대상."""
+    if relpath.startswith("public/assets/"):
+        return False
+    return relpath.endswith(".json")
+
+
+def _raw_probe():
+    """부팅 시 1회: raw 프록시가 실제로 동작하는지 확인해 로그로 남긴다.
+    (레포가 private 라 토큰의 Contents:read 유무를 여기서 판정할 수 있다)"""
+    body = _raw_fetch("watchlist.json")
+    if body is not None:
+        _RAW_STATE.update(ok=True, note="probe ok (watchlist.json)")
+        print("[static] GitHub raw proxy OK — 데이터 JSON 은 항상 최신으로 서빙", flush=True)
+    else:
+        _RAW_STATE.update(ok=False, note="probe failed — 로컬 스냅샷 폴백 (토큰 Contents:read 필요)")
+        print("[static] GitHub raw proxy FAILED — public/*.json 은 배포 시점 스냅샷으로"
+              " 서빙됨. Railway 변수 GH_RAW_TOKEN(Contents:read) 추가 필요", file=sys.stderr, flush=True)
+
+
+# --- /api/prices: 실시간 시세 (Vercel api/index.py 이식 + 인메모리 TTL 캐시) ---
+# 상시 서버라 응답을 짧게 캐시할 수 있어(서버리스와 달리), 탭이 여러 개여도
+# Yahoo 호출이 배수로 늘지 않는다. 워치리스트 코드 목록도 raw 우선으로 읽어
+# [skip railway] 커밋으로 인한 스테일 워치리스트 시세를 방지한다.
+PRICES_TTL = float(os.environ.get("PRICES_TTL", "4"))     # 대시보드 5초 폴링과 정합
+_PRICES_CACHE = {}       # cache_key -> {"body": dict, "ts": float}
+_PRICES_LOCK  = threading.Lock()
+
+_WATCHLIST_FILES = ("watchlist.json", "intraday_watchlist.json",
+                    "watchlist_down.json", "intraday_watchlist_down.json")
+
+
+def _ticker_map_fresh():
+    """{code: yahoo_ticker} — ticker_utils.get_ticker_map 과 동일 규칙이되,
+    워치리스트 파일을 GitHub raw(최신) 우선, 로컬(스냅샷) 폴백으로 읽는다."""
+    from ticker_utils import _krx_ticker_lookup
+    krx = _krx_ticker_lookup()
+    tmap = {}
+    for fname in _WATCHLIST_FILES:
+        body = _raw_fetch(fname)
+        if body is None:
+            try:
+                with open(os.path.join(ROOT, fname), "rb") as f:
+                    body = f.read()
+            except OSError:
+                continue
+        try:
+            stocks = json.loads(body.decode("utf-8"))
+        except Exception:
+            continue
+        for s in (stocks if isinstance(stocks, list) else []):
+            code = s.get("code") if isinstance(s, dict) else None
+            if not code or code in tmap:
+                continue
+            fallback = f"{code}{'.KS' if s.get('market') == 'KOSPI' else '.KQ'}"
+            tmap[code] = krx.get(str(code).zfill(6)) or fallback
+    return tmap
+
+
+def _build_prices(codes_param):
+    """api/index.py 의 시세 응답 생성 로직 이식(종목+지수 단일 yf.download)."""
+    import yfinance as yf                     # ga 경유로 이미 로드돼 있어 비용 없음
+
+    is_codes = bool(codes_param)
+    if is_codes:
+        ticker_map = {}
+        for tk in codes_param.split(","):
+            tk = tk.strip()
+            if not tk:
+                continue
+            code = tk.split(".")[0].zfill(6)
+            ticker_map[code] = tk if "." in tk else tk + ".KS"
+    else:
+        ticker_map = _ticker_map_fresh()
+    tickers_list = list(ticker_map.values())
+
+    idx_map = {} if is_codes else {"kospi": "^KS11", "kosdaq": "^KQ11"}
+    combined = tickers_list + [t for t in idx_map.values() if t not in tickers_list]
+    df = (yf.download(combined, period="2d", group_by="ticker",
+                      progress=False, threads=True) if combined else None)
+
+    formatted = {}
+    for code, ticker in ticker_map.items():
+        try:
+            try:
+                d = df[ticker]
+            except (KeyError, TypeError):
+                d = df
+            if d.empty or len(d) < 1:
+                continue
+            price_val, open_val = d["Close"].iloc[-1], d["Open"].iloc[-1]
+            if math.isnan(price_val) or math.isnan(open_val):
+                continue
+            price, open_price = float(price_val), float(open_val)
+            vol = d["Volume"].iloc[-1] if "Volume" in d else 0
+            volume = int(vol) if not math.isnan(vol) else 0
+            prev_close = price
+            if len(d) >= 2:
+                pv = d["Close"].iloc[-2]
+                prev_close = float(pv) if not math.isnan(pv) else price
+            rate = ((price - prev_close) / prev_close) * 100 if prev_close > 0 else 0.0
+            formatted[code] = {"price": price, "rate": rate, "volume": volume,
+                               "open": open_price, "prevClose": prev_close}
+        except Exception as ex:
+            print(f"[prices] parse {ticker}: {ex}", file=sys.stderr, flush=True)
+
+    now = datetime.datetime.now(KST)
+    market_state = ("REGULAR" if now.weekday() < 5
+                    and 900 <= now.hour * 100 + now.minute <= 1530 else "CLOSED")
+
+    indices = {}
+    for key, tk in idx_map.items():
+        try:
+            try:
+                d = df[tk]
+            except (KeyError, TypeError):
+                d = df
+            if d.empty:
+                continue
+            cur = float(d["Close"].iloc[-1])
+            if math.isnan(cur):
+                continue
+            prev = float(d["Close"].iloc[-2]) if len(d) >= 2 else cur
+            if math.isnan(prev) or prev <= 0:
+                prev = cur
+            indices[key] = {"price": cur,
+                            "rate": ((cur - prev) / prev) * 100 if prev > 0 else 0.0}
+        except Exception as ex:
+            print(f"[prices] index {tk}: {ex}", file=sys.stderr, flush=True)
+
+    return {"status": "success", "marketState": market_state,
+            "stocks": formatted, "indices": indices}
+
+
 class Handler(BaseHTTPRequestHandler):
     def _send(self, code, payload):
         body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
@@ -176,8 +370,10 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         u = urlparse(self.path)
-        if u.path in ("/", "/healthz"):
-            return self._send(200, {"status": "ok"})
+        if u.path == "/healthz":
+            return self._send(200, {"status": "ok", "rawProxy": _RAW_STATE})
+        if u.path == "/api/prices":
+            return self._prices(u)
         if u.path == "/api/krxtest":
             return self._krxtest()
         if u.path == "/api/srctest":
@@ -188,8 +384,14 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(200, {"status": "done", "cached": was_cached, **result})
             except Exception as ex:
                 return self._send(500, {"status": "error", "message": str(ex)[:300]})
-        if u.path != "/api/research":
+        if u.path == "/api/research":
+            return self._research(u)
+        if u.path.startswith("/api/"):
             return self._send(404, {"status": "error", "message": "not found"})
+        # API 외 경로는 대시보드 정적 서빙 ("/" → public/index.html)
+        return self._serve_static(u.path)
+
+    def _research(self, u):
         try:
             params = parse_qs(u.query)
             q = (params.get("q") or params.get("code") or [""])[0]
@@ -211,6 +413,59 @@ class Handler(BaseHTTPRequestHandler):
                                     "generatedAt": entry["generatedAt"], "result": entry["result"]})
         except Exception as ex:
             return self._send(500, {"status": "error", "message": str(ex)[:300]})
+
+    def _prices(self, u):
+        """실시간 시세 — Vercel /api/prices 와 동일 응답. TTL 캐시로 다중 탭 대응."""
+        try:
+            codes_param = (parse_qs(u.query).get("codes") or [""])[0].strip()
+            cache_key = codes_param or "__watchlists__"
+            now = time.time()
+            with _PRICES_LOCK:
+                e = _PRICES_CACHE.get(cache_key)
+                if e and now - e["ts"] < PRICES_TTL:
+                    return self._send(200, e["body"])
+            payload = _build_prices(codes_param)
+            with _PRICES_LOCK:
+                _PRICES_CACHE[cache_key] = {"body": payload, "ts": time.time()}
+            return self._send(200, payload)
+        except Exception as ex:
+            return self._send(500, {"status": "error", "message": str(ex)[:300]})
+
+    def _serve_static(self, path):
+        """public/ 정적 서빙. 데이터 JSON 은 GitHub raw 프록시(최신) 우선."""
+        rel = unquote(path).lstrip("/")
+        if not rel:
+            rel = "index.html"
+        base = os.path.normpath(PUBLIC_DIR)
+        full = os.path.normpath(os.path.join(base, rel))
+        if full != base and not full.startswith(base + os.sep):   # 디렉토리 탈출 차단
+            return self._send(404, {"status": "error", "message": "not found"})
+        if os.path.isdir(full):
+            full = os.path.join(full, "index.html")
+            rel = rel.rstrip("/") + "/index.html" if rel else "index.html"
+
+        relpath = "public/" + rel.replace("\\", "/")
+        body = _raw_fetch(relpath) if _is_data_path(relpath) else None
+        if body is None:
+            try:
+                with open(full, "rb") as f:
+                    body = f.read()
+            except OSError:
+                return self._send(404, {"status": "error", "message": "not found"})
+
+        ctype = mimetypes.guess_type(full)[0] or "application/octet-stream"
+        if ctype.startswith("text/") or ctype == "application/json":
+            ctype += "; charset=utf-8"
+        self.send_response(200)
+        self.send_header("Content-Type", ctype)
+        self.send_header("Access-Control-Allow-Origin", "*")
+        # 데이터/HTML 은 항상 재검증(대시보드가 ?t= 캐시버스팅도 함), 에셋은 짧은 캐시
+        no_store = ((relpath.endswith(".json") or relpath.endswith(".html"))
+                    and not relpath.startswith("public/assets/"))
+        self.send_header("Cache-Control", "no-store" if no_store else "public, max-age=300")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
 
     def _krxtest(self):
         """진단 전용: Railway IP 에서 pykrx(KRX 직접 스크래핑)가 실제로 데이터를 받는지 확인.
@@ -421,6 +676,7 @@ def main():
 
     threading.Thread(target=_warmup, daemon=True).start()
     threading.Thread(target=_scheduler, daemon=True).start()
+    threading.Thread(target=_raw_probe, daemon=True).start()   # 데이터 프록시 진단 로그
     srv.serve_forever()
 
 
