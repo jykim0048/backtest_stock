@@ -2714,7 +2714,9 @@
                 stars:     item.stars    || "⭐⭐⭐⭐",
                 catalyst:  item.catalyst || "",
                 scenario:  item.scenario || "",
-                direction: item.direction || null,   // 딥리서치 방향 판정 (bearish=매수 스킵)
+                // 딥리서치 방향 판정 (bearish=매수 스킵). 톱레벨 우선, 없으면 analysis 폴백
+                // — 증분 회차에서 톱레벨이 누락돼도 판정이 유지되도록.
+                direction: item.direction || (item.analysis && item.analysis.direction) || null,
                 analysis:  item.analysis || null
               });
             });
@@ -2824,7 +2826,8 @@
             stars:     item.stars    || "⭐⭐⭐",
             catalyst:  item.catalyst || "",
             scenario:  item.scenario || "",
-            direction: item.direction || null,   // 딥리서치 방향 판정 (bearish=진입 스킵)
+            // 딥리서치 방향 판정 (bearish=진입 스킵). 톱레벨 우선, 없으면 analysis 폴백.
+            direction: item.direction || (item.analysis && item.analysis.direction) || null,
             analysis:  item.analysis || null,
             // 포트폴리오 상태(보유/진입이력) — 이전 폴링 값 보존, 없으면 빈 상태
             quantity:        prev ? prev.quantity : 0,

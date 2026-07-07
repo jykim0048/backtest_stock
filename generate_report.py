@@ -159,6 +159,11 @@ def generate_report():
             entry['analysis'] = prev['analysis']
             if prev.get('catalyst'):
                 entry['catalyst'] = prev['catalyst']   # 이월된 실제 촉매 유지
+            # direction(하방 판정)도 이월 — 누락 시 재분석 안 된 회차마다 판정이
+            # 리셋되어 bearish 종목이 상승 뷰로 되돌아가는 사고(2026-07-07 LG엔솔).
+            d = prev.get('direction') or (prev.get('analysis') or {}).get('direction')
+            if d in ('bullish', 'neutral', 'bearish'):
+                entry['direction'] = d
         report.append(entry)
 
     os.makedirs(os.path.dirname(DAILY_PATH), exist_ok=True)
