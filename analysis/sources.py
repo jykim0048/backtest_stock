@@ -447,6 +447,91 @@ def naver_valuation(code):
 
 
 # ----------------------------------------------------------------------------
+# 2g) COMP FNGUIDE 밸류에이션 보완 (wcomp.fnguide.com — HTML 내장 JSON 파싱)
+#     네이버·야후가 못 채우는 칸 전용 3순위 소스:
+#       ① 코스닥 스몰캡 ROE·매출액증가율 (FinanceRatio, yfinance 미제공 케이스)
+#       ② 적자기업 12M 선행 PER (Invest 상단 칩 — 트레일링 PER 이 'N/A'일 때)
+#       ③ 업종 PER·PBR 잔여 결측
+#     페이지가 서버렌더링 HTML 안에 JSON 변수(rtoAccumulate 등)를 내장하는
+#     구조라 DOM 테이블 파싱보다 견고하다. (2026-07-07 구조 실측 기준)
+# ----------------------------------------------------------------------------
+_FNGUIDE_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+    "Referer": "https://wcomp.fnguide.com/",
+}
+
+
+def _fnguide_num(t):
+    """'23.85' / '157.07' / '-' / 'N/A' / '1,234' -> float|None"""
+    if t is None:
+        return None
+    t = str(t).strip().replace(",", "").replace("%", "")
+    if t in ("", "-", "N/A"):
+        return None
+    try:
+        return float(t)
+    except ValueError:
+        return None
+
+
+def fnguide_valuation(code):
+    """wcomp.fnguide.com 에서 밸류에이션 보완치를 파싱한다.
+
+    Returns {per, fwdPer, industryPer, pbr, roe, revGrowth} — 값이 없으면
+    None. 두 페이지 모두 실패하면 {} (배치 중단 방지). per 는 최근 4분기
+    지배주주 EPS 기준(트레일링), fwdPer 는 12M 선행 컨센서스, 업종 PER 는
+    WI26 분류 기준(네이버 KRX 업종과 모수가 달라 결측 보완에만 쓴다)."""
+    out = {"per": None, "fwdPer": None, "industryPer": None,
+           "pbr": None, "roe": None, "revGrowth": None}
+    params = {"c_id": "AA", "menu_type": "01", "cmp_cd": code}
+
+    # ① Invest — 상단 지표 칩: PER / PER(Fwd.12M) / 업종 PER / PBR.
+    #    각 칩은 <button id="h_..">라벨</button></li><li> 값 < 구조.
+    try:
+        r = requests.get("https://wcomp.fnguide.com/CompanyInfo/Invest",
+                         params=params, headers=_FNGUIDE_HEADERS, timeout=15)
+        r.raise_for_status()
+        for cid, key in (("h_per", "per"), ("h_12m", "fwdPer"),
+                         ("h_u_per", "industryPer"), ("h_pbr", "pbr")):
+            m = re.search(r'id="' + cid + r'"[^>]*>.*?</button>\s*</li>\s*<li>\s*([^<]+)<',
+                          r.text, re.S)
+            if m:
+                out[key] = _fnguide_num(m.group(1))
+    except Exception as e:
+        _warn(f"fnguide invest({code}) failed: {e}")
+
+    # ② FinanceRatio — 내장 JSON 변수 rtoAccumulate(연간 재무비율 테이블).
+    #    header 가 컬럼 CD(VAL1~5)와 연도(YYMM, 마지막은 '최근분기')를 매핑
+    #    하므로 가장 오른쪽(최신) 비결측 값을 취한다.
+    try:
+        r = requests.get("https://wcomp.fnguide.com/CompanyInfo/FinanceRatio",
+                         params=params, headers=_FNGUIDE_HEADERS, timeout=15)
+        r.raise_for_status()
+        m = re.search(r'rtoAccumulate\s*[:=]\s*(\{.*?\})\s*,\s*rtoAccumulate3Month',
+                      r.text, re.S)
+        if m:
+            d = json.loads(m.group(1))
+            cols = [h.get("CD") for h in (d.get("header") or []) if h.get("CD")] \
+                   or [f"VAL{i}" for i in range(1, 6)]
+            want = {"ROE": "roe", "매출액증가율": "revGrowth"}
+            for row in d.get("data") or []:
+                key = want.pop((row.get("NM") or "").strip(), None)
+                if not key:
+                    continue
+                for c in reversed(cols):   # 최신 컬럼(최근분기) 우선
+                    v = _fnguide_num(row.get(c))
+                    if v is not None:
+                        out[key] = v
+                        break
+                if not want:
+                    break
+    except Exception as e:
+        _warn(f"fnguide ratio({code}) failed: {e}")
+
+    return out if any(v is not None for v in out.values()) else {}
+
+
+# ----------------------------------------------------------------------------
 # 3) Tavily Search API (overseas news, reddit)
 # ----------------------------------------------------------------------------
 def tavily_search(query, max_results=5, include_domains=None):

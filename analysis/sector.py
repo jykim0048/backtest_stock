@@ -521,6 +521,7 @@ def _validate_valuation(v):
     checks = [
         ("per", lambda x: 0 < x <= 500, "PER 이상치"),
         ("estPer", lambda x: 0 < x <= 500, "추정PER 이상치"),
+        ("fwdPer", lambda x: 0 < x <= 500, "선행PER 이상치"),
         ("industryPer", lambda x: 0 < x <= 500, "업종PER 이상치"),
         ("pbr", lambda x: 0 < x <= 50, "PBR 이상치"),
         ("roe", lambda x: -100 <= x <= 100, "ROE 이상치"),
@@ -568,6 +569,32 @@ def _merge_naver_valuation(entry, code):
     return _validate_valuation(entry)   # 네이버 값 포함 재검증
 
 
+def _merge_fnguide_valuation(entry, code):
+    """야후·네이버를 거치고도 비는 칸만 FnGuide 로 3순위 보완한다.
+
+    대상: ① 스몰캡 roe·revGrowth(yfinance 미제공), ② per·pbr·업종PER 잔여
+    결측, ③ 적자로 트레일링 PER 이 없는 종목의 12M 선행 PER — fwdPer 별도
+    필드로만 담고 per 를 덮지 않는다(트레일링/선행 혼동 방지, 표시·Q점수에서
+    구분 처리). 결측이 없으면 요청 자체를 생략한다."""
+    need = [k for k in ("per", "pbr", "industryPer", "roe", "revGrowth")
+            if entry.get(k) is None]
+    if not need:
+        return entry
+    try:
+        fv = sources.fnguide_valuation(code)
+    except Exception as e:
+        _warn(f"fnguide valuation {code}: {e}")
+        fv = {}
+    if not fv:
+        return entry
+    for k in need:
+        if fv.get(k) is not None:
+            entry[k] = fv[k]
+    if entry.get("per") is None and fv.get("fwdPer") is not None:
+        entry["fwdPer"] = fv["fwdPer"]
+    return _validate_valuation(entry)   # FnGuide 값 포함 재검증
+
+
 def _lin(x, lo, hi):
     """x 를 [lo, hi] -> [0, 100] 으로 선형 매핑 (lo>hi 역방향 허용, 클램프)."""
     if hi == lo:
@@ -585,11 +612,13 @@ def quality_score(v):
     if v.get("ret3M") is not None:
         comps["momentum"] = _lin(v["ret3M"], -20, 30)
     val_parts = []
-    if v.get("per") is not None:
-        val_parts.append(_lin(v["per"], 40, 5))
+    # 적자 등으로 트레일링 PER 이 없으면 12M 선행 PER(FnGuide 컨센서스)로 대체 평가
+    per_eff = v["per"] if v.get("per") is not None else v.get("fwdPer")
+    if per_eff is not None:
+        val_parts.append(_lin(per_eff, 40, 5))
         if v.get("industryPer"):
             # 업종 대비 0.5배 이하 만점 ~ 2.0배 이상 0점
-            val_parts.append(_lin(v["per"] / v["industryPer"], 2.0, 0.5))
+            val_parts.append(_lin(per_eff / v["industryPer"], 2.0, 0.5))
     if v.get("pbr") is not None:
         val_parts.append(_lin(v["pbr"], 8, 0.5))
     if val_parts:
@@ -644,7 +673,8 @@ def theme_stocks(flow, resolve_fn, max_per_theme=4, direction="up"):
             code, market = hit["code"], hit.get("market", "KOSPI")
             entry = {"code": code, "name": hit.get("name", seed["name"]), "market": market}
             entry.update(_yf_valuation(code, market))
-            _merge_naver_valuation(entry, code)   # PER·PBR·업종PER·목표가 폴백
+            _merge_naver_valuation(entry, code)    # PER·PBR·업종PER·목표가 폴백
+            _merge_fnguide_valuation(entry, code)  # 잔여 결측(스몰캡 ROE·적자 PER 등) 3순위 보완
             entry["qScore"] = quality_score(entry)
             # latest DART disclosure as catalyst evidence (deterministic)
             try:
@@ -835,6 +865,7 @@ def _build_raw(briefing, macro, regime, sentiment, sectors, themes, sector_score
                                         for r in (t.get("industryReports") or [])],
                     "etf": t.get("etf"), "etfReturns": t.get("etfReturns"),
                     "stocks": [{k: s.get(k) for k in ("name", "market", "per", "estPer",
+                                                      "fwdPer",
                                                       "industryPer", "pbr", "roe",
                                                       "revGrowth", "qScore", "targetUpside",
                                                       "beta", "from52WHigh", "recentFiling")}
