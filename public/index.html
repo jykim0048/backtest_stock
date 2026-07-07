@@ -3441,14 +3441,16 @@
             }
           });
 
-          // 하락 관찰 시세 갱신 — 표시 전용 (매매/계좌 로직 없음). 장전(downData)·장중(watchDownData) 공통.
+          // 하락 관찰 시세 갱신 — 표시 전용 (매매/계좌 로직 없음). 뷰 리스트(스크리너 하락
+          // + 딥리서치 재분류) 기준. 재분류 종목(direction=bearish)은 stockData/watchData
+          // 메인 루프가 이미 가격·history 를 갱신하는 공유 객체라 history 중복 push 를 피한다.
           const updateDownView = (list, prefix, drawFn) => list.forEach((stock, idx) => {
             const apiStock = data.stocks[stock.code];
             if (!apiStock) return;
             const prevPrice = stock.price;
             stock.price = apiStock.price || stock.basePrice;
             stock.rate = apiStock.rate || 0;
-            if (isMarketOpen()) {
+            if (isMarketOpen() && stock.direction !== "bearish") {
               stock.history.push(stock.price);
               if (stock.history.length > 8) stock.history.shift();
             }
@@ -3464,8 +3466,8 @@
             }
             drawFn(idx);
           });
-          if (isLiveView) updateDownView(downData, "d", drawDownSparkline);
-          if (isWatchLiveView) updateDownView(watchDownData, "wd", drawWatchDownSparkline);
+          if (isLiveView) updateDownView(downViewList, "d", drawDownSparkline);
+          if (isWatchLiveView) updateDownView(watchDownViewList, "wd", drawWatchDownSparkline);
 
           // Check and execute opening order when market first transitions to open
           if (isMarketOpen() && needsOpeningOrder()) {
@@ -3631,6 +3633,9 @@
         // 이월(carriedOver) 종목은 워치리스트 테이블에 표시하지 않는다.
         // 데이터는 stockData 에 유지되어 계좌 평가·자동 익절/손절에는 계속 반영된다(보유 자산 보호).
         if (stock.carriedOver) return;
+        // 딥리서치 하방 판정 + 미보유 → 상승 뷰에서 숨기고 하락 관찰 뷰에 표시.
+        // 보유 중이면 포지션 관리를 위해 상승 뷰에 남긴다(하방 배지 표시).
+        if (stock.direction === "bearish" && !(stock.quantity > 0)) return;
         const tr = document.createElement("tr");
         tr.id = `stock-row-${idx}`;
         tr.setAttribute("onclick", `openDetailDrawer(${idx})`);
@@ -3707,6 +3712,8 @@
         tbody.appendChild(tr);
         drawSparkline(idx);
       });
+      // 매수/청산으로 bearish 종목이 상승↔하락 뷰를 오갈 수 있어 하락 뷰도 동기화
+      renderDownTable();
     }
 
     // Sparkline Trend Generator
@@ -3759,6 +3766,9 @@
       }
 
       watchData.forEach((stock, idx) => {
+        // 딥리서치 하방 판정 + 미보유 → 상승 뷰에서 숨기고 하락 관찰 뷰에 표시.
+        // 보유 중이면 포지션 관리를 위해 상승 뷰에 남긴다(하방 배지 표시).
+        if (stock.direction === "bearish" && !(stock.quantity > 0)) return;
         const tr = document.createElement("tr");
         tr.id = `watch-row-${idx}`;
         tr.setAttribute("onclick", `openDetailDrawer(${idx}, 'watch')`);
@@ -3836,19 +3846,72 @@
         tbody.appendChild(tr);
         drawWatchSparkline(idx);
       });
+      // 매수/청산으로 bearish 종목이 상승↔하락 뷰를 오갈 수 있어 하락 뷰도 동기화
+      renderWatchDownTable();
     }
 
     // ===== 장중 하락 관찰 뷰 (장중 패널 내 토글, 참고 전용) =====
+    // 하락 뷰에는 ① 스크리너 하락 리스트 + ② 딥리서치가 하방(bearish) 판정한 미보유
+    // 상승 종목(상승 뷰에서 숨김)이 함께 표시된다. 보유 중인 bearish 종목은 포지션
+    // 관리를 위해 상승 뷰에 남는다(청산되면 하락 뷰로 내려옴).
+    let downViewList = [];        // 장전 하락 뷰의 실제 렌더 목록
+    let watchDownViewList = [];   // 장중 하락 뷰의 실제 렌더 목록
+
+    function _bearishHiddenPre() {
+      return stockData.filter(s => !s.carriedOver && s.direction === "bearish"
+        && !(s.quantity > 0) && !downData.some(d => d.code === s.code));
+    }
+    function _bearishHiddenWatch() {
+      return watchData.filter(s => s.direction === "bearish"
+        && !(s.quantity > 0) && !watchDownData.some(d => d.code === s.code));
+    }
+
+    // 하락 뷰 공용 행 HTML (장전 d-* / 장중 wd-* 프리픽스). 딥리서치 재분류는 출처 구분.
+    function _downRowHtml(stock, idx, prefix) {
+      const badgeClass = stock.market === "KOSPI" ? "kospi" : "kosdaq";
+      const rateSign = stock.rate >= 0 ? "+" : "";
+      const rateColor = stock.rate >= 0 ? "var(--up-red)" : "var(--down-blue)";
+      const viaAnalysis = stock.direction === "bearish";   // 스크리너 하락 항목엔 direction 없음
+      return `
+          <td>
+            <div class="stock-info">
+              <div class="stock-name-row">
+                <span class="stock-name">${stock.name}</span>
+                <span class="market-badge ${badgeClass}">${stock.market}</span>
+                ${viaAnalysis ? `<span class="bear-badge">⚠️ 하방 판정 · 매수 제외</span>`
+                              : `<span class="bear-badge">📉 하락 관찰</span>`}
+              </div>
+              <span class="stock-code">${stock.code}</span>
+            </div>
+          </td>
+          <td style="text-align: right; font-weight: bold;" class="stock-price-col" id="${prefix}price-${idx}">
+            ${(stock.price || 0).toLocaleString()}원
+          </td>
+          <td style="text-align: right; color: ${rateColor}; font-weight: 600;" id="${prefix}rate-${idx}">
+            ${rateSign}${(stock.rate || 0).toFixed(2)}%
+          </td>
+          <td style="text-align: center;">
+            <canvas id="${prefix}canvas-${idx}" width="90" height="28" class="sparkline-canvas"></canvas>
+          </td>
+          <td>
+            <div class="down-catalyst">${escapeHtml(stock.catalyst || "하방 촉매 정보 없음")}</div>
+            ${viaAnalysis
+              ? `<div style="margin-top:4px; font-size:11px; color:var(--text-muted);">딥리서치 하방 판정 — 상승 선정 이후 재분류 (자동 매수 제외)</div>`
+              : (stock.reason ? `<div style="margin-top:4px; font-size:11px; color:var(--text-muted);">${escapeHtml(stock.reason)}</div>` : "")}
+          </td>`;
+    }
+
     function drawWatchDownSparkline(idx) {
-      drawSparklineCanvas(document.getElementById(`wdcanvas-${idx}`),
-                          watchDownData[idx].history, watchDownData[idx].market);
+      const s = watchDownViewList[idx];
+      if (s) drawSparklineCanvas(document.getElementById(`wdcanvas-${idx}`), s.history, s.market);
     }
 
     function updateWatchViewCounts() {
       const upEl = document.getElementById("watch-up-cnt");
       const dnEl = document.getElementById("watch-down-cnt");
-      if (upEl) upEl.innerText = String(watchData.length);
-      if (dnEl) dnEl.innerText = String(watchDownData.length);
+      if (upEl) upEl.innerText = String(watchData.filter(s =>
+        !(s.direction === "bearish" && !(s.quantity > 0))).length);
+      if (dnEl) dnEl.innerText = String(watchDownData.length + _bearishHiddenWatch().length);
     }
 
     // 장중 하락 관찰 테이블 렌더 — 보유/매매 컬럼 없음(표시 전용).
@@ -3856,44 +3919,18 @@
       const tbody = document.getElementById("watch-down-tbody");
       if (!tbody) return;
       tbody.innerHTML = "";
+      watchDownViewList = [...watchDownData, ..._bearishHiddenWatch()];
       updateWatchViewCounts();
 
-      if (!watchDownData.length) {
+      if (!watchDownViewList.length) {
         tbody.innerHTML = `<tr class="watch-empty-row"><td colspan="5">장중 하방 재료가 포착된 관찰 종목이 없습니다. (장중 30분 간격 갱신)</td></tr>`;
         return;
       }
 
-      watchDownData.forEach((stock, idx) => {
+      watchDownViewList.forEach((stock, idx) => {
         const tr = document.createElement("tr");
         tr.id = `watch-down-row-${idx}`;
-        const badgeClass = stock.market === "KOSPI" ? "kospi" : "kosdaq";
-        const rateSign = stock.rate >= 0 ? "+" : "";
-        const rateColor = stock.rate >= 0 ? "var(--up-red)" : "var(--down-blue)";
-        tr.innerHTML = `
-          <td>
-            <div class="stock-info">
-              <div class="stock-name-row">
-                <span class="stock-name">${stock.name}</span>
-                <span class="market-badge ${badgeClass}">${stock.market}</span>
-                <span class="bear-badge">📉 하락 관찰</span>
-              </div>
-              <span class="stock-code">${stock.code}</span>
-            </div>
-          </td>
-          <td style="text-align: right; font-weight: bold;" class="stock-price-col" id="wdprice-${idx}">
-            ${(stock.price || 0).toLocaleString()}원
-          </td>
-          <td style="text-align: right; color: ${rateColor}; font-weight: 600;" id="wdrate-${idx}">
-            ${rateSign}${(stock.rate || 0).toFixed(2)}%
-          </td>
-          <td style="text-align: center;">
-            <canvas id="wdcanvas-${idx}" width="90" height="28" class="sparkline-canvas"></canvas>
-          </td>
-          <td>
-            <div class="down-catalyst">${escapeHtml(stock.catalyst || "하방 촉매 정보 없음")}</div>
-            ${stock.reason ? `<div style="margin-top:4px; font-size:11px; color:var(--text-muted);">${escapeHtml(stock.reason)}</div>` : ""}
-          </td>
-        `;
+        tr.innerHTML = _downRowHtml(stock, idx, "wd");
         tbody.appendChild(tr);
         drawWatchDownSparkline(idx);
       });
@@ -3909,66 +3946,42 @@
       const note = document.getElementById("watch-view-note");
       if (note) note.innerText = (v === "up") ? "자동매매 대상" : "참고 전용 · 자동매매 제외";
       // 숨겨져 있던 동안 canvas 는 그려지지 않으므로 표시되는 뷰를 다시 그린다.
-      if (v === "down") watchDownData.forEach((_, i) => drawWatchDownSparkline(i));
+      if (v === "down") watchDownViewList.forEach((_, i) => drawWatchDownSparkline(i));
       else watchData.forEach((_, i) => drawWatchSparkline(i));
     }
 
     // ===== 하락 관찰 뷰 (장전 패널 내 토글, 참고 전용) =====
     function drawDownSparkline(idx) {
-      drawSparklineCanvas(document.getElementById(`dcanvas-${idx}`),
-                          downData[idx].history, downData[idx].market);
+      const s = downViewList[idx];
+      if (s) drawSparklineCanvas(document.getElementById(`dcanvas-${idx}`), s.history, s.market);
     }
 
     function updateWlViewCounts() {
       const upEl = document.getElementById("wl-up-cnt");
       const dnEl = document.getElementById("wl-down-cnt");
-      if (upEl) upEl.innerText = String(stockData.filter(s => !s.carriedOver).length);
-      if (dnEl) dnEl.innerText = String(downData.length);
+      if (upEl) upEl.innerText = String(stockData.filter(s => !s.carriedOver
+        && !(s.direction === "bearish" && !(s.quantity > 0))).length);
+      if (dnEl) dnEl.innerText = String(downData.length + _bearishHiddenPre().length);
     }
 
     // 하락 관찰 테이블 렌더 — 보유/매매 컬럼 없음(표시 전용).
+    // 스크리너 하락 리스트 + 딥리서치 하방 판정(미보유) 종목을 함께 표시한다.
     function renderDownTable() {
       const tbody = document.getElementById("down-tbody");
       if (!tbody) return;
       tbody.innerHTML = "";
+      downViewList = [...downData, ..._bearishHiddenPre()];
       updateWlViewCounts();
 
-      if (!downData.length) {
+      if (!downViewList.length) {
         tbody.innerHTML = `<tr class="watch-empty-row"><td colspan="5">오늘 하방 재료가 뚜렷한 관찰 종목이 없습니다. (장전 스크리너 산출)</td></tr>`;
         return;
       }
 
-      downData.forEach((stock, idx) => {
+      downViewList.forEach((stock, idx) => {
         const tr = document.createElement("tr");
         tr.id = `down-row-${idx}`;
-        const badgeClass = stock.market === "KOSPI" ? "kospi" : "kosdaq";
-        const rateSign = stock.rate >= 0 ? "+" : "";
-        const rateColor = stock.rate >= 0 ? "var(--up-red)" : "var(--down-blue)";
-        tr.innerHTML = `
-          <td>
-            <div class="stock-info">
-              <div class="stock-name-row">
-                <span class="stock-name">${stock.name}</span>
-                <span class="market-badge ${badgeClass}">${stock.market}</span>
-                <span class="bear-badge">📉 하락 관찰</span>
-              </div>
-              <span class="stock-code">${stock.code}</span>
-            </div>
-          </td>
-          <td style="text-align: right; font-weight: bold;" class="stock-price-col" id="dprice-${idx}">
-            ${(stock.price || 0).toLocaleString()}원
-          </td>
-          <td style="text-align: right; color: ${rateColor}; font-weight: 600;" id="drate-${idx}">
-            ${rateSign}${(stock.rate || 0).toFixed(2)}%
-          </td>
-          <td style="text-align: center;">
-            <canvas id="dcanvas-${idx}" width="90" height="28" class="sparkline-canvas"></canvas>
-          </td>
-          <td>
-            <div class="down-catalyst">${escapeHtml(stock.catalyst || "하방 촉매 정보 없음")}</div>
-            ${stock.reason ? `<div style="margin-top:4px; font-size:11px; color:var(--text-muted);">${escapeHtml(stock.reason)}</div>` : ""}
-          </td>
-        `;
+        tr.innerHTML = _downRowHtml(stock, idx, "d");
         tbody.appendChild(tr);
         drawDownSparkline(idx);
       });
@@ -3984,7 +3997,7 @@
       const note = document.getElementById("wl-view-note");
       if (note) note.innerText = (v === "up") ? "자동매매 대상" : "참고 전용 · 자동매매 제외";
       // 숨겨져 있던 동안 canvas 는 그려지지 않으므로 표시되는 뷰를 다시 그린다.
-      if (v === "down") downData.forEach((_, i) => drawDownSparkline(i));
+      if (v === "down") downViewList.forEach((_, i) => drawDownSparkline(i));
       else stockData.forEach((_, i) => drawSparkline(i));
     }
 
@@ -4002,10 +4015,10 @@
       document.getElementById("main-journal-pane").style.display  = (tab === "journal") ? "" : "none";
       // 숨겨진 동안 canvas 는 그려지지 않으므로, 표시되는 패널의 스파크라인을 다시 그린다.
       if (tab === "intraday") {
-        if (watchView === "down") watchDownData.forEach((_, idx) => drawWatchDownSparkline(idx));
+        if (watchView === "down") watchDownViewList.forEach((_, idx) => drawWatchDownSparkline(idx));
         else watchData.forEach((_, idx) => drawWatchSparkline(idx));
       } else if (tab === "watchlist") {
-        if (watchlistView === "down") downData.forEach((_, idx) => drawDownSparkline(idx));
+        if (watchlistView === "down") downViewList.forEach((_, idx) => drawDownSparkline(idx));
         else stockData.forEach((_, idx) => drawSparkline(idx));
       }
       // VI/상하한가 탭으로 전환 시 최신 데이터 즉시 갱신
