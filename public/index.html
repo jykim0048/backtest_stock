@@ -1667,10 +1667,10 @@
           </div>
         </div>
 
-        <!-- ② 장중 관심종목 패널 (모니터링 전용 — 자동매매·계좌 비대상) -->
+        <!-- ② 장중 관심종목 패널 (장전과 동일 자동매매 — 감지 즉시 진입 · 14:30 컷오프) -->
         <div id="main-intraday-pane" style="display:none;">
           <div class="board-header watch-header">
-            <h2>🔴 장중 관심종목 <span class="board-subtitle">— 장중 이슈 모니터링 (매매 비대상) · 상단 '리포트 날짜' 따름</span></h2>
+            <h2>🔴 장중 관심종목 <span class="board-subtitle">— 감지 즉시 자동매수 (14:30 컷오프) · 상단 '리포트 날짜' 따름</span></h2>
             <span class="watch-asof" id="watch-asof">갱신 대기</span>
           </div>
 
@@ -1680,8 +1680,9 @@
                 <th style="width: 200px;">종목 정보</th>
                 <th style="text-align: right; width: 120px;">실시간 현재가</th>
                 <th style="text-align: right; width: 100px;">실시간 등락률</th>
+                <th style="width: 220px;">실시간 보유잔고 (수익률)</th>
                 <th style="width: 100px; text-align: center;">미니 차트</th>
-                <th>핵심 촉매 · 딥리서치</th>
+                <th>매매 한도선 (진입/익절/손절)</th>
               </tr>
             </thead>
             <tbody id="watch-tbody">
@@ -3330,14 +3331,19 @@
               else if (stock.price < prevPrice) priceTd.className = "stock-price-col tick-down";
             }
 
-            // 보유 배지 갱신 (renderWatchTable 이 그린 wpos-<idx> 슬롯)
-            const posTd = document.getElementById(`wpos-${idx}`);
-            if (posTd) {
+            // 보유잔고 셀 갱신 — 장전(pos-qty/pos-pnl)과 동일 패턴, wpos-* 프리픽스
+            const wposQtyTd = document.getElementById(`wpos-qty-${idx}`);
+            const wposPnlTd = document.getElementById(`wpos-pnl-${idx}`);
+            if (wposQtyTd && wposPnlTd) {
               if (stock.quantity > 0) {
-                const ps = stock.pnl >= 0 ? "+" : "";
-                posTd.innerHTML = `${stock.quantity.toLocaleString()}주 <span style="color:var(--text-muted); font-size:11px;">(평단 ${stock.avgBuyPrice.toLocaleString()}원)</span> <span class="pnl-badge ${stock.pnl >= 0 ? 'profit' : 'loss'}">${ps}${stock.pnl.toLocaleString()}원 (${ps}${stock.pnlRate.toFixed(2)}%)</span>`;
+                wposQtyTd.innerHTML = `${stock.quantity.toLocaleString()}주 <span style="color:var(--text-muted); font-size:11px;">(평단 ${stock.avgBuyPrice.toLocaleString()}원)</span>`;
+                const pnlSign = stock.pnl >= 0 ? "+" : "";
+                wposPnlTd.innerText = `${pnlSign}${stock.pnl.toLocaleString()}원 (${pnlSign}${stock.pnlRate.toFixed(2)}%)`;
+                wposPnlTd.className = `pnl-badge ${stock.pnl >= 0 ? 'profit' : 'loss'}`;
               } else {
-                posTd.innerHTML = "";
+                wposQtyTd.innerText = "보유 잔고 없음";
+                wposPnlTd.innerText = "0원 (0.00%)";
+                wposPnlTd.className = "pnl-badge none";
               }
             }
             drawWatchSparkline(idx);
@@ -3649,14 +3655,16 @@
                           watchData[idx].history, watchData[idx].market);
     }
 
-    // 장중 관심종목 테이블 렌더 (모니터링 전용 — 매매/보유 컬럼 없음).
+    // 장중 관심종목 테이블 렌더 — 장전 워치리스트와 동일 양식
+    // (종목정보 / 현재가 / 등락률 / 보유잔고·수익률 / 미니차트 / 매매 한도선).
+    // 촉매·딥리서치는 행 클릭 → 드로어에서 그대로 확인 가능.
     function renderWatchTable() {
       const tbody = document.getElementById("watch-tbody");
       if (!tbody) return;
       tbody.innerHTML = "";
 
       if (!watchData.length) {
-        tbody.innerHTML = `<tr class="watch-empty-row"><td colspan="5">장중 스크리너가 아직 관심종목을 선정하지 않았습니다. (장중 30분 간격 갱신)</td></tr>`;
+        tbody.innerHTML = `<tr class="watch-empty-row"><td colspan="6">장중 스크리너가 아직 관심종목을 선정하지 않았습니다. (장중 30분 간격 갱신)</td></tr>`;
         return;
       }
 
@@ -3668,12 +3676,29 @@
         const badgeClass = stock.market === "KOSPI" ? "kospi" : "kosdaq";
         const rateSign = stock.rate >= 0 ? "+" : "";
         const rateColor = stock.rate >= 0 ? "var(--up-red)" : "var(--down-blue)";
-        const hasResearch = !!stock.analysis;
-        // 보유 배지 초기 HTML(틱 루프가 wpos-<idx> 를 실시간 갱신)
-        let posInit = "";
+
+        // 보유잔고 셀 — 장전(renderTable)과 동일 구조, id 만 wpos-* 프리픽스
+        let pnlHtml = "";
         if (stock.quantity > 0) {
-          const ps = stock.pnl >= 0 ? "+" : "";
-          posInit = `${stock.quantity.toLocaleString()}주 <span style="color:var(--text-muted); font-size:11px;">(평단 ${stock.avgBuyPrice.toLocaleString()}원)</span> <span class="pnl-badge ${stock.pnl >= 0 ? 'profit' : 'loss'}">${ps}${(stock.pnl||0).toLocaleString()}원 (${ps}${(stock.pnlRate||0).toFixed(2)}%)</span>`;
+          const pnlSign = stock.pnl >= 0 ? "+" : "";
+          const badgeClassPnl = stock.pnl >= 0 ? "profit" : "loss";
+          pnlHtml = `
+            <div class="pos-info">
+              <span class="pos-qty" id="wpos-qty-${idx}">
+                ${stock.quantity.toLocaleString()}주 <span style="color:var(--text-muted); font-size:11px;">(평단 ${stock.avgBuyPrice.toLocaleString()}원)</span>
+              </span>
+              <div class="pnl-badge ${badgeClassPnl}" id="wpos-pnl-${idx}">
+                ${pnlSign}${(stock.pnl || 0).toLocaleString()}원 (${pnlSign}${(stock.pnlRate || 0).toFixed(2)}%)
+              </div>
+            </div>
+          `;
+        } else {
+          pnlHtml = `
+            <div class="pos-info">
+              <span class="pos-qty" id="wpos-qty-${idx}">보유 잔고 없음</span>
+              <div class="pnl-badge none" id="wpos-pnl-${idx}">0원 (0.00%)</div>
+            </div>
+          `;
         }
 
         tr.innerHTML = `
@@ -3684,9 +3709,9 @@
                 <span class="market-badge ${badgeClass}">${stock.market}</span>
                 <span class="intraday-badge">장중</span>
                 ${stock.carriedOver ? `<span class="intraday-badge" style="background:rgba(148,163,184,.18); color:var(--text-muted);">이월</span>` : ""}
+                ${stock.direction === "bearish" ? `<span class="bear-badge">⚠️ 하방 · 매수 제외</span>` : ""}
               </div>
               <span class="stock-code">${stock.code}</span>
-              <div id="wpos-${idx}" style="margin-top:4px;">${posInit}</div>
             </div>
           </td>
           <td style="text-align: right; font-weight: bold;" class="stock-price-col" id="wprice-${idx}">
@@ -3695,13 +3720,26 @@
           <td style="text-align: right; color: ${rateColor}; font-weight: 600;" id="wrate-${idx}">
             ${rateSign}${(stock.rate || 0).toFixed(2)}%
           </td>
+          <td>
+            ${pnlHtml}
+          </td>
           <td style="text-align: center;">
             <canvas id="wcanvas-${idx}" width="90" height="28" class="sparkline-canvas"></canvas>
           </td>
           <td>
-            <div class="watch-catalyst">${escapeHtml(stock.catalyst || "촉매 정보 없음")}</div>
-            <div style="margin-top:4px; font-size:11px; color:var(--text-muted);">
-              ${stock.stars || ""} ${hasResearch ? "· 🔬 딥리서치 보기" : "· 분석 준비중"}
+            <div style="display: flex; gap: 14px;">
+              <div class="param-box">
+                <span class="param-label">진입 상한</span>
+                <span class="param-value entry">${(stock.entry || 0).toLocaleString()}원</span>
+              </div>
+              <div class="param-box">
+                <span class="param-label">목표 익절</span>
+                <span class="param-value target">${(stock.target || 0).toLocaleString()}원</span>
+              </div>
+              <div class="param-box">
+                <span class="param-label">목표 손절</span>
+                <span class="param-value stop">${(stock.stop || 0).toLocaleString()}원</span>
+              </div>
             </div>
           </td>
         `;
