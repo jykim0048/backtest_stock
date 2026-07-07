@@ -59,16 +59,19 @@ MODE        = os.environ.get("SCREEN_MODE", "pre").strip().lower()
 IS_INTRADAY = MODE == "intraday"
 
 # 모드별 산출 파일. 장전/장중이 서로의 결과를 덮어쓰지 않도록 분리한다.
-if IS_INTRADAY:
-    WATCHLIST     = os.path.join(ROOT, "intraday_watchlist.json")
-    SELECTION_DIR = os.path.join(ROOT, "public", "reports", "selection", "intraday")
-else:
-    WATCHLIST     = os.path.join(ROOT, "watchlist.json")
-    SELECTION_DIR = os.path.join(ROOT, "public", "reports", "selection")
-
-# 하락 관찰 리스트(장전 전용, 참고용 — 자동매매 제외). catalyst(하방 사유)를 함께 담아
+# *_DOWN 은 하락 관찰 리스트(참고용 — 자동매매 제외). catalyst(하방 사유)를 함께 담아
 # generate_report 가 리포트에 그대로 노출한다.
-WATCHLIST_DOWN = os.path.join(ROOT, "watchlist_down.json")
+if IS_INTRADAY:
+    WATCHLIST      = os.path.join(ROOT, "intraday_watchlist.json")
+    WATCHLIST_DOWN = os.path.join(ROOT, "intraday_watchlist_down.json")
+    SELECTION_DIR  = os.path.join(ROOT, "public", "reports", "selection", "intraday")
+else:
+    WATCHLIST      = os.path.join(ROOT, "watchlist.json")
+    WATCHLIST_DOWN = os.path.join(ROOT, "watchlist_down.json")
+    SELECTION_DIR  = os.path.join(ROOT, "public", "reports", "selection")
+
+# 장전 하락 리스트 경로(장중 중복 제거용 — 모드와 무관하게 고정 경로 참조)
+PRE_WATCHLIST_DOWN = os.path.join(ROOT, "watchlist_down.json")
 
 KST = datetime.timezone(datetime.timedelta(hours=9))
 
@@ -755,9 +758,13 @@ SYSTEM_INTRADAY = """\
 2) 당일 우호적 뉴스가 막 나온 종목, 전일 미국시장 강세 섹터·급등 특징주와 테마/밸류체인이 연결된 종목.
 3) 장중 등락률·거래대금은 '시장이 이미 반응 중인 강도' 확인용. 다만 **이미 상한가 근처까지 급등해
    추격 여력이 적은 종목보다, 촉매가 분명하고 모멘텀이 막 붙기 시작한 종목**을 우선한다.
-- **방향 게이트**: 지배적 재료가 하방(악재·계약 해지·기대감 소멸·규제·실적 쇼크 등)인 종목은
-  절대 넣지 마라. picks 는 자동매매(매수) 대상이다.
-- 근거(당일 공시/뉴스/미국 테마) 없는 단순 가격 급등은 넣지 마라. 후보 목록 안에서만 고른다.
+- **방향 게이트**: 각 후보의 지배적 재료가 상방인지 하방인지 먼저 판정한다. 하방(악재·계약 해지·
+  기대감 소멸·규제·실적 쇼크 등)이 지배적인 종목은 절대 picks 에 넣지 않는다 — 하방 근거가
+  분명하면 downPicks(하락 관찰, 참고용)로 분류한다. picks 는 자동매매(매수) 대상이다.
+- downPicks: **오늘 장중에 새로 나온 악재**(부정 공시·악재 뉴스·급락 촉매)로 하락 압력이 우려되는
+  관찰 종목. reason 에 하방 근거를, catalyst 에 핵심 하방 촉매 한 줄을 쓴다. 매매에 쓰이지 않는다.
+- 근거(당일 공시/뉴스/미국 테마) 없는 단순 가격 등락은 어느 리스트에도 넣지 마라.
+  후보 목록 안에서만 고른다. 같은 종목을 두 리스트에 중복해 넣지 마라.
 
 반드시 아래 스키마와 정확히 동일한 JSON만 출력한다. 마크다운 펜스/설명 금지.
 {
@@ -766,11 +773,16 @@ SYSTEM_INTRADAY = """\
     {"code": "6자리", "name": "종목명", "market": "KOSPI|KOSDAQ",
      "reason": "선정 사유 1-2문장 (당일 공시/미국테마/뉴스 근거 명시)",
      "catalyst": "핵심 촉매 한 줄"}
+  ],
+  "downPicks": [
+    {"code": "6자리", "name": "종목명", "market": "KOSPI|KOSDAQ",
+     "reason": "하방 우려 사유 1-2문장 (당일 악재 근거 명시)",
+     "catalyst": "핵심 하방 촉매 한 줄"}
   ]
 }
-**중요: picks 는 근거(촉매 공시·당일 뉴스·미국 테마 연결)가 충분한 종목만 담는다. 최대 {n}개이며,
-근거가 분명한 종목이 그보다 적으면 적게 담고, 마땅한 종목이 없으면 빈 배열([])도 허용한다.
-개수를 채우려고 근거가 약한 종목을 억지로 넣지 마라.**"""
+**중요: picks/downPicks 는 근거(촉매 공시·당일 뉴스·미국 테마 연결)가 충분한 종목만 담는다.
+각각 최대 {n}개이며, 근거가 분명한 종목이 그보다 적으면 적게 담고, 마땅한 종목이 없으면
+빈 배열([])도 허용한다. 개수를 채우려고 근거가 약한 종목을 억지로 넣지 마라.**"""
 
 
 _STR = {"type": "string"}
@@ -836,14 +848,14 @@ def llm_select(us_brief, pool):
         return out
 
     picks = _validated(result.get("picks"))
-    # 하락 관찰(장전 전용). 상승 리스트와 중복되면 상승을 우선하고 제외한다.
-    down = [] if IS_INTRADAY else _validated(result.get("downPicks"),
-                                             exclude={x["code"] for x in picks})
+    # 하락 관찰(장전·장중 공통). 상승 리스트와 중복되면 상승을 우선하고 제외한다.
+    down = _validated(result.get("downPicks"), exclude={x["code"] for x in picks})
     if not picks:
         # 장중: 근거가 충분한 종목이 없으면 빈 결과도 정상(억지로 채우지 않는다).
+        #       하락 관찰만 포착된 회차도 유효하므로 downPicks 는 유지한다.
         # 장전: 기존대로 None 을 반환해 호출부가 기계적 fallback 으로 채운다.
         if IS_INTRADAY:
-            return {"marketView": result.get("marketView", ""), "picks": []}
+            return {"marketView": result.get("marketView", ""), "picks": [], "downPicks": down}
         return None
     return {"marketView": result.get("marketView", ""), "picks": picks, "downPicks": down}
 
@@ -904,15 +916,40 @@ def write_outputs(selection, us_brief):
         json.dump(watchlist, f, ensure_ascii=False, indent=2)
     print(f"  Updated watchlist : {WATCHLIST} ({len(watchlist)} stocks)")
 
-    # 하락 관찰 리스트(장전 전용) — LLM 미가동(fallback) 실행이면 빈 리스트로 갱신해
+    # 하락 관찰 리스트 — LLM 미가동(fallback) 실행이면 빈 리스트로 갱신해
     # 전일 하락 리스트가 오늘 것처럼 남지 않게 한다.
     down = selection.get("downPicks") or []
-    if not IS_INTRADAY:
+    _down_entry = lambda p: {"code": p["code"], "name": p["name"], "market": p["market"],
+                             "reason": p.get("reason", ""), "catalyst": p.get("catalyst", ""),
+                             "changePct": p.get("changePct")}
+    if IS_INTRADAY:
+        # 상승 누적과 동일한 당일 누적(append) — 첫 회차 리셋, code 중복 제거, 상한 공유.
+        # 장전 상승/장전 하락/장중 상승 누적에 이미 있는 코드는 스킵(상승 우선 + 중복 방지).
+        pre_down_codes = {str(p.get("code", "")).zfill(6)
+                          for p in (_load_json(PRE_WATCHLIST_DOWN, []) or [])
+                          if isinstance(p, dict)}
+        up_codes = {str(w.get("code", "")).zfill(6) for w in watchlist}
+        exclude_d = pre_codes | pre_down_codes | up_codes
+        prev_down = [] if first_run else (_load_json(WATCHLIST_DOWN, []) or [])
+        prev_down = [p for p in prev_down if isinstance(p, dict)
+                     and str(p.get("code", "")).zfill(6) not in exclude_d]
+        seen_d = {str(p.get("code")) for p in prev_down} | exclude_d
+        down_list = list(prev_down)
+        added_d = 0
+        for p in down:
+            if p["code"] in seen_d:
+                continue
+            down_list.append(_down_entry(p))
+            seen_d.add(p["code"])
+            added_d += 1
+        if INTRADAY_CAP and len(down_list) > INTRADAY_CAP:
+            down_list = down_list[-INTRADAY_CAP:]
         with open(WATCHLIST_DOWN, "w", encoding="utf-8") as f:
-            json.dump([{"code": p["code"], "name": p["name"], "market": p["market"],
-                        "reason": p.get("reason", ""), "catalyst": p.get("catalyst", ""),
-                        "changePct": p.get("changePct")} for p in down],
-                      f, ensure_ascii=False, indent=2)
+            json.dump(down_list, f, ensure_ascii=False, indent=2)
+        print(f"  Intraday down     : +{added_d} new → 누적 {len(down_list)}종목 ({WATCHLIST_DOWN})")
+    else:
+        with open(WATCHLIST_DOWN, "w", encoding="utf-8") as f:
+            json.dump([_down_entry(p) for p in down], f, ensure_ascii=False, indent=2)
         print(f"  Updated downlist  : {WATCHLIST_DOWN} ({len(down)} stocks)")
 
     payload = {

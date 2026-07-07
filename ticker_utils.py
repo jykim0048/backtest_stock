@@ -58,8 +58,9 @@ def get_ticker_map():
     root_dir = os.path.dirname(os.path.abspath(__file__))
     krx = _krx_ticker_lookup()
     ticker_map = {}
-    # watchlist_down.json: 하락 관찰(참고용) — 대시보드 하락 뷰의 실시간 시세용
-    for fname in ('watchlist.json', 'intraday_watchlist.json', 'watchlist_down.json'):
+    # *_down.json: 하락 관찰(참고용) — 대시보드 하락 뷰의 실시간 시세용
+    for fname in ('watchlist.json', 'intraday_watchlist.json',
+                  'watchlist_down.json', 'intraday_watchlist_down.json'):
         for stock in _read_stocks(os.path.join(root_dir, fname)):
             code = stock.get('code')
             if not code or code in ticker_map:

@@ -1,7 +1,7 @@
 {
   "version": 2,
   "builds": [
-    { "src": "api/index.py", "use": "@vercel/python", "config": { "includeFiles": ["watchlist.json", "intraday_watchlist.json", "watchlist_down.json", "public/assets/krx_companies.json"] } },
+    { "src": "api/index.py", "use": "@vercel/python", "config": { "includeFiles": ["watchlist.json", "intraday_watchlist.json", "watchlist_down.json", "intraday_watchlist_down.json", "public/assets/krx_companies.json"] } },
     { "src": "public/**", "use": "@vercel/static" }
   ],
   "routes": [
