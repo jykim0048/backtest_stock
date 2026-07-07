@@ -77,6 +77,13 @@ def _gemini(model, system, user, max_tokens, schema):
         client = genai.Client(api_key=key)
         _CLIENTS[("gemini", key)] = client
 
+    # Gemini 는 Anthropic 의 output_config 같은 스키마 강제 수단을 쓰지 않으므로
+    # 스키마를 시스템 프롬프트에 명시한다. 이게 없으면 모델이 키 이름을 매 호출
+    # 추측해 실행마다 다른 구조가 나온다 (섹터분석 summary 가 간헐적으로 빈 값이 되던 원인).
+    if schema is not None:
+        system = (system + "\n\n출력 JSON 스키마 — 아래 키 이름과 구조를 정확히 따를 것:\n"
+                  + json.dumps(schema, ensure_ascii=False))
+
     cfg_kwargs = dict(
         system_instruction=system,
         response_mime_type="application/json",   # guarantees valid, escaped JSON
@@ -196,8 +203,8 @@ def generate_json(system, user, *, max_tokens=4096, schema=None, return_model=Fa
     """Return parsed JSON from the first chain link that succeeds.
 
     system/user are plain strings. `schema` is a JSON-Schema dict used for strict
-    output on providers that support it (Anthropic); Gemini relies on the schema
-    described in the prompt plus response_mime_type=application/json.
+    output on providers that support it (Anthropic); on Gemini the schema is
+    appended to the system instruction plus response_mime_type=application/json.
 
     With return_model=True, returns (data, model_id) so callers can record which
     model produced the answer (the chain may have fallen through several links).
