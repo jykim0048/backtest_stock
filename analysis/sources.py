@@ -532,6 +532,102 @@ def fnguide_valuation(code):
 
 
 # ----------------------------------------------------------------------------
+# 2h) COMP FNGUIDE 요약리포트 (증권사 종목분석 리포트 보완 소스)
+#     네이버 리서치 목록이 종목에 따라 수 주씩 비는 사례(예: 한화시스템 —
+#     네이버 최신 5월 vs FnGuide 7월)가 있어 요약리포트로 보완한다.
+#     페이지(Report/ReportSummary)는 스켈레톤이고 데이터는 JSON 엔드포인트
+#     /Report/getRptSmrSummary 가 준다. (2026-07-08 구조 실측 기준)
+#     행 필드: DT, RPT_TITLE, COMMENT(불릿 요약), BRK_NM_KOR(증권사),
+#     RECOMM_NM(투자의견), TARGET_PRC, CMP_CD — 목표주가·의견이 전 행에 채워짐.
+# ----------------------------------------------------------------------------
+def fnguide_research(code, days=60, limit=8):
+    """FnGuide 요약리포트를 naver_research 와 같은 스키마로 파싱한다.
+
+    Returns list of {title, broker, date, url, pdfUrl, targetPrice, opinion,
+    summary} (최신순, days 일 이내). 원문 PDF 는 제공되지 않아 url 은 해당
+    종목의 요약리포트 페이지로 연결한다. 실패 시 [] (배치 중단 방지).
+    """
+    kst = datetime.timezone(datetime.timedelta(hours=9))
+    today = datetime.datetime.now(kst).date()
+    try:
+        r = requests.get(
+            "https://wcomp.fnguide.com/Report/getRptSmrSummary",
+            params={"search_typ": "cmp",     # 종목코드/명 검색
+                    "sdt": (today - datetime.timedelta(days=days)).strftime("%Y%m%d"),
+                    "edt": today.strftime("%Y%m%d"),
+                    "search": code, "order_col": 0, "order_typ": "D"},
+            headers={**_FNGUIDE_HEADERS,
+                     "Referer": "https://wcomp.fnguide.com/Report/ReportSummary"},
+            timeout=15,
+        )
+        r.raise_for_status()
+        rows = ((r.json() or {}).get("dataset") or {}).get("data") or []
+    except Exception as e:
+        _warn(f"fnguide_research({code}) failed: {e}")
+        return []
+
+    page_url = ("https://wcomp.fnguide.com/Report/ReportSummary"
+                f"?c_id=AA&menu_type=01&cmp_cd={code}")
+    out = []
+    for row in rows:
+        if str(row.get("CMP_CD") or "").strip() != str(code):
+            continue                      # 코드/명 혼합 검색 — 동명 종목 방어
+        try:
+            d = datetime.datetime.strptime((row.get("DT") or "").strip(),
+                                           "%Y/%m/%d").date()
+        except ValueError:
+            continue
+        # COMMENT 는 "▶ 불릿" 줄들 — 접두 기호를 떼고 한 줄 요약으로 합친다.
+        lines = [ln.strip().lstrip("▶■·•-").strip()
+                 for ln in (row.get("COMMENT") or "").splitlines()]
+        tp = _fnguide_num(row.get("TARGET_PRC"))
+        out.append({
+            "title": (row.get("RPT_TITLE") or "").strip(),
+            "broker": (row.get("BRK_NM_KOR") or "").strip(),
+            "date": d.strftime("%Y-%m-%d"),
+            "url": page_url,
+            "pdfUrl": "",
+            "targetPrice": int(tp) if tp else None,
+            "opinion": (row.get("RECOMM_NM") or "").strip(),
+            "summary": " / ".join(ln for ln in lines if ln)[:500],
+        })
+        if len(out) >= limit:
+            break
+    return out
+
+
+def combined_research(code, days=60, limit=8):
+    """증권사 종목분석 리포트 통합 수집 — 네이버 리서치 + FnGuide 요약리포트.
+
+    같은 리포트가 양쪽에 있으면 (날짜, 증권사) 키로 중복 제거하고, 원문/PDF
+    링크가 있는 네이버 항목을 우선하되 상세 미조회로 비어 있는 목표주가·의견·
+    요약은 FnGuide 값으로 채운다. 최신순 정렬 후 limit 건 반환.
+    """
+    naver = naver_research(code, days=days, limit=limit)
+    fng = fnguide_research(code, days=days, limit=limit)
+
+    def _key(r):
+        return (r.get("date", ""), (r.get("broker") or "").replace(" ", ""))
+
+    by_key = {}
+    for n in naver:
+        by_key.setdefault(_key(n), n)
+    for f in fng:
+        n = by_key.get(_key(f))
+        if n:                              # 동일 리포트 — 네이버 빈 칸 보강
+            if not n.get("targetPrice"):
+                n["targetPrice"] = f.get("targetPrice")
+            if not n.get("opinion"):
+                n["opinion"] = f.get("opinion")
+            if not n.get("summary"):
+                n["summary"] = f.get("summary")
+        else:
+            by_key[_key(f)] = f
+    merged = sorted(by_key.values(), key=lambda r: r.get("date", ""), reverse=True)
+    return merged[:limit]
+
+
+# ----------------------------------------------------------------------------
 # 3) Tavily Search API (overseas news, reddit)
 # ----------------------------------------------------------------------------
 def tavily_search(query, max_results=5, include_domains=None):

@@ -4478,7 +4478,7 @@
               ${it.pdfUrl ? ` · <a href="${escapeHtml(it.pdfUrl)}" target="_blank" rel="noopener" style="color:var(--kospi-blue);">원문 PDF</a>` : ""}${it.url ? ` · <a href="${escapeHtml(it.url)}" target="_blank" rel="noopener" style="color:var(--text-muted);">네이버 상세</a>` : ""}</div>
             ${it.note ? `<div class="analysis-item-note">${escapeHtml(it.note)}</div>` : ""}
           </div>`;
-        }).join("") || `<span class="analysis-empty">최근 30일 발간된 증권사 리포트가 없습니다.</span>`;
+        }).join("") || `<span class="analysis-empty">최근 60일 발간된 증권사 리포트가 없습니다.</span>`;
       } else if (tab === "dart") {
         if (sec.highlights && sec.highlights.length) {
           html += `<div class="analysis-subhead">재무 하이라이트</div>`;

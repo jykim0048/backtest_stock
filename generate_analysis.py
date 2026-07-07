@@ -102,11 +102,11 @@ SYSTEM = """\
   수로 여론의 강도·쏠림을 가늠해 summary와 sentimentLabel에 반영한다.
 - dart: summary와 highlights(4-6개)만 작성한다. **recentFilings는 만들지 마라** — 코드가 DART
   최신 공시 5건을 결정적으로 채운다.
-- research: 입력 research_reports(증권사 리포트, 최근 30일)를 바탕으로 summary 2-3문장
+- research: 입력 research_reports(증권사 리포트, 최근 60일)를 바탕으로 summary 2-3문장
   (목표주가 컨센서스의 방향·의견 분포·공통 논거 포함)과, items 를 **입력 research_reports 와
   같은 순서·같은 개수**로 작성한다. 각 item 은 그 리포트의 투자자 관점 한 줄 해석(note)만 담는다.
   **목표주가·의견·증권사·날짜를 items 에 쓰지 마라** — 코드가 원문 값을 결정적으로 채운다.
-  research_reports 가 비어 있으면 summary 에 "최근 30일 발간 리포트 없음"을 명시하고 items 는 빈 배열.
+  research_reports 가 비어 있으면 summary 에 "최근 60일 발간 리포트 없음"을 명시하고 items 는 빈 배열.
 - 개수 가이드: news 5-7 (국내+해외 혼합), dart highlights 4-6.
 - peers.items 는 출력하지 마라 — 코드가 입력 시세를 결정적으로 채운다. peers 는 summary/reddit 만 작성한다."""
 
@@ -326,7 +326,7 @@ def gather_raw(stock, peer_list):
         "overseas_news": sources.web_search(f"{name} stock news", max_results=5),
         "naver_cafe": sources.naver_search("cafearticle", name, display=6),  # 국내 community
         "naver_board": sources.naver_board(code, pages=2),                   # 종목토론방(개인투자자)
-        "research_reports": sources.naver_research(code, days=30),           # 증권사 리포트(최근 30일)
+        "research_reports": sources.combined_research(code, days=60),        # 증권사 리포트(네이버+FnGuide, 최근 60일)
         "dart": {},
     }
     corp = sources.dart_corp_code(code)
