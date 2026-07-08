@@ -5057,8 +5057,16 @@
             ${s.risk ? `<div class="r">▼ ${_brEsc(s.risk)}</div>` : ""}
           </div>` : "";
         const qCls = (s.qScore == null) ? "mid" : (s.qScore >= 70 ? "good" : (s.qScore >= 40 ? "mid" : "bad"));
+        // Q점수 팩터 분해 툴팁 (qParts) + 리스크 게이트 배지 (riskFlags)
+        const qLabels = { momentum: "모멘텀", growth: "성장", valuation: "밸류", health: "퀄리티", sentiment: "센티먼트", flow: "수급" };
+        const qTitle = _brEsc([
+          ...Object.entries(s.qParts || {}).map(([k, v]) => `${qLabels[k] || k} ${v}`),
+          ...(s.riskFlags || []).map(f => `⚠ ${f}`),
+        ].join(" · "));
+        const riskBadge = (s.riskFlags || []).length
+          ? `<div style="font-size:9.5px; color:#f87171; font-weight:600; margin-top:2px;">⚠ ${_brEsc(s.riskFlags.join("·"))}</div>` : "";
         const qCell = hasQ ? `<td style="text-align:center;">
-            <span class="sd-q ${qCls}">${s.qScore == null ? "—" : s.qScore}</span></td>` : "";
+            <span class="sd-q ${qCls}"${qTitle ? ` title="${qTitle}"` : ""}>${s.qScore == null ? "—" : s.qScore}</span>${riskBadge}</td>` : "";
         // 목표가 괴리: 출처(야후 애널리스트 n명 / 네이버 컨센서스)와 목표가를 툴팁으로
         const upTitle = _brEsc([s.targetSource, s.targetPrice != null ? `목표가 ${Number(s.targetPrice).toLocaleString()}원` : ""]
           .filter(Boolean).join(" · "));
@@ -5095,10 +5103,14 @@
           <tbody>${stockRows}</tbody>
         </table>
         ${hasQ ? `<ul class="sd-tbl-note">
-          <li>Q점수 = 모멘텀 30% + 밸류에이션 25% + 성장성 25% + 재무건전성 20%
-            (결측 항목 가중치 재배분 · 가용 가중치 50% 미만 시 미산출)</li>
-          <li>밸류에이션 = 절대 PER + 업종 상대 PER + PBR 균등 평균 (PER·PBR·동일업종 PER: 네이버증권, 결측 시 FnGuide ·
-            적자 등으로 트레일링 PER 없으면 12M 선행 PER<sup>12M</sup>로 대체 평가)</li>
+          <li>Q점수 v2 = 모멘텀 30 : 성장 20 : 밸류 15 : 퀄리티 15 : 센티먼트 5 상대 가중
+            (결측 팩터 가중치 재배분 · 가용 가중치 50% 미만 시 미산출 · 마우스오버로 팩터 분해 확인)</li>
+          <li>모멘텀 = 1M/3M/6M 수익률(KOSPI·KOSDAQ 지수 상대) + 52주 고점 근접 ·
+            밸류 = 절대 PER + 업종 상대 PER + PBR + 목표가 괴리 (PER·PBR·동일업종 PER: 네이버증권, 결측 시 FnGuide ·
+            적자 등으로 트레일링 PER 없으면 12M 선행 PER<sup>12M</sup>로 대체 평가) ·
+            센티먼트 = 최근 60일 증권사 리포트 건수</li>
+          <li>리스크 게이트 = 투자주의(≤60)·투자경고(≤40)·투자위험(미산출)·저유동성 20일 평균 거래대금 10억 미만(≤50) —
+            점수 상한 캡 + ⚠ 배지</li>
           <li>목표가 괴리 = 컨센서스 목표가 대비 현재가 이격 (야후 애널리스트 우선, 없으면 네이버 — 마우스오버로 출처 확인)</li>
         </ul>` : ""}` : "";
 

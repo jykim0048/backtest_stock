@@ -309,8 +309,30 @@ def _returns_from_close(close):
             "ret6M": _ret(126), "retYTD": ytd}
 
 
+def _risk_metrics_from_close(close, spy_close=None):
+    """스코어카드 v2 리스크 지표 — 이미 내려받은 1Y 일봉에서 추가 비용 없이 계산.
+    vol60(60일 실현변동성, 연율화 %), mdd1Y(최대낙폭 %), from52WHigh(고점 이격 %),
+    beta(SPY 대비, 1Y 일간수익률 회귀). 계산 불가 항목은 생략."""
+    out = {}
+    if close is None or len(close) < 30:
+        return out
+    rets = close.pct_change().dropna()
+    if len(rets) >= 60:
+        out["vol60"] = round(float(rets.iloc[-60:].std()) * (252 ** 0.5) * 100, 1)
+    dd = close / close.cummax() - 1
+    out["mdd1Y"] = round(float(dd.min()) * 100, 1)
+    out["from52WHigh"] = round((float(close.iloc[-1]) / float(close.max()) - 1) * 100, 1)
+    if spy_close is not None and len(spy_close) >= 30:
+        srets = spy_close.pct_change().dropna()
+        a, b = rets.align(srets, join="inner")
+        if len(a) >= 60 and float(b.var()) > 0:
+            out["beta"] = round(float(a.cov(b) / b.var()), 2)
+    return out
+
+
 def fetch_sector_etfs():
-    """Phase 3: 13 sector ETFs + SPY benchmark, 1Y daily -> period returns.
+    """Phase 3: 13 sector ETFs + SPY benchmark, 1Y daily -> period returns
+    + 리스크 지표(vol60/mdd1Y/from52WHigh/beta — 스코어카드 v2 입력).
     Returns (rows, benchmark) — benchmark 는 SPY 의 수익률 dict (스코어카드의
     상대 모멘텀 계산용). Source-tagged rows."""
     tickers = [t for t, _ in US_SECTOR_ETFS] + ["SPY"]
@@ -334,17 +356,20 @@ def fetch_sector_etfs():
             _warn(f"sector ETF parse {tk}: {e}")
         return None
 
+    spy_close = _close_of("SPY")
     for tk, name in US_SECTOR_ETFS:
-        rets = _returns_from_close(_close_of(tk))
+        close = _close_of(tk)
+        rets = _returns_from_close(close)
         rows.append({
             "etf": tk, "name": name, **rets,
+            **_risk_metrics_from_close(close, spy_close),
             "source": f"Yahoo Finance, {tk}, "
                       + datetime.datetime.now(KST).strftime("%Y-%m-%d")
                       + ("" if rets else " [Data Unavailable]"),
         })
     # sort by 3M momentum (skill scoring proxy), unknowns last
     rows.sort(key=lambda r: (r.get("ret3M") is None, -(r.get("ret3M") or -999)))
-    benchmark = _returns_from_close(_close_of("SPY"))
+    benchmark = _returns_from_close(spy_close)
     return rows, benchmark
 
 
@@ -363,10 +388,11 @@ def fetch_etf_pes(tickers):
     return pes
 
 
-# --- Step 3-3 타깃 섹터 점수화 모델 (skill workflow.md) --------------------
-# 스킬 원본은 6항목 20점 만점이나, '공시·뉴스 모멘텀'(0–3)은 섹터 단위 데이터
-# 소스가 아직 없어 제외 — 5항목 17점 만점. verdict 는 비율 컷오프라 항목이
-# 추가돼도 기준이 유지된다 (>=70% OW, >=40% N, 미만 UW).
+# --- 타깃 섹터 스코어카드 v2 — 퀀트 팩터 8항목 23점 -------------------------
+# (v1 은 skill Step 3-3 의 5항목 17점.) 스윙/모멘텀 목적에 맞춰 모멘텀 계열
+# (상대모멘텀·52주 고점 근접·추세 가속) 비중 ~35%. 신규 항목은 전부 이미
+# 내려받는 1Y 일봉·FRED 에서 계산(추가 수집 없음). verdict 는 비율 컷오프라
+# 항목이 바뀌어도 기준이 유지된다 (>=70% OW, >=40% N, 미만 UW).
 _ETF_CANON = {  # ETF -> regime.preferredSectors 명칭
     "XLK": "Tech", "SMH": "Tech", "XLC": "Tech",
     "XLV": "Healthcare", "XBI": "Healthcare",
@@ -375,55 +401,120 @@ _ETF_CANON = {  # ETF -> regime.preferredSectors 명칭
     "XLRE": "Real Estate", "XLU": "Utilities",
 }
 _SUB_ETFS = {"SMH", "XBI", "XLC"}          # 상위 섹터에서 파생된 서브섹터 ETF
+# 실측 베타 미가용 시 폴백용 정적 분류
 _GROWTH_ETFS = {"XLK", "SMH", "XLY", "XLC", "XBI"}
 _DEFENSIVE_ETFS = {"XLU", "XLP", "XLV"}
 
 
-def score_sectors(sectors, regime, sentiment_score, benchmark, etf_pes):
-    """섹터별 결정론적 스코어카드. 반환: {etf: {score,maxScore,verdict,parts[]}}"""
+def _beta_kind(s):
+    """섹터 성격 분류 — 실측 베타(1Y vs SPY) 우선, 미가용 시 정적 집합 폴백.
+    반환: ("high"|"mid"|"low", 근거문구)."""
+    b = s.get("beta")
+    if b is not None:
+        kind = "high" if b >= 1.1 else ("low" if b <= 0.9 else "mid")
+        return kind, f"β {b}"
+    tk = s.get("etf")
+    kind = "high" if tk in _GROWTH_ETFS else ("low" if tk in _DEFENSIVE_ETFS else "mid")
+    return kind, "β 미가용 — 정적 분류"
+
+
+def _tercile(sorted_vals, v):
+    """교차단면 3분위 (0=하위 1/3, 1=중간, 2=상위 1/3)."""
+    import bisect
+    n = len(sorted_vals)
+    if not n:
+        return 1
+    pos = bisect.bisect_left(sorted_vals, v)
+    return 0 if pos * 3 < n else (1 if pos * 3 < 2 * n else 2)
+
+
+def score_sectors(sectors, regime, sentiment_score, benchmark, etf_pes, macro=None):
+    """섹터별 결정론적 스코어카드 v2. 반환: {etf: {score,maxScore,verdict,parts[]}}"""
     prefer = set(regime.get("preferredSectors") or [])
     pes = [v for v in etf_pes.values() if v]
     pe_median = sorted(pes)[len(pes) // 2] if pes else None
-    spy3m = (benchmark or {}).get("ret3M")
+
+    # ⑦ 저변동 항목용 교차단면 분포
+    vols = sorted(x["vol60"] for x in sectors if x.get("vol60") is not None)
+    mdds = sorted(x["mdd1Y"] for x in sectors if x.get("mdd1Y") is not None)
+    mdd_median = mdds[len(mdds) // 2] if mdds else None
+
+    # ⑧ 리스크 온/오프 환경 판정 — VIX 수준 + HY 스프레드 방향 (수집만 하고
+    # 스코어에 안 쓰던 FRED 지표 활용)
+    vix = ((macro or {}).get("VIXCLS") or {}).get("latest")
+    hy = (macro or {}).get("BAMLH0A0HYM2") or {}
+    hy_up = (hy.get("latest") is not None and hy.get("prev") is not None
+             and hy["latest"] > hy["prev"])
+    if vix is None and hy.get("latest") is None:
+        risk_env, risk_desc = None, "리스크 지표 미가용"
+    else:
+        signals = int(vix is not None and vix >= 20) + int(hy_up)
+        risk_env = ["risk-on", "neutral", "risk-off"][signals]
+        risk_desc = (f"VIX {vix}" if vix is not None else "VIX 미가용") \
+                    + " · HY " + ("확대" if hy_up else "안정")
+
     out = {}
     for s in sectors:
         tk = s["etf"]
         parts = []
+        kind, kind_note = _beta_kind(s)
 
-        # ① 매크로 적합도 (0–5): 국면 선호 섹터 여부
+        # ① 매크로 적합도 (0–4): 국면 선호 섹터 여부
         canon = _ETF_CANON.get(tk, "")
         if canon in prefer:
-            m = 4 if tk in _SUB_ETFS else 5
+            m = 3 if tk in _SUB_ETFS else 4
             m_note = f"{regime.get('regime','')} 국면 선호 섹터" + (" (서브섹터)" if tk in _SUB_ETFS else "")
         else:
             m, m_note = 2, "국면 선호 섹터 아님 (중립)"
-        parts.append({"key": "macro", "label": "매크로 적합도", "score": m, "max": 5, "note": m_note})
+        parts.append({"key": "macro", "label": "매크로 적합도", "score": m, "max": 4, "note": m_note})
 
-        # ② 센티먼트 정합성 (0–3): F&G 구간 x 성장/방어/시클리컬 성격
-        kind = "growth" if tk in _GROWTH_ETFS else ("defensive" if tk in _DEFENSIVE_ETFS else "cyclical")
+        # ② 센티먼트 정합성 (0–2): F&G 구간 x 섹터 성격(실측 베타)
         if sentiment_score is None:
             sc, sc_note = 0, "센티먼트 미가용"
         elif sentiment_score >= 56:
-            sc = {"growth": 3, "cyclical": 2, "defensive": 1}[kind]
-            sc_note = f"Greed 구간({sentiment_score}) — 성장 섹터 우위"
+            sc = {"high": 2, "mid": 1, "low": 0}[kind]
+            sc_note = f"Greed({sentiment_score}) — 고베타 우위 ({kind_note})"
         elif sentiment_score >= 45:
-            sc, sc_note = 2, f"Neutral 구간({sentiment_score})"
+            sc, sc_note = 1, f"Neutral 구간({sentiment_score})"
         else:
-            sc = {"defensive": 3, "cyclical": 2, "growth": 1}[kind]
-            sc_note = f"Fear 구간({sentiment_score}) — 방어 섹터 우위"
-        parts.append({"key": "sentiment", "label": "센티먼트 정합성", "score": sc, "max": 3, "note": sc_note})
+            sc = {"low": 2, "mid": 1, "high": 0}[kind]
+            sc_note = f"Fear({sentiment_score}) — 저베타 우위 ({kind_note})"
+        parts.append({"key": "sentiment", "label": "센티먼트 정합성", "score": sc, "max": 2, "note": sc_note})
 
-        # ③ 3M 모멘텀 vs SPY (0–3)
-        r3 = s.get("ret3M")
-        if r3 is None or spy3m is None:
+        # ③ 상대 모멘텀 합성 (0–4): 1M/3M/6M SPY 대비 초과수익 가중합성 (.25/.5/.25)
+        exs = []
+        for k, w in (("ret1M", 0.25), ("ret3M", 0.5), ("ret6M", 0.25)):
+            r, b = s.get(k), (benchmark or {}).get(k)
+            if r is not None and b is not None:
+                exs.append((r - b, w))
+        if exs:
+            comp = sum(e * w for e, w in exs) / sum(w for _, w in exs)
+            mo = 4 if comp > 5 else (3 if comp > 2 else (2 if comp > 0 else (1 if comp > -5 else 0)))
+            mo_note = f"SPY 대비 합성 {comp:+.1f}%p (1M/3M/6M)"
+        else:
             mo, mo_note = 0, "수익률 미가용"
-        else:
-            ex = r3 - spy3m
-            mo = 3 if ex > 5 else (2 if ex > 0 else (1 if ex > -5 else 0))
-            mo_note = f"SPY 대비 {ex:+.1f}%p"
-        parts.append({"key": "momentum", "label": "3M 모멘텀 (vs SPY)", "score": mo, "max": 3, "note": mo_note})
+        parts.append({"key": "momentum", "label": "상대 모멘텀 합성", "score": mo, "max": 4, "note": mo_note})
 
-        # ④ 밸류에이션 매력도 (0–3): ETF trailing PE vs 섹터 중앙값
+        # ④ 52주 고점 근접도 (0–2): 고점 회복력 (앵커드 모멘텀)
+        gap = s.get("from52WHigh")
+        if gap is None:
+            hi, hi_note = 0, "고점 이격 미가용"
+        else:
+            hi = 2 if gap >= -5 else (1 if gap >= -15 else 0)
+            hi_note = f"52주 고점 대비 {gap:+.1f}%"
+        parts.append({"key": "high52w", "label": "52주 고점 근접", "score": hi, "max": 2, "note": hi_note})
+
+        # ⑤ 추세 가속 (0–2): 최근 3M vs 직전 3M 수익률 가속도 (가격 지표)
+        r3, r6 = s.get("ret3M"), s.get("ret6M")
+        if r3 is None or r6 is None:
+            gr, gr_note = 0, "수익률 미가용"
+        else:
+            accel = r3 - (r6 - r3)
+            gr = 2 if accel > 3 else (1 if accel > 0 else 0)
+            gr_note = f"3M 가속도 {accel:+.1f}%p"
+        parts.append({"key": "accel", "label": "추세 가속", "score": gr, "max": 2, "note": gr_note})
+
+        # ⑥ 밸류에이션 매력도 (0–3): ETF trailing PE vs 섹터 중앙값
         pe = etf_pes.get(tk)
         if pe is None or pe_median is None:
             va, va_note = 1, "ETF PE 미가용 (중립 1점)"
@@ -433,15 +524,32 @@ def score_sectors(sectors, regime, sentiment_score, benchmark, etf_pes):
             va_note = f"PE {pe} vs 중앙값 {pe_median} ({ratio:.2f}배)"
         parts.append({"key": "valuation", "label": "밸류에이션 매력도", "score": va, "max": 3, "note": va_note})
 
-        # ⑤ 이익성장 모멘텀 근사 (0–3): 최근 3M vs 직전 3M 수익률 가속도
-        r6 = s.get("ret6M")
-        if r3 is None or r6 is None:
-            gr, gr_note = 0, "수익률 미가용"
+        # ⑦ 저변동·하방 방어 (0–3): 실현변동성 3분위(0–2) + MDD 중앙값 대비(+1)
+        vol, mdd = s.get("vol60"), s.get("mdd1Y")
+        if vol is None:
+            lv, lv_note = 1, "변동성 미가용 (중립 1점)"
         else:
-            accel = r3 - (r6 - r3)
-            gr = 3 if accel > 3 else (2 if accel > 0 else (1 if accel > -3 else 0))
-            gr_note = f"3M 가속도 {accel:+.1f}%p"
-        parts.append({"key": "growth", "label": "이익성장 모멘텀", "score": gr, "max": 3, "note": gr_note})
+            lv = 2 - _tercile(vols, vol)           # 변동성 낮을수록 가점
+            lv_note = f"실현변동성 {vol}% (60일 연율)"
+            if mdd is not None and mdd_median is not None and mdd > mdd_median:
+                lv += 1                            # 낙폭이 중앙값보다 얕음
+                lv_note += f" · MDD {mdd}% (중앙값보다 얕음)"
+            elif mdd is not None:
+                lv_note += f" · MDD {mdd}%"
+        parts.append({"key": "lowvol", "label": "저변동·하방 방어", "score": lv, "max": 3, "note": lv_note})
+
+        # ⑧ 리스크 온/오프 정합성 (0–3): 리스크 환경 x 섹터 베타
+        if risk_env is None:
+            ro, ro_note = 2, risk_desc + " (중립 2점)"
+        elif risk_env == "risk-on":
+            ro = {"high": 3, "mid": 2, "low": 1}[kind]
+            ro_note = f"리스크온 ({risk_desc}) — 고베타 우위 ({kind_note})"
+        elif risk_env == "risk-off":
+            ro = {"low": 3, "mid": 2, "high": 1}[kind]
+            ro_note = f"리스크오프 ({risk_desc}) — 저베타 우위 ({kind_note})"
+        else:
+            ro, ro_note = 2, f"중립 ({risk_desc})"
+        parts.append({"key": "riskonoff", "label": "리스크 온/오프 정합성", "score": ro, "max": 3, "note": ro_note})
 
         total = sum(p["score"] for p in parts)
         max_score = sum(p["max"] for p in parts)
@@ -449,7 +557,7 @@ def score_sectors(sectors, regime, sentiment_score, benchmark, etf_pes):
         verdict = "OW" if pct >= 0.70 else ("N" if pct >= 0.40 else "UW")
         out[tk] = {"etf": tk, "name": s["name"], "score": total, "maxScore": max_score,
                    "verdict": verdict, "parts": parts,
-                   "source": "결정론적 산출 (skill Step 3-3 점수화 모델, 공시·뉴스 항목 제외)"}
+                   "source": "결정론적 산출 (퀀트 팩터 스코어카드 v2 — 8항목 23점, 모멘텀 계열 35%)"}
     return out
 
 
@@ -478,15 +586,20 @@ def _yf_valuation(code, market):
             "marketCap": info.get("marketCap") if isinstance(info.get("marketCap"), (int, float)) else None,
         }
 
-        # 3M 수익률 (Q점수 모멘텀 입력) — 일봉 히스토리에서 직접 계산
+        # 1M/3M/6M 수익률 + 20일 평균 거래대금 (Q점수 v2 모멘텀·유동성 입력)
         price = None
         try:
-            close = tkr.history(period="4mo")["Close"].dropna()
+            hist = tkr.history(period="1y")
+            close = hist["Close"].dropna()
             if len(close) >= 2:
                 price = float(close.iloc[-1])
-                base = float(close.iloc[-63]) if len(close) > 63 else float(close.iloc[0])
-                if base:
-                    out["ret3M"] = round((price / base - 1) * 100, 2)
+                for key, days in (("ret1M", 21), ("ret3M", 63), ("ret6M", 126)):
+                    base = float(close.iloc[-1 - days]) if len(close) > days else None
+                    if base:
+                        out[key] = round((price / base - 1) * 100, 2)
+            tv = (hist["Close"] * hist["Volume"]).dropna()
+            if len(tv) >= 5:
+                out["tradingValue20"] = int(float(tv.iloc[-20:].mean()))   # 원 단위
         except Exception as e:
             _warn(f"yf history {code}: {e}")
         if price is None:
@@ -602,15 +715,114 @@ def _lin(x, lo, hi):
     return max(0.0, min(100.0, (x - lo) / (hi - lo) * 100))
 
 
+_MKT_RETS = None
+
+
+def _market_returns():
+    """KOSPI/KOSDAQ 지수 기간수익률 — Q점수 v2 의 시장상대 모멘텀 입력.
+    실행당 1회 조회 캐시. 실패 시 빈 dict (모멘텀은 절대수익률로 폴백)."""
+    global _MKT_RETS
+    if _MKT_RETS is not None:
+        return _MKT_RETS
+    out = {}
+    try:
+        df = yf.download(["^KS11", "^KQ11"], period="1y", interval="1d",
+                         group_by="ticker", progress=False, auto_adjust=True)
+        for tk, mkt in (("^KS11", "KOSPI"), ("^KQ11", "KOSDAQ")):
+            try:
+                if isinstance(df.columns, pd.MultiIndex):
+                    close = df[tk]["Close"].dropna()
+                else:
+                    close = df["Close"].dropna()
+                rets = _returns_from_close(close)
+                if rets:
+                    out[mkt] = rets
+            except Exception as e:
+                _warn(f"market returns {tk}: {e}")
+    except Exception as e:
+        _warn(f"market returns download: {e}")
+    _MKT_RETS = out
+    return out
+
+
+_INVWARN = None
+
+
+def _invwarn_map():
+    """시장경보(투자주의/경고/위험) code -> 라벨 — Q점수 리스크 게이트 입력.
+    fetch_investment_warning.py 가 커밋하는 public/data/investment_warning.json
+    을 읽는다 (위험 > 경고 > 주의 우선). 실패 시 빈 dict (게이트 미적용)."""
+    global _INVWARN
+    if _INVWARN is not None:
+        return _INVWARN
+    path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                        "public", "data", "investment_warning.json")
+    m = {}
+    try:
+        with open(path, encoding="utf-8") as f:
+            d = json.load(f)
+        for level, label in (("danger", "투자위험"), ("warning", "투자경고"),
+                             ("caution", "투자주의")):
+            for it in d.get(level) or []:
+                code = str(it.get("code") or "").zfill(6)
+                if code != "000000" and code not in m:
+                    m[code] = label
+    except Exception as e:
+        _warn(f"invwarn map: {e}")
+    _INVWARN = m
+    return m
+
+
+# 리스크 게이트 — 점수 가산이 아니라 상한 캡/미산출 (관리·경고 종목이 고득점으로
+# 보이는 것을 차단). None = Q점수 미산출.
+_RISK_CAPS = {"투자위험": None, "투자경고": 40, "투자주의": 60, "저유동성": 50}
+_MIN_TRADING_VALUE = 1_000_000_000     # 20일 평균 거래대금 10억원 미만 = 저유동성
+
+
+def apply_risk_gate(entry):
+    """시장경보·유동성 게이트를 entry 에 적용 — riskFlags 부착 + qScore 캡."""
+    flags = []
+    warn = _invwarn_map().get(str(entry.get("code") or ""))
+    if warn:
+        flags.append(warn)
+    tv = entry.get("tradingValue20")
+    if tv is not None and tv < _MIN_TRADING_VALUE:
+        flags.append("저유동성")
+    if not flags:
+        return
+    entry["riskFlags"] = flags
+    caps = [_RISK_CAPS[f] for f in flags]
+    if any(c is None for c in caps):
+        entry["qScore"] = None
+    elif entry.get("qScore") is not None:
+        entry["qScore"] = min(entry["qScore"], min(caps))
+
+
 def quality_score(v):
-    """skill Step 4-3 퀄리티 스코어 (0–100) — 모멘텀 30% + 밸류에이션 25%
-    + 성장성 25% + 재무건전성 20%. 결측 항목은 가중치 재배분하되,
-    가용 가중치 50% 미만이면 미산출(None).
-    밸류에이션 = 절대 PER + 업종 상대 PER(있으면) + PBR 의 균등 평균 —
-    반도체처럼 업종 전체가 고PER 일 때 절대 PER 만으로 생기는 왜곡을 줄인다."""
+    """Q점수 v2 (0–100) — 모멘텀 30 : 성장 20 : 밸류 15 : 퀄리티 15 : 센티먼트 5
+    상대 가중 (수급 10 은 2단계 예정 — 네이버 trend API 프로브 통과 확인).
+    결측 팩터는 가중치 재배분하되 가용 가중치 50% 미만이면 미산출.
+    반환: {"score": int|None, "parts": {factor: 0-100}} — parts 는 UI 분해 표시용.
+
+    - 모멘텀: 1M/3M/6M (KOSPI/KOSDAQ 상대 우선, 지수 미가용 시 절대) + 52주 고점 근접
+    - 밸류: 절대 PER(적자 시 12M 선행 PER 대체) + 업종 상대 PER + PBR + 목표가 괴리
+    - 성장: 매출성장률 (영업이익·EPS 성장은 3단계 FnGuide 확장 예정)
+    - 퀄리티: 부채비율 + ROE
+    - 센티먼트: 최근 60일 증권사 리포트 건수 (결정론적 프록시)"""
     comps = {}
-    if v.get("ret3M") is not None:
-        comps["momentum"] = _lin(v["ret3M"], -20, 30)
+
+    mparts = []
+    for k in ("1M", "3M", "6M"):
+        rel, absr = v.get("rel" + k), v.get("ret" + k)
+        if rel is not None:
+            mparts.append(_lin(rel, -15, 25))
+        elif absr is not None:
+            mparts.append(_lin(absr, -20, 30))
+    if v.get("from52WHigh") is not None:
+        mparts.append(_lin(v["from52WHigh"], -40, -3))
+    if mparts:
+        comps["momentum"] = sum(mparts) / len(mparts)
+
     val_parts = []
     # 적자 등으로 트레일링 PER 이 없으면 12M 선행 PER(FnGuide 컨센서스)로 대체 평가
     per_eff = v["per"] if v.get("per") is not None else v.get("fwdPer")
@@ -621,10 +833,14 @@ def quality_score(v):
             val_parts.append(_lin(per_eff / v["industryPer"], 2.0, 0.5))
     if v.get("pbr") is not None:
         val_parts.append(_lin(v["pbr"], 8, 0.5))
+    if v.get("targetUpside") is not None:
+        val_parts.append(_lin(v["targetUpside"], -10, 40))
     if val_parts:
         comps["valuation"] = sum(val_parts) / len(val_parts)
+
     if v.get("revGrowth") is not None:
         comps["growth"] = _lin(v["revGrowth"], -10, 40)
+
     health_parts = []
     if v.get("debtToEquity") is not None:
         health_parts.append(_lin(v["debtToEquity"], 200, 0))
@@ -633,11 +849,16 @@ def quality_score(v):
     if health_parts:
         comps["health"] = sum(health_parts) / len(health_parts)
 
-    weights = {"momentum": 0.30, "valuation": 0.25, "growth": 0.25, "health": 0.20}
+    if v.get("researchCount") is not None:
+        comps["sentiment"] = _lin(v["researchCount"], 0, 4)
+
+    weights = {"momentum": 0.30, "growth": 0.20, "valuation": 0.15,
+               "health": 0.15, "sentiment": 0.05}
     avail = sum(weights[k] for k in comps)
-    if avail < 0.5:
-        return None
-    return round(sum(weights[k] * s for k, s in comps.items()) / avail)
+    if avail < sum(weights.values()) * 0.5:
+        return {"score": None, "parts": {k: round(s) for k, s in comps.items()}}
+    score = round(sum(weights[k] * s for k, s in comps.items()) / avail)
+    return {"score": score, "parts": {k: round(s) for k, s in comps.items()}}
 
 
 def _theme_stock_seeds(f, max_per_theme):
@@ -675,7 +896,21 @@ def theme_stocks(flow, resolve_fn, max_per_theme=4, direction="up"):
             entry.update(_yf_valuation(code, market))
             _merge_naver_valuation(entry, code)    # PER·PBR·업종PER·목표가 폴백
             _merge_fnguide_valuation(entry, code)  # 잔여 결측(스몰캡 ROE·적자 PER 등) 3순위 보완
-            entry["qScore"] = quality_score(entry)
+            # 시장상대 모멘텀 — KOSPI/KOSDAQ 지수 대비 초과수익 (v2)
+            mkt = _market_returns().get(market) or {}
+            for k in ("ret1M", "ret3M", "ret6M"):
+                if entry.get(k) is not None and mkt.get(k) is not None:
+                    entry["rel" + k[3:]] = round(entry[k] - mkt[k], 2)
+            # 센티먼트 프록시 — 최근 60일 증권사 리포트 건수 (네이버+FnGuide)
+            try:
+                entry["researchCount"] = len(sources.combined_research(code, days=60, limit=8))
+            except Exception as e:
+                _warn(f"research count {code}: {e}")
+            qs = quality_score(entry)
+            entry["qScore"] = qs["score"]
+            if qs["parts"]:
+                entry["qParts"] = qs["parts"]
+            apply_risk_gate(entry)     # 시장경보·저유동성 — 캡/미산출 + riskFlags
             # latest DART disclosure as catalyst evidence (deterministic)
             try:
                 corp = sources.dart_corp_code(code)
@@ -716,7 +951,8 @@ SYSTEM = (
     "- 매크로 국면과 센티먼트가 가리키는 방향의 정합성을 명시할 것.\n"
     "- 타깃 섹터의 OW/N/UW 판정은 RAW 의 sectorScores(결정론적 스코어카드)의 verdict 를\n"
     "  그대로 따를 것. 당신의 역할은 판정을 바꾸는 것이 아니라 점수 구성(매크로 적합도·\n"
-    "  센티먼트·모멘텀·밸류·성장)을 근거로 rationale 한두 문장을 서술하는 것이다.\n"
+    "  센티먼트·상대 모멘텀·52주 고점 근접·추세 가속·밸류·저변동/하방 방어·리스크 온오프)을\n"
+    "  근거로 rationale 한두 문장을 서술하는 것이다.\n"
     "- 종목 서술 시 qScore(퀄리티 스코어)·targetUpside(목표가 괴리)가 있으면 근거로 활용할 것.\n"
     "- 테마 summary(테마 종합)는 대시보드에서 문장 단위 불릿으로 표시된다 — 반드시 3~4개의\n"
     "  완결된 문장으로 서술할 것 (미국 테마 동향, 국내 파급 경로, 밸류·모멘텀 근거, 관전 포인트 순).\n"
@@ -858,7 +1094,8 @@ def _build_raw(briefing, macro, regime, sentiment, sectors, themes, sector_score
                   for sid, m in macro.items()},
         "regime": regime,
         "sentiment": {k: sentiment.get(k) for k in ("score", "rating", "prevClose", "prevWeek", "prevMonth")},
-        "sectors": [{k: s.get(k) for k in ("etf", "name", "ret1W", "ret1M", "ret3M", "ret6M", "retYTD")}
+        "sectors": [{k: s.get(k) for k in ("etf", "name", "ret1W", "ret1M", "ret3M", "ret6M", "retYTD",
+                                           "vol60", "mdd1Y", "from52WHigh", "beta")}
                     for s in sectors],
         "sectorScores": [{"etf": sc["etf"], "name": sc["name"], "score": sc["score"],
                           "maxScore": sc["maxScore"], "verdict": sc["verdict"],
@@ -876,7 +1113,8 @@ def _build_raw(briefing, macro, regime, sentiment, sectors, themes, sector_score
                                                       "fwdPer",
                                                       "industryPer", "pbr", "roe",
                                                       "revGrowth", "qScore", "targetUpside",
-                                                      "beta", "from52WHigh", "recentFiling")}
+                                                      "beta", "from52WHigh", "recentFiling",
+                                                      "riskFlags", "researchCount")}
                                for s in t["stocks"]]}
                    for t in themes],
     }
@@ -895,7 +1133,7 @@ def analyze_sectors(briefing, resolve_fn=None):
     sentiment["strategyHint"] = interpret_sentiment(sentiment.get("score"))
     sectors, benchmark = fetch_sector_etfs()
     etf_pes = fetch_etf_pes([s["etf"] for s in sectors])
-    sector_scores = score_sectors(sectors, regime, sentiment.get("score"), benchmark, etf_pes)
+    sector_scores = score_sectors(sectors, regime, sentiment.get("score"), benchmark, etf_pes, macro)
     # 급등(flow) + 급락(downFlow) 6개 테마 전부 분석 — 대시보드 테마 클릭 심층분석용.
     themes = (theme_stocks(briefing.get("flow", []), resolve_fn, direction="up")
               + theme_stocks(briefing.get("downFlow", []), resolve_fn, direction="down"))
