@@ -640,6 +640,10 @@ def _validate_valuation(v):
         ("roe", lambda x: -100 <= x <= 100, "ROE 이상치"),
         ("debtToEquity", lambda x: 0 <= x <= 2000, "부채비율 이상치"),
         ("targetUpside", lambda x: -90 <= x <= 200, "목표가 괴리 이상치"),
+        ("opMargin", lambda x: -200 <= x <= 100, "영업이익률 이상치"),
+        ("opGrowth", lambda x: -100 <= x <= 5000, "영업이익증가율 이상치"),
+        ("epsGrowth", lambda x: -100 <= x <= 5000, "EPS증가율 이상치"),
+        ("interestCoverage", lambda x: -1000 <= x <= 100000, "이자보상배율 이상치"),
     ]
     for key, ok, label in checks:
         x = v.get(key)
@@ -683,28 +687,38 @@ def _merge_naver_valuation(entry, code):
 
 
 def _merge_fnguide_valuation(entry, code):
-    """야후·네이버를 거치고도 비는 칸만 FnGuide 로 3순위 보완한다.
+    """FnGuide 3순위 보완 + 전용 재무비율 수집.
 
-    대상: ① 스몰캡 roe·revGrowth(yfinance 미제공), ② per·pbr·업종PER 잔여
-    결측, ③ 적자로 트레일링 PER 이 없는 종목의 12M 선행 PER — fwdPer 별도
-    필드로만 담고 per 를 덮지 않는다(트레일링/선행 혼동 방지, 표시·Q점수에서
-    구분 처리). 결측이 없으면 요청 자체를 생략한다."""
-    need = [k for k in ("per", "pbr", "industryPer", "roe", "revGrowth")
-            if entry.get(k) is None]
-    if not need:
-        return entry
+    ① FinanceRatio 는 항상 조회 — 영업이익·EPS 증가율, 영업이익률, 이자보상
+      배율은 야후·네이버가 못 주는 FnGuide 전용(Q점수 성장·퀄리티 입력)이고,
+      roe·revGrowth 는 결측일 때만 채운다(스몰캡 yfinance 미제공 케이스).
+    ② Invest 페이지는 per·pbr·업종PER 결측이 있을 때만 조회 — 적자로
+      트레일링 PER 이 없는 종목의 12M 선행 PER 은 fwdPer 별도 필드로만 담고
+      per 를 덮지 않는다(트레일링/선행 혼동 방지, 표시·Q점수에서 구분 처리)."""
     try:
-        fv = sources.fnguide_valuation(code)
+        rat = sources.fnguide_ratios(code)
     except Exception as e:
-        _warn(f"fnguide valuation {code}: {e}")
-        fv = {}
-    if not fv:
-        return entry
-    for k in need:
-        if fv.get(k) is not None:
-            entry[k] = fv[k]
-    if entry.get("per") is None and fv.get("fwdPer") is not None:
-        entry["fwdPer"] = fv["fwdPer"]
+        _warn(f"fnguide ratios {code}: {e}")
+        rat = {}
+    for k in ("roe", "revGrowth"):                       # 결측 보완만
+        if entry.get(k) is None and rat.get(k) is not None:
+            entry[k] = rat[k]
+    for k in ("opGrowth", "epsGrowth", "opMargin", "interestCoverage"):
+        if rat.get(k) is not None:                       # FnGuide 전용 — 항상 채움
+            entry[k] = rat[k]
+
+    need = [k for k in ("per", "pbr", "industryPer") if entry.get(k) is None]
+    if need:
+        try:
+            inv = sources.fnguide_invest(code)
+        except Exception as e:
+            _warn(f"fnguide invest {code}: {e}")
+            inv = {}
+        for k in need:
+            if inv.get(k) is not None:
+                entry[k] = inv[k]
+        if entry.get("per") is None and inv.get("fwdPer") is not None:
+            entry["fwdPer"] = inv["fwdPer"]
     return _validate_valuation(entry)   # FnGuide 값 포함 재검증
 
 
@@ -805,8 +819,8 @@ def quality_score(v):
 
     - 모멘텀: 1M/3M/6M (KOSPI/KOSDAQ 상대 우선, 지수 미가용 시 절대) + 52주 고점 근접
     - 밸류: 절대 PER(적자 시 12M 선행 PER 대체) + 업종 상대 PER + PBR + 목표가 괴리
-    - 성장: 매출성장률 (영업이익·EPS 성장은 3단계 FnGuide 확장 예정)
-    - 퀄리티: 부채비율 + ROE
+    - 성장: 매출액·영업이익·EPS 증가율 (영업이익·EPS 는 FnGuide FinanceRatio)
+    - 퀄리티: 부채비율 + ROE + 영업이익률 + 이자보상배율 (뒤 둘은 FnGuide)
     - 수급: 외국인·기관 5/20일 순매수 (상장주식수 대비 % — 네이버 trend API)
     - 센티먼트: 최근 60일 증권사 리포트 건수 (결정론적 프록시)"""
     comps = {}
@@ -838,14 +852,25 @@ def quality_score(v):
     if val_parts:
         comps["valuation"] = sum(val_parts) / len(val_parts)
 
+    growth_parts = []
     if v.get("revGrowth") is not None:
-        comps["growth"] = _lin(v["revGrowth"], -10, 40)
+        growth_parts.append(_lin(v["revGrowth"], -10, 40))
+    if v.get("opGrowth") is not None:
+        growth_parts.append(_lin(v["opGrowth"], -20, 50))
+    if v.get("epsGrowth") is not None:
+        growth_parts.append(_lin(v["epsGrowth"], -20, 50))
+    if growth_parts:
+        comps["growth"] = sum(growth_parts) / len(growth_parts)
 
     health_parts = []
     if v.get("debtToEquity") is not None:
         health_parts.append(_lin(v["debtToEquity"], 200, 0))
     if v.get("roe") is not None:
         health_parts.append(_lin(v["roe"], -10, 30))
+    if v.get("opMargin") is not None:
+        health_parts.append(_lin(v["opMargin"], -5, 20))
+    if v.get("interestCoverage") is not None:
+        health_parts.append(_lin(v["interestCoverage"], 0, 10))
     if health_parts:
         comps["health"] = sum(health_parts) / len(health_parts)
 
@@ -1137,7 +1162,8 @@ def _build_raw(briefing, macro, regime, sentiment, sectors, themes, sector_score
                                                       "revGrowth", "qScore", "targetUpside",
                                                       "beta", "from52WHigh", "recentFiling",
                                                       "riskFlags", "researchCount",
-                                                      "flowFrgn20", "flowInst20")}
+                                                      "flowFrgn20", "flowInst20",
+                                                      "opMargin", "epsGrowth")}
                                for s in t["stocks"]]}
                    for t in themes],
     }

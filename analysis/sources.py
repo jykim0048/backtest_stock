@@ -474,22 +474,14 @@ def _fnguide_num(t):
         return None
 
 
-def fnguide_valuation(code):
-    """wcomp.fnguide.com 에서 밸류에이션 보완치를 파싱한다.
-
-    Returns {per, fwdPer, industryPer, pbr, roe, revGrowth} — 값이 없으면
-    None. 두 페이지 모두 실패하면 {} (배치 중단 방지). per 는 최근 4분기
-    지배주주 EPS 기준(트레일링), fwdPer 는 12M 선행 컨센서스, 업종 PER 는
-    WI26 분류 기준(네이버 KRX 업종과 모수가 달라 결측 보완에만 쓴다)."""
-    out = {"per": None, "fwdPer": None, "industryPer": None,
-           "pbr": None, "roe": None, "revGrowth": None}
-    params = {"c_id": "AA", "menu_type": "01", "cmp_cd": code}
-
-    # ① Invest — 상단 지표 칩: PER / PER(Fwd.12M) / 업종 PER / PBR.
-    #    각 칩은 <button id="h_..">라벨</button></li><li> 값 < 구조.
+def fnguide_invest(code):
+    """Invest 페이지 상단 지표 칩 — {per, fwdPer, industryPer, pbr}.
+    각 칩은 <button id="h_..">라벨</button></li><li> 값 < 구조. 실패 시 {}."""
+    out = {"per": None, "fwdPer": None, "industryPer": None, "pbr": None}
     try:
         r = requests.get("https://wcomp.fnguide.com/CompanyInfo/Invest",
-                         params=params, headers=_FNGUIDE_HEADERS, timeout=15)
+                         params={"c_id": "AA", "menu_type": "01", "cmp_cd": code},
+                         headers=_FNGUIDE_HEADERS, timeout=15)
         r.raise_for_status()
         for cid, key in (("h_per", "per"), ("h_12m", "fwdPer"),
                          ("h_u_per", "industryPer"), ("h_pbr", "pbr")):
@@ -499,13 +491,31 @@ def fnguide_valuation(code):
                 out[key] = _fnguide_num(m.group(1))
     except Exception as e:
         _warn(f"fnguide invest({code}) failed: {e}")
+    return out if any(v is not None for v in out.values()) else {}
 
-    # ② FinanceRatio — 내장 JSON 변수 rtoAccumulate(연간 재무비율 테이블).
-    #    header 가 컬럼 CD(VAL1~5)와 연도(YYMM, 마지막은 '최근분기')를 매핑
-    #    하므로 가장 오른쪽(최신) 비결측 값을 취한다.
+
+# FinanceRatio 행 이름(NM, strip 후) -> 반환 키. 성장·수익성·안정성 지표는
+# 야후·네이버가 못 주는 FnGuide 전용 (Q점수 3단계 — Growth/Quality 보강).
+_FNGUIDE_RATIO_WANT = {
+    "ROE": "roe",
+    "매출액증가율": "revGrowth",
+    "영업이익증가율": "opGrowth",
+    "EPS증가율": "epsGrowth",
+    "영업이익률": "opMargin",
+    "이자보상배율": "interestCoverage",
+}
+
+
+def fnguide_ratios(code):
+    """FinanceRatio 페이지 — 내장 JSON 변수 rtoAccumulate(연간 재무비율 테이블).
+    header 가 컬럼 CD(VAL1~5)와 연도(YYMM, 마지막은 '최근분기')를 매핑하므로
+    가장 오른쪽(최신) 비결측 값을 취한다. 반환 키는 _FNGUIDE_RATIO_WANT 값들,
+    실패 시 {}."""
+    out = {}
     try:
         r = requests.get("https://wcomp.fnguide.com/CompanyInfo/FinanceRatio",
-                         params=params, headers=_FNGUIDE_HEADERS, timeout=15)
+                         params={"c_id": "AA", "menu_type": "01", "cmp_cd": code},
+                         headers=_FNGUIDE_HEADERS, timeout=15)
         r.raise_for_status()
         m = re.search(r'rtoAccumulate\s*[:=]\s*(\{.*?\})\s*,\s*rtoAccumulate3Month',
                       r.text, re.S)
@@ -513,7 +523,7 @@ def fnguide_valuation(code):
             d = json.loads(m.group(1))
             cols = [h.get("CD") for h in (d.get("header") or []) if h.get("CD")] \
                    or [f"VAL{i}" for i in range(1, 6)]
-            want = {"ROE": "roe", "매출액증가율": "revGrowth"}
+            want = dict(_FNGUIDE_RATIO_WANT)
             for row in d.get("data") or []:
                 key = want.pop((row.get("NM") or "").strip(), None)
                 if not key:
@@ -527,7 +537,12 @@ def fnguide_valuation(code):
                     break
     except Exception as e:
         _warn(f"fnguide ratio({code}) failed: {e}")
+    return out
 
+
+def fnguide_valuation(code):
+    """Invest + FinanceRatio 통합 (하위호환 래퍼). 두 페이지 모두 실패하면 {}."""
+    out = {**fnguide_invest(code), **fnguide_ratios(code)}
     return out if any(v is not None for v in out.values()) else {}
 
 
