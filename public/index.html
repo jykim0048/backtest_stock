@@ -290,6 +290,11 @@
       color: var(--down-blue);
     }
 
+    .rate-badge.neu {
+      background: rgba(255,255,255,.07);
+      color: var(--text-muted);
+    }
+
     /* 📰 모닝 브리핑 배너 (전일 미국장 리뷰 + 당일 한국시장 프리뷰) */
     .briefing-banner {
       background: var(--panel-bg);
@@ -3421,8 +3426,9 @@
       savePortfolio();
     }
 
-    // 코스피/코스닥 지수 span 갱신. 데이터 소스는 /api/prices 의 indices(yfinance ^KS11/^KQ11,
-    // 약 15~20분 지연). 트레이딩 ON/OFF 와 무관하게 항상 반영한다.
+    // 코스피/코스닥 지수 span 갱신. 데이터 소스는 /api/prices 의 indices(네이버
+    // 지수 API — 장전엔 전일 종가, 장중·마감 후엔 당일 종가). 트레이딩 ON/OFF 와
+    // 무관하게 항상 반영. 등락률 0(장전 보합)은 중립 표시.
     function applyOneIndex(key, v) {
       if (!v || typeof v.price !== "number") return;
       const priceEl = document.getElementById(`${key}-index-price`);
@@ -3430,9 +3436,15 @@
       if (priceEl) priceEl.innerText = v.price.toLocaleString(undefined,
         { minimumFractionDigits: 2, maximumFractionDigits: 2 });
       if (rateEl) {
-        const up = (v.rate || 0) >= 0;
-        rateEl.innerText = (up ? "▲ +" : "▼ ") + (v.rate || 0).toFixed(2) + "%";
-        rateEl.className = "rate-badge " + (up ? "up" : "down");
+        const rate = v.rate || 0;
+        if (rate === 0) {
+          rateEl.innerText = "0.00%";
+          rateEl.className = "rate-badge neu";
+        } else {
+          const up = rate > 0;
+          rateEl.innerText = (up ? "▲ +" : "▼ ") + rate.toFixed(2) + "%";
+          rateEl.className = "rate-badge " + (up ? "up" : "down");
+        }
       }
     }
     function applyIndices(indices) {

@@ -277,6 +277,36 @@ def _ticker_map_fresh():
     return tmap
 
 
+def _naver_indices():
+    """코스피/코스닥 지수를 네이버에서 조회 — {kospi:{price,rate}, kosdaq:{...}}.
+
+    yfinance(^KS11/^KQ11)는 Railway 데이터센터 IP 에서 빈 응답을 주는 사례가
+    있어(KRX 계열 차단과 유사), 네이버 모바일 API 를 지수 1차 소스로 쓴다.
+    closePrice 는 장전(PREOPEN)엔 전일 종가, 장중·마감 후엔 당일 종가를 주므로
+    사용자 요구(장전=전일종가 / 마감후=당일종가)에 그대로 부합한다.
+    실패 시 {} (호출부에서 yfinance 폴백)."""
+    def _num(s):
+        try:
+            return float(str(s or "").replace(",", "").replace("+", ""))
+        except (ValueError, AttributeError):
+            return None
+    out = {}
+    for key, sym in (("kospi", "KOSPI"), ("kosdaq", "KOSDAQ")):
+        try:
+            req = urllib.request.Request(
+                f"https://m.stock.naver.com/api/index/{sym}/basic",
+                headers={"User-Agent": "Mozilla/5.0"})
+            with urllib.request.urlopen(req, timeout=8) as r:
+                d = json.loads(r.read().decode("utf-8"))
+            price = _num(d.get("closePrice"))
+            rate = _num(d.get("fluctuationsRatio"))
+            if price is not None:
+                out[key] = {"price": price, "rate": rate if rate is not None else 0.0}
+        except Exception as ex:
+            print(f"[prices] naver index {sym}: {ex}", file=sys.stderr, flush=True)
+    return out
+
+
 def _build_prices(codes_param):
     """api/index.py 의 시세 응답 생성 로직 이식(종목+지수 단일 yf.download)."""
     import yfinance as yf                     # ga 경유로 이미 로드돼 있어 비용 없음
@@ -294,7 +324,10 @@ def _build_prices(codes_param):
         ticker_map = _ticker_map_fresh()
     tickers_list = list(ticker_map.values())
 
-    idx_map = {} if is_codes else {"kospi": "^KS11", "kosdaq": "^KQ11"}
+    # 지수는 네이버 1차(yfinance 는 Railway IP 에서 지수 결측). ?codes= 요청엔 생략.
+    indices = {} if is_codes else _naver_indices()
+    idx_map = ({} if is_codes or indices
+               else {"kospi": "^KS11", "kosdaq": "^KQ11"})   # 네이버 실패 시에만 yf 폴백
     combined = tickers_list + [t for t in idx_map.values() if t not in tickers_list]
     df = (yf.download(combined, period="2d", group_by="ticker",
                       progress=False, threads=True) if combined else None)
@@ -328,8 +361,7 @@ def _build_prices(codes_param):
     market_state = ("REGULAR" if now.weekday() < 5
                     and 900 <= now.hour * 100 + now.minute <= 1530 else "CLOSED")
 
-    indices = {}
-    for key, tk in idx_map.items():
+    for key, tk in idx_map.items():          # 네이버 실패 시 yfinance 폴백만 채운다
         try:
             try:
                 d = df[tk]
