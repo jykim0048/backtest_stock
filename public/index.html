@@ -1505,8 +1505,8 @@
     <div class="drawer-section" id="drawer-analysis-sec">
       <h4 class="drawer-section-title">심층 리서치 (Deep Research)</h4>
       <div class="analysis-tabs">
-        <button class="analysis-tab" data-tab="research" onclick="selectAnalysisTab('research')" style="grid-column:1/-1;">🧾 증권사 리포트</button>
-        <button class="analysis-tab active" data-tab="peers" onclick="selectAnalysisTab('peers')">🌐 해외 Peer</button>
+        <button class="analysis-tab active" data-tab="research" onclick="selectAnalysisTab('research')" style="grid-column:1/-1;">🧾 증권사 리포트</button>
+        <button class="analysis-tab" data-tab="peers" onclick="selectAnalysisTab('peers')">🌐 해외 Peer</button>
         <button class="analysis-tab" data-tab="news" onclick="selectAnalysisTab('news')">📰 뉴스 분석</button>
         <button class="analysis-tab" data-tab="community" onclick="selectAnalysisTab('community')">💬 토론방</button>
         <button class="analysis-tab" data-tab="dart" onclick="selectAnalysisTab('dart')">📑 DART</button>
@@ -4336,7 +4336,7 @@
 
       // 하락 관찰은 계좌/매매 비대상이므로 딥리서치 패널을 바로 연다.
       selectDrawerPane(isDownSrc ? "research" : "account");
-      selectAnalysisTab("peers");
+      selectAnalysisTab("research");
 
       // Live prices initial update in drawer
       updateDrawerLivePrices(idx);
@@ -4367,7 +4367,7 @@
     }
 
     // ===== Deep Research analysis tabs =====
-    let currentAnalysisTab = "peers";
+    let currentAnalysisTab = "research";
 
     function escapeHtml(s) {
       return String(s == null ? "" : s)
@@ -5162,7 +5162,7 @@
         cbox.style.display = "";
       } else { cbox.style.display = "none"; }
       document.getElementById("od-body").style.display = "";
-      odTab("peers");
+      odTab("research");
     }
 
     async function odRun() {
@@ -5250,8 +5250,8 @@
       </div>
       <div id="od-body" style="display:none;">
         <div class="analysis-tabs">
-          <button class="analysis-tab" data-odtab="research" onclick="odTab('research')" style="grid-column:1/-1;">🧾 증권사 리포트</button>
-          <button class="analysis-tab active" data-odtab="peers" onclick="odTab('peers')">🌐 해외 Peer</button>
+          <button class="analysis-tab active" data-odtab="research" onclick="odTab('research')" style="grid-column:1/-1;">🧾 증권사 리포트</button>
+          <button class="analysis-tab" data-odtab="peers" onclick="odTab('peers')">🌐 해외 Peer</button>
           <button class="analysis-tab" data-odtab="news" onclick="odTab('news')">📰 뉴스 분석</button>
           <button class="analysis-tab" data-odtab="community" onclick="odTab('community')">💬 토론방</button>
           <button class="analysis-tab" data-odtab="dart" onclick="odTab('dart')">📑 DART</button>
