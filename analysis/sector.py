@@ -721,6 +721,9 @@ SYSTEM = (
     "- 테마 summary(테마 종합)는 대시보드에서 문장 단위 불릿으로 표시된다 — 반드시 3~4개의\n"
     "  완결된 문장으로 서술할 것 (미국 테마 동향, 국내 파급 경로, 밸류·모멘텀 근거, 관전 포인트 순).\n"
     "- regimeSummary·sentimentSummary 는 각각 2~3문장으로 서술할 것.\n"
+    "- RAW 의 themes 배열에 있는 **모든 테마**와 각 테마의 **모든 종목**을 빠짐없이 서술할 것.\n"
+    "  응답이 길어져도 뒤쪽 테마·종목을 생략하지 말 것. krTheme 과 종목 name 은 입력 표기\n"
+    "  그대로 echo 할 것 (병합 매칭 키).\n"
     "- 각 테마 종목에 대해 투자 포인트와 리스크를 균형 있게 서술할 것.\n"
     "- 테마의 direction 이 'down'(미국 급락 테마)이면 매수 관점이 아니라 **약세 주의 관점**으로:\n"
     "  summary 는 국내 파급 경로·경계 포인트를, 종목 point 는 '이 종목이 왜 영향권인지'를,\n"
@@ -921,8 +924,11 @@ def analyze_sectors(briefing, resolve_fn=None):
             raw = _build_raw(briefing, macro, regime, sentiment, sectors, themes, sector_scores)
             user = ("RAW 데이터(JSON):\n"
                     + json.dumps(raw, ensure_ascii=False))
+            # 한국어로 6개 테마 × 4종목의 summary/point/risk 를 전부 쓰면 6144 토큰을
+            # 초과해 JSON 이 잘리거나(파싱 실패 → 체인 이탈) 모델이 뒤쪽 테마를 통째로
+            # 생략했다(테마 종합 간헐 공백의 2차 원인). 여유 있게 늘린다.
             synth, model_used = llm.generate_json(
-                SYSTEM, user, max_tokens=6144, schema=SECTOR_SCHEMA, return_model=True)
+                SYSTEM, user, max_tokens=16384, schema=SECTOR_SCHEMA, return_model=True)
         except Exception as e:
             _warn(f"LLM 종합 실패: {e} — 기계적 결과만 반환")
     else:
@@ -987,19 +993,30 @@ def _override_verdicts(target_sectors, sector_scores):
     return out
 
 
+def _norm_key(s):
+    """테마/종목명 병합 매칭용 정규화 — LLM 이 echo 하며 넣거나 뺀 공백·가운뎃점류
+    표기 차이 때문에 exact 매칭이 깨져 summary/point 가 비던 것을 방지한다."""
+    return "".join(ch for ch in str(s or "") if ch not in " \t·ㆍ・")
+
+
 def _merge_theme_synth(themes, synth_themes):
     """Attach LLM point/risk to the deterministic theme-stock rows (matched by name)."""
-    by_theme = {t.get("krTheme", ""): t for t in synth_themes}
+    by_theme = {}
     by_stock = {}
     for t in synth_themes:
+        k = _norm_key(t.get("krTheme", ""))
+        if k:
+            by_theme[k] = t
         for s in (t.get("stocks") or []):
-            by_stock[s.get("name", "")] = s
+            sk = _norm_key(s.get("name", ""))
+            if sk:
+                by_stock[sk] = s
     out = []
     for t in themes:
-        st = by_theme.get(t["krTheme"], {})
+        st = by_theme.get(_norm_key(t["krTheme"]), {})
         stocks = []
         for s in t["stocks"]:
-            syn = by_stock.get(s.get("name", ""), {})
+            syn = by_stock.get(_norm_key(s.get("name", "")), {})
             stocks.append({**s, "point": syn.get("point", ""), "risk": syn.get("risk", "")})
         out.append({**t, "summary": st.get("summary", ""), "stocks": stocks})
     return out

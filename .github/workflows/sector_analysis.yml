@@ -1,0 +1,57 @@
+name: Sector Analysis (standalone)
+
+# 섹터·테마 분석만 단독 재실행 — 프롬프트/스키마 튜닝 검증용.
+# 정기 실행은 daily_report.yml 안의 sector 스텝이 담당하고, 이 워크플로는
+# 수동(workflow_dispatch) 전용이다. 입력 브리핑은 리포에 커밋된
+# public/briefing/latest.json 을 그대로 사용한다.
+on:
+  workflow_dispatch:
+
+# daily_report 등 리포트 커밋 워크플로들과 푸시 경합 방지 (같은 그룹으로 직렬화)
+concurrency:
+  group: report-push
+  cancel-in-progress: false
+
+jobs:
+  sector:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Generate sector & theme analysis
+        env:
+          FRED_API_KEY:      ${{ secrets.FRED_API_KEY }}
+          GEMINI_API_KEY:    ${{ secrets.GEMINI_API_KEY }}
+          LLM_CHAIN:         ${{ vars.LLM_CHAIN }}   # optional override; empty = default chain
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          DART_API_KEY:      ${{ secrets.DART_API_KEY }}
+        run: python generate_sector.py
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add public/sector_analysis.json public/reports/sector/
+          git diff --staged --quiet && echo "No changes to commit" && exit 0
+          git commit -m "chore: regenerate sector analysis $(date +'%Y-%m-%d') [skip railway]"
+          for i in $(seq 1 5); do
+            if git push origin HEAD:main; then echo "pushed (attempt $i)"; exit 0; fi
+            echo "push attempt $i rejected; rebasing onto latest main..."
+            git fetch origin main
+            git rebase FETCH_HEAD || { git rebase --abort; echo "::error::rebase conflict"; exit 1; }
+            sleep $((RANDOM % 4 + 2))
+          done
+          echo "::error::push failed after 5 attempts" && exit 1
