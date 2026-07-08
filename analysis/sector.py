@@ -799,15 +799,15 @@ def apply_risk_gate(entry):
 
 
 def quality_score(v):
-    """Q점수 v2 (0–100) — 모멘텀 30 : 성장 20 : 밸류 15 : 퀄리티 15 : 센티먼트 5
-    상대 가중 (수급 10 은 2단계 예정 — 네이버 trend API 프로브 통과 확인).
-    결측 팩터는 가중치 재배분하되 가용 가중치 50% 미만이면 미산출.
-    반환: {"score": int|None, "parts": {factor: 0-100}} — parts 는 UI 분해 표시용.
+    """Q점수 v2 (0–100) — 모멘텀 30 : 성장 20 : 밸류 15 : 퀄리티 15 : 수급 10 :
+    센티먼트 5 상대 가중. 결측 팩터는 가중치 재배분하되 가용 가중치 50% 미만이면
+    미산출. 반환: {"score": int|None, "parts": {factor: 0-100}} — UI 분해 표시용.
 
     - 모멘텀: 1M/3M/6M (KOSPI/KOSDAQ 상대 우선, 지수 미가용 시 절대) + 52주 고점 근접
     - 밸류: 절대 PER(적자 시 12M 선행 PER 대체) + 업종 상대 PER + PBR + 목표가 괴리
     - 성장: 매출성장률 (영업이익·EPS 성장은 3단계 FnGuide 확장 예정)
     - 퀄리티: 부채비율 + ROE
+    - 수급: 외국인·기관 5/20일 순매수 (상장주식수 대비 % — 네이버 trend API)
     - 센티먼트: 최근 60일 증권사 리포트 건수 (결정론적 프록시)"""
     comps = {}
 
@@ -852,8 +852,17 @@ def quality_score(v):
     if v.get("researchCount") is not None:
         comps["sentiment"] = _lin(v["researchCount"], 0, 4)
 
+    # 수급: 순매수가 상장주식수 대비 20일 ±1% / 5일 ±0.5% 를 만점/0점 경계로
+    flow_parts = []
+    for key, lo, hi in (("flowFrgn20", -1.0, 1.0), ("flowInst20", -1.0, 1.0),
+                        ("flowFrgn5", -0.5, 0.5), ("flowInst5", -0.5, 0.5)):
+        if v.get(key) is not None:
+            flow_parts.append(_lin(v[key], lo, hi))
+    if flow_parts:
+        comps["flow"] = sum(flow_parts) / len(flow_parts)
+
     weights = {"momentum": 0.30, "growth": 0.20, "valuation": 0.15,
-               "health": 0.15, "sentiment": 0.05}
+               "health": 0.15, "flow": 0.10, "sentiment": 0.05}
     avail = sum(weights[k] for k in comps)
     if avail < sum(weights.values()) * 0.5:
         return {"score": None, "parts": {k: round(s) for k, s in comps.items()}}
@@ -906,6 +915,19 @@ def theme_stocks(flow, resolve_fn, max_per_theme=4, direction="up"):
                 entry["researchCount"] = len(sources.combined_research(code, days=60, limit=8))
             except Exception as e:
                 _warn(f"research count {code}: {e}")
+            # 수급(Flow) — 외국인·기관 5/20일 순매수를 상장주식수 대비 %로
+            # (주식수 ≈ 시총/현재가 — 스케일 무관 강도 지표)
+            try:
+                trend = sources.naver_investor_trend(code, days=20)
+            except Exception as e:
+                trend = []
+                _warn(f"investor trend {code}: {e}")
+            if trend and entry.get("price") and entry.get("marketCap"):
+                shares = entry["marketCap"] / entry["price"]
+                if shares > 0:
+                    for key, grp, n in (("flowFrgn5", "foreigner", 5), ("flowFrgn20", "foreigner", 20),
+                                        ("flowInst5", "organ", 5), ("flowInst20", "organ", 20)):
+                        entry[key] = round(sum(r[grp] for r in trend[:n]) / shares * 100, 3)
             qs = quality_score(entry)
             entry["qScore"] = qs["score"]
             if qs["parts"]:
@@ -1114,7 +1136,8 @@ def _build_raw(briefing, macro, regime, sentiment, sectors, themes, sector_score
                                                       "industryPer", "pbr", "roe",
                                                       "revGrowth", "qScore", "targetUpside",
                                                       "beta", "from52WHigh", "recentFiling",
-                                                      "riskFlags", "researchCount")}
+                                                      "riskFlags", "researchCount",
+                                                      "flowFrgn20", "flowInst20")}
                                for s in t["stocks"]]}
                    for t in themes],
     }

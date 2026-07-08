@@ -630,6 +630,42 @@ def combined_research(code, days=60, limit=8):
 
 
 # ----------------------------------------------------------------------------
+# 2i) 네이버 투자자별 매매동향 (Q점수 Flow 팩터 — 외국인·기관 순매수)
+#     m.stock.naver.com 모바일 JSON API. Actions 해외 IP 접근성은
+#     .github/naver_flow_probe_result.json 으로 검증됨(2026-07-08, KRX 와 달리
+#     차단 없음). 폴백 후보: finance.naver.com/item/frgn.naver HTML.
+# ----------------------------------------------------------------------------
+def naver_investor_trend(code, days=20):
+    """일별 투자자 순매수(주) 목록 — 최신순 [{date, foreigner, organ}].
+
+    foreignerPureBuyQuant 등은 "+7,870,568" 형태 문자열이라 int 로 정규화.
+    실패 시 [] (배치 중단 방지)."""
+    try:
+        r = requests.get(
+            f"https://m.stock.naver.com/api/stock/{code}/trend",
+            params={"pageSize": max(days, 5), "page": 1},
+            headers=UA, timeout=15)
+        r.raise_for_status()
+        rows = r.json() or []
+        if not isinstance(rows, list):
+            rows = []
+    except Exception as e:
+        _warn(f"naver_investor_trend({code}) failed: {e}")
+        return []
+
+    def _qty(s):
+        try:
+            return int(str(s or "0").replace(",", "").replace("+", ""))
+        except ValueError:
+            return 0
+
+    return [{"date": (row.get("bizdate") or "").strip(),
+             "foreigner": _qty(row.get("foreignerPureBuyQuant")),
+             "organ": _qty(row.get("organPureBuyQuant"))}
+            for row in rows[:days]]
+
+
+# ----------------------------------------------------------------------------
 # 3) Tavily Search API (overseas news, reddit)
 # ----------------------------------------------------------------------------
 def tavily_search(query, max_results=5, include_domains=None):
