@@ -544,8 +544,10 @@ def fnguide_research(code, days=60, limit=8):
     """FnGuide 요약리포트를 naver_research 와 같은 스키마로 파싱한다.
 
     Returns list of {title, broker, date, url, pdfUrl, targetPrice, opinion,
-    summary} (최신순, days 일 이내). 원문 PDF 는 제공되지 않아 url 은 해당
-    종목의 요약리포트 페이지로 연결한다. 실패 시 [] (배치 중단 방지).
+    summary, source} (최신순, days 일 이내). 원문 PDF 는 제공되지 않아 url 은
+    종목 스코프의 CompanyInfo/Consensus 페이지(리포트 요약 섹션 포함)로 연결한다
+    — Report/ReportSummary 는 URL 의 cmp_cd 를 읽지 않아 전체 목록으로 열리므로
+    쓰지 않는다(2026-07-08 검색 스크립트 실측). 실패 시 [] (배치 중단 방지).
     """
     kst = datetime.timezone(datetime.timedelta(hours=9))
     today = datetime.datetime.now(kst).date()
@@ -566,8 +568,7 @@ def fnguide_research(code, days=60, limit=8):
         _warn(f"fnguide_research({code}) failed: {e}")
         return []
 
-    page_url = ("https://wcomp.fnguide.com/Report/ReportSummary"
-                f"?c_id=AA&menu_type=01&cmp_cd={code}")
+    page_url = f"https://wcomp.fnguide.com/CompanyInfo/Consensus?cmp_cd={code}"
     out = []
     for row in rows:
         if str(row.get("CMP_CD") or "").strip() != str(code):
@@ -590,6 +591,7 @@ def fnguide_research(code, days=60, limit=8):
             "targetPrice": int(tp) if tp else None,
             "opinion": (row.get("RECOMM_NM") or "").strip(),
             "summary": " / ".join(ln for ln in lines if ln)[:500],
+            "source": "fnguide",   # 프론트 출처 라벨용 (네이버 항목은 필드 없음)
         })
         if len(out) >= limit:
             break
