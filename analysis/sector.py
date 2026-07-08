@@ -388,11 +388,13 @@ def fetch_etf_pes(tickers):
     return pes
 
 
-# --- 타깃 섹터 스코어카드 v2 — 퀀트 팩터 8항목 23점 -------------------------
-# (v1 은 skill Step 3-3 의 5항목 17점.) 스윙/모멘텀 목적에 맞춰 모멘텀 계열
-# (상대모멘텀·52주 고점 근접·추세 가속) 비중 ~35%. 신규 항목은 전부 이미
-# 내려받는 1Y 일봉·FRED 에서 계산(추가 수집 없음). verdict 는 비율 컷오프라
-# 항목이 바뀌어도 기준이 유지된다 (>=70% OW, >=40% N, 미만 UW).
+# --- 타깃 섹터 스코어카드 v2 — 퀀트 팩터 8항목, 총점 100점 환산 --------------
+# (v1 은 skill Step 3-3 의 5항목 17점.) 내부 루브릭은 항목별 정수 빈(합 23점)
+# 이고 노출 총점은 100점 환산(score/maxScore=100, 원점수는 rawScore/rawMax).
+# 스윙/모멘텀 목적에 맞춰 모멘텀 계열(상대모멘텀·52주 고점 근접·추세 가속)
+# 비중 ~35%. 신규 항목은 전부 이미 내려받는 1Y 일봉·FRED 에서 계산(추가 수집
+# 없음). verdict 는 비율 컷오프라 항목이 바뀌어도 기준이 유지된다
+# (>=70% OW, >=40% N, 미만 UW).
 _ETF_CANON = {  # ETF -> regime.preferredSectors 명칭
     "XLK": "Tech", "SMH": "Tech", "XLC": "Tech",
     "XLV": "Healthcare", "XBI": "Healthcare",
@@ -551,13 +553,17 @@ def score_sectors(sectors, regime, sentiment_score, benchmark, etf_pes, macro=No
             ro, ro_note = 2, f"중립 ({risk_desc})"
         parts.append({"key": "riskonoff", "label": "리스크 온/오프 정합성", "score": ro, "max": 3, "note": ro_note})
 
-        total = sum(p["score"] for p in parts)
-        max_score = sum(p["max"] for p in parts)
-        pct = total / max_score if max_score else 0
+        # 총점은 100점 환산으로 노출 (내부 루브릭은 8항목 23점 정수 빈 — raw* 로 보존).
+        # verdict 비율 컷(70/40%)과 항목별 score/max 표시는 그대로다.
+        raw = sum(p["score"] for p in parts)
+        raw_max = sum(p["max"] for p in parts)
+        pct = raw / raw_max if raw_max else 0
         verdict = "OW" if pct >= 0.70 else ("N" if pct >= 0.40 else "UW")
-        out[tk] = {"etf": tk, "name": s["name"], "score": total, "maxScore": max_score,
+        out[tk] = {"etf": tk, "name": s["name"],
+                   "score": round(pct * 100), "maxScore": 100,
+                   "rawScore": raw, "rawMax": raw_max,
                    "verdict": verdict, "parts": parts,
-                   "source": "결정론적 산출 (퀀트 팩터 스코어카드 v2 — 8항목 23점, 모멘텀 계열 35%)"}
+                   "source": "결정론적 산출 (퀀트 팩터 스코어카드 v2 — 8항목 100점 환산, 모멘텀 계열 35%)"}
     return out
 
 
