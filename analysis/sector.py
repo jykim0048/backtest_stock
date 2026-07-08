@@ -388,13 +388,13 @@ def fetch_etf_pes(tickers):
     return pes
 
 
-# --- 타깃 섹터 스코어카드 v2 — 퀀트 팩터 8항목, 총점 100점 환산 --------------
-# (v1 은 skill Step 3-3 의 5항목 17점.) 내부 루브릭은 항목별 정수 빈(합 23점)
-# 이고 노출 총점은 100점 환산(score/maxScore=100, 원점수는 rawScore/rawMax).
-# 스윙/모멘텀 목적에 맞춰 모멘텀 계열(상대모멘텀·52주 고점 근접·추세 가속)
-# 비중 ~35%. 신규 항목은 전부 이미 내려받는 1Y 일봉·FRED 에서 계산(추가 수집
-# 없음). verdict 는 비율 컷오프라 항목이 바뀌어도 기준이 유지된다
-# (>=70% OW, >=40% N, 미만 UW).
+# --- 타깃 섹터 스코어카드 v2 — 퀀트 팩터 8항목 × 5점, 총점 100점 환산 --------
+# (v1 은 skill Step 3-3 의 5항목 17점.) 항목별 만점을 5점으로 통일(내부 40점,
+# UI 막대 스케일 일관성) — 항목 가중은 균등 12.5%, 모멘텀 계열(상대모멘텀·
+# 52주 고점 근접·추세 가속) 합산 37.5%. 노출 총점은 100점 환산
+# (score/maxScore=100, 원점수는 rawScore/rawMax). 신규 항목은 전부 이미
+# 내려받는 1Y 일봉·FRED 에서 계산(추가 수집 없음). verdict 는 비율 컷오프라
+# 항목이 바뀌어도 기준이 유지된다 (>=70% OW, >=40% N, 미만 UW).
 _ETF_CANON = {  # ETF -> regime.preferredSectors 명칭
     "XLK": "Tech", "SMH": "Tech", "XLC": "Tech",
     "XLV": "Healthcare", "XBI": "Healthcare",
@@ -461,29 +461,29 @@ def score_sectors(sectors, regime, sentiment_score, benchmark, etf_pes, macro=No
         parts = []
         kind, kind_note = _beta_kind(s)
 
-        # ① 매크로 적합도 (0–4): 국면 선호 섹터 여부
+        # ① 매크로 적합도 (0–5): 국면 선호 섹터 여부
         canon = _ETF_CANON.get(tk, "")
         if canon in prefer:
-            m = 3 if tk in _SUB_ETFS else 4
+            m = 4 if tk in _SUB_ETFS else 5
             m_note = f"{regime.get('regime','')} 국면 선호 섹터" + (" (서브섹터)" if tk in _SUB_ETFS else "")
         else:
             m, m_note = 2, "국면 선호 섹터 아님 (중립)"
-        parts.append({"key": "macro", "label": "매크로 적합도", "score": m, "max": 4, "note": m_note})
+        parts.append({"key": "macro", "label": "매크로 적합도", "score": m, "max": 5, "note": m_note})
 
-        # ② 센티먼트 정합성 (0–2): F&G 구간 x 섹터 성격(실측 베타)
+        # ② 센티먼트 정합성 (0–5): F&G 구간 x 섹터 성격(실측 베타)
         if sentiment_score is None:
             sc, sc_note = 0, "센티먼트 미가용"
         elif sentiment_score >= 56:
-            sc = {"high": 2, "mid": 1, "low": 0}[kind]
+            sc = {"high": 5, "mid": 3, "low": 1}[kind]
             sc_note = f"Greed({sentiment_score}) — 고베타 우위 ({kind_note})"
         elif sentiment_score >= 45:
-            sc, sc_note = 1, f"Neutral 구간({sentiment_score})"
+            sc, sc_note = 3, f"Neutral 구간({sentiment_score})"
         else:
-            sc = {"low": 2, "mid": 1, "high": 0}[kind]
+            sc = {"low": 5, "mid": 3, "high": 1}[kind]
             sc_note = f"Fear({sentiment_score}) — 저베타 우위 ({kind_note})"
-        parts.append({"key": "sentiment", "label": "센티먼트 정합성", "score": sc, "max": 2, "note": sc_note})
+        parts.append({"key": "sentiment", "label": "센티먼트 정합성", "score": sc, "max": 5, "note": sc_note})
 
-        # ③ 상대 모멘텀 합성 (0–4): 1M/3M/6M SPY 대비 초과수익 가중합성 (.25/.5/.25)
+        # ③ 상대 모멘텀 합성 (0–5): 1M/3M/6M SPY 대비 초과수익 가중합성 (.25/.5/.25)
         exs = []
         for k, w in (("ret1M", 0.25), ("ret3M", 0.5), ("ret6M", 0.25)):
             r, b = s.get(k), (benchmark or {}).get(k)
@@ -491,67 +491,71 @@ def score_sectors(sectors, regime, sentiment_score, benchmark, etf_pes, macro=No
                 exs.append((r - b, w))
         if exs:
             comp = sum(e * w for e, w in exs) / sum(w for _, w in exs)
-            mo = 4 if comp > 5 else (3 if comp > 2 else (2 if comp > 0 else (1 if comp > -5 else 0)))
+            mo = (5 if comp > 5 else 4 if comp > 2 else 3 if comp > 0
+                  else 2 if comp > -5 else 1 if comp > -10 else 0)
             mo_note = f"SPY 대비 합성 {comp:+.1f}%p (1M/3M/6M)"
         else:
             mo, mo_note = 0, "수익률 미가용"
-        parts.append({"key": "momentum", "label": "상대 모멘텀 합성", "score": mo, "max": 4, "note": mo_note})
+        parts.append({"key": "momentum", "label": "상대 모멘텀 합성", "score": mo, "max": 5, "note": mo_note})
 
-        # ④ 52주 고점 근접도 (0–2): 고점 회복력 (앵커드 모멘텀)
+        # ④ 52주 고점 근접도 (0–5): 고점 회복력 (앵커드 모멘텀)
         gap = s.get("from52WHigh")
         if gap is None:
             hi, hi_note = 0, "고점 이격 미가용"
         else:
-            hi = 2 if gap >= -5 else (1 if gap >= -15 else 0)
+            hi = (5 if gap >= -3 else 4 if gap >= -8 else 3 if gap >= -15
+                  else 2 if gap >= -25 else 1 if gap >= -40 else 0)
             hi_note = f"52주 고점 대비 {gap:+.1f}%"
-        parts.append({"key": "high52w", "label": "52주 고점 근접", "score": hi, "max": 2, "note": hi_note})
+        parts.append({"key": "high52w", "label": "52주 고점 근접", "score": hi, "max": 5, "note": hi_note})
 
-        # ⑤ 추세 가속 (0–2): 최근 3M vs 직전 3M 수익률 가속도 (가격 지표)
+        # ⑤ 추세 가속 (0–5): 최근 3M vs 직전 3M 수익률 가속도 (가격 지표)
         r3, r6 = s.get("ret3M"), s.get("ret6M")
         if r3 is None or r6 is None:
             gr, gr_note = 0, "수익률 미가용"
         else:
             accel = r3 - (r6 - r3)
-            gr = 2 if accel > 3 else (1 if accel > 0 else 0)
+            gr = (5 if accel > 8 else 4 if accel > 3 else 3 if accel > 0
+                  else 2 if accel > -5 else 1 if accel > -10 else 0)
             gr_note = f"3M 가속도 {accel:+.1f}%p"
-        parts.append({"key": "accel", "label": "추세 가속", "score": gr, "max": 2, "note": gr_note})
+        parts.append({"key": "accel", "label": "추세 가속", "score": gr, "max": 5, "note": gr_note})
 
-        # ⑥ 밸류에이션 매력도 (0–3): ETF trailing PE vs 섹터 중앙값
+        # ⑥ 밸류에이션 매력도 (0–5): ETF trailing PE vs 섹터 중앙값
         pe = etf_pes.get(tk)
         if pe is None or pe_median is None:
-            va, va_note = 1, "ETF PE 미가용 (중립 1점)"
+            va, va_note = 2, "ETF PE 미가용 (중립 2점)"
         else:
             ratio = pe / pe_median
-            va = 3 if ratio < 0.85 else (2 if ratio < 1.0 else (1 if ratio < 1.15 else 0))
+            va = (5 if ratio < 0.85 else 4 if ratio < 0.95 else 3 if ratio < 1.05
+                  else 2 if ratio < 1.15 else 1 if ratio < 1.30 else 0)
             va_note = f"PE {pe} vs 중앙값 {pe_median} ({ratio:.2f}배)"
-        parts.append({"key": "valuation", "label": "밸류에이션 매력도", "score": va, "max": 3, "note": va_note})
+        parts.append({"key": "valuation", "label": "밸류에이션 매력도", "score": va, "max": 5, "note": va_note})
 
-        # ⑦ 저변동·하방 방어 (0–3): 실현변동성 3분위(0–2) + MDD 중앙값 대비(+1)
+        # ⑦ 저변동·하방 방어 (0–5): 실현변동성 3분위(0/2/4) + MDD 중앙값 대비(+1)
         vol, mdd = s.get("vol60"), s.get("mdd1Y")
         if vol is None:
-            lv, lv_note = 1, "변동성 미가용 (중립 1점)"
+            lv, lv_note = 2, "변동성 미가용 (중립 2점)"
         else:
-            lv = 2 - _tercile(vols, vol)           # 변동성 낮을수록 가점
+            lv = (2 - _tercile(vols, vol)) * 2     # 변동성 낮을수록 가점 (0/2/4)
             lv_note = f"실현변동성 {vol}% (60일 연율)"
             if mdd is not None and mdd_median is not None and mdd > mdd_median:
                 lv += 1                            # 낙폭이 중앙값보다 얕음
                 lv_note += f" · MDD {mdd}% (중앙값보다 얕음)"
             elif mdd is not None:
                 lv_note += f" · MDD {mdd}%"
-        parts.append({"key": "lowvol", "label": "저변동·하방 방어", "score": lv, "max": 3, "note": lv_note})
+        parts.append({"key": "lowvol", "label": "저변동·하방 방어", "score": lv, "max": 5, "note": lv_note})
 
-        # ⑧ 리스크 온/오프 정합성 (0–3): 리스크 환경 x 섹터 베타
+        # ⑧ 리스크 온/오프 정합성 (0–5): 리스크 환경 x 섹터 베타
         if risk_env is None:
-            ro, ro_note = 2, risk_desc + " (중립 2점)"
+            ro, ro_note = 3, risk_desc + " (중립 3점)"
         elif risk_env == "risk-on":
-            ro = {"high": 3, "mid": 2, "low": 1}[kind]
+            ro = {"high": 5, "mid": 3, "low": 1}[kind]
             ro_note = f"리스크온 ({risk_desc}) — 고베타 우위 ({kind_note})"
         elif risk_env == "risk-off":
-            ro = {"low": 3, "mid": 2, "high": 1}[kind]
+            ro = {"low": 5, "mid": 3, "high": 1}[kind]
             ro_note = f"리스크오프 ({risk_desc}) — 저베타 우위 ({kind_note})"
         else:
-            ro, ro_note = 2, f"중립 ({risk_desc})"
-        parts.append({"key": "riskonoff", "label": "리스크 온/오프 정합성", "score": ro, "max": 3, "note": ro_note})
+            ro, ro_note = 3, f"중립 ({risk_desc})"
+        parts.append({"key": "riskonoff", "label": "리스크 온/오프 정합성", "score": ro, "max": 5, "note": ro_note})
 
         # 총점은 100점 환산으로 노출 (내부 루브릭은 8항목 23점 정수 빈 — raw* 로 보존).
         # verdict 비율 컷(70/40%)과 항목별 score/max 표시는 그대로다.
@@ -563,7 +567,7 @@ def score_sectors(sectors, regime, sentiment_score, benchmark, etf_pes, macro=No
                    "score": round(pct * 100), "maxScore": 100,
                    "rawScore": raw, "rawMax": raw_max,
                    "verdict": verdict, "parts": parts,
-                   "source": "결정론적 산출 (퀀트 팩터 스코어카드 v2 — 8항목 100점 환산, 모멘텀 계열 35%)"}
+                   "source": "결정론적 산출 (퀀트 팩터 스코어카드 v2 — 8항목×5점 100점 환산, 모멘텀 계열 37.5%)"}
     return out
 
 

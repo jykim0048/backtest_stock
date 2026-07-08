@@ -459,14 +459,28 @@
     .sd-score-head { display: flex; align-items: baseline; gap: 12px; margin: 4px 0 8px; }
     .sd-score-total { font-size: 26px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
     .sd-score-total .max { font-size: 14px; font-weight: 400; color: var(--text-muted); }
-    .sd-sc-row { display: flex; align-items: center; gap: 9px; padding: 3px 0; font-size: 12px; }
+    /* 행 클릭 → 계산 내역 전체 펼침 (.open). note 는 고정폭 칼럼이라 막대 길이가
+       행마다 동일하고, 펼친 내역(detail)은 둘째 줄 전체 폭을 쓴다. */
+    .sd-sc-row { display: flex; align-items: center; flex-wrap: wrap; gap: 9px; padding: 3px 0;
+      font-size: 12px; cursor: pointer; }
     .sd-sc-row .lbl { flex: 0 0 126px; color: var(--text-muted); }
-    .sd-sc-row .bar { flex: 1; height: 6px; background: rgba(255,255,255,.06); border-radius: 3px; overflow: hidden; }
+    .sd-sc-row .lbl::before { content: "▸"; display: inline-block; width: 11px; font-size: 9px;
+      color: var(--text-muted); opacity: .55; transition: transform .15s; }
+    .sd-sc-row.open .lbl::before { transform: rotate(90deg); }
+    .sd-sc-row .bar { flex: 1; min-width: 90px; height: 6px; background: rgba(255,255,255,.06);
+      border-radius: 3px; overflow: hidden; }
     .sd-sc-row .bar span { display: block; height: 100%; background: var(--kosdaq-green); border-radius: 3px; }
     .sd-sc-row .val { flex: 0 0 30px; text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
-    .sd-sc-row .note { flex: 0 1 auto; max-width: 185px; font-size: 10.5px; color: var(--text-muted);
+    .sd-sc-row .note { flex: 0 0 215px; max-width: 215px; font-size: 10.5px; color: var(--text-muted);
       overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    @media (max-width: 560px) { .sd-sc-row .note { display: none; } }
+    .sd-sc-row.open .note { visibility: hidden; }
+    .sd-sc-row .detail { display: none; flex: 1 0 100%; padding: 1px 0 4px 137px;
+      font-size: 11px; line-height: 1.55; color: #cbd5e1; white-space: normal; }
+    .sd-sc-row.open .detail { display: block; }
+    @media (max-width: 560px) {
+      .sd-sc-row .note { display: none; }
+      .sd-sc-row .detail { padding-left: 0; }
+    }
     .sd-q { display: inline-block; min-width: 26px; text-align: center; font-size: 11.5px;
       font-weight: 700; padding: 1px 7px; border-radius: 10px; }
     .sd-q.good { background: rgba(16,185,129,.15); color: #10b981; }
@@ -5005,10 +5019,12 @@
         const vTxt = { "OW": "OW · 비중확대", "N": "N · 중립", "UW": "UW · 비중축소" }[card.verdict] || _brEsc(card.verdict || "");
         const scRows = (card.parts || []).map(p => {
           const pct = p.max ? Math.round((p.score / p.max) * 100) : 0;
-          return `<div class="sd-sc-row"><span class="lbl">${_brEsc(p.label)}</span>`
+          const note = _brEsc(p.note || "");
+          return `<div class="sd-sc-row" onclick="this.classList.toggle('open')"><span class="lbl">${_brEsc(p.label)}</span>`
                + `<span class="bar"><span style="width:${pct}%"></span></span>`
                + `<span class="val">${p.score}/${p.max}</span>`
-               + `<span class="note" title="${_brEsc(p.note || "")}">${_brEsc(p.note || "")}</span></div>`;
+               + `<span class="note" title="${note}">${note}</span>`
+               + `<div class="detail">${note}</div></div>`;
         }).join("");
         targetSection = `
         <div class="sd-sec-h">🎯 타깃 섹터 스코어카드 <span class="sd-badge ${vCls}">${vTxt}</span>
