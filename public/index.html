@@ -425,6 +425,24 @@
     .briefing-flowcols .fu-theme, .briefing-flowcols .fk-theme { font-size: 13px; }
     .briefing-flowcols .fu-syms { font-size: 11.5px; }
     .briefing-flowcols .fk-name { font-size: 11.5px; }
+    /* 🔴 장중 시황 배너 — 테마 카드/밸류체인 칩/촉매 목록 (모닝브리핑 스타일 확장) */
+    .ib-theme { background: rgba(255,255,255,.03); border: 1px solid var(--border-color);
+      border-radius: 10px; padding: 9px 11px; margin-bottom: 8px; }
+    .ib-t-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+    .ib-t-name { font-size: 13px; font-weight: 700; }
+    .ib-t-chg { font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .ib-t-comment { font-size: 11.5px; color: #cbd5e1; line-height: 1.5; margin-top: 3px; }
+    .ib-t-stocks { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+    .ib-stock { font-size: 11px; padding: 2px 8px; border-radius: 8px; cursor: pointer;
+      background: rgba(255,255,255,.05); border: 1px solid var(--border-color); white-space: nowrap; }
+    .ib-stock:hover { border-color: var(--kospi-blue); }
+    .ib-cat-row { display: flex; gap: 7px; align-items: baseline; font-size: 12.5px;
+      line-height: 1.55; margin-top: 5px; }
+    .ib-cat-row .k { flex: 0 0 auto; }
+    .ib-raw { margin-top: 8px; font-size: 11.5px; color: var(--text-muted); }
+    .ib-raw summary { cursor: pointer; font-weight: 600; }
+    .ib-raw li { margin: 3px 0; line-height: 1.5; }
+    .ib-raw a { color: var(--text-muted); }
     .briefing-flowempty { font-size: 12.5px; color: var(--text-muted); text-align: center;
       padding: 16px 8px; border: 1px dashed var(--border-color); border-radius: 9px; }
     @media (max-width: 760px) { .briefing-flowcols { grid-template-columns: 1fr; gap: 10px; } }
@@ -1620,6 +1638,23 @@
         </div>
       </div>
       <div class="briefing-body" id="briefing-body"></div>
+    </section>
+
+    <!-- 🔴 장중 시황: 한국장 급등/급락 테마 + 밸류체인 + 장중 촉매 (intraday_briefing.json, 30분 회차). 데이터 없으면 숨김. -->
+    <section class="briefing-banner" id="ib-banner" style="display:none;">
+      <div class="briefing-head" onclick="document.getElementById('ib-banner').classList.toggle('collapsed')">
+        <div class="briefing-head-left">
+          <span class="briefing-icon">🔴</span>
+          <span class="briefing-title">장중 시황</span>
+          <span class="briefing-badge">KR LIVE</span>
+          <span class="briefing-date" id="ib-date"></span>
+        </div>
+        <div class="briefing-head-right">
+          <span class="briefing-stance neutral" id="ib-status">—</span>
+          <span class="briefing-toggle">▲</span>
+        </div>
+      </div>
+      <div class="briefing-body" id="ib-body"></div>
     </section>
 
     <!-- Main Workspace Layout -->
@@ -2928,6 +2963,119 @@
       `;
     }
 
+    // ===== 🔴 장중 시황 (intraday_briefing.json — 30분 회차, 파이프라인 산출) =====
+    let _ibLastAsof = null;
+
+    async function loadIntradayBriefing() {
+      const banner = document.getElementById("ib-banner");
+      try {
+        const r = await fetch(`intraday_briefing.json?t=${Date.now()}`, { cache: "no-store" });
+        if (!r.ok) { banner.style.display = "none"; return; }
+        const d = await r.json();
+        if (!d || !d.asof) { banner.style.display = "none"; return; }
+        if (d.asof !== _ibLastAsof) {       // 동일 회차면 리렌더 생략
+          _ibLastAsof = d.asof;
+          renderIntradayBriefing(d);
+        }
+        banner.style.display = "";
+      } catch (_) { banner.style.display = "none"; }
+    }
+
+    // 시황 밸류체인 칩 클릭 → 온디맨드 딥리서치 검색 실행
+    function ibResearch(name) {
+      const input = document.getElementById("od-input");
+      if (!input) return;
+      input.value = name;
+      odRun();
+    }
+
+    function renderIntradayBriefing(d) {
+      const today = todayKST();
+      document.getElementById("ib-date").textContent = `${d.asof || ""} 회차`;
+      const statusEl = document.getElementById("ib-status");
+      if (d.date !== today) {
+        statusEl.textContent = `${d.date} 마감 시황`;
+        statusEl.className = "briefing-stance neutral";
+      } else if (isMarketOpen()) {
+        statusEl.textContent = "LIVE";
+        statusEl.className = "briefing-stance on";
+      } else {
+        statusEl.textContent = "장 마감 · 최종 회차";
+        statusEl.className = "briefing-stance neutral";
+      }
+
+      // 지수 칩
+      const idx = d.indices || {};
+      const chips = [["KOSPI", idx.kospi], ["KOSDAQ", idx.kosdaq]]
+        .filter(([, v]) => v && typeof v.price === "number")
+        .map(([nm, v]) => `<div class="briefing-chip"><div class="c-name">${nm}</div>`
+          + `<div class="c-val" style="color:${_brPctColor(v.rate)}">${v.price.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} · ${_brPctFmt(v.rate)}%</div></div>`)
+        .join("");
+
+      // LLM 시황 브리핑 불릿
+      const bullets = (d.briefing || []).length
+        ? `<ul class="briefing-usbullets">${d.briefing.map(b => `<li>${_brEsc(b)}</li>`).join("")}</ul>` : "";
+
+      // 테마 카드 (급등/급락 각 3 — 동일 비중)
+      const themeCard = (t) => {
+        const stocks = (t.stocks || []).map(s => {
+          const pct = (s.changePct == null) ? "" : ` <span style="color:${_brPctColor(s.changePct)}">${_brPctFmt(s.changePct)}%</span>`;
+          const tip = _brEsc(s.reason || "");
+          return `<span class="ib-stock" ${tip ? `title="${tip}"` : ""} onclick="ibResearch('${_brEsc(s.name)}')">${_brEsc(s.name)}${pct}</span>`;
+        }).join("");
+        return `<div class="ib-theme">
+          <div class="ib-t-head"><span class="ib-t-name">${_brEsc(t.name)}</span>
+            <span class="ib-t-chg" style="color:${_brPctColor(t.changePct)}">${_brPctFmt(t.changePct)}%</span></div>
+          ${t.comment ? `<div class="ib-t-comment">${_brEsc(t.comment)}</div>` : ""}
+          <div class="ib-t-stocks">${stocks}</div>
+        </div>`;
+      };
+      const upCol = (d.themesUp || []).map(themeCard).join("")
+        || `<div class="briefing-flowempty">급등 테마 없음</div>`;
+      const downCol = (d.themesDown || []).map(themeCard).join("")
+        || `<div class="briefing-flowempty">급락 테마 없음</div>`;
+
+      // 장중 촉매 (LLM 선별 공시·뉴스)
+      const catRows = (d.catalysts || []).map(c => {
+        const icon = c.kind === "disclosure" ? "📑" : "📰";
+        const label = c.corp ? `<b>${_brEsc(c.corp)}</b> · ` : "";
+        const link = c.url ? ` <a href="${_brEsc(c.url)}" target="_blank" rel="noopener" style="color:var(--text-muted); font-size:11px;">원문</a>` : "";
+        return `<div class="ib-cat-row"><span class="k">${icon}</span><span>${label}${_brEsc(c.summary || c.title)}${link}</span></div>`;
+      }).join("");
+      const catBox = catRows
+        ? `<div class="briefing-catalyst"><div class="cat-h">⚡ 장중 주요 촉매</div>${catRows}</div>` : "";
+
+      // 원자료 접기 (당일 촉매성 공시 / 특징주 뉴스)
+      const rawList = (title, items, fmt) => (items || []).length
+        ? `<details class="ib-raw"><summary>${title} ${items.length}건</summary>
+            <ul>${items.map(fmt).join("")}</ul></details>` : "";
+      const rawDisc = rawList("📑 당일 촉매성 공시", d.disclosures, x =>
+        `<li><b>${_brEsc(x.corp)}</b> — <a href="${_brEsc(x.url)}" target="_blank" rel="noopener">${_brEsc(x.title)}</a></li>`);
+      const rawNews = rawList("📰 특징주 뉴스", d.news, x =>
+        `<li><a href="${_brEsc(x.link || "")}" target="_blank" rel="noopener">${_brEsc(x.title)}</a></li>`);
+
+      const genLabel = (d.generatedBy === "mechanical") ? "기계적 요약" : `LLM 기반 (${_brEsc(d.generatedBy || "")})`;
+      document.getElementById("ib-body").innerHTML = `
+        <div class="briefing-panel">
+          ${chips ? `<div class="briefing-chips">${chips}</div>` : ""}
+          ${bullets}
+        </div>
+        <div class="briefing-flowcols">
+          <div class="briefing-flowcol">
+            <div class="briefing-flowlabels"><span class="flow-lbl"><span class="fl-dot" style="background:var(--up-red)"></span>🔥 급등 테마</span></div>
+            ${upCol}
+          </div>
+          <div class="briefing-flowcol">
+            <div class="briefing-flowlabels"><span class="flow-lbl"><span class="fl-dot" style="background:var(--down-blue)"></span>🧊 급락 테마</span></div>
+            ${downCol}
+          </div>
+        </div>
+        ${catBox}
+        ${rawDisc}${rawNews}
+        <div class="briefing-foot">자동 생성 · ${genLabel} · 네이버 금융·DART · 투자 판단 참고용</div>
+      `;
+    }
+
     // Load a report by date string (YYYY-MM-DD) or "today"
     async function loadDynamicReportData(date) {
       const base = (!date || date === "today")
@@ -3153,6 +3301,7 @@
       await loadDownData();            // 📉 장전 하락 관찰(참고 전용)
       await loadIntradayDownData();    // 📉 장중 하락 관찰(참고 전용)
       loadBriefing("today");   // 📰 모닝 브리핑(전일 미국장 리뷰 + 당일 한국 프리뷰)
+      loadIntradayBriefing();  // 🔴 장중 시황(한국장 테마·촉매, 30분 회차)
       refreshIndicesOnce();    // 📈 지수 카드 — 장외에도 전일 종가 1회 반영
       isLiveView = true;
       // 저장된 모의투자 계좌를 복원 (없으면 깨끗한 계좌). 새로고침/장 마감 후에도 누적 유지.
@@ -3207,6 +3356,7 @@
         renderWatchTable();
         renderWatchDownTable();
         updateWatchAsof();
+        loadIntradayBriefing();   // 🔴 장중 시황도 같은 주기(30분 회차물이라 5분이면 충분)
       }, 300000);
     };
 
