@@ -193,8 +193,13 @@ SYSTEM = (
     "시장에 주는 함의, ③ 주도 테마와 동인, ④ 약세 테마, ⑤ 관전 포인트 순으로.\n"
     "- themeComments 는 입력의 모든 테마(급등·급락 각각)에 대해 1문장씩 — 왜 움직이는지를 "
     "구성종목 편입사유·공시·뉴스와 연결해 서술하고, name 은 입력 표기 그대로 echo 할 것.\n"
-    "- catalysts 는 입력 공시(id: d0,d1,..)와 뉴스(id: n0,n1,..) 중 시장 영향이 큰 3~6건을 "
-    "선별해 id 를 그대로 echo 하고 summary 1문장을 쓸 것. 시장 전체 관점에서 중요한 것 우선.\n"
+    "- catalysts 는 입력 공시(id: d0,d1,..)·뉴스(id: n0,n1,..) 중 시장 영향이 큰 것을 '종목 단위'로 "
+    "정리한다(최대 8건, 서로 다른 종목을 최대한 많이 포괄):\n"
+    "  · 같은 종목이 공시·뉴스에 중복 등장하면 반드시 하나로 합쳐 한 줄로 요약할 것(같은 종목 중복 금지).\n"
+    "  · 각 항목 필드: id(대표 출처 1개만, 공시가 있으면 공시 우선), stock(종목명), "
+    "market(KOSPI|KOSDAQ, 불명확하면 빈 문자열), direction(그 촉매가 주가에 주는 방향 — "
+    "상방=bullish|중립=neutral|하방=bearish), summary(핵심 촉매 한 문장).\n"
+    "  · 뉴스는 corp 필드가 없으니 제목·본문에서 종목명을 추출해 stock 에 넣을 것.\n"
     "- 한국어. 출력은 지정된 JSON 스키마를 엄격히 따를 것."
 )
 
@@ -209,8 +214,11 @@ SCHEMA = {
             "required": ["name", "comment"]}},
         "catalysts": {"type": "array", "items": {
             "type": "object",
-            "properties": {"id": _STR, "summary": _STR},
-            "required": ["id", "summary"]}},
+            "properties": {
+                "id": _STR, "stock": _STR, "market": _STR,
+                "direction": {"type": "string", "enum": ["bullish", "neutral", "bearish"]},
+                "summary": _STR},
+            "required": ["id", "stock", "direction", "summary"]}},
     },
     "required": ["briefing", "themeComments", "catalysts"],
 }
@@ -270,23 +278,35 @@ def synthesize(indices, investors, indicators, ups, downs,
     for t in ups + downs:
         t["comment"] = by_name.get(_norm(t["name"]), "")
 
-    # 촉매 id → 원본 매칭 (공시 dN / 뉴스 nN)
-    catalysts = []
+    # 촉매: 종목 단위(중복 통합) + 방향(상방/중립/하방). id → 원문 URL 매칭(공시 dN / 뉴스 nN).
+    catalysts, seen = [], set()
     for c in (synth.get("catalysts") or []):
-        cid, summary = str(c.get("id") or ""), (c.get("summary") or "").strip()
+        cid = str(c.get("id") or "")
+        stock = (c.get("stock") or "").strip()
+        summary = (c.get("summary") or "").strip()
+        direction = str(c.get("direction") or "neutral").lower()
+        if direction not in ("bullish", "neutral", "bearish"):
+            direction = "neutral"
+        market = (c.get("market") or "").strip()
         try:
             idx = int(cid[1:])
         except (ValueError, IndexError):
-            continue
+            idx = -1
+        url, kind = "", ""
         if cid.startswith("d") and 0 <= idx < len(disclosures):
-            d = disclosures[idx]
-            catalysts.append({"kind": "disclosure", "corp": d["corp"],
-                              "title": d["title"], "url": d["url"], "summary": summary})
+            url, kind = disclosures[idx].get("url", ""), "disclosure"
+            if not stock:
+                stock = (disclosures[idx].get("corp") or "").strip()
         elif cid.startswith("n") and 0 <= idx < len(news):
-            n = news[idx]
-            catalysts.append({"kind": "news", "corp": "",
-                              "title": n["title"], "url": n.get("link", ""),
-                              "summary": summary})
+            url, kind = news[idx].get("link", ""), "news"
+        if not stock or not summary:
+            continue
+        key = _norm(stock)                 # LLM 이 또 중복 내도 종목 단위로 한 번 더 방어
+        if key in seen:
+            continue
+        seen.add(key)
+        catalysts.append({"stock": stock, "market": market, "direction": direction,
+                          "summary": summary, "url": url, "kind": kind})
     return [b.strip() for b in (synth.get("briefing") or []) if b and b.strip()], \
         catalysts, model
 
