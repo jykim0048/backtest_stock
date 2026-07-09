@@ -64,12 +64,22 @@ def fetch_stock_data(code, market):
         hist.columns = hist.columns.get_level_values(0)
 
     close      = float(hist['Close'].iloc[-1])
-    high       = float(hist['High'].iloc[-1])
-    low        = float(hist['Low'].iloc[-1])
     prev_close = float(hist['Close'].iloc[-2])
 
     change_pct = ((close - prev_close) / prev_close) * 100
-    atr        = high - low
+
+    # ATR — 기존엔 '전일 고가-저가'(하루 레인지) 하나만 썼는데, 상한가 잠김
+    # (고가=저가)·초저변동일엔 0 에 수렴해 목표/손절이 종가에 달라붙는 퇴화
+    # 레벨을 만들었다(예: 씨이랩 상한가 익일 → 진입 12700/목표 12600/손절 12600).
+    # → True Range(갭 포함: max(고-저, |고-전일종가|, |저-전일종가|)) 를 가용
+    #   기간(≤14일) 평균 내고, 최소 1.5% 하한을 둬 항상 유의미한 폭을 보장한다.
+    h, l, c = hist['High'], hist['Low'], hist['Close']
+    pc = c.shift(1)
+    tr = pd.concat([h - l, (h - pc).abs(), (l - pc).abs()], axis=1).max(axis=1)
+    atr = float(tr.tail(14).mean())
+    if atr != atr:          # NaN 방어
+        atr = 0.0
+    atr = max(atr, close * 0.015)   # 최소 1.5% 하한(플랫/데이터결손 방어)
 
     return {
         'basePrice': int(close),
