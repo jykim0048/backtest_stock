@@ -391,6 +391,9 @@
     .briefing-heat .h-cell { border-radius: 5px; padding: 4px 2px; text-align: center; }
     .briefing-heat .h-name { font-size: 12px; }
     .briefing-heat .h-val { font-size: 13px; font-weight: 600; }
+    .ib-sector-label { font-size: 12.5px; color: var(--text-muted); margin: 2px 0 7px; }
+    .ib-sector-label b { color: var(--text-main); font-weight: 700; }
+    .ib-sector-pend { font-size: 11px; color: var(--text-muted); font-style: italic; }
     .briefing-usbullets { margin: 10px 0 0; padding-left: 18px; font-size: 13.5px; line-height: 1.7; color: #cbd5e1; }
     .briefing-usbullets li { margin-bottom: 3px; }
     .briefing-usbullets li::marker { color: var(--text-muted); }
@@ -3083,6 +3086,48 @@
       const rawNews = rawList("📰 특징주 뉴스", d.news, x =>
         `<li><a href="${_brEsc(x.link || "")}" target="_blank" rel="noopener">${_brEsc(x.title)}</a></li>`);
 
+      // 섹터 히트(강→약) + 상하위 3개 섹터 — KIS 업종(KRX 분류). 데이터 없으면 섹션 숨김.
+      // 관련주(구성종목)는 KRX 전종목 업종분류 연동 후 sectorsUp/Down[].stocks 로 부착된다.
+      const secHeat = d.sectorHeat || [];
+      let sectorSection = "";
+      if (secHeat.length) {
+        const maxAbs = Math.max(0.01, ...secHeat.map(s => Math.abs(s.changePct || 0)));
+        const cells = secHeat.map(s => {
+          const v = s.changePct || 0, up = (v >= 0);
+          const a = (0.06 + 0.34 * Math.min(1, Math.abs(v) / maxAbs)).toFixed(3);
+          const bg = up ? `rgba(239,68,68,${a})` : `rgba(59,130,246,${a})`;
+          const nc = up ? "#fca5a5" : "#93c5fd";
+          return `<div class="h-cell" style="background:${bg}" title="${_brEsc(s.name)} ${_brPctFmt(s.changePct)}%">`
+            + `<div class="h-name" style="color:${nc}">${_brEsc(s.name)}</div>`
+            + `<div class="h-val" style="color:${_brPctColor(v)}">${_brPctFmt(s.changePct)}</div></div>`;
+        }).join("");
+        const secCard = (s) => {
+          const stocks = (s.stocks || []).map(x =>
+            `<span class="ib-stock" onclick="ibResearch('${_brEsc(x.name)}')">${_brEsc(x.name)}${
+              x.changePct == null ? "" : ` <span style="color:${_brPctColor(x.changePct)}">${_brPctFmt(x.changePct)}%</span>`}</span>`).join("");
+          return `<div class="ib-theme"><div class="ib-t-head">`
+            + `<span class="ib-t-name">${_brEsc(s.name)}</span>`
+            + `<span class="ib-t-chg" style="color:${_brPctColor(s.changePct)}">${_brPctFmt(s.changePct)}%</span></div>`
+            + `<div class="ib-t-stocks">${stocks || `<span class="ib-sector-pend">관련주 연동 예정 (KRX 업종분류)</span>`}</div></div>`;
+        };
+        const upS = (d.sectorsUp || []).map(secCard).join("");
+        const dnS = (d.sectorsDown || []).map(secCard).join("");
+        sectorSection = `
+          <div class="ib-sector-label">🧭 섹터 히트 <b>(강 → 약)</b> · KIS 업종 · KOSPI 산업별 ${secHeat.length}개</div>
+          <div class="briefing-heat">${cells}</div>
+          <div class="briefing-flowcols" style="margin-top:12px;">
+            <div class="briefing-flowcol">
+              <div class="briefing-flowlabels"><span class="flow-lbl"><span class="fl-dot" style="background:var(--up-red)"></span>🔥 상승 상위 섹터</span></div>
+              ${upS || `<div class="briefing-flowempty">상승 섹터 없음</div>`}
+            </div>
+            <div class="briefing-flowcol">
+              <div class="briefing-flowlabels"><span class="flow-lbl"><span class="fl-dot" style="background:var(--down-blue)"></span>🧊 하락 상위 섹터</span></div>
+              ${dnS || `<div class="briefing-flowempty">하락 섹터 없음</div>`}
+            </div>
+          </div>`;
+      }
+      const themeHdr = secHeat.length ? "세부 테마" : "";
+
       const genLabel = (d.generatedBy === "mechanical") ? "기계적 요약" : `LLM 기반 (${_brEsc(d.generatedBy || "")})`;
       document.getElementById("ib-body").innerHTML = `
         <div class="briefing-panel">
@@ -3090,6 +3135,8 @@
           ${invLine}
           ${bullets}
         </div>
+        ${sectorSection}
+        ${themeHdr ? `<div class="ib-sector-label" style="margin-top:14px;">🔎 ${themeHdr} <b>(네이버 테마)</b></div>` : ""}
         <div class="briefing-flowcols">
           <div class="briefing-flowcol">
             <div class="briefing-flowlabels"><span class="flow-lbl"><span class="fl-dot" style="background:var(--up-red)"></span>🔥 급등 테마</span></div>

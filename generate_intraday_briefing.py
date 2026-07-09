@@ -36,6 +36,12 @@ OUT_PATH = os.environ.get("INTRADAY_BRIEFING_OUT") or os.path.join(
 ARCHIVE_DIR = os.path.join(ROOT, "public", "reports", "intraday_briefing")
 THEMES_PER_SIDE = int(os.environ.get("BRIEFING_THEMES", "3"))     # 급등/급락 각 N개
 STOCKS_PER_THEME = int(os.environ.get("BRIEFING_VC_STOCKS", "4"))  # 테마당 밸류체인 종목
+SECTORS_PER_SIDE = int(os.environ.get("BRIEFING_SECTORS", "3"))    # 상승/하락 각 N개 섹터
+
+# KIS 허브(vi_limit_monitor) /status — KOSPI 산업별 업종 지수 등락률(KRX 분류) 공급원.
+# 허브가 장중 REST 로 FHPUP02140000 을 폴링해 Redis→/status 로 노출한다(대시보드 VI 탭과 동일 서비스).
+KIS_HUB_URL = os.environ.get(
+    "KIS_HUB_URL", "https://tradingstrategies-production-09d4.up.railway.app")
 
 
 def _warn(msg):
@@ -84,6 +90,72 @@ def pick_themes():
 
     return ([_attach(t, True) for t in ups],
             [_attach(t, False) for t in downs])
+
+
+KRX_SECTOR_MAP_PATH = os.path.join(ROOT, "public", "assets", "krx_sector_map.json")
+STOCKS_PER_SECTOR = int(os.environ.get("BRIEFING_SEC_STOCKS", "4"))  # 섹터당 관련주
+
+
+def _norm_sector(name):
+    """업종명 정규화 — build_krx_sector_map.norm_sector 와 동일 규칙(공백·중점·괄호 제거)."""
+    import re
+    return re.sub(r"[\s·・()]", "", str(name or "")).strip()
+
+
+def _load_krx_sector_map():
+    """KRX 업종분류 매핑(정규화 업종명 → 시총 상위 종목) 로드. 없으면 {}."""
+    try:
+        with open(KRX_SECTOR_MAP_PATH, encoding="utf-8") as f:
+            return (json.load(f) or {}).get("sectors") or {}
+    except Exception as e:
+        _warn(f"KRX 섹터맵 로드 실패: {e}")
+        return {}
+
+
+def _related_for(sector_name, sec_map):
+    """KIS 업종명 → KRX 매핑의 관련주(시총 상위). 정규화 동일키 우선, 없으면 접두 매칭
+    ('의료·정밀기' ⊂ '의료·정밀기기' 같은 표기차 흡수). 미매칭 시 []."""
+    key = _norm_sector(sector_name)
+    entry = sec_map.get(key)
+    if entry is None:
+        for k, v in sec_map.items():          # 접두 매칭(짧은 쪽이 긴 쪽의 접두)
+            if k.startswith(key) or key.startswith(k):
+                entry = v
+                break
+    if not entry:
+        return []
+    return [{"code": s["code"], "name": s["name"]}
+            for s in (entry.get("stocks") or [])[:STOCKS_PER_SECTOR]]
+
+
+def fetch_sectors():
+    """KIS 허브 /status 에서 KOSPI 산업별 업종(KRX 분류)을 받아 섹터 히트/상하위를 만든다.
+
+    반환: (heat, ups, downs)
+      heat  = 등락률 내림차순 전체 [{name, changePct, index}]
+      ups   = 상위 SECTORS_PER_SIDE (급등 섹터), downs = 하위 SECTORS_PER_SIDE (급락 섹터)
+              각 섹터엔 KRX 업종분류 기준 관련주(시총 상위)를 stocks[] 로 부착.
+    허브 미배포/장외/응답부재 시 ([], [], []) — 대시보드가 섹터 섹션을 숨긴다(graceful).
+    """
+    try:
+        r = requests.get(f"{KIS_HUB_URL}/status", timeout=10)
+        r.raise_for_status()
+        raw = (r.json() or {}).get("sectors") or []
+    except Exception as e:
+        _warn(f"KIS 허브 섹터 조회 실패: {e}")
+        return [], [], []
+    heat = [{"name": s.get("name"), "changePct": s.get("changePct"),
+             "index": s.get("index")}
+            for s in raw if s.get("name") and s.get("changePct") is not None]
+    heat.sort(key=lambda s: s["changePct"], reverse=True)
+    ups = [dict(s) for s in heat[:SECTORS_PER_SIDE]]
+    downs = [dict(s) for s in (heat[-SECTORS_PER_SIDE:][::-1]
+                               if len(heat) >= SECTORS_PER_SIDE else [])]
+    sec_map = _load_krx_sector_map()
+    if sec_map:
+        for s in ups + downs:
+            s["stocks"] = _related_for(s["name"], sec_map)
+    return heat, ups, downs
 
 
 def fetch_movers():
@@ -229,10 +301,12 @@ def main():
     investors = sources.naver_index_investors()          # 기관/외인/개인 순매수(억원)
     indicators = sources.naver_market_indicators()       # 환율·금리·유가·금
     ups, downs = pick_themes()
+    sector_heat, sectors_up, sectors_down = fetch_sectors()   # KIS 업종(KRX 분류) 섹터 히트
     movers_up, movers_down = fetch_movers()
     disclosures = sources.dart_today_disclosures(limit=40)
     news = fetch_news()
-    print(f"  수집: 테마 급등{len(ups)}/급락{len(downs)}, 공시 {len(disclosures)}, "
+    print(f"  수집: 섹터 {len(sector_heat)}개(↑{len(sectors_up)}/↓{len(sectors_down)}), "
+          f"테마 급등{len(ups)}/급락{len(downs)}, 공시 {len(disclosures)}, "
           f"뉴스 {len(news)}, 지표 {sum(len(v) for v in indicators.values()) if indicators else 0}, "
           f"수급 {len(investors)}시장")
 
@@ -248,6 +322,9 @@ def main():
         "investors": investors,
         "indicators": indicators,
         "briefing": briefing,
+        "sectorHeat": sector_heat,      # KIS KOSPI 산업별 업종(KRX 분류), 등락 내림차순
+        "sectorsUp": sectors_up,        # 급등 상위 섹터(관련주는 KRX 업종분류 연동 후 부착)
+        "sectorsDown": sectors_down,    # 급락 상위 섹터
         "themesUp": ups,
         "themesDown": downs,
         "catalysts": catalysts,
