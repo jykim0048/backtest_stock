@@ -111,12 +111,14 @@ def fetch_news(display=20):
 # ----------------------------------------------------------------------------
 SYSTEM = (
     "당신은 한국 주식시장 장중 시황을 요약하는 마켓 애널리스트입니다. "
-    "제공된 RAW(지수, 급등/급락 테마와 구성종목·편입사유, 급등/급락 개별종목, "
-    "당일 공시, 특징주 뉴스)만 근거로 장중 시황 브리핑을 작성하세요.\n"
+    "제공된 RAW(지수, 투자자별 순매수 금액, 환율·금리·원자재 시장지표, 급등/급락 테마와 "
+    "구성종목·편입사유, 급등/급락 개별종목, 당일 공시, 특징주 뉴스)만 근거로 장중 시황 "
+    "브리핑을 작성하세요.\n"
     "규칙:\n"
     "- 데이터에 없는 수치·사실을 지어내지 말 것. 등락률 등 수치는 입력값을 인용할 것.\n"
-    "- briefing 은 3~4개의 완결된 문장(각각이 대시보드 불릿 하나): 지수 흐름 → 주도 테마와 "
-    "동인 → 약세 테마 → 관전 포인트 순으로.\n"
+    "- briefing 은 3~5개의 완결된 문장(각각이 대시보드 불릿 하나): ① 지수 흐름과 수급 주체"
+    "(investors — 기관/외국인/개인 순매수, 단위 억원)를 함께, ② 환율·금리·유가(marketIndicators)가 "
+    "시장에 주는 함의, ③ 주도 테마와 동인, ④ 약세 테마, ⑤ 관전 포인트 순으로.\n"
     "- themeComments 는 입력의 모든 테마(급등·급락 각각)에 대해 1문장씩 — 왜 움직이는지를 "
     "구성종목 편입사유·공시·뉴스와 연결해 서술하고, name 은 입력 표기 그대로 echo 할 것.\n"
     "- catalysts 는 입력 공시(id: d0,d1,..)와 뉴스(id: n0,n1,..) 중 시장 영향이 큰 3~6건을 "
@@ -146,9 +148,23 @@ def _norm(s):
     return "".join(ch for ch in str(s or "") if ch not in " \t·ㆍ・")
 
 
-def synthesize(indices, ups, downs, movers_up, movers_down, disclosures, news):
+def synthesize(indices, investors, indicators, ups, downs,
+               movers_up, movers_down, disclosures, news):
+    # 시장지표는 핵심만 추려 LLM 에 전달 (COFIX 등 저관련 항목 제외)
+    core_ind = {}
+    if indicators:
+        core_ind = {
+            "exchange": [x for x in indicators.get("exchange", [])
+                         if any(k in x["name"] for k in ("USD", "JPY", "EUR"))],
+            "rates": [x for x in indicators.get("rates", [])
+                      if any(k in x["name"] for k in ("CD", "국고채", "회사채"))],
+            "commodities": [x for x in indicators.get("commodities", [])
+                            if any(k in x["name"] for k in ("WTI", "국제 금"))],
+        }
     raw = {
         "indices": indices,
+        "investors": investors,          # 억원 단위 순매수 (개인/외국인/기관)
+        "marketIndicators": core_ind,
         "themesUp": [{"name": t["name"], "changePct": t["changePct"],
                       "stocks": [{"name": s["name"], "changePct": s["changePct"],
                                   "reason": (s.get("reason") or "")[:80]}
@@ -210,21 +226,27 @@ def main():
     print("=== Intraday Market Briefing ===")
     now = datetime.datetime.now(KST)
     indices = fetch_indices()
+    investors = sources.naver_index_investors()          # 기관/외인/개인 순매수(억원)
+    indicators = sources.naver_market_indicators()       # 환율·금리·유가·금
     ups, downs = pick_themes()
     movers_up, movers_down = fetch_movers()
     disclosures = sources.dart_today_disclosures(limit=40)
     news = fetch_news()
     print(f"  수집: 테마 급등{len(ups)}/급락{len(downs)}, 공시 {len(disclosures)}, "
-          f"뉴스 {len(news)}")
+          f"뉴스 {len(news)}, 지표 {sum(len(v) for v in indicators.values()) if indicators else 0}, "
+          f"수급 {len(investors)}시장")
 
     briefing, catalysts, model = synthesize(
-        indices, ups, downs, movers_up, movers_down, disclosures, news)
+        indices, investors, indicators, ups, downs,
+        movers_up, movers_down, disclosures, news)
 
     out = {
         "date": now.strftime("%Y-%m-%d"),
         "asof": now.strftime("%Y-%m-%d %H:%M KST"),
         "generatedBy": model or "mechanical",
         "indices": indices,
+        "investors": investors,
+        "indicators": indicators,
         "briefing": briefing,
         "themesUp": ups,
         "themesDown": downs,

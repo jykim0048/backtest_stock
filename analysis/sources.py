@@ -786,6 +786,90 @@ def naver_stock_ranking(direction="up", market="KOSPI", limit=20):
     return out
 
 
+def naver_market_indicators():
+    """네이버 시장지표(finance.naver.com/marketindex) — 환율·유가·금·국내금리.
+
+    반환: {"exchange": [...], "commodities": [...], "rates": [...]}
+    각 항목 {name, value, change, direction('up'|'down'|'same')}. 실패 시 {}."""
+    try:
+        r = requests.get("https://finance.naver.com/marketindex/",
+                         headers=UA, timeout=15)
+        r.raise_for_status()
+        html = r.content.decode("euc-kr", errors="replace")
+    except Exception as e:
+        _warn(f"naver_market_indicators failed: {e}")
+        return {}
+
+    def _fnum(s):
+        try:
+            return float(str(s).replace(",", "").strip())
+        except ValueError:
+            return None
+
+    # 환율/유가·금 리스트(li 구조): blind 이름 + head_info point_up|dn + value/change
+    def _parse_list(section_id):
+        i = html.find(f'id="{section_id}"')
+        if i < 0:
+            return []
+        chunk = html[i:html.find("</ul>", i)]
+        out = []
+        for m in re.finditer(
+                r'<span class="blind">([^<]+)</span></h3>.*?'
+                r'head_info(?:\s+point_(up|dn))?[^>]*>.*?'
+                r'<span class="value">([^<]+)</span>.*?'
+                r'<span class="change">\s*([^<]+?)\s*</span>', chunk, re.S):
+            name, direction, value, change = m.groups()
+            out.append({"name": name.strip(),
+                        "value": _fnum(value),
+                        "change": _fnum(change),
+                        "direction": {"up": "up", "dn": "down"}.get(direction, "same")})
+        return out
+
+    # 국내시장금리 테이블: tr class=up|down|same, 이름 span, 금리 td, 등락 td
+    rates = []
+    j = html.find("국내시장금리")
+    if j >= 0:
+        chunk = html[j:html.find("</table>", j)]
+        for m in re.finditer(
+                r'<tr class="(up|down|same)">.*?<span>([^<]+)</span></a></th>\s*'
+                r'<td>([\d.,\-]+)</td>\s*<td>.*?([\d.,]+)\s*</td>', chunk, re.S):
+            direction, name, value, change = m.groups()
+            rates.append({"name": name.strip(), "value": _fnum(value),
+                          "change": _fnum(change), "direction": direction})
+
+    out = {"exchange": _parse_list("exchangeList"),
+           "commodities": _parse_list("oilGoldList"),
+           "rates": rates}
+    return out if any(out.values()) else {}
+
+
+def naver_index_investors():
+    """코스피/코스닥 당일 투자자별 순매수 금액(억원) — 네이버 증권홈 '오늘의 증시'
+    와 동일 수치. 반환: {kospi: {individual, foreign, institution}, kosdaq: {...}}
+    (양수=순매수, 음수=순매도). 실패한 시장은 생략."""
+    def _fnum(s):
+        try:
+            return float(str(s or "").replace(",", "").replace("+", ""))
+        except ValueError:
+            return None
+    out = {}
+    for key, sym in (("kospi", "KOSPI"), ("kosdaq", "KOSDAQ")):
+        try:
+            r = requests.get(f"https://m.stock.naver.com/api/index/{sym}/trend",
+                             headers=UA, timeout=10)
+            r.raise_for_status()
+            d = r.json() or {}
+            row = d[0] if isinstance(d, list) and d else d
+            vals = {"individual": _fnum(row.get("personalValue")),
+                    "foreign": _fnum(row.get("foreignValue")),
+                    "institution": _fnum(row.get("institutionalValue"))}
+            if any(v is not None for v in vals.values()):
+                out[key] = vals
+        except Exception as e:
+            _warn(f"naver_index_investors({sym}) failed: {e}")
+    return out
+
+
 # 장중 촉매성 공시 제목 키워드 (전체 공시에서 시장영향 큰 유형만 추린다)
 DART_CATALYST_KEYWORDS = (
     "공급계약", "단일판매", "유상증자", "무상증자", "합병", "분할", "소송",
