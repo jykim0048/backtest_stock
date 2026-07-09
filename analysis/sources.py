@@ -681,6 +681,168 @@ def naver_investor_trend(code, days=20):
 
 
 # ----------------------------------------------------------------------------
+# 2j) 네이버 테마 랭킹 / 테마 구성종목 / 급등급락 랭킹 (장중 시황판 입력)
+#     generate_intraday_briefing 이 사용. Actions 해외 IP 접근성은
+#     .github/naver_theme_probe_result.json 으로 검증(2026-07-09) — KRX 와 달리
+#     차단 없음. 테마 페이지는 EUC-KR HTML.
+# ----------------------------------------------------------------------------
+_THEME_ROW_RE = re.compile(
+    r'col_type1"><a href="/sise/sise_group_detail\.naver\?type=theme&no=(\d+)">([^<]+)</a>'
+    r'.*?col_type2">\s*<span[^>]*>\s*([+\-]?[\d.]+)%(.*?)</tr>', re.S)
+
+
+def naver_theme_ranking(max_pages=8):
+    """테마 랭킹 전 페이지 파싱 → [{no, name, changePct, leaders:[{code,name}]}].
+
+    theme.naver 는 당일 등락률 내림차순 정렬이라 전 페이지(현재 ~7페이지)를
+    모으면 급등·급락 테마를 양끝에서 뽑을 수 있다. leaders 는 리스트 페이지가
+    보여주는 주도주 최대 2개. 실패한 페이지에서 중단(부분 결과 반환)."""
+    themes = []
+    for page in range(1, max_pages + 1):
+        try:
+            r = requests.get("https://finance.naver.com/sise/theme.naver",
+                             params={"page": page}, headers=UA, timeout=15)
+            r.raise_for_status()
+            html = r.content.decode("euc-kr", errors="replace")
+        except Exception as e:
+            _warn(f"naver_theme_ranking p{page} failed: {e}")
+            break
+        rows = _THEME_ROW_RE.findall(html)
+        if not rows:
+            break
+        for no, name, chg, rest in rows:
+            try:
+                pct = float(chg)
+            except ValueError:
+                continue
+            leaders = [{"code": c, "name": _strip_tags(n).strip()}
+                       for c, n in re.findall(
+                           r'/item/main\.naver\?code=(\d{6})">([^<]+)', rest)]
+            themes.append({"no": no, "name": _strip_tags(name).strip(),
+                           "changePct": pct, "leaders": leaders})
+    return themes
+
+
+def naver_theme_stocks(theme_no, limit=10):
+    """테마 상세 구성종목 → [{code, name, changePct, reason}] (등락률 순 아님 —
+    페이지 순서 그대로). reason 은 네이버의 '테마 편입 사유' 요약(없으면 "")."""
+    try:
+        r = requests.get("https://finance.naver.com/sise/sise_group_detail.naver",
+                         params={"type": "theme", "no": theme_no},
+                         headers=UA, timeout=15)
+        r.raise_for_status()
+        html = r.content.decode("euc-kr", errors="replace")
+    except Exception as e:
+        _warn(f"naver_theme_stocks({theme_no}) failed: {e}")
+        return []
+    out = []
+    for chunk in html.split("<tr onMouseOver")[1:]:
+        m = re.search(r'/item/main\.naver\?code=(\d{6})">([^<]+)</a>', chunk)
+        if not m:
+            continue
+        pct = None
+        pm = re.search(r'tah p11 (?:red01|nv01|gray03)">\s*([+\-]?[\d.]+)%', chunk)
+        if pm:
+            try:
+                pct = float(pm.group(1))
+            except ValueError:
+                pct = None
+        rm = re.search(r'<p class="info_txt">([^<]+)</p>', chunk)
+        out.append({"code": m.group(1), "name": _strip_tags(m.group(2)).strip(),
+                    "changePct": pct,
+                    "reason": _strip_tags(rm.group(1)).strip() if rm else ""})
+        if len(out) >= limit:
+            break
+    return out
+
+
+def naver_stock_ranking(direction="up", market="KOSPI", limit=20):
+    """급등/급락 개별종목 랭킹 (m.stock.naver.com 모바일 JSON).
+    direction: 'up'|'down'. 반환: [{code, name, changePct, price}]."""
+    try:
+        r = requests.get(f"https://m.stock.naver.com/api/stocks/{direction}/{market}",
+                         params={"page": 1, "pageSize": limit}, headers=UA, timeout=15)
+        r.raise_for_status()
+        d = r.json()
+        rows = (d.get("stocks") if isinstance(d, dict) else d) or []
+    except Exception as e:
+        _warn(f"naver_stock_ranking({direction},{market}) failed: {e}")
+        return []
+
+    def _fnum(s):
+        try:
+            return float(str(s or "").replace(",", "").replace("+", ""))
+        except ValueError:
+            return None
+
+    out = []
+    for it in rows[:limit]:
+        code = (it.get("itemCode") or "").strip()
+        if not code:
+            continue
+        out.append({"code": code, "name": (it.get("stockName") or "").strip(),
+                    "changePct": _fnum(it.get("fluctuationsRatio")),
+                    "price": _fnum(it.get("closePrice"))})
+    return out
+
+
+# 장중 촉매성 공시 제목 키워드 (전체 공시에서 시장영향 큰 유형만 추린다)
+DART_CATALYST_KEYWORDS = (
+    "공급계약", "단일판매", "유상증자", "무상증자", "합병", "분할", "소송",
+    "특허", "임상", "품목허가", "자기주식", "전환사채", "신주인수권",
+    "최대주주", "경영권", "영업정지", "파산", "회생", "투자판단", "조회공시",
+    "생산재개", "생산중단", "화재", "수주",
+)
+
+
+def dart_today_disclosures(limit=40, keywords=DART_CATALYST_KEYWORDS):
+    """당일 전체 상장사 공시(list.json, corp 미지정) 최신순 → 촉매성 필터.
+
+    반환: [{corp, stockCode, market, title, url}] (최신순 limit 건).
+    DART list 는 접수 '날짜'만 주므로 시각 필드는 없다 — 순서(rcept_no desc)로
+    최신성을 보장. keywords=None 이면 필터 없이 전부."""
+    key = _dart_key()
+    if not key:
+        return []
+    today = datetime.datetime.now(
+        datetime.timezone(datetime.timedelta(hours=9))).strftime("%Y%m%d")
+    out = []
+    try:
+        for page in (1, 2):
+            r = requests.get(
+                "https://opendart.fss.or.kr/api/list.json",
+                params={"crtfc_key": key, "bgn_de": today, "end_de": today,
+                        "page_no": page, "page_count": 100,
+                        "sort": "date", "sort_mth": "desc"},
+                timeout=20,
+            )
+            data = r.json()
+            if data.get("status") != "000":
+                break
+            for it in data.get("list") or []:
+                cls = it.get("corp_cls")
+                if cls not in ("Y", "K"):          # 상장사(유가/코스닥)만
+                    continue
+                title = (it.get("report_nm") or "").strip()
+                if keywords and not any(k in title for k in keywords):
+                    continue
+                out.append({
+                    "corp": (it.get("corp_name") or "").strip(),
+                    "stockCode": (it.get("stock_code") or "").strip(),
+                    "market": "KOSPI" if cls == "Y" else "KOSDAQ",
+                    "title": title,
+                    "url": f"https://dart.fss.or.kr/dsaf001/main.do?rcpNo={it.get('rcept_no')}",
+                })
+                if len(out) >= limit:
+                    return out
+            if int(data.get("total_page") or 1) <= page:
+                break
+    except Exception as e:
+        _warn(f"dart_today_disclosures failed: {e}")
+    return out
+
+
+# ----------------------------------------------------------------------------
 # 3) Tavily Search API (overseas news, reddit)
 # ----------------------------------------------------------------------------
 def tavily_search(query, max_results=5, include_domains=None):

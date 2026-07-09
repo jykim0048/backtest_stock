@@ -135,6 +135,17 @@ jobs:
           NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
         run: python generate_analysis.py
 
+      - name: Generate intraday market briefing (장중 시황판)
+        continue-on-error: true   # best-effort; 시황 실패가 관심종목 회차를 막지 않게
+        env:
+          GEMINI_API_KEY:      ${{ secrets.GEMINI_API_KEY }}
+          LLM_CHAIN:           ${{ vars.LLM_CHAIN }}
+          ANTHROPIC_API_KEY:   ${{ secrets.ANTHROPIC_API_KEY }}
+          DART_API_KEY:        ${{ secrets.DART_API_KEY }}
+          NAVER_CLIENT_ID:     ${{ secrets.NAVER_CLIENT_ID }}
+          NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
+        run: python generate_intraday_briefing.py
+
       - name: Commit and push intraday report
         run: |
           git config user.name "github-actions[bot]"
@@ -142,6 +153,8 @@ jobs:
           git add intraday_watchlist.json public/intraday_report.json public/reports/intraday/ public/reports/selection/intraday/
           # 하락 관찰 산출물 — 생성 실패 등으로 파일이 없으면 조용히 무시
           git add intraday_watchlist_down.json public/intraday_down_report.json public/reports/intraday_down/ 2>/dev/null || true
+          # 장중 시황 산출물 — 생성 실패 시 파일이 없으면 조용히 무시
+          git add public/intraday_briefing.json public/reports/intraday_briefing/ 2>/dev/null || true
           git diff --staged --quiet && echo "No changes to commit" && exit 0
           git commit -m "chore: auto-generate intraday watchlist $(date -u +'%Y-%m-%d %H:%MZ') [skip railway]"
           # Remote may have advanced (daily report or concurrent pushes); push, and
