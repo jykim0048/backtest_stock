@@ -439,10 +439,19 @@
     .ib-stock { font-size: 11px; padding: 2px 8px; border-radius: 8px; cursor: pointer;
       background: rgba(255,255,255,.05); border: 1px solid var(--border-color); white-space: nowrap; }
     .ib-stock:hover { border-color: var(--kospi-blue); }
-    .ib-invline { display: flex; flex-wrap: wrap; gap: 6px 18px; align-items: baseline;
-      font-size: 12px; color: var(--text-muted); margin: 2px 0 8px; }
-    .ib-inv { white-space: nowrap; font-variant-numeric: tabular-nums; }
-    .ib-inv b { color: #cbd5e1; margin-right: 3px; }
+    /* 지수 + 투자자 순매수 묶음 카드 (KOSPI/KOSDAQ 각각) */
+    .ib-idxrow { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 9px; }
+    .ib-idxcard { background: rgba(255,255,255,.03); border: 1px solid var(--border-color);
+      border-radius: 8px; padding: 8px 11px; }
+    .ib-idxhead { display: flex; align-items: baseline; gap: 8px; }
+    .ib-idxname { font-size: 13px; font-weight: 700; color: var(--text-muted); }
+    .ib-idxval { font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .ib-idxflow { margin-top: 4px; font-size: 12px; color: var(--text-muted);
+      font-variant-numeric: tabular-nums; }
+    @media (max-width: 560px) { .ib-idxrow { grid-template-columns: 1fr; } }
+    /* 환율 브리핑 */
+    .ib-fx { margin: 12px 0 0; }
+    .ib-fx-h { font-size: 13px; color: var(--text-muted); margin-bottom: 4px; }
     .ib-cat-row { display: flex; gap: 7px; align-items: baseline; font-size: 12.5px;
       line-height: 1.55; margin-top: 5px; }
     .ib-cat-row .k { flex: 0 0 auto; }
@@ -3011,28 +3020,31 @@
         statusEl.className = "briefing-stance neutral";
       }
 
-      // 지수 칩
+      // 지수 + 투자자 순매수(억원)를 시장별로 묶은 카드 — 가독성 강화.
+      // (네이버 증권홈 '오늘의 증시'와 동일 수치, 양수=순매수)
       const idx = d.indices || {};
-      const chips = [["KOSPI", idx.kospi], ["KOSDAQ", idx.kosdaq]]
-        .filter(([, v]) => v && typeof v.price === "number")
-        .map(([nm, v]) => `<div class="briefing-chip"><div class="c-name">${nm}</div>`
-          + `<div class="c-val" style="color:${_brPctColor(v.rate)}">${v.price.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} · ${_brPctFmt(v.rate)}%</div></div>`)
-        .join("");
-
-      // 투자자별 순매수 (억원) — 네이버 증권홈 '오늘의 증시'와 동일 수치
+      const inv = d.investors || {};
       const invFmt = (v) => v == null ? "—"
         : `<span style="color:${_brPctColor(v)}; font-weight:600;">${v >= 0 ? "+" : ""}${Math.round(v).toLocaleString()}</span>`;
-      const invRows = [["KOSPI", (d.investors || {}).kospi], ["KOSDAQ", (d.investors || {}).kosdaq]]
-        .filter(([, v]) => v)
-        .map(([nm, v]) => `<span class="ib-inv"><b>${nm}</b> 개인 ${invFmt(v.individual)} · 외인 ${invFmt(v.foreign)} · 기관 ${invFmt(v.institution)}</span>`)
-        .join("");
-      const invLine = invRows
-        ? `<div class="ib-invline">💰 투자자 순매수(억원) &nbsp; ${invRows}</div>` : "";
+      const idxCards = [["KOSPI", "kospi"], ["KOSDAQ", "kosdaq"]].map(([nm, k]) => {
+        const v = idx[k];
+        if (!v || typeof v.price !== "number") return "";
+        const iv = inv[k];
+        const flow = iv
+          ? `<div class="ib-idxflow">💰 개인 ${invFmt(iv.individual)} · 외인 ${invFmt(iv.foreign)} · 기관 ${invFmt(iv.institution)}</div>`
+          : "";
+        return `<div class="ib-idxcard"><div class="ib-idxhead">`
+          + `<span class="ib-idxname">${nm}</span>`
+          + `<span class="ib-idxval" style="color:${_brPctColor(v.rate)}">${v.price.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} · ${_brPctFmt(v.rate)}%</span>`
+          + `</div>${flow}</div>`;
+      }).join("");
+      const idxRow = idxCards ? `<div class="ib-idxrow">${idxCards}</div>` : "";
 
-      // 시장지표 칩 (환율·금리·원자재 핵심)
+      // 시장지표 칩 (환율·국제환율·금리·원자재 핵심)
       const ind = d.indicators || {};
       const pickInd = [
         ...(ind.exchange || []).filter(x => /USD|JPY|EUR/.test(x.name)),
+        ...(ind.world || []).filter(x => /달러인덱스|엔\/달러/.test(x.name)),
         ...(ind.rates || []).filter(x => /국고채|CD/.test(x.name)),
         ...(ind.commodities || []).filter(x => /WTI|국제 금/.test(x.name)),
       ];
@@ -3047,6 +3059,14 @@
       // LLM 시황 브리핑 불릿
       const bullets = (d.briefing || []).length
         ? `<ul class="briefing-usbullets">${d.briefing.map(b => `<li>${_brEsc(b)}</li>`).join("")}</ul>` : "";
+
+      // 환율 브리핑 불릿 — LLM 요약(fxBullets) 우선, 없으면 환율 뉴스 헤드라인 폴백.
+      const fxb = (d.fxBullets && d.fxBullets.length) ? d.fxBullets
+        : (d.fxNews || []).slice(0, 3).map(n => n.title).filter(Boolean);
+      const fxSection = fxb.length
+        ? `<div class="ib-fx"><div class="ib-fx-h">💱 환율 브리핑</div>`
+          + `<ul class="briefing-usbullets">${fxb.map(b => `<li>${_brEsc(b)}</li>`).join("")}</ul></div>`
+        : "";
 
       // 장중 촉매 — 종목 단위(중복 통합), 모닝브리핑 워치리스트처럼 종목/시장/핵심촉매 순 + 방향 배지.
       // 구버전 회차(catalysts[].corp, direction 없음)도 관대하게 렌더(stock||corp, 배지 생략).
@@ -3076,6 +3096,8 @@
       const rawDisc = rawList("📑 당일 촉매성 공시", d.disclosures, x =>
         `<li><b>${_brEsc(x.corp)}</b> — <a href="${_brEsc(x.url)}" target="_blank" rel="noopener">${_brEsc(x.title)}</a></li>`);
       const rawNews = rawList("📰 특징주 뉴스", d.news, x =>
+        `<li><a href="${_brEsc(x.link || "")}" target="_blank" rel="noopener">${_brEsc(x.title)}</a></li>`);
+      const rawFx = rawList("💱 환율 뉴스", d.fxNews, x =>
         `<li><a href="${_brEsc(x.link || "")}" target="_blank" rel="noopener">${_brEsc(x.title)}</a></li>`);
 
       // 섹터 히트(강→약) + 상하위 3개 섹터 — KIS 업종(KRX 분류). 데이터 없으면 섹션 숨김.
@@ -3139,13 +3161,14 @@
       const genLabel = (d.generatedBy === "mechanical") ? "기계적 요약" : `LLM 기반 (${_brEsc(d.generatedBy || "")})`;
       document.getElementById("ib-body").innerHTML = `
         <div class="briefing-panel">
-          ${chips || indChips ? `<div class="briefing-chips">${chips}${indChips}</div>` : ""}
-          ${invLine}
+          ${idxRow}
+          ${indChips ? `<div class="briefing-chips">${indChips}</div>` : ""}
           ${bullets}
+          ${fxSection}
         </div>
         ${sectorSection}
         ${catBox}
-        ${rawDisc}${rawNews}
+        ${rawDisc}${rawNews}${rawFx}
         <div class="briefing-foot">자동 생성 · ${genLabel} · KIS 업종·네이버 금융·DART · 투자 판단 참고용</div>
       `;
     }

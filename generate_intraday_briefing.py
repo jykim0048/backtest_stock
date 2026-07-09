@@ -237,6 +237,21 @@ def fetch_news(display=20):
     return todays if todays else items
 
 
+def fetch_fx_news(display=15):
+    """환율 관련 뉴스 — 원/달러 환율 급변 사유·전망을 잡는 검색어 2종(중복 제거).
+    가능하면 오늘(KST) 기사만 남긴다(pubDate 파싱 실패 시 무필터)."""
+    items, seen = [], set()
+    for q in ("원달러 환율", "환율"):
+        for it in sources.naver_search("news", q, display=display):
+            link = (it.get("link") or it.get("title") or "").strip()
+            if link and link not in seen:
+                seen.add(link)
+                items.append(it)
+    today = datetime.datetime.now(KST).strftime("%d %b %Y")
+    todays = [it for it in items if today in (it.get("date") or "")]
+    return (todays if todays else items)[:12]
+
+
 # ----------------------------------------------------------------------------
 # Phase 2) LLM 종합
 # ----------------------------------------------------------------------------
@@ -257,6 +272,9 @@ SYSTEM = (
     "market(KOSPI|KOSDAQ, 불명확하면 빈 문자열), direction(그 촉매가 주가에 주는 방향 — "
     "상방=bullish|중립=neutral|하방=bearish), summary(핵심 촉매 한 문장).\n"
     "  · 뉴스는 corp 필드가 없으니 제목·본문에서 종목명을 추출해 stock 에 넣을 것.\n"
+    "- fxBullets 는 환율 관련 1~3개 불릿(fxNews·marketIndicators.exchange/world 근거): "
+    "원/달러·달러인덱스·엔/달러 흐름과 그 배경(뉴스 근거), 국내 증시(수출주·환율 민감주)에 주는 "
+    "함의를 담을 것. 근거 데이터가 전혀 없으면 빈 배열.\n"
     "- 한국어. 출력은 지정된 JSON 스키마를 엄격히 따를 것."
 )
 
@@ -265,6 +283,7 @@ SCHEMA = {
     "type": "object",
     "properties": {
         "briefing": {"type": "array", "items": _STR},
+        "fxBullets": {"type": "array", "items": _STR},
         "catalysts": {"type": "array", "items": {
             "type": "object",
             "properties": {
@@ -282,13 +301,15 @@ def _norm(s):
 
 
 def synthesize(indices, investors, indicators, sectors_up, sectors_down,
-               movers_up, movers_down, disclosures, news):
+               movers_up, movers_down, disclosures, news, fx_news):
     # 시장지표는 핵심만 추려 LLM 에 전달 (COFIX 등 저관련 항목 제외)
     core_ind = {}
     if indicators:
         core_ind = {
             "exchange": [x for x in indicators.get("exchange", [])
                          if any(k in x["name"] for k in ("USD", "JPY", "EUR"))],
+            "world": [x for x in indicators.get("world", [])
+                      if any(k in x["name"] for k in ("달러인덱스", "엔/달러"))],
             "rates": [x for x in indicators.get("rates", [])
                       if any(k in x["name"] for k in ("CD", "국고채", "회사채"))],
             "commodities": [x for x in indicators.get("commodities", [])
@@ -313,6 +334,9 @@ def synthesize(indices, investors, indicators, sectors_up, sectors_down,
         "news": [{"id": f"n{i}", "title": n["title"],
                   "description": (n.get("description") or "")[:100]}
                  for i, n in enumerate(news)],
+        "fxNews": [{"title": n["title"],
+                    "description": (n.get("description") or "")[:120]}
+                   for n in fx_news],
     }
     user = "RAW 데이터(JSON):\n" + json.dumps(raw, ensure_ascii=False)
     synth, model = {}, None
@@ -358,8 +382,15 @@ def synthesize(indices, investors, indicators, sectors_up, sectors_down,
         dir_count[direction] += 1
         catalysts.append({"stock": stock, "market": market, "direction": direction,
                           "summary": summary, "url": url, "kind": kind})
+
+    # 환율 브리핑 불릿 — LLM 요약 우선, 실패/미설정 시 오늘 환율 뉴스 헤드라인으로 폴백.
+    fx_bullets = [b.strip() for b in (synth.get("fxBullets") or []) if b and b.strip()]
+    if not fx_bullets:
+        fx_bullets = [n["title"].strip() for n in fx_news[:3]
+                      if (n.get("title") or "").strip()]
+
     return [b.strip() for b in (synth.get("briefing") or []) if b and b.strip()], \
-        catalysts, model
+        fx_bullets, catalysts, model
 
 
 # ----------------------------------------------------------------------------
@@ -376,15 +407,16 @@ def main():
     movers_up, movers_down = fetch_movers()
     disclosures = sources.dart_today_disclosures(limit=40)
     news = fetch_news()
+    fx_news = fetch_fx_news()                             # 환율 관련 뉴스(원달러·환율)
     _tm = sum(1 for s in sectors_up + sectors_down if s.get("theme"))
     print(f"  수집: 섹터 {len(sector_heat)}개(↑{len(sectors_up)}/↓{len(sectors_down)}, 테마매칭 {_tm}), "
-          f"공시 {len(disclosures)}, 뉴스 {len(news)}, "
+          f"공시 {len(disclosures)}, 뉴스 {len(news)}, 환율뉴스 {len(fx_news)}, "
           f"지표 {sum(len(v) for v in indicators.values()) if indicators else 0}, "
           f"수급 {len(investors)}시장")
 
-    briefing, catalysts, model = synthesize(
+    briefing, fx_bullets, catalysts, model = synthesize(
         indices, investors, indicators, sectors_up, sectors_down,
-        movers_up, movers_down, disclosures, news)
+        movers_up, movers_down, disclosures, news, fx_news)
 
     out = {
         "date": now.strftime("%Y-%m-%d"),
@@ -394,6 +426,8 @@ def main():
         "investors": investors,
         "indicators": indicators,
         "briefing": briefing,
+        "fxBullets": fx_bullets,        # 환율 브리핑(LLM 요약 또는 헤드라인 폴백)
+        "fxNews": fx_news[:8],          # 환율 관련 뉴스 원문(대시보드 접기)
         "sectorHeat": sector_heat,      # KIS KOSPI 산업별 업종(KRX 분류), 등락 내림차순
         "sectorsUp": sectors_up,        # 급등 상위 섹터 + KRX 관련주 + 매칭 네이버 테마(theme)
         "sectorsDown": sectors_down,    # 급락 상위 섹터
@@ -406,7 +440,7 @@ def main():
     with open(OUT_PATH, "w", encoding="utf-8") as f:
         json.dump(out, f, ensure_ascii=False, indent=2)
     print(f"  Updated: {OUT_PATH} (model={out['generatedBy']}, "
-          f"briefing {len(briefing)}문장, 촉매 {len(catalysts)}건)")
+          f"briefing {len(briefing)}문장, 환율 {len(fx_bullets)}불릿, 촉매 {len(catalysts)}건)")
 
     # 회차 누적 아카이브 — 장 마감 후 하루 흐름 복기용
     os.makedirs(ARCHIVE_DIR, exist_ok=True)

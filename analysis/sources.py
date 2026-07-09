@@ -792,9 +792,11 @@ def naver_stock_ranking(direction="up", market="KOSPI", limit=20):
 
 
 def naver_market_indicators():
-    """네이버 시장지표(finance.naver.com/marketindex) — 환율·유가·금·국내금리.
+    """네이버 시장지표(finance.naver.com/marketindex) — 환율·국제환율·유가·금·국내금리.
 
-    반환: {"exchange": [...], "commodities": [...], "rates": [...]}
+    반환: {"exchange": [...], "world": [...], "commodities": [...], "rates": [...]}
+    - exchange: 환전 고시 환율(미국 USD·유럽연합 EUR·일본 JPY(100엔)·중국 CNY)
+    - world:    국제환율(달러인덱스·엔/달러·달러/유로 등) — 원화 무관 글로벌 통화 지표
     각 항목 {name, value, change, direction('up'|'down'|'same')}. 실패 시 {}."""
     try:
         r = requests.get("https://finance.naver.com/marketindex/",
@@ -843,6 +845,7 @@ def naver_market_indicators():
                           "change": _fnum(change), "direction": direction})
 
     out = {"exchange": _parse_list("exchangeList"),
+           "world": _parse_list("worldExchangeList"),   # 국제환율: 달러인덱스·엔/달러 등
            "commodities": _parse_list("oilGoldList"),
            "rates": rates}
     return out if any(out.values()) else {}
