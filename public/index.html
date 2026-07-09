@@ -3422,12 +3422,16 @@
       const remainingMs = msUntilKST(1430);    // 컷오프까지 남은 시간(시간 트리거용)
       let anyEntered = false;
 
+      const today = todayKST();
       watchData.forEach(stock => {
         // 새 거래일이면 어제 진행분 리셋(오늘 첫 진입 가능하게). enteredDate 는 첫 트랜치에 오늘로 세팅됨.
-        if (stock.enteredDate && stock.enteredDate !== todayKST() && !(stock.quantity > 0)) {
+        if (stock.enteredDate && stock.enteredDate !== today && !(stock.quantity > 0)) {
           stock.entryTranchesDone = 0; stock.enteredDate = null;
         }
-        if ((stock.entryTranchesDone || 0) >= N) return; // 오늘 분할 완료(청산 후 재진입 방지 포함)
+        // 오늘 진입 이력이 있는데 현재 미보유 = 오늘 청산됨 → 같은 날 재진입 금지.
+        // (enteredDate 로 보장 — 트랜치 카운터가 리로드/레거시 마이그레이션으로 0 이 돼도 안전)
+        if (stock.enteredDate === today && !(stock.quantity > 0)) return;
+        if ((stock.entryTranchesDone || 0) >= N) return; // 오늘 분할 완료
         if (heldInPreMarket(stock.code)) return;         // 장전에서 보유 중 → 장전 우선(중복 방지)
         if (stock.direction === "bearish") return;       // 딥리서치 하방 판정 → 매수 스킵
 
