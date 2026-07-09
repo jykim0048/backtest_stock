@@ -1,0 +1,35 @@
+# 네이버 테마·급등급락 소스 해외 IP 접근성 프로브 — 이 파일(또는 프로브
+# 스크립트)이 푸시되면 1회 자동 실행되고, 이후엔 workflow_dispatch 수동 진단용.
+# 결과는 .github/naver_theme_probe_result.json 으로 커밋된다([skip railway]).
+name: Naver Theme Probe
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/naver_theme_probe.yml"
+      - ".github/naver_theme_probe.py"
+
+permissions:
+  contents: write
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install requests
+      - name: Probe Naver theme endpoints from Actions IP
+        run: python .github/naver_theme_probe.py
+      - name: Commit result
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .github/naver_theme_probe_result.json
+          git commit -m "chore: 네이버 테마 소스 Actions IP 프로브 결과 [skip railway]" || echo "no changes"
+          git pull --rebase origin main
+          git push
