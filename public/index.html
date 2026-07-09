@@ -1967,6 +1967,22 @@
               <input type="range" min="10" max="100" value="35" class="slider" id="slider-stop" oninput="updateSliderVal('stop')">
             </div>
 
+            <div class="config-item">
+              <div class="config-label-row">
+                <span class="config-name">분할 매수 횟수</span>
+                <span class="config-val" id="val-tranches">3회</span>
+              </div>
+              <input type="range" min="1" max="5" value="3" class="slider" id="slider-tranches" oninput="updateSliderVal('tranches')">
+            </div>
+
+            <div class="config-item">
+              <div class="config-label-row">
+                <span class="config-name">트레일링 스탑</span>
+                <span class="config-val" id="val-trail">5.0%</span>
+              </div>
+              <input type="range" min="10" max="150" value="50" class="slider" id="slider-trail" oninput="updateSliderVal('trail')">
+            </div>
+
           </div>
         </div>
 
@@ -2068,22 +2084,51 @@
       stock.quantity = 0;
       stock.avgBuyPrice = 0;
       stock.investedCapital = 0;
-      stock.followBudget = 0;   // 시초 매수 후 남겨둔 추가매수(95%) 한도
+      stock.followBudget = 0;   // (레거시) 미사용 — 배분액은 recomputeAllocation 이 동적 산정
       stock.pnl = 0;
       stock.pnlRate = 0;
-      stock.hasFollowedUp = false;
+      stock.hasFollowedUp = false;         // (레거시) followTranchesDone 로 대체
+      stock.followTranchesDone = 0;        // ② 장전 95% 분할 진행 트랜치 수
+      stock.entryTranchesDone = 0;         // ③ 장중 진입 분할 진행 트랜치 수
+      stock.lastTrancheTs = 0;             // 마지막 트랜치 체결 시각(ms) — 시간 트리거용
       stock.isGapFiltered = false;
       stock.hasLoggedGapFilter = false;
       stock.openingGap = 0;
+      // 익절 개편용 추적 필드
+      stock.peakPrice = 0;                 // 보유 중 고점가(트레일링 기준)
+      stock.scaledOut = false;             // 목표가 부분익절(절반) 완료 여부
+      stock.breakevenArmed = false;        // 본전 스탑 발동(손절선 매수가로 상향)
+      stock.holdSinceTs = 0;               // 최초 진입 시각(ms) — 정체 청산용
       stock.history = [stock.basePrice, stock.basePrice, stock.basePrice, stock.basePrice];
+    }
+
+    // 오늘 자본을 나눠 갖는 '활성 슬롯' 수 — 장전 워치리스트(bearish·이월 제외) +
+    // 실제 진입한 장중 종목. `extra` 는 지금 막 진입하려는 장중 종목 몫(1)을 미리 반영할 때.
+    function activeSlotCount(extra) {
+      const codes = new Set();
+      stockData.forEach(s => {
+        if (s.carriedOver || s.direction === "bearish") return;
+        codes.add(s.code);
+      });
+      watchData.forEach(s => {
+        if (s.direction === "bearish") return;
+        if (s.quantity > 0 || s.entryTranchesDone > 0 || s._entering) codes.add(s.code);
+      });
+      return Math.max(1, codes.size + (extra || 0));
+    }
+
+    // 종목당 배분액을 동적으로 재계산 — 장중 편입이 늘면 분모가 커져 각 종목 상한이 줄고,
+    // 이미 상한을 넘긴 종목은 추가 트랜치가 멈춘다(이미 산 물량은 되돌리지 않음).
+    function recomputeAllocation() {
+      maxAllocationPerStock = totalCapital / activeSlotCount();
     }
 
     // 깨끗한 계좌로 초기화 (첫 실행 / 과거 리포트 열람 / 계좌 리셋).
     function initializePortfolioState() {
-      maxAllocationPerStock = totalCapital / Math.max(1, stockData.length);
       cashBalance = totalCapital;
       realizedPnl = 0;
       stockData.forEach(applyDefaults);
+      recomputeAllocation();
     }
 
     // 현재 계좌 상태를 localStorage에 저장 (라이브 뷰에서만).
@@ -2097,6 +2142,10 @@
           quantity: s.quantity, avgBuyPrice: s.avgBuyPrice,
           investedCapital: s.investedCapital, followBudget: s.followBudget,
           pnl: s.pnl, pnlRate: s.pnlRate, hasFollowedUp: s.hasFollowedUp,
+          followTranchesDone: s.followTranchesDone || 0, entryTranchesDone: s.entryTranchesDone || 0,
+          lastTrancheTs: s.lastTrancheTs || 0,
+          peakPrice: s.peakPrice || 0, scaledOut: !!s.scaledOut,
+          breakevenArmed: !!s.breakevenArmed, holdSinceTs: s.holdSinceTs || 0,
           isGapFiltered: s.isGapFiltered, hasLoggedGapFilter: s.hasLoggedGapFilter,
           openingGap: s.openingGap, price: s.price, history: s.history,
           enteredDate: s.enteredDate || null,
@@ -2141,7 +2190,6 @@
       // totalCapital 을 먼저 복원해야 배분 한도(maxAllocationPerStock)가 전일 마감
       // 평가금액(복리) 기준으로 계산된다.
       totalCapital = (typeof saved.totalCapital === "number") ? saved.totalCapital : INITIAL_CAPITAL;
-      maxAllocationPerStock = totalCapital / Math.max(1, stockData.length);
       cashBalance = (typeof saved.cashBalance === "number") ? saved.cashBalance : totalCapital;
       realizedPnl = saved.realizedPnl || 0;
       openingOrderDate = saved.openingOrderDate || null;
@@ -2156,6 +2204,16 @@
         s.pnl = p.pnl || 0;
         s.pnlRate = p.pnlRate || 0;
         s.hasFollowedUp = !!p.hasFollowedUp;
+        // 트랜치 진행 카운터 — 레거시 저장본(hasFollowedUp only)은 1회 완료로 간주
+        s.followTranchesDone = (typeof p.followTranchesDone === "number")
+          ? p.followTranchesDone : (p.hasFollowedUp ? 99 : 0);
+        s.entryTranchesDone = (typeof p.entryTranchesDone === "number")
+          ? p.entryTranchesDone : (p.quantity > 0 && p.source === "intraday" ? 99 : 0);
+        s.lastTrancheTs = p.lastTrancheTs || 0;
+        s.peakPrice = p.peakPrice || 0;
+        s.scaledOut = !!p.scaledOut;
+        s.breakevenArmed = !!p.breakevenArmed;
+        s.holdSinceTs = p.holdSinceTs || 0;
         s.isGapFiltered = !!p.isGapFiltered;
         s.hasLoggedGapFilter = !!p.hasLoggedGapFilter;
         s.openingGap = p.openingGap || 0;
@@ -2191,6 +2249,7 @@
         (p.source === "intraday" ? watchData : stockData).push(s);
       });
 
+      recomputeAllocation();   // 복원된 보유/진입 상태 기준으로 배분액 산정
       return saved;
     }
 
@@ -2440,6 +2499,7 @@
         }
         stock.quantity = 0; stock.avgBuyPrice = 0; stock.investedCapital = 0;
         stock.followBudget = 0; stock.pnl = 0; stock.pnlRate = 0; stock.hasFollowedUp = false;
+        stock.peakPrice = 0; stock.scaledOut = false; stock.breakevenArmed = false; stock.holdSinceTs = 0;
       });
 
       day.endCapital = cashBalance;
@@ -2545,7 +2605,41 @@
     function getEffectiveStopPrice(stock) {
       if (!(stock.avgBuyPrice > 0)) return stock.stop;
       const capPrice = stock.avgBuyPrice * (1 - getMaxStopPct() / 100);
-      return Math.max(stock.stop, capPrice);
+      let eff = Math.max(stock.stop, capPrice);
+      // 본전 스탑: 수익이 한 번 +5% 넘었으면 손절선을 매수가로 상향(이긴 포지션 보호).
+      if (stock.breakevenArmed && stock.avgBuyPrice > 0) eff = Math.max(eff, stock.avgBuyPrice);
+      return eff;
+    }
+
+    // ===== 분할 매수 트랜치 공통 헬퍼 =====
+    function _isDemo() {
+      const t = document.getElementById("demo-mode-toggle");
+      return !!(t && t.checked);
+    }
+    // 이번 트랜치 매수 현금액 = 배분액/N 을 (배분액-투자액)·예수금으로 클램프.
+    function trancheAmount(perStock, invested, N) {
+      const per = perStock / Math.max(1, N);
+      return Math.max(0, Math.min(per, perStock - invested, cashBalance));
+    }
+    // 하이브리드 트리거: 1트랜치는 호출부 게이트(진입선 이하)로 즉시. 2~N 트랜치는
+    // '가격 사다리(진입선→손절선 등분, 아래로 눌릴수록)' 또는 '시간 간격(남은창÷남은트랜치,
+    // 하한 30초)' 중 먼저 오는 조건에 집행. 데모 모드는 시간 조건 즉시 통과.
+    function trancheTriggerReady(stock, doneCount, N, remainingWindowMs) {
+      if (doneCount <= 0) return true;
+      const price = stock.price || stock.basePrice;
+      const span = (stock.entry - stock.stop);
+      const level = stock.entry - (doneCount / N) * (span > 0 ? span : 0);
+      if (span > 0 && price <= level) return true;          // 가격 조건(추가 눌림)
+      if (_isDemo()) return true;                            // 데모: 시간 조건 즉시
+      const interval = Math.max(30000, (remainingWindowMs || 0) / Math.max(1, N - doneCount));
+      return (Date.now() - (stock.lastTrancheTs || 0)) >= interval;   // 시간 조건
+    }
+    // KST 특정 시각(HHMM)까지 남은 ms (음수면 0).
+    function msUntilKST(hhmm) {
+      const now = new Date();
+      const kst = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Seoul" }));
+      const end = new Date(kst); end.setHours(Math.floor(hhmm / 100), hhmm % 100, 0, 0);
+      return Math.max(0, end.getTime() - kst.getTime());
     }
 
     // Toggle Demo Mode Switch
@@ -3152,7 +3246,8 @@
       if (!isLiveView) return;        // 과거 리포트 열람 중엔 매매하지 않음
       if (!needsOpeningOrder()) return;
 
-      const targetBuyAmt = maxAllocationPerStock * 0.05; // 625,000 Won default target
+      recomputeAllocation();          // 오늘 장전 슬롯 기준 배분액 산정
+      const targetBuyAmt = maxAllocationPerStock * 0.05; // 배분액의 5% 시드
       const logsBox = document.getElementById("logs-box");
       const time = new Date().toTimeString().split(" ")[0];
       const slip = getSlippagePct();   // 매수는 슬리피지만큼 더 비싸게 체결
@@ -3180,13 +3275,17 @@
         stock.quantity = qtyToBuy;
         stock.avgBuyPrice = executionPrice;
         stock.investedCapital = actualCost;
-        // 남은 배분 한도를 추가매수(95%)용으로 earmark
-        stock.followBudget = Math.max(0, maxAllocationPerStock - actualCost);
 
-        // Reset states
+        // Reset states + 익절/트랜치 추적 초기화
         stock.pnl = 0;
         stock.pnlRate = 0;
         stock.hasFollowedUp = false;
+        stock.followTranchesDone = 0;
+        stock.lastTrancheTs = Date.now();
+        stock.peakPrice = executionPrice;
+        stock.scaledOut = false;
+        stock.breakevenArmed = false;
+        stock.holdSinceTs = Date.now();
 
         recordTrade({ code: stock.code, name: stock.name, side: "BUY", type: "OPENING",
                       qty: qtyToBuy, price: executionPrice, amount: actualCost });
@@ -3197,7 +3296,7 @@
       savePortfolio();
 
       if (logsBox) {
-        logsBox.innerHTML += `<div class="log-line" style="color:var(--kospi-blue); font-weight:bold;"><span class="log-time">[${time}]</span> [MARKET OPEN] 장 개시 감지: 시초가 무관 5% (또는 최소 1주) 자동 분할 매수가 집행되었습니다.</div>`;
+        logsBox.innerHTML += `<div class="log-line" style="color:var(--kospi-blue); font-weight:bold;"><span class="log-time">[${time}]</span> [MARKET OPEN] 장 개시 감지: 시초가 무관 5% (또는 최소 1주) 시드 매수가 집행되었습니다.</div>`;
         logsBox.scrollTop = logsBox.scrollHeight;
       }
     }
@@ -3211,72 +3310,124 @@
       stock.pnl = 0;
       stock.pnlRate = 0;
       stock.hasFollowedUp = false;
+      stock.peakPrice = 0;
+      stock.scaledOut = false;
+      stock.breakevenArmed = false;
+      stock.holdSinceTs = 0;
+      // 트랜치 카운터는 유지(청산 후 재진입 방지) — 새 거래일 초기화는 applyDefaults 담당.
     }
 
-    // 익절/손절 판정 및 전량 매도 — 장전(stockData)·장중(watchData) 공용.
-    // 매도가 발생하면 true 반환(테이블 리렌더는 호출측 책임). source 는 매매일지 구분용.
+    // 익절/손절 판정 — 장전(stockData)·장중(watchData) 공용. 매도 발생 시 true.
+    // 판정 순서: 상한가 → 목표가 부분익절 → 트레일링 → 손절/본전 → 정체 청산.
+    const _LIMIT_UP_PCT = 29.5;   // 전일종가 대비 등락률 이 이상이면 상한가로 간주
+    const _TRAIL_ARM_PCT = 3;     // 고점 수익률이 이만큼 넘어야 트레일링 활성
+    const _BREAKEVEN_ARM_PCT = 5; // 수익이 이만큼 넘으면 본전 스탑 발동
+    const _STAGNANT_MS = 60 * 60 * 1000;  // 정체 청산 기준 보유시간(1시간)
+    const _STAGNANT_BAND = 2;     // |수익률| 이 이내면 정체로 간주(%)
+
     function evaluateExit(stock, source) {
       if (stock.quantity === 0) return false;
       const logsBox = document.getElementById("logs-box");
       const time = new Date().toTimeString().split(" ")[0];
       const slip = getSlippagePct();
       const tag = (source === "intraday") ? "[장중] " : "";
+      const price = stock.price || stock.basePrice;
+      const avg = stock.avgBuyPrice || price;
+      const gainPct = (price / avg - 1) * 100;
 
-      // 1. 익절 (목표가 도달)
-      if (stock.price >= stock.target) {
-        const fillPrice = Math.round(stock.price * (1 - slip / 100));   // 매도 슬리피지: 신호가보다 낮게 체결
+      // 매 틱 추적치 갱신: 고점가 + 본전 스탑 무장
+      stock.peakPrice = Math.max(stock.peakPrice || avg, price);
+      if (gainPct >= _BREAKEVEN_ARM_PCT) stock.breakevenArmed = true;
+      if (!stock.holdSinceTs) stock.holdSinceTs = Date.now();
+
+      const fill = () => Math.round(price * (1 - slip / 100));   // 매도 슬리피지
+      // 전량 매도 공통 처리
+      const sellAll = (type, msg, color) => {
+        const fillPrice = fill();
         const realizedAmt = stock.quantity * fillPrice;
         const profit = realizedAmt - stock.investedCapital;
         cashBalance += realizedAmt;
         realizedPnl += profit;
-        recordTrade({ code: stock.code, name: stock.name, side: "SELL", type: "TAKE_PROFIT",
+        recordTrade({ code: stock.code, name: stock.name, side: "SELL", type,
                       qty: stock.quantity, price: fillPrice, amount: realizedAmt, pnl: profit, source });
-        if (logsBox) logsBox.innerHTML += `
-          <div class="log-line" style="color:var(--kosdaq-green); font-weight:bold;">
-            <span class="log-time">[${time}]</span> [ALGO SELL] ${tag}<b>${stock.name}</b> 목표 익절 달성 전량 매도 완료! 실시간 실현손익: +${profit.toLocaleString()}원
-          </div>`;
+        if (logsBox) logsBox.innerHTML += `<div class="log-line" style="color:${color}; font-weight:bold;"><span class="log-time">[${time}]</span> [ALGO SELL] ${tag}<b>${stock.name}</b> ${msg} 실현손익: ${profit >= 0 ? "+" : ""}${profit.toLocaleString()}원</div>`;
         resetPosition(stock);
         return true;
+      };
+
+      // 1. 상한가 익절 — 목표가 무관 전량(목표가가 상한가 위라 영영 못 닿는 종목 회수).
+      if (stock.rate >= _LIMIT_UP_PCT) {
+        return sellAll("TAKE_PROFIT_LIMITUP", "상한가 도달 전량 익절!", "var(--up-red)");
       }
 
-      // 2. 손절 (지지선 붕괴) — ATR 손절선 vs 사용자 최대손절% 중 더 타이트한 값
-      if (stock.price <= getEffectiveStopPrice(stock)) {
-        const fillPrice = Math.round(stock.price * (1 - slip / 100));
-        const realizedAmt = stock.quantity * fillPrice;
-        const loss = stock.investedCapital - realizedAmt;
-        cashBalance += realizedAmt;
-        realizedPnl -= loss;
-        recordTrade({ code: stock.code, name: stock.name, side: "SELL", type: "STOP_LOSS",
-                      qty: stock.quantity, price: fillPrice, amount: realizedAmt, pnl: -loss, source });
-        if (logsBox) logsBox.innerHTML += `
-          <div class="log-line" style="color:var(--up-red); font-weight:bold;">
-            <span class="log-time">[${time}]</span> [ALGO SELL] ${tag}<b>${stock.name}</b> 손절 지지선 붕괴 전량 매도 완료. 실시간 실현손실: -${loss.toLocaleString()}원
-          </div>`;
-        resetPosition(stock);
-        return true;
+      // 2. 목표가 부분익절 — 절반 확정(현금 회수), 잔량은 트레일링/본전으로 러너 태움.
+      if (!stock.scaledOut && price >= stock.target) {
+        if (stock.quantity >= 2) {
+          const fillPrice = fill();
+          const sellQty = Math.floor(stock.quantity / 2);
+          const realizedAmt = sellQty * fillPrice;
+          const costOut = Math.round(avg * sellQty);
+          const profit = realizedAmt - costOut;
+          cashBalance += realizedAmt;
+          realizedPnl += profit;
+          stock.quantity -= sellQty;
+          stock.investedCapital = Math.max(0, stock.investedCapital - costOut);
+          stock.scaledOut = true;
+          recordTrade({ code: stock.code, name: stock.name, side: "SELL", type: "TAKE_PROFIT_PARTIAL",
+                        qty: sellQty, price: fillPrice, amount: realizedAmt, pnl: profit, source });
+          if (logsBox) logsBox.innerHTML += `<div class="log-line" style="color:var(--kosdaq-green); font-weight:bold;"><span class="log-time">[${time}]</span> [ALGO SELL] ${tag}<b>${stock.name}</b> 목표가 부분익절(절반 ${sellQty.toLocaleString()}주) — 잔량 트레일링 전환. +${profit.toLocaleString()}원</div>`;
+          return true;
+        }
+        // 1주뿐이면 분할 불가 → 전량 익절
+        return sellAll("TAKE_PROFIT", "목표 익절 달성 전량 매도!", "var(--kosdaq-green)");
+      }
+
+      // 3. 트레일링 스탑 — 고점 수익률이 발동임계 넘긴 뒤 고점 대비 트레일% 하락 시 전량.
+      const peakGain = (stock.peakPrice / avg - 1) * 100;
+      if (peakGain >= _TRAIL_ARM_PCT && price <= stock.peakPrice * (1 - getTrailPct() / 100)) {
+        return sellAll("TRAILING_STOP", `트레일링 스탑(고점 ${Math.round(stock.peakPrice).toLocaleString()}원 대비 ${getTrailPct().toFixed(1)}%↓) 전량 매도.`, "var(--kosdaq-green)");
+      }
+
+      // 4. 손절 / 본전 스탑 — 유효손절선(ATR·최대손절% + 본전상향) 이탈 시 전량.
+      if (price <= getEffectiveStopPrice(stock)) {
+        const be = stock.breakevenArmed && getEffectiveStopPrice(stock) >= avg;
+        return sellAll("STOP_LOSS", be ? "본전 스탑(수익 반납 방지) 전량 매도." : "손절 지지선 붕괴 전량 매도.",
+                       be ? "var(--text-muted)" : "var(--up-red)");
+      }
+
+      // 5. 정체 청산 — 진입 후 1시간간 ±2% 못 벗어나면 정리(죽은 자본 회수). 데모는 20초.
+      const stagnantMs = _isDemo() ? 20000 : _STAGNANT_MS;
+      if (stock.holdSinceTs && (Date.now() - stock.holdSinceTs) >= stagnantMs
+          && Math.abs(gainPct) <= _STAGNANT_BAND) {
+        return sellAll("TIME_EXIT", "정체(1시간 ±2% 이내) 청산 — 자본 회수.", "var(--text-muted)");
       }
       return false;
     }
 
-    // 장중 관심종목 신규 진입 — 리스트에 처음 등장 시 감지 즉시 배정액 1회 전량 매수.
-    // 익절/손절/EOD청산은 이후 장전과 동일 엔진(evaluateExit/EOD)이 처리한다.
+    // 장중 관심종목 진입 — 감지 즉시 1트랜치, 이후 14:30 컷오프까지 하이브리드(가격/시간)
+    // 로 N분할. 각 트랜치는 진입선 이하 + 갭필터 통과 시에만. 자본은 동적 재분할된
+    // 배분액(장중 편입분 포함) 한도 내. 익절/손절/EOD청산은 공용 엔진이 처리한다.
     function executeIntradayEntries() {
       if (!isLiveView) return;                 // 과거 리포트 열람 중엔 매매 안 함
       if (!isIntradayEntryWindow()) return;    // 장중 + 14:30 이전만
       // 스테일 게이트: 오늘자 장중 선정이 확인되기 전(장 시작 직후 전일 리스트 잔존 구간)
       // 에는 신규 진입 금지 — 전일 종목을 전일 기준가로 일괄 매수하는 사고 방지.
       // 데모 모드는 게이트 우회(오토트레이딩 테스트용).
-      const demoToggle = document.getElementById("demo-mode-toggle");
-      if (!(demoToggle && demoToggle.checked) && intradayDataDate !== todayKST()) return;
+      if (!_isDemo() && intradayDataDate !== todayKST()) return;
       const logsBox = document.getElementById("logs-box");
       const time = new Date().toTimeString().split(" ")[0];
       const slip = getSlippagePct();
       const gapLimit = parseFloat(document.getElementById("slider-gap").value);
+      const N = getTrancheCount();
+      const remainingMs = msUntilKST(1430);    // 컷오프까지 남은 시간(시간 트리거용)
       let anyEntered = false;
 
       watchData.forEach(stock => {
-        if (stock.quantity > 0) return;                  // 이미 보유
-        if (stock.enteredDate === todayKST()) return;    // 오늘 이미 진입(청산 후 재진입 방지)
+        // 새 거래일이면 어제 진행분 리셋(오늘 첫 진입 가능하게). enteredDate 는 첫 트랜치에 오늘로 세팅됨.
+        if (stock.enteredDate && stock.enteredDate !== todayKST() && !(stock.quantity > 0)) {
+          stock.entryTranchesDone = 0; stock.enteredDate = null;
+        }
+        if ((stock.entryTranchesDone || 0) >= N) return; // 오늘 분할 완료(청산 후 재진입 방지 포함)
         if (heldInPreMarket(stock.code)) return;         // 장전에서 보유 중 → 장전 우선(중복 방지)
         if (stock.direction === "bearish") return;       // 딥리서치 하방 판정 → 매수 스킵
 
@@ -3286,26 +3437,43 @@
         const gapFromBase = stock.basePrice ? ((price / stock.basePrice - 1) * 100) : 0;
         if (Math.abs(gapFromBase) > gapLimit) return;    // 기준가 대비 급변 → 갭 필터
 
+        const done = stock.entryTranchesDone || 0;
+        if (!trancheTriggerReady(stock, done, N, remainingMs)) return;  // 하이브리드 트리거
+
+        // 신규 편입(첫 트랜치)이면 이 종목을 슬롯에 포함해 배분액을 재산정(동적 희석).
+        stock._entering = (done === 0);
+        recomputeAllocation();
+        stock._entering = false;
+        const perStock = maxAllocationPerStock;
+
         const execPrice = Math.round(price * (1 + slip / 100));   // 매수 슬리피지 반영
-        const budget = Math.min(maxAllocationPerStock, cashBalance);
-        const qty = Math.floor(budget / execPrice);
-        if (qty < 1) return;                             // 예수금 부족
+        const amt = trancheAmount(perStock, stock.investedCapital || 0, N);
+        const qty = Math.floor(amt / execPrice);
+        if (qty < 1) return;                             // 예수금·상한 부족(잔여 미집행)
         const cost = qty * execPrice;
 
         cashBalance -= cost;
-        stock.quantity = qty;
-        stock.avgBuyPrice = execPrice;
-        stock.investedCapital = cost;
-        stock.pnl = 0;
-        stock.pnlRate = 0;
-        stock.enteredDate = todayKST();
+        const prevQty = stock.quantity || 0;
+        const totalQty = prevQty + qty;
+        stock.avgBuyPrice = prevQty > 0
+          ? Math.round(((stock.avgBuyPrice * prevQty) + (execPrice * qty)) / totalQty) : execPrice;
+        stock.quantity = totalQty;
+        stock.investedCapital = (stock.investedCapital || 0) + cost;
+        stock.entryTranchesDone = done + 1;
+        stock.lastTrancheTs = Date.now();
+        if (done === 0) {                                // 최초 진입 시 추적 초기화
+          stock.enteredDate = todayKST();
+          stock.pnl = 0; stock.pnlRate = 0;
+          stock.peakPrice = execPrice; stock.scaledOut = false;
+          stock.breakevenArmed = false; stock.holdSinceTs = Date.now();
+          addIntradayToJournal(stock);   // 일지 스냅샷에 장중 진입 종목 편입
+        }
         anyEntered = true;
 
         recordTrade({ code: stock.code, name: stock.name, side: "BUY", type: "INTRADAY_ENTRY",
                       qty, price: execPrice, amount: cost, source: "intraday" });
-        addIntradayToJournal(stock);   // 일지 스냅샷에 장중 진입 종목 편입
 
-        if (logsBox) logsBox.innerHTML += `<div class="log-line" style="color:var(--kospi-blue);"><span class="log-time">[${time}]</span> <span class="log-buy">[장중 진입]</span> <b>${stock.name}</b> 장중 관심종목 진입선(${stock.entry.toLocaleString()}원) 이하 매수: ${qty.toLocaleString()}주 at <b>${execPrice.toLocaleString()}원</b>.</div>`;
+        if (logsBox) logsBox.innerHTML += `<div class="log-line" style="color:var(--kospi-blue);"><span class="log-time">[${time}]</span> <span class="log-buy">[장중 진입 ${done + 1}/${N}]</span> <b>${stock.name}</b> 진입선(${stock.entry.toLocaleString()}원) 이하 분할 매수: ${qty.toLocaleString()}주 at <b>${execPrice.toLocaleString()}원</b>.</div>`;
       });
 
       if (anyEntered) {
@@ -3411,7 +3579,7 @@
         document.getElementById("total-capital-val").innerText = totalCapital.toLocaleString() + "원";
       }
       if (document.getElementById("max-allocation-val")) {
-        document.getElementById("max-allocation-val").innerText = maxAllocationPerStock.toLocaleString() + "원";
+        document.getElementById("max-allocation-val").innerText = Math.round(maxAllocationPerStock).toLocaleString() + "원";
       }
 
       document.getElementById("total-cash-val").innerText = totalCashRemaining.toLocaleString() + "원";
@@ -3723,43 +3891,40 @@
           return;
         }
 
-        // 3. Follow-up Purchase (95% 추가 분할 매수) - STRICTLY during 09:01 - 09:30 KST and only if NOT gap-filtered
-        if (!stock.hasFollowedUp && !stock.isGapFiltered && stock.followBudget > 1000000 && cashBalance > 0) {
-          // Verify time window constraint
-          if (!isWithinFollowUpWindow()) {
-            return;
-          }
+        // 3. 95% 잔여 비중 추가매수 — 09:01~09:30 창에서 하이브리드 N분할.
+        //    갭 필터 통과 + 진입선 이하 + 배분액 상한(동적) 내 + 잔여 트랜치 있을 때만.
+        const N = getTrancheCount();
+        const done = stock.followTranchesDone || 0;
+        if (stock.isGapFiltered || done >= N) return;
+        if (!isWithinFollowUpWindow()) return;
+        if (stock.price > entryLimit) return;                 // 진입선 이하에서만
+        if (!trancheTriggerReady(stock, done, N, msUntilKST(930))) return;   // 하이브리드 트리거
 
-          // Check if price is within the valid buy entry range (less than or equal to the entry upper limit)
-          if (stock.price <= entryLimit) {
-            const fillPrice = Math.round(stock.price * (1 + slip / 100));   // 매수 슬리피지: 신호가보다 비싸게 체결
-            const buyAmt = Math.min(stock.followBudget, cashBalance); // earmark과 예수금 중 작은 값
-            const addQty = Math.floor(buyAmt / fillPrice);
+        recomputeAllocation();                                // 장중 편입분 반영된 동적 상한
+        const fillPrice = Math.round(stock.price * (1 + slip / 100));   // 매수 슬리피지
+        const amt = trancheAmount(maxAllocationPerStock, stock.investedCapital || 0, N);
+        const addQty = Math.floor(amt / fillPrice);
+        if (addQty < 1) return;                               // 예수금·상한 부족(잔여 미집행)
+        const addCost = addQty * fillPrice;
 
-            if (addQty > 0) {
-              const addCost = addQty * fillPrice;
+        const totalQty = stock.quantity + addQty;
+        stock.avgBuyPrice = Math.round(((stock.avgBuyPrice * stock.quantity) + (fillPrice * addQty)) / totalQty);
+        stock.quantity = totalQty;
+        stock.investedCapital += addCost;
+        cashBalance -= addCost;
+        stock.followTranchesDone = done + 1;
+        stock.lastTrancheTs = Date.now();
+        if (stock.followTranchesDone >= N) stock.hasFollowedUp = true;   // 레거시 플래그 동기화
+        recordTrade({ code: stock.code, name: stock.name, side: "BUY", type: "FOLLOWUP",
+                      qty: addQty, price: fillPrice, amount: addCost });
 
-              // Recalculate average buy price
-              const totalQty = stock.quantity + addQty;
-              stock.avgBuyPrice = Math.round(((stock.avgBuyPrice * stock.quantity) + (fillPrice * addQty)) / totalQty);
-              stock.quantity = totalQty;
-              stock.investedCapital += addCost;
-              stock.followBudget -= addCost;
-              cashBalance -= addCost;
-              stock.hasFollowedUp = true;
-              recordTrade({ code: stock.code, name: stock.name, side: "BUY", type: "FOLLOWUP",
-                            qty: addQty, price: fillPrice, amount: addCost });
+        logsBox.innerHTML += `
+          <div class="log-line"><span class="log-time">[${time}]</span> <span class="log-buy">[AUTO ORDER ${done + 1}/${N}]</span> 09:01~09:30 <b>${stock.name}</b> 진입선 터치 분할 매수: ${addQty.toLocaleString()}주 at <b>${fillPrice.toLocaleString()}원</b>.</div>
+        `;
 
-              logsBox.innerHTML += `
-                <div class="log-line"><span class="log-time">[${time}]</span> <span class="log-buy">[AUTO ORDER]</span> 09:01~09:30 시간 내 <b>${stock.name}</b> 진입선 터치에 따른 95% 잔여 비중 추가 매수 완료: ${addQty.toLocaleString()}주 at <b>${fillPrice.toLocaleString()}원</b>.</div>
-              `;
-
-              renderTable();
-              updatePortfolioAccountSummary();
-              logsBox.scrollTop = logsBox.scrollHeight;
-            }
-          }
-        }
+        renderTable();
+        updatePortfolioAccountSummary();
+        logsBox.scrollTop = logsBox.scrollHeight;
       });
     }
 
@@ -4240,7 +4405,9 @@
     // ===== 매매일지 렌더 (일자별 워치리스트·체결내역·손익 조회) =====
     const TRADE_TYPE_LABEL = {
       OPENING: "시초매수", FOLLOWUP: "추가매수", INTRADAY_ENTRY: "장중진입",
-      TAKE_PROFIT: "익절매도", STOP_LOSS: "손절매도", EOD_LIQUIDATION: "장마감청산",
+      TAKE_PROFIT: "익절매도", TAKE_PROFIT_LIMITUP: "상한가익절", TAKE_PROFIT_PARTIAL: "부분익절",
+      TRAILING_STOP: "트레일링", TIME_EXIT: "정체청산",
+      STOP_LOSS: "손절매도", EOD_LIQUIDATION: "장마감청산",
     };
 
     function loadJournalDateOptions() {
@@ -4698,8 +4865,10 @@
           executeEndOfDayLiquidation();
         }
 
-        // Check for simulated orders
+        // Check for simulated orders (장전 익절/손절/추가매수 + 장중 진입/청산)
         checkAndExecuteFollowUpAlgoTrading();
+        runIntradayExits();
+        executeIntradayEntries();
         updatePortfolioAccountSummary();
       }
 
@@ -4739,7 +4908,24 @@
         valSpan.innerText = (slider.value / 100).toFixed(2) + "%";
       } else if (param === 'stop') {
         valSpan.innerText = (slider.value / 10).toFixed(1) + "%";
+      } else if (param === 'tranches') {
+        valSpan.innerText = slider.value + "회";
+      } else if (param === 'trail') {
+        valSpan.innerText = (slider.value / 10).toFixed(1) + "%";
       }
+    }
+
+    // 분할 매수 횟수 (1~5, 기본 3). N=1 이면 기존 일괄 매수와 동일.
+    function getTrancheCount() {
+      const el = document.getElementById("slider-tranches");
+      const v = el ? parseInt(el.value, 10) : 3;
+      return (isNaN(v) || v < 1) ? 3 : v;
+    }
+    // 트레일링 스탑 % (슬라이더 50 → 5.0%). 고점 대비 하락폭.
+    function getTrailPct() {
+      const el = document.getElementById("slider-trail");
+      const v = el ? parseFloat(el.value) : 50;
+      return (isNaN(v) ? 50 : v) / 10;
     }
 
     // ===== VI 발동 / 상하한가 (KIS 허브 vi_limit_monitor /status) =====
