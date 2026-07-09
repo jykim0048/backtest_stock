@@ -35,8 +35,9 @@ OUT_PATH = os.environ.get("INTRADAY_BRIEFING_OUT") or os.path.join(
     ROOT, "public", "intraday_briefing.json")
 ARCHIVE_DIR = os.path.join(ROOT, "public", "reports", "intraday_briefing")
 THEMES_PER_SIDE = int(os.environ.get("BRIEFING_THEMES", "3"))     # 급등/급락 각 N개
-STOCKS_PER_THEME = int(os.environ.get("BRIEFING_VC_STOCKS", "4"))  # 테마당 밸류체인 종목
+STOCKS_PER_THEME = int(os.environ.get("BRIEFING_VC_STOCKS", "4"))  # 섹터→테마 종목 표기 수
 SECTORS_PER_SIDE = int(os.environ.get("BRIEFING_SECTORS", "3"))    # 상승/하락 각 N개 섹터
+CATALYSTS_PER_DIR = int(os.environ.get("BRIEFING_CAT_PER_DIR", "10"))  # 촉매 방향별 상한(상방/중립/하방)
 
 # KIS 허브(vi_limit_monitor) /status — KOSPI 산업별 업종 지수 등락률(KRX 분류) 공급원.
 # 허브가 장중 REST 로 FHPUP02140000 을 폴링해 Redis→/status 로 노출한다(대시보드 VI 탭과 동일 서비스).
@@ -71,25 +72,6 @@ def fetch_indices():
         except Exception as e:
             _warn(f"index {sym}: {e}")
     return out
-
-
-def pick_themes():
-    """테마 랭킹에서 급등/급락 각 N개 + 테마별 밸류체인(등락 상위 종목)."""
-    ranking = sources.naver_theme_ranking()
-    if not ranking:
-        return [], []
-    ranking.sort(key=lambda t: t["changePct"], reverse=True)
-    ups, downs = ranking[:THEMES_PER_SIDE], ranking[-THEMES_PER_SIDE:][::-1]
-
-    def _attach(theme, reverse):
-        stocks = sources.naver_theme_stocks(theme["no"], limit=12)
-        # 등락률 결측은 뒤로, 급등 테마는 상승 상위·급락 테마는 하락 상위 순
-        stocks.sort(key=lambda s: (s["changePct"] is None,
-                                   -(s["changePct"] or 0) if reverse else (s["changePct"] or 0)))
-        return {**theme, "stocks": stocks[:STOCKS_PER_THEME]}
-
-    return ([_attach(t, True) for t in ups],
-            [_attach(t, False) for t in downs])
 
 
 KRX_SECTOR_MAP_PATH = os.path.join(ROOT, "public", "assets", "krx_sector_map.json")
@@ -158,6 +140,83 @@ def fetch_sectors():
     return heat, ups, downs
 
 
+# KIS 업종(KRX 산업 분류) → 관련 네이버 테마 매칭용 키워드 폴백. 대장주 코드 겹침이
+# 우선이고, 겹침이 없을 때 테마명에 아래 키워드가 있으면 매칭한다(주요 KOSPI 섹터 커버).
+_SECTOR_THEME_KW = {
+    "전기·전자":     ["반도체", "HBM", "반도체장비", "반도체소재", "IT부품", "카메라"],
+    "운송장비·부품": ["자동차", "자동차부품", "전기차", "타이어", "2차전지"],
+    "화학":         ["2차전지", "전지소재", "화학", "정유", "태양광"],
+    "운송·창고":     ["항공", "해운", "물류", "택배"],
+    "건설":         ["건설", "건설기계", "시멘트", "리모델링"],
+    "제약":         ["제약", "바이오", "비만", "신약", "임상"],
+    "보험":         ["보험"],
+    "증권":         ["증권"],
+    "은행":         ["은행", "금융지주"],
+    "전기·가스":     ["전력", "원자력", "도시가스", "풍력", "태양광", "수소"],
+    "통신":         ["통신", "5G"],
+    "금속":         ["철강", "비철금속", "아연", "구리"],
+    "음식료·담배":   ["음식료", "주류", "사료", "담배"],
+    "유통":         ["유통", "화장품", "면세점", "홈쇼핑"],
+    "기계·장비":     ["기계", "조선", "방산", "로봇", "원전"],
+    "의료·정밀기기": ["의료기기", "진단", "치과"],
+    "비금속":       ["시멘트", "유리"],
+    "종이·목재":     ["제지", "골판지"],
+    "섬유·의류":     ["의류", "패션", "섬유"],
+    "오락·문화":     ["엔터", "미디어", "게임", "영화"],
+    "IT 서비스":     ["소프트웨어", "인터넷", "AI", "보안", "결제"],
+}
+
+
+def _theme_detail(theme, up):
+    """매칭된 네이버 테마 → {name, changePct, stocks}. stocks 는 섹터 방향(up/down) 상위."""
+    stocks = [x for x in sources.naver_theme_stocks(theme["no"], limit=15)
+              if x.get("changePct") is not None]
+    stocks.sort(key=lambda x: -x["changePct"] if up else x["changePct"])
+    return {"name": theme["name"], "changePct": theme["changePct"],
+            "stocks": [{"code": x["code"], "name": x["name"], "changePct": x["changePct"]}
+                       for x in stocks[:STOCKS_PER_THEME]]}
+
+
+def _match_theme(sector, pool, up):
+    """섹터 → 관련 네이버 테마 1개. ① 테마 대장주 코드가 섹터 KRX 관련주에 포함(겹침 최다)
+    ② 폴백: 테마명에 섹터 키워드 포함. 방향(up) 풀 안에서만 고른다. 미검출 시 None."""
+    codes = {s.get("code") for s in (sector.get("stocks") or []) if s.get("code")}
+    best, best_ov = None, 0
+    for t in pool:
+        ov = sum(1 for L in (t.get("leaders") or []) if L.get("code") in codes)
+        if ov > best_ov:
+            best, best_ov = t, ov
+    if best is not None:
+        return best
+    kws = _SECTOR_THEME_KW.get(sector.get("name"), [])
+    if kws:
+        cands = [t for t in pool if any(k in t["name"] for k in kws)]
+        if cands:
+            return max(cands, key=lambda t: abs(t.get("changePct") or 0))
+    return None
+
+
+def attach_sector_themes(sectors_up, sectors_down):
+    """각 KIS 섹터(급등/급락 상위)에 관련도 높은 네이버 테마 + 종목을 부착(sector['theme']).
+
+    모닝브리핑의 '미국 섹터 → 국내 밸류체인' 흐름을 장중판으로: KIS 업종 등락으로 뽑은
+    급등/급락 섹터를, 대장주 겹침(우선)·키워드(폴백)로 네이버 테마에 연결한다."""
+    ranking = sources.naver_theme_ranking()
+    if not ranking:
+        return
+    up_pool = sorted([t for t in ranking if (t.get("changePct") or 0) > 0],
+                     key=lambda t: t["changePct"], reverse=True)
+    down_pool = sorted([t for t in ranking if (t.get("changePct") or 0) < 0],
+                       key=lambda t: t["changePct"])
+    used = set()
+    for sector, pool, up in ([(s, up_pool, True) for s in sectors_up]
+                             + [(s, down_pool, False) for s in sectors_down]):
+        t = _match_theme(sector, pool, up)
+        if t and t["no"] not in used:      # 같은 테마 중복 배정 방지
+            used.add(t["no"])
+            sector["theme"] = _theme_detail(t, up)
+
+
 def fetch_movers():
     """급등/급락 개별종목 (LLM 재료 — 테마 밖 단독 급등주 포착용)."""
     up, down = [], []
@@ -190,11 +249,9 @@ SYSTEM = (
     "- 데이터에 없는 수치·사실을 지어내지 말 것. 등락률 등 수치는 입력값을 인용할 것.\n"
     "- briefing 은 3~5개의 완결된 문장(각각이 대시보드 불릿 하나): ① 지수 흐름과 수급 주체"
     "(investors — 기관/외국인/개인 순매수, 단위 억원)를 함께, ② 환율·금리·유가(marketIndicators)가 "
-    "시장에 주는 함의, ③ 주도 테마와 동인, ④ 약세 테마, ⑤ 관전 포인트 순으로.\n"
-    "- themeComments 는 입력의 모든 테마(급등·급락 각각)에 대해 1문장씩 — 왜 움직이는지를 "
-    "구성종목 편입사유·공시·뉴스와 연결해 서술하고, name 은 입력 표기 그대로 echo 할 것.\n"
+    "시장에 주는 함의, ③ 주도 섹터(sectorsUp)와 동인, ④ 약세 섹터(sectorsDown), ⑤ 관전 포인트 순으로.\n"
     "- catalysts 는 입력 공시(id: d0,d1,..)·뉴스(id: n0,n1,..) 중 시장 영향이 큰 것을 '종목 단위'로 "
-    "정리한다(최대 8건, 서로 다른 종목을 최대한 많이 포괄):\n"
+    "정리한다(방향별 — 상방·중립·하방 각각 최대 10건 — 서로 다른 종목을 최대한 많이 포괄):\n"
     "  · 같은 종목이 공시·뉴스에 중복 등장하면 반드시 하나로 합쳐 한 줄로 요약할 것(같은 종목 중복 금지).\n"
     "  · 각 항목 필드: id(대표 출처 1개만, 공시가 있으면 공시 우선), stock(종목명), "
     "market(KOSPI|KOSDAQ, 불명확하면 빈 문자열), direction(그 촉매가 주가에 주는 방향 — "
@@ -208,10 +265,6 @@ SCHEMA = {
     "type": "object",
     "properties": {
         "briefing": {"type": "array", "items": _STR},
-        "themeComments": {"type": "array", "items": {
-            "type": "object",
-            "properties": {"name": _STR, "comment": _STR},
-            "required": ["name", "comment"]}},
         "catalysts": {"type": "array", "items": {
             "type": "object",
             "properties": {
@@ -220,7 +273,7 @@ SCHEMA = {
                 "summary": _STR},
             "required": ["id", "stock", "direction", "summary"]}},
     },
-    "required": ["briefing", "themeComments", "catalysts"],
+    "required": ["briefing", "catalysts"],
 }
 
 
@@ -228,7 +281,7 @@ def _norm(s):
     return "".join(ch for ch in str(s or "") if ch not in " \t·ㆍ・")
 
 
-def synthesize(indices, investors, indicators, ups, downs,
+def synthesize(indices, investors, indicators, sectors_up, sectors_down,
                movers_up, movers_down, disclosures, news):
     # 시장지표는 핵심만 추려 LLM 에 전달 (COFIX 등 저관련 항목 제외)
     core_ind = {}
@@ -245,14 +298,14 @@ def synthesize(indices, investors, indicators, ups, downs,
         "indices": indices,
         "investors": investors,          # 억원 단위 순매수 (개인/외국인/기관)
         "marketIndicators": core_ind,
-        "themesUp": [{"name": t["name"], "changePct": t["changePct"],
-                      "stocks": [{"name": s["name"], "changePct": s["changePct"],
-                                  "reason": (s.get("reason") or "")[:80]}
-                                 for s in t["stocks"]]} for t in ups],
-        "themesDown": [{"name": t["name"], "changePct": t["changePct"],
-                        "stocks": [{"name": s["name"], "changePct": s["changePct"],
-                                    "reason": (s.get("reason") or "")[:80]}
-                                   for s in t["stocks"]]} for t in downs],
+        "sectorsUp": [{"name": s["name"], "changePct": s["changePct"],
+                       "theme": (s.get("theme") or {}).get("name"),
+                       "stocks": [x["name"] for x in (s.get("stocks") or [])]}
+                      for s in sectors_up],
+        "sectorsDown": [{"name": s["name"], "changePct": s["changePct"],
+                         "theme": (s.get("theme") or {}).get("name"),
+                         "stocks": [x["name"] for x in (s.get("stocks") or [])]}
+                        for s in sectors_down],
         "moversUp": [{"name": s["name"], "changePct": s["changePct"]} for s in movers_up],
         "moversDown": [{"name": s["name"], "changePct": s["changePct"]} for s in movers_down],
         "disclosures": [{"id": f"d{i}", "corp": d["corp"], "title": d["title"]}
@@ -272,14 +325,9 @@ def synthesize(indices, investors, indicators, ups, downs,
     else:
         _warn("LLM 미설정 — 기계적 결과만 산출")
 
-    # 테마 코멘트 병합 (표기 차이 허용)
-    by_name = {_norm(c.get("name")): (c.get("comment") or "").strip()
-               for c in (synth.get("themeComments") or [])}
-    for t in ups + downs:
-        t["comment"] = by_name.get(_norm(t["name"]), "")
-
     # 촉매: 종목 단위(중복 통합) + 방향(상방/중립/하방). id → 원문 URL 매칭(공시 dN / 뉴스 nN).
-    catalysts, seen = [], set()
+    # 방향별 상한 10건(상방·중립·하방 각각) — 한 방향이 표를 독점하지 않도록.
+    catalysts, seen, dir_count = [], set(), {"bullish": 0, "neutral": 0, "bearish": 0}
     for c in (synth.get("catalysts") or []):
         cid = str(c.get("id") or "")
         stock = (c.get("stock") or "").strip()
@@ -304,7 +352,10 @@ def synthesize(indices, investors, indicators, ups, downs,
         key = _norm(stock)                 # LLM 이 또 중복 내도 종목 단위로 한 번 더 방어
         if key in seen:
             continue
+        if dir_count[direction] >= CATALYSTS_PER_DIR:   # 방향별 상한
+            continue
         seen.add(key)
+        dir_count[direction] += 1
         catalysts.append({"stock": stock, "market": market, "direction": direction,
                           "summary": summary, "url": url, "kind": kind})
     return [b.strip() for b in (synth.get("briefing") or []) if b and b.strip()], \
@@ -320,18 +371,19 @@ def main():
     indices = fetch_indices()
     investors = sources.naver_index_investors()          # 기관/외인/개인 순매수(억원)
     indicators = sources.naver_market_indicators()       # 환율·금리·유가·금
-    ups, downs = pick_themes()
     sector_heat, sectors_up, sectors_down = fetch_sectors()   # KIS 업종(KRX 분류) 섹터 히트
+    attach_sector_themes(sectors_up, sectors_down)            # 섹터 → 관련 네이버 테마·종목
     movers_up, movers_down = fetch_movers()
     disclosures = sources.dart_today_disclosures(limit=40)
     news = fetch_news()
-    print(f"  수집: 섹터 {len(sector_heat)}개(↑{len(sectors_up)}/↓{len(sectors_down)}), "
-          f"테마 급등{len(ups)}/급락{len(downs)}, 공시 {len(disclosures)}, "
-          f"뉴스 {len(news)}, 지표 {sum(len(v) for v in indicators.values()) if indicators else 0}, "
+    _tm = sum(1 for s in sectors_up + sectors_down if s.get("theme"))
+    print(f"  수집: 섹터 {len(sector_heat)}개(↑{len(sectors_up)}/↓{len(sectors_down)}, 테마매칭 {_tm}), "
+          f"공시 {len(disclosures)}, 뉴스 {len(news)}, "
+          f"지표 {sum(len(v) for v in indicators.values()) if indicators else 0}, "
           f"수급 {len(investors)}시장")
 
     briefing, catalysts, model = synthesize(
-        indices, investors, indicators, ups, downs,
+        indices, investors, indicators, sectors_up, sectors_down,
         movers_up, movers_down, disclosures, news)
 
     out = {
@@ -343,10 +395,8 @@ def main():
         "indicators": indicators,
         "briefing": briefing,
         "sectorHeat": sector_heat,      # KIS KOSPI 산업별 업종(KRX 분류), 등락 내림차순
-        "sectorsUp": sectors_up,        # 급등 상위 섹터(관련주는 KRX 업종분류 연동 후 부착)
+        "sectorsUp": sectors_up,        # 급등 상위 섹터 + KRX 관련주 + 매칭 네이버 테마(theme)
         "sectorsDown": sectors_down,    # 급락 상위 섹터
-        "themesUp": ups,
-        "themesDown": downs,
         "catalysts": catalysts,
         "disclosures": disclosures[:15],
         "news": news[:10],

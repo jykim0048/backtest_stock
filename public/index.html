@@ -3048,25 +3048,6 @@
       const bullets = (d.briefing || []).length
         ? `<ul class="briefing-usbullets">${d.briefing.map(b => `<li>${_brEsc(b)}</li>`).join("")}</ul>` : "";
 
-      // 테마 카드 (급등/급락 각 3 — 동일 비중)
-      const themeCard = (t) => {
-        const stocks = (t.stocks || []).map(s => {
-          const pct = (s.changePct == null) ? "" : ` <span style="color:${_brPctColor(s.changePct)}">${_brPctFmt(s.changePct)}%</span>`;
-          const tip = _brEsc(s.reason || "");
-          return `<span class="ib-stock" ${tip ? `title="${tip}"` : ""} onclick="ibResearch('${_brEsc(s.name)}')">${_brEsc(s.name)}${pct}</span>`;
-        }).join("");
-        return `<div class="ib-theme">
-          <div class="ib-t-head"><span class="ib-t-name">${_brEsc(t.name)}</span>
-            <span class="ib-t-chg" style="color:${_brPctColor(t.changePct)}">${_brPctFmt(t.changePct)}%</span></div>
-          ${t.comment ? `<div class="ib-t-comment">${_brEsc(t.comment)}</div>` : ""}
-          <div class="ib-t-stocks">${stocks}</div>
-        </div>`;
-      };
-      const upCol = (d.themesUp || []).map(themeCard).join("")
-        || `<div class="briefing-flowempty">급등 테마 없음</div>`;
-      const downCol = (d.themesDown || []).map(themeCard).join("")
-        || `<div class="briefing-flowempty">급락 테마 없음</div>`;
-
       // 장중 촉매 — 종목 단위(중복 통합), 모닝브리핑 워치리스트처럼 종목/시장/핵심촉매 순 + 방향 배지.
       // 구버전 회차(catalysts[].corp, direction 없음)도 관대하게 렌더(stock||corp, 배지 생략).
       const _catDir = (dir) => dir === "bullish" ? `<span class="dir-badge bull">▲ 상방</span>`
@@ -3112,32 +3093,48 @@
             + `<div class="h-name" style="color:${nc}">${_brEsc(s.name)}</div>`
             + `<div class="h-val" style="color:${_brPctColor(v)}">${_brPctFmt(s.changePct)}</div></div>`;
         }).join("");
-        const secCard = (s) => {
-          const stocks = (s.stocks || []).map(x =>
-            `<span class="ib-stock" onclick="ibResearch('${_brEsc(x.name)}')">${_brEsc(x.name)}${
-              x.changePct == null ? "" : ` <span style="color:${_brPctColor(x.changePct)}">${_brPctFmt(x.changePct)}%</span>`}</span>`).join("");
-          return `<div class="ib-theme"><div class="ib-t-head">`
-            + `<span class="ib-t-name">${_brEsc(s.name)}</span>`
-            + `<span class="ib-t-chg" style="color:${_brPctColor(s.changePct)}">${_brPctFmt(s.changePct)}%</span></div>`
-            + `<div class="ib-t-stocks">${stocks || `<span class="ib-sector-pend">관련주 연동 예정 (KRX 업종분류)</span>`}</div></div>`;
+        // 섹터 → 관련 네이버 테마 흐름 (모닝브리핑 '미국 섹터 → 국내 밸류체인' 스타일 재사용).
+        // 좌(flow-us): KIS 섹터 + KRX 관련주 → 우(flow-kr): 매칭 네이버 테마 + 종목(등락%).
+        const secFlowRow = (s) => {
+          const secStocks = (s.stocks || []).slice(0, 4).map(x =>
+            `<span class="fu-name" onclick="ibResearch('${_brEsc(x.name)}')" style="font-family:'Noto Sans KR',sans-serif; cursor:pointer;">${_brEsc(x.name)}</span>`).join("");
+          const th = s.theme;
+          const right = th
+            ? `<div class="fk-theme">${_brEsc(th.name)} <span style="color:${_brPctColor(th.changePct)}">${_brPctFmt(th.changePct)}%</span></div>`
+              + `<div class="fk-names">${(th.stocks || []).map(x =>
+                  `<span class="fk-name" onclick="ibResearch('${_brEsc(x.name)}')" style="cursor:pointer;">${_brEsc(x.name)}${
+                    x.changePct == null ? "" : ` ${_brPctFmt(x.changePct)}%`}</span>`).join("")}</div>`
+            : `<div class="fk-theme" style="color:var(--text-muted);">관련 테마 미검출</div>`
+              + `<div class="fk-names">${(s.stocks || []).slice(0, 4).map(x => `<span class="fk-name">${_brEsc(x.name)}</span>`).join("")}</div>`;
+          return `<div class="flow-row">`
+            + `<div class="flow-us"><div class="fu-theme">${_brEsc(s.name)} <span style="color:${_brPctColor(s.changePct)}">${_brPctFmt(s.changePct)}%</span></div>`
+            + `<div class="fu-syms">${secStocks}</div></div>`
+            + `<div class="flow-arrow">→</div>`
+            + `<div class="flow-kr">${right}</div></div>`;
         };
-        const upS = (d.sectorsUp || []).map(secCard).join("");
-        const dnS = (d.sectorsDown || []).map(secCard).join("");
+        const upFlow = (d.sectorsUp || []).map(secFlowRow).join("");
+        const dnFlow = (d.sectorsDown || []).map(secFlowRow).join("");
         sectorSection = `
           <div class="ib-sector-label">🧭 섹터 히트 <b>(강 → 약)</b> · KIS 업종 · KOSPI 산업별 ${secHeat.length}개</div>
           <div class="briefing-heat">${cells}</div>
-          <div class="briefing-flowcols" style="margin-top:12px;">
+          <div class="ib-sector-label" style="margin-top:14px;">🔀 급등·급락 섹터 <b>→ 관련 네이버 테마·종목</b></div>
+          <div class="briefing-flowcols">
             <div class="briefing-flowcol">
-              <div class="briefing-flowlabels"><span class="flow-lbl"><span class="fl-dot" style="background:var(--up-red)"></span>🔥 상승 상위 섹터</span></div>
-              ${upS || `<div class="briefing-flowempty">상승 섹터 없음</div>`}
+              <div class="briefing-flowlabels">
+                <span class="flow-lbl" style="color:#fdba74"><span class="fl-dot" style="background:#fdba74"></span>🔥 급등 섹터</span>
+                <span class="flow-lbl" style="color:var(--kospi-blue)">관련 테마 <span class="fl-dot" style="background:var(--kospi-blue)"></span></span>
+              </div>
+              ${upFlow || `<div class="briefing-flowempty">급등 섹터 없음</div>`}
             </div>
-            <div class="briefing-flowcol">
-              <div class="briefing-flowlabels"><span class="flow-lbl"><span class="fl-dot" style="background:var(--down-blue)"></span>🧊 하락 상위 섹터</span></div>
-              ${dnS || `<div class="briefing-flowempty">하락 섹터 없음</div>`}
+            <div class="briefing-flowcol briefing-downflow">
+              <div class="briefing-flowlabels">
+                <span class="flow-lbl" style="color:#93c5fd"><span class="fl-dot" style="background:#93c5fd"></span>🧊 급락 섹터</span>
+                <span class="flow-lbl" style="color:#fcd34d">관련 테마 <span class="fl-dot" style="background:#fcd34d"></span></span>
+              </div>
+              ${dnFlow || `<div class="briefing-flowempty">급락 섹터 없음</div>`}
             </div>
           </div>`;
       }
-      const themeHdr = secHeat.length ? "세부 테마" : "";
 
       const genLabel = (d.generatedBy === "mechanical") ? "기계적 요약" : `LLM 기반 (${_brEsc(d.generatedBy || "")})`;
       document.getElementById("ib-body").innerHTML = `
@@ -3147,20 +3144,9 @@
           ${bullets}
         </div>
         ${sectorSection}
-        ${themeHdr ? `<div class="ib-sector-label" style="margin-top:14px;">🔎 ${themeHdr} <b>(네이버 테마)</b></div>` : ""}
-        <div class="briefing-flowcols">
-          <div class="briefing-flowcol">
-            <div class="briefing-flowlabels"><span class="flow-lbl"><span class="fl-dot" style="background:var(--up-red)"></span>🔥 급등 테마</span></div>
-            ${upCol}
-          </div>
-          <div class="briefing-flowcol">
-            <div class="briefing-flowlabels"><span class="flow-lbl"><span class="fl-dot" style="background:var(--down-blue)"></span>🧊 급락 테마</span></div>
-            ${downCol}
-          </div>
-        </div>
         ${catBox}
         ${rawDisc}${rawNews}
-        <div class="briefing-foot">자동 생성 · ${genLabel} · 네이버 금융·DART · 투자 판단 참고용</div>
+        <div class="briefing-foot">자동 생성 · ${genLabel} · KIS 업종·네이버 금융·DART · 투자 판단 참고용</div>
       `;
     }
 
