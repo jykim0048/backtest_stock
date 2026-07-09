@@ -3324,6 +3324,26 @@
     const _BREAKEVEN_ARM_PCT = 5; // 수익이 이만큼 넘으면 본전 스탑 발동
     const _STAGNANT_MS = 60 * 60 * 1000;  // 정체 청산 기준 보유시간(1시간)
     const _STAGNANT_BAND = 2;     // |수익률| 이 이내면 정체로 간주(%)
+    const _BUY_TYPES = new Set(["OPENING", "FOLLOWUP", "INTRADAY_ENTRY"]);
+
+    // "HH:MM:SS"(KST 벽시계) + 오늘 날짜 → epoch ms. 브라우저 TZ 무관.
+    function _kstTimeToTs(hhmmss) {
+      const ts = Date.parse(`${todayKST()}T${hhmmss}+09:00`);
+      return isNaN(ts) ? 0 : ts;
+    }
+    // 오늘 매매일지에서 해당 종목의 '최초 매수' 시각(ms). 없으면 0.
+    // — 구코드로 진입해 holdSinceTs 가 없는 보유분의 정체 타이머를 실제 진입시각으로 복원.
+    function holdSinceFromJournal(code) {
+      const day = tradeJournal && tradeJournal.days && tradeJournal.days[todayKST()];
+      if (!day || !Array.isArray(day.trades)) return 0;
+      let earliest = 0;
+      day.trades.forEach(t => {
+        if (t.code !== code || t.side !== "BUY" || !_BUY_TYPES.has(t.type) || !t.time) return;
+        const ts = _kstTimeToTs(t.time);
+        if (ts && (!earliest || ts < earliest)) earliest = ts;
+      });
+      return earliest;
+    }
 
     function evaluateExit(stock, source) {
       if (stock.quantity === 0) return false;
@@ -3338,7 +3358,10 @@
       // 매 틱 추적치 갱신: 고점가 + 본전 스탑 무장
       stock.peakPrice = Math.max(stock.peakPrice || avg, price);
       if (gainPct >= _BREAKEVEN_ARM_PCT) stock.breakevenArmed = true;
-      if (!stock.holdSinceTs) stock.holdSinceTs = Date.now();
+      // holdSinceTs 미설정(구코드 진입분 등)이면 일지의 실제 진입시각으로 복원 —
+      // 없으면 지금 시각. (Date.now() 로 리셋하면 재배포/리로드마다 정체 타이머가
+      // 처음부터 다시 도는 버그가 생김)
+      if (!stock.holdSinceTs) stock.holdSinceTs = holdSinceFromJournal(stock.code) || Date.now();
 
       const fill = () => Math.round(price * (1 - slip / 100));   // 매도 슬리피지
       // 전량 매도 공통 처리
