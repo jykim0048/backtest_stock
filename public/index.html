@@ -3161,6 +3161,7 @@
       // 순서 중요: 정산이 totalCapital(익일 시작 자본)을 갱신한 뒤에 오늘 레코드의
       // startCapital 이 고정돼야 복리 이월이 이어진다.
       loadTradeJournal();
+      backfillHoldSince();   // 보유분 정체 타이머를 일지의 실제 진입시각으로 보정(리로드 리셋 방지)
       await settleMissedLiquidation();
       getOrCreateDayRecord(todayKST());
       // Only execute the opening buy if the market is open AND not yet done today.
@@ -3343,6 +3344,17 @@
         if (ts && (!earliest || ts < earliest)) earliest = ts;
       });
       return earliest;
+    }
+
+    // 보유 종목의 holdSinceTs 를 오늘 일지의 실제 최초 매수시각으로 '권위적으로' 보정.
+    // 로드 시 1회 실행 — 이전 배포에서 리로드 시각으로 잘못 저장된 값도 덮어쓴다
+    // (그래야 정체 타이머가 실제 진입 기준으로 흐름). 일지에 없으면 기존값 유지.
+    function backfillHoldSince() {
+      [...stockData, ...watchData].forEach(s => {
+        if (!(s.quantity > 0)) return;
+        const jt = holdSinceFromJournal(s.code);
+        if (jt) s.holdSinceTs = jt;
+      });
     }
 
     function evaluateExit(stock, source) {
