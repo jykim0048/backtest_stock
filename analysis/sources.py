@@ -697,7 +697,7 @@ def naver_theme_ranking(max_pages=8):
     theme.naver 는 당일 등락률 내림차순 정렬이라 전 페이지(현재 ~7페이지)를
     모으면 급등·급락 테마를 양끝에서 뽑을 수 있다. leaders 는 리스트 페이지가
     보여주는 주도주 최대 2개. 실패한 페이지에서 중단(부분 결과 반환)."""
-    themes = []
+    themes, seen = [], set()
     for page in range(1, max_pages + 1):
         try:
             r = requests.get("https://finance.naver.com/sise/theme.naver",
@@ -708,9 +708,11 @@ def naver_theme_ranking(max_pages=8):
             _warn(f"naver_theme_ranking p{page} failed: {e}")
             break
         rows = _THEME_ROW_RE.findall(html)
-        if not rows:
-            break
+        new = 0
         for no, name, chg, rest in rows:
+            if no in seen:      # 마지막 페이지 초과 요청은 마지막 페이지를 반복 반환
+                continue        # → 중복 테마('자동차 대표주' 2회) 방지 (2026-07-09 실측)
+            seen.add(no)
             try:
                 pct = float(chg)
             except ValueError:
@@ -720,6 +722,9 @@ def naver_theme_ranking(max_pages=8):
                            r'/item/main\.naver\?code=(\d{6})">([^<]+)', rest)]
             themes.append({"no": no, "name": _strip_tags(name).strip(),
                            "changePct": pct, "leaders": leaders})
+            new += 1
+        if not new:             # 이 페이지에서 신규 0 = 클램프된 반복 페이지 → 종료
+            break
     return themes
 
 
