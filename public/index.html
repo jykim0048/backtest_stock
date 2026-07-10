@@ -418,12 +418,27 @@
     .flow-us .fu-name { background: rgba(251,146,60,.12); color: #fdba74; font-size: 12.5px; font-family: monospace; padding: 1px 7px; border-radius: 20px; }
     .flow-arrow { text-align: center; color: var(--kospi-blue); font-size: 19px; }
     .flow-kr { background: rgba(0,240,255,.06); border: 1px solid rgba(0,240,255,.22); border-radius: 9px; padding: 9px 11px; }
-    /* 장중 섹터→테마: 관련 테마를 테마별 개별 카드로 세로 적층, 카드마다 왼쪽 화살표 */
+    /* 장중 섹터→테마 점선 트리 커넥터: 섹터 카드(행 세로중앙) — 가로 점선 — 세로 스파인
+       — 각 테마 카드로 가로 점선. gap 0 으로 선이 끊기지 않게 하고, 스파인 세그먼트는
+       각 fk-row 가 자기 높이만큼 그린다(첫 행은 중앙부터, 마지막 행은 중앙까지). */
     .fk-stack { display: flex; flex-direction: column; gap: 7px; min-width: 0; }
-    .fk-row { display: grid; grid-template-columns: 20px 1fr; gap: 3px; align-items: center; min-width: 0; }
-    .fk-link { border-top: 1.5px dashed rgba(148,163,184,.55); }   /* 섹터↔테마 점선 연결 */
-    /* 가운데 화살표 열 제거(카드별 화살표로 대체) — .briefing-flowcols .flow-row(3열)보다 특이도 높게 */
-    .flow-row.ib-flow-row, .briefing-flowcols .flow-row.ib-flow-row { grid-template-columns: 1fr 1fr; }
+    .fk-row { display: grid; grid-template-columns: 11px 1fr; align-items: center; min-width: 0; position: relative; }
+    .fk-link { border-top: 1.5px dashed rgba(148,163,184,.55); margin-left: -11px; }  /* 스파인→카드 가로선 */
+    .fk-row::before {                                             /* 세로 스파인 조각 */
+      content: ""; position: absolute; left: -11px; top: 0; bottom: 0;
+      border-left: 1.5px dashed rgba(148,163,184,.55);
+    }
+    .fk-row:not(:first-child)::before { top: -7px; }              /* 행 간 gap 을 이어붙임 */
+    .fk-row:first-child::before { top: 50%; }
+    .fk-row:last-child::before { bottom: 50%; }
+    .fk-row:only-child::before { display: none; }                 /* 카드 1개면 스파인 불필요 */
+    .ib-mid { position: relative; align-self: stretch; }          /* 섹터→스파인 가로선(행 중앙) */
+    .ib-mid::before {
+      content: ""; position: absolute; left: 0; width: 50%; top: 50%;
+      border-top: 1.5px dashed rgba(148,163,184,.55);
+    }
+    /* 가운데 열은 커넥터 전용 22px — .briefing-flowcols .flow-row(3열)보다 특이도 높게, gap 0 */
+    .flow-row.ib-flow-row, .briefing-flowcols .flow-row.ib-flow-row { grid-template-columns: 1fr 22px 1fr; gap: 0; }
     .flow-kr .fk-theme { font-size: 14px; font-weight: 600; }
     .flow-kr .fk-names { margin-top: 4px; display: flex; gap: 4px; flex-wrap: wrap; }
     .flow-kr .fk-name { background: rgba(0,240,255,.10); color: #a5f3fc; font-size: 12.5px; padding: 1px 7px; border-radius: 20px; }
@@ -3209,6 +3224,7 @@
           return `<div class="flow-row ib-flow-row">`
             + `<div class="flow-us"><div class="fu-theme">${_brEsc(s.name)} <span style="color:${_brPctColor(s.changePct)}">${_brPctFmt(s.changePct)}%</span></div>`
             + `<div class="fu-syms">${secStocks}</div></div>`
+            + `<div class="ib-mid"></div>`
             + `<div class="fk-stack">${right}</div></div>`;
         };
         const upFlow = (d.sectorsUp || []).map(secFlowRow).join("");
