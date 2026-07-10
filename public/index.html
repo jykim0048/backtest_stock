@@ -351,6 +351,14 @@
     }
     .wl-cnt { font-size: 11.5px; opacity: .8; }
     .wl-view-note { font-size: 11.5px; color: var(--text-muted); margin-left: 2px; }
+    /* 전체/보유 세그먼트 토글 — 토글 바 맨 우측 */
+    .wl-held-seg { margin-left: auto; display: inline-flex; border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden; }
+    .wl-seg-btn {
+      background: var(--panel-bg); color: var(--text-muted); border: none;
+      padding: 6px 14px; font-size: 12.5px; font-weight: 600; cursor: pointer;
+    }
+    .wl-seg-btn + .wl-seg-btn { border-left: 1px solid var(--border-color); }
+    .wl-seg-btn.active { background: rgba(0,240,255,.12); color: var(--kospi-blue); }
     .down-catalyst { font-size: 12.5px; color: #cbd5e1; line-height: 1.5; }
     .bear-badge {
       font-size: 10px; font-weight: 700; color: var(--down-blue);
@@ -1776,8 +1784,12 @@
           <div class="wl-view-toggle">
             <button class="wl-view-btn active" id="watch-view-up" onclick="selectWatchView('up')">📈 상승 <span class="wl-cnt" id="watch-up-cnt"></span></button>
             <button class="wl-view-btn wl-down-btn" id="watch-view-down" onclick="selectWatchView('down')">📉 하락 관찰 <span class="wl-cnt" id="watch-down-cnt"></span></button>
-            <button class="wl-view-btn" id="watch-held-toggle" onclick="toggleWatchHeldOnly()" title="실시간 보유잔고가 있는 종목만 표시">💼 보유만</button>
             <span class="wl-view-note" id="watch-view-note">자동매매 대상</span>
+            <!-- 전체/보유 세그먼트 토글 (맨 우측) — 보유=실시간 보유잔고 있는 종목만 -->
+            <span class="wl-held-seg">
+              <button class="wl-seg-btn active" id="watch-held-all" onclick="setWatchHeldOnly(false)">전체</button>
+              <button class="wl-seg-btn" id="watch-held-held" onclick="setWatchHeldOnly(true)" title="실시간 보유잔고가 있는 종목만 표시">💼 보유</button>
+            </span>
           </div>
 
           <div id="watch-up-view">
@@ -4472,10 +4484,10 @@
     // 장중 관심종목 테이블 렌더 — 장전 워치리스트와 동일 양식
     // (종목정보 / 현재가 / 등락률 / 보유잔고·수익률 / 미니차트 / 매매 한도선).
     // 촉매·딥리서치는 행 클릭 → 드로어에서 그대로 확인 가능.
-    // '보유만' 토글 — 실시간 보유잔고(quantity>0)가 있는 종목만 표시. 새로고침에도 유지.
+    // 전체/보유 세그먼트 토글 — 보유=실시간 보유잔고(quantity>0) 종목만 표시. 새로고침에도 유지.
     let watchHeldOnly = localStorage.getItem("qa_watch_held_only") === "1";
-    function toggleWatchHeldOnly() {
-      watchHeldOnly = !watchHeldOnly;
+    function setWatchHeldOnly(v) {
+      watchHeldOnly = !!v;
       localStorage.setItem("qa_watch_held_only", watchHeldOnly ? "1" : "0");
       renderWatchTable();
     }
@@ -4485,8 +4497,10 @@
       if (!tbody) return;
       tbody.innerHTML = "";
       updateWatchViewCounts();   // 상승/하락 토글의 종목 수 갱신
-      const heldBtn = document.getElementById("watch-held-toggle");
-      if (heldBtn) heldBtn.classList.toggle("active", watchHeldOnly);
+      const segAll = document.getElementById("watch-held-all");
+      const segHeld = document.getElementById("watch-held-held");
+      if (segAll) segAll.classList.toggle("active", !watchHeldOnly);
+      if (segHeld) segHeld.classList.toggle("active", watchHeldOnly);
 
       if (!watchData.length) {
         tbody.innerHTML = `<tr class="watch-empty-row"><td colspan="6">장중 스크리너가 아직 관심종목을 선정하지 않았습니다. (장중 30분 간격 갱신)</td></tr>`;
@@ -4497,7 +4511,7 @@
         // 딥리서치 하방 판정 + 미보유 → 상승 뷰에서 숨기고 하락 관찰 뷰에 표시.
         // 보유 중이면 포지션 관리를 위해 상승 뷰에 남긴다(하방 배지 표시).
         if (stock.direction === "bearish" && !(stock.quantity > 0)) return;
-        if (watchHeldOnly && !(stock.quantity > 0)) return;   // '보유만' 필터
+        if (watchHeldOnly && !(stock.quantity > 0)) return;   // '보유' 필터
         const tr = document.createElement("tr");
         tr.id = `watch-row-${idx}`;
         tr.setAttribute("onclick", `openDetailDrawer(${idx}, 'watch')`);
@@ -4576,7 +4590,7 @@
         drawWatchSparkline(idx);
       });
       if (watchHeldOnly && !tbody.children.length) {
-        tbody.innerHTML = `<tr class="watch-empty-row"><td colspan="6">실시간 보유잔고가 있는 종목이 없습니다. ('보유만' 필터 적용 중)</td></tr>`;
+        tbody.innerHTML = `<tr class="watch-empty-row"><td colspan="6">실시간 보유잔고가 있는 종목이 없습니다. ('보유' 필터 적용 중 — '전체'로 전환하면 모든 종목이 표시됩니다)</td></tr>`;
       }
       // 매수/청산으로 bearish 종목이 상승↔하락 뷰를 오갈 수 있어 하락 뷰도 동기화
       renderWatchDownTable();
