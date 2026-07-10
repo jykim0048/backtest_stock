@@ -480,6 +480,7 @@
     .ib-idxval { font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; }
     .ib-idxflow { margin-top: 4px; font-size: 12px; color: var(--text-muted);
       font-variant-numeric: tabular-nums; }
+    .ib-flowchart { display: block; width: 100%; margin-top: 6px; }
     @media (max-width: 560px) { .ib-idxrow { grid-template-columns: 1fr; } }
     /* 환율 브리핑 */
     .ib-fx { margin: 12px 0 0; }
@@ -3064,6 +3065,49 @@
       return rows || `<tr><td colspan="3" style="color:var(--text-muted); font-size:13px; padding:8px 2px;">해당 회차 촉매 없음</td></tr>`;
     }
 
+    // ── 지수 카드 내부: 1분 투자자 누적 순매수 멀티라인 차트 ─────────────────
+    // 개인(회색)·외인(파랑)·기관(앰버) 누적 곡선 + 0선(점선) + 우측 최신값 라벨.
+    const _IB_FLOW_KEYS = [["individual", "#94a3b8"], ["foreign", "#60a5fa"], ["institution", "#fbbf24"]];
+    function _ibDrawFlowCharts(d) {
+      [["kospi"], ["kosdaq"]].forEach(([k]) => {
+        const cv = document.getElementById(`ib-flowchart-${k}`);
+        const series = ((d.investorSeries || {})[k] || []).filter(r => r && r.time);
+        if (!cv || series.length < 6) return;
+        const w = Math.max(cv.parentElement.clientWidth - 24, 120);
+        cv.width = w;
+        const h = cv.height, padY = 4, labelW = 46, plotW = w - labelW;
+        const ctx = cv.getContext("2d");
+        ctx.clearRect(0, 0, w, h);
+        let mn = 0, mx = 0;
+        series.forEach(r => _IB_FLOW_KEYS.forEach(([kk]) => {
+          const v = r[kk]; if (v != null) { mn = Math.min(mn, v); mx = Math.max(mx, v); }
+        }));
+        if (mx === mn) mx = mn + 1;
+        const X = i => i / Math.max(series.length - 1, 1) * plotW;
+        const Y = v => padY + (mx - v) / (mx - mn) * (h - 2 * padY);
+        ctx.strokeStyle = "rgba(148,163,184,.35)"; ctx.lineWidth = 1;
+        ctx.setLineDash([3, 3]); ctx.beginPath();
+        ctx.moveTo(0, Y(0)); ctx.lineTo(plotW, Y(0)); ctx.stroke(); ctx.setLineDash([]);
+        _IB_FLOW_KEYS.forEach(([kk, col]) => {
+          ctx.strokeStyle = col; ctx.lineWidth = 1.4; ctx.beginPath();
+          let started = false;
+          series.forEach((r, i) => {
+            const v = r[kk]; if (v == null) return;
+            started ? ctx.lineTo(X(i), Y(v)) : (ctx.moveTo(X(i), Y(v)), started = true);
+          });
+          ctx.stroke();
+          const last = [...series].reverse().find(r => r[kk] != null);
+          if (last) {
+            const v = last[kk];
+            ctx.fillStyle = col; ctx.font = "10px monospace";
+            const t = (v > 0 ? "+" : "") + (Math.abs(v) >= 10000
+              ? (v / 10000).toFixed(1) + "만" : v.toLocaleString());
+            ctx.fillText(t, plotW + 3, Math.min(Math.max(Y(v) + 3, 9), h - 2));
+          }
+        });
+      });
+    }
+
     let _ibRounds = null;   // 당일 아카이브 rounds[] (회차 선택용)
     async function _ibLoadRounds(d) {
       _ibRounds = null;
@@ -3117,13 +3161,18 @@
         const v = idx[k];
         if (!v || typeof v.price !== "number") return "";
         const iv = inv[k];
+        // 수급 라벨은 차트 선 색과 통일(개인 회색·외인 파랑·기관 앰버)
         const flow = iv
-          ? `<div class="ib-idxflow">💰 개인 ${invFmt(iv.individual)} · 외인 ${invFmt(iv.foreign)} · 기관 ${invFmt(iv.institution)}</div>`
+          ? `<div class="ib-idxflow">💰 <span style="color:#94a3b8;">개인</span> ${invFmt(iv.individual)} · <span style="color:#60a5fa;">외인</span> ${invFmt(iv.foreign)} · <span style="color:#fbbf24;">기관</span> ${invFmt(iv.institution)}</div>`
           : "";
+        // 1분 누적 순매수 차트 (investorSeries — 데이터 없으면 생략)
+        const series = (d.investorSeries || {})[k] || [];
+        const chart = series.length > 5
+          ? `<canvas class="ib-flowchart" id="ib-flowchart-${k}" height="52"></canvas>` : "";
         return `<div class="ib-idxcard"><div class="ib-idxhead">`
           + `<span class="ib-idxname">${nm}</span>`
           + `<span class="ib-idxval" style="color:${_brPctColor(v.rate)}">${v.price.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} · ${_brPctFmt(v.rate)}%</span>`
-          + `</div>${flow}</div>`;
+          + `</div>${flow}${chart}</div>`;
       }).join("");
       const idxRow = idxCards ? `<div class="ib-idxrow">${idxCards}</div>` : "";
 
@@ -3266,7 +3315,8 @@
         ${rawDisc}${rawNews}${rawFx}
         <div class="briefing-foot">자동 생성 · ${genLabel} · KIS 업종·네이버 금융·DART · 투자 판단 참고용</div>
       `;
-      _ibLoadRounds(d);   // 회차 선택 셀렉터 채움 (아카이브 lazy fetch)
+      _ibLoadRounds(d);      // 회차 선택 셀렉터 채움 (아카이브 lazy fetch)
+      _ibDrawFlowCharts(d);  // 지수 카드 내부 1분 수급 차트
     }
 
     // Load a report by date string (YYYY-MM-DD) or "today"

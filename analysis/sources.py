@@ -851,6 +851,49 @@ def naver_market_indicators():
     return out if any(out.values()) else {}
 
 
+def naver_investor_timeline(market="KOSPI", pages=6):
+    """투자자별 매매 동향 시간별(1분) '누적' 순매수(억원) — finance.naver.com
+    sise_trans_style.naver (KOSPI: sosok=01, KOSDAQ: sosok=02, 페이지당 10행 최신순).
+
+    반환: [{time 'HH:MM', individual, foreign, institution}] 시간 오름차순.
+    행 값이 당일 누적이라 그대로 이으면 수급 곡선이 된다. 페이지가 신규 행을 더
+    안 주면(마지막 페이지 클램프 반복) 중단. 실패 시 수집분까지만 반환."""
+    sosok = {"KOSPI": "01", "KOSDAQ": "02"}.get(str(market).upper(), "01")
+    out = {}
+    for page in range(1, pages + 1):
+        try:
+            r = requests.get("https://finance.naver.com/sise/sise_trans_style.naver",
+                             params={"sosok": sosok, "page": page},
+                             headers=UA, timeout=15)
+            r.raise_for_status()
+            html = r.content.decode("euc-kr", errors="replace")
+        except Exception as e:
+            _warn(f"naver_investor_timeline({market}) p{page} failed: {e}")
+            break
+        rows = re.findall(
+            r'<tr[^>]*>\s*<td[^>]*>\s*(\d{1,2}:\d{2})\s*</td>(.*?)</tr>', html, re.S)
+        new = 0
+        for tm, rest in rows:
+            nums = re.findall(r'>\s*(-?[\d,]+)\s*<', rest)
+            if len(nums) < 3:
+                continue
+
+            def _n(s):
+                try:
+                    return int(s.replace(",", ""))
+                except ValueError:
+                    return None
+            ind, frn, inst = _n(nums[0]), _n(nums[1]), _n(nums[2])
+            if ind is None or tm in out:
+                continue
+            out[tm] = {"time": tm, "individual": ind,
+                       "foreign": frn, "institution": inst}
+            new += 1
+        if not rows or not new:
+            break
+    return sorted(out.values(), key=lambda x: x["time"])
+
+
 def naver_stock_flow(code):
     """종목별 최신 집계일 외국인·기관 순매수 수량(주) — m.stock.naver.com trend API
     (Actions IP 접근성은 naver_flow_probe 로 검증 완료). 장중엔 당일 잠정치가 아직

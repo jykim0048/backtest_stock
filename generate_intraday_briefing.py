@@ -339,6 +339,70 @@ def attach_sector_themes(sectors_up, sectors_down):
         sector.pop("_matchCodes", None)     # 내부 매칭용 — 산출 JSON 에서 제거
 
 
+def fetch_investor_series():
+    """코스피/코스닥 1분 투자자 누적 순매수 시계열 — 직전 회차 산출물 이월 + 증분 병합.
+
+    직전 intraday_briefing.json 의 investorSeries(당일분)를 이어받고, 마지막 저장 시각
+    이후 페이지만 새로 파싱한다(회차 간격 30분 ≈ 3페이지 + 여유). 당일 첫 수집이면
+    전량(최대 40페이지). 반환: {kospi: [...], kosdaq: [...]}."""
+    today = datetime.datetime.now(KST).strftime("%Y-%m-%d")
+    prev = {}
+    try:
+        with open(OUT_PATH, encoding="utf-8") as f:
+            old = json.load(f) or {}
+        if old.get("date") == today:
+            prev = old.get("investorSeries") or {}
+    except Exception:
+        pass
+    series = {}
+    for key, market in (("kospi", "KOSPI"), ("kosdaq", "KOSDAQ")):
+        rows = {r["time"]: r for r in (prev.get(key) or []) if isinstance(r, dict)}
+        pages = 6 if rows else 40
+        for r in sources.naver_investor_timeline(market, pages=pages):
+            rows[r["time"]] = r
+        series[key] = sorted(rows.values(), key=lambda x: x["time"])
+    return series
+
+
+def _mins(hm):
+    try:
+        h, m = str(hm).split(":")
+        return int(h) * 60 + int(m)
+    except (ValueError, AttributeError):
+        return 0
+
+
+def _flow_trend(series):
+    """시장×주체별 수급 요약(LLM 용) — now 현재 누적(억원), chg30m 최근 30분 변화량,
+    flipAt 현재 부호로 전환된 시각(당일 내내 같은 부호면 생략). 원시 시계열 대신
+    이 요약만 LLM 에 넘긴다(토큰 절약 + 해석 오류 방지)."""
+    out = {}
+    sign = lambda v: (v > 0) - (v < 0)
+    for mk, rows in (series or {}).items():
+        m = {}
+        for who in ("individual", "foreign", "institution"):
+            vals = [(r["time"], r.get(who)) for r in rows if r.get(who) is not None]
+            if not vals:
+                continue
+            now_t, now_v = vals[-1]
+            base_v = next((v for t, v in reversed(vals)
+                           if _mins(now_t) - _mins(t) >= 30), vals[0][1])
+            d = {"now": now_v, "chg30m": now_v - base_v}
+            cur = sign(now_v)
+            if cur != 0:
+                flip_at = None
+                for i in range(len(vals) - 1, -1, -1):
+                    if sign(vals[i][1]) != cur:
+                        flip_at = vals[i + 1][0] if i + 1 < len(vals) else None
+                        break
+                if flip_at:
+                    d["flipAt"] = flip_at    # 이 시각부터 현재 부호(순매수/순매도) 유지
+            m[who] = d
+        if m:
+            out[mk] = m
+    return out
+
+
 def enrich_sector_stocks(sectors_up, sectors_down):
     """급등/급락 섹터 관련주에 ① 실시간 등락률(KIS 허브 /prices, 1회 일괄)과
     ② 최신 집계일 외국인·기관 순매수 수량(네이버 trend, 종목당 1회)을 부착.
@@ -441,6 +505,9 @@ SYSTEM = (
     "- briefing 은 3~5개의 완결된 문장(각각이 대시보드 불릿 하나): ① 지수 흐름과 수급 주체"
     "(investors — 기관/외국인/개인 순매수, 단위 억원)를 함께, ② 환율·금리·유가(marketIndicators)가 "
     "시장에 주는 함의, ③ 주도 섹터(sectorsUp), ④ 약세 섹터(sectorsDown), ⑤ 관전 포인트 순으로.\n"
+    "- ①의 수급은 investorFlow(1분 누적 순매수 요약 — now 현재 누적(억원), chg30m 최근 "
+    "30분 변화량, flipAt 그 시각부터 현재 부호 유지)로 방향 '전환·가속'까지 서술할 것 "
+    "(예: '외국인은 13:24 순매수 전환 후 매수 폭을 키우는 중'). 전환·변화가 뚜렷할 때만 언급.\n"
     "- ③④는 등락률 나열이 아니라 '동인'을 서술한다: 각 섹터의 stocks(관련주별 changePct 와 "
     "flow — date 집계일의 외국인/기관 순매수 수량(주), 장중엔 전일 확정치일 수 있음)로 어느 "
     "종목이 끌어올리는지/끌어내리는지, themes 의 reasons(테마 편입 사유)·catalysts·공시·뉴스로 "
@@ -513,7 +580,7 @@ def _sector_raw(s):
 
 def synthesize(indices, investors, indicators, sectors_up, sectors_down,
                movers_up, movers_down, disclosures, news, fx_news,
-               prev_rounds=None, us_context=None):
+               prev_rounds=None, us_context=None, investor_flow=None):
     # 시장지표는 핵심만 추려 LLM 에 전달 (COFIX 등 저관련 항목 제외)
     core_ind = {}
     if indicators:
@@ -547,6 +614,8 @@ def synthesize(indices, investors, indicators, sectors_up, sectors_down,
     }
     if us_context:
         raw["usContext"] = us_context           # 전일 미국장 리뷰·섹터 (모닝브리핑 발췌)
+    if investor_flow:
+        raw["investorFlow"] = investor_flow     # 1분 수급 시계열 요약(전환·가속)
     system = SYSTEM
     if prev_rounds:
         raw["previousRounds"] = prev_rounds     # 마감 시황 — 당일 회차별 다이제스트
@@ -625,6 +694,8 @@ def main():
     disclosures = sources.dart_today_disclosures(limit=40)
     news = fetch_news()
     fx_news = fetch_fx_news()                             # 환율 관련 뉴스(원달러·환율)
+    investor_series = fetch_investor_series()             # 1분 투자자 누적 순매수(이월+증분)
+    investor_flow = _flow_trend(investor_series)          # LLM 용 요약(전환·가속)
     _tm = sum(len(s.get("themes") or []) for s in sectors_up + sectors_down)
     print(f"  수집: 섹터 {len(sector_heat)}개(↑{len(sectors_up)}/↓{len(sectors_down)}, 테마매칭 {_tm}), "
           f"공시 {len(disclosures)}, 뉴스 {len(news)}, 환율뉴스 {len(fx_news)}, "
@@ -641,7 +712,8 @@ def main():
     briefing, fx_bullets, catalysts, model = synthesize(
         indices, investors, indicators, sectors_up, sectors_down,
         movers_up, movers_down, disclosures, news, fx_news,
-        prev_rounds=prev_rounds, us_context=_load_us_context())
+        prev_rounds=prev_rounds, us_context=_load_us_context(),
+        investor_flow=investor_flow)
 
     out = {
         "date": now.strftime("%Y-%m-%d"),
@@ -651,6 +723,7 @@ def main():
         "indices": indices,
         "investors": investors,
         "indicators": indicators,
+        "investorSeries": investor_series,   # 1분 누적 순매수(억원) — 지수 카드 차트
         "briefing": briefing,
         "fxBullets": fx_bullets,        # 환율 브리핑(LLM 요약 또는 헤드라인 폴백)
         "fxNews": fx_news[:8],          # 환율 관련 뉴스 원문(대시보드 접기)
@@ -680,7 +753,12 @@ def main():
             pass
     if not isinstance(arch.get("rounds"), list):
         arch["rounds"] = []
-    arch["rounds"].append(out)
+    # 1분 시계열은 아카이브 비대 방지를 위해 마감 회차에만 보존(복기용) — 장중 회차는
+    # 최신 파일(intraday_briefing.json)에서 다음 회차가 이월한다.
+    arch_entry = dict(out)
+    if not final:
+        arch_entry.pop("investorSeries", None)
+    arch["rounds"].append(arch_entry)
     with open(arch_path, "w", encoding="utf-8") as f:
         json.dump(arch, f, ensure_ascii=False, indent=2)
     print(f"  Archive: {arch_path} ({len(arch['rounds'])} rounds)")
