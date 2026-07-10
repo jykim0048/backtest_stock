@@ -388,6 +388,9 @@
     .briefing-chip .c-name { font-size: 12.5px; color: var(--text-muted); }
     .briefing-chip .c-val { font-size: 14px; font-weight: 600; }
     .briefing-heat { display: grid; grid-template-columns: repeat(auto-fit, minmax(48px, 1fr)); gap: 4px; }
+    /* 장중 섹터 히트: 행마다 13개씩 고정(26개 → 2행) */
+    .briefing-heat.ib-heat-2row { grid-template-columns: repeat(13, minmax(0, 1fr)); }
+    .briefing-heat.ib-heat-2row .h-name { font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .briefing-heat .h-cell { border-radius: 5px; padding: 4px 2px; text-align: center; }
     .briefing-heat .h-name { font-size: 12px; }
     .briefing-heat .h-val { font-size: 13px; font-weight: 600; }
@@ -3040,18 +3043,26 @@
       }).join("");
       const idxRow = idxCards ? `<div class="ib-idxrow">${idxCards}</div>` : "";
 
-      // 시장지표 칩 (환율·국제환율·금리·원자재 핵심)
+      // 시장지표 칩 — 환율은 DXY · USD/JPY · USD/KRW · EUR/KRW 순으로 고정, 이어서 금리·원자재.
+      // (네이버 라벨 → 표준 표기: 달러인덱스→DXY, '달러/일본 엔'→USD/JPY, 미국 USD→USD/KRW, 유럽연합 EUR→EUR/KRW)
       const ind = d.indicators || {};
+      const _ex = ind.exchange || [], _wd = ind.world || [];
+      const _find = (arr, re) => arr.find(x => x && re.test(x.name));
+      const fxChips = [
+        [_find(_wd, /달러인덱스/), "DXY"],
+        [_find(_wd, /일본 엔/), "USD/JPY"],
+        [_find(_ex, /미국 USD/), "USD/KRW"],
+        [_find(_ex, /유럽연합 EUR/), "EUR/KRW"],
+      ].filter(([x]) => x).map(([x, label]) => ({ ...x, _label: label }));
       const pickInd = [
-        ...(ind.exchange || []).filter(x => /USD|JPY|EUR/.test(x.name)),
-        ...(ind.world || []).filter(x => /달러인덱스|일본 엔/.test(x.name)),
+        ...fxChips,
         ...(ind.rates || []).filter(x => /국고채|CD/.test(x.name)),
         ...(ind.commodities || []).filter(x => /WTI|국제 금/.test(x.name)),
       ];
       const indChips = pickInd.map(x => {
         const arrow = x.direction === "up" ? "▲" : (x.direction === "down" ? "▼" : "—");
         const color = x.direction === "up" ? "var(--up-red)" : (x.direction === "down" ? "var(--down-blue)" : "var(--text-muted)");
-        const nm = x.name.replace("미국 USD", "USD/KRW").replace("일본 JPY(100엔)", "JPY100").replace("유럽연합 EUR", "EUR").replace("달러/일본 엔", "엔/달러");
+        const nm = x._label || x.name;   // rates/commodities 는 원 라벨 유지
         return `<div class="briefing-chip"><div class="c-name">${_brEsc(nm)}</div>`
           + `<div class="c-val" style="color:${color}">${x.value == null ? "—" : x.value.toLocaleString()} ${arrow}${x.change == null ? "" : x.change}</div></div>`;
       }).join("");
@@ -3069,11 +3080,14 @@
         : "";
 
       // 장중 촉매 — 종목 단위(중복 통합), 모닝브리핑 워치리스트처럼 종목/시장/핵심촉매 순 + 방향 배지.
+      // 한국(KOSPI/KOSDAQ) 상장 종목만 — 해외 종목(특징주 뉴스에 섞여 나오며 market="")은 제외.
       // 구버전 회차(catalysts[].corp, direction 없음)도 관대하게 렌더(stock||corp, 배지 생략).
       const _catDir = (dir) => dir === "bullish" ? `<span class="dir-badge bull">▲ 상방</span>`
         : dir === "bearish" ? `<span class="dir-badge bear">▼ 하방</span>`
         : dir === "neutral" ? `<span class="dir-badge neu">— 중립</span>` : "";
-      const catRows = (d.catalysts || []).map(c => {
+      const catRows = (d.catalysts || [])
+        .filter(c => c.market === "KOSPI" || c.market === "KOSDAQ")
+        .map(c => {
         const icon = c.kind === "disclosure" ? "📑" : (c.kind === "news" ? "📰" : "");
         const name = c.stock || c.corp || "—";
         const mkColor = (c.market === "KOSDAQ") ? "var(--kosdaq-green)" : "var(--kospi-blue)";
@@ -3138,7 +3152,7 @@
         const dnFlow = (d.sectorsDown || []).map(secFlowRow).join("");
         sectorSection = `
           <div class="ib-sector-label">🧭 섹터 히트 <b>(강 → 약)</b> · KIS 업종 · KOSPI 산업별 ${secHeat.length}개</div>
-          <div class="briefing-heat">${cells}</div>
+          <div class="briefing-heat ib-heat-2row">${cells}</div>
           <div class="ib-sector-label" style="margin-top:14px;">🔀 급등·급락 섹터 <b>→ 관련 네이버 테마·종목</b></div>
           <div class="briefing-flowcols">
             <div class="briefing-flowcol">

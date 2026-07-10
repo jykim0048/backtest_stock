@@ -267,10 +267,11 @@ SYSTEM = (
     "시장에 주는 함의, ③ 주도 섹터(sectorsUp)와 동인, ④ 약세 섹터(sectorsDown), ⑤ 관전 포인트 순으로.\n"
     "- catalysts 는 입력 공시(id: d0,d1,..)·뉴스(id: n0,n1,..) 중 시장 영향이 큰 것을 '종목 단위'로 "
     "정리한다(방향별 — 상방·중립·하방 각각 최대 10건 — 서로 다른 종목을 최대한 많이 포괄):\n"
+    "  · 한국(KOSPI/KOSDAQ) 상장 종목만 포함하고 해외 종목·지수·ETF(예: 테슬라·엔비디아 등)는 제외한다.\n"
     "  · 같은 종목이 공시·뉴스에 중복 등장하면 반드시 하나로 합쳐 한 줄로 요약할 것(같은 종목 중복 금지).\n"
     "  · 각 항목 필드: id(대표 출처 1개만, 공시가 있으면 공시 우선), stock(종목명), "
-    "market(KOSPI|KOSDAQ, 불명확하면 빈 문자열), direction(그 촉매가 주가에 주는 방향 — "
-    "상방=bullish|중립=neutral|하방=bearish), summary(핵심 촉매 한 문장).\n"
+    "market(한국 종목이면 반드시 KOSPI 또는 KOSDAQ 로 채울 것 — 비우지 말 것; 해외 종목은 애초에 넣지 말 것), "
+    "direction(그 촉매가 주가에 주는 방향 — 상방=bullish|중립=neutral|하방=bearish), summary(핵심 촉매 한 문장).\n"
     "  · 뉴스는 corp 필드가 없으니 제목·본문에서 종목명을 추출해 stock 에 넣을 것.\n"
     "- fxBullets 는 환율 관련 1~3개 불릿(fxNews·marketIndicators.exchange/world 근거): "
     "원/달러·달러인덱스·엔/달러 흐름과 그 배경(뉴스 근거), 국내 증시(수출주·환율 민감주)에 주는 "
@@ -368,11 +369,14 @@ def synthesize(indices, investors, indicators, sectors_up, sectors_down,
         url, kind = "", ""
         if cid.startswith("d") and 0 <= idx < len(disclosures):
             url, kind = disclosures[idx].get("url", ""), "disclosure"
+            market = disclosures[idx].get("market") or market   # 공시 기록의 시장(KOSPI/KOSDAQ) 우선
             if not stock:
                 stock = (disclosures[idx].get("corp") or "").strip()
         elif cid.startswith("n") and 0 <= idx < len(news):
             url, kind = news[idx].get("link", ""), "news"
         if not stock or not summary:
+            continue
+        if market not in ("KOSPI", "KOSDAQ"):   # 한국 상장 종목만 — 해외 종목/지수는 제외
             continue
         key = _norm(stock)                 # LLM 이 또 중복 내도 종목 단위로 한 번 더 방어
         if key in seen:
