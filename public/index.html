@@ -3044,14 +3044,14 @@
       const ind = d.indicators || {};
       const pickInd = [
         ...(ind.exchange || []).filter(x => /USD|JPY|EUR/.test(x.name)),
-        ...(ind.world || []).filter(x => /달러인덱스|엔\/달러/.test(x.name)),
+        ...(ind.world || []).filter(x => /달러인덱스|일본 엔/.test(x.name)),
         ...(ind.rates || []).filter(x => /국고채|CD/.test(x.name)),
         ...(ind.commodities || []).filter(x => /WTI|국제 금/.test(x.name)),
       ];
       const indChips = pickInd.map(x => {
         const arrow = x.direction === "up" ? "▲" : (x.direction === "down" ? "▼" : "—");
         const color = x.direction === "up" ? "var(--up-red)" : (x.direction === "down" ? "var(--down-blue)" : "var(--text-muted)");
-        const nm = x.name.replace("미국 USD", "USD/KRW").replace("일본 JPY(100엔)", "JPY100").replace("유럽연합 EUR", "EUR");
+        const nm = x.name.replace("미국 USD", "USD/KRW").replace("일본 JPY(100엔)", "JPY100").replace("유럽연합 EUR", "EUR").replace("달러/일본 엔", "엔/달러");
         return `<div class="briefing-chip"><div class="c-name">${_brEsc(nm)}</div>`
           + `<div class="c-val" style="color:${color}">${x.value == null ? "—" : x.value.toLocaleString()} ${arrow}${x.change == null ? "" : x.change}</div></div>`;
       }).join("");

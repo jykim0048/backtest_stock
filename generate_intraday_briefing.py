@@ -309,7 +309,8 @@ def synthesize(indices, investors, indicators, sectors_up, sectors_down,
             "exchange": [x for x in indicators.get("exchange", [])
                          if any(k in x["name"] for k in ("USD", "JPY", "EUR"))],
             "world": [x for x in indicators.get("world", [])
-                      if any(k in x["name"] for k in ("달러인덱스", "엔/달러"))],
+                      # 네이버 국제환율 라벨: 달러인덱스, '달러/일본 엔'(=USD/JPY, 엔/달러 환율)
+                      if any(k in x["name"] for k in ("달러인덱스", "일본 엔"))],
             "rates": [x for x in indicators.get("rates", [])
                       if any(k in x["name"] for k in ("CD", "국고채", "회사채"))],
             "commodities": [x for x in indicators.get("commodities", [])
