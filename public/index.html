@@ -1776,6 +1776,7 @@
           <div class="wl-view-toggle">
             <button class="wl-view-btn active" id="watch-view-up" onclick="selectWatchView('up')">📈 상승 <span class="wl-cnt" id="watch-up-cnt"></span></button>
             <button class="wl-view-btn wl-down-btn" id="watch-view-down" onclick="selectWatchView('down')">📉 하락 관찰 <span class="wl-cnt" id="watch-down-cnt"></span></button>
+            <button class="wl-view-btn" id="watch-held-toggle" onclick="toggleWatchHeldOnly()" title="실시간 보유잔고가 있는 종목만 표시">💼 보유만</button>
             <span class="wl-view-note" id="watch-view-note">자동매매 대상</span>
           </div>
 
@@ -4471,11 +4472,21 @@
     // 장중 관심종목 테이블 렌더 — 장전 워치리스트와 동일 양식
     // (종목정보 / 현재가 / 등락률 / 보유잔고·수익률 / 미니차트 / 매매 한도선).
     // 촉매·딥리서치는 행 클릭 → 드로어에서 그대로 확인 가능.
+    // '보유만' 토글 — 실시간 보유잔고(quantity>0)가 있는 종목만 표시. 새로고침에도 유지.
+    let watchHeldOnly = localStorage.getItem("qa_watch_held_only") === "1";
+    function toggleWatchHeldOnly() {
+      watchHeldOnly = !watchHeldOnly;
+      localStorage.setItem("qa_watch_held_only", watchHeldOnly ? "1" : "0");
+      renderWatchTable();
+    }
+
     function renderWatchTable() {
       const tbody = document.getElementById("watch-tbody");
       if (!tbody) return;
       tbody.innerHTML = "";
       updateWatchViewCounts();   // 상승/하락 토글의 종목 수 갱신
+      const heldBtn = document.getElementById("watch-held-toggle");
+      if (heldBtn) heldBtn.classList.toggle("active", watchHeldOnly);
 
       if (!watchData.length) {
         tbody.innerHTML = `<tr class="watch-empty-row"><td colspan="6">장중 스크리너가 아직 관심종목을 선정하지 않았습니다. (장중 30분 간격 갱신)</td></tr>`;
@@ -4486,6 +4497,7 @@
         // 딥리서치 하방 판정 + 미보유 → 상승 뷰에서 숨기고 하락 관찰 뷰에 표시.
         // 보유 중이면 포지션 관리를 위해 상승 뷰에 남긴다(하방 배지 표시).
         if (stock.direction === "bearish" && !(stock.quantity > 0)) return;
+        if (watchHeldOnly && !(stock.quantity > 0)) return;   // '보유만' 필터
         const tr = document.createElement("tr");
         tr.id = `watch-row-${idx}`;
         tr.setAttribute("onclick", `openDetailDrawer(${idx}, 'watch')`);
@@ -4563,6 +4575,9 @@
         tbody.appendChild(tr);
         drawWatchSparkline(idx);
       });
+      if (watchHeldOnly && !tbody.children.length) {
+        tbody.innerHTML = `<tr class="watch-empty-row"><td colspan="6">실시간 보유잔고가 있는 종목이 없습니다. ('보유만' 필터 적용 중)</td></tr>`;
+      }
       // 매수/청산으로 bearish 종목이 상승↔하락 뷰를 오갈 수 있어 하락 뷰도 동기화
       renderWatchDownTable();
     }

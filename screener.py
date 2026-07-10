@@ -79,7 +79,7 @@ KST = datetime.timezone(datetime.timedelta(hours=9))
 N_FINAL        = int(os.environ.get("SCREEN_N_FINAL", "10"))       # 1회 실행 최대 선정 종목 수
 PRICE_BACKUP   = int(os.environ.get("SCREEN_PRICE_BACKUP", "15"))  # ⓑ 가격 보조 후보 수
 MAX_CANDIDATES = int(os.environ.get("SCREEN_MAX_CANDIDATES", "40"))  # LLM에 넘길 후보 상한
-INTRADAY_CAP   = int(os.environ.get("SCREEN_INTRADAY_CAP", "20"))  # 장중 누적 관심종목 상한 (0=무제한)
+INTRADAY_CAP   = int(os.environ.get("SCREEN_INTRADAY_CAP", "0"))   # 장중 누적 관심종목 상한 (0=무제한, 2026-07-10 20→무제한)
 KOSPI_TOP      = 200   # 코스피200 근사 (시총 상위)
 KOSDAQ_TOP     = 150   # 코스닥150 근사 (시총 상위)
 ENRICH_WORKERS = int(os.environ.get("SCREEN_ENRICH_WORKERS", "8"))
