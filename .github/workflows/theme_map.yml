@@ -1,0 +1,49 @@
+name: Build Theme Map
+
+on:
+  # Railway 상시 서버 스케줄러(railway_server._scheduler)가 매주 월요일 06:30 KST 에
+  # 트리거. 네이버 테마별 시세의 전체 테마 구성종목을 파싱해 정적 맵으로 저장한다
+  # (build_theme_map.py → public/assets/theme_map.json). 장중 시황 섹터→테마 매칭용.
+  workflow_dispatch: # 수동 실행 + Railway 스케줄러 트리거 진입점
+
+concurrency:
+  group: theme-map
+  cancel-in-progress: false
+
+jobs:
+  build-theme-map:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0   # full history so the push-time rebase is clean
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Build Naver theme constituent map
+        run: python build_theme_map.py
+
+      - name: Commit and push theme map
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add public/assets/theme_map.json
+          git diff --staged --quiet && echo "No changes to commit" && exit 0
+          git commit -m "chore: rebuild naver theme map $(date -u +'%Y-%m-%d') [skip railway]"
+          for i in $(seq 1 5); do
+            if git push origin HEAD:main; then echo "pushed (attempt $i)"; exit 0; fi
+            echo "push attempt $i rejected; rebasing onto latest main..."
+            git fetch origin main
+            git rebase FETCH_HEAD || { git rebase --abort; echo "::error::rebase conflict"; exit 1; }
+            sleep $((RANDOM % 4 + 2))
+          done
+          echo "::error::push failed after 5 attempts" && exit 1
