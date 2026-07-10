@@ -35,7 +35,7 @@ OUT_PATH = os.environ.get("INTRADAY_BRIEFING_OUT") or os.path.join(
     ROOT, "public", "intraday_briefing.json")
 ARCHIVE_DIR = os.path.join(ROOT, "public", "reports", "intraday_briefing")
 THEMES_PER_SIDE = int(os.environ.get("BRIEFING_THEMES", "3"))     # 급등/급락 각 N개
-STOCKS_PER_THEME = int(os.environ.get("BRIEFING_VC_STOCKS", "5"))  # 테마 구성종목 표기 수(방향 상위)
+STOCKS_PER_THEME = int(os.environ.get("BRIEFING_VC_STOCKS", "3"))  # 테마 구성종목 표기 수(방향 상위)
 THEMES_PER_SECTOR = int(os.environ.get("BRIEFING_THEMES_PER_SECTOR", "2"))  # 섹터당 관련 테마 상한
 THEME_DETAIL_TOP = int(os.environ.get("BRIEFING_THEME_DETAIL_TOP", "20"))   # 구성종목까지 로드해 매칭할 테마 수(|등락| 상위)
 SECTORS_PER_SIDE = int(os.environ.get("BRIEFING_SECTORS", "3"))    # 상승/하락 각 N개 섹터
@@ -107,7 +107,7 @@ def fetch_indices():
 
 
 KRX_SECTOR_MAP_PATH = os.path.join(ROOT, "public", "assets", "krx_sector_map.json")
-STOCKS_PER_SECTOR = int(os.environ.get("BRIEFING_SEC_STOCKS", "4"))  # 섹터당 관련주
+STOCKS_PER_SECTOR = int(os.environ.get("BRIEFING_SEC_STOCKS", "5"))  # 섹터당 관련주
 
 
 def _norm_sector(name):
