@@ -410,6 +410,8 @@
     .flow-us .fu-name { background: rgba(251,146,60,.12); color: #fdba74; font-size: 12.5px; font-family: monospace; padding: 1px 7px; border-radius: 20px; }
     .flow-arrow { text-align: center; color: var(--kospi-blue); font-size: 19px; }
     .flow-kr { background: rgba(0,240,255,.06); border: 1px solid rgba(0,240,255,.22); border-radius: 9px; padding: 9px 11px; }
+    /* 장중 섹터→테마: 관련 테마를 테마별 개별 카드로 세로 적층 */
+    .fk-stack { display: flex; flex-direction: column; gap: 7px; min-width: 0; }
     .flow-kr .fk-theme { font-size: 14px; font-weight: 600; }
     .flow-kr .fk-names { margin-top: 4px; display: flex; gap: 4px; flex-wrap: wrap; }
     .flow-kr .fk-name { background: rgba(0,240,255,.10); color: #a5f3fc; font-size: 12.5px; padding: 1px 7px; border-radius: 20px; }
@@ -3172,22 +3174,22 @@
         const secFlowRow = (s) => {
           const secStocks = (s.stocks || []).slice(0, 4).map(x =>
             `<span class="fu-name" onclick="ibResearch('${_brEsc(x.name)}')" style="font-family:'Noto Sans KR',sans-serif; cursor:pointer;">${_brEsc(x.name)}</span>`).join("");
-          // 관련 테마 — 신버전 themes[](섹터당 여러 개), 구버전 회차는 theme 단수 폴백
+          // 관련 테마 — 신버전 themes[](섹터당 여러 개, 테마별 개별 카드), 구버전 theme 단수 폴백
           const themeList = s.themes || (s.theme ? [s.theme] : []);
-          const themeBlock = (th, i) =>
-            `<div class="fk-theme"${i ? ' style="margin-top:7px;"' : ""}>${_brEsc(th.name)} <span style="color:${_brPctColor(th.changePct)}">${_brPctFmt(th.changePct)}%</span></div>`
+          const themeCard = (th) =>
+            `<div class="flow-kr"><div class="fk-theme">${_brEsc(th.name)} <span style="color:${_brPctColor(th.changePct)}">${_brPctFmt(th.changePct)}%</span></div>`
             + `<div class="fk-names">${(th.stocks || []).map(x =>
                 `<span class="fk-name" onclick="ibResearch('${_brEsc(x.name)}')" style="cursor:pointer;">${_brEsc(x.name)}${
-                  x.changePct == null ? "" : ` ${_brPctFmt(x.changePct)}%`}</span>`).join("")}</div>`;
+                  x.changePct == null ? "" : ` ${_brPctFmt(x.changePct)}%`}</span>`).join("")}</div></div>`;
           const right = themeList.length
-            ? themeList.map(themeBlock).join("")
-            : `<div class="fk-theme" style="color:var(--text-muted);">관련 테마 미검출</div>`
-              + `<div class="fk-names">${(s.stocks || []).slice(0, 4).map(x => `<span class="fk-name">${_brEsc(x.name)}</span>`).join("")}</div>`;
+            ? themeList.map(themeCard).join("")
+            : `<div class="flow-kr"><div class="fk-theme" style="color:var(--text-muted);">관련 테마 미검출</div>`
+              + `<div class="fk-names">${(s.stocks || []).slice(0, 4).map(x => `<span class="fk-name">${_brEsc(x.name)}</span>`).join("")}</div></div>`;
           return `<div class="flow-row">`
             + `<div class="flow-us"><div class="fu-theme">${_brEsc(s.name)} <span style="color:${_brPctColor(s.changePct)}">${_brPctFmt(s.changePct)}%</span></div>`
             + `<div class="fu-syms">${secStocks}</div></div>`
             + `<div class="flow-arrow">→</div>`
-            + `<div class="flow-kr">${right}</div></div>`;
+            + `<div class="fk-stack">${right}</div></div>`;
         };
         const upFlow = (d.sectorsUp || []).map(secFlowRow).join("");
         const dnFlow = (d.sectorsDown || []).map(secFlowRow).join("");

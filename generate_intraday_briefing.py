@@ -183,7 +183,7 @@ def fetch_sectors():
 # KIS 업종(KRX 산업 분류) → 관련 네이버 테마 매칭용 키워드 폴백. 대장주 코드 겹침이
 # 우선이고, 겹침이 없을 때 테마명에 아래 키워드가 있으면 매칭한다(주요 KOSPI 섹터 커버).
 _SECTOR_THEME_KW = {
-    "전기·전자":     ["반도체", "HBM", "반도체장비", "반도체소재", "IT부품", "카메라"],
+    "전기·전자":     ["반도체", "HBM", "반도체장비", "반도체소재", "IT부품", "카메라", "광통신"],
     "운송장비·부품": ["자동차", "자동차부품", "전기차", "타이어", "2차전지"],
     "화학":         ["2차전지", "전지소재", "화학", "정유", "태양광"],
     "운송·창고":     ["항공", "해운", "물류", "택배"],
@@ -228,13 +228,25 @@ def _name_tokens(name):
     return {t for t in re.split(r"[\s·・/()]+", str(name or "")) if len(t) >= 2}
 
 
+def _kw_hit(kws, theme_name):
+    """키워드 맵 매칭 — 테마명 '토큰'의 접두/동등 비교. 부분문자열 매칭이 아니라서
+    '반도체' ⊂ '반도체장비'(접두)는 잡되 '통신' ⊂ '광통신'(접미 합성어)은 배제한다
+    (2026-07-10 광통신 테마가 통신 섹터에 오분류된 원인 수정)."""
+    toks = _name_tokens(theme_name)
+    return any(t == k or t.startswith(k) for k in kws for t in toks)
+
+
 def _match_themes(sector, ranking, used):
     """섹터 → 관련 네이버 테마 후보를 점수순으로 반환(방향 무관, 전체 랭킹에서).
 
     점수(높을수록 관련): ① 테마 주도주(leaders)가 섹터 KRX 관련주(시총 상위 12)에
-    겹침 — 겹침당 +4  ② 명칭 유사(섹터명·테마명 토큰 교집합, 예: 섬유·의류 ↔ 패션/의류,
-    통신 ↔ 통신) +3  ③ 키워드 맵 +2. 동점은 |등락률| 큰 테마 우선.
-    이미 다른 섹터에 배정된 테마(used)는 제외. 상한 THEMES_PER_SECTOR."""
+    겹침 — 겹침당 +4  ② 명칭 유사(섹터명·테마명 토큰 교집합, 예: 섬유·의류 ↔ 패션/의류)
+    +3  ③ 키워드 맵(토큰 접두) +2. 동점은 |등락률| 큰 테마 우선.
+
+    대표(1번째) 테마는 최고점이면 되지만, 2번째부터는 복수 근거(점수 >= 5: 대장주 2겹침,
+    대장주+명칭/키워드 등)를 요구한다 — 대장주 '1종목' 단독 겹침(+4)은 조광피혁(섬유·의류
+    ↔ 부동산자산주)처럼 종목 하나가 이질 테마에 걸친 경우라 보조 테마로는 신뢰 부족
+    (2026-07-10 실측). 이미 다른 섹터에 배정된 테마(used)는 제외. 상한 THEMES_PER_SECTOR."""
     codes = set(sector.get("_matchCodes") or
                 [s.get("code") for s in (sector.get("stocks") or [])])
     s_toks = _name_tokens(sector.get("name"))
@@ -246,12 +258,14 @@ def _match_themes(sector, ranking, used):
         score = 4 * sum(1 for L in (t.get("leaders") or []) if L.get("code") in codes)
         if s_toks & _name_tokens(t["name"]):
             score += 3
-        if any(k in t["name"] for k in kws):
+        if _kw_hit(kws, t["name"]):
             score += 2
         if score > 0:
             scored.append((score, abs(t.get("changePct") or 0), t))
     scored.sort(key=lambda x: (-x[0], -x[1]))
-    return [t for _, _, t in scored[:THEMES_PER_SECTOR]]
+    picked = [t for score, _, t in scored[:1]] \
+        + [t for score, _, t in scored[1:] if score >= 5]
+    return picked[:THEMES_PER_SECTOR]
 
 
 def attach_sector_themes(sectors_up, sectors_down):
