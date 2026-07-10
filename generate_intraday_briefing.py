@@ -193,7 +193,7 @@ _SECTOR_THEME_KW = {
     "건설":         ["건설", "건설기계", "시멘트", "리모델링"],
     "제약":         ["제약", "바이오", "비만", "신약", "임상"],
     "보험":         ["보험"],
-    "증권":         ["증권"],
+    "증권":         ["증권", "STO", "토큰증권"],   # 토큰증권은 '증권' 접미 합성어라 접두 매칭에 안 걸림 — 명시
     "은행":         ["은행", "금융지주"],
     "전기·가스":     ["전력", "원자력", "도시가스", "풍력", "태양광", "수소"],
     "통신":         ["통신", "5G"],
@@ -246,10 +246,11 @@ def _match_themes(sector, ranking, used):
     겹침 — 겹침당 +4  ② 명칭 유사(섹터명·테마명 토큰 교집합, 예: 섬유·의류 ↔ 패션/의류)
     +3  ③ 키워드 맵(토큰 접두) +2. 동점은 |등락률| 큰 테마 우선.
 
-    대표(1번째) 테마는 최고점이면 되지만, 2번째부터는 복수 근거(점수 >= 5: 대장주 2겹침,
-    대장주+명칭/키워드 등)를 요구한다 — 대장주 '1종목' 단독 겹침(+4)은 조광피혁(섬유·의류
-    ↔ 부동산자산주)처럼 종목 하나가 이질 테마에 걸친 경우라 보조 테마로는 신뢰 부족
-    (2026-07-10 실측). 이미 다른 섹터에 배정된 테마(used)는 제외. 상한 THEMES_PER_SECTOR."""
+    대표(1번째) 테마는 최고점이면 되지만, 2번째부터는 '대장주 1종목 단독 겹침'을
+    배제한다 — 조광피혁(섬유·의류 ↔ 부동산자산주)처럼 종목 하나가 이질 테마에 걸친
+    경우라 보조 테마로는 신뢰 부족(2026-07-10 실측). 명칭 일치·큐레이션 키워드는
+    사람이 검증한 연관이라 단독으로도 보조 테마 자격이 있다(STO↔증권 사례).
+    이미 다른 섹터에 배정된 테마(used)는 제외. 상한 THEMES_PER_SECTOR."""
     codes = set(sector.get("_matchCodes") or
                 [s.get("code") for s in (sector.get("stocks") or [])])
     s_toks = _name_tokens(sector.get("name"))
@@ -258,16 +259,16 @@ def _match_themes(sector, ranking, used):
     for t in ranking:
         if t["no"] in used:
             continue
-        score = 4 * sum(1 for L in (t.get("leaders") or []) if L.get("code") in codes)
-        if s_toks & _name_tokens(t["name"]):
-            score += 3
-        if _kw_hit(kws, t["name"]):
-            score += 2
+        overlap = sum(1 for L in (t.get("leaders") or []) if L.get("code") in codes)
+        name_sim = bool(s_toks & _name_tokens(t["name"]))
+        kw = _kw_hit(kws, t["name"])
+        score = 4 * overlap + 3 * name_sim + 2 * kw
         if score > 0:
-            scored.append((score, abs(t.get("changePct") or 0), t))
+            ok_secondary = overlap >= 2 or name_sim or kw   # 대장주 1종목 단독만 보조 배제
+            scored.append((score, abs(t.get("changePct") or 0), t, ok_secondary))
     scored.sort(key=lambda x: (-x[0], -x[1]))
-    picked = [t for score, _, t in scored[:1]] \
-        + [t for score, _, t in scored[1:] if score >= 5]
+    picked = [t for _, _, t, _ in scored[:1]] \
+        + [t for _, _, t, ok in scored[1:] if ok]
     return picked[:THEMES_PER_SECTOR]
 
 
