@@ -228,15 +228,25 @@ def _load_theme_codes():
 
 
 def _theme_detail(theme, up):
-    """매칭된 네이버 테마 → {name, changePct, stocks}. stocks 는 섹터 방향(up/down) 상위."""
+    """매칭된 네이버 테마 → {name, changePct, stocks, reasons}.
+    stocks 는 섹터 방향(up/down) 상위, reasons 는 그 종목들의 '테마 편입 사유'(네이버
+    상세 페이지 info_txt) 상위 2건 — LLM 이 섹터 등락 동인을 서술할 근거."""
     if theme["no"] not in _THEME_STOCKS_CACHE:
         _THEME_STOCKS_CACHE[theme["no"]] = sources.naver_theme_stocks(theme["no"], limit=15)
     stocks = [x for x in _THEME_STOCKS_CACHE[theme["no"]]
               if x.get("changePct") is not None]
     stocks.sort(key=lambda x: -x["changePct"] if up else x["changePct"])
+    reasons = []
+    for x in stocks:
+        rs = (x.get("reason") or "").strip()
+        if rs and rs not in reasons:
+            reasons.append(rs[:90])
+        if len(reasons) >= 2:
+            break
     return {"name": theme["name"], "changePct": theme["changePct"],
             "stocks": [{"code": x["code"], "name": x["name"], "changePct": x["changePct"]}
-                       for x in stocks[:STOCKS_PER_THEME]]}
+                       for x in stocks[:STOCKS_PER_THEME]],
+            "reasons": reasons}
 
 
 def _name_tokens(name):
@@ -329,6 +339,60 @@ def attach_sector_themes(sectors_up, sectors_down):
         sector.pop("_matchCodes", None)     # 내부 매칭용 — 산출 JSON 에서 제거
 
 
+def enrich_sector_stocks(sectors_up, sectors_down):
+    """급등/급락 섹터 관련주에 ① 실시간 등락률(KIS 허브 /prices, 1회 일괄)과
+    ② 최신 집계일 외국인·기관 순매수 수량(네이버 trend, 종목당 1회)을 부착.
+    LLM 이 '어느 종목이, 누가 사서' 섹터를 움직이는지 서술할 근거. 실패 필드는 생략."""
+    stocks = [x for s in sectors_up + sectors_down for x in (s.get("stocks") or [])]
+    codes = list(dict.fromkeys(x["code"] for x in stocks if x.get("code")))
+    if not codes:
+        return
+    prices = {}
+    try:
+        r = requests.get(f"{KIS_HUB_URL}/prices",
+                         params={"codes": ",".join(codes)}, timeout=15)
+        prices = (r.json() or {}).get("stocks") or {}
+    except Exception as e:
+        _warn(f"허브 관련주 시세 조회 실패: {e}")
+    flows = {}
+    for c in codes:
+        flows[c] = sources.naver_stock_flow(c)
+    n_p, n_f = 0, 0
+    for x in stocks:
+        p = prices.get(x.get("code")) or {}
+        if p.get("rate") is not None:
+            x["changePct"] = p["rate"]
+            n_p += 1
+        f = flows.get(x.get("code")) or {}
+        if f:
+            x["flow"] = f          # {date, foreign, institution} — 순매수 수량(주)
+            n_f += 1
+    print(f"  섹터 관련주 보강: 시세 {n_p}/{len(stocks)}, 수급 {n_f}/{len(stocks)}")
+
+
+def _load_us_context():
+    """모닝브리핑(public/briefing/latest.json)에서 전일 미국장 컨텍스트 발췌 —
+    장중 섹터 랠리가 미국장의 연장인 경우(예: 필라델피아 반도체 급등 → 국내 반도체
+    장비주 강세)를 LLM 이 연결할 수 있게 한다. 없으면 {} (graceful)."""
+    try:
+        with open(os.path.join(ROOT, "public", "briefing", "latest.json"),
+                  encoding="utf-8") as f:
+            d = json.load(f) or {}
+        sectors = ((d.get("usMarket") or {}).get("sectors") or [])
+        sec = [{"name": s.get("name"), "changePct": s.get("changePct")}
+               for s in sectors if s.get("name")]
+        sec.sort(key=lambda s: -(s["changePct"] or 0))
+        return {
+            "date": d.get("date"),
+            "bullets": ((d.get("usReview") or {}).get("bullets") or [])[:4],
+            "sectorsUp": sec[:3],
+            "sectorsDown": sec[-3:][::-1] if len(sec) >= 3 else [],
+        }
+    except Exception as e:
+        _warn(f"미국장 컨텍스트 로드 실패: {e}")
+        return {}
+
+
 def fetch_movers():
     """급등/급락 개별종목 (LLM 재료 — 테마 밖 단독 급등주 포착용)."""
     up, down = [], []
@@ -376,7 +440,12 @@ SYSTEM = (
     "- 데이터에 없는 수치·사실을 지어내지 말 것. 등락률 등 수치는 입력값을 인용할 것.\n"
     "- briefing 은 3~5개의 완결된 문장(각각이 대시보드 불릿 하나): ① 지수 흐름과 수급 주체"
     "(investors — 기관/외국인/개인 순매수, 단위 억원)를 함께, ② 환율·금리·유가(marketIndicators)가 "
-    "시장에 주는 함의, ③ 주도 섹터(sectorsUp)와 동인, ④ 약세 섹터(sectorsDown), ⑤ 관전 포인트 순으로.\n"
+    "시장에 주는 함의, ③ 주도 섹터(sectorsUp), ④ 약세 섹터(sectorsDown), ⑤ 관전 포인트 순으로.\n"
+    "- ③④는 등락률 나열이 아니라 '동인'을 서술한다: 각 섹터의 stocks(관련주별 changePct 와 "
+    "flow — date 집계일의 외국인/기관 순매수 수량(주), 장중엔 전일 확정치일 수 있음)로 어느 "
+    "종목이 끌어올리는지/끌어내리는지, themes 의 reasons(테마 편입 사유)·catalysts·공시·뉴스로 "
+    "그 이유가 무엇인지, usContext(전일 미국장 리뷰·섹터)와 이어지는 흐름인지를 근거와 함께 "
+    "명시할 것. 제공 데이터에 없는 원인을 추정해 지어내지 말 것.\n"
     "- catalysts 는 입력 공시(id: d0,d1,..)·뉴스(id: n0,n1,..) 중 시장 영향이 큰 것을 '종목 단위'로 "
     "정리한다(방향별 — 상방·중립·하방 각각 최대 10건 — 서로 다른 종목을 최대한 많이 포괄):\n"
     "  · 한국(KOSPI/KOSDAQ) 상장 종목만 포함하고 해외 종목·지수·ETF(예: 테슬라·엔비디아 등)는 제외한다.\n"
@@ -421,9 +490,30 @@ def _norm(s):
     return "".join(ch for ch in str(s or "") if ch not in " \t·ㆍ・")
 
 
+def _sector_raw(s):
+    """섹터 → LLM raw. 관련주는 등락률·수급(enrich_sector_stocks)까지, 테마는
+    구성종목 등락률·편입사유(reasons)까지 — 섹터 등락의 '동인' 서술 근거."""
+    def _stock(x):
+        d = {"name": x["name"]}
+        if x.get("changePct") is not None:
+            d["changePct"] = x["changePct"]
+        if x.get("flow"):
+            d["flow"] = x["flow"]      # {date, foreign, institution} 순매수 수량(주)
+        return d
+    return {
+        "name": s["name"], "changePct": s["changePct"],
+        "stocks": [_stock(x) for x in (s.get("stocks") or [])],
+        "themes": [{"name": t["name"], "changePct": t.get("changePct"),
+                    "stocks": [f"{x['name']} {x.get('changePct')}%"
+                               for x in (t.get("stocks") or [])[:3]],
+                    "reasons": t.get("reasons") or []}
+                   for t in (s.get("themes") or [])],
+    }
+
+
 def synthesize(indices, investors, indicators, sectors_up, sectors_down,
                movers_up, movers_down, disclosures, news, fx_news,
-               prev_rounds=None):
+               prev_rounds=None, us_context=None):
     # 시장지표는 핵심만 추려 LLM 에 전달 (COFIX 등 저관련 항목 제외)
     core_ind = {}
     if indicators:
@@ -442,14 +532,8 @@ def synthesize(indices, investors, indicators, sectors_up, sectors_down,
         "indices": indices,
         "investors": investors,          # 억원 단위 순매수 (개인/외국인/기관)
         "marketIndicators": core_ind,
-        "sectorsUp": [{"name": s["name"], "changePct": s["changePct"],
-                       "themes": [t["name"] for t in (s.get("themes") or [])],
-                       "stocks": [x["name"] for x in (s.get("stocks") or [])]}
-                      for s in sectors_up],
-        "sectorsDown": [{"name": s["name"], "changePct": s["changePct"],
-                         "themes": [t["name"] for t in (s.get("themes") or [])],
-                         "stocks": [x["name"] for x in (s.get("stocks") or [])]}
-                        for s in sectors_down],
+        "sectorsUp": [_sector_raw(s) for s in sectors_up],
+        "sectorsDown": [_sector_raw(s) for s in sectors_down],
         "moversUp": [{"name": s["name"], "changePct": s["changePct"]} for s in movers_up],
         "moversDown": [{"name": s["name"], "changePct": s["changePct"]} for s in movers_down],
         "disclosures": [{"id": f"d{i}", "corp": d["corp"], "title": d["title"]}
@@ -461,6 +545,8 @@ def synthesize(indices, investors, indicators, sectors_up, sectors_down,
                     "description": (n.get("description") or "")[:120]}
                    for n in fx_news],
     }
+    if us_context:
+        raw["usContext"] = us_context           # 전일 미국장 리뷰·섹터 (모닝브리핑 발췌)
     system = SYSTEM
     if prev_rounds:
         raw["previousRounds"] = prev_rounds     # 마감 시황 — 당일 회차별 다이제스트
@@ -534,6 +620,7 @@ def main():
     indicators = sources.naver_market_indicators()       # 환율·금리·유가·금
     sector_heat, sectors_up, sectors_down = fetch_sectors()   # KIS 업종(KRX 분류) 섹터 히트
     attach_sector_themes(sectors_up, sectors_down)            # 섹터 → 관련 네이버 테마·종목
+    enrich_sector_stocks(sectors_up, sectors_down)            # 관련주 등락률·수급(동인 분석 근거)
     movers_up, movers_down = fetch_movers()
     disclosures = sources.dart_today_disclosures(limit=40)
     news = fetch_news()
@@ -554,7 +641,7 @@ def main():
     briefing, fx_bullets, catalysts, model = synthesize(
         indices, investors, indicators, sectors_up, sectors_down,
         movers_up, movers_down, disclosures, news, fx_news,
-        prev_rounds=prev_rounds)
+        prev_rounds=prev_rounds, us_context=_load_us_context())
 
     out = {
         "date": now.strftime("%Y-%m-%d"),

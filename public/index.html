@@ -3205,8 +3205,10 @@
         // 섹터 → 관련 네이버 테마 흐름 (모닝브리핑 '미국 섹터 → 국내 밸류체인' 스타일 재사용).
         // 좌(flow-us): KIS 섹터 + KRX 관련주 → 우(flow-kr): 매칭 네이버 테마 + 종목(등락%).
         const secFlowRow = (s) => {
+          // 관련주 칩 — 등락률(enrich_sector_stocks 부착분) 있으면 함께 표기(동인 가시화)
           const secStocks = (s.stocks || []).slice(0, 5).map(x =>
-            `<span class="fu-name" onclick="ibResearch('${_brEsc(x.name)}')" style="font-family:'Noto Sans KR',sans-serif; cursor:pointer;">${_brEsc(x.name)}</span>`).join("");
+            `<span class="fu-name" onclick="ibResearch('${_brEsc(x.name)}')" style="font-family:'Noto Sans KR',sans-serif; cursor:pointer;">${_brEsc(x.name)}${
+              x.changePct == null ? "" : ` <span style="color:${_brPctColor(x.changePct)}">${_brPctFmt(x.changePct)}%</span>`}</span>`).join("");
           // 관련 테마 — 신버전 themes[](섹터당 여러 개, 테마별 개별 카드), 구버전 theme 단수 폴백.
           // 카드마다 왼쪽에 화살표를 붙여 좌측 섹터와의 연결을 표기(가운데 단일 화살표 대체).
           const themeList = s.themes || (s.theme ? [s.theme] : []);

@@ -851,6 +851,41 @@ def naver_market_indicators():
     return out if any(out.values()) else {}
 
 
+def naver_stock_flow(code):
+    """종목별 최신 집계일 외국인·기관 순매수 수량(주) — m.stock.naver.com trend API
+    (Actions IP 접근성은 naver_flow_probe 로 검증 완료). 장중엔 당일 잠정치가 아직
+    없을 수 있어 date(집계일)를 함께 반환한다. 실패 시 {} (graceful)."""
+    try:
+        r = requests.get(f"https://m.stock.naver.com/api/stock/{code}/trend",
+                         params={"pageSize": 1, "page": 1}, headers=UA, timeout=10)
+        r.raise_for_status()
+        rows = r.json()
+        row = rows[0] if isinstance(rows, list) and rows else {}
+    except Exception as e:
+        _warn(f"naver_stock_flow({code}) failed: {e}")
+        return {}
+
+    def _i(v):
+        try:
+            return int(str(v).replace(",", ""))
+        except (ValueError, TypeError):
+            return None
+    frn = _i(row.get("foreignerPureBuyQuant"))
+    org = None
+    for k in ("organPureBuyQuant", "organizationPureBuyQuant"):
+        if k in row:
+            org = _i(row.get(k))
+            break
+    if frn is None and org is None:
+        return {}
+    out = {"date": str(row.get("bizdate") or "")}
+    if frn is not None:
+        out["foreign"] = frn
+    if org is not None:
+        out["institution"] = org
+    return out
+
+
 def naver_index_investors():
     """코스피/코스닥 당일 투자자별 순매수 금액(억원) — 네이버 증권홈 '오늘의 증시'
     와 동일 수치. 반환: {kospi: {individual, foreign, institution}, kosdaq: {...}}
