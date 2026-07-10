@@ -3134,12 +3134,15 @@
         const secFlowRow = (s) => {
           const secStocks = (s.stocks || []).slice(0, 4).map(x =>
             `<span class="fu-name" onclick="ibResearch('${_brEsc(x.name)}')" style="font-family:'Noto Sans KR',sans-serif; cursor:pointer;">${_brEsc(x.name)}</span>`).join("");
-          const th = s.theme;
-          const right = th
-            ? `<div class="fk-theme">${_brEsc(th.name)} <span style="color:${_brPctColor(th.changePct)}">${_brPctFmt(th.changePct)}%</span></div>`
-              + `<div class="fk-names">${(th.stocks || []).map(x =>
-                  `<span class="fk-name" onclick="ibResearch('${_brEsc(x.name)}')" style="cursor:pointer;">${_brEsc(x.name)}${
-                    x.changePct == null ? "" : ` ${_brPctFmt(x.changePct)}%`}</span>`).join("")}</div>`
+          // 관련 테마 — 신버전 themes[](섹터당 여러 개), 구버전 회차는 theme 단수 폴백
+          const themeList = s.themes || (s.theme ? [s.theme] : []);
+          const themeBlock = (th, i) =>
+            `<div class="fk-theme"${i ? ' style="margin-top:7px;"' : ""}>${_brEsc(th.name)} <span style="color:${_brPctColor(th.changePct)}">${_brPctFmt(th.changePct)}%</span></div>`
+            + `<div class="fk-names">${(th.stocks || []).map(x =>
+                `<span class="fk-name" onclick="ibResearch('${_brEsc(x.name)}')" style="cursor:pointer;">${_brEsc(x.name)}${
+                  x.changePct == null ? "" : ` ${_brPctFmt(x.changePct)}%`}</span>`).join("")}</div>`;
+          const right = themeList.length
+            ? themeList.map(themeBlock).join("")
             : `<div class="fk-theme" style="color:var(--text-muted);">관련 테마 미검출</div>`
               + `<div class="fk-names">${(s.stocks || []).slice(0, 4).map(x => `<span class="fk-name">${_brEsc(x.name)}</span>`).join("")}</div>`;
           return `<div class="flow-row">`
