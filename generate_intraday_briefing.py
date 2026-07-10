@@ -37,6 +37,7 @@ ARCHIVE_DIR = os.path.join(ROOT, "public", "reports", "intraday_briefing")
 THEMES_PER_SIDE = int(os.environ.get("BRIEFING_THEMES", "3"))     # 급등/급락 각 N개
 STOCKS_PER_THEME = int(os.environ.get("BRIEFING_VC_STOCKS", "5"))  # 테마 구성종목 표기 수(방향 상위)
 THEMES_PER_SECTOR = int(os.environ.get("BRIEFING_THEMES_PER_SECTOR", "2"))  # 섹터당 관련 테마 상한
+THEME_DETAIL_TOP = int(os.environ.get("BRIEFING_THEME_DETAIL_TOP", "20"))   # 구성종목까지 로드해 매칭할 테마 수(|등락| 상위)
 SECTORS_PER_SIDE = int(os.environ.get("BRIEFING_SECTORS", "3"))    # 상승/하락 각 N개 섹터
 CATALYSTS_PER_DIR = int(os.environ.get("BRIEFING_CAT_PER_DIR", "10"))  # 촉매 방향별 상한(상방/중립/하방)
 
@@ -259,12 +260,19 @@ def _match_themes(sector, ranking, used):
     for t in ranking:
         if t["no"] in used:
             continue
-        overlap = sum(1 for L in (t.get("leaders") or []) if L.get("code") in codes)
+        # 점수용 겹침은 _codes(주도주 ∪ 구성종목, attach 에서 확장) 기준 — 주도주(2종목)
+        # 스냅샷은 회차마다 바뀌어 연결이 끊긴다(케이씨텍↔HBM, 2026-07-10 12:10 실측).
+        t_codes = t.get("_codes") or {L.get("code") for L in (t.get("leaders") or [])}
+        overlap = len(codes & t_codes)
+        lead_ov = sum(1 for L in (t.get("leaders") or []) if L.get("code") in codes)
         name_sim = bool(s_toks & _name_tokens(t["name"]))
         kw = _kw_hit(kws, t["name"])
         score = 4 * overlap + 3 * name_sim + 2 * kw
         if score > 0:
-            ok_secondary = overlap >= 2 or name_sim or kw   # 대장주 1종목 단독만 보조 배제
+            # 보조 테마 자격은 '주도주' 겹침≥2 또는 명칭/키워드 — 구성종목 겹침은 점수
+            # (대표 선정)에만 쓴다. 구성종목 기준으로 풀면 우발적 교차 편입(조광피혁·
+            # SG세계물산 ∈ 부동산자산주)이 보조 테마로 되살아난다(회귀 실측).
+            ok_secondary = lead_ov >= 2 or name_sim or kw
             scored.append((score, abs(t.get("changePct") or 0), t, ok_secondary))
     scored.sort(key=lambda x: (-x[0], -x[1]))
     picked = [t for _, _, t, _ in scored[:1]] \
@@ -282,6 +290,17 @@ def attach_sector_themes(sectors_up, sectors_down):
     ranking = sources.naver_theme_ranking()
     if not ranking:
         return
+    # 매칭 코드 확장: 기본은 주도주(2종목), |등락률| 상위 THEME_DETAIL_TOP 테마는
+    # 구성종목(15개)까지 로드해 합집합 — 주도주 스냅샷 교체로 섹터 연결이 끊기는
+    # 문제 보완(케이씨텍이 HBM 주도주에서 밀리자 매칭 소실, 2026-07-10 실측).
+    # 상세 페이지는 회차 내 캐시(_THEME_STOCKS_CACHE)라 _theme_detail 과 중복 fetch 없음.
+    for t in ranking:
+        t["_codes"] = {L.get("code") for L in (t.get("leaders") or []) if L.get("code")}
+    by_abs = sorted(ranking, key=lambda t: -abs(t.get("changePct") or 0))
+    for t in by_abs[:THEME_DETAIL_TOP]:
+        if t["no"] not in _THEME_STOCKS_CACHE:
+            _THEME_STOCKS_CACHE[t["no"]] = sources.naver_theme_stocks(t["no"], limit=15)
+        t["_codes"] |= {x.get("code") for x in _THEME_STOCKS_CACHE[t["no"]] if x.get("code")}
     used = set()
     # 등락률 순위 앞 섹터(급등1→3, 급락1→3)가 테마를 먼저 가져간다(중복 배정 방지).
     for sector, up in ([(s, True) for s in sectors_up]
