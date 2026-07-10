@@ -410,6 +410,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._krxtest()
         if u.path == "/api/srctest":
             return self._srctest()
+        if u.path == "/api/indtest":
+            return self._indtest()
         if u.path == "/api/sector":
             try:
                 result, was_cached = run_sector()
@@ -526,6 +528,25 @@ class Handler(BaseHTTPRequestHandler):
         verdict = any(c.get("ok") for c in result["checks"].values())
         result["verdict"] = "KRX reachable from Railway ✅" if verdict else "KRX blocked/empty ❌"
         return self._send(200, result)
+
+    def _indtest(self):
+        """진단 전용(임시): naver_market_indicators() 라이브 결과 — 국제환율(worldExchangeList)
+        파싱이 달러인덱스·엔/달러를 실제로 뽑는지 확인용. 확인 후 제거한다."""
+        try:
+            ind = ga.sources.naver_market_indicators()
+            names = {k: [x.get("name") for x in (ind.get(k) or [])]
+                     for k in ("exchange", "world", "commodities", "rates")}
+            world = ind.get("world") or []
+            return self._send(200, {
+                "sectionKeys": list(ind.keys()),
+                "names": names,
+                "worldCount": len(world),
+                "world": world,
+                "hasDollarIndex": any("달러인덱스" in (x.get("name") or "") for x in world),
+                "hasYenDollar": any("엔/달러" in (x.get("name") or "") for x in world),
+            })
+        except Exception as ex:
+            return self._send(500, {"status": "error", "message": str(ex)[:400]})
 
     def _srctest(self):
         """진단 전용: DART 공시·재무 + Reddit(Tavily/직접) 소스가 실제로 데이터를 받는지 확인.
