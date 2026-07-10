@@ -924,15 +924,26 @@ def write_outputs(selection, us_brief):
                              "changePct": p.get("changePct")}
     if IS_INTRADAY:
         # 상승 누적과 동일한 당일 누적(append) — 첫 회차 리셋, code 중복 제거, 상한 공유.
-        # 장전 상승/장전 하락/장중 상승 누적에 이미 있는 코드는 스킵(상승 우선 + 중복 방지).
+        # 신규 추가는 장전 상승/장전 하락/장중 상승 누적에 이미 있는 코드를 스킵(상승 우선).
+        # 단, 기존 하락 누적 종목이 이후 장중 '상승' 누적에 뽑히면 삭제하지 않고
+        # movedUp 마킹만 한다 — 조용한 삭제가 회차마다 하락 리스트가 리셋되는 것처럼
+        # 보이던 원인(2026-07-08 SK하이닉스·뷰티스킨, 07-10 대우건설 실측). 기록 보존.
         pre_down_codes = {str(p.get("code", "")).zfill(6)
                           for p in (_load_json(PRE_WATCHLIST_DOWN, []) or [])
                           if isinstance(p, dict)}
         up_codes = {str(w.get("code", "")).zfill(6) for w in watchlist}
         exclude_d = pre_codes | pre_down_codes | up_codes
-        prev_down = [] if first_run else (_load_json(WATCHLIST_DOWN, []) or [])
-        prev_down = [p for p in prev_down if isinstance(p, dict)
-                     and str(p.get("code", "")).zfill(6) not in exclude_d]
+        prev_down_raw = [] if first_run else (_load_json(WATCHLIST_DOWN, []) or [])
+        prev_down = []
+        for p in prev_down_raw:
+            if not isinstance(p, dict):
+                continue
+            c = str(p.get("code", "")).zfill(6)
+            if c in pre_codes or c in pre_down_codes:   # 장전 보드 중복은 기존대로 제거
+                continue
+            if c in up_codes:
+                p = {**p, "movedUp": True}              # 상승 전환 — 삭제 대신 마킹
+            prev_down.append(p)
         seen_d = {str(p.get("code")) for p in prev_down} | exclude_d
         down_list = list(prev_down)
         added_d = 0

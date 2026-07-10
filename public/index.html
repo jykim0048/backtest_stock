@@ -4625,6 +4625,7 @@
               <div class="stock-name-row">
                 <span class="stock-name">${stock.name}</span>
                 <span class="market-badge ${badgeClass}">${stock.market}</span>
+                ${stock.movedUp ? `<span class="intraday-badge" style="background:rgba(239,68,68,.14); color:var(--up-red);" title="하락 관찰 후 장중 상승 관심종목으로 선정됨">↗ 상승 전환</span>` : ""}
               </div>
               <span class="stock-code">${stock.code}</span>
             </div>
