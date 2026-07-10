@@ -51,8 +51,8 @@ jobs:
       contents: write
 
     env:
-      # 장중 관심종목 수 (장전 워치리스트 10개보다 적게). 필요시 repo Variable로 조정.
-      SCREEN_N_FINAL: '6'
+      # 장중 관심종목 1회차 최대 선정 수. 필요시 repo Variable로 조정.
+      SCREEN_N_FINAL: '10'
 
     steps:
       - uses: actions/checkout@v5
