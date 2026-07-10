@@ -1673,7 +1673,7 @@
     </section>
 
     <!-- 📰 모닝 브리핑: 전일 미국장 리뷰 + 당일 한국시장 프리뷰 (briefing/latest.json). 데이터 없으면 숨김. -->
-    <section class="briefing-banner" id="briefing-banner" style="display:none;">
+    <section class="briefing-banner collapsed" id="briefing-banner" style="display:none;"><!-- 새로고침 시 접힘 디폴트 -->
       <div class="briefing-head" onclick="toggleBriefing()">
         <div class="briefing-head-left">
           <span class="briefing-icon">📰</span>
@@ -1690,7 +1690,7 @@
     </section>
 
     <!-- 🔴 장중 시황: 한국장 급등/급락 테마 + 밸류체인 + 장중 촉매 (intraday_briefing.json, 30분 회차). 데이터 없으면 숨김. -->
-    <section class="briefing-banner" id="ib-banner" style="display:none;">
+    <section class="briefing-banner collapsed" id="ib-banner" style="display:none;"><!-- 새로고침 시 접힘 디폴트 -->
       <div class="briefing-head" onclick="document.getElementById('ib-banner').classList.toggle('collapsed')">
         <div class="briefing-head-left">
           <span class="briefing-icon">🔴</span>
