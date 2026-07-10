@@ -626,6 +626,7 @@ GH_TOKEN = os.environ.get("GH_DISPATCH_TOKEN", "")
 
 DAILY_WF     = "daily_report.yml"
 INTRADAY_WF  = "intraday_screener.yml"
+CLOSING_WF   = "closing_briefing.yml"
 INVWARN_WF   = "investment_warning.yml"
 CORPMAP_WF   = "build_corp_map.yml"
 INDEXCON_WF  = "index_constituents.yml"
@@ -676,6 +677,10 @@ def _scheduler():
                 if 9 <= now.hour <= 14 and now.minute in INTRADAY_MIN:   # 장중 09:07~14:37
                     key = (today, f"intraday-{now.hour:02d}{now.minute:02d}")
                     if key not in fired and _dispatch(INTRADAY_WF):
+                        fired.add(key)
+                if now.hour == 15 and now.minute == 40:          # 마감 시황 15:40 KST
+                    key = (today, "closing")
+                    if key not in fired and _dispatch(CLOSING_WF):
                         fired.add(key)
             # 평일 무관(시각 민감도 낮음) — 월 1회 / 반기
             if now.day == 2 and now.hour == 3 and now.minute == 13:       # 매월 2일 03:13 corp map

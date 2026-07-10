@@ -1,0 +1,60 @@
+name: Closing Market Briefing
+
+on:
+  # Railway 상시 서버 스케줄러(railway_server._scheduler)가 평일 15:40 KST 에 트리거.
+  # 장중 회차(09:07~14:37)와 달리 이 회차는 BRIEFING_FINAL=1 로 실행돼, 당일 이전
+  # 회차 다이제스트를 반영한 '마감 시황'을 작성한다 (generate_intraday_briefing.py).
+  workflow_dispatch: # 수동 실행 + Railway 스케줄러 트리거 진입점
+
+# 장중 회차와 같은 그룹 — intraday_briefing 산출물 push 를 직렬화
+concurrency:
+  group: intraday-push
+  cancel-in-progress: false
+
+jobs:
+  closing-briefing:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0   # full history so the push-time rebase is clean
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Generate closing market briefing (마감 시황 — 당일 회차 종합)
+        env:
+          BRIEFING_FINAL:      '1'
+          GEMINI_API_KEY:      ${{ secrets.GEMINI_API_KEY }}
+          LLM_CHAIN:           ${{ vars.LLM_CHAIN }}
+          ANTHROPIC_API_KEY:   ${{ secrets.ANTHROPIC_API_KEY }}
+          DART_API_KEY:        ${{ secrets.DART_API_KEY }}
+          NAVER_CLIENT_ID:     ${{ secrets.NAVER_CLIENT_ID }}
+          NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
+        run: python generate_intraday_briefing.py
+
+      - name: Commit and push closing briefing
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add public/intraday_briefing.json public/reports/intraday_briefing/
+          git diff --staged --quiet && echo "No changes to commit" && exit 0
+          git commit -m "chore: closing market briefing $(date -u +'%Y-%m-%d %H:%MZ') [skip railway]"
+          # Remote may have advanced (concurrent pushes); push, and on rejection
+          # rebase onto the latest main and retry.
+          for i in $(seq 1 5); do
+            if git push origin HEAD:main; then echo "pushed (attempt $i)"; exit 0; fi
+            echo "push attempt $i rejected; rebasing onto latest main..."
+            git fetch origin main
+            git rebase FETCH_HEAD || { git rebase --abort; echo "::error::rebase conflict"; exit 1; }
+            sleep $((RANDOM % 4 + 2))
+          done
+          echo "::error::push failed after 5 attempts" && exit 1

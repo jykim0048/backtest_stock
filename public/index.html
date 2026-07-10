@@ -3008,12 +3008,62 @@
       odRun();
     }
 
+    // ── 장중 주요 촉매: 행 빌드 + 회차 선택 ─────────────────────────────────
+    // 한국(KOSPI/KOSDAQ) 상장 종목만 — 해외 종목(특징주 뉴스에 섞여 나오며 market="")은 제외.
+    // 구버전 회차(catalysts[].corp, direction 없음)도 관대하게 렌더(stock||corp, 배지 생략).
+    function _ibCatRows(catalysts) {
+      const dirBadge = (dir) => dir === "bullish" ? `<span class="dir-badge bull">▲ 상방</span>`
+        : dir === "bearish" ? `<span class="dir-badge bear">▼ 하방</span>`
+        : dir === "neutral" ? `<span class="dir-badge neu">— 중립</span>` : "";
+      const rows = (catalysts || [])
+        .filter(c => c.market === "KOSPI" || c.market === "KOSDAQ")
+        .map(c => {
+          const icon = c.kind === "disclosure" ? "📑" : (c.kind === "news" ? "📰" : "");
+          const name = c.stock || c.corp || "—";
+          const mkColor = (c.market === "KOSDAQ") ? "var(--kosdaq-green)" : "var(--kospi-blue)";
+          const link = c.url ? ` <a href="${_brEsc(c.url)}" target="_blank" rel="noopener" style="color:var(--text-muted); font-size:11px;">원문</a>` : "";
+          return `<tr>`
+            + `<td style="font-weight:600; white-space:nowrap;">${icon} ${_brEsc(name)}${dirBadge(c.direction)}</td>`
+            + `<td style="color:${mkColor}; font-size:13px; white-space:nowrap;">${_brEsc(c.market || "")}</td>`
+            + `<td style="color:#cbd5e1;">${_brEsc(c.summary || c.title || "")}${link}</td></tr>`;
+        }).join("");
+      return rows || `<tr><td colspan="3" style="color:var(--text-muted); font-size:13px; padding:8px 2px;">해당 회차 촉매 없음</td></tr>`;
+    }
+
+    let _ibRounds = null;   // 당일 아카이브 rounds[] (회차 선택용)
+    async function _ibLoadRounds(d) {
+      _ibRounds = null;
+      const sel = document.getElementById("ib-cat-round");
+      if (!sel || !d.date) return;
+      try {
+        const r = await fetch(`reports/intraday_briefing/${d.date}.json?t=${Date.now()}`, { cache: "no-store" });
+        if (!r.ok) return;
+        const rounds = ((await r.json()) || {}).rounds || [];
+        if (rounds.length < 2) return;      // 회차가 1개면 선택 무의미 — 셀렉터 숨김 유지
+        _ibRounds = rounds;
+        sel.innerHTML = rounds.map((rd, i) => {
+          const hm = ((rd.asof || "").split(" ")[1]) || `#${i + 1}`;
+          const label = rd.final ? `${hm} 마감` : `${hm} 회차`;
+          return `<option value="${i}"${i === rounds.length - 1 ? " selected" : ""}>${label}</option>`;
+        }).join("");
+        sel.style.display = "";
+      } catch (_) { /* 아카이브 없음/오류 — 셀렉터 숨김 유지 */ }
+    }
+
+    function ibCatRound(i) {
+      const tb = document.getElementById("ib-cat-tbody");
+      if (tb && _ibRounds && _ibRounds[i]) tb.innerHTML = _ibCatRows(_ibRounds[i].catalysts);
+    }
+
     function renderIntradayBriefing(d) {
       const today = todayKST();
       document.getElementById("ib-date").textContent = `${d.asof || ""} 회차`;
       const statusEl = document.getElementById("ib-status");
       if (d.date !== today) {
         statusEl.textContent = `${d.date} 마감 시황`;
+        statusEl.className = "briefing-stance neutral";
+      } else if (d.final) {
+        statusEl.textContent = "마감 시황";
         statusEl.className = "briefing-stance neutral";
       } else if (isMarketOpen()) {
         statusEl.textContent = "LIVE";
@@ -3079,29 +3129,17 @@
           + `<ul class="briefing-usbullets">${fxb.map(b => `<li>${_brEsc(b)}</li>`).join("")}</ul></div>`
         : "";
 
-      // 장중 촉매 — 종목 단위(중복 통합), 모닝브리핑 워치리스트처럼 종목/시장/핵심촉매 순 + 방향 배지.
-      // 한국(KOSPI/KOSDAQ) 상장 종목만 — 해외 종목(특징주 뉴스에 섞여 나오며 market="")은 제외.
-      // 구버전 회차(catalysts[].corp, direction 없음)도 관대하게 렌더(stock||corp, 배지 생략).
-      const _catDir = (dir) => dir === "bullish" ? `<span class="dir-badge bull">▲ 상방</span>`
-        : dir === "bearish" ? `<span class="dir-badge bear">▼ 하방</span>`
-        : dir === "neutral" ? `<span class="dir-badge neu">— 중립</span>` : "";
-      const catRows = (d.catalysts || [])
-        .filter(c => c.market === "KOSPI" || c.market === "KOSDAQ")
-        .map(c => {
-        const icon = c.kind === "disclosure" ? "📑" : (c.kind === "news" ? "📰" : "");
-        const name = c.stock || c.corp || "—";
-        const mkColor = (c.market === "KOSDAQ") ? "var(--kosdaq-green)" : "var(--kospi-blue)";
-        const link = c.url ? ` <a href="${_brEsc(c.url)}" target="_blank" rel="noopener" style="color:var(--text-muted); font-size:11px;">원문</a>` : "";
-        return `<tr>`
-          + `<td style="font-weight:600; white-space:nowrap;">${icon} ${_brEsc(name)}${_catDir(c.direction)}</td>`
-          + `<td style="color:${mkColor}; font-size:13px; white-space:nowrap;">${_brEsc(c.market || "")}</td>`
-          + `<td style="color:#cbd5e1;">${_brEsc(c.summary || c.title || "")}${link}</td></tr>`;
-      }).join("");
-      const catBox = catRows
-        ? `<div class="briefing-wl" style="margin-top:14px;">`
-          + `<div class="wl-h">⚡ 장중 주요 촉매 <span style="opacity:.7;">— 종목별 · 공시·뉴스 통합</span></div>`
-          + `<table><thead><tr><th>종목</th><th>시장</th><th>핵심 촉매</th></tr></thead>`
-          + `<tbody>${catRows}</tbody></table></div>` : "";
+      // 장중 촉매 — 종목 단위(중복 통합) + 회차 선택 셀렉터(이전 회차 촉매 조회).
+      // 행 빌드는 _ibCatRows(회차 전환 시 재사용), 셀렉터는 렌더 후 _ibLoadRounds 가 채운다.
+      const catBox =
+        `<div class="briefing-wl" style="margin-top:14px;">`
+        + `<div class="wl-h" style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">`
+        + `<span>⚡ 장중 주요 촉매 <span style="opacity:.7;">— 종목별 · 공시·뉴스 통합</span></span>`
+        + `<select id="ib-cat-round" onchange="ibCatRound(this.value)" style="display:none; margin-left:auto;`
+        + ` background:rgba(255,255,255,.05); color:#cbd5e1; border:1px solid var(--border-color);`
+        + ` border-radius:6px; font-size:12px; padding:2px 6px; cursor:pointer;"></select></div>`
+        + `<table><thead><tr><th>종목</th><th>시장</th><th>핵심 촉매</th></tr></thead>`
+        + `<tbody id="ib-cat-tbody">${_ibCatRows(d.catalysts)}</tbody></table></div>`;
 
       // 원자료 접기 (당일 촉매성 공시 / 특징주 뉴스)
       const rawList = (title, items, fmt) => (items || []).length
@@ -3188,6 +3226,7 @@
         ${rawDisc}${rawNews}${rawFx}
         <div class="briefing-foot">자동 생성 · ${genLabel} · KIS 업종·네이버 금융·DART · 투자 판단 참고용</div>
       `;
+      _ibLoadRounds(d);   // 회차 선택 셀렉터 채움 (아카이브 lazy fetch)
     }
 
     // Load a report by date string (YYYY-MM-DD) or "today"

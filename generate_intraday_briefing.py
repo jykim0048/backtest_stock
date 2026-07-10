@@ -50,6 +50,36 @@ def _warn(msg):
     print(f"[intraday-briefing] {msg}", file=sys.stderr)
 
 
+def _is_final_round(now):
+    """마감 시황 여부 — 명시 플래그(BRIEFING_FINAL=1, closing_briefing.yml) 또는
+    장 마감(15:30 KST) 이후 실행이면 True."""
+    if os.environ.get("BRIEFING_FINAL") == "1":
+        return True
+    return (now.hour, now.minute) >= (15, 30)
+
+
+def _load_prev_rounds(date_str, limit=12):
+    """당일 아카이브의 이전 회차들 → 마감 시황용 다이제스트(회차별 시황 불릿 + 촉매 종목).
+    아카이브 없으면 [] (첫 거래일/아카이브 실패 시 graceful)."""
+    path = os.path.join(ARCHIVE_DIR, f"{date_str}.json")
+    try:
+        with open(path, encoding="utf-8") as f:
+            rounds = (json.load(f) or {}).get("rounds") or []
+    except Exception:
+        return []
+    dir_kr = {"bullish": "상방", "bearish": "하방"}
+    out = []
+    for r in rounds[-limit:]:
+        asof = (r.get("asof") or "").split(" ")
+        out.append({
+            "time": asof[1] if len(asof) > 1 else "",
+            "briefing": r.get("briefing") or [],
+            "catalysts": [f"{c.get('stock')}({dir_kr.get(c.get('direction'), '중립')})"
+                          for c in (r.get("catalysts") or []) if c.get("stock")],
+        })
+    return out
+
+
 # ----------------------------------------------------------------------------
 # Phase 1) 수집
 # ----------------------------------------------------------------------------
@@ -307,6 +337,14 @@ SYSTEM = (
     "- 한국어. 출력은 지정된 JSON 스키마를 엄격히 따를 것."
 )
 
+# 마감 시황(장 마감 후 마지막 회차) 전용 추가 지침 — previousRounds 를 반영해 하루를 종합
+FINAL_ADDENDUM = (
+    "\n- 이번 회차는 장 마감 후 작성하는 '마감 시황'이다. previousRounds(당일 이전 회차별 "
+    "시황 불릿과 촉매 종목 요약)를 반드시 반영해 하루 전체 흐름을 종합하라: ① 오전→오후 "
+    "지수·수급 흐름의 변화, ② 주도 섹터·테마의 지속/교체, ③ 장중 부각됐던 촉매의 결말"
+    "(상한 유지/되돌림 등), ④ 다음 거래일 관전 포인트. briefing 은 5~7문장으로 확장하라."
+)
+
 _STR = {"type": "string"}
 SCHEMA = {
     "type": "object",
@@ -330,7 +368,8 @@ def _norm(s):
 
 
 def synthesize(indices, investors, indicators, sectors_up, sectors_down,
-               movers_up, movers_down, disclosures, news, fx_news):
+               movers_up, movers_down, disclosures, news, fx_news,
+               prev_rounds=None):
     # 시장지표는 핵심만 추려 LLM 에 전달 (COFIX 등 저관련 항목 제외)
     core_ind = {}
     if indicators:
@@ -368,11 +407,15 @@ def synthesize(indices, investors, indicators, sectors_up, sectors_down,
                     "description": (n.get("description") or "")[:120]}
                    for n in fx_news],
     }
+    system = SYSTEM
+    if prev_rounds:
+        raw["previousRounds"] = prev_rounds     # 마감 시황 — 당일 회차별 다이제스트
+        system = SYSTEM + FINAL_ADDENDUM
     user = "RAW 데이터(JSON):\n" + json.dumps(raw, ensure_ascii=False)
     synth, model = {}, None
     if llm.configured():
         try:
-            synth, model = llm.generate_json(SYSTEM, user, max_tokens=4096,
+            synth, model = llm.generate_json(system, user, max_tokens=4096,
                                              schema=SCHEMA, return_model=True)
         except Exception as e:
             _warn(f"LLM 종합 실패: {e} — 기계적 결과만 산출")
@@ -447,13 +490,22 @@ def main():
           f"지표 {sum(len(v) for v in indicators.values()) if indicators else 0}, "
           f"수급 {len(investors)}시장")
 
+    # 마감 시황(장 마감 후 마지막 회차): 당일 이전 회차 다이제스트를 LLM 에 함께 넘겨
+    # 하루 전체 흐름(오전→오후 변화, 촉매 결말)을 종합하게 한다.
+    final = _is_final_round(now)
+    prev_rounds = _load_prev_rounds(now.strftime("%Y-%m-%d")) if final else []
+    if final:
+        print(f"  마감 시황 모드 — 이전 회차 {len(prev_rounds)}건 반영")
+
     briefing, fx_bullets, catalysts, model = synthesize(
         indices, investors, indicators, sectors_up, sectors_down,
-        movers_up, movers_down, disclosures, news, fx_news)
+        movers_up, movers_down, disclosures, news, fx_news,
+        prev_rounds=prev_rounds)
 
     out = {
         "date": now.strftime("%Y-%m-%d"),
         "asof": now.strftime("%Y-%m-%d %H:%M KST"),
+        "final": final,                 # 마감 시황 여부 (대시보드 배지)
         "generatedBy": model or "mechanical",
         "indices": indices,
         "investors": investors,
