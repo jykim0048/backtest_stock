@@ -388,8 +388,8 @@
     .briefing-chip .c-name { font-size: 12.5px; color: var(--text-muted); }
     .briefing-chip .c-val { font-size: 14px; font-weight: 600; }
     .briefing-heat { display: grid; grid-template-columns: repeat(auto-fit, minmax(48px, 1fr)); gap: 4px; }
-    /* 장중 섹터 히트: 행마다 13개씩 고정(26개 → 2행) */
-    .briefing-heat.ib-heat-2row { grid-template-columns: repeat(13, minmax(0, 1fr)); }
+    /* 장중 섹터 히트: 행마다 12개씩 고정(합성지수 2개 제외한 24개 → 2행) */
+    .briefing-heat.ib-heat-2row { grid-template-columns: repeat(12, minmax(0, 1fr)); }
     .briefing-heat.ib-heat-2row .h-name { font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .briefing-heat .h-cell { border-radius: 5px; padding: 4px 2px; text-align: center; }
     .briefing-heat .h-name { font-size: 12px; }
@@ -3160,7 +3160,8 @@
 
       // 섹터 히트(강→약) + 상하위 3개 섹터 — KIS 업종(KRX 분류). 데이터 없으면 섹션 숨김.
       // 관련주(구성종목)는 KRX 전종목 업종분류 연동 후 sectorsUp/Down[].stocks 로 부착된다.
-      const secHeat = d.sectorHeat || [];
+      // 합성 지수 시리즈(코스피 200 기후변화지수 등)는 표시 제외 — 산업 업종만
+      const secHeat = (d.sectorHeat || []).filter(s => !/코스피/.test(s.name || ""));
       let sectorSection = "";
       if (secHeat.length) {
         const maxAbs = Math.max(0.01, ...secHeat.map(s => Math.abs(s.changePct || 0)));

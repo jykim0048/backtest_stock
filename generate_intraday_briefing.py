@@ -165,7 +165,10 @@ def fetch_sectors():
         return [], [], []
     heat = [{"name": s.get("name"), "changePct": s.get("changePct"),
              "index": s.get("index")}
-            for s in raw if s.get("name") and s.get("changePct") is not None]
+            for s in raw if s.get("name") and s.get("changePct") is not None
+            # 산업 업종만 — '코스피 200 기후변화지수'·'코스피200제외 코스피지수' 같은
+            # 합성 지수 시리즈는 섹터 히트/급등락 선정에서 제외
+            and "코스피" not in s.get("name")]
     heat.sort(key=lambda s: s["changePct"], reverse=True)
     ups = [dict(s) for s in heat[:SECTORS_PER_SIDE]]
     downs = [dict(s) for s in (heat[-SECTORS_PER_SIDE:][::-1]
