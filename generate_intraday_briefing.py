@@ -553,7 +553,7 @@ _STR = {"type": "string"}
 SCHEMA = {
     "type": "object",
     "properties": {
-        "briefing": {"type": "array", "items": _STR},
+        "briefing": {"type": "array", "minItems": 3, "items": _STR},
         "fxBullets": {"type": "array", "items": _STR},
         "catalysts": {"type": "array", "items": {
             "type": "object",
@@ -635,13 +635,23 @@ def synthesize(indices, investors, indicators, sectors_up, sectors_down,
         raw["previousRounds"] = prev_rounds     # 마감 시황 — 당일 회차별 다이제스트
         system = SYSTEM + FINAL_ADDENDUM
     user = "RAW 데이터(JSON):\n" + json.dumps(raw, ensure_ascii=False)
+    # max_tokens 는 Gemini 3 의 thinking 토큰과 출력이 나눠 쓰는 예산 — 마감 회차
+    # (previousRounds 12건 + 5~7문장 확장)에서 4096 이 잘려 빈/불완전 JSON 이 나온
+    # 사례(2026-07-13)가 있어 8192 로 상향. 파싱은 됐지만 briefing 이 빈 응답
+    # (잘린 출력이 우연히 유효 JSON)은 실패로 간주하고 1회 재시도한다.
     synth, model = {}, None
     if llm.configured():
-        try:
-            synth, model = llm.generate_json(system, user, max_tokens=4096,
-                                             schema=SCHEMA, return_model=True)
-        except Exception as e:
-            _warn(f"LLM 종합 실패: {e} — 기계적 결과만 산출")
+        for attempt in (1, 2):
+            try:
+                synth, model = llm.generate_json(system, user, max_tokens=8192,
+                                                 schema=SCHEMA, return_model=True)
+            except Exception as e:
+                _warn(f"LLM 종합 실패: {e} — 기계적 결과만 산출")
+                break
+            if synth.get("briefing"):
+                break
+            _warn(f"{model} 응답에 briefing 없음 — {'재시도' if attempt == 1 else '기계적 결과만 산출'}")
+            synth = {}
     else:
         _warn("LLM 미설정 — 기계적 결과만 산출")
 
@@ -688,8 +698,36 @@ def synthesize(indices, investors, indicators, sectors_up, sectors_down,
         fx_bullets = [n["title"].strip() for n in fx_news[:3]
                       if (n.get("title") or "").strip()]
 
-    return [b.strip() for b in (synth.get("briefing") or []) if b and b.strip()], \
-        fx_bullets, catalysts, model
+    # 시황 불릿 — 재시도까지 실패하면 수집 수치로 기계적 요약(대시보드 공백 방지)
+    briefing = [b.strip() for b in (synth.get("briefing") or []) if b and b.strip()]
+    if not briefing:
+        briefing = _mechanical_briefing(indices, investors, sectors_up, sectors_down,
+                                        bool(prev_rounds))
+    return briefing, fx_bullets, catalysts, model
+
+
+def _mechanical_briefing(indices, investors, sectors_up, sectors_down, final):
+    """LLM 전 링크 실패/빈 응답 시 폴백 — 수집 데이터만으로 최소 시황 불릿 구성."""
+    out = []
+    seg = []
+    for nm, k in (("코스피", "kospi"), ("코스닥", "kosdaq")):
+        v = (indices or {}).get(k) or {}
+        if isinstance(v.get("price"), (int, float)) and v.get("rate") is not None:
+            seg.append(f"{nm} {v['price']:,.2f}({v['rate']:+.2f}%)")
+    if seg:
+        out.append(" · ".join(seg) + (" 마감." if final else " 진행 중."))
+    iv = (investors or {}).get("kospi") or {}
+    if iv.get("individual") is not None:
+        out.append("코스피 수급(억원): 개인 {:+,.0f} · 외국인 {:+,.0f} · 기관 {:+,.0f}.".format(
+            iv.get("individual") or 0, iv.get("foreign") or 0, iv.get("institution") or 0))
+    for label, secs in (("상승 섹터", sectors_up), ("하락 섹터", sectors_down)):
+        names = [f"{s['name']}({s['changePct']:+.2f}%)" for s in (secs or [])[:3]
+                 if s.get("name") and s.get("changePct") is not None]
+        if names:
+            out.append(f"{label}: " + " · ".join(names))
+    if out:
+        out.append("※ 이번 회차는 LLM 요약 실패로 수치 요약만 표시됩니다.")
+    return out
 
 
 # ----------------------------------------------------------------------------

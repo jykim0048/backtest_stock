@@ -1691,7 +1691,7 @@
 
     <!-- 🔴 장중 시황: 한국장 급등/급락 테마 + 밸류체인 + 장중 촉매 (intraday_briefing.json, 30분 회차). 데이터 없으면 숨김. -->
     <section class="briefing-banner collapsed" id="ib-banner" style="display:none;"><!-- 새로고침 시 접힘 디폴트 -->
-      <div class="briefing-head" onclick="document.getElementById('ib-banner').classList.toggle('collapsed')">
+      <div class="briefing-head" onclick="ibToggleBanner()">
         <div class="briefing-head-left">
           <span class="briefing-icon">🔴</span>
           <span class="briefing-title">장중 시황</span>
@@ -3070,11 +3070,16 @@
     // ── 지수 카드 내부: 1분 투자자 누적 순매수 멀티라인 차트 ─────────────────
     // 개인(회색)·외인(파랑)·기관(앰버) 누적 곡선 + 0선(점선) + 우측 최신값 라벨.
     const _IB_FLOW_KEYS = [["individual", "#94a3b8"], ["foreign", "#60a5fa"], ["institution", "#fbbf24"]];
+    let _ibFlowData = null;   // 마지막 렌더 데이터 — 배너 펼침 시 재드로잉용
     function _ibDrawFlowCharts(d) {
+      _ibFlowData = d;
       [["kospi"], ["kosdaq"]].forEach(([k]) => {
         const cv = document.getElementById(`ib-flowchart-${k}`);
         const series = ((d.investorSeries || {})[k] || []).filter(r => r && r.time);
         if (!cv || series.length < 6) return;
+        // 배너 접힘(display:none) 중엔 부모 폭이 0 이라 최소폭(120px)으로 그려져
+        // 왼쪽에 뭉친다 — 숨김 상태면 건너뛰고 펼침 토글에서 다시 그린다.
+        if (!cv.offsetParent) return;
         // 논리 크기 = 표시 크기(CSS)와 일치시키고 백킹스토어만 DPR 배율 — 늘림 왜곡·번짐 방지
         const w = Math.max(cv.parentElement.clientWidth - 24, 120), h = 52;
         const dpr = window.devicePixelRatio || 1;
@@ -3124,6 +3129,12 @@
           ctx.fillText(L.t, plotW + 3, Math.max(L.y, 9));
         });
       });
+    }
+
+    function ibToggleBanner() {
+      const collapsed = document.getElementById("ib-banner").classList.toggle("collapsed");
+      // 접힌 채 로드되면 차트가 숨김 상태라 그려지지 못한다 — 펼칠 때 그린다
+      if (!collapsed && _ibFlowData) _ibDrawFlowCharts(_ibFlowData);
     }
 
     let _ibRounds = null;   // 당일 아카이브 rounds[] (회차 선택용)
