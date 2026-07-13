@@ -908,7 +908,22 @@ def write_outputs(selection, us_brief):
             added += 1
         if INTRADAY_CAP and len(watchlist) > INTRADAY_CAP:    # 상한 초과 시 최근 종목 우선 유지
             watchlist = watchlist[-INTRADAY_CAP:]
-        print(f"  Intraday append   : +{added} new (first_run={first_run}) → 누적 {len(watchlist)}종목")
+        # 장전 '하락 관찰' 종목이 장중 상승 후보로 뒤에 잡힌 경우 — 리스트엔 편입하되
+        # 대시보드가 자동매수를 차단하도록 플래그(2026-07-13 서진시스템: 장전 딥리서치는
+        # 사법리스크로 하락 관찰, 장중 스크리너는 지분매입 촉매로 상승 선정 → 자동매수됨).
+        # 장전 리스트는 아침 고정이므로 회차마다 전체 엔트리에 재판정(자기치유).
+        pre_down_watch = {str(p.get("code", "")).zfill(6)
+                         for p in (_load_json(PRE_WATCHLIST_DOWN, []) or [])
+                         if isinstance(p, dict)}
+        n_flag = 0
+        for w in watchlist:
+            if str(w.get("code", "")).zfill(6) in pre_down_watch:
+                w["preDownWatch"] = True
+                n_flag += 1
+            else:
+                w.pop("preDownWatch", None)
+        print(f"  Intraday append   : +{added} new (first_run={first_run}) → 누적 {len(watchlist)}종목"
+              f" (장전 하락관찰 플래그 {n_flag})")
     else:
         watchlist = [{"code": p["code"], "name": p["name"], "market": p["market"]} for p in picks]
 

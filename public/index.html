@@ -3483,6 +3483,8 @@
             // 딥리서치 방향 판정 (bearish=진입 스킵). 톱레벨 우선, 없으면 analysis 폴백.
             direction: item.direction || (item.analysis && item.analysis.direction) || null,
             analysis:  item.analysis || null,
+            // 장전 '하락 관찰' 지정 종목 — 편입은 유지하되 자동매수 차단(스크리너 플래그)
+            preDownWatch: !!item.preDownWatch,
             // 포트폴리오 상태 기본값(신규 종목) — 기존 종목은 아래 _WATCH_CARRY 로 전부 이월
             quantity: 0, avgBuyPrice: 0, investedCapital: 0, pnl: 0, pnlRate: 0,
             enteredDate: null, entryTranchesDone: 0, lastTrancheTs: 0,
@@ -3873,6 +3875,10 @@
         if ((stock.entryTranchesDone || 0) >= N) return; // 오늘 분할 완료
         if (heldInPreMarket(stock.code)) return;         // 장전에서 보유 중 → 장전 우선(중복 방지)
         if (stock.direction === "bearish") return;       // 딥리서치 하방 판정 → 매수 스킵
+        // 장전 '하락 관찰' 지정 종목 — 편입·모니터링은 하되 자동매수 제외.
+        // 스크리너 플래그(preDownWatch) + 장전 하락 리스트(downData) 직접 대조(플래그가
+        // 다음 회차에 도착하기 전에도 즉시 차단). 2026-07-13 서진시스템 정책.
+        if (stock.preDownWatch || downData.some(d => d.code === stock.code)) return;
 
         const price = stock.price || stock.basePrice;
         if (!price) return;
@@ -4633,6 +4639,7 @@
               </div>
               <span class="stock-code">${stock.code}</span>
               ${stock.direction === "bearish" ? `<div style="margin-top:3px;"><span class="bear-badge">⚠️ 하방 · 매수 제외</span></div>` : ""}
+              ${(stock.preDownWatch || downData.some(d => d.code === stock.code)) ? `<div style="margin-top:3px;"><span class="bear-badge">⚠️ 장전 하락 관찰 · 매수 제외</span></div>` : ""}
             </div>
           </td>
           <td style="text-align: right; font-weight: bold;" class="stock-price-col" id="wprice-${idx}">

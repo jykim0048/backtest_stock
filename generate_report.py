@@ -165,6 +165,8 @@ def generate_report():
             entry['reason'] = stock['reason']
         if stock.get('movedUp'):        # 하락 관찰 → 장중 상승 전환 표시(대시보드 배지)
             entry['movedUp'] = True
+        if stock.get('preDownWatch'):   # 장전 하락 관찰 종목 — 대시보드 자동매수 차단
+            entry['preDownWatch'] = True
         # 이월된 deep-research 가 있으면 붙인다(신규/갱신은 generate_analysis 가 덮어씀).
         prev = prev_by_code.get(code)
         if prev:
