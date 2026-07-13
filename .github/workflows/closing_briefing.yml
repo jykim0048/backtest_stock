@@ -31,6 +31,7 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Generate closing market briefing (마감 시황 — 당일 회차 종합)
+        timeout-minutes: 15   # LLM 정체 등으로 무한 대기 시 러너 점유 방지
         env:
           BRIEFING_FINAL:      '1'
           GEMINI_API_KEY:      ${{ secrets.GEMINI_API_KEY }}

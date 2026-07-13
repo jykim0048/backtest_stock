@@ -74,7 +74,11 @@ def _gemini(model, system, user, max_tokens, schema):
 
     client = _CLIENTS.get(("gemini", key))
     if client is None:
-        client = genai.Client(api_key=key)
+        # SDK 기본 HTTP 타임아웃이 무제한이라 정체된 연결 하나가 호출을 무한 대기시킨다
+        # (2026-07-13 마감 시황 재실행이 생성 스텝에서 30분+ 걸린 원인). 120초로 제한 —
+        # 초과 시 transport 예외 → _Retryable → 백오프 재시도/다음 링크 전환.
+        client = genai.Client(api_key=key,
+                              http_options=genai.types.HttpOptions(timeout=120_000))
         _CLIENTS[("gemini", key)] = client
 
     # Gemini 는 Anthropic 의 output_config 같은 스키마 강제 수단을 쓰지 않으므로

@@ -137,6 +137,7 @@ jobs:
 
       - name: Generate intraday market briefing (장중 시황판)
         continue-on-error: true   # best-effort; 시황 실패가 관심종목 회차를 막지 않게
+        timeout-minutes: 15       # LLM 정체 등으로 무한 대기 시 다음 회차 지연 방지
         env:
           GEMINI_API_KEY:      ${{ secrets.GEMINI_API_KEY }}
           LLM_CHAIN:           ${{ vars.LLM_CHAIN }}
