@@ -69,6 +69,26 @@ def main():
         except Exception as e:
             res[label] = {"error": str(e)[:200]}
 
+    # 네이버 '업종별 시세' — KRX 엑셀 없이 섹터맵 자동화 가능한지(업종 체계·시총 정렬·
+    # 코스닥 마커 확인). 리스트 페이지 + 업종 상세 1건 채집.
+    try:
+        r4 = requests.get("https://finance.naver.com/sise/sise_group.naver",
+                          params={"type": "upjong"}, headers=UA, timeout=20)
+        h4 = r4.content.decode("euc-kr", errors="replace")
+        names = re.findall(r'sise_group_detail\.naver\?type=upjong&no=(\d+)">([^<]+)', h4)
+        res["upjongList"] = {"status": r4.status_code, "count": len(names),
+                             "sample": names[:40]}
+        target = next((no for no, nm in names if "화학" in nm), names[0][0] if names else None)
+        if target:
+            r5 = requests.get("https://finance.naver.com/sise/sise_group_detail.naver",
+                              params={"type": "upjong", "no": target}, headers=UA, timeout=20)
+            h5 = r5.content.decode("euc-kr", errors="replace")
+            j5 = h5.find("<table")
+            res["upjongDetail"] = {"no": target, "status": r5.status_code, "length": len(h5),
+                                   "tableSnippet": h5[j5: j5 + 3500] if j5 >= 0 else h5[:2000]}
+    except Exception as e:
+        res["upjongProbe"] = {"error": str(e)[:200]}
+
     with open(OUT, "w", encoding="utf-8") as f:
         json.dump(res, f, ensure_ascii=False, indent=1)
     print(f"probe written: {OUT} (status={res.get('status')}, len={res.get('length')})")
