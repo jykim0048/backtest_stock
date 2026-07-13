@@ -48,10 +48,36 @@ _COMPOSITE = {
 }
 
 
+def load_index_composition(path):
+    """KIS 산업별 '지수 구성종목' 엑셀(종목코드*001·업종명·시총(상장)·비중, 비중순) 파싱.
+    업종분류 엑셀과 다른 실제 지수 정합 소스 — 대분류(금융·제조) 지수는 업종분류
+    체계와 구성 기준이 달라(2026-07-13 실측: 금융 지수 = 금융98+증권29+보험14)
+    이 파일이 정답이다. 반환: [{code,name,cap}] (우선주 제외, 시총 내림차순)."""
+    wb = openpyxl.load_workbook(path, data_only=True)
+    out = []
+    for row in wb.active.iter_rows(min_row=2, values_only=True):
+        raw_code, name, cap = row[0], row[2], row[6]
+        if not raw_code or not name:
+            continue
+        code = str(raw_code).split("*")[0].strip().zfill(6)
+        if not code.isdigit() or not code.endswith("0"):   # 우선주(끝자리≠0) 제외
+            continue
+        try:
+            c = float(str(cap).replace(",", "")) if cap is not None else 0.0
+        except (ValueError, TypeError):
+            c = 0.0
+        out.append({"code": code, "name": str(name).strip(), "cap": c})
+    out.sort(key=lambda s: s["cap"], reverse=True)
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("xlsx", nargs="+",
+    ap.add_argument("xlsx", nargs="*", default=[],
                     help="KRX 업종분류 엑셀 경로(코스피/코스닥, 여러 파일 가능)")
+    ap.add_argument("--index-xlsx", action="append", default=[], metavar="업종명=경로",
+                    help="KIS 지수 구성종목 엑셀로 해당 섹터의 KOSPI 관련주를 직접 지정 "
+                         "(예: --index-xlsx 금융=금융업종구성.xlsx) — 합성 추정보다 우선")
     ap.add_argument("--out", default=os.path.join(ROOT, "public", "assets", "krx_sector_map.json"))
     ap.add_argument("--date", default="")
     args = ap.parse_args()
@@ -108,9 +134,25 @@ def main():
         by_sector[key][field] = [{"code": s["code"], "name": s["name"]}
                                  for s in stocks[:TOP_PER_SECTOR]]
 
+    # 지수 구성종목 엑셀 — 해당 섹터의 KOSPI 관련주를 지수 정합 그대로 채운다(최우선).
+    for spec in args.index_xlsx:
+        name, _, path = spec.partition("=")
+        name = name.strip()
+        rows = load_index_composition(path.strip())
+        if not rows:
+            print(f"  [index-xlsx] {name}: 구성종목 파싱 실패 — 건너뜀")
+            continue
+        key = norm_sector(name)
+        by_sector.setdefault(key, {"name": name})
+        by_sector[key]["stocks"] = [{"code": s["code"], "name": s["name"]}
+                                    for s in rows[:TOP_PER_SECTOR]]
+        raw.pop((key, "stocks"), None)      # 합성 추정치가 있으면 지수 정합본으로 대체
+        print(f"  [index-xlsx] {name}: {len(rows)}종목(우선주 제외) → KOSPI top{TOP_PER_SECTOR}")
+
     date = args.date
     if not date:
-        m = re.search(r"(\d{8})", os.path.basename(args.xlsx[0]))
+        src0 = (args.xlsx or [p.partition('=')[2] for p in args.index_xlsx] or ["" ])[0]
+        m = re.search(r"(\d{8})", os.path.basename(src0))
         date = f"{m.group(1)[:4]}-{m.group(1)[4:6]}-{m.group(1)[6:]}" if m else ""
 
     out = {"date": date,
