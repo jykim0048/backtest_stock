@@ -2577,7 +2577,9 @@
         recordTrade({ code: stock.code, name: stock.name, side: "SELL",
                       type: "EOD_LIQUIDATION", qty: stock.quantity, price: fillPrice,
                       amount: realizedAmt, pnl,
-                      time: close ? "15:15 (종가 소급정산)" : "15:15 (최종관측가 소급정산)" },
+                      time: close ? "15:15 (종가 소급정산)" : "15:15 (최종관측가 소급정산)",
+                      ctx: { trigger: close ? "놓친 EOD 청산 소급 정산 — CI 확정 종가 기준" : "놓친 EOD 청산 소급 정산 — 마지막 관측가 폴백",
+                             basis: Math.round(basis), avg: stock.avgBuyPrice, slip } },
                     pendingDate);
         if (logsBox) {
           logsBox.innerHTML += `
@@ -3695,7 +3697,10 @@
         stock.holdSinceTs = Date.now();
 
         recordTrade({ code: stock.code, name: stock.name, side: "BUY", type: "OPENING",
-                      qty: qtyToBuy, price: executionPrice, amount: actualCost });
+                      qty: qtyToBuy, price: executionPrice, amount: actualCost,
+                      ctx: { trigger: `09:01 시초 시드 매수 — 배분액 ${Math.round(maxAllocationPerStock).toLocaleString()}원의 5% 시드, 잔여 95%는 09:30까지 진입선 터치 분할`,
+                             entry: stock.entry, target: stock.target, stop: stock.stop,
+                             alloc: Math.round(maxAllocationPerStock), slip } });
       });
 
       isOpeningOrderExecuted = true;
@@ -3782,15 +3787,22 @@
       if (!stock.holdSinceTs) stock.holdSinceTs = holdSinceFromJournal(stock.code) || Date.now();
 
       const fill = () => Math.round(price * (1 - slip / 100));   // 매도 슬리피지
-      // 전량 매도 공통 처리
-      const sellAll = (type, msg, color) => {
+      // 전량 매도 공통 처리 — extras 는 규칙별 추가 스냅샷(팝업 상세용)
+      const sellAll = (type, msg, color, extras) => {
         const fillPrice = fill();
         const realizedAmt = stock.quantity * fillPrice;
         const profit = realizedAmt - stock.investedCapital;
         cashBalance += realizedAmt;
         realizedPnl += profit;
         recordTrade({ code: stock.code, name: stock.name, side: "SELL", type,
-                      qty: stock.quantity, price: fillPrice, amount: realizedAmt, pnl: profit, source });
+                      qty: stock.quantity, price: fillPrice, amount: realizedAmt, pnl: profit, source,
+                      ctx: Object.assign({
+                        trigger: msg,
+                        avg: Math.round(avg), gainPct: +gainPct.toFixed(2),
+                        peakPrice: Math.round(stock.peakPrice || 0),
+                        target: stock.target, stopEff: getEffectiveStopPrice(stock), slip,
+                        holdMin: stock.holdSinceTs ? Math.round((Date.now() - stock.holdSinceTs) / 60000) : null,
+                      }, extras || {}) });
         if (logsBox) logsBox.innerHTML += `<div class="log-line" style="color:${color}; font-weight:bold;"><span class="log-time">[${time}]</span> [ALGO SELL] ${tag}<b>${stock.name}</b> ${msg} 실현손익: ${profit >= 0 ? "+" : ""}${profit.toLocaleString()}원</div>`;
         resetPosition(stock);
         return true;
@@ -3815,7 +3827,11 @@
           stock.investedCapital = Math.max(0, stock.investedCapital - costOut);
           stock.scaledOut = true;
           recordTrade({ code: stock.code, name: stock.name, side: "SELL", type: "TAKE_PROFIT_PARTIAL",
-                        qty: sellQty, price: fillPrice, amount: realizedAmt, pnl: profit, source });
+                        qty: sellQty, price: fillPrice, amount: realizedAmt, pnl: profit, source,
+                        ctx: { trigger: `목표 익절가 ${stock.target.toLocaleString()}원 도달 — 절반 익절, 잔량 ${stock.quantity.toLocaleString()}주 트레일링 전환`,
+                               target: stock.target, avg: Math.round(avg),
+                               portion: `${sellQty.toLocaleString()}/${(sellQty + stock.quantity).toLocaleString()}주`,
+                               gainPct: +gainPct.toFixed(2), slip } });
           if (logsBox) logsBox.innerHTML += `<div class="log-line" style="color:var(--kosdaq-green); font-weight:bold;"><span class="log-time">[${time}]</span> [ALGO SELL] ${tag}<b>${stock.name}</b> 목표가 부분익절(절반 ${sellQty.toLocaleString()}주) — 잔량 트레일링 전환. +${profit.toLocaleString()}원</div>`;
           return true;
         }
@@ -3826,14 +3842,15 @@
       // 3. 트레일링 스탑 — 고점 수익률이 발동임계 넘긴 뒤 고점 대비 트레일% 하락 시 전량.
       const peakGain = (stock.peakPrice / avg - 1) * 100;
       if (peakGain >= _TRAIL_ARM_PCT && price <= stock.peakPrice * (1 - getTrailPct() / 100)) {
-        return sellAll("TRAILING_STOP", `트레일링 스탑(고점 ${Math.round(stock.peakPrice).toLocaleString()}원 대비 ${getTrailPct().toFixed(1)}%↓) 전량 매도.`, "var(--kosdaq-green)");
+        return sellAll("TRAILING_STOP", `트레일링 스탑(고점 ${Math.round(stock.peakPrice).toLocaleString()}원 대비 ${getTrailPct().toFixed(1)}%↓) 전량 매도.`, "var(--kosdaq-green)",
+                       { trailPct: getTrailPct() });
       }
 
       // 4. 손절 / 본전 스탑 — 유효손절선(ATR·최대손절% + 본전상향) 이탈 시 전량.
       if (price <= getEffectiveStopPrice(stock)) {
         const be = stock.breakevenArmed && getEffectiveStopPrice(stock) >= avg;
         return sellAll("STOP_LOSS", be ? "본전 스탑(수익 반납 방지) 전량 매도." : "손절 지지선 붕괴 전량 매도.",
-                       be ? "var(--text-muted)" : "var(--up-red)");
+                       be ? "var(--text-muted)" : "var(--up-red)", { breakeven: be, stop: stock.stop });
       }
 
       // 5. 정체 청산 — 진입 후 1시간간 ±2% 못 벗어나면 정리(죽은 자본 회수). 데모는 20초.
@@ -3920,7 +3937,11 @@
         anyEntered = true;
 
         recordTrade({ code: stock.code, name: stock.name, side: "BUY", type: "INTRADAY_ENTRY",
-                      qty, price: execPrice, amount: cost, source: "intraday" });
+                      qty, price: execPrice, amount: cost, source: "intraday",
+                      ctx: { trigger: `현재가 ${price.toLocaleString()}원 ≤ 진입선 ${stock.entry.toLocaleString()}원 · 갭필터 통과(${gapFromBase.toFixed(2)}% ≤ ±${gapLimit}%) — ${done + 1}/${N} 트랜치`,
+                             tranche: `${done + 1}/${N}`, entry: stock.entry, target: stock.target,
+                             stop: stock.stop, gapFromBase: +gapFromBase.toFixed(2), gapLimit,
+                             alloc: Math.round(perStock), slip } });
 
         if (logsBox) logsBox.innerHTML += `<div class="log-line" style="color:var(--kospi-blue);"><span class="log-time">[${time}]</span> <span class="log-buy">[장중 진입 ${done + 1}/${N}]</span> <b>${stock.name}</b> 진입선(${stock.entry.toLocaleString()}원) 이하 분할 매수: ${qty.toLocaleString()}주 at <b>${execPrice.toLocaleString()}원</b>.</div>`;
       });
@@ -4365,7 +4386,10 @@
         stock.lastTrancheTs = Date.now();
         if (stock.followTranchesDone >= N) stock.hasFollowedUp = true;   // 레거시 플래그 동기화
         recordTrade({ code: stock.code, name: stock.name, side: "BUY", type: "FOLLOWUP",
-                      qty: addQty, price: fillPrice, amount: addCost });
+                      qty: addQty, price: fillPrice, amount: addCost,
+                      ctx: { trigger: `09:01~09:30 현재가 ${stock.price.toLocaleString()}원 ≤ 진입선 ${entryLimit.toLocaleString()}원 — ${done + 1}/${N} 트랜치 추가 매수`,
+                             tranche: `${done + 1}/${N}`, entry: entryLimit, target: stock.target,
+                             stop: stock.stop, alloc: Math.round(maxAllocationPerStock), slip } });
 
         logsBox.innerHTML += `
           <div class="log-line"><span class="log-time">[${time}]</span> <span class="log-buy">[AUTO ORDER ${done + 1}/${N}]</span> 09:01~09:30 <b>${stock.name}</b> 진입선 터치 분할 매수: ${addQty.toLocaleString()}주 at <b>${fillPrice.toLocaleString()}원</b>.</div>
@@ -4404,7 +4428,9 @@
         cashBalance += realizedAmt;
         realizedPnl += pnl;
         recordTrade({ code: stock.code, name: stock.name, side: "SELL", type: "EOD_LIQUIDATION",
-                      qty: stock.quantity, price: fillPrice, amount: realizedAmt, pnl, source });
+                      qty: stock.quantity, price: fillPrice, amount: realizedAmt, pnl, source,
+                      ctx: { trigger: "15:15 장 마감 전 전량 청산 — 오버나이트 리스크 제거, 평가금액 익일 복리 이월",
+                             avg: stock.avgBuyPrice, slip } });
 
         logsBox.innerHTML += `
           <div class="log-line" style="color:${pnl >= 0 ? 'var(--kosdaq-green)' : 'var(--up-red)'}; font-weight:bold;">
@@ -4877,6 +4903,91 @@
       STOP_LOSS: "손절매도", EOD_LIQUIDATION: "장마감청산",
     };
 
+    // 구분별 일반 로직 설명 — 체결 상세 팝업의 규칙 문단(ctx 스냅샷이 없는 구기록의 폴백 겸용)
+    const TRADE_TYPE_RULE = {
+      OPENING: "09:01 시초 매수 — 장전 워치리스트 종목을 종목당 배분액 한도로 진입(슬리피지 반영). 이후 09:30까지 진입선 터치 시 추가 분할.",
+      FOLLOWUP: "09:01~09:30 추가 분할 매수 — 진입 상한선 이하로 눌릴 때 잔여 트랜치를 배분액 한도 내에서 집행.",
+      INTRADAY_ENTRY: "장중 감지 즉시 진입(~14:30 컷오프) — 진입선 이하 + 기준가 갭 필터 통과 시 N분할. 2회차부터는 가격 사다리(진입선→손절선 등분) 또는 시간 간격 중 먼저 오는 조건에 집행.",
+      TAKE_PROFIT: "목표 익절가 도달 — 보유 1주라 분할 불가, 전량 매도.",
+      TAKE_PROFIT_PARTIAL: "목표 익절가 도달 — 절반 익절로 이익 확정, 잔량은 트레일링/본전 스탑으로 러너 운용.",
+      TAKE_PROFIT_LIMITUP: "상한가 도달 — 목표가와 무관하게 전량 익절(상한가 위 목표는 영영 못 닿는 종목 회수).",
+      TRAILING_STOP: "트레일링 스탑 — 고점 수익률이 발동 임계를 넘긴 뒤, 고점 대비 설정 %만큼 하락하면 전량 매도.",
+      STOP_LOSS: "손절/본전 스탑 — 유효 손절선(ATR·최대손절% + 본전 상향) 이탈 시 전량 매도.",
+      TIME_EXIT: "정체 청산 — 진입 후 1시간 동안 ±2% 밴드를 못 벗어나면 자본 회수 차원 전량 매도.",
+      EOD_LIQUIDATION: "장 마감 청산 — 15:15 전 보유 전량 매도(오버나이트 리스크 제거). 마감 평가금액이 익일 시작 자본(복리 이월).",
+    };
+
+    // ctx 스냅샷 키 → 표기 라벨/단위 (체결 상세 팝업 파라미터 그리드)
+    const TRADE_CTX_LABEL = {
+      tranche: ["분할 회차", ""], entry: ["진입 상한선", "원"], target: ["목표 익절가", "원"],
+      stop: ["손절선", "원"], stopEff: ["유효 손절선(ATR·본전)", "원"], peakPrice: ["보유 중 고점가", "원"],
+      trailPct: ["트레일링 폭", "%"], avg: ["평균 단가", "원"], slip: ["슬리피지", "%"],
+      gapFromBase: ["기준가 대비 갭", "%"], gapLimit: ["갭 필터 한도", "%"], gainPct: ["체결 시 수익률", "%"],
+      alloc: ["종목 배분액", "원"], portion: ["매도/보유 수량", ""], holdMin: ["보유 시간", "분"],
+      gap: ["시초 갭", "%"], basis: ["정산 기준가", "원"], breakeven: ["본전 스탑", ""],
+    };
+
+    // 체결 내역 행 클릭 → 진입/청산 로직 상세 팝업
+    function openTradeDetail(dateStr, i) {
+      const day = tradeJournal.days[dateStr];
+      const t = day && Array.isArray(day.trades) ? day.trades[i] : null;
+      if (!t) return;
+      let ov = document.getElementById("trade-detail-overlay");
+      if (!ov) {
+        ov = document.createElement("div");
+        ov.id = "trade-detail-overlay";
+        ov.className = "od-overlay";
+        ov.addEventListener("click", e => { if (e.target === ov) ov.classList.remove("active"); });
+        document.body.appendChild(ov);
+      }
+      const label = TRADE_TYPE_LABEL[t.type] || t.type;
+      const rule = TRADE_TYPE_RULE[t.type] || "규칙 설명이 등록되지 않은 구분입니다.";
+      const ctx = t.ctx || null;
+      const fmtV = (k, v) => {
+        if (v == null || v === "") return null;
+        if (typeof v === "boolean") return v ? "예" : "아니오";
+        const [, unit] = TRADE_CTX_LABEL[k] || [k, ""];
+        return (typeof v === "number" ? v.toLocaleString() : escapeHtml(String(v))) + unit;
+      };
+      const params = ctx ? Object.keys(ctx).filter(k => k !== "trigger" && fmtV(k, ctx[k]) != null)
+        .map(k => `<div class="port-item"><span class="port-lbl">${(TRADE_CTX_LABEL[k] || [k])[0]}</span>
+                   <span class="port-val">${fmtV(k, ctx[k])}</span></div>`).join("") : "";
+      const pnlHtml = (t.pnl != null)
+        ? `<span class="pnl-badge ${t.pnl >= 0 ? "profit" : "loss"}">${t.pnl >= 0 ? "+" : ""}${t.pnl.toLocaleString()}원</span>` : "—";
+      ov.innerHTML = `
+        <div class="od-modal" style="width:min(560px,100%);">
+          <div style="display:flex; align-items:center; gap:10px; padding:16px 18px; border-bottom:1px solid var(--border-color);">
+            <span style="font-size:17px; font-weight:700;">${escapeHtml(t.name)}</span>
+            <span class="stock-code">${t.code}</span>
+            <span class="rate-badge ${t.side === "BUY" ? "up" : "down"}" style="margin-left:2px;">${label}</span>
+            <span style="margin-left:auto; color:var(--text-muted); font-size:12.5px;">${dateStr} ${escapeHtml(t.time || "")}</span>
+            <span onclick="document.getElementById('trade-detail-overlay').classList.remove('active')"
+                  style="cursor:pointer; color:var(--text-muted); font-size:18px; padding:0 2px;">✕</span>
+          </div>
+          <div style="padding:14px 18px;">
+            <div style="font-size:12.5px; color:var(--text-muted); margin-bottom:4px;">적용 규칙</div>
+            <div style="font-size:13.5px; line-height:1.65; color:#cbd5e1;">${escapeHtml(rule)}</div>
+            ${ctx && ctx.trigger ? `
+              <div style="font-size:12.5px; color:var(--text-muted); margin:12px 0 4px;">체결 시점 트리거</div>
+              <div style="font-size:13.5px; line-height:1.6; background:rgba(0,240,255,.05); border:1px solid rgba(0,240,255,.15);
+                          border-radius:8px; padding:9px 11px;">${escapeHtml(ctx.trigger)}</div>` : ""}
+            ${params ? `
+              <div style="font-size:12.5px; color:var(--text-muted); margin:12px 0 6px;">체결 시점 파라미터</div>
+              <div class="portfolio-summary-box" style="margin:0;">${params}</div>` : ""}
+            ${!ctx ? `<div style="margin-top:12px; font-size:12px; color:var(--text-muted);">
+              ⓘ 이 체결은 규칙 스냅샷 기록 이전 버전에서 실행되어 당시 파라미터가 없습니다 — 위 설명은 해당 구분의 일반 로직입니다.</div>` : ""}
+            <div style="font-size:12.5px; color:var(--text-muted); margin:14px 0 6px;">체결 정보</div>
+            <div class="portfolio-summary-box" style="margin:0;">
+              <div class="port-item"><span class="port-lbl">수량</span><span class="port-val">${t.qty.toLocaleString()}주</span></div>
+              <div class="port-item"><span class="port-lbl">체결가</span><span class="port-val">${t.price.toLocaleString()}원</span></div>
+              <div class="port-item"><span class="port-lbl">거래대금</span><span class="port-val">${t.amount.toLocaleString()}원</span></div>
+              <div class="port-item"><span class="port-lbl">실현손익</span><span class="port-val">${pnlHtml}</span></div>
+            </div>
+          </div>
+        </div>`;
+      ov.classList.add("active");
+    }
+
     function loadJournalDateOptions() {
       const sel = document.getElementById("journal-date-select");
       if (!sel) return;
@@ -4959,13 +5070,14 @@
         : `<tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding:20px;">워치리스트 스냅샷 없음</td></tr>`;
 
       trBody.innerHTML = day.trades.length
-        ? day.trades.slice().reverse().map(t => {
+        ? day.trades.slice().reverse().map((t, ri) => {
+            const oi = day.trades.length - 1 - ri;   // 원본 인덱스(표시는 최신순 역정렬)
             const typeLabel = TRADE_TYPE_LABEL[t.type] || t.type;
             const sideColor = t.side === "BUY" ? "var(--kospi-blue)" : "var(--text-main)";
             const pnlCell = (t.pnl != null)
               ? `<span class="pnl-badge ${t.pnl >= 0 ? 'profit' : 'loss'}">${t.pnl >= 0 ? '+' : ''}${t.pnl.toLocaleString()}원</span>`
               : `<span style="color:var(--text-muted);">—</span>`;
-            return `<tr>
+            return `<tr onclick="openTradeDetail('${dateStr}', ${oi})" style="cursor:pointer;" title="클릭 — 진입/청산 로직 상세">
               <td>${t.time}</td>
               <td>${t.name} <span class="stock-code">${t.code}</span></td>
               <td style="color:${sideColor}; font-weight:600;">${typeLabel}</td>
