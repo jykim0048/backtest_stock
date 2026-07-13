@@ -35,6 +35,18 @@ def norm_sector(name):
 # 시장별로 각각 top12 를 보관한다(2026-07-13, 기계·장비/제약 케이스).
 _MARKET_FIELD = {"KOSPI": "stocks", "KOSDAQ": "kosdaqStocks"}
 
+# KIS 산업별 지수의 '대분류'(제조·금융)는 KRX 세부 업종분류에 대응 키가 없어 관련주가
+# 비던 문제(2026-07-13) — 세부 업종 합집합에서 시총 상위로 합성 엔트리를 만든다.
+# 키는 정규화 업종명(norm_sector). 멤버에 없는 키는 무시(시장별 분류 차 흡수).
+_COMPOSITE = {
+    "금융": {"name": "금융",
+             "members": ["은행", "증권", "보험", "기타금융", "금융"]},
+    "제조": {"name": "제조",
+             "members": ["음식료·담배", "섬유·의류", "종이·목재", "화학", "제약", "비금속",
+                          "금속", "기계·장비", "전기·전자", "의료·정밀기기", "운송장비·부품",
+                          "기타제조", "제조"]},
+}
+
 
 def main():
     ap = argparse.ArgumentParser()
@@ -72,6 +84,24 @@ def main():
             by_sector.setdefault(key, {"name": str(upjong).strip()})
             raw.setdefault((key, field), []).append(
                 {"code": str(code).strip().zfill(6), "name": str(name).strip(), "cap": cap})
+
+    # 대분류 합성(금융·제조) — 이번 입력 엑셀이 커버하는 시장(field)에 한해, 멤버 세부
+    # 업종의 raw 행(시총 보유)을 합쳐 시총 상위로 재산출. 입력에 없는 시장은 기존 이월.
+    for ckey, spec in _COMPOSITE.items():
+        member_keys = {norm_sector(m) for m in spec["members"]}
+        for field in set(f for (_, f) in raw.keys()):
+            pool = [s for (k, f), stocks in raw.items()
+                    if f == field and k in member_keys and k != ckey for s in stocks]
+            # 코스닥 엑셀처럼 '금융' 자체가 세부 업종으로 오는 경우는 그대로 포함
+            pool += list(raw.get((ckey, field), []))
+            if pool:
+                seen_c, dedup = set(), []
+                for s in pool:
+                    if s["code"] not in seen_c:
+                        seen_c.add(s["code"])
+                        dedup.append(s)
+                raw[(ckey, field)] = dedup
+                by_sector.setdefault(ckey, {"name": spec["name"]})
 
     for (key, field), stocks in raw.items():
         stocks.sort(key=lambda s: s["cap"], reverse=True)

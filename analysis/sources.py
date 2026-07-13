@@ -852,18 +852,21 @@ def naver_market_indicators():
 
 
 def naver_investor_timeline(market="KOSPI", pages=6):
-    """투자자별 매매 동향 시간별(1분) '누적' 순매수(억원) — finance.naver.com
-    sise_trans_style.naver (KOSPI: sosok=01, KOSDAQ: sosok=02, 페이지당 10행 최신순).
+    """투자자별 매매 동향 시간별(1분) '누적' 순매수(억원) — 실데이터 iframe
+    investorDealTrendTime.naver (KOSPI: sosok=01, KOSDAQ: sosok=02, 페이지당 10행 최신순).
+    겉 페이지(sise_trans_style)는 iframe 셸이라 시간 행이 없다(2026-07-13 프로브 실측).
 
     반환: [{time 'HH:MM', individual, foreign, institution}] 시간 오름차순.
     행 값이 당일 누적이라 그대로 이으면 수급 곡선이 된다. 페이지가 신규 행을 더
     안 주면(마지막 페이지 클램프 반복) 중단. 실패 시 수집분까지만 반환."""
     sosok = {"KOSPI": "01", "KOSDAQ": "02"}.get(str(market).upper(), "01")
+    bizdate = datetime.datetime.now(
+        datetime.timezone(datetime.timedelta(hours=9))).strftime("%Y%m%d")
     out = {}
     for page in range(1, pages + 1):
         try:
-            r = requests.get("https://finance.naver.com/sise/sise_trans_style.naver",
-                             params={"sosok": sosok, "page": page},
+            r = requests.get("https://finance.naver.com/sise/investorDealTrendTime.naver",
+                             params={"bizdate": bizdate, "sosok": sosok, "page": page},
                              headers=UA, timeout=15)
             r.raise_for_status()
             html = r.content.decode("euc-kr", errors="replace")

@@ -17,6 +17,7 @@ LLM 실패 시에도 기계적 수집분(테마·밸류체인·공시·뉴스)�
 산출한다(graceful degradation — 모닝브리핑과 동일 원칙).
 """
 import os
+import re
 import sys
 import json
 import datetime
@@ -46,6 +47,9 @@ CATALYSTS_PER_DIR = int(os.environ.get("BRIEFING_CAT_PER_DIR", "10"))  # 촉매 
 # 허브가 장중 REST 로 FHPUP02140000 을 폴링해 Redis→/status 로 노출한다(대시보드 VI 탭과 동일 서비스).
 KIS_HUB_URL = os.environ.get(
     "KIS_HUB_URL", "https://tradingstrategies-production-09d4.up.railway.app")
+# 관련주 시세 — 대시보드와 동일한 backteststock /api/prices (KIS 허브 /prices 는 앱키 부재로 빈 응답)
+PRICES_API_BASE = os.environ.get(
+    "PRICES_API_BASE", "https://backteststock-production.up.railway.app")
 
 
 def _warn(msg):
@@ -193,7 +197,7 @@ def fetch_sectors():
 _SECTOR_THEME_KW = {
     "전기·전자":     ["반도체", "HBM", "반도체장비", "반도체소재", "IT부품", "카메라", "광통신"],
     "운송장비·부품": ["자동차", "자동차부품", "전기차", "타이어", "2차전지"],
-    "화학":         ["2차전지", "전지소재", "화학", "정유", "태양광"],
+    "화학":         ["2차전지", "전지소재", "화학", "정유", "태양광", "화장품"],  # 화장품사는 KRX 화학 분류
     "운송·창고":     ["항공", "해운", "물류", "택배"],
     "건설":         ["건설", "건설기계", "시멘트", "리모델링"],
     "제약":         ["제약", "바이오", "비만", "신약", "임상"],
@@ -286,6 +290,10 @@ def _match_themes(sector, ranking, used):
     for t in ranking:
         if t["no"] in used:
             continue
+        # 지수형 테마(밸류업·코스피200·MSCI 등)는 대형주 다수 포함이라 어떤 섹터와도
+        # 구성종목 4+겹침이 되지만 섹터 등락의 '동인' 설명으론 무의미 — 후보 제외.
+        if re.search(r"지수|코스피|밸류업|MSCI", t["name"] or ""):
+            continue
         # 점수용 겹침은 _codes(주도주 ∪ 구성종목, attach 에서 확장) 기준 — 주도주(2종목)
         # 스냅샷은 회차마다 바뀌어 연결이 끊긴다(케이씨텍↔HBM, 2026-07-10 12:10 실측).
         t_codes = t.get("_codes") or {L.get("code") for L in (t.get("leaders") or [])}
@@ -295,10 +303,11 @@ def _match_themes(sector, ranking, used):
         kw = _kw_hit(kws, t["name"])
         score = 4 * overlap + 3 * name_sim + 2 * kw
         if score > 0:
-            # 보조 테마 자격은 '주도주' 겹침≥2 또는 명칭/키워드 — 구성종목 겹침은 점수
-            # (대표 선정)에만 쓴다. 구성종목 기준으로 풀면 우발적 교차 편입(조광피혁·
-            # SG세계물산 ∈ 부동산자산주)이 보조 테마로 되살아난다(회귀 실측).
-            ok_secondary = lead_ov >= 2 or name_sim or kw
+            # 보조 테마 자격: 주도주 겹침≥2 / 명칭 / 키워드 / '구성종목 겹침≥4'.
+            # 겹침 소수의 우발 교차 편입은 차단하되(섬유·의류 ∩ 부동산자산주는 KOSDAQ
+            # 확장 후 3겹침 실측 — 4 미만 차단 유지), 겹침 4+ 는 진짜 연관(화학 ∩ 화장품
+            # = 아모레·LG생건·에이피알 등 6겹침인데 키워드 부재로 잘리던 사례)으로 인정.
+            ok_secondary = lead_ov >= 2 or name_sim or kw or overlap >= 4
             scored.append((score, abs(t.get("changePct") or 0), t, ok_secondary))
     scored.sort(key=lambda x: (-x[0], -x[1]))
     picked = [t for _, _, t, _ in scored[:1]] \
@@ -416,11 +425,13 @@ def enrich_sector_stocks(sectors_up, sectors_down):
         return
     prices = {}
     try:
-        r = requests.get(f"{KIS_HUB_URL}/prices",
-                         params={"codes": ",".join(codes)}, timeout=15)
+        # 시세는 backteststock /api/prices (대시보드와 동일 소스). KIS 허브(모니터 서비스)
+        # /prices 는 그 서비스에 KIS 앱키가 없어 항상 빈 응답(2026-07-13 실측) — 사용 금지.
+        r = requests.get(f"{PRICES_API_BASE}/api/prices",
+                         params={"codes": ",".join(codes)}, timeout=20)
         prices = (r.json() or {}).get("stocks") or {}
     except Exception as e:
-        _warn(f"허브 관련주 시세 조회 실패: {e}")
+        _warn(f"관련주 시세 조회 실패: {e}")
     flows = {}
     for c in codes:
         flows[c] = sources.naver_stock_flow(c)
