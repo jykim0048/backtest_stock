@@ -32,13 +32,17 @@ jobs:
       - name: Build Naver theme constituent map
         run: python build_theme_map.py
 
-      - name: Commit and push theme map
+      - name: Build sector map from KIS master files (지수업종 분류 자동)
+        continue-on-error: true   # 실패 시 기존 섹터맵 유지(스크립트 자체도 부족 시 중단)
+        run: python build_sector_map_auto.py
+
+      - name: Commit and push maps
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add public/assets/theme_map.json
+          git add public/assets/theme_map.json public/assets/krx_sector_map.json
           git diff --staged --quiet && echo "No changes to commit" && exit 0
-          git commit -m "chore: rebuild naver theme map $(date -u +'%Y-%m-%d') [skip railway]"
+          git commit -m "chore: rebuild theme/sector maps $(date -u +'%Y-%m-%d') [skip railway]"
           for i in $(seq 1 5); do
             if git push origin HEAD:main; then echo "pushed (attempt $i)"; exit 0; fi
             echo "push attempt $i rejected; rebasing onto latest main..."
