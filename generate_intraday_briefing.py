@@ -179,9 +179,12 @@ def fetch_sectors():
     if sec_map:
         for s in ups + downs:
             s["stocks"] = _related_for(s["name"], sec_map)
-            # 테마 매칭용 전체 코드(시총 상위 12) — 표시용 4개보다 넓게 잡아 매칭률을 높인다.
+            # 테마 매칭용 전체 코드 — KOSPI 시총상위 12 + 같은 업종의 KOSDAQ 시총상위 12.
+            # 표시(stocks)는 KOSPI 만(섹터 등락률이 KOSPI 산업별 지수라 지수 정합 유지),
+            # 매칭은 양 시장으로 넓혀 코스닥 중심 테마(장비·바이오 등)와의 종목 겹침을 확보.
             entry = _sector_entry(s["name"], sec_map)
-            s["_matchCodes"] = [x["code"] for x in (entry.get("stocks") or [])] if entry else []
+            s["_matchCodes"] = ([x["code"] for x in (entry.get("stocks") or [])]
+                                + [x["code"] for x in (entry.get("kosdaqStocks") or [])]) if entry else []
     return heat, ups, downs
 
 
