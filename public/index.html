@@ -3434,6 +3434,15 @@
       }
     }
 
+    // 라이브 폴링 갱신 시 이전 객체에서 이월할 매매·포지션 상태 필드 전체.
+    // serialize()/restoreFields() 가 다루는 필드와 동일 집합 — 여기 빠지면 5분마다 리셋된다.
+    const _WATCH_CARRY = [
+      "quantity", "avgBuyPrice", "investedCapital", "pnl", "pnlRate", "enteredDate",
+      "entryTranchesDone", "lastTrancheTs", "followBudget", "hasFollowedUp", "followTranchesDone",
+      "peakPrice", "scaledOut", "breakevenArmed", "holdSinceTs",
+      "isGapFiltered", "hasLoggedGapFilter", "openingGap", "price", "rate", "history",
+    ];
+
     // Load 장중 관심종목 (intraday_report.json) into watchData. Monitoring only —
     // never touches portfolio/auto-trading. Safe to call repeatedly (polling).
     async function loadIntradayData(date) {
@@ -3474,18 +3483,20 @@
             // 딥리서치 방향 판정 (bearish=진입 스킵). 톱레벨 우선, 없으면 analysis 폴백.
             direction: item.direction || (item.analysis && item.analysis.direction) || null,
             analysis:  item.analysis || null,
-            // 포트폴리오 상태(보유/진입이력) — 이전 폴링 값 보존, 없으면 빈 상태
-            quantity:        prev ? prev.quantity : 0,
-            avgBuyPrice:     prev ? prev.avgBuyPrice : 0,
-            investedCapital: prev ? prev.investedCapital : 0,
-            pnl:             prev ? prev.pnl : 0,
-            pnlRate:         prev ? prev.pnlRate : 0,
-            enteredDate:     prev ? prev.enteredDate : null,
+            // 포트폴리오 상태 기본값(신규 종목) — 기존 종목은 아래 _WATCH_CARRY 로 전부 이월
+            quantity: 0, avgBuyPrice: 0, investedCapital: 0, pnl: 0, pnlRate: 0,
+            enteredDate: null, entryTranchesDone: 0, lastTrancheTs: 0,
+            followBudget: 0, hasFollowedUp: false, followTranchesDone: 0,
+            peakPrice: 0, scaledOut: false, breakevenArmed: false, holdSinceTs: 0,
+            isGapFiltered: false, hasLoggedGapFilter: false, openingGap: 0,
             // live fields (filled by fetchRealPrices); seed from basePrice
-            price:     prev ? prev.price : (item.basePrice || 0),
-            rate:      prev ? prev.rate : 0,
-            history:   prev ? prev.history : [item.basePrice || 0],
+            price: item.basePrice || 0, rate: 0, history: [item.basePrice || 0],
           };
+          // 5분 폴링이 객체를 재구성해도 매매 진행 상태가 리셋되지 않도록 전부 이월.
+          // (기존엔 quantity 등 6개만 이월 → entryTranchesDone 이 매번 0으로 리셋되어
+          //  분할 매수 로그가 항상 1/N 로 찍히고, peakPrice·scaledOut 등 청산 상태도
+          //  유실되던 버그 — 2026-07-13 실측)
+          if (prev) _WATCH_CARRY.forEach(f => { if (prev[f] !== undefined) s[f] = prev[f]; });
           watchData.push(s);
         });
         // 리스트에서 빠졌지만 아직 보유 중인 종목은 carriedOver 로 유지(EOD 청산·손익 계속 반영)
