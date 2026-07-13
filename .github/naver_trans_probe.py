@@ -54,6 +54,21 @@ def main():
                 res["iframeProbe"] = {"url": src, "error": str(e)[:200]}
             break
 
+    # 종목별 수급(trend) API — pageSize=1 이 유효한지(enrich 의 flow 전멸 원인 후보).
+    for label, ps in (("trend_ps1", 1), ("trend_ps25", 25)):
+        try:
+            r3 = requests.get("https://m.stock.naver.com/api/stock/051910/trend",
+                              params={"pageSize": ps, "page": 1}, headers=UA, timeout=15)
+            rows = r3.json() if r3.ok else None
+            row0 = rows[0] if isinstance(rows, list) and rows else None
+            res[label] = {"status": r3.status_code,
+                          "isList": isinstance(rows, list),
+                          "rows": len(rows) if isinstance(rows, list) else None,
+                          "row0Keys": sorted(row0.keys())[:20] if isinstance(row0, dict) else None,
+                          "bodyHead": (r3.text or "")[:200] if not isinstance(rows, list) else None}
+        except Exception as e:
+            res[label] = {"error": str(e)[:200]}
+
     with open(OUT, "w", encoding="utf-8") as f:
         json.dump(res, f, ensure_ascii=False, indent=1)
     print(f"probe written: {OUT} (status={res.get('status')}, len={res.get('length')})")
