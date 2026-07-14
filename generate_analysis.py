@@ -22,6 +22,7 @@ import os
 import sys
 import json
 import datetime
+import requests
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import llm                           # provider-agnostic LLM with fallback chain
@@ -64,10 +65,15 @@ INCREMENTAL    = os.environ.get("ANALYSIS_INCREMENTAL") == "1"
 TTL_HOURS      = float(os.environ.get("ANALYSIS_TTL_HOURS", "2"))
 PRICE_MOVE_PCT = float(os.environ.get("ANALYSIS_PRICE_MOVE_PCT", "5"))
 
+# 수급(투자자 매매동향) 프록시 — KIS 허브 토큰을 공유하는 모니터 서버(/flow).
+# 일별 개인/외국인/기관계/기금 순매수 대금(백만원) + 당일 가집계(잠정) 랭킹.
+FLOW_API_BASE = os.environ.get(
+    "FLOW_API_BASE", "https://tradingstrategies-production-09d4.up.railway.app")
+
 SYSTEM = """\
 너는 한국 주식 투자 리서치 애널리스트다. 주어진 RAW 데이터(해외 peer 시세, peer 그룹 Reddit
-여론, 국내외 뉴스, 국내 커뮤니티 글, DART 공시/재무, 증권사 종목분석 리포트)를 분석해
-대시보드용 `analysis` JSON 한 개를 생성한다.
+여론, 국내외 뉴스, 국내 커뮤니티 글, DART 공시/재무, 증권사 종목분석 리포트, 투자자 수급)를
+분석해 대시보드용 `analysis` JSON 한 개를 생성한다.
 
 규칙:
 - 모든 서술형 필드는 한국어. 회사명/티커/기사 제목/URL은 원문 유지.
@@ -87,6 +93,10 @@ SYSTEM = """\
   "research": { "summary": "2-3문장", "items": [ {"note"} ] }
 }
 
+- investor_flow(입력): 개인/외국인/기관계/기금 '순매수 거래대금'(단위 백만원, 음수=순매도).
+  daily 는 확정치(장중에는 전일까지만 존재), today_rank 는 당일 장중 가집계(잠정) 순매수/순매도
+  랭킹이다. 외국인·기관 동반 순매수/순매도, 추세 전환(연속 매도 후 첫 매수 등), 랭킹 진입은
+  catalyst·direction 판단의 주요 근거로 활용하라. 단, 잠정치(today_rank)는 '가집계'임을 감안한다.
 - catalyst: 뉴스·공시·수급·peer 동향 중 '오늘 주가를 가장 크게 움직일' 단일 촉매를 투자자 관점으로
   요약한다. 대시보드의 'Market Moving Catalysts'에 그대로 노출되므로 placeholder/메타설명을 쓰지 말고
   구체적 내용으로 채운다. 근거가 빈약하면 거래대금·모멘텀 등 가격 동향 기반으로 신중히 서술한다.
@@ -313,6 +323,21 @@ def _norm_opinion(o):
     return (o or "").strip()
 
 
+def fetch_investor_flow(code):
+    """KIS 허브 프록시(/flow)에서 종목 수급 — 일별 개인/외국인/기관계/기금 순매수
+    거래대금(백만원) + 당일 가집계(잠정) 랭킹. 실패 시 빈 dict (수급 없이도 분석은 동작)."""
+    try:
+        r = requests.get(f"{FLOW_API_BASE}/flow", params={"code": code}, timeout=12)
+        r.raise_for_status()
+        d = r.json()
+        if d.get("status") == "success":
+            return {"daily": d.get("daily") or [], "rank": d.get("rank") or [],
+                    "asof": d.get("asof", ""), "rankAsof": d.get("rankAsof", "")}
+    except Exception as e:
+        print(f"[flow] {code} 수급 조회 실패: {e}", file=sys.stderr)
+    return {}
+
+
 def gather_raw(stock, peer_list):
     """Collect raw data for one stock. peer_list is already resolved (static or LLM)."""
     code, name = stock["code"], stock["name"]
@@ -342,6 +367,13 @@ def gather_raw(stock, peer_list):
 def analyze_stock(stock, peer_cfg):
     peer_list = resolve_peers(stock, peer_cfg)
     raw, peers = gather_raw(stock, peer_list)
+
+    # 투자자 수급(KIS): LLM 프롬프트에는 최근 10거래일 + 당일 가집계 랭킹만 (경량화).
+    # 전체(20일)는 아래에서 analysis["flow"] 로 결정적으로 실어 대시보드가 렌더링.
+    flow = fetch_investor_flow(stock["code"])
+    if flow.get("daily") or flow.get("rank"):
+        raw["investor_flow"] = {"daily": flow["daily"][:10], "today_rank": flow["rank"]}
+
     user = (f"종목: {stock['name']} ({stock['code']}, {stock['market']})\n"
             f"RAW 데이터(JSON):\n{json.dumps(raw, ensure_ascii=False)}")
 
@@ -354,6 +386,10 @@ def analyze_stock(stock, peer_cfg):
 
     # Force deterministic peer items (LLM only authored peers.summary/peers.reddit).
     analysis.setdefault("peers", {})["items"] = peers
+
+    # 수급 원본(최근 20거래일 + 가집계 랭킹)은 LLM 을 거치지 않고 그대로 싣는다 — 수치 환각 방지.
+    if flow:
+        analysis["flow"] = flow
 
     # Deterministic recent filings: latest 5 DART disclosures, no LLM curation.
     disclosures = (raw.get("dart") or {}).get("disclosures") or []

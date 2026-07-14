@@ -1597,7 +1597,8 @@
     <div class="drawer-section" id="drawer-analysis-sec">
       <h4 class="drawer-section-title">심층 리서치 (Deep Research)</h4>
       <div class="analysis-tabs">
-        <button class="analysis-tab active" data-tab="research" onclick="selectAnalysisTab('research')" style="grid-column:1/-1;">🧾 증권사 리포트</button>
+        <button class="analysis-tab active" data-tab="research" onclick="selectAnalysisTab('research')">🧾 증권사 리포트</button>
+        <button class="analysis-tab" data-tab="flow" onclick="selectAnalysisTab('flow')">📊 수급</button>
         <button class="analysis-tab" data-tab="peers" onclick="selectAnalysisTab('peers')">🌐 해외 Peer</button>
         <button class="analysis-tab" data-tab="news" onclick="selectAnalysisTab('news')">📰 뉴스 분석</button>
         <button class="analysis-tab" data-tab="community" onclick="selectAnalysisTab('community')">💬 토론방</button>
@@ -5227,9 +5228,11 @@
         ? `<div class="analysis-model">🤖 분석 생성 모델: ${escapeHtml(a.generatedBy)}</div>` : "";
       const sec = a[tab];
       if (!sec) {
-        // research 필드가 없는 분석 = 증권사 리포트 기능(2026-07-05) 이전에 생성된 구버전 데이터.
+        // research/flow 필드가 없는 분석 = 해당 기능 추가 전에 생성된 구버전 데이터.
         const msg = (tab === "research")
           ? "이 분석은 증권사 리포트 기능 추가 전에 생성되어 리포트 데이터가 없습니다.<br>다음 정기 리포트 생성 시 자동으로 채워지며, 상단 검색창에서 온디맨드 딥리서치를 다시 실행해도 바로 채워집니다."
+          : (tab === "flow")
+          ? "이 분석은 수급 기능 추가 전에 생성되어 수급 데이터가 없습니다.<br>다음 정기 리포트 생성 시 자동으로 채워지며, 상단 검색창에서 온디맨드 딥리서치를 다시 실행해도 바로 채워집니다."
           : "데이터 없음";
         return modelBadge + `<span class="analysis-empty">${msg}</span>`;
       }
@@ -5307,6 +5310,50 @@
             ${it.note ? `<div class="analysis-item-note">${escapeHtml(it.note)}</div>` : ""}
           </div>`;
         }).join("") || `<span class="analysis-empty">최근 60일 발간된 증권사 리포트가 없습니다.</span>`;
+      } else if (tab === "flow") {
+        // 수급: KIS 원본 수치를 코드가 그대로 렌더 (LLM 미경유). 대금은 백만원 → 억원 변환.
+        const fmtEok = (v) => {
+          const eok = (v || 0) / 100;
+          const s = Math.abs(eok) >= 100 ? Math.round(Math.abs(eok)).toLocaleString() : Math.abs(eok).toFixed(1);
+          if (eok > 0) return `<span style="color:var(--up-red); font-weight:600;">+${s}</span>`;
+          if (eok < 0) return `<span style="color:var(--kospi-blue); font-weight:600;">-${s}</span>`;
+          return `<span style="color:var(--text-muted);">0</span>`;
+        };
+        if (sec.rank && sec.rank.length) {
+          html += `<div class="analysis-subhead">⚡ 당일 매매종목 가집계(잠정) 랭킹${sec.rankAsof ? ` · ${escapeHtml(sec.rankAsof)} 기준` : ""}</div>`;
+          html += sec.rank.map(r => `<div class="analysis-item">
+              <div class="analysis-item-head">
+                <span class="analysis-item-title">${escapeHtml(r.list)} <span style="color:var(--up-red); font-weight:700;">${r.rank}위</span></span>
+                <span class="analysis-item-meta">외국인 ${fmtEok(r.frgn)} · 기관계 ${fmtEok(r.orgn)} · 기금 ${fmtEok(r.fund)} 억원</span>
+              </div>
+            </div>`).join("");
+        }
+        const rows = sec.daily || [];
+        if (rows.length) {
+          const dt = (d) => `${d.slice(4, 6)}/${d.slice(6, 8)}`;
+          const rateColor = (r) => (r || 0) >= 0 ? "var(--up-red)" : "var(--kospi-blue)";
+          html += `<div class="analysis-subhead">일별 투자자 순매수 대금 (단위: 억원, 음수=순매도)</div>`;
+          html += `<div style="overflow-x:auto;"><table style="width:100%; border-collapse:collapse; font-size:12px;">
+            <thead><tr style="color:var(--text-muted);">
+              <th style="text-align:left; padding:4px 6px;">날짜</th>
+              <th style="text-align:right; padding:4px 6px;">종가</th>
+              <th style="text-align:right; padding:4px 6px;">개인</th>
+              <th style="text-align:right; padding:4px 6px;">외국인</th>
+              <th style="text-align:right; padding:4px 6px;">기관계</th>
+              <th style="text-align:right; padding:4px 6px;">기금</th>
+            </tr></thead><tbody>` +
+            rows.map(r => `<tr style="border-top:1px solid rgba(255,255,255,.06);">
+              <td style="padding:4px 6px;">${dt(r.date)}</td>
+              <td style="text-align:right; padding:4px 6px;">${Number(r.close).toLocaleString()} <span style="color:${rateColor(r.rate)}; font-size:11px;">${r.rate >= 0 ? "+" : ""}${r.rate}%</span></td>
+              <td style="text-align:right; padding:4px 6px;">${fmtEok(r.prsn)}</td>
+              <td style="text-align:right; padding:4px 6px;">${fmtEok(r.frgn)}</td>
+              <td style="text-align:right; padding:4px 6px;">${fmtEok(r.orgn)}</td>
+              <td style="text-align:right; padding:4px 6px;">${fmtEok(r.fund)}</td>
+            </tr>`).join("") + `</tbody></table></div>`;
+          html += `<div class="analysis-item-meta" style="margin-top:6px;">확정치 기준(KIS 종목별 투자자매매동향·KRX+NXT 통합) — 당일 확정치는 장 마감 후 반영${sec.asof ? ` · ${escapeHtml(sec.asof)} 조회` : ""}</div>`;
+        } else if (!(sec.rank && sec.rank.length)) {
+          html += `<span class="analysis-empty">수급 데이터가 없습니다.</span>`;
+        }
       } else if (tab === "dart") {
         if (sec.highlights && sec.highlights.length) {
           html += `<div class="analysis-subhead">재무 하이라이트</div>`;
@@ -6111,7 +6158,8 @@
       </div>
       <div id="od-body" style="display:none;">
         <div class="analysis-tabs">
-          <button class="analysis-tab active" data-odtab="research" onclick="odTab('research')" style="grid-column:1/-1;">🧾 증권사 리포트</button>
+          <button class="analysis-tab active" data-odtab="research" onclick="odTab('research')">🧾 증권사 리포트</button>
+          <button class="analysis-tab" data-odtab="flow" onclick="odTab('flow')">📊 수급</button>
           <button class="analysis-tab" data-odtab="peers" onclick="odTab('peers')">🌐 해외 Peer</button>
           <button class="analysis-tab" data-odtab="news" onclick="odTab('news')">📰 뉴스 분석</button>
           <button class="analysis-tab" data-odtab="community" onclick="odTab('community')">💬 토론방</button>
