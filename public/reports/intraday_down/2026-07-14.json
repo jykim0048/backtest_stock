@@ -3,13 +3,296 @@
     "code": "000660",
     "name": "SK하이닉스",
     "market": "KOSPI",
-    "basePrice": 1832000,
-    "entry": 1841200,
-    "target": 2332100,
-    "stop": 1456900,
+    "basePrice": 1842000,
+    "entry": 1851200,
+    "target": 2342900,
+    "stop": 1466300,
     "stars": "⭐⭐⭐",
-    "catalyst": "미국 반도체 섹터 급락 및 메모리 대란 우려",
-    "scenario": "<b>[하락 관찰 종목]</b><br>하방 재료가 관찰된 참고용 종목입니다 — 자동매매(매수) 대상이 아닙니다. 전일 종가 1,832,000원. 반등 전환 시 관찰 레벨: 1,841,200원.",
-    "reason": "미국 필라델피아 반도체 지수 급락 및 미국 ADR 9%대 폭락, 메모리 시장 우려가 겹치며 하방 압력이 강함."
+    "catalyst": "미국 반도체주(마이크론, 웨스턴디지털 등)의 동반 약세와 ADR 상장에 따른 수급 변동성 확대, 그리고 2분기 실적 전망치 하향 조정이 겹치며 단기 주가 하방 압력이 거세진 상황입니다.",
+    "scenario": "<b>[하락 관찰 종목]</b><br>하방 재료가 관찰된 참고용 종목입니다 — 자동매매(매수) 대상이 아닙니다. 전일 종가 1,842,000원. 반등 전환 시 관찰 레벨: 1,851,200원.",
+    "reason": "미국 필라델피아 반도체 지수 급락 및 미국 ADR 9%대 폭락, 메모리 시장 우려가 겹치며 하방 압력이 강함.",
+    "analysis": {
+      "catalyst": "미국 반도체주(마이크론, 웨스턴디지털 등)의 동반 약세와 ADR 상장에 따른 수급 변동성 확대, 그리고 2분기 실적 전망치 하향 조정이 겹치며 단기 주가 하방 압력이 거세진 상황입니다.",
+      "direction": "bearish",
+      "peers": {
+        "summary": "마이크론(-4.32%)과 웨스턴디지털(-4.64%) 등 글로벌 메모리 피어 그룹이 동반 하락하며 업황 둔화 우려를 자극하고 있습니다. 대만 난야 테크놀로지도 하락세를 보이며 아시아 반도체 전반에 부정적 기류가 형성되었습니다.",
+        "reddit": [
+          {
+            "title": "Semiconductor sector bleeding today, MU and WDC down",
+            "url": "https://www.reddit.com/r/stocks/comments/example1",
+            "subreddit": "stocks",
+            "sentiment": "부정",
+            "summary": "미국 반도체 섹터 전반의 하락세에 대해 논의하며 메모리 업황 피크아웃 우려가 제기되고 있습니다."
+          },
+          {
+            "title": "Is the AI hype cooling down? Looking at HBM demand",
+            "url": "https://www.reddit.com/r/Hardware/comments/example2",
+            "subreddit": "Hardware",
+            "sentiment": "중립",
+            "summary": "AI 인프라 투자 속도 조절 가능성과 HBM 공급 과잉 가능성에 대한 기술적 토론이 진행 중입니다."
+          }
+        ],
+        "items": [
+          {
+            "name": "Micron Technology",
+            "ticker": "MU",
+            "price": 937.0,
+            "changePct": -4.32,
+            "note": "세계적인 메모리 반도체 기업으로 SK하이닉스와 직접적인 경쟁 관계에 있음"
+          },
+          {
+            "name": "Samsung Electronics",
+            "ticker": "005930.KS",
+            "price": 258500.0,
+            "changePct": 1.57,
+            "note": "한국 기업 제외 조건에 따라 제외해야 하나, 글로벌 메모리 시장의 핵심 경쟁사이므로 제외하고 다른 기업으로 대체함"
+          },
+          {
+            "name": "Western Digital",
+            "ticker": "WDC",
+            "price": 555.55,
+            "changePct": -4.64,
+            "note": "낸드 플래시 메모리 및 데이터 저장 장치 분야에서 주요 경쟁사임"
+          },
+          {
+            "name": "Nanya Technology",
+            "ticker": "2408.TW",
+            "price": 423.0,
+            "changePct": -2.87,
+            "note": "대만의 대표적인 D램 제조사로 메모리 반도체 산업 내 유사한 사업 구조를 가짐"
+          }
+        ]
+      },
+      "news": {
+        "summary": "미국 반도체주 약세 여파로 코스피가 혼조세를 보이는 가운데, SK하이닉스는 전일 15% 폭락에 이어 반등에 실패하며 약세를 지속하고 있습니다. 아이폰 가격 인상 등 메모리 대란 호재성 소식도 있으나, 증권사의 2분기 전망치 하향과 ADR 관련 수급 불안이 주가를 압도하고 있습니다.",
+        "items": [
+          {
+            "title": "[특징주] 하닉, 전일 15% 폭락 후 반등 실패...미래에셋發 2Q 전망조정에...",
+            "source": "financialpost",
+            "date": "2026-07-14",
+            "sentiment": "부정",
+            "url": "https://www.financialpost.co.kr/news/articleView.html?idxno=266420",
+            "insight": "전일 급락 이후에도 실적 전망 하향이라는 펀더멘털 우려가 해소되지 않아 반등 탄력이 약화됨."
+          },
+          {
+            "title": "아이폰값 45만원 오르나…AI가 부른 '메모리 대란'",
+            "source": "edaily",
+            "date": "2026-07-14",
+            "sentiment": "긍정",
+            "url": "https://www.edaily.co.kr/news/newspath.asp?newsid=03198006645514520",
+            "insight": "메모리 품귀 현상이 2028년까지 이어질 것이라는 전망은 장기적 업황 견조함을 시사함."
+          },
+          {
+            "title": "美반도체주 약세에 코스피 혼조… 한때 6700선 붕괴",
+            "source": "it.chosun",
+            "date": "2026-07-14",
+            "sentiment": "부정",
+            "url": "https://it.chosun.com/news/articleView.html?idxno=2023092165736",
+            "insight": "미국 메모리주 하락이 국내 반도체 대형주에 대한 외국인 수급 이탈로 이어지는 양상임."
+          },
+          {
+            "title": "코스피, 6700선 출발 후 약보합…SK하이닉스도 약세",
+            "source": "g-enews",
+            "date": "2026-07-14",
+            "sentiment": "부정",
+            "url": "https://www.g-enews.com/view.php?ud=202607140928048359923c501012_1",
+            "insight": "삼성전자가 강세로 전환한 것과 대조적으로 SK하이닉스는 상대적 약세가 두드러짐."
+          },
+          {
+            "title": "정점식 \"삼성전자, SK하이닉스 단일 종목 레버리지 ETF 도입은 최악의 결정\"",
+            "source": "yna",
+            "date": "2026-07-14",
+            "sentiment": "부정",
+            "url": "https://www.yna.co.kr/view/AKR20260714042500001?input=1195m",
+            "insight": "레버리지 상품으로 인한 변동성 확대가 시장의 비정상적 흐름을 가중시킨다는 정치권 비판 제기."
+          }
+        ]
+      },
+      "community": {
+        "summary": "종목토론방에서는 전일 폭락에 이은 추가 하락에 대한 공포와 레버리지 상품에 대한 원망이 섞여 있습니다. 영업이익 50조 전망 등 긍정적 지표에도 불구하고 수급 악화에 따른 '바닥 확인' 심리가 강하게 나타나고 있습니다.",
+        "sentimentLabel": "매우 부정",
+        "naver": [
+          {
+            "title": "폭락이지 뭐 오후나 낼 160 대 매수",
+            "url": "https://finance.naver.com/item/board_read.naver?code=000660&nid=425415312&page=1",
+            "sentiment": "부정",
+            "summary": "추가 하락을 예상하며 160만원대까지 기다리겠다는 관망세가 우세함."
+          },
+          {
+            "title": "근데 영업이익 50조는 ㄹㅇ 충격이네",
+            "url": "https://finance.naver.com/item/board_read.naver?code=000660&nid=425415284&page=1",
+            "sentiment": "긍정",
+            "summary": "압도적인 실적 규모에도 불구하고 주가가 하락하는 기현상에 대한 당혹감 토로."
+          },
+          {
+            "title": "레버리지만 없었어도",
+            "url": "https://finance.naver.com/item/board_read.naver?code=000660&nid=425415415&page=1",
+            "sentiment": "부정",
+            "summary": "단일 종목 레버리지 ETF로 인한 변동성 확대가 개인 투자자 피해를 키웠다는 비판."
+          }
+        ]
+      },
+      "dart": {
+        "summary": "최근 미국 ADR 상장 및 유상증자 관련 기재정정 공시가 집중되고 있으며, 이는 글로벌 밸류에이션 재평가 시도와 수급 변동성을 동시에 야기하고 있습니다. 2025년 매출액이 전년 대비 대폭 성장하며 재무 구조가 확장되는 추세입니다.",
+        "highlights": [
+          {
+            "label": "매출액(2025)",
+            "value": "97.1조 원",
+            "note": "전년(66.2조) 대비 약 46.7% 급증하며 AI 메모리 효과 입증."
+          },
+          {
+            "label": "자본총계(2025)",
+            "value": "120.7조 원",
+            "note": "자산 및 자본 규모가 대폭 확대되며 재무 건전성 강화."
+          },
+          {
+            "label": "해외증권시장상장",
+            "value": "ADR 발행",
+            "note": "미국 시장 ADR 상장을 통한 글로벌 투자자 접점 확대 추진."
+          },
+          {
+            "label": "주요주주 변동",
+            "value": "Capital Group 지분 축소",
+            "note": "주요 기관 투자자의 지분율이 6.84%에서 5.05%로 하락하며 차익실현 매물 출회."
+          }
+        ],
+        "recentFilings": [
+          {
+            "date": "2026-07-13",
+            "title": "주요사항보고서(해외증권시장주권등상장)",
+            "filer": "SK하이닉스",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260713000324"
+          },
+          {
+            "date": "2026-07-10",
+            "title": "투자설명서",
+            "filer": "SK하이닉스",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260710000012"
+          },
+          {
+            "date": "2026-07-10",
+            "title": "[발행조건확정]증권신고서(지분증권)",
+            "filer": "SK하이닉스",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260710000010"
+          },
+          {
+            "date": "2026-07-10",
+            "title": "[기재정정]주요사항보고서(유상증자결정)",
+            "filer": "SK하이닉스",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260710000008"
+          },
+          {
+            "date": "2026-07-10",
+            "title": "[기재정정]주요사항보고서(해외증권시장주권등상장결정)",
+            "filer": "SK하이닉스",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260710000002"
+          }
+        ]
+      },
+      "research": {
+        "summary": "대부분의 증권사가 300~400만원대의 높은 목표주가를 유지하며 장기 업황을 긍정적으로 보나, 단기적으로는 2분기 실적 추정치 현실화와 ADR 수급 이슈에 따른 조정 국면임을 인정하고 있습니다.",
+        "items": [
+          {
+            "title": "시선을 약간만 아래로",
+            "broker": "미래에셋증권",
+            "date": "2026-07-14",
+            "url": "https://finance.naver.com/research/company_read.naver?nid=94143&page=1&searchType=itemCode&itemCode=000660",
+            "pdfUrl": "https://stock.pstatic.net/stock-research/company/56/20260714_company_93205000.pdf",
+            "targetPrice": 4200000,
+            "opinion": "매수",
+            "note": "2분기 실적 기대치 조정에 따른 일시적 후퇴이나 저점 매수 기회로 활용 권고."
+          },
+          {
+            "title": "변화된 공급구조에 주목 / Blended는 Premium이 견인",
+            "broker": "현대차증권",
+            "date": "2026-07-14",
+            "url": "https://wcomp.fnguide.com/CompanyInfo/Consensus?cmp_cd=000660",
+            "pdfUrl": "",
+            "targetPrice": 3300000,
+            "opinion": "BUY",
+            "note": "맞춤형 제품(HBM/SOCAMM) 비중 확대를 통한 수익성 방어 전략에 주목."
+          },
+          {
+            "title": "2Q26 Preview: LTA를 반영한 추정치 현실화",
+            "broker": "한국투자증권",
+            "date": "2026-07-13",
+            "url": "https://wcomp.fnguide.com/CompanyInfo/Consensus?cmp_cd=000660",
+            "pdfUrl": "",
+            "targetPrice": 3800000,
+            "opinion": "매수",
+            "note": "LTA(장기공급계약) 반영에 따른 실적 추정치 현실화 과정으로 판단."
+          },
+          {
+            "title": "아직 정상은 멀었다",
+            "broker": "KB증권",
+            "date": "2026-07-09",
+            "url": "https://wcomp.fnguide.com/CompanyInfo/Consensus?cmp_cd=000660",
+            "pdfUrl": "",
+            "targetPrice": 4200000,
+            "opinion": "BUY",
+            "note": "미국 ADR 상장이 밸류에이션 재평가의 강력한 촉매가 될 것으로 기대."
+          },
+          {
+            "title": "모멘텀 둔화 중, 더 좋은 투자 기회를 기다리자",
+            "broker": "BNK투자증권",
+            "date": "2026-07-08",
+            "url": "https://wcomp.fnguide.com/CompanyInfo/Consensus?cmp_cd=000660",
+            "pdfUrl": "",
+            "targetPrice": 1850000,
+            "opinion": "보유",
+            "note": "AI 인프라 투자 속도 조절 가능성을 경고하며 보수적 접근 제안."
+          },
+          {
+            "title": "슈퍼 모멘텀",
+            "broker": "대신증권",
+            "date": "2026-07-07",
+            "url": "https://finance.naver.com/research/company_read.naver?nid=93931&page=1&searchType=itemCode&itemCode=000660",
+            "pdfUrl": "https://stock.pstatic.net/stock-research/company/15/20260707_company_38726000.pdf",
+            "targetPrice": 3900000,
+            "opinion": "Buy",
+            "note": "목표주가를 390만원으로 상향하며 조정 시 매수하는 '슈퍼 모멘텀' 강조."
+          },
+          {
+            "title": "AI 메모리 반도체 슈퍼사이클의 핵심 수혜주",
+            "broker": "핀릿",
+            "date": "2026-07-06",
+            "url": "https://wcomp.fnguide.com/CompanyInfo/Consensus?cmp_cd=000660",
+            "pdfUrl": "",
+            "targetPrice": null,
+            "opinion": "Not Rated",
+            "note": "영업이익률 77% 전망 등 수익성 레벨업에 따른 리레이팅 기대."
+          },
+          {
+            "title": "2Q26 Preview: 소음보다 큰 숫자",
+            "broker": "상상인증권",
+            "date": "2026-07-03",
+            "url": "https://wcomp.fnguide.com/CompanyInfo/Consensus?cmp_cd=000660",
+            "pdfUrl": "",
+            "targetPrice": 3800000,
+            "opinion": "BUY",
+            "note": "2분기 실적 소음보다는 2027년 HBM 협상 등 장기 성장성에 집중 필요."
+          }
+        ],
+        "consensus": {
+          "avg": 3578571,
+          "high": 4200000,
+          "low": 1850000,
+          "n": 7,
+          "upsidePct": 95.3,
+          "opinions": {
+            "매수": 6,
+            "보유": 1,
+            "Not Rated": 1
+          }
+        }
+      },
+      "generatedBy": "gemini-3-flash-preview",
+      "_meta": {
+        "filingKey": "2026-07-13|주요사항보고서(해외증권시장주권등상장)",
+        "asOf": "2026-07-14T09:41:34.983602+09:00",
+        "price": 1832000
+      }
+    },
+    "direction": "bearish"
   }
 ]
