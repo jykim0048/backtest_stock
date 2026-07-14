@@ -5332,6 +5332,7 @@
         if (rows.length) {
           const dt = (d) => `${d.slice(4, 6)}/${d.slice(6, 8)}`;
           const rateColor = (r) => (r || 0) >= 0 ? "var(--up-red)" : "var(--kospi-blue)";
+          const cum = (k) => rows.reduce((s, r) => s + (r[k] || 0), 0);
           html += `<div class="analysis-subhead">일별 투자자 순매수 대금 (단위: 억원, 음수=순매도)</div>`;
           html += `<div style="overflow-x:auto;"><table style="width:100%; border-collapse:collapse; font-size:12px;">
             <thead><tr style="color:var(--text-muted);">
@@ -5349,7 +5350,15 @@
               <td style="text-align:right; padding:4px 6px;">${fmtEok(r.frgn)}</td>
               <td style="text-align:right; padding:4px 6px;">${fmtEok(r.orgn)}</td>
               <td style="text-align:right; padding:4px 6px;">${fmtEok(r.fund)}</td>
-            </tr>`).join("") + `</tbody></table></div>`;
+            </tr>`).join("") + `</tbody><tfoot>
+            <tr style="border-top:2px solid rgba(255,255,255,.18);">
+              <td style="padding:5px 6px; font-weight:700; color:var(--text-main);">누적 (${rows.length}일)</td>
+              <td></td>
+              <td style="text-align:right; padding:5px 6px;">${fmtEok(cum("prsn"))}</td>
+              <td style="text-align:right; padding:5px 6px;">${fmtEok(cum("frgn"))}</td>
+              <td style="text-align:right; padding:5px 6px;">${fmtEok(cum("orgn"))}</td>
+              <td style="text-align:right; padding:5px 6px;">${fmtEok(cum("fund"))}</td>
+            </tr></tfoot></table></div>`;
           html += `<div class="analysis-item-meta" style="margin-top:6px;">확정치 기준(KIS 종목별 투자자매매동향·KRX+NXT 통합) — 당일 확정치는 장 마감 후 반영${sec.asof ? ` · ${escapeHtml(sec.asof)} 조회` : ""}</div>`;
         } else if (!(sec.rank && sec.rank.length)) {
           html += `<span class="analysis-empty">수급 데이터가 없습니다.</span>`;
