@@ -117,8 +117,10 @@ def _norm(name):
 
 
 def _top(rows):
+    # cap(전일 시가총액, 마스터파일 원값)은 섹터→테마 매칭의 기여도 가중용 —
+    # 상대 비중만 쓰므로 단위 무관. 구버전 맵(cap 없음)은 기여항이 자동 비활성.
     rows = sorted(rows, key=lambda s: s["cap"], reverse=True)
-    return [{"code": s["code"], "name": s["name"]} for s in rows[:TOP]]
+    return [{"code": s["code"], "name": s["name"], "cap": s["cap"]} for s in rows[:TOP]]
 
 
 def main():

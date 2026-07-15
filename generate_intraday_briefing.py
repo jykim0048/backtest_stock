@@ -38,6 +38,14 @@ ARCHIVE_DIR = os.path.join(ROOT, "public", "reports", "intraday_briefing")
 THEMES_PER_SIDE = int(os.environ.get("BRIEFING_THEMES", "3"))     # 급등/급락 각 N개
 STOCKS_PER_THEME = int(os.environ.get("BRIEFING_VC_STOCKS", "3"))  # 테마 구성종목 표기 수(방향 상위)
 THEMES_PER_SECTOR = int(os.environ.get("BRIEFING_THEMES_PER_SECTOR", "4"))  # 섹터당 관련 테마 상한
+# ── 기여도 가중 스코어링(2026-07-15 13:41 회차 시뮬레이션으로 확정) ──────────────
+# 지수는 시총가중이므로 '오늘 이 섹터를 움직인' 테마 = 시총×당일등락 기여가 큰 종목이
+# 속한 테마다(오락·문화 -1.63% 의 동인이 파라다이스·GKL 폭락인데 개수 기준으론 카지노가
+# 8위라 안 보이던 문제). 구조항(겹침·명칭·키워드)에 기여항을 합산한다.
+THEME_CONTRIB_W   = float(os.environ.get("BRIEFING_CONTRIB_W", "40"))    # 기여항 가중(40×share)
+THEME_CONTRIB_CAP = float(os.environ.get("BRIEFING_CONTRIB_CAP", "0.20"))  # 종목당 기여 상한(지배종목 도배 방지)
+THEME_CONTRIB_MIN_CHG = float(os.environ.get("BRIEFING_CONTRIB_MIN_CHG", "0.5"))  # 기여항 활성 최소 |섹터 등락%|
+THEME_MAX_SECTORS = int(os.environ.get("BRIEFING_THEME_MAX_SECTORS", "2"))  # 테마당 최대 표시 섹터 수(소프트 캡)
 THEME_DETAIL_TOP = int(os.environ.get("BRIEFING_THEME_DETAIL_TOP", "20"))   # (폴백용) 구성종목 로드 테마 수(|등락| 상위)
 THEME_MAP_PATH = os.path.join(ROOT, "public", "assets", "theme_map.json")   # 주 1회 재생성(theme_map.yml)
 SECTORS_PER_SIDE = int(os.environ.get("BRIEFING_SECTORS", "3"))    # 상승/하락 각 N개 섹터
@@ -187,8 +195,11 @@ def fetch_sectors():
             # 표시(stocks)는 KOSPI 만(섹터 등락률이 KOSPI 산업별 지수라 지수 정합 유지),
             # 매칭은 양 시장으로 넓혀 코스닥 중심 테마(장비·바이오 등)와의 종목 겹침을 확보.
             entry = _sector_entry(s["name"], sec_map)
-            s["_matchCodes"] = ([x["code"] for x in (entry.get("stocks") or [])]
-                                + [x["code"] for x in (entry.get("kosdaqStocks") or [])]) if entry else []
+            members = (((entry.get("stocks") or []) + (entry.get("kosdaqStocks") or []))
+                       if entry else [])
+            s["_matchCodes"] = [x["code"] for x in members]
+            # 기여도 가중용 시총(맵 재생성분부터 cap 필드 존재 — 없으면 기여항 자동 비활성)
+            s["_matchCaps"] = {x["code"]: x.get("cap") or 0 for x in members}
     return heat, ups, downs
 
 
@@ -270,29 +281,80 @@ def _kw_hit(kws, theme_name):
     return any(t == k or t.startswith(k) for k in kws for t in toks)
 
 
-def _match_themes(sector, ranking, used):
+def _fetch_match_rates(codes):
+    """매칭코드 전체의 당일 등락률(%) — 네이버 폴링 API 배치(50종목/1콜, KIS 무관).
+
+    반환 {code: rate(부호 포함)}. 실패 청크는 생략(해당 종목 기여 0 처리) — 전체 실패
+    시 빈 dict 이고 기여항이 자동 비활성돼 구조항만으로 동작한다(graceful)."""
+    out = {}
+    for i in range(0, len(codes), 50):
+        chunk = codes[i:i + 50]
+        try:
+            r = requests.get(
+                "https://polling.finance.naver.com/api/realtime?query=SERVICE_ITEM:"
+                + ",".join(chunk),
+                headers={"User-Agent": "Mozilla/5.0"}, timeout=10)
+            for a in ((r.json() or {}).get("result") or {}).get("areas") or []:
+                for it in a.get("datas") or []:
+                    cd, cr = str(it.get("cd") or ""), it.get("cr")
+                    if cd and cr is not None:
+                        sign = -1 if str(it.get("rf")) in ("4", "5") else 1  # rf 4/5 = 하락
+                        out[cd] = sign * float(cr)
+        except Exception as e:
+            _warn(f"매칭코드 등락률 조회 실패(청크 생략): {e}")
+    return out
+
+
+def _contrib_shares(sector, rates):
+    """섹터 방향 기여 share {code: 0~1} — 시총 × 당일등락 중 섹터 방향과 같은 기여만.
+
+    종목당 기여는 총기여의 THEME_CONTRIB_CAP(기본 20%)로 캡 — 삼성전자급 지배종목이
+    든 테마가 도배되는 것 방지. |섹터 등락| < THEME_CONTRIB_MIN_CHG(기본 0.5%)이거나
+    시총(cap)·등락률이 없으면 None → 기여항 비활성(구조항만, 노이즈 증폭 방지)."""
+    chg = sector.get("changePct") or 0
+    if abs(chg) < THEME_CONTRIB_MIN_CHG:
+        return None
+    caps = sector.get("_matchCaps") or {}
+    d = 1 if chg >= 0 else -1
+    raw = {c: max(0.0, d * (caps.get(c) or 0) * (rates.get(c) or 0.0)) for c in caps}
+    tot = sum(raw.values())
+    if tot <= 0:
+        return None
+    capped = {c: min(v, THEME_CONTRIB_CAP * tot) for c, v in raw.items()}
+    denom = sum(capped.values()) or 1.0
+    return {c: v / denom for c, v in capped.items()}
+
+
+def _match_themes(sector, ranking, assigned, shares):
     """섹터 → 관련 네이버 테마 후보를 점수순으로 반환(방향 무관, 전체 랭킹에서).
 
-    점수(높을수록 관련): ① 테마 주도주(leaders)가 섹터 KRX 관련주(시총 상위 12)에
-    겹침 — 겹침당 +4  ② 명칭 유사(섹터명·테마명 토큰 교집합, 예: 섬유·의류 ↔ 패션/의류)
-    +3  ③ 키워드 맵(토큰 접두) +2. 동점은 |등락률| 큰 테마 우선.
+    점수 = 구조항 + 기여항 (2026-07-15 13:41 회차 시뮬레이션으로 확정):
+      구조항: ① 구성종목 겹침당 +4  ② 명칭 유사(토큰 교집합) +3  ③ 키워드 맵(접두) +2
+      기여항: THEME_CONTRIB_W × (겹친 종목들의 섹터 방향 기여 share 합, 종목당 20% 캡)
+              — '오늘 이 섹터를 실제로 움직인' 테마를 끌어올린다(오락·문화 하락일의
+              카지노, 기계·장비 급등일의 반도체 장비). shares=None 이면 구조항만.
+    동점은 |테마 등락률| 큰 쪽 우선.
 
     대표(1번째) 테마는 최고점이면 되지만, 2번째부터는 '대장주 1종목 단독 겹침'을
     배제한다 — 조광피혁(섬유·의류 ↔ 부동산자산주)처럼 종목 하나가 이질 테마에 걸친
-    경우라 보조 테마로는 신뢰 부족(2026-07-10 실측). 명칭 일치·큐레이션 키워드는
-    사람이 검증한 연관이라 단독으로도 보조 테마 자격이 있다(STO↔증권 사례).
-    이미 다른 섹터에 배정된 테마(used)는 제외. 상한 THEMES_PER_SECTOR."""
+    경우라 보조 테마로는 신뢰 부족(2026-07-10 실측). 명칭 일치·큐레이션 키워드·
+    기여 share 10%+ 는 검증된 연관으로 단독 자격 인정.
+
+    선점제(used) → 소프트 캡: 같은 테마를 최대 THEME_MAX_SECTORS(기본 2)개 섹터까지
+    허용 — 광역 업종(제조)이 진짜 연관 테마를 흡수하던 문제(케이씨텍↔반도체 장비,
+    2026-07-14) 해결 + 반도체 랠리일의 전 섹터 도배는 캡으로 방지."""
     codes = set(sector.get("_matchCodes") or
                 [s.get("code") for s in (sector.get("stocks") or [])])
     s_toks = _name_tokens(sector.get("name"))
     kws = _SECTOR_THEME_KW.get(sector.get("name"), [])
     scored = []
     for t in ranking:
-        if t["no"] in used:
+        if assigned.get(t["no"], 0) >= THEME_MAX_SECTORS:
             continue
-        # 지수형 테마(밸류업·코스피200·MSCI 등)는 대형주 다수 포함이라 어떤 섹터와도
-        # 구성종목 4+겹침이 되지만 섹터 등락의 '동인' 설명으론 무의미 — 후보 제외.
-        if re.search(r"지수|코스피|밸류업|MSCI", t["name"] or ""):
+        # 지수형·유사지수형 테마(밸류업·코스피200·MSCI·'대표주' 모음·S7 등)는 대형주
+        # 다수 포함이라 겹침·기여가 높게 나오지만 섹터 등락의 '동인' 설명으론 무의미 —
+        # 후보 제외. ('대표주|S7'은 기여도 가중 도입 시뮬에서 도배 실측, 2026-07-15)
+        if re.search(r"지수|코스피|밸류업|MSCI|대표주|S7", t["name"] or ""):
             continue
         # 점수용 겹침은 _codes(주도주 ∪ 구성종목, attach 에서 확장) 기준 — 주도주(2종목)
         # 스냅샷은 회차마다 바뀌어 연결이 끊긴다(케이씨텍↔HBM, 2026-07-10 12:10 실측).
@@ -301,13 +363,14 @@ def _match_themes(sector, ranking, used):
         lead_ov = sum(1 for L in (t.get("leaders") or []) if L.get("code") in codes)
         name_sim = bool(s_toks & _name_tokens(t["name"]))
         kw = _kw_hit(kws, t["name"])
-        score = 4 * overlap + 3 * name_sim + 2 * kw
-        if score > 0:
-            # 보조 테마 자격: 주도주 겹침≥2 / 명칭 / 키워드 / '구성종목 겹침≥4'.
-            # 겹침 소수의 우발 교차 편입은 차단하되(섬유·의류 ∩ 부동산자산주는 KOSDAQ
-            # 확장 후 3겹침 실측 — 4 미만 차단 유지), 겹침 4+ 는 진짜 연관(화학 ∩ 화장품
-            # = 아모레·LG생건·에이피알 등 6겹침인데 키워드 부재로 잘리던 사례)으로 인정.
-            ok_secondary = lead_ov >= 2 or name_sim or kw or overlap >= 4
+        share = sum(shares.get(c, 0.0) for c in (codes & t_codes)) if shares else 0.0
+        score = 4 * overlap + 3 * name_sim + 2 * kw + THEME_CONTRIB_W * share
+        if score > 0.5:
+            # 보조 테마 자격: 주도주 겹침≥2 / 명칭 / 키워드 / 구성종목 겹침≥4 /
+            # 기여 share≥10%. 겹침 소수의 우발 교차 편입은 차단하되(조광피혁 사례),
+            # 겹침 4+(화학∩화장품 사례)와 유의미한 지수 기여는 진짜 연관으로 인정.
+            ok_secondary = (lead_ov >= 2 or name_sim or kw or overlap >= 4
+                            or share >= 0.10)
             scored.append((score, abs(t.get("changePct") or 0), t, ok_secondary))
     scored.sort(key=lambda x: (-x[0], -x[1]))
     picked = [t for _, _, t, _ in scored[:1]] \
@@ -340,15 +403,22 @@ def attach_sector_themes(sectors_up, sectors_down):
             if t["no"] not in _THEME_STOCKS_CACHE:
                 _THEME_STOCKS_CACHE[t["no"]] = sources.naver_theme_stocks(t["no"], limit=15)
             t["_codes"] |= {x.get("code") for x in _THEME_STOCKS_CACHE[t["no"]] if x.get("code")}
-    used = set()
-    # 등락률 순위 앞 섹터(급등1→3, 급락1→3)가 테마를 먼저 가져간다(중복 배정 방지).
+    # 기여도 가중용 당일 등락률 — 전 섹터 매칭코드 일괄(네이버 폴링 배치, KIS 무관)
+    all_codes = sorted({c for s in sectors_up + sectors_down
+                        for c in (s.get("_matchCodes") or [])})
+    rates = _fetch_match_rates(all_codes) if all_codes else {}
+    assigned = {}   # theme_no → 배정된 섹터 수 (소프트 캡 THEME_MAX_SECTORS)
+    # 등락률 순위 앞 섹터(급등1→3, 급락1→3)부터 배정 — 소프트 캡 도달 시 뒤 순번 제외.
     for sector, up in ([(s, True) for s in sectors_up]
                        + [(s, False) for s in sectors_down]):
-        themes = _match_themes(sector, ranking, used)
+        shares = _contrib_shares(sector, rates)
+        themes = _match_themes(sector, ranking, assigned, shares)
         if themes:
-            used.update(t["no"] for t in themes)
+            for t in themes:
+                assigned[t["no"]] = assigned.get(t["no"], 0) + 1
             sector["themes"] = [_theme_detail(t, up) for t in themes]
         sector.pop("_matchCodes", None)     # 내부 매칭용 — 산출 JSON 에서 제거
+        sector.pop("_matchCaps", None)
 
 
 def fetch_investor_series():
