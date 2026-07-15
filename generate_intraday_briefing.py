@@ -516,6 +516,7 @@ def _econ_llm_view(econ):
             out["actual"] = r["actual"]
         if r.get("surprise"):
             out["surpriseVerdict"] = r["surprise"].get("verdict")
+            out["surpriseVs"] = r["surprise"].get("vs")   # forecast=예상 대비 | previous=이전 대비
         return out
     return {k: [slim(r) for r in v] for k, v in econ.items() if v}
 
@@ -584,9 +585,11 @@ SYSTEM = (
     "market(한국 종목이면 반드시 KOSPI 또는 KOSDAQ 로 채울 것 — 비우지 말 것; 해외 종목은 애초에 넣지 말 것), "
     "direction(그 촉매가 주가에 주는 방향 — 상방=bullish|중립=neutral|하방=bearish), summary(핵심 촉매 한 문장).\n"
     "  · 뉴스는 corp 필드가 없으니 제목·본문에서 종목명을 추출해 stock 에 넣을 것.\n"
-    "- econEvents 가 있으면: korReleasedToday(오늘 발표된 한국 경제지표 — actual/forecast/previous 와 "
-    "surpriseVerdict: above=예상 상회|inline=부합|below=하회)는 ① 지수·수급 서술의 배경으로, "
-    "usTonight(오늘 밤 미국 발표 예정 지표)은 ⑤ 관전 포인트에 반영할 것(수치는 입력값을 그대로 인용).\n"
+    "- econEvents 가 있으면: korReleasedToday(오늘 발표된 한국 경제지표)는 ① 지수·수급 서술의 "
+    "배경으로, usTonight(오늘 밤 미국 발표 예정 지표)은 ⑤ 관전 포인트에 반영할 것(수치는 입력값을 "
+    "그대로 인용). surpriseVerdict(above=상회|inline=부합|below=하회)는 surpriseVs 기준을 구분해 "
+    "표현할 것 — surpriseVs=forecast 면 '예상(컨센서스) 상회/하회', surpriseVs=previous 면 반드시 "
+    "'이전(직전치) 대비 상회/하회'로 쓰고, 이전값 대비를 '예상치 상회/하회'라고 표현하지 말 것.\n"
     "- fxBullets 는 환율 관련 1~3개 불릿(fxNews·marketIndicators.exchange/world 근거): "
     "원/달러·달러인덱스·엔/달러 흐름과 그 배경(뉴스 근거), 국내 증시(수출주·환율 민감주)에 주는 "
     "함의를 담을 것. 근거 데이터가 전혀 없으면 빈 배열.\n"

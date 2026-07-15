@@ -325,8 +325,10 @@ SYSTEM = """\
 - 각 테마의 industryReports : 해당 업종의 최근 30일 증권사 산업분석 리포트
   (category/title/broker/date, 최신 1건은 summary 요약 본문 포함). 없을 수 있다.
 - econEvents : 경제지표 캘린더. usReleased(전일 발표된 미국 지표 — actual/forecast/previous 와
-  surpriseVerdict: above=예상 상회 / inline=부합 / below=하회, surpriseVs=forecast|previous),
-  korToday(당일 발표 예정 한국 지표), usTonight(오늘 밤 미국 발표 예정). 없을 수 있다.
+  surpriseVerdict: above=상회 / inline=부합 / below=하회), korToday(당일 발표 예정 한국 지표),
+  usTonight(오늘 밤 미국 발표 예정). 없을 수 있다.
+  **surpriseVs 가 비교 기준이다: forecast 면 '예상(컨센서스) 상회/하회', previous 면 반드시
+  '이전(직전치) 대비 상회/하회'로 표현을 구분하고, 이전값 대비를 '예상치 상회/하회'라고 쓰지 말 것.**
 
 **중요: upThemes/downThemes 의 usTheme·usStocks·krTheme·krStocks 는 이미 정해진 사실이다.
 너는 종목이나 등락률을 새로 만들거나 바꾸지 않는다. 오직 각 테마별 rationale(한 줄 근거)과
