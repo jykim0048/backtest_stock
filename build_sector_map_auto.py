@@ -186,6 +186,20 @@ def main():
             if e.get(fld) and not sectors[key].get(fld):
                 sectors[key][fld] = e[fld]
 
+    # 시총(cap) 백필 — 보존 경로로 들어온 항목(자동생성 미커버 업종: 오락·문화 등 15개
+    # 실측, 2026-07-16)은 cap 이 없어 기여도 가중이 비활성된다. 마스터파일에는 전 종목
+    # cap 이 있으므로 코드 조회로 전체 백필(자동생성분 포함 최신값으로 갱신).
+    cap_by_code = {s["code"]: s["cap"] for s in kospi + kosdaq if s.get("cap")}
+    n_fill = 0
+    for e in sectors.values():
+        for fld in ("stocks", "kosdaqStocks"):
+            for s in e.get(fld) or []:
+                c = cap_by_code.get(s.get("code"))
+                if c:
+                    s["cap"] = c
+                    n_fill += 1
+    print(f"  시총 백필: {n_fill}종목 (마스터 코드 조회)")
+
     n_k = sum(len(e.get("stocks") or []) for e in sectors.values())
     n_q = sum(len(e.get("kosdaqStocks") or []) for e in sectors.values())
     print(f"  생성: {len(sectors)} 섹터, KOSPI {n_k} / KOSDAQ {n_q} "
