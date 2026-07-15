@@ -5432,9 +5432,9 @@
               </div>
             </div>`).join("");
         }
+        const dt = (d) => `${d.slice(4, 6)}/${d.slice(6, 8)}`;
         const rows = sec.daily || [];
         if (rows.length) {
-          const dt = (d) => `${d.slice(4, 6)}/${d.slice(6, 8)}`;
           const rateColor = (r) => (r || 0) >= 0 ? "var(--up-red)" : "var(--kospi-blue)";
           const cum = (k) => rows.reduce((s, r) => s + (r[k] || 0), 0);
           html += `<div class="analysis-subhead">일별 투자자 순매수 대금 (단위: 억원, 음수=순매도)</div>`;
@@ -5464,7 +5464,70 @@
               <td style="text-align:right; padding:5px 6px;">${fmtEok(cum("fund"))}</td>
             </tr></tfoot></table></div>`;
           html += `<div class="analysis-item-meta" style="margin-top:6px;">확정치 기준(KIS 종목별 투자자매매동향·KRX+NXT 통합) — 당일 확정치는 장 마감 후 반영${sec.asof ? ` · ${escapeHtml(sec.asof)} 조회` : ""}</div>`;
-        } else if (!(sec.rank && sec.rank.length)) {
+        }
+        // 공매도·대차: 값은 허브에서 억원 정규화(fmtEok의 백만원→억원 변환 미적용)
+        const fmtNum = (v) => Number(v || 0).toLocaleString();
+        const fmtEokVal = (v) => { const a = Math.abs(v || 0); return a >= 100 ? Math.round(a).toLocaleString() : a.toFixed(1); };
+        const fmtChgQty = (v) => {
+          if (v > 0) return `<span style="color:var(--up-red); font-weight:600;">+${fmtNum(v)}</span>`;
+          if (v < 0) return `<span style="color:var(--kospi-blue); font-weight:600;">-${fmtNum(Math.abs(v))}</span>`;
+          return `<span style="color:var(--text-muted);">0</span>`;
+        };
+        const shorts = sec.shorts || [];
+        if (shorts.length) {
+          const pctCell = (v) => (v >= 10)
+            ? `<span style="color:var(--up-red); font-weight:700;">${v}%</span>` : `${v}%`;
+          const sSum = shorts.reduce((s, r) => s + (r.pbmn || 0), 0);
+          const sAvg = shorts.reduce((s, r) => s + (r.pbmnRlim || 0), 0) / shorts.length;
+          html += `<div class="analysis-subhead">공매도 일별추이 (대금: 억원 · 공표 지연으로 전일까지)</div>`;
+          html += `<div style="overflow-x:auto;"><table style="width:100%; border-collapse:collapse; font-size:12px;">
+            <thead><tr style="color:var(--text-muted);">
+              <th style="text-align:left; padding:4px 6px;">날짜</th>
+              <th style="text-align:right; padding:4px 6px;">공매도 대금</th>
+              <th style="text-align:right; padding:4px 6px;">대금 비중</th>
+              <th style="text-align:right; padding:4px 6px;">거래량 비중</th>
+            </tr></thead><tbody>` +
+            shorts.map(r => `<tr style="border-top:1px solid rgba(255,255,255,.06);">
+              <td style="padding:4px 6px;">${dt(r.date)}</td>
+              <td style="text-align:right; padding:4px 6px;">${fmtEokVal(r.pbmn)}</td>
+              <td style="text-align:right; padding:4px 6px;">${pctCell(r.pbmnRlim)}</td>
+              <td style="text-align:right; padding:4px 6px;">${r.volRlim}%</td>
+            </tr>`).join("") + `</tbody><tfoot>
+            <tr style="border-top:2px solid rgba(255,255,255,.18);">
+              <td style="padding:5px 6px; font-weight:700; color:var(--text-main);">누적 (${shorts.length}일)</td>
+              <td style="text-align:right; padding:5px 6px; font-weight:700;">${fmtEokVal(sSum)}</td>
+              <td style="text-align:right; padding:5px 6px;">평균 ${sAvg.toFixed(1)}%</td>
+              <td></td>
+            </tr></tfoot></table></div>`;
+        }
+        const loans = sec.loans || [];
+        if (loans.length) {
+          const lSum = (k) => loans.reduce((s, r) => s + (r[k] || 0), 0);
+          html += `<div class="analysis-subhead">대차거래 잔고추이 (단위: 주 · 잔고증감 양수=누증(하방 압력), 음수=상환 우위)</div>`;
+          html += `<div style="overflow-x:auto;"><table style="width:100%; border-collapse:collapse; font-size:12px;">
+            <thead><tr style="color:var(--text-muted);">
+              <th style="text-align:left; padding:4px 6px;">날짜</th>
+              <th style="text-align:right; padding:4px 6px;">체결</th>
+              <th style="text-align:right; padding:4px 6px;">상환</th>
+              <th style="text-align:right; padding:4px 6px;">잔고증감</th>
+              <th style="text-align:right; padding:4px 6px;">잔고(주)</th>
+            </tr></thead><tbody>` +
+            loans.map(r => `<tr style="border-top:1px solid rgba(255,255,255,.06);">
+              <td style="padding:4px 6px;">${dt(r.date)}</td>
+              <td style="text-align:right; padding:4px 6px;">${fmtNum(r.newQty)}</td>
+              <td style="text-align:right; padding:4px 6px;">${fmtNum(r.rdmpQty)}</td>
+              <td style="text-align:right; padding:4px 6px;">${fmtChgQty(r.rmndChg)}</td>
+              <td style="text-align:right; padding:4px 6px;">${fmtNum(r.rmndQty)}</td>
+            </tr>`).join("") + `</tbody><tfoot>
+            <tr style="border-top:2px solid rgba(255,255,255,.18);">
+              <td style="padding:5px 6px; font-weight:700; color:var(--text-main);">누적 (${loans.length}일)</td>
+              <td style="text-align:right; padding:5px 6px;">${fmtNum(lSum("newQty"))}</td>
+              <td style="text-align:right; padding:5px 6px;">${fmtNum(lSum("rdmpQty"))}</td>
+              <td style="text-align:right; padding:5px 6px;">${fmtChgQty(lSum("rmndChg"))}</td>
+              <td></td>
+            </tr></tfoot></table></div>`;
+        }
+        if (!rows.length && !shorts.length && !loans.length && !(sec.rank && sec.rank.length)) {
           html += `<span class="analysis-empty">수급 데이터가 없습니다.</span>`;
         }
       } else if (tab === "dart") {

@@ -97,6 +97,10 @@ SYSTEM = """\
   daily 는 확정치(장중에는 전일까지만 존재), today_rank 는 당일 장중 가집계(잠정) 순매수/순매도
   랭킹이다. 외국인·기관 동반 순매수/순매도, 추세 전환(연속 매도 후 첫 매수 등), 랭킹 진입은
   catalyst·direction 판단의 주요 근거로 활용하라. 단, 잠정치(today_rank)는 '가집계'임을 감안한다.
+  shorts_recent(공매도 일별: pbmn=공매도 대금 억원, pbmnRlim/volRlim=거래대금/거래량 비중%)와
+  loans_recent(대차거래 일별: newQty=체결, rdmpQty=상환, rmndChg=잔고 증감 주수, rmndAmt=잔고 억원)도
+  하방 압력 신호로 활용하라 — 공매도 비중 급증(예: 거래대금의 10%+)과 대차잔고 누증은 하방 압력,
+  잔고 급감은 숏커버 가능성. 수치는 입력값을 그대로 인용하고 지어내지 말 것.
 - catalyst: 뉴스·공시·수급·peer 동향 중 '오늘 주가를 가장 크게 움직일' 단일 촉매를 투자자 관점으로
   요약한다. 대시보드의 'Market Moving Catalysts'에 그대로 노출되므로 placeholder/메타설명을 쓰지 말고
   구체적 내용으로 채운다. 근거가 빈약하면 거래대금·모멘텀 등 가격 동향 기반으로 신중히 서술한다.
@@ -332,6 +336,7 @@ def fetch_investor_flow(code):
         d = r.json()
         if d.get("status") == "success":
             return {"daily": d.get("daily") or [], "rank": d.get("rank") or [],
+                    "shorts": d.get("shorts") or [], "loans": d.get("loans") or [],
                     "asof": d.get("asof", ""), "rankAsof": d.get("rankAsof", "")}
     except Exception as e:
         print(f"[flow] {code} 수급 조회 실패: {e}", file=sys.stderr)
@@ -372,7 +377,9 @@ def analyze_stock(stock, peer_cfg):
     # 전체(20일)는 아래에서 analysis["flow"] 로 결정적으로 실어 대시보드가 렌더링.
     flow = fetch_investor_flow(stock["code"])
     if flow.get("daily") or flow.get("rank"):
-        raw["investor_flow"] = {"daily": flow["daily"][:10], "today_rank": flow["rank"]}
+        raw["investor_flow"] = {"daily": flow["daily"][:10], "today_rank": flow["rank"],
+                                "shorts_recent": (flow.get("shorts") or [])[:10],
+                                "loans_recent": (flow.get("loans") or [])[:10]}
 
     user = (f"종목: {stock['name']} ({stock['code']}, {stock['market']})\n"
             f"RAW 데이터(JSON):\n{json.dumps(raw, ensure_ascii=False)}")
