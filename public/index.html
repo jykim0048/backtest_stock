@@ -594,6 +594,7 @@
     .econ-badge.below  { background: var(--down-blue-dim); color: #93c5fd; }
     .econ-badge.inline { background: rgba(255,255,255,.07); color: #cbd5e1; }
     .econ-imp { color: #fbbf24; font-size: 11px; letter-spacing: 1px; white-space: nowrap; }
+    .econ-imp .imp-off { color: rgba(255,255,255,.22); }
     .econ-time { color: var(--text-muted); font-size: 11.5px; white-space: nowrap; }
     .econ-nation { font-size: 10.5px; font-weight: 700; padding: 1px 6px; border-radius: 5px; white-space: nowrap; }
     .econ-nation.kor { background: var(--up-red-dim); color: var(--up-red); }
@@ -2903,9 +2904,14 @@
 
     // ===== 경제지표 카드 (econEvents — fetch_econ_calendar.py 산출, 네이버+FF 컨센서스) =====
     const _ECON_IMP_LABEL = { 1: "낮음", 2: "보통", 3: "높음", 4: "매우 높음" };
+    // 3성 표기: 낮음(1)=노란별 0개(무색 3개), 보통(2)=1개, 높음(3)=2개, 매우 높음(4)=3개.
+    // FF 단독 이벤트도 수집 단계에서 같은 1~4 스케일로 저장되므로 동일하게 적용된다.
     function _econImp(n) {
       n = Math.max(1, Math.min(4, n || 1));
-      return `<span class="econ-imp" title="시장 영향력 ${_ECON_IMP_LABEL[n]}">${"★".repeat(n)}</span>`;
+      const on = n - 1;
+      return `<span class="econ-imp" title="시장 영향력 ${_ECON_IMP_LABEL[n]}">`
+           + "★".repeat(on)
+           + `<span class="imp-off">${"★".repeat(3 - on)}</span></span>`;
     }
     function _econSfx(r) {
       if ((r.unit || "") === "%") return "%";
