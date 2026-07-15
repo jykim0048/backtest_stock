@@ -3880,7 +3880,7 @@
     // 익절/손절 판정 — 장전(stockData)·장중(watchData) 공용. 매도 발생 시 true.
     // 판정 순서: 상한가 → 목표가 부분익절 → 트레일링 → 손절/본전 → 정체 청산.
     const _LIMIT_UP_PCT = 29.5;   // 전일종가 대비 등락률 이 이상이면 상한가로 간주
-    const _LIMIT_UP_ENTRY_BLOCK = 28;  // 이 등락률 이상이면 신규 진입 금지(상한가 추격 매수 봉쇄)
+    const _LIMIT_UP_ENTRY_BLOCK = 25;  // 이 등락률 이상이면 신규 진입 금지(상한가 추격 매수 봉쇄)
     const _TRAIL_ARM_PCT = 3;     // 고점 수익률이 이만큼 넘어야 트레일링 활성
     const _BREAKEVEN_ARM_PCT = 5; // 수익이 이만큼 넘으면 본전 스탑 발동
     const _STAGNANT_MS = 60 * 60 * 1000;  // 정체 청산 기준 보유시간(1시간)
