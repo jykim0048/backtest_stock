@@ -475,11 +475,17 @@
     .ib-idxrow { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 9px; }
     .ib-idxcard { background: rgba(255,255,255,.03); border: 1px solid var(--border-color);
       border-radius: 8px; padding: 8px 11px; }
-    .ib-idxhead { display: flex; align-items: baseline; gap: 8px; }
+    .ib-idxhead { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
     .ib-idxname { font-size: 13px; font-weight: 700; color: var(--text-muted); }
     .ib-idxval { font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; }
-    .ib-idxflow { margin-top: 4px; font-size: 12px; color: var(--text-muted);
-      font-variant-numeric: tabular-nums; }
+    /* 투자자별 순매수 알약 — 지수 우측에 배치, 주체별 색 구분 */
+    .ib-idxflow { margin-left: auto; display: flex; gap: 5px; flex-wrap: wrap; align-items: center; }
+    .ib-flowpill { font-size: 11px; padding: 2px 8px; border-radius: 999px; white-space: nowrap;
+      font-variant-numeric: tabular-nums; border: 1px solid transparent; }
+    .ib-flowpill b { font-weight: 700; }
+    .ib-flowpill-prsn { background: rgba(148,163,184,.15); color: #cbd5e1; border-color: rgba(148,163,184,.32); }
+    .ib-flowpill-frgn { background: rgba(96,165,250,.15); color: #93c5fd; border-color: rgba(96,165,250,.32); }
+    .ib-flowpill-orgn { background: rgba(251,191,36,.14); color: #fcd34d; border-color: rgba(251,191,36,.34); }
     .ib-flowchart { display: block; margin-top: 6px; }   /* 크기는 드로잉 시 DPR 반영해 JS 가 지정 */
     @media (max-width: 560px) { .ib-idxrow { grid-template-columns: 1fr; } }
     /* 환율 브리핑 */
@@ -3291,15 +3297,20 @@
       // (네이버 증권홈 '오늘의 증시'와 동일 수치, 양수=순매수)
       const idx = d.indices || {};
       const inv = d.investors || {};
-      const invFmt = (v) => v == null ? "—"
-        : `<span style="color:${_brPctColor(v)}; font-weight:600;">${v >= 0 ? "+" : ""}${Math.round(v).toLocaleString()}</span>`;
+      // 투자자별 순매수(억원)를 알약(pill)로 — 알약 색은 주체별로 고정(개인 회색·외인 파랑·기관 앰버),
+      // 순매수/순매도는 +/- 부호로 표기. 차트 선 색과 통일.
+      const invPill = (label, v, cls) => v == null ? ""
+        : `<span class="ib-flowpill ${cls}">${label} <b>${v >= 0 ? "+" : ""}${Math.round(v).toLocaleString()}</b></span>`;
       const idxCards = [["KOSPI", "kospi"], ["KOSDAQ", "kosdaq"]].map(([nm, k]) => {
         const v = idx[k];
         if (!v || typeof v.price !== "number") return "";
         const iv = inv[k];
-        // 수급 라벨은 차트 선 색과 통일(개인 회색·외인 파랑·기관 앰버)
         const flow = iv
-          ? `<div class="ib-idxflow">💰 <span style="color:#94a3b8;">개인</span> ${invFmt(iv.individual)} · <span style="color:#60a5fa;">외인</span> ${invFmt(iv.foreign)} · <span style="color:#fbbf24;">기관</span> ${invFmt(iv.institution)}</div>`
+          ? `<div class="ib-idxflow">`
+            + invPill("개인", iv.individual, "ib-flowpill-prsn")
+            + invPill("외인", iv.foreign, "ib-flowpill-frgn")
+            + invPill("기관", iv.institution, "ib-flowpill-orgn")
+            + `</div>`
           : "";
         // 1분 누적 순매수 차트 (investorSeries — 데이터 없으면 생략)
         const series = (d.investorSeries || {})[k] || [];
@@ -3308,7 +3319,8 @@
         return `<div class="ib-idxcard"><div class="ib-idxhead">`
           + `<span class="ib-idxname">${nm}</span>`
           + `<span class="ib-idxval" style="color:${_brPctColor(v.rate)}">${v.price.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} · ${_brPctFmt(v.rate)}%</span>`
-          + `</div>${flow}${chart}</div>`;
+          + flow
+          + `</div>${chart}</div>`;
       }).join("");
       const idxRow = idxCards ? `<div class="ib-idxrow">${idxCards}</div>` : "";
 
