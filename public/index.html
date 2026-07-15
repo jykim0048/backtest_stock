@@ -3614,6 +3614,9 @@
             stars:     item.stars    || "⭐⭐⭐",
             catalyst:  item.catalyst || "",
             scenario:  item.scenario || "",
+            // 이 항목이 선정된 KST 거래일(리포트 생성 시 기록) — 종목 단위 스테일 게이트.
+            // 전일 리포트 잔존/캐시 skew 로 리스트가 낡아도 selectedDate!==오늘이면 매수 불가.
+            selectedDate: item.selectedDate || null,
             // 딥리서치 방향 판정 (bearish=진입 스킵). 톱레벨 우선, 없으면 analysis 폴백.
             direction: item.direction || (item.analysis && item.analysis.direction) || null,
             analysis:  item.analysis || null,
@@ -4018,6 +4021,11 @@
         if (stock.enteredDate && stock.enteredDate !== today && !(stock.quantity > 0)) {
           stock.entryTranchesDone = 0; stock.enteredDate = null;
         }
+        // 종목 단위 스테일 게이트: 이 항목이 '오늘' 선정된 리포트 출신일 때만 신규 진입.
+        // 전역 게이트(intradayDataDate)는 selection 파일 기준이라, 파일별 캐시 skew 로
+        // '게이트 열림 + 전일 리스트' 창이 생겨 전일 종목을 일괄 매수한 사고(2026-07-15,
+        // 2026-07-07 동형)를 원자적으로 차단한다. selectedDate 없는 구버전 리포트도 매수 금지.
+        if (!_isDemo() && stock.selectedDate !== today) return;
         // 오늘 진입 이력이 있는데 현재 미보유 = 오늘 청산됨 → 같은 날 재진입 금지.
         // (enteredDate 로 보장 — 트랜치 카운터가 리로드/레거시 마이그레이션으로 0 이 돼도 안전)
         if (stock.enteredDate === today && !(stock.quantity > 0)) return;

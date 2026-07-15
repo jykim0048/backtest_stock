@@ -138,6 +138,10 @@ def generate_report():
             'code':      code,
             'name':      name,
             'market':    market,
+            # 이 항목이 선정된 KST 거래일. 대시보드 자동매수의 종목 단위 스테일 게이트 —
+            # 장 시작 직후 전일 리포트가 남아 있어도(파일별 캐시 skew 포함) 전일 종목을
+            # 매수하지 않게 한다(2026-07-07·07-15 스테일 일괄매수 사고의 근본 방지).
+            'selectedDate': today,
             'basePrice': data['basePrice'],
             'entry':     data['entry'],
             'target':    data['target'],
