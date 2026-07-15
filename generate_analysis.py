@@ -376,7 +376,9 @@ def analyze_stock(stock, peer_cfg):
     # 투자자 수급(KIS): LLM 프롬프트에는 최근 10거래일 + 당일 가집계 랭킹만 (경량화).
     # 전체(20일)는 아래에서 analysis["flow"] 로 결정적으로 실어 대시보드가 렌더링.
     flow = fetch_investor_flow(stock["code"])
-    if flow.get("daily") or flow.get("rank"):
+    # 일별(daily)은 KIS 시간제한(00:00~15:40 차단)으로 장중엔 비어 있을 수 있다 —
+    # 공매도/대차/가집계만 있어도 프롬프트에 넣는다.
+    if any(flow.get(k) for k in ("daily", "rank", "shorts", "loans")):
         raw["investor_flow"] = {"daily": flow["daily"][:10], "today_rank": flow["rank"],
                                 "shorts_recent": (flow.get("shorts") or [])[:10],
                                 "loans_recent": (flow.get("loans") or [])[:10]}
