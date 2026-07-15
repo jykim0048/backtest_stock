@@ -80,6 +80,12 @@ jobs:
           NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
         run: python generate_analysis.py
 
+      # briefing 스텝보다 먼저: generate_briefing.py 가 econ_calendar.json 을 읽어
+      # 전일 미국 지표 결과·당일 일정을 브리핑(econEvents)에 반영한다.
+      - name: Fetch economic calendar (네이버 경제캘린더 + ForexFactory 컨센서스)
+        continue-on-error: true   # best-effort; 실패 시 기존 econ_calendar.json 유지
+        run: python fetch_econ_calendar.py
+
       # sector 스텝보다 반드시 먼저: generate_sector.py 가 브리핑의 flow[].krNames 를 입력으로
       # 읽으므로(신선도 갭 방지), 이 순서를 지켜야 같은 날 데이터로 일관되게 맞물린다.
       - name: Generate morning briefing
@@ -105,6 +111,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add watchlist.json public/daily_market_report.json public/reports/ public/sector_analysis.json public/briefing/
+          git add public/econ_calendar.json 2>/dev/null || true
           # 하락 관찰 산출물 — 스크리너 실패 등으로 파일이 없으면 조용히 무시
           git add watchlist_down.json public/down_market_report.json 2>/dev/null || true
           git diff --staged --quiet && echo "No changes to commit" && exit 0

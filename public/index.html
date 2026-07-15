@@ -588,6 +588,18 @@
     .briefing-wl th { font-size: 13px; color: var(--text-muted); text-align: left; padding: 0 2px 5px; border-bottom: 1px solid var(--border-color); font-weight: 400; }
     .briefing-wl td { font-size: 14px; padding: 6px 2px; border-bottom: 1px solid rgba(255,255,255,.04); vertical-align: top; }
     .briefing-foot { font-size: 12px; color: var(--text-muted); text-align: right; margin-top: 10px; }
+    /* 경제지표 카드 (econ_calendar.json → econEvents) */
+    .econ-badge { font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 8px; white-space: nowrap; }
+    .econ-badge.above  { background: var(--up-red-dim); color: var(--up-red); }
+    .econ-badge.below  { background: var(--down-blue-dim); color: #93c5fd; }
+    .econ-badge.inline { background: rgba(255,255,255,.07); color: #cbd5e1; }
+    .econ-imp { color: #fbbf24; font-size: 11px; letter-spacing: 1px; white-space: nowrap; }
+    .econ-time { color: var(--text-muted); font-size: 11.5px; white-space: nowrap; }
+    .econ-nation { font-size: 10.5px; font-weight: 700; padding: 1px 6px; border-radius: 5px; white-space: nowrap; }
+    .econ-nation.kor { background: var(--up-red-dim); color: var(--up-red); }
+    .econ-nation.usa { background: var(--kospi-blue-dim); color: var(--kospi-blue); }
+    .econ-vals { text-align: right; white-space: nowrap; }
+    .econ-vals .ev-sub { color: var(--text-muted); font-size: 12px; }
     /* 브리핑 상단 섹터분석 카드(국면·센티먼트·섹터ETF) — 구 섹터탭에서 이관 */
     .briefing-sectortop { display: flex; flex-direction: column; gap: 12px; margin-bottom: 12px; }
     /* stretch: FRED 카드는 국면 요약 문구가 더 있어 콘텐츠가 길다 — 짧은 ETF 카드를
@@ -2889,6 +2901,77 @@
            + `${fgCard}</div>`;
     }
 
+    // ===== 경제지표 카드 (econEvents — fetch_econ_calendar.py 산출, 네이버+FF 컨센서스) =====
+    const _ECON_IMP_LABEL = { 1: "낮음", 2: "보통", 3: "높음", 4: "매우 높음" };
+    function _econImp(n) {
+      n = Math.max(1, Math.min(4, n || 1));
+      return `<span class="econ-imp" title="시장 영향력 ${_ECON_IMP_LABEL[n]}">${"★".repeat(n)}</span>`;
+    }
+    function _econSfx(r) {
+      if ((r.unit || "") === "%") return "%";
+      const u = (r.unit === "USD") ? "$" : (r.unit || "");
+      return (r.unitScale || "") + u;
+    }
+    function _econVal(v, r) {
+      return (v === null || v === undefined) ? "—" : `${v}${_econSfx(r)}`;
+    }
+    function _econBadge(r) {
+      const s = r.surprise;
+      if (!s || !s.verdict) return "";
+      const word = { above: "상회", inline: "부합", below: "하회" }[s.verdict] || "";
+      const base = (s.vs === "forecast") ? "예상" : "이전比";
+      return `<span class="econ-badge ${s.verdict}">${base} ${word}</span>`;
+    }
+    function _econTime(r, todayStr) {
+      const at = r.releaseAtKST || "";
+      if (!at) return "";
+      const hm = at.slice(11, 16);
+      if (todayStr && at.slice(0, 10) === todayStr) return hm;
+      return `${parseInt(at.slice(5, 7), 10)}/${parseInt(at.slice(8, 10), 10)} ${hm}`;
+    }
+    function _econName(r) {
+      return `${_brEsc(r.name)}${r.period ? ` <span style="color:var(--text-muted);font-size:11.5px">${_brEsc(r.period)}</span>` : ""}`;
+    }
+    function _econNation(r) {
+      return (r.nation === "KOR")
+        ? `<span class="econ-nation kor">KOR</span>` : `<span class="econ-nation usa">USA</span>`;
+    }
+    // 발표 결과 행: 시간 | 국가 | ★ | 지표(기간) | 실제/예상/이전 | 서프라이즈 배지
+    function _econReleasedRows(items, todayStr) {
+      return (items || []).map(r => {
+        const sub = (r.forecast !== null && r.forecast !== undefined)
+          ? `<span class="ev-sub"> / 예상 ${_econVal(r.forecast, r)} · 이전 ${_econVal(r.previous, r)}</span>`
+          : `<span class="ev-sub"> / 이전 ${_econVal(r.previous, r)}</span>`;
+        return `<tr><td class="econ-time">${_econTime(r, todayStr)}</td>`
+             + `<td>${_econNation(r)}</td>`
+             + `<td>${_econImp(r.importance)}</td>`
+             + `<td>${_econName(r)}</td>`
+             + `<td class="econ-vals"><b>${_econVal(r.actual, r)}</b>${sub}</td>`
+             + `<td style="text-align:right">${_econBadge(r)}</td></tr>`;
+      }).join("");
+    }
+    // 발표 예정 행: 컬럼 구조는 발표 행과 동일(같은 테이블에 섞여도 정렬 유지), 배지 자리는 비움
+    function _econUpcomingRows(items, todayStr) {
+      return (items || []).map(r => {
+        const vals = (r.forecast !== null && r.forecast !== undefined)
+          ? `예상 ${_econVal(r.forecast, r)} · 이전 ${_econVal(r.previous, r)}`
+          : `이전 ${_econVal(r.previous, r)}`;
+        return `<tr><td class="econ-time">${_econTime(r, todayStr)}</td>`
+             + `<td>${_econNation(r)}</td>`
+             + `<td>${_econImp(r.importance)}</td>`
+             + `<td>${_econName(r)}</td>`
+             + `<td class="econ-vals"><span class="ev-sub">${vals}</span></td>`
+             + `<td></td></tr>`;
+      }).join("");
+    }
+    function _econCard(title, rowsHtml, note) {
+      if (!rowsHtml) return "";
+      return `<div class="briefing-wl" style="margin-top:12px"><div class="wl-h">${title}</div>`
+           + `<table><tbody>${rowsHtml}</tbody></table>`
+           + (note ? `<div style="font-size:10.5px;color:var(--text-muted);margin-top:6px">${note}</div>` : "")
+           + `</div>`;
+    }
+
     // 테마 클릭 심층분석 모달이 참조할 섹터분석 데이터 (renderBriefing 시점의 sector_analysis.json)
     let _sectorDeepData = null;
 
@@ -2999,6 +3082,16 @@
 
       const usBullets = (d.usReview && d.usReview.bullets) || [];
       const catB = (d.krPreview && d.krPreview.catalystSummary) || "";
+
+      // 경제지표 카드 — 미국 발표분은 미국장 리뷰에, 당일 한국 + 오늘 밤 미국 예정은 프리뷰에
+      const econ = d.econEvents || {};
+      const econReleasedCard = _econCard("📊 전일 미국 경제지표",
+        _econReleasedRows(econ.usReleased, d.date),
+        "서프라이즈: 예상(컨센서스) 대비, 예상치 없으면 이전값 대비 · ★=시장 영향력");
+      const econUpcoming = [...(econ.korToday || []), ...(econ.usTonight || [])]
+        .sort((a, b) => (a.releaseAtKST || "").localeCompare(b.releaseAtKST || ""));
+      const econUpcomingCard = _econCard("🗓️ 오늘의 경제지표 일정 — 한국 · 오늘 밤 미국",
+        _econUpcomingRows(econUpcoming, d.date));
       const genLabel = (d.generatedBy === "mechanical")
         ? "기계적 요약" : ("LLM 기반" + (d.generatedBy ? " (" + _brEsc(d.generatedBy) + ")" : ""));
 
@@ -3011,8 +3104,10 @@
           <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">섹터 히트 (강→약)</div>
           <div class="briefing-heat">${heat}</div>
           ${usBullets.length ? `<ul class="briefing-usbullets">${usBullets.map(b => `<li>${_brEsc(b)}</li>`).join("")}</ul>` : ""}
+          ${econReleasedCard}
         </div>
         ${flowCols}
+        ${econUpcomingCard}
         ${catB ? `<div class="briefing-catalyst"><div class="cat-h">⚡ 전일 장마감 후 국내 촉매</div><div class="cat-b">${_brEsc(catB)}</div></div>` : ""}
         ${picks.length ? `<div class="briefing-wl"><div class="wl-h">오늘의 워치리스트 (장전 선정 ${picks.length}종목)</div>`
           + `<table><thead><tr><th style="width:120px">종목</th><th style="width:58px">시장</th><th>핵심 촉매</th></tr></thead><tbody>${rows}</tbody></table></div>` : ""}
@@ -3242,6 +3337,14 @@
           + `<ul class="briefing-usbullets">${fxb.map(b => `<li>${_brEsc(b)}</li>`).join("")}</ul></div>`
         : "";
 
+      // 경제지표 — 오늘 아침 발표된 한국 지표 결과 + 오늘 밤 미국 발표 예정 (한 카드)
+      const ibEcon = d.econEvents || {};
+      const ibEconRows = _econReleasedRows(ibEcon.korReleasedToday, d.date)
+        + _econUpcomingRows(ibEcon.usTonight, d.date);
+      const econSection = _econCard("📅 경제지표 — 오늘 한국 발표 · 오늘 밤 미국 예정",
+        ibEconRows,
+        "서프라이즈: 예상(컨센서스) 대비, 예상치 없으면 이전값 대비 · ★=시장 영향력");
+
       // 장중 촉매 — 종목 단위(중복 통합) + 회차 선택 셀렉터(이전 회차 촉매 조회).
       // 행 빌드는 _ibCatRows(회차 전환 시 재사용), 셀렉터는 렌더 후 _ibLoadRounds 가 채운다.
       const catBox =
@@ -3339,6 +3442,7 @@
           ${indChips ? `<div class="briefing-chips">${indChips}</div>` : ""}
           ${bullets}
           ${fxSection}
+          ${econSection}
         </div>
         ${sectorSection}
         ${catBox}

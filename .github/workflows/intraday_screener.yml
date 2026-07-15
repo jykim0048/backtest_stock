@@ -135,6 +135,12 @@ jobs:
           NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
         run: python generate_analysis.py
 
+      # 시황 스텝보다 먼저: 아침 발표 한국 지표(무역수지 09:00 등)의 실제값을 회차마다 갱신해
+      # generate_intraday_briefing.py 가 econEvents 로 반영한다.
+      - name: Fetch economic calendar (네이버 경제캘린더 + ForexFactory 컨센서스)
+        continue-on-error: true   # best-effort; 실패 시 기존 econ_calendar.json 유지
+        run: python fetch_econ_calendar.py
+
       - name: Generate intraday market briefing (장중 시황판)
         continue-on-error: true   # best-effort; 시황 실패가 관심종목 회차를 막지 않게
         timeout-minutes: 15       # LLM 정체 등으로 무한 대기 시 다음 회차 지연 방지
@@ -155,7 +161,7 @@ jobs:
           # 하락 관찰 산출물 — 생성 실패 등으로 파일이 없으면 조용히 무시
           git add intraday_watchlist_down.json public/intraday_down_report.json public/reports/intraday_down/ 2>/dev/null || true
           # 장중 시황 산출물 — 생성 실패 시 파일이 없으면 조용히 무시
-          git add public/intraday_briefing.json public/reports/intraday_briefing/ 2>/dev/null || true
+          git add public/intraday_briefing.json public/reports/intraday_briefing/ public/econ_calendar.json 2>/dev/null || true
           git diff --staged --quiet && echo "No changes to commit" && exit 0
           git commit -m "chore: auto-generate intraday watchlist $(date -u +'%Y-%m-%d %H:%MZ') [skip railway]"
           # Remote may have advanced (daily report or concurrent pushes); push, and

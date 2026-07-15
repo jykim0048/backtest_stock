@@ -471,6 +471,55 @@ def _load_us_context():
         return {}
 
 
+def _load_econ_events(now):
+    """경제지표 캘린더(public/econ_calendar.json, 매 회차 fetch_econ_calendar.py 로 갱신)에서
+    장중 관점 2구획 발췌 — korReleasedToday(오늘 아침 발표된 한국 지표 결과),
+    usTonight(오늘 밤 미국 발표 예정). 없으면 {} (graceful)."""
+    try:
+        with open(os.path.join(ROOT, "public", "econ_calendar.json"),
+                  encoding="utf-8") as f:
+            cal = json.load(f) or {}
+    except Exception as e:
+        _warn(f"econ_calendar.json 로드 실패(경제지표 생략): {e}")
+        return {}
+    today = now.strftime("%Y-%m-%d")
+    tonight_from = f"{today} 15:30"
+    tonight_to = (now + datetime.timedelta(days=1)).strftime("%Y-%m-%d") + " 08:00"
+
+    def pick(rows, limit=8):
+        rows = sorted(rows, key=lambda r: (-(r.get("importance") or 0),
+                                           r.get("releaseAtKST") or ""))
+        return sorted(rows[:limit], key=lambda r: r.get("releaseAtKST") or "")
+
+    def ok(r):
+        return (r.get("importance") or 0) >= 2 and r.get("releaseAtKST")
+
+    ev = {
+        "korReleasedToday": pick([r for r in cal.get("released") or []
+                                  if ok(r) and r.get("nation") == "KOR"
+                                  and r["releaseAtKST"][:10] == today]),
+        "usTonight": pick([r for r in cal.get("upcoming") or []
+                           if ok(r) and r.get("nation") == "USA"
+                           and tonight_from <= r["releaseAtKST"] <= tonight_to]),
+    }
+    return ev if any(ev.values()) else {}
+
+
+def _econ_llm_view(econ):
+    """LLM 입력용 축약 — 수치 재생성 유인을 줄이기 위해 필요한 필드만."""
+    def slim(r):
+        out = {"name": r.get("name"), "importance": r.get("importance"),
+               "releaseAtKST": r.get("releaseAtKST"),
+               "previous": r.get("previous"), "forecast": r.get("forecast"),
+               "unit": r.get("unit") or r.get("unitScale") or ""}
+        if r.get("actual") is not None:
+            out["actual"] = r["actual"]
+        if r.get("surprise"):
+            out["surpriseVerdict"] = r["surprise"].get("verdict")
+        return out
+    return {k: [slim(r) for r in v] for k, v in econ.items() if v}
+
+
 def fetch_movers():
     """급등/급락 개별종목 (LLM 재료 — 테마 밖 단독 급등주 포착용)."""
     up, down = [], []
@@ -535,6 +584,9 @@ SYSTEM = (
     "market(한국 종목이면 반드시 KOSPI 또는 KOSDAQ 로 채울 것 — 비우지 말 것; 해외 종목은 애초에 넣지 말 것), "
     "direction(그 촉매가 주가에 주는 방향 — 상방=bullish|중립=neutral|하방=bearish), summary(핵심 촉매 한 문장).\n"
     "  · 뉴스는 corp 필드가 없으니 제목·본문에서 종목명을 추출해 stock 에 넣을 것.\n"
+    "- econEvents 가 있으면: korReleasedToday(오늘 발표된 한국 경제지표 — actual/forecast/previous 와 "
+    "surpriseVerdict: above=예상 상회|inline=부합|below=하회)는 ① 지수·수급 서술의 배경으로, "
+    "usTonight(오늘 밤 미국 발표 예정 지표)은 ⑤ 관전 포인트에 반영할 것(수치는 입력값을 그대로 인용).\n"
     "- fxBullets 는 환율 관련 1~3개 불릿(fxNews·marketIndicators.exchange/world 근거): "
     "원/달러·달러인덱스·엔/달러 흐름과 그 배경(뉴스 근거), 국내 증시(수출주·환율 민감주)에 주는 "
     "함의를 담을 것. 근거 데이터가 전혀 없으면 빈 배열.\n"
@@ -594,7 +646,8 @@ def _sector_raw(s):
 
 def synthesize(indices, investors, indicators, sectors_up, sectors_down,
                movers_up, movers_down, disclosures, news, fx_news,
-               prev_rounds=None, us_context=None, investor_flow=None):
+               prev_rounds=None, us_context=None, investor_flow=None,
+               econ_events=None):
     # 시장지표는 핵심만 추려 LLM 에 전달 (COFIX 등 저관련 항목 제외)
     core_ind = {}
     if indicators:
@@ -630,6 +683,8 @@ def synthesize(indices, investors, indicators, sectors_up, sectors_down,
         raw["usContext"] = us_context           # 전일 미국장 리뷰·섹터 (모닝브리핑 발췌)
     if investor_flow:
         raw["investorFlow"] = investor_flow     # 1분 수급 시계열 요약(전환·가속)
+    if econ_events:
+        raw["econEvents"] = _econ_llm_view(econ_events)   # 오늘 한국 지표 결과 + 오늘 밤 미국 예정
     system = SYSTEM
     if prev_rounds:
         raw["previousRounds"] = prev_rounds     # 마감 시황 — 당일 회차별 다이제스트
@@ -761,11 +816,16 @@ def main():
     if final:
         print(f"  마감 시황 모드 — 이전 회차 {len(prev_rounds)}건 반영")
 
+    econ_events = _load_econ_events(now)
+    if econ_events:
+        print(f"  경제지표: 한국 발표 {len(econ_events.get('korReleasedToday', []))}건, "
+              f"오늘 밤 미국 예정 {len(econ_events.get('usTonight', []))}건")
+
     briefing, fx_bullets, catalysts, model = synthesize(
         indices, investors, indicators, sectors_up, sectors_down,
         movers_up, movers_down, disclosures, news, fx_news,
         prev_rounds=prev_rounds, us_context=_load_us_context(),
-        investor_flow=investor_flow)
+        investor_flow=investor_flow, econ_events=econ_events)
 
     out = {
         "date": now.strftime("%Y-%m-%d"),
@@ -783,6 +843,7 @@ def main():
         "sectorsUp": sectors_up,        # 급등 상위 섹터 + KRX 관련주 + 매칭 네이버 테마(theme)
         "sectorsDown": sectors_down,    # 급락 상위 섹터
         "catalysts": catalysts,
+        "econEvents": econ_events,      # 오늘 한국 지표 결과 + 오늘 밤 미국 예정 (경제지표 카드)
         "disclosures": disclosures[:15],
         "news": news[:10],
         "disclaimer": "네이버 금융·DART·네이버뉴스 기반 자동 생성 시황 — 투자 판단 참고용.",

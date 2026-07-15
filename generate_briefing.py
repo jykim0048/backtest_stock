@@ -72,6 +72,84 @@ def _load_selection(date_str):
 
 
 # ----------------------------------------------------------------------------
+# 경제지표 캘린더 (fetch_econ_calendar.py 산출물) — 브리핑 관점 3분할.
+# 수치는 LLM 을 통과시키지 않고 프런트 카드가 econEvents 를 그대로 렌더한다(환각 방지).
+# ----------------------------------------------------------------------------
+ECON_CALENDAR_PATH = os.path.join(ROOT, "public", "econ_calendar.json")
+ECON_MIN_IMPORTANCE = 2      # 시장 영향력 보통 이상만
+ECON_MAX_ITEMS = 8           # 구획별 상한
+
+
+def _load_econ_calendar():
+    try:
+        with open(ECON_CALENDAR_PATH, encoding="utf-8") as f:
+            return json.load(f)
+    except Exception as e:
+        _warn(f"econ_calendar.json 로드 실패(경제지표 카드 생략): {e}")
+        return {}
+
+
+def _econ_pick(rows):
+    """중요도 우선 상한 적용 후 시간순 정렬."""
+    rows = sorted(rows, key=lambda r: (-(r.get("importance") or 0), r.get("releaseAtKST") or ""))
+    return sorted(rows[:ECON_MAX_ITEMS], key=lambda r: r.get("releaseAtKST") or "")
+
+
+def _econ_events(cal, date_str):
+    """{usReleased, korToday, usTonight} — 각각 미국장 리뷰 / 한국 프리뷰 반영용.
+
+    usReleased : 전일(월요일 아침이면 금~일) 이후 발표된 미국 지표 — 전일 밤 21:30 + 당일 새벽 FOMC.
+    korToday   : 당일 발표 예정 한국 지표.
+    usTonight  : 당일 15:30 ~ 익일 08:00 KST 발표 예정 미국 지표(당일 밤 미국장).
+    """
+    if not cal:
+        return {}
+    try:
+        day = datetime.date.fromisoformat(date_str)
+    except ValueError:
+        return {}
+    lookback = 3 if day.weekday() == 0 else 1
+    released_from = f"{day - datetime.timedelta(days=lookback)} 00:00"
+    tonight_from  = f"{day} 15:30"
+    tonight_to    = f"{day + datetime.timedelta(days=1)} 08:00"
+
+    def ok(r):
+        return (r.get("importance") or 0) >= ECON_MIN_IMPORTANCE and r.get("releaseAtKST")
+
+    released = [r for r in cal.get("released") or [] if ok(r)]
+    upcoming = [r for r in cal.get("upcoming") or [] if ok(r)]
+
+    ev = {
+        "usReleased": _econ_pick([r for r in released
+                                  if r.get("nation") == "USA"
+                                  and r["releaseAtKST"] >= released_from]),
+        "korToday":   _econ_pick([r for r in upcoming
+                                  if r.get("nation") == "KOR"
+                                  and r["releaseAtKST"][:10] == date_str]),
+        "usTonight":  _econ_pick([r for r in upcoming
+                                  if r.get("nation") == "USA"
+                                  and tonight_from <= r["releaseAtKST"] <= tonight_to]),
+    }
+    return ev if any(ev.values()) else {}
+
+
+def _econ_llm_view(econ):
+    """LLM 입력용 축약(수치 재생성 유인을 줄이기 위해 필요한 필드만)."""
+    def slim(r):
+        out = {"name": r.get("name"), "importance": r.get("importance"),
+               "releaseAtKST": r.get("releaseAtKST"),
+               "previous": r.get("previous"), "forecast": r.get("forecast"),
+               "unit": r.get("unit") or r.get("unitScale") or ""}
+        if r.get("actual") is not None:
+            out["actual"] = r["actual"]
+        if r.get("surprise"):
+            out["surpriseVerdict"] = r["surprise"].get("verdict")
+            out["surpriseVs"] = r["surprise"].get("vs")
+        return out
+    return {k: [slim(r) for r in v] for k, v in econ.items() if v}
+
+
+# ----------------------------------------------------------------------------
 # 테마 스켈레톤 구성 — 섹터 히트 상하위 3개씩 + 각 테마의 대표 종목(미국/국내).
 # 종목·등락률은 전부 selection JSON 에 이미 실려온 실측치이며(screener.py 가 계산),
 # LLM/기계적 폴백 어느 경로든 이 스켈레톤은 동일하게 재사용한다(환각 방지 + 결정론적 "3개 이상" 보장).
@@ -246,6 +324,9 @@ SYSTEM = """\
 - marketView : 스크리너가 남긴 간단 시황 코멘트(참고).
 - 각 테마의 industryReports : 해당 업종의 최근 30일 증권사 산업분석 리포트
   (category/title/broker/date, 최신 1건은 summary 요약 본문 포함). 없을 수 있다.
+- econEvents : 경제지표 캘린더. usReleased(전일 발표된 미국 지표 — actual/forecast/previous 와
+  surpriseVerdict: above=예상 상회 / inline=부합 / below=하회, surpriseVs=forecast|previous),
+  korToday(당일 발표 예정 한국 지표), usTonight(오늘 밤 미국 발표 예정). 없을 수 있다.
 
 **중요: upThemes/downThemes 의 usTheme·usStocks·krTheme·krStocks 는 이미 정해진 사실이다.
 너는 종목이나 등락률을 새로 만들거나 바꾸지 않는다. 오직 각 테마별 rationale(한 줄 근거)과
@@ -254,16 +335,21 @@ SYSTEM = """\
 작성 원칙:
 1) stance: 전일 미국장 위험선호도를 '위험선호|중립|위험회피' 중 하나로 판정한다.
    나스닥·필라델피아 반도체 강세 + VIX 하락 = 위험선호. 반대면 위험회피.
+   econEvents.usReleased 에 핵심 지표(CPI·고용·FOMC 등)가 있으면 그 서프라이즈 방향도
+   지수·VIX 와 함께 판정 근거로 반영한다.
 2) usReview.bullets: 전일 미국장(지수·섹터·주도 테마)을 **3개 이상의 짧은 불릿 문장**으로
    요약한다(불릿 하나 = 한 문장, 문단이 아니라 리스트로 가독성 있게).
+   econEvents.usReleased 가 있으면 불릿 중 1개는 그 지표 결과와 시장 반응 해석을 담는다
+   (수치는 입력값을 그대로 인용하고 새로 만들지 않는다).
 3) upRationale: **upThemes 와 정확히 같은 개수·순서**로, 각 테마별 "왜 미국 이 섹터 강세가
    국내 이 테마로 이어지는지" 한 줄 근거. 주어진 usStocks/krStocks 종목명을 자연스럽게
    인용해도 좋다(새 종목 언급 금지). 테마에 industryReports 가 있으면 그 제목·summary 의
    논거를 근거로 활용하라(리포트에 없는 내용을 지어내지 말 것).
 4) downRationale: **downThemes 와 정확히 같은 개수·순서**로, 각 테마별 "왜 미국 이 섹터
    약세가 국내에 부담이 될 수 있는지" 한 줄 근거.
-5) krPreview.narrative: 당일 국내 관점 1~2문장. catalystSummary: 전일 장마감 후 국내 촉매
-   (picks 의 catalyst)를 1~2문장으로 압축.
+5) krPreview.narrative: 당일 국내 관점 1~2문장. econEvents 의 korToday·usTonight 이 있으면
+   그중 중요도 높은 지표를 당일 관전 포인트로 1문장 반영한다. catalystSummary: 전일 장마감 후
+   국내 촉매(picks 의 catalyst)를 1~2문장으로 압축.
 6) 과장·투자권유 표현을 피하고, 담백한 데스크 코멘트 톤으로 한국어로 쓴다.
 
 반드시 아래 스키마와 정확히 동일한 JSON만 출력한다. 마크다운 펜스/설명 금지.
@@ -303,9 +389,9 @@ BRIEF_SCHEMA = {
 }
 
 
-def _llm_input(sel, up_themes, down_themes):
+def _llm_input(sel, up_themes, down_themes, econ=None):
     us = sel.get("usMarket", {}) or {}
-    return json.dumps({
+    payload = {
         "usMarket": {
             "indices": us.get("indices", []),
             "sectors": us.get("sectors", []),
@@ -317,17 +403,20 @@ def _llm_input(sel, up_themes, down_themes):
                    "changePct": p.get("changePct")}
                   for p in sel.get("picks", [])],
         "marketView": sel.get("marketView", ""),
-    }, ensure_ascii=False)
+    }
+    if econ:
+        payload["econEvents"] = _econ_llm_view(econ)
+    return json.dumps(payload, ensure_ascii=False)
 
 
-def llm_briefing(sel, up_themes, down_themes):
+def llm_briefing(sel, up_themes, down_themes, econ=None):
     """LLM 으로 stance/usReview/rationale/krPreview 생성. 실패 시 None(호출부에서 기계적 폴백)."""
     if not llm.configured():
         _warn("LLM 미설정 — 기계적 폴백 사용")
         return None, None
     try:
         data, model = llm.generate_json(
-            SYSTEM, _llm_input(sel, up_themes, down_themes),
+            SYSTEM, _llm_input(sel, up_themes, down_themes, econ),
             max_tokens=MAX_TOKENS, schema=BRIEF_SCHEMA, return_model=True)
         return data, model
     except Exception as e:
@@ -359,7 +448,26 @@ def _pct(items, name):
     return None
 
 
-def _mechanical(sel, up_themes, down_themes):
+def _econ_line(r):
+    """지표 1건의 기계적 요약 문장 (예상/이전 대비)."""
+    unit = r.get("unit") or ""
+    scale = r.get("unitScale") or ""
+    sfx = f"{scale}{unit}" if unit != "%" else "%"
+    verdict = (r.get("surprise") or {}).get("verdict")
+    vs = (r.get("surprise") or {}).get("vs")
+    word = {"above": "상회", "inline": "부합", "below": "하회"}.get(verdict)
+    base = "예상" if vs == "forecast" else "이전"
+    line = f"{r.get('name')} 실제 {r.get('actual')}{sfx}"
+    if r.get("forecast") is not None:
+        line += f" (예상 {r['forecast']}{sfx} · 이전 {r.get('previous')}{sfx})"
+    elif r.get("previous") is not None:
+        line += f" (이전 {r['previous']}{sfx})"
+    if word:
+        line += f" — {base} {word}"
+    return line
+
+
+def _mechanical(sel, up_themes, down_themes, econ=None):
     us = sel.get("usMarket", {}) or {}
     indices = us.get("indices", [])
     picks   = sel.get("picks", [])
@@ -399,6 +507,10 @@ def _mechanical(sel, up_themes, down_themes):
     if down_themes:
         t = down_themes[0]
         bullets.append(f"반대로 {t['usTheme']}({t['usChangePct']:+.2f}%) 은 가장 부진했습니다.")
+    us_released = (econ or {}).get("usReleased") or []
+    if us_released:
+        top = max(us_released, key=lambda r: r.get("importance") or 0)
+        bullets.append(f"경제지표로는 {_econ_line(top)}.")
     if not bullets:
         bullets = [mv or "전일 미국장 데이터 기반 자동 요약입니다."]
 
@@ -466,9 +578,15 @@ def main():
           f"/ down {[t['usTheme'] for t in down_themes]}")
     _attach_industry_reports(up_themes, down_themes)
 
-    raw, model = llm_briefing(sel, up_themes, down_themes)
+    econ = _econ_events(_load_econ_calendar(), date_str)
+    if econ:
+        print(f"  Econ events    : usReleased {len(econ.get('usReleased', []))} "
+              f"/ korToday {len(econ.get('korToday', []))} "
+              f"/ usTonight {len(econ.get('usTonight', []))}")
+
+    raw, model = llm_briefing(sel, up_themes, down_themes, econ)
     if raw is None:
-        brief = _mechanical(sel, up_themes, down_themes)
+        brief = _mechanical(sel, up_themes, down_themes, econ)
         generated_by = "mechanical"
     else:
         brief = {
@@ -497,6 +615,7 @@ def main():
         "usMarket": sel.get("usMarket", {}),
         "picks": sel.get("picks", []),
         "marketView": sel.get("marketView", ""),
+        "econEvents": econ,   # 경제지표 카드 원본 (없으면 {})
     }
     write_outputs(payload, date_str)
     print("=== Done ===")
