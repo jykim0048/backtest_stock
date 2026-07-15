@@ -406,6 +406,8 @@
     .ib-sector-label b { color: var(--text-main); font-weight: 700; }
     .ib-sector-pend { font-size: 11px; color: var(--text-muted); font-style: italic; }
     .briefing-usbullets { margin: 10px 0 0; padding-left: 18px; font-size: 13.5px; line-height: 1.7; color: #cbd5e1; }
+    /* 모닝 브리핑(미국장 리뷰) 불릿만 +1px — 장중 시황 쪽 공용 사용처는 유지 */
+    .briefing-panel .briefing-usbullets { font-size: 14.5px; }
     .briefing-usbullets li { margin-bottom: 3px; }
     .briefing-usbullets li::marker { color: var(--text-muted); }
     .briefing-flowlabels { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
@@ -3120,8 +3122,8 @@
           <div class="briefing-chips">${chips}</div>
           <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">섹터 히트 (강→약)</div>
           <div class="briefing-heat">${heat}</div>
-          ${usBullets.length ? `<ul class="briefing-usbullets">${usBullets.map(b => `<li>${_brEsc(b)}</li>`).join("")}</ul>` : ""}
           ${econReleasedCard}
+          ${usBullets.length ? `<ul class="briefing-usbullets">${usBullets.map(b => `<li>${_brEsc(b)}</li>`).join("")}</ul>` : ""}
         </div>
         ${flowCols}
         ${econUpcomingCard}
