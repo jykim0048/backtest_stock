@@ -2921,6 +2921,11 @@
     function _econVal(v, r) {
       return (v === null || v === undefined) ? "—" : `${v}${_econSfx(r)}`;
     }
+    // 예상치 표시 — FF 원문 정밀도 유지 (float 0.0 → "0" 강등 방지, forecastText="0.0")
+    function _econFc(r) {
+      if (r.forecast === null || r.forecast === undefined) return "—";
+      return `${r.forecastText || r.forecast}${_econSfx(r)}`;
+    }
     function _econBadge(r) {
       const s = r.surprise;
       if (!s || !s.verdict) return "";
@@ -2946,7 +2951,7 @@
     function _econReleasedRows(items, todayStr) {
       return (items || []).map(r => {
         const sub = (r.forecast !== null && r.forecast !== undefined)
-          ? `<span class="ev-sub"> / 예상 ${_econVal(r.forecast, r)} · 이전 ${_econVal(r.previous, r)}</span>`
+          ? `<span class="ev-sub"> / 예상 ${_econFc(r)} · 이전 ${_econVal(r.previous, r)}</span>`
           : `<span class="ev-sub"> / 이전 ${_econVal(r.previous, r)}</span>`;
         return `<tr><td class="econ-time">${_econTime(r, todayStr)}</td>`
              + `<td>${_econNation(r)}</td>`
@@ -2960,7 +2965,7 @@
     function _econUpcomingRows(items, todayStr) {
       return (items || []).map(r => {
         const vals = (r.forecast !== null && r.forecast !== undefined)
-          ? `예상 ${_econVal(r.forecast, r)} · 이전 ${_econVal(r.previous, r)}`
+          ? `예상 ${_econFc(r)} · 이전 ${_econVal(r.previous, r)}`
           : `이전 ${_econVal(r.previous, r)}`;
         return `<tr><td class="econ-time">${_econTime(r, todayStr)}</td>`
              + `<td>${_econNation(r)}</td>`
@@ -3343,11 +3348,13 @@
           + `<ul class="briefing-usbullets">${fxb.map(b => `<li>${_brEsc(b)}</li>`).join("")}</ul></div>`
         : "";
 
-      // 경제지표 — 오늘 아침 발표된 한국 지표 결과 + 오늘 밤 미국 발표 예정 (한 카드)
+      // 경제지표 — 오늘 발표된 한국 지표 결과 + (오늘 남은 한국 예정 ∪ 오늘 밤 미국 예정) 한 카드
       const ibEcon = d.econEvents || {};
+      const ibUpcoming = [...(ibEcon.korTodayUpcoming || []), ...(ibEcon.usTonight || [])]
+        .sort((a, b) => (a.releaseAtKST || "").localeCompare(b.releaseAtKST || ""));
       const ibEconRows = _econReleasedRows(ibEcon.korReleasedToday, d.date)
-        + _econUpcomingRows(ibEcon.usTonight, d.date);
-      const econSection = _econCard("📅 경제지표 — 오늘 한국 발표 · 오늘 밤 미국 예정",
+        + _econUpcomingRows(ibUpcoming, d.date);
+      const econSection = _econCard("📅 경제지표 — 오늘 한국 발표·예정 · 오늘 밤 미국 예정",
         ibEconRows,
         "서프라이즈: 예상(컨센서스) 대비, 예상치 없으면 이전값 대비 · ★=시장 영향력");
 
@@ -3873,6 +3880,7 @@
     // 익절/손절 판정 — 장전(stockData)·장중(watchData) 공용. 매도 발생 시 true.
     // 판정 순서: 상한가 → 목표가 부분익절 → 트레일링 → 손절/본전 → 정체 청산.
     const _LIMIT_UP_PCT = 29.5;   // 전일종가 대비 등락률 이 이상이면 상한가로 간주
+    const _LIMIT_UP_ENTRY_BLOCK = 28;  // 이 등락률 이상이면 신규 진입 금지(상한가 추격 매수 봉쇄)
     const _TRAIL_ARM_PCT = 3;     // 고점 수익률이 이만큼 넘어야 트레일링 활성
     const _BREAKEVEN_ARM_PCT = 5; // 수익이 이만큼 넘으면 본전 스탑 발동
     const _STAGNANT_MS = 60 * 60 * 1000;  // 정체 청산 기준 보유시간(1시간)
@@ -3950,7 +3958,10 @@
       };
 
       // 1. 상한가 익절 — 목표가 무관 전량(목표가가 상한가 위라 영영 못 닿는 종목 회수).
-      if (stock.rate >= _LIMIT_UP_PCT) {
+      // 단, 왕복 슬리피지 이상 '실제 수익'일 때만 — 상한가 부근에서 방금 진입한 포지션을
+      // '익절'로 팔아 슬리피지 손실을 확정하던 결함 방지(2026-07-15 HLB테라퓨틱스 사례).
+      // 수익이 안 되는 보유분은 일반 손절/트레일링/정체 룰이 처리한다.
+      if (stock.rate >= _LIMIT_UP_PCT && gainPct > slip * 2) {
         return sellAll("TAKE_PROFIT_LIMITUP", "상한가 도달 전량 익절!", "var(--up-red)");
       }
 
@@ -4042,6 +4053,10 @@
         // 스크리너 플래그(preDownWatch) + 장전 하락 리스트(downData) 직접 대조(플래그가
         // 다음 회차에 도착하기 전에도 즉시 차단). 2026-07-13 서진시스템 정책.
         if (stock.preDownWatch || downData.some(d => d.code === stock.code)) return;
+        // 상한가 근접(등락률 28%+) 종목 신규/추가 진입 금지 — 상한가 추격 매수는 현실에서
+        // 체결이 어렵고, 진입 직후 상한가익절 룰과 충돌해 왕복 슬리피지 손실만 확정된다
+        // (2026-07-15 HLB테라퓨틱스: 1,981 매수 → 7초 뒤 1,971 '익절' -6,820원).
+        if ((stock.rate || 0) >= _LIMIT_UP_ENTRY_BLOCK) return;
 
         const price = stock.price || stock.basePrice;
         if (!price) return;

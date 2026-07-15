@@ -461,7 +461,8 @@ def _econ_line(r):
     base = "예상" if vs == "forecast" else "이전"
     line = f"{r.get('name')} 실제 {r.get('actual')}{sfx}"
     if r.get("forecast") is not None:
-        line += f" (예상 {r['forecast']}{sfx} · 이전 {r.get('previous')}{sfx})"
+        fc = r.get("forecastText") or r["forecast"]   # FF 원문 정밀도 유지("0.0" 등)
+        line += f" (예상 {fc}{sfx} · 이전 {r.get('previous')}{sfx})"
     elif r.get("previous") is not None:
         line += f" (이전 {r['previous']}{sfx})"
     if word:

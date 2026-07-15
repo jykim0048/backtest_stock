@@ -155,21 +155,23 @@ def _ff_kst(ev):
 
 
 def _num(s):
-    """FF 문자열 수치 파싱: '3.8%'->(3.8,'%'), '216K'->(216.0,'K'), '-135.8B'->(-135.8,'B')."""
+    """FF 문자열 수치 파싱 -> (float, 접미사, 숫자 원문).
+    '3.8%'->(3.8,'%','3.8'), '216K'->(216.0,'K','216'), '0.0%'->(0.0,'%','0.0').
+    숫자 원문(text)은 표시용 — float 변환 시 '0.0'->'0' 처럼 정밀도가 떨어지는 것을 방지."""
     if s is None:
-        return None, ""
+        return None, "", ""
     s = str(s).strip().replace(",", "")
     if not s:
-        return None, ""
+        return None, "", ""
     suffix = ""
     if s.endswith("%"):
         suffix, s = "%", s[:-1]
     elif s and s[-1].upper() in ("K", "M", "B", "T"):
         suffix, s = s[-1].upper(), s[:-1]
     try:
-        return float(s), suffix
+        return float(s), suffix, s
     except ValueError:
-        return None, ""
+        return None, "", ""
 
 
 def _naver_suffix(row):
@@ -214,7 +216,8 @@ def _map_entry(row):
 
 
 def _match_forecast(row, ff_events):
-    """미국 지표에 FF 컨센서스 결합. 단위 접미사 불일치 시 포기(틀린 서프라이즈 방지)."""
+    """미국 지표에 FF 컨센서스 결합 -> (float, 숫자 원문) 또는 None.
+    단위 접미사 불일치 시 포기(틀린 서프라이즈 방지)."""
     if row.get("nation") != "USA" or not row.get("releaseAtKST"):
         return None
     row_date = datetime.date.fromisoformat(row["releaseAtKST"][:10])
@@ -225,19 +228,19 @@ def _match_forecast(row, ff_events):
             dt = _ff_kst(ev)
             if dt is None or abs((dt.date() - row_date).days) > 1:
                 continue
-            val, suffix = _num(ev.get("forecast"))
+            val, suffix, text = _num(ev.get("forecast"))
             if val is None:
                 continue
             if suffix != _naver_suffix(row):
                 print(f"[econ] 단위 불일치로 컨센서스 제외: {row['name']} "
                       f"(FF '{ev.get('forecast')}' vs naver '{_naver_suffix(row)}')")
                 continue
-            return val
+            return val, text
     return None
 
 
 def _load_prev_forecasts():
-    """직전 econ_calendar.json 의 forecast 이월맵 {(지표키, 발표일): forecast}."""
+    """직전 econ_calendar.json 의 forecast 이월맵 {(지표키, 발표일): (forecast, 원문)}."""
     try:
         with open(OUT_PATH, encoding="utf-8") as f:
             prev = json.load(f)
@@ -250,7 +253,7 @@ def _load_prev_forecasts():
         if fc is None or not at:
             continue
         key = (row.get("reutersCode") or row.get("name"), at[:10])
-        out[key] = fc
+        out[key] = (fc, row.get("forecastText") or "")
     return out
 
 
@@ -301,14 +304,16 @@ def build(now_kst):
     prev_forecasts = _load_prev_forecasts()
 
     def attach_forecast(row):
-        fc = _match_forecast(row, ff_events)
-        if fc is not None:
-            row["forecast"], row["forecastSource"] = fc, "forexfactory"
+        m = _match_forecast(row, ff_events)
+        if m is not None:
+            row["forecast"], row["forecastText"] = m
+            row["forecastSource"] = "forexfactory"
             return
         key = (row.get("reutersCode") or row.get("name"),
                (row.get("releaseAtKST") or "")[:10])
         if key in prev_forecasts:
-            row["forecast"], row["forecastSource"] = prev_forecasts[key], "carryover"
+            row["forecast"], row["forecastText"] = prev_forecasts[key]
+            row["forecastSource"] = "carryover"
 
     released, seen = [], set()
     for item in naver_released:
@@ -358,8 +363,8 @@ def build(now_kst):
         label = FF_STANDALONE[title]
         if (label, str(dt.date())) in naver_days:
             continue
-        val, suffix = _num(ev.get("forecast"))
-        pval, _ = _num(ev.get("previous"))
+        val, suffix, text = _num(ev.get("forecast"))
+        pval, _, _ = _num(ev.get("previous"))
         upcoming.append({
             "nation": "USA", "name": label, "reutersCode": None,
             "importance": FF_IMPACT_IMPORTANCE.get(ev.get("impact"), 3),
@@ -367,7 +372,8 @@ def build(now_kst):
             "releaseAtKST": dt.strftime("%Y-%m-%d %H:%M"),
             "previous": pval, "unit": suffix if suffix == "%" else "",
             "unitScale": "" if suffix == "%" else suffix,
-            "forecast": val, "forecastSource": "forexfactory" if val is not None else None,
+            "forecast": val, "forecastText": text,
+            "forecastSource": "forexfactory" if val is not None else None,
             "source": "forexfactory",
         })
 

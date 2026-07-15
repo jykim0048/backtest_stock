@@ -473,7 +473,8 @@ def _load_us_context():
 
 def _load_econ_events(now):
     """경제지표 캘린더(public/econ_calendar.json, 매 회차 fetch_econ_calendar.py 로 갱신)에서
-    장중 관점 2구획 발췌 — korReleasedToday(오늘 아침 발표된 한국 지표 결과),
+    장중 관점 3구획 발췌 — korReleasedToday(오늘 발표된 한국 지표 결과),
+    korTodayUpcoming(오늘 남은 한국 발표 예정 — 예: 12:00 M2 통화공급),
     usTonight(오늘 밤 미국 발표 예정). 없으면 {} (graceful)."""
     try:
         with open(os.path.join(ROOT, "public", "econ_calendar.json"),
@@ -494,10 +495,17 @@ def _load_econ_events(now):
     def ok(r):
         return (r.get("importance") or 0) >= 2 and r.get("releaseAtKST")
 
+    now_str = now.strftime("%Y-%m-%d %H:%M")
     ev = {
         "korReleasedToday": pick([r for r in cal.get("released") or []
                                   if ok(r) and r.get("nation") == "KOR"
                                   and r["releaseAtKST"][:10] == today]),
+        # 오늘 남은 한국 발표 예정 — 캘린더 파일이 회차마다 갱신돼 발표되면 released 로
+        # 넘어가지만, fetch 실패로 파일이 낡았을 수도 있어 현재 시각 이후만 남긴다.
+        "korTodayUpcoming": pick([r for r in cal.get("upcoming") or []
+                                  if ok(r) and r.get("nation") == "KOR"
+                                  and r["releaseAtKST"][:10] == today
+                                  and r["releaseAtKST"] >= now_str]),
         "usTonight": pick([r for r in cal.get("upcoming") or []
                            if ok(r) and r.get("nation") == "USA"
                            and tonight_from <= r["releaseAtKST"] <= tonight_to]),
@@ -586,8 +594,9 @@ SYSTEM = (
     "direction(그 촉매가 주가에 주는 방향 — 상방=bullish|중립=neutral|하방=bearish), summary(핵심 촉매 한 문장).\n"
     "  · 뉴스는 corp 필드가 없으니 제목·본문에서 종목명을 추출해 stock 에 넣을 것.\n"
     "- econEvents 가 있으면: korReleasedToday(오늘 발표된 한국 경제지표)는 ① 지수·수급 서술의 "
-    "배경으로, usTonight(오늘 밤 미국 발표 예정 지표)은 ⑤ 관전 포인트에 반영할 것(수치는 입력값을 "
-    "그대로 인용). surpriseVerdict(above=상회|inline=부합|below=하회)는 surpriseVs 기준을 구분해 "
+    "배경으로, korTodayUpcoming(오늘 남은 한국 발표 예정)과 usTonight(오늘 밤 미국 발표 예정 지표)은 "
+    "⑤ 관전 포인트에 반영할 것(수치는 입력값을 그대로 인용). "
+    "surpriseVerdict(above=상회|inline=부합|below=하회)는 surpriseVs 기준을 구분해 "
     "표현할 것 — surpriseVs=forecast 면 '예상(컨센서스) 상회/하회', surpriseVs=previous 면 반드시 "
     "'이전(직전치) 대비 상회/하회'로 쓰고, 이전값 대비를 '예상치 상회/하회'라고 표현하지 말 것.\n"
     "- fxBullets 는 환율 관련 1~3개 불릿(fxNews·marketIndicators.exchange/world 근거): "
@@ -822,6 +831,7 @@ def main():
     econ_events = _load_econ_events(now)
     if econ_events:
         print(f"  경제지표: 한국 발표 {len(econ_events.get('korReleasedToday', []))}건, "
+              f"한국 예정 {len(econ_events.get('korTodayUpcoming', []))}건, "
               f"오늘 밤 미국 예정 {len(econ_events.get('usTonight', []))}건")
 
     briefing, fx_bullets, catalysts, model = synthesize(
