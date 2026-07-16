@@ -86,6 +86,7 @@ SYSTEM = """\
 {
   "catalyst": "오늘 이 종목의 주가를 움직일 핵심 촉매 2-3문장",
   "direction": "bullish|neutral|bearish",
+  "flowComment": "수급(투자자별 순매수·공매도·대차잔고) 해석 2-3문장",
   "peers": { "summary": "2-3문장", "reddit": [ {"title","url","subreddit","sentiment","summary"} ] },
   "news": { "summary": "3-4문장", "items": [ {"title","source","date","sentiment","url","insight"} ] },
   "community": { "summary": "3-4문장", "sentimentLabel": "", "naver": [ {"title","url","sentiment","summary"} ] },
@@ -101,6 +102,13 @@ SYSTEM = """\
   loans_recent(대차거래 일별: newQty=체결, rdmpQty=상환, rmndChg=잔고 증감 주수, rmndAmt=잔고 억원)도
   하방 압력 신호로 활용하라 — 공매도 비중 급증(예: 거래대금의 10%+)과 대차잔고 누증은 하방 압력,
   잔고 급감은 숏커버 가능성. 수치는 입력값을 그대로 인용하고 지어내지 말 것.
+- flowComment: investor_flow 를 해석한 2-3문장 — ① 투자자별 순매수 추세(누가 사고 누가 파는지,
+  추세 전환 여부) ② 공매도 비중 수준·급증 여부 ③ 대차잔고 방향(누증/상환 우위)을 투자자 관점으로.
+  대시보드 '수급' 탭 상단에 그대로 노출된다. 유의미한 수치(억원·%·주)를 1-2개 인용하라.
+  investor_flow 가 입력에 없으면 정확히 "수급 데이터 없음" 이라고만 쓴다.
+- catalyst 에도 investor_flow 의 유의미한 신호(외국인·기관 동반 매매, 공매도 비중 급증, 대차잔고
+  급변, 가집계 랭킹 진입)가 있으면 구체 수치와 함께 반영하라 — 수급이 오늘의 지배적 동인이면
+  catalyst 의 첫 문장으로 쓴다.
 - catalyst: 뉴스·공시·수급·peer 동향 중 '오늘 주가를 가장 크게 움직일' 단일 촉매를 투자자 관점으로
   요약한다. 대시보드의 'Market Moving Catalysts'에 그대로 노출되므로 placeholder/메타설명을 쓰지 말고
   구체적 내용으로 채운다. 근거가 빈약하면 거래대금·모멘텀 등 가격 동향 기반으로 신중히 서술한다.
@@ -142,6 +150,7 @@ def _arr(item_props):
 ANALYSIS_SCHEMA = _obj({
     "catalyst": _STR,
     "direction": {"type": "string", "enum": ["bullish", "neutral", "bearish"]},
+    "flowComment": _STR,
     "peers": _obj({
         "summary": _STR,
         "reddit": _arr({"title": _STR, "url": _STR, "subreddit": _STR,
