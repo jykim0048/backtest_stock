@@ -3685,6 +3685,29 @@
       }
     }
 
+    // 장전 워치리스트 딥리서치 장중 갱신 반영 — refresh_flow(수급)·증분 재분석이
+    // 회차마다 daily_market_report.json 을 갱신하므로 analysis/direction 만 코드
+    // 매칭으로 병합한다. stockData 통째 교체는 안 함 — 실시간 가격·매매 상태
+    // (rate/carriedOver 등)를 건드리면 자동매매가 흔들린다. 과거 날짜 열람 중에는
+    // 아카이브 위에 최신 분석을 덮어쓰지 않는다.
+    async function refreshDailyAnalysis() {
+      if (!isLiveView) return;
+      try {
+        const r = await fetch(`daily_market_report.json?t=${Date.now()}`, { cache: "no-store" });
+        if (!r.ok) return;
+        const data = await r.json();
+        if (!Array.isArray(data)) return;
+        const byCode = {};
+        data.forEach(it => { if (it && it.code && it.analysis) byCode[it.code] = it; });
+        stockData.forEach(s => {
+          const it = byCode[s.code];
+          if (!it) return;
+          s.analysis = it.analysis;
+          s.direction = it.direction || it.analysis.direction || s.direction;
+        });
+      } catch (e) { /* 일시 실패 — 다음 주기에 재시도 */ }
+    }
+
     // Called when user picks a different date
     async function onReportDateChange(date) {
       const live = (!date || date === "today");
@@ -3781,6 +3804,7 @@
       // 장중 관심종목은 30분 간격으로 서버에서 갱신되므로 5분마다 다시 로드한다.
       // 과거 날짜 열람 중에는 최신본으로 덮어쓰지 않는다.
       setInterval(async () => {
+        refreshDailyAnalysis();   // 장전 워치리스트 딥리서치(수급 등) 장중 갱신 병합
         if (!isWatchLiveView) return;
         await loadIntradayData();
         await loadIntradayDownData();
