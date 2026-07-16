@@ -5597,7 +5597,7 @@
         if (loans.length) {
           const lSum = (k) => loans.reduce((s, r) => s + (r[k] || 0), 0);
           const latestRmnd = loans[0] ? loans[0].rmndQty : 0;
-          html += `<div class="analysis-subhead analysis-subhead-lg">대차거래 잔고추이 (단위: 주 · 잔고증감 양수 = 하방 압력)</div>`;
+          html += `<div class="analysis-subhead analysis-subhead-lg">대차거래 잔고추이 (단위: 주 · 잔고증감 양수 = 하방 압력, 음수 = 상환 우위)</div>`;
           html += `<div class="analysis-item flow-stack" style="border-bottom:none; padding:6px 0 2px;">
             <div class="analysis-item-head">
               <span class="analysis-item-title">누적 ${loans.length}일 · 잔고증감 ${fmtChgQty(lSum("rmndChg"))}주</span>
