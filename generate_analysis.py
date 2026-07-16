@@ -94,17 +94,16 @@ SYSTEM = """\
   "research": { "summary": "2-3문장", "items": [ {"note"} ] }
 }
 
-- investor_flow(입력): 개인/외국인/기관계/기금 '순매수 거래대금'(단위 백만원, 음수=순매도).
-  daily 는 확정치(장중에는 전일까지만 존재), today_rank 는 당일 장중 가집계(잠정) 순매수/순매도
-  랭킹이다. 외국인·기관 동반 순매수/순매도, 추세 전환(연속 매도 후 첫 매수 등), 랭킹 진입은
-  catalyst·direction 판단의 주요 근거로 활용하라. 단, 잠정치(today_rank)는 '가집계'임을 감안한다.
+- investor_flow(입력): today_rank 는 당일 장중 가집계(잠정) 순매수/순매도 랭킹(거래대금,
+  단위 백만원, 음수=순매도). 외국인·기관 동반 순매수/순매도와 랭킹 진입은 catalyst·direction
+  판단의 주요 근거로 활용하라. 단, 잠정치(today_rank)는 '가집계'임을 감안한다.
+  naver_trend(네이버 일자별): frgn/orgn/prsn=외국인/기관/개인 순매매량(주식 수, 음수=순매도),
+  holdRatio=외국인 보유율%. 일자별 투자자 매매 추세(누가 사고 누가 파는지, 연속 매도 후
+  첫 매수 같은 전환 여부)는 이것으로 해석하라. 외국인 보유율의 추세적 상승/하락도 수급 신호다.
   shorts_recent(공매도 일별: pbmn=공매도 대금 억원, pbmnRlim/volRlim=거래대금/거래량 비중%)와
   loans_recent(대차거래 일별: newQty=체결, rdmpQty=상환, rmndChg=잔고 증감 주수, rmndAmt=잔고 억원)도
   하방 압력 신호로 활용하라 — 공매도 비중 급증(예: 거래대금의 10%+)과 대차잔고 누증은 하방 압력,
   잔고 급감은 숏커버 가능성. 수치는 입력값을 그대로 인용하고 지어내지 말 것.
-  naver_trend(네이버 일자별): frgn/orgn/prsn=외국인/기관/개인 순매매량(주식 수, 음수=순매도),
-  holdRatio=외국인 보유율%. 장중에도 전일까지 제공되므로 daily(대금)가 비어 있으면 이것으로
-  투자자별 매매 추세를 해석하라. 외국인 보유율의 추세적 상승/하락도 수급 신호다.
 - flowComment: investor_flow 를 해석한 2-3문장 — ① 투자자별 순매수 추세(누가 사고 누가 파는지,
   추세 전환 여부) ② 공매도 비중 수준·급증 여부 ③ 대차잔고 방향(누증/상환 우위)을 투자자 관점으로.
   대시보드 '수급' 탭 상단에 그대로 노출된다. 유의미한 수치(억원·%·주)를 1-2개 인용하라.
@@ -340,16 +339,17 @@ def _norm_opinion(o):
 
 
 def fetch_investor_flow(code):
-    """KIS 허브 프록시(/flow)에서 종목 수급 — 일별 개인/외국인/기관계/기금 순매수
-    거래대금(백만원) + 당일 가집계(잠정) 랭킹. 실패 시 빈 dict (수급 없이도 분석은 동작)."""
+    """KIS 허브 프록시(/flow)에서 종목 수급 — 당일 가집계(잠정) 랭킹 + 공매도/대차 일별.
+    KIS 일별 대금(daily)은 시간제한(00:00~15:40 차단)으로 장중 공백이라 미사용 —
+    일자별 투자자 동향은 네이버 trend 로 일원화(2026-07-16). 실패 시 빈 dict."""
     try:
         r = requests.get(f"{FLOW_API_BASE}/flow", params={"code": code}, timeout=12)
         r.raise_for_status()
         d = r.json()
         if d.get("status") == "success":
-            return {"daily": d.get("daily") or [], "rank": d.get("rank") or [],
+            return {"rank": d.get("rank") or [],
                     "shorts": d.get("shorts") or [], "loans": d.get("loans") or [],
-                    "asof": d.get("asof", ""), "rankAsof": d.get("rankAsof", "")}
+                    "rankAsof": d.get("rankAsof", "")}
     except Exception as e:
         print(f"[flow] {code} 수급 조회 실패: {e}", file=sys.stderr)
     return {}
@@ -394,11 +394,8 @@ def analyze_stock(stock, peer_cfg):
     if trend:
         flow = dict(flow) if flow else {}
         flow["trend"] = trend
-    # 일별(daily)은 KIS 시간제한으로 장중엔 비어 있을 수 있다 —
-    # 네이버/공매도/대차/가집계만 있어도 프롬프트에 넣는다.
-    if any(flow.get(k) for k in ("daily", "rank", "shorts", "loans", "trend")):
-        raw["investor_flow"] = {"daily": (flow.get("daily") or [])[:10],
-                                "today_rank": flow.get("rank") or [],
+    if any(flow.get(k) for k in ("rank", "shorts", "loans", "trend")):
+        raw["investor_flow"] = {"today_rank": flow.get("rank") or [],
                                 "shorts_recent": (flow.get("shorts") or [])[:10],
                                 "loans_recent": (flow.get("loans") or [])[:10],
                                 "naver_trend": (flow.get("trend") or [])[:10]}

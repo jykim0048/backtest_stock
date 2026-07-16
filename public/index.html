@@ -1510,6 +1510,7 @@
     }
     .analysis-empty { color: var(--text-muted); font-style: italic; font-size: 12px; }
     .analysis-subhead-lg { font-size: 13px; }   /* 수급 탭 공매도·대차 제목 (+2px) */
+    .flow-meta-lg { font-size: 12px; }          /* 수급 탭 누적 요약 우측 주석 (+1px) */
     .flow-details summary { cursor: pointer; font-size: 11.5px; color: var(--text-muted);
       margin: 4px 0 2px; user-select: none; }
     .flow-details summary:hover { color: var(--kospi-blue); }
@@ -5476,46 +5477,19 @@
         }
         if (sec.rank && sec.rank.length) {
           html += `<div class="analysis-subhead">⚡ 당일 매매종목 가집계(잠정) 랭킹${sec.rankAsof ? ` · ${escapeHtml(sec.rankAsof)} 기준` : ""}</div>`;
-          html += sec.rank.map(r => `<div class="analysis-item">
+          // 리스트별 순매수 금액은 동일 종목이라 같은 값 — 순위 배지들을 한 행에 모으고 금액은 1회만.
+          const rankBadge = (r) => `${escapeHtml(r.list)} <span style="color:${/순매도/.test(r.list || "") ? "var(--kospi-blue)" : "var(--up-red)"}; font-weight:700;">${r.rank}위</span>`;
+          const r0 = sec.rank[0];
+          html += `<div class="analysis-item">
               <div class="analysis-item-head">
-                <span class="analysis-item-title">${escapeHtml(r.list)} <span style="color:var(--up-red); font-weight:700;">${r.rank}위</span></span>
-                <span class="analysis-item-meta">외국인 ${fmtEok(r.frgn)} · 기관계 ${fmtEok(r.orgn)} · 기금 ${fmtEok(r.fund)} 억원</span>
+                <span class="analysis-item-title">${sec.rank.map(rankBadge).join(" · ")}</span>
+                <span class="analysis-item-meta">외국인 ${fmtEok(r0.frgn)} · 기관계 ${fmtEok(r0.orgn)} · 기금 ${fmtEok(r0.fund)} 억원</span>
               </div>
-            </div>`).join("");
+            </div>`;
         }
         const dt = (d) => `${d.slice(4, 6)}/${d.slice(6, 8)}`;
-        const rows = sec.daily || [];
-        if (rows.length) {
-          const rateColor = (r) => (r || 0) >= 0 ? "var(--up-red)" : "var(--kospi-blue)";
-          const cum = (k) => rows.reduce((s, r) => s + (r[k] || 0), 0);
-          html += `<div class="analysis-subhead">일별 투자자 순매수 대금 (단위: 억원, 음수=순매도)</div>`;
-          html += `<div style="overflow-x:auto;"><table style="width:100%; border-collapse:collapse; font-size:12px;">
-            <thead><tr style="color:var(--text-muted);">
-              <th style="text-align:left; padding:4px 6px;">날짜</th>
-              <th style="text-align:right; padding:4px 6px;">종가</th>
-              <th style="text-align:right; padding:4px 6px;">개인</th>
-              <th style="text-align:right; padding:4px 6px;">외국인</th>
-              <th style="text-align:right; padding:4px 6px;">기관계</th>
-              <th style="text-align:right; padding:4px 6px;">기금</th>
-            </tr></thead><tbody>` +
-            rows.map(r => `<tr style="border-top:1px solid rgba(255,255,255,.06);">
-              <td style="padding:4px 6px;">${dt(r.date)}</td>
-              <td style="text-align:right; padding:4px 6px;">${Number(r.close).toLocaleString()} <span style="color:${rateColor(r.rate)}; font-size:11px;">${r.rate >= 0 ? "+" : ""}${r.rate}%</span></td>
-              <td style="text-align:right; padding:4px 6px;">${fmtEok(r.prsn)}</td>
-              <td style="text-align:right; padding:4px 6px;">${fmtEok(r.frgn)}</td>
-              <td style="text-align:right; padding:4px 6px;">${fmtEok(r.orgn)}</td>
-              <td style="text-align:right; padding:4px 6px;">${fmtEok(r.fund)}</td>
-            </tr>`).join("") + `</tbody><tfoot>
-            <tr style="border-top:2px solid rgba(255,255,255,.18);">
-              <td style="padding:5px 6px; font-weight:700; color:var(--text-main);">누적 (${rows.length}일)</td>
-              <td></td>
-              <td style="text-align:right; padding:5px 6px;">${fmtEok(cum("prsn"))}</td>
-              <td style="text-align:right; padding:5px 6px;">${fmtEok(cum("frgn"))}</td>
-              <td style="text-align:right; padding:5px 6px;">${fmtEok(cum("orgn"))}</td>
-              <td style="text-align:right; padding:5px 6px;">${fmtEok(cum("fund"))}</td>
-            </tr></tfoot></table></div>`;
-          html += `<div class="analysis-item-meta" style="margin-top:6px;">확정치 기준(KIS 종목별 투자자매매동향·KRX+NXT 통합) — 당일 확정치는 장 마감 후 반영${sec.asof ? ` · ${escapeHtml(sec.asof)} 조회` : ""}</div>`;
-        }
+        // KIS 일별 대금(daily) 표는 미표기 — 시간제한(00:00~15:40)으로 장중 공백이라
+        // 일자별 투자자 동향은 네이버 trend(수량·보유율)로 일원화 (2026-07-16).
         // 공매도·대차: 값은 허브에서 억원 정규화(fmtEok의 백만원→억원 변환 미적용)
         const fmtNum = (v) => Number(v || 0).toLocaleString();
         const fmtEokVal = (v) => { const a = Math.abs(v || 0); return a >= 100 ? Math.round(a).toLocaleString() : a.toFixed(1); };
@@ -5533,11 +5507,11 @@
           const hrThen = trend[trend.length - 1] ? trend[trend.length - 1].holdRatio : null;
           const hrDelta = (hrNow != null && hrThen != null) ? hrNow - hrThen : null;
           const hr = (v) => v != null ? v.toFixed(2) + "%" : "-";
-          html += `<div class="analysis-subhead analysis-subhead-lg">기관·외국인 일별 매매동향 (네이버 · 단위: 주 · 당일치는 장 마감 후)</div>`;
+          html += `<div class="analysis-subhead analysis-subhead-lg">기관·외국인 일별 매매동향 (네이버 · 단위: 주)</div>`;
           html += `<div class="analysis-item" style="border-bottom:none; padding:6px 0 2px;">
             <div class="analysis-item-head">
               <span class="analysis-item-title">누적 ${trend.length}일 · 외국인 ${fmtChgQty(tSum("frgn"))}주 · 기관 ${fmtChgQty(tSum("orgn"))}주</span>
-              <span class="analysis-item-meta">외국인 보유율 ${hr(hrNow)}${hrDelta != null ? ` (${trend.length}일 ${hrDelta >= 0 ? "+" : ""}${hrDelta.toFixed(2)}%p)` : ""}</span>
+              <span class="analysis-item-meta flow-meta-lg">외국인 보유율 ${hr(hrNow)}${hrDelta != null ? ` (${trend.length}일 ${hrDelta >= 0 ? "+" : ""}${hrDelta.toFixed(2)}%p)` : ""}</span>
             </div></div>`;
           html += `<details class="flow-details"><summary>일자별 보기 (${trend.length}일) ▾</summary>
             <div style="overflow-x:auto;"><table style="width:100%; border-collapse:collapse; font-size:12px;">
@@ -5559,7 +5533,9 @@
             </tr>`).join("") + `</tbody></table></div></details>`;
         }
         // 공매도·대차: 누적 요약을 첫 행(항상 표시)으로, 일자별 표는 접기(details)로.
-        const shorts = sec.shorts || [];
+        // 공매도는 공표 지연으로 당일 행이 전부 0(공란)으로 오므로 값 없는 행은 제외.
+        const shorts = (sec.shorts || []).filter(r =>
+          (r.pbmn || 0) || (r.qty || 0) || (r.pbmnRlim || 0) || (r.volRlim || 0));
         if (shorts.length) {
           const pctCell = (v) => (v >= 10)
             ? `<span style="color:var(--up-red); font-weight:700;">${v}%</span>` : `${v}%`;
@@ -5570,7 +5546,7 @@
           html += `<div class="analysis-item" style="border-bottom:none; padding:6px 0 2px;">
             <div class="analysis-item-head">
               <span class="analysis-item-title">누적 ${shorts.length}일 · 공매도 대금 <span style="color:var(--up-red);">${fmtEokVal(sSum)}억</span></span>
-              <span class="analysis-item-meta">대금 비중 평균 ${pctCell(sAvg.toFixed(1) * 1)} · 거래량 비중 평균 ${vAvg.toFixed(1)}%</span>
+              <span class="analysis-item-meta flow-meta-lg">대금 비중 평균 ${pctCell(sAvg.toFixed(1) * 1)} · 거래량 비중 평균 ${vAvg.toFixed(1)}%</span>
             </div></div>`;
           html += `<details class="flow-details"><summary>일자별 보기 (${shorts.length}일) ▾</summary>
             <div style="overflow-x:auto;"><table style="width:100%; border-collapse:collapse; font-size:12px;">
@@ -5595,7 +5571,7 @@
           html += `<div class="analysis-item" style="border-bottom:none; padding:6px 0 2px;">
             <div class="analysis-item-head">
               <span class="analysis-item-title">누적 ${loans.length}일 · 잔고증감 ${fmtChgQty(lSum("rmndChg"))}주</span>
-              <span class="analysis-item-meta">체결 ${fmtNum(lSum("newQty"))} · 상환 ${fmtNum(lSum("rdmpQty"))} · 현재 잔고 ${fmtNum(latestRmnd)}주</span>
+              <span class="analysis-item-meta flow-meta-lg">체결 ${fmtNum(lSum("newQty"))} · 상환 ${fmtNum(lSum("rdmpQty"))} · 현재 잔고 ${fmtNum(latestRmnd)}주</span>
             </div></div>`;
           html += `<details class="flow-details"><summary>일자별 보기 (${loans.length}일) ▾</summary>
             <div style="overflow-x:auto;"><table style="width:100%; border-collapse:collapse; font-size:12px;">
@@ -5614,7 +5590,7 @@
               <td style="text-align:right; padding:4px 6px;">${fmtNum(r.rmndQty)}</td>
             </tr>`).join("") + `</tbody></table></div></details>`;
         }
-        if (!rows.length && !trend.length && !shorts.length && !loans.length && !(sec.rank && sec.rank.length)) {
+        if (!trend.length && !shorts.length && !loans.length && !(sec.rank && sec.rank.length)) {
           html += `<span class="analysis-empty">수급 데이터가 없습니다.</span>`;
         }
       } else if (tab === "dart") {
