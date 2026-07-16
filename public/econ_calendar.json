@@ -1,6 +1,6 @@
 {
  "date": "2026-07-16",
- "asof": "2026-07-16 09:41 KST",
+ "asof": "2026-07-16 10:11 KST",
  "sources": {
   "naver": true,
   "forexfactory": true
@@ -935,9 +935,7 @@
     "diff": 0.482,
     "verdict": "above"
    }
-  }
- ],
- "upcoming": [
+  },
   {
    "nation": "KOR",
    "name": "중앙은행 기준금리",
@@ -946,13 +944,21 @@
    "period": "Jun 2026",
    "category": "CENTRAL_BANKS",
    "releaseAtKST": "2026-07-16 10:00",
+   "actual": 2.75,
    "previous": 2.5,
    "unit": "%",
    "unitScale": "",
    "forecast": null,
    "forecastSource": null,
-   "source": "naver"
-  },
+   "source": "naver",
+   "surprise": {
+    "vs": "previous",
+    "diff": 0.25,
+    "verdict": "above"
+   }
+  }
+ ],
+ "upcoming": [
   {
    "nation": "USA",
    "name": "소매판매 전월대비",
