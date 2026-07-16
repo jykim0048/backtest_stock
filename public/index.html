@@ -5537,7 +5537,7 @@
           const hrThen = trend[trend.length - 1] ? trend[trend.length - 1].holdRatio : null;
           const hrDelta = (hrNow != null && hrThen != null) ? hrNow - hrThen : null;
           const hr = (v) => v != null ? v.toFixed(2) + "%" : "-";
-          html += `<div class="analysis-subhead analysis-subhead-lg">기관·외국인 일별 매매동향 (네이버 · 단위: 주)</div>`;
+          html += `<div class="analysis-subhead analysis-subhead-lg">기관·외국인 일별 매매동향 (단위: 주)</div>`;
           html += `<div class="analysis-item flow-stack" style="border-bottom:none; padding:6px 0 2px;">
             <div class="analysis-item-head">
               <span class="analysis-item-title">누적 ${trend.length}일 · 외국인 ${fmtChgQty(tSum("frgn"))}주 · 기관 ${fmtChgQty(tSum("orgn"))}주</span>
@@ -5572,7 +5572,7 @@
           const sSum = shorts.reduce((s, r) => s + (r.pbmn || 0), 0);
           const sAvg = shorts.reduce((s, r) => s + (r.pbmnRlim || 0), 0) / shorts.length;
           const vAvg = shorts.reduce((s, r) => s + (r.volRlim || 0), 0) / shorts.length;
-          html += `<div class="analysis-subhead analysis-subhead-lg">공매도 일별추이 (대금: 억원 · 공표 지연으로 전일까지)</div>`;
+          html += `<div class="analysis-subhead analysis-subhead-lg">공매도 일별추이 (대금: 억원)</div>`;
           html += `<div class="analysis-item flow-stack" style="border-bottom:none; padding:6px 0 2px;">
             <div class="analysis-item-head">
               <span class="analysis-item-title">누적 ${shorts.length}일 · 공매도 대금 <span style="color:var(--up-red);">${fmtEokVal(sSum)}억</span></span>
@@ -5597,7 +5597,7 @@
         if (loans.length) {
           const lSum = (k) => loans.reduce((s, r) => s + (r[k] || 0), 0);
           const latestRmnd = loans[0] ? loans[0].rmndQty : 0;
-          html += `<div class="analysis-subhead analysis-subhead-lg">대차거래 잔고추이 (단위: 주 · 잔고증감 양수=누증(하방 압력), 음수=상환 우위)</div>`;
+          html += `<div class="analysis-subhead analysis-subhead-lg">대차거래 잔고추이 (단위: 주 · 잔고증감 양수 = 하방 압력)</div>`;
           html += `<div class="analysis-item flow-stack" style="border-bottom:none; padding:6px 0 2px;">
             <div class="analysis-item-head">
               <span class="analysis-item-title">누적 ${loans.length}일 · 잔고증감 ${fmtChgQty(lSum("rmndChg"))}주</span>
