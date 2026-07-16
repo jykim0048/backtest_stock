@@ -102,6 +102,9 @@ SYSTEM = """\
   loans_recent(대차거래 일별: newQty=체결, rdmpQty=상환, rmndChg=잔고 증감 주수, rmndAmt=잔고 억원)도
   하방 압력 신호로 활용하라 — 공매도 비중 급증(예: 거래대금의 10%+)과 대차잔고 누증은 하방 압력,
   잔고 급감은 숏커버 가능성. 수치는 입력값을 그대로 인용하고 지어내지 말 것.
+  naver_trend(네이버 일자별): frgn/orgn/prsn=외국인/기관/개인 순매매량(주식 수, 음수=순매도),
+  holdRatio=외국인 보유율%. 장중에도 전일까지 제공되므로 daily(대금)가 비어 있으면 이것으로
+  투자자별 매매 추세를 해석하라. 외국인 보유율의 추세적 상승/하락도 수급 신호다.
 - flowComment: investor_flow 를 해석한 2-3문장 — ① 투자자별 순매수 추세(누가 사고 누가 파는지,
   추세 전환 여부) ② 공매도 비중 수준·급증 여부 ③ 대차잔고 방향(누증/상환 우위)을 투자자 관점으로.
   대시보드 '수급' 탭 상단에 그대로 노출된다. 유의미한 수치(억원·%·주)를 1-2개 인용하라.
@@ -385,12 +388,20 @@ def analyze_stock(stock, peer_cfg):
     # 투자자 수급(KIS): LLM 프롬프트에는 최근 10거래일 + 당일 가집계 랭킹만 (경량화).
     # 전체(20일)는 아래에서 analysis["flow"] 로 결정적으로 실어 대시보드가 렌더링.
     flow = fetch_investor_flow(stock["code"])
-    # 일별(daily)은 KIS 시간제한(00:00~15:40 차단)으로 장중엔 비어 있을 수 있다 —
-    # 공매도/대차/가집계만 있어도 프롬프트에 넣는다.
-    if any(flow.get(k) for k in ("daily", "rank", "shorts", "loans")):
-        raw["investor_flow"] = {"daily": flow["daily"][:10], "today_rank": flow["rank"],
+    # 네이버 일자별 매매동향(수량·보유율): KIS daily(대금)가 장중 시간제한(00:00~15:40)으로
+    # 비는 구간을 메운다 — 전일까지 확정치라 장중에도 항상 조회 가능.
+    trend = sources.naver_investor_trend(stock["code"])
+    if trend:
+        flow = dict(flow) if flow else {}
+        flow["trend"] = trend
+    # 일별(daily)은 KIS 시간제한으로 장중엔 비어 있을 수 있다 —
+    # 네이버/공매도/대차/가집계만 있어도 프롬프트에 넣는다.
+    if any(flow.get(k) for k in ("daily", "rank", "shorts", "loans", "trend")):
+        raw["investor_flow"] = {"daily": (flow.get("daily") or [])[:10],
+                                "today_rank": flow.get("rank") or [],
                                 "shorts_recent": (flow.get("shorts") or [])[:10],
-                                "loans_recent": (flow.get("loans") or [])[:10]}
+                                "loans_recent": (flow.get("loans") or [])[:10],
+                                "naver_trend": (flow.get("trend") or [])[:10]}
 
     user = (f"종목: {stock['name']} ({stock['code']}, {stock['market']})\n"
             f"RAW 데이터(JSON):\n{json.dumps(raw, ensure_ascii=False)}")

@@ -5524,6 +5524,40 @@
           if (v < 0) return `<span style="color:var(--kospi-blue); font-weight:600;">-${fmtNum(Math.abs(v))}</span>`;
           return `<span style="color:var(--text-muted);">0</span>`;
         };
+        // 네이버 일자별 매매동향(수량·보유율) — KIS 대금(daily)이 장중 시간제한으로
+        // 비는 구간을 메운다(전일까지). 누적 첫 행 + 일자별 접기(공매도·대차와 동일 패턴).
+        const trend = sec.trend || [];
+        if (trend.length) {
+          const tSum = (k) => trend.reduce((s, r) => s + (r[k] || 0), 0);
+          const hrNow = trend[0] ? trend[0].holdRatio : null;
+          const hrThen = trend[trend.length - 1] ? trend[trend.length - 1].holdRatio : null;
+          const hrDelta = (hrNow != null && hrThen != null) ? hrNow - hrThen : null;
+          const hr = (v) => v != null ? v.toFixed(2) + "%" : "-";
+          html += `<div class="analysis-subhead analysis-subhead-lg">기관·외국인 일별 매매동향 (네이버 · 단위: 주 · 당일치는 장 마감 후)</div>`;
+          html += `<div class="analysis-item" style="border-bottom:none; padding:6px 0 2px;">
+            <div class="analysis-item-head">
+              <span class="analysis-item-title">누적 ${trend.length}일 · 외국인 ${fmtChgQty(tSum("frgn"))}주 · 기관 ${fmtChgQty(tSum("orgn"))}주</span>
+              <span class="analysis-item-meta">외국인 보유율 ${hr(hrNow)}${hrDelta != null ? ` (${trend.length}일 ${hrDelta >= 0 ? "+" : ""}${hrDelta.toFixed(2)}%p)` : ""}</span>
+            </div></div>`;
+          html += `<details class="flow-details"><summary>일자별 보기 (${trend.length}일) ▾</summary>
+            <div style="overflow-x:auto;"><table style="width:100%; border-collapse:collapse; font-size:12px;">
+            <thead><tr style="color:var(--text-muted);">
+              <th style="text-align:left; padding:4px 6px;">날짜</th>
+              <th style="text-align:right; padding:4px 6px;">종가</th>
+              <th style="text-align:right; padding:4px 6px;">개인</th>
+              <th style="text-align:right; padding:4px 6px;">외국인</th>
+              <th style="text-align:right; padding:4px 6px;">기관</th>
+              <th style="text-align:right; padding:4px 6px;">보유율</th>
+            </tr></thead><tbody>` +
+            trend.map(r => `<tr style="border-top:1px solid rgba(255,255,255,.06);">
+              <td style="padding:4px 6px;">${dt(r.date)}</td>
+              <td style="text-align:right; padding:4px 6px;">${r.close != null ? `${Number(r.close).toLocaleString()} <span style="color:${(r.rate || 0) >= 0 ? "var(--up-red)" : "var(--kospi-blue)"}; font-size:11px;">${(r.rate || 0) >= 0 ? "+" : ""}${r.rate}%</span>` : "-"}</td>
+              <td style="text-align:right; padding:4px 6px;">${fmtChgQty(r.prsn)}</td>
+              <td style="text-align:right; padding:4px 6px;">${fmtChgQty(r.frgn)}</td>
+              <td style="text-align:right; padding:4px 6px;">${fmtChgQty(r.orgn)}</td>
+              <td style="text-align:right; padding:4px 6px;">${hr(r.holdRatio)}</td>
+            </tr>`).join("") + `</tbody></table></div></details>`;
+        }
         // 공매도·대차: 누적 요약을 첫 행(항상 표시)으로, 일자별 표는 접기(details)로.
         const shorts = sec.shorts || [];
         if (shorts.length) {
@@ -5580,7 +5614,7 @@
               <td style="text-align:right; padding:4px 6px;">${fmtNum(r.rmndQty)}</td>
             </tr>`).join("") + `</tbody></table></div></details>`;
         }
-        if (!rows.length && !shorts.length && !loans.length && !(sec.rank && sec.rank.length)) {
+        if (!rows.length && !trend.length && !shorts.length && !loans.length && !(sec.rank && sec.rank.length)) {
           html += `<span class="analysis-empty">수급 데이터가 없습니다.</span>`;
         }
       } else if (tab === "dart") {

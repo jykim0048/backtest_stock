@@ -932,6 +932,49 @@ def naver_stock_flow(code):
     return out
 
 
+def naver_investor_trend(code, rows=20):
+    """일자별 외국인/기관/개인 순매매량(주)·외국인 보유율 — m.stock.naver.com trend API.
+    KIS 일별 대금(FHPTJ04160001)이 장중 시간제한(00:00~15:40)으로 비는 구간을 메운다
+    (전일까지 확정, 당일치는 장 마감 후 반영). 최신순 [{date, close, rate, frgn, orgn,
+    prsn, holdRatio}]. 수량 필드는 "+1,799,843" 형식(부호 포함). 실패 시 [] (graceful)."""
+    try:
+        r = requests.get(f"https://m.stock.naver.com/api/stock/{code}/trend",
+                         params={"pageSize": rows, "page": 1}, headers=UA, timeout=10)
+        r.raise_for_status()
+        items = r.json()
+        if not isinstance(items, list):
+            return []
+    except Exception as e:
+        _warn(f"naver_investor_trend({code}) failed: {e}")
+        return []
+
+    def _i(v):
+        try:
+            return int(str(v).replace(",", ""))
+        except (ValueError, TypeError):
+            return None
+
+    out = []
+    for it in items[:rows]:
+        row = {"date": str(it.get("bizdate") or ""),
+               "frgn": _i(it.get("foreignerPureBuyQuant")),
+               "orgn": _i(it.get("organPureBuyQuant")),
+               "prsn": _i(it.get("individualPureBuyQuant"))}
+        try:
+            row["holdRatio"] = float(str(it.get("foreignerHoldRatio") or "").rstrip("%"))
+        except ValueError:
+            row["holdRatio"] = None
+        close = _i(it.get("closePrice"))
+        chg = _i(it.get("compareToPreviousClosePrice")) or 0   # 부호 포함(실측)
+        if close:
+            row["close"] = close
+            prev = close - chg
+            row["rate"] = round(chg / prev * 100, 2) if prev else 0
+        if row["date"] and (row["frgn"] is not None or row["orgn"] is not None):
+            out.append(row)
+    return out
+
+
 def naver_index_investors():
     """코스피/코스닥 당일 투자자별 순매수 금액(억원) — 네이버 증권홈 '오늘의 증시'
     와 동일 수치. 반환: {kospi: {individual, foreign, institution}, kosdaq: {...}}
