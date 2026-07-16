@@ -1511,11 +1511,12 @@
     .analysis-empty { color: var(--text-muted); font-style: italic; font-size: 12px; }
     .analysis-subhead-lg { font-size: 13px; }   /* 수급 탭 공매도·대차 제목 (+2px) */
     .flow-meta-lg { font-size: 12px; }          /* 수급 탭 누적 요약 우측 주석 (+1px) */
-    /* 딥리서치 사이드바(드로어)는 폭이 좁아 수급 누적 요약의 주석을 한 행 아래로 */
-    #analysis-content .flow-sum .analysis-item-head {
+    /* 딥리서치 사이드바(드로어)는 폭이 좁아 수급 행의 주석을 한 행 아래로 —
+       가로 배치면 nowrap 인 주석이 폭을 독점해 제목이 세로로 쪼개진다(실측 7줄). */
+    #analysis-content .flow-stack .analysis-item-head {
       flex-direction: column; align-items: flex-start; gap: 2px;
     }
-    #analysis-content .flow-sum .analysis-item-meta { white-space: normal; }
+    #analysis-content .flow-stack .analysis-item-meta { white-space: normal; }
     .flow-details summary { cursor: pointer; font-size: 11.5px; color: var(--text-muted);
       margin: 4px 0 2px; user-select: none; }
     .flow-details summary:hover { color: var(--kospi-blue); }
@@ -5485,7 +5486,7 @@
           // 리스트별 순매수 금액은 동일 종목이라 같은 값 — 순위 배지들을 한 행에 모으고 금액은 1회만.
           const rankBadge = (r) => `${escapeHtml(r.list)} <span style="color:${/순매도/.test(r.list || "") ? "var(--kospi-blue)" : "var(--up-red)"}; font-weight:700;">${r.rank}위</span>`;
           const r0 = sec.rank[0];
-          html += `<div class="analysis-item">
+          html += `<div class="analysis-item flow-stack">
               <div class="analysis-item-head">
                 <span class="analysis-item-title">${sec.rank.map(rankBadge).join(" · ")}</span>
                 <span class="analysis-item-meta">외국인 ${fmtEok(r0.frgn)} · 기관계 ${fmtEok(r0.orgn)} · 기금 ${fmtEok(r0.fund)} 억원</span>
@@ -5513,7 +5514,7 @@
           const hrDelta = (hrNow != null && hrThen != null) ? hrNow - hrThen : null;
           const hr = (v) => v != null ? v.toFixed(2) + "%" : "-";
           html += `<div class="analysis-subhead analysis-subhead-lg">기관·외국인 일별 매매동향 (네이버 · 단위: 주)</div>`;
-          html += `<div class="analysis-item flow-sum" style="border-bottom:none; padding:6px 0 2px;">
+          html += `<div class="analysis-item flow-stack" style="border-bottom:none; padding:6px 0 2px;">
             <div class="analysis-item-head">
               <span class="analysis-item-title">누적 ${trend.length}일 · 외국인 ${fmtChgQty(tSum("frgn"))}주 · 기관 ${fmtChgQty(tSum("orgn"))}주</span>
               <span class="analysis-item-meta flow-meta-lg">외국인 보유율 ${hr(hrNow)}${hrDelta != null ? ` (${trend.length}일 ${hrDelta >= 0 ? "+" : ""}${hrDelta.toFixed(2)}%p)` : ""}</span>
@@ -5548,7 +5549,7 @@
           const sAvg = shorts.reduce((s, r) => s + (r.pbmnRlim || 0), 0) / shorts.length;
           const vAvg = shorts.reduce((s, r) => s + (r.volRlim || 0), 0) / shorts.length;
           html += `<div class="analysis-subhead analysis-subhead-lg">공매도 일별추이 (대금: 억원 · 공표 지연으로 전일까지)</div>`;
-          html += `<div class="analysis-item flow-sum" style="border-bottom:none; padding:6px 0 2px;">
+          html += `<div class="analysis-item flow-stack" style="border-bottom:none; padding:6px 0 2px;">
             <div class="analysis-item-head">
               <span class="analysis-item-title">누적 ${shorts.length}일 · 공매도 대금 <span style="color:var(--up-red);">${fmtEokVal(sSum)}억</span></span>
               <span class="analysis-item-meta flow-meta-lg">대금 비중 평균 ${pctCell(sAvg.toFixed(1) * 1)} · 거래량 비중 평균 ${vAvg.toFixed(1)}%</span>
@@ -5573,7 +5574,7 @@
           const lSum = (k) => loans.reduce((s, r) => s + (r[k] || 0), 0);
           const latestRmnd = loans[0] ? loans[0].rmndQty : 0;
           html += `<div class="analysis-subhead analysis-subhead-lg">대차거래 잔고추이 (단위: 주 · 잔고증감 양수=누증(하방 압력), 음수=상환 우위)</div>`;
-          html += `<div class="analysis-item flow-sum" style="border-bottom:none; padding:6px 0 2px;">
+          html += `<div class="analysis-item flow-stack" style="border-bottom:none; padding:6px 0 2px;">
             <div class="analysis-item-head">
               <span class="analysis-item-title">누적 ${loans.length}일 · 잔고증감 ${fmtChgQty(lSum("rmndChg"))}주</span>
               <span class="analysis-item-meta flow-meta-lg">체결 ${fmtNum(lSum("newQty"))} · 상환 ${fmtNum(lSum("rdmpQty"))} · 현재 잔고 ${fmtNum(latestRmnd)}주</span>
