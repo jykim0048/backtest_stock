@@ -338,12 +338,12 @@ def _norm_opinion(o):
     return (o or "").strip()
 
 
-def fetch_investor_flow(code):
+def fetch_investor_flow(code, timeout=12):
     """KIS 허브 프록시(/flow)에서 종목 수급 — 당일 가집계(잠정) 랭킹 + 공매도/대차 일별.
     KIS 일별 대금(daily)은 시간제한(00:00~15:40 차단)으로 장중 공백이라 미사용 —
     일자별 투자자 동향은 네이버 trend 로 일원화(2026-07-16). 실패 시 빈 dict."""
     try:
-        r = requests.get(f"{FLOW_API_BASE}/flow", params={"code": code}, timeout=12)
+        r = requests.get(f"{FLOW_API_BASE}/flow", params={"code": code}, timeout=timeout)
         r.raise_for_status()
         d = r.json()
         if d.get("status") == "success":
