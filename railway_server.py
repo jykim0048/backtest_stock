@@ -521,6 +521,17 @@ class Handler(BaseHTTPRequestHandler):
                 result["checks"]["kospi_tickers"] = {"ok": len(lst) > 0, "count": len(lst)}
             except Exception as ex:
                 result["checks"]["kospi_tickers"] = {"ok": False, "error": str(ex)[:300]}
+            # 투자자별 순매수 거래대금(개인/외국인/기관 일별) — KIS FHPTJ04160001 의
+            # 시간제한(00:00~15:40 차단) 우회 후보로서 KRX 직접 조회 가능 여부 실측
+            try:
+                df = pk.get_market_trading_value_by_date(s, e, "005930")
+                ok = df is not None and not df.empty
+                result["checks"]["trading_value_005930"] = {
+                    "ok": bool(ok), "rows": int(len(df)) if ok else 0,
+                    "cols": list(map(str, df.columns)) if ok else [],
+                    "last": ({str(k): float(v) for k, v in df.iloc[-1].items()} if ok else None)}
+            except Exception as ex:
+                result["checks"]["trading_value_005930"] = {"ok": False, "error": str(ex)[:300]}
         except Exception as ex:
             result["checks"]["import"] = {"ok": False, "error": str(ex)[:300]}
         verdict = any(c.get("ok") for c in result["checks"].values())
