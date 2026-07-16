@@ -1510,7 +1510,7 @@
     }
     .analysis-empty { color: var(--text-muted); font-style: italic; font-size: 12px; }
     .analysis-subhead-lg { font-size: 13px; }   /* 수급 탭 공매도·대차 제목 (+2px) */
-    .analysis-subhead-md { font-size: 12px; }   /* 대차 제목 — 설명이 길어 -1px */
+    .analysis-subhead-md { font-size: 12px; }   /* 대차 제목의 괄호 설명 — 길어서 -1px */
     .flow-meta-lg { font-size: 12px; }          /* 수급 탭 누적 요약 우측 주석 (+1px) */
     /* 딥리서치 사이드바(드로어)는 폭이 좁아 수급 행의 주석을 한 행 아래로 —
        가로 배치면 nowrap 인 주석이 폭을 독점해 제목이 세로로 쪼개진다(실측 7줄). */
@@ -5598,7 +5598,7 @@
         if (loans.length) {
           const lSum = (k) => loans.reduce((s, r) => s + (r[k] || 0), 0);
           const latestRmnd = loans[0] ? loans[0].rmndQty : 0;
-          html += `<div class="analysis-subhead analysis-subhead-md">대차거래 잔고추이 (단위: 주 · 잔고증감 양수 = 하방 압력, 음수 = 상환 우위)</div>`;
+          html += `<div class="analysis-subhead analysis-subhead-lg">대차거래 잔고추이 <span class="analysis-subhead-md">(단위: 주 · 잔고증감 양수 = 하방 압력, 음수 = 상환 우위)</span></div>`;
           html += `<div class="analysis-item flow-stack" style="border-bottom:none; padding:6px 0 2px;">
             <div class="analysis-item-head">
               <span class="analysis-item-title">누적 ${loans.length}일 · 잔고증감 ${fmtChgQty(lSum("rmndChg"))}주</span>
