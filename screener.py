@@ -72,6 +72,8 @@ else:
 
 # 장전 하락 리스트 경로(장중 중복 제거용 — 모드와 무관하게 고정 경로 참조)
 PRE_WATCHLIST_DOWN = os.path.join(ROOT, "watchlist_down.json")
+# 장중 시황 산출물 — 상방 촉매 종목을 후보 풀에 시드하는 데 사용(intraday 전용)
+BRIEFING_PATH = os.path.join(ROOT, "public", "intraday_briefing.json")
 
 KST = datetime.timezone(datetime.timedelta(hours=9))
 
@@ -631,14 +633,44 @@ def _pre_watchlist_codes():
             if isinstance(s, dict) and s.get("code")}
 
 
-def build_pool(uni, disclosure_map):
+def briefing_catalyst_candidates(uni):
+    """장중 시황(intraday_briefing.json)의 '상방(bullish) 촉매' 종목 → 후보 시드.
+
+    시황 파이프라인은 전 시장 특징주 '뉴스'에서 출발해 종목을 잡지만, 스크리너의
+    편입 경로는 공시·가격뿐이라 뉴스만 있는 급등주(SK텔레콤 SDT 투자 사례,
+    2026-07-16)는 LLM 이 존재조차 모른다 — 직전 회차 시황의 상방 촉매를 유니버스
+    내에서 '종목명' 매칭(촉매엔 코드가 없음)해 점수 무관 시드로 주입한다.
+    추가 API 호출 0, 촉매 요약 문장이 곧 LLM 선정 근거가 된다.
+    Returns {code: 촉매 요약}. intraday 모드가 아니거나 오늘 산출물이 아니면 {}."""
+    if not IS_INTRADAY:
+        return {}
+    data = _load_json(BRIEFING_PATH, {}) or {}
+    today = datetime.datetime.now(KST).strftime("%Y-%m-%d")
+    stamp = (str(data.get("date") or ""), str(data.get("asof") or "")[:10])
+    if today not in stamp:                    # 전일 파일 잔존 방어(장 시작 직후 등)
+        return {}
+    name_to_code = {str(r["Name"]).strip(): str(r["Code"])
+                    for r in uni.to_dict("records")}
+    out = {}
+    for c in data.get("catalysts") or []:
+        if not isinstance(c, dict):
+            continue
+        if str(c.get("direction", "")).lower() != "bullish":
+            continue
+        code = name_to_code.get(str(c.get("stock", "")).strip())
+        if code and code not in out:
+            out[code] = str(c.get("summary", "")).strip()[:200]
+    return out
+
+
+def build_pool(uni, disclosure_map, briefing_map=None):
     scored = mechanical_score(uni)
     by_code = {r["Code"]: r for r in scored.to_dict("records")}
 
     pool, seen = [], set()
 
     # 장중 관심종목은 장전 워치리스트와 겹치지 않게 한다 — 장전 종목을 제외 집합에 미리 넣어
-    # 공시(ⓐ)·가격(ⓑ) 후보 양쪽에서 스킵한다.
+    # 공시(ⓐ)·시황(ⓒ)·가격(ⓑ) 후보 모두에서 스킵한다.
     exclude = _pre_watchlist_codes()
     seen |= exclude
 
@@ -651,6 +683,19 @@ def build_pool(uni, disclosure_map):
         row = dict(by_code[c])
         row["disclosures"] = disclosure_map[c]
         row["source"] = "공시"
+        pool.append(row)
+        seen.add(c)
+
+    # ⓒ 시황 촉매 시드(장중 전용) — 뉴스 기반 급등주의 발굴 경로. 가격 점수 무관 편입.
+    for c, summary in (briefing_map or {}).items():
+        if len(pool) >= MAX_CANDIDATES:
+            break
+        if c in seen or c not in by_code:
+            continue
+        row = dict(by_code[c])
+        row["disclosures"] = disclosure_map.get(c, [])
+        row["source"] = "시황"
+        row["briefingCatalyst"] = summary
         pool.append(row)
         seen.add(c)
 
@@ -750,12 +795,15 @@ SYSTEM_INTRADAY = """\
 입력:
 - us_market: 전일 미국 지수/섹터 ETF 등락 + 급등 특징주(movers). 국내 동조/밸류체인 연결 추론용.
 - candidates: 코스피200/코스닥150 유니버스에서 1차 선별된 후보. 각 후보는 source('공시'=당일 촉매 공시
-  보유 / '가격'=장중 거래대금·등락 상위), **장중 실시간 등락률(changePct, 전일 종가 대비 현재가)**,
-  거래대금(amountKRW), **당일 장중 접수 공시(disclosures)**, 당일 뉴스(news)를 포함한다.
+  보유 / '시황'=장중 시황이 상방 촉매로 포착한 종목 / '가격'=장중 거래대금·등락 상위),
+  **장중 실시간 등락률(changePct, 전일 종가 대비 현재가)**, 거래대금(amountKRW),
+  **당일 장중 접수 공시(disclosures)**, 당일 뉴스(news)를 포함한다. source='시황' 후보는
+  briefingCatalyst(장중 시황이 요약한 상방 촉매 한 줄)를 함께 담는다 — 뉴스 기반 촉매의 선정 근거로 쓴다.
 
 선정 원칙(중요도 순):
 1) **오늘 장중에 새로 나온 촉매 공시**(공급계약·수주·실적·임상/허가·투자·자사주 등)를 가진 종목 최우선.
-2) 당일 우호적 뉴스가 막 나온 종목, 전일 미국시장 강세 섹터·급등 특징주와 테마/밸류체인이 연결된 종목.
+2) 당일 우호적 뉴스가 막 나온 종목(시황 촉매 briefingCatalyst 포함), 전일 미국시장 강세 섹터·급등
+   특징주와 테마/밸류체인이 연결된 종목.
 3) 장중 등락률·거래대금은 '시장이 이미 반응 중인 강도' 확인용. 다만 **이미 상한가 근처까지 급등해
    추격 여력이 적은 종목보다, 촉매가 분명하고 모멘텀이 막 붙기 시작한 종목**을 우선한다.
 - **방향 게이트**: 각 후보의 지배적 재료가 상방인지 하방인지 먼저 판정한다. 하방(악재·계약 해지·
@@ -810,7 +858,7 @@ def llm_select(us_brief, pool):
 
     candidates = []
     for r in pool:
-        candidates.append({
+        cand = {
             "code": r["Code"],
             "name": r["Name"],
             "market": r["Market"],
@@ -819,7 +867,10 @@ def llm_select(us_brief, pool):
             "amountKRW": int(r["Amount"]),
             "disclosures": [d["title"] for d in r.get("disclosures", [])][:5],
             "news": [n["title"] for n in r.get("news", [])][:5],
-        })
+        }
+        if r.get("briefingCatalyst"):        # 시황 시드 종목의 촉매 요약(선정 근거)
+            cand["briefingCatalyst"] = r["briefingCatalyst"]
+        candidates.append(cand)
 
     user = json.dumps({"us_market": us_brief, "candidates": candidates}, ensure_ascii=False)
     system = (SYSTEM_INTRADAY if IS_INTRADAY else SYSTEM).replace("{n}", str(N_FINAL))
@@ -1026,9 +1077,14 @@ def main():
     us_brief["krSectorStocks"] = kr_sector_stocks
     disclosure_map = disclosure_candidates(universe_codes)
     print(f"   공시 촉매 종목: {len(disclosure_map)}개")
-    pool = build_pool(uni, disclosure_map)
+    briefing_map = briefing_catalyst_candidates(uni)
+    if briefing_map:
+        print(f"   시황 상방 촉매 시드: {len(briefing_map)}개")
+    pool = build_pool(uni, disclosure_map, briefing_map)
     n_disc = sum(1 for r in pool if r.get("source") == "공시")
-    print(f"   후보 풀: {len(pool)}종목 (공시 {n_disc} + 가격 {len(pool) - n_disc})")
+    n_brief = sum(1 for r in pool if r.get("source") == "시황")
+    print(f"   후보 풀: {len(pool)}종목 (공시 {n_disc} + 시황 {n_brief} + 가격 "
+          f"{len(pool) - n_disc - n_brief})")
 
     print("3) 뉴스 보강 (전일 장마감~실행시각)...")
     try:
