@@ -37,7 +37,10 @@ OUT_PATH = os.environ.get("INTRADAY_BRIEFING_OUT") or os.path.join(
 ARCHIVE_DIR = os.path.join(ROOT, "public", "reports", "intraday_briefing")
 THEMES_PER_SIDE = int(os.environ.get("BRIEFING_THEMES", "3"))     # 급등/급락 각 N개
 STOCKS_PER_THEME = int(os.environ.get("BRIEFING_VC_STOCKS", "3"))  # 테마 구성종목 표기 수(방향 상위)
-THEMES_PER_SECTOR = int(os.environ.get("BRIEFING_THEMES_PER_SECTOR", "4"))  # 섹터당 관련 테마 상한
+THEMES_PER_SECTOR = int(os.environ.get("BRIEFING_THEMES_PER_SECTOR", "3"))  # 섹터당 관련 테마 상한
+# 반대방향 테마 슬롯: 섹터 방향과 반대로 |등락|이 이 값(%) 이상인 종목이 있으면
+# 그 종목과 가장 연관된 테마 1개를 마지막 슬롯에 노출 (통신 +3.39% 내 프리티 -24% 사례)
+THEME_COUNTER_MIN_CHG = float(os.environ.get("BRIEFING_COUNTER_MIN_CHG", "5"))
 # ── 기여도 가중 스코어링(2026-07-15 13:41 회차 시뮬레이션으로 확정) ──────────────
 # 지수는 시총가중이므로 '오늘 이 섹터를 움직인' 테마 = 시총×당일등락 기여가 큰 종목이
 # 속한 테마다(오락·문화 -1.63% 의 동인이 파라다이스·GKL 폭락인데 개수 기준으론 카지노가
@@ -333,7 +336,8 @@ def _match_themes(sector, ranking, assigned, shares):
       기여항: THEME_CONTRIB_W × (겹친 종목들의 섹터 방향 기여 share 합, 종목당 20% 캡)
               — '오늘 이 섹터를 실제로 움직인' 테마를 끌어올린다(오락·문화 하락일의
               카지노, 기계·장비 급등일의 반도체 장비). shares=None 이면 구조항만.
-    동점은 |테마 등락률| 큰 쪽 우선.
+    동점은 |테마 등락률| 큰 쪽 우선. 선정 후 '노출 순서'는 섹터 기여 share
+    내림차순으로 재정렬한다(2026-07-16 — 오늘 섹터를 움직인 테마가 위로).
 
     대표(1번째) 테마는 최고점이면 되지만, 2번째부터는 '대장주 1종목 단독 겹침'을
     배제한다 — 조광피혁(섬유·의류 ↔ 부동산자산주)처럼 종목 하나가 이질 테마에 걸친
@@ -371,11 +375,57 @@ def _match_themes(sector, ranking, assigned, shares):
             # 겹침 4+(화학∩화장품 사례)와 유의미한 지수 기여는 진짜 연관으로 인정.
             ok_secondary = (lead_ov >= 2 or name_sim or kw or overlap >= 4
                             or share >= 0.10)
-            scored.append((score, abs(t.get("changePct") or 0), t, ok_secondary))
+            scored.append((score, abs(t.get("changePct") or 0), t, ok_secondary, share))
     scored.sort(key=lambda x: (-x[0], -x[1]))
-    picked = [t for _, _, t, _ in scored[:1]] \
-        + [t for _, _, t, ok in scored[1:] if ok]
-    return picked[:THEMES_PER_SECTOR]
+    picked = [(t, sh) for _, _, t, _, sh in scored[:1]] \
+        + [(t, sh) for _, _, t, ok, sh in scored[1:] if ok]
+    picked = picked[:THEMES_PER_SECTOR]
+    # 노출 순서는 '오늘 섹터를 움직인' 기여 share 내림차순 — 선정(점수순)과 분리
+    # (2026-07-16). 파이썬 정렬은 안정적이라 share 동률(0 포함)은 점수순 유지.
+    picked.sort(key=lambda x: -x[1])
+    return [t for t, _ in picked]
+
+
+def _counter_theme(sector, ranking, assigned, rates):
+    """섹터 방향과 반대로 |등락|이 가장 큰 종목(≥ THEME_COUNTER_MIN_CHG%)의 연관 테마.
+
+    통신 +3.39% 안의 프리티 -24%(2026-07-16 실측)처럼 유의미한 역방향 급등락은
+    정방향 기여 스코어링(_contrib_shares 가 섹터 방향 기여만 집계)에 전혀 안 잡힌다 —
+    그 종목이 속한 테마 1개를 마지막 슬롯에 노출해 상승·하락 동인을 함께 보인다.
+    연관성 순위: ① 그 종목이 테마 주도주 ② 구조항 점수(겹침4·명칭3·키워드2)
+    ③ 테마 등락이 종목과 같은 방향 ④ |테마 등락| 큰 쪽.
+    반환 None = 미발동(임계 미달·테마 미소속·지수형/소프트캡 제외)."""
+    chg = sector.get("changePct") or 0
+    d = 1 if chg >= 0 else -1
+    codes = set(sector.get("_matchCodes") or
+                [s.get("code") for s in (sector.get("stocks") or [])])
+    counter_rates = {c: r for c, r in rates.items() if c in codes and d * r < 0}
+    if not counter_rates:
+        return None
+    top = max(counter_rates, key=lambda c: abs(counter_rates[c]))
+    if abs(counter_rates[top]) < THEME_COUNTER_MIN_CHG:
+        return None
+    s_toks = _name_tokens(sector.get("name"))
+    kws = _SECTOR_THEME_KW.get(sector.get("name"), [])
+    cand = []
+    for t in ranking:
+        if assigned.get(t["no"], 0) >= THEME_MAX_SECTORS:
+            continue
+        if re.search(r"지수|코스피|밸류업|MSCI|대표주|S7", t["name"] or ""):
+            continue
+        t_codes = t.get("_codes") or set()
+        if top not in t_codes:
+            continue
+        struct = (4 * len(codes & t_codes)
+                  + 3 * bool(s_toks & _name_tokens(t["name"]))
+                  + 2 * _kw_hit(kws, t["name"]))
+        is_leader = any(L.get("code") == top for L in (t.get("leaders") or []))
+        dir_match = counter_rates[top] * (t.get("changePct") or 0) > 0
+        cand.append((is_leader, struct, dir_match, abs(t.get("changePct") or 0), t))
+    if not cand:
+        return None
+    cand.sort(key=lambda x: (-x[0], -x[1], -x[2], -x[3]))
+    return cand[0][4]
 
 
 def attach_sector_themes(sectors_up, sectors_down):
@@ -413,10 +463,20 @@ def attach_sector_themes(sectors_up, sectors_down):
                        + [(s, False) for s in sectors_down]):
         shares = _contrib_shares(sector, rates)
         themes = _match_themes(sector, ranking, assigned, shares)
+        # 반대방향 슬롯: 역방향 |등락|≥THEME_COUNTER_MIN_CHG% 종목의 연관 테마를
+        # 마지막 슬롯으로 (정방향 기여순 상위는 유지, 상한 THEMES_PER_SECTOR 불변).
+        counter = _counter_theme(sector, ranking, assigned, rates)
+        if counter and any(t["no"] == counter["no"] for t in themes):
+            counter = None                    # 이미 정방향 선정에 포함 — 중복 방지
+        if counter:
+            themes = themes[:max(0, THEMES_PER_SECTOR - 1)] + [counter]
         if themes:
             for t in themes:
                 assigned[t["no"]] = assigned.get(t["no"], 0) + 1
-            sector["themes"] = [_theme_detail(t, up) for t in themes]
+            # 반대방향 테마는 구성종목 표기를 역방향 상위로 정렬(_theme_detail 방향 반전)
+            sector["themes"] = [
+                _theme_detail(t, (not up) if (counter and t["no"] == counter["no"]) else up)
+                for t in themes]
         sector.pop("_matchCodes", None)     # 내부 매칭용 — 산출 JSON 에서 제거
         sector.pop("_matchCaps", None)
 
