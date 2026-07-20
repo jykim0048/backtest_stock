@@ -704,6 +704,9 @@ SYSTEM = (
     "브리핑을 작성하세요.\n"
     "규칙:\n"
     "- 데이터에 없는 수치·사실을 지어내지 말 것. 등락률 등 수치는 입력값을 인용할 것.\n"
+    "- marketIndicators 각 항목의 chg 는 전일대비 '부호 포함' 변화량, trend 는 방향이다. "
+    "상승/하락 표현은 반드시 chg 부호·trend 를 그대로 따를 것 — 값의 절대 수준(예: 환율 "
+    "1,480원대)이 높다는 이유로 '상승'이라고 쓰지 말 것(chg 가 음수면 반드시 '하락').\n"
     "- briefing 은 3~5개의 완결된 문장(각각이 대시보드 불릿 하나): ① 지수 흐름과 수급 주체"
     "(investors — 기관/외국인/개인 순매수, 단위 억원)를 함께, ② 환율·금리·유가(marketIndicators)가 "
     "시장에 주는 함의, ③ 주도 섹터(sectorsUp), ④ 약세 섹터(sectorsDown), ⑤ 관전 포인트 순으로.\n"
@@ -786,22 +789,34 @@ def _sector_raw(s):
     }
 
 
+def _ind_llm_view(x):
+    """시장지표 항목 → LLM 입력용 정규화. 원본은 change 가 '절대값' + direction 분리
+    형태라 LLM 이 양수만 보고 "+8.5원 상승"으로 오독하는 사고가 잦았다(2026-07-20
+    환율 ▼8.5 를 상승으로) — 부호를 결정적으로 복원(chg)하고 방향 단어(trend)를
+    동봉해 모호성을 없앤다. 타일 UI 는 원본 direction 을 쓰므로 영향 없음."""
+    sign = -1 if x.get("direction") == "down" else 1
+    chg = x.get("change")
+    return {"name": x.get("name"), "value": x.get("value"),
+            "chg": (sign * chg) if isinstance(chg, (int, float)) else None,
+            "trend": {"up": "상승", "down": "하락"}.get(x.get("direction"), "보합")}
+
+
 def synthesize(indices, investors, indicators, sectors_up, sectors_down,
                movers_up, movers_down, disclosures, news, fx_news,
                prev_rounds=None, us_context=None, investor_flow=None,
                econ_events=None):
-    # 시장지표는 핵심만 추려 LLM 에 전달 (COFIX 등 저관련 항목 제외)
+    # 시장지표는 핵심만 추려 LLM 에 전달 (COFIX 등 저관련 항목 제외).
     core_ind = {}
     if indicators:
         core_ind = {
-            "exchange": [x for x in indicators.get("exchange", [])
+            "exchange": [_ind_llm_view(x) for x in indicators.get("exchange", [])
                          if any(k in x["name"] for k in ("USD", "JPY", "EUR"))],
-            "world": [x for x in indicators.get("world", [])
+            "world": [_ind_llm_view(x) for x in indicators.get("world", [])
                       # 네이버 국제환율 라벨: 달러인덱스, '달러/일본 엔'(=USD/JPY, 엔/달러 환율)
                       if any(k in x["name"] for k in ("달러인덱스", "일본 엔"))],
-            "rates": [x for x in indicators.get("rates", [])
+            "rates": [_ind_llm_view(x) for x in indicators.get("rates", [])
                       if any(k in x["name"] for k in ("CD", "국고채", "회사채"))],
-            "commodities": [x for x in indicators.get("commodities", [])
+            "commodities": [_ind_llm_view(x) for x in indicators.get("commodities", [])
                             if any(k in x["name"] for k in ("WTI", "국제 금"))],
         }
     raw = {
