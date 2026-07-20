@@ -477,8 +477,8 @@ def attach_sector_themes(sectors_up, sectors_down):
             sector["themes"] = [
                 _theme_detail(t, (not up) if (counter and t["no"] == counter["no"]) else up)
                 for t in themes]
-        sector.pop("_matchCodes", None)     # 내부 매칭용 — 산출 JSON 에서 제거
-        sector.pop("_matchCaps", None)
+        # _matchCodes/_matchCaps 정리는 enrich_sector_stocks(마지막 소비처 — 대표주
+        # 기여도 정렬에 cap 사용)가 담당한다.
 
 
 def fetch_investor_series():
@@ -551,31 +551,47 @@ def enrich_sector_stocks(sectors_up, sectors_down):
     LLM 이 '어느 종목이, 누가 사서' 섹터를 움직이는지 서술할 근거. 실패 필드는 생략."""
     stocks = [x for s in sectors_up + sectors_down for x in (s.get("stocks") or [])]
     codes = list(dict.fromkeys(x["code"] for x in stocks if x.get("code")))
-    if not codes:
-        return
-    prices = {}
-    try:
-        # 시세는 backteststock /api/prices (대시보드와 동일 소스). KIS 허브(모니터 서비스)
-        # /prices 는 그 서비스에 KIS 앱키가 없어 항상 빈 응답(2026-07-13 실측) — 사용 금지.
-        r = requests.get(f"{PRICES_API_BASE}/api/prices",
-                         params={"codes": ",".join(codes)}, timeout=20)
-        prices = (r.json() or {}).get("stocks") or {}
-    except Exception as e:
-        _warn(f"관련주 시세 조회 실패: {e}")
-    flows = {}
-    for c in codes:
-        flows[c] = sources.naver_stock_flow(c)
-    n_p, n_f = 0, 0
-    for x in stocks:
-        p = prices.get(x.get("code")) or {}
-        if p.get("rate") is not None:
-            x["changePct"] = p["rate"]
-            n_p += 1
-        f = flows.get(x.get("code")) or {}
-        if f:
-            x["flow"] = f          # {date, foreign, institution} — 순매수 수량(주)
-            n_f += 1
-    print(f"  섹터 관련주 보강: 시세 {n_p}/{len(stocks)}, 수급 {n_f}/{len(stocks)}")
+    if codes:
+        prices = {}
+        try:
+            # 시세는 backteststock /api/prices (대시보드와 동일 소스). KIS 허브(모니터 서비스)
+            # /prices 는 그 서비스에 KIS 앱키가 없어 항상 빈 응답(2026-07-13 실측) — 사용 금지.
+            r = requests.get(f"{PRICES_API_BASE}/api/prices",
+                             params={"codes": ",".join(codes)}, timeout=20)
+            prices = (r.json() or {}).get("stocks") or {}
+        except Exception as e:
+            _warn(f"관련주 시세 조회 실패: {e}")
+        flows = {}
+        for c in codes:
+            flows[c] = sources.naver_stock_flow(c)
+        n_p, n_f = 0, 0
+        for x in stocks:
+            p = prices.get(x.get("code")) or {}
+            if p.get("rate") is not None:
+                x["changePct"] = p["rate"]
+                n_p += 1
+            f = flows.get(x.get("code")) or {}
+            if f:
+                x["flow"] = f          # {date, foreign, institution} — 순매수 수량(주)
+                n_f += 1
+        print(f"  섹터 관련주 보강: 시세 {n_p}/{len(stocks)}, 수급 {n_f}/{len(stocks)}")
+
+    # 대표주 배지 정렬: 부호 있는 기여도 d×cap×chg 내림차순 — 맨 위=동인(섹터 방향으로
+    # 시총×등락 기여 큰 종목), 맨 아래=역행. 지수는 시총가중이라 등락률만으론 동인 순서가
+    # 틀리고(2026-07-20 비금속 사례), 테마 카드의 기여순 정렬과 논리도 일치시킨다.
+    # cap 없는 구맵은 d×chg(방향 등락순) 폴백, 등락률 없는 종목은 0(중간).
+    for s in sectors_up + sectors_down:
+        d = 1 if (s.get("changePct") or 0) >= 0 else -1
+        caps = s.get("_matchCaps") or {}
+        has_cap = any(caps.get(x.get("code")) for x in (s.get("stocks") or []))
+        def _key(x, d=d, caps=caps, has_cap=has_cap):
+            chg = x.get("changePct")
+            if chg is None:
+                return 0.0
+            return d * ((caps.get(x.get("code")) or 0) if has_cap else 1.0) * chg
+        (s.get("stocks") or []).sort(key=_key, reverse=True)
+        s.pop("_matchCodes", None)     # 내부 매칭·정렬용 — 산출 JSON 에서 제거
+        s.pop("_matchCaps", None)
 
 
 def _load_us_context():
