@@ -715,6 +715,8 @@ def fetch_fx_news(display=15):
 # ----------------------------------------------------------------------------
 SYSTEM = (
     "당신은 한국 주식시장 장중 시황을 요약하는 마켓 애널리스트입니다. "
+    "**모든 출력 문자열(briefing·fxBullets·catalysts.summary 등 전부)은 반드시 한국어로 "
+    "작성한다 — 영어 문장 금지(종목명·티커 등 고유명사만 예외).** "
     "제공된 RAW(지수, 투자자별 순매수 금액, 환율·금리·원자재 시장지표, 급등/급락 테마와 "
     "구성종목·편입사유, 급등/급락 개별종목, 당일 공시, 특징주 뉴스)만 근거로 장중 시황 "
     "브리핑을 작성하세요.\n"
@@ -876,10 +878,23 @@ def synthesize(indices, investors, indicators, sectors_up, sectors_down,
             except Exception as e:
                 _warn(f"LLM 종합 실패: {e} — 기계적 결과만 산출")
                 break
-            if synth.get("briefing"):
-                break
-            _warn(f"{model} 응답에 briefing 없음 — {'재시도' if attempt == 1 else '기계적 결과만 산출'}")
-            synth = {}
+            retry_word = "재시도" if attempt == 1 else "기계적 결과만 산출"
+            if not synth.get("briefing"):
+                _warn(f"{model} 응답에 briefing 없음 — {retry_word}")
+                synth = {}
+                continue
+            # 언어 검증: 경량 폴백 모델(flash-lite)이 낮은 확률로 프롬프트의 한국어
+            # 지시를 무시하고 영어로 출력한 실측(2026-07-21 12:45) — 한글보다 영문이
+            # 많으면 언어 드리프트로 간주하고 재생성한다(산출물에 영어 회차 방지).
+            txt = " ".join(str(x) for x in
+                           list(synth.get("briefing") or []) + list(synth.get("fxBullets") or []))
+            han = len(re.findall(r"[가-힣]", txt))
+            lat = len(re.findall(r"[A-Za-z]", txt))
+            if han < lat:
+                _warn(f"{model} 출력 언어 드리프트(한글 {han} < 영문 {lat}자) — {retry_word}")
+                synth = {}
+                continue
+            break
     else:
         _warn("LLM 미설정 — 기계적 결과만 산출")
 
