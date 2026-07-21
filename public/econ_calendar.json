@@ -1,12 +1,11 @@
 {
- "date": "2026-07-21",
- "asof": "2026-07-21 15:40 KST",
+ "date": "2026-07-22",
+ "asof": "2026-07-22 07:48 KST",
  "sources": {
   "naver": true,
   "forexfactory": true
  },
- "released": [],
- "upcoming": [
+ "released": [
   {
    "nation": "USA",
    "name": "레드북 소매판매지수 전년대비",
@@ -15,12 +14,18 @@
    "period": "18 Jul2026",
    "category": "BSI_CSI",
    "releaseAtKST": "2026-07-21 21:55",
+   "actual": 7.8,
    "previous": 8.2,
    "unit": "%",
    "unitScale": "",
    "forecast": null,
    "forecastSource": null,
-   "source": "naver"
+   "source": "naver",
+   "surprise": {
+    "vs": "previous",
+    "diff": -0.4,
+    "verdict": "below"
+   }
   },
   {
    "nation": "KOR",
@@ -30,12 +35,18 @@
    "period": "Jun 2026",
    "category": "PRICE",
    "releaseAtKST": "2026-07-22 06:00",
+   "actual": 0,
    "previous": 0.8,
    "unit": "%",
    "unitScale": "",
    "forecast": null,
    "forecastSource": null,
-   "source": "naver"
+   "source": "naver",
+   "surprise": {
+    "vs": "previous",
+    "diff": -0.8,
+    "verdict": "below"
+   }
   },
   {
    "nation": "KOR",
@@ -45,13 +56,21 @@
    "period": "Jun 2026",
    "category": "PRICE",
    "releaseAtKST": "2026-07-22 06:00",
+   "actual": 8.6,
    "previous": 8.5,
    "unit": "%",
    "unitScale": "",
    "forecast": null,
    "forecastSource": null,
-   "source": "naver"
-  },
+   "source": "naver",
+   "surprise": {
+    "vs": "previous",
+    "diff": 0.1,
+    "verdict": "above"
+   }
+  }
+ ],
+ "upcoming": [
   {
    "nation": "USA",
    "name": "MBA 구매지수",
