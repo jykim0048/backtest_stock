@@ -3378,9 +3378,15 @@
       // usTonight 은 카드에서만 제외 — LLM 입력(econEvents)에는 그대로 들어가므로
       // "오늘 밤 미국 PPI 관전 포인트" 류 시황 문장은 유지된다.
       const ibEcon = d.econEvents || {};
+      // upcomingSoon = 당일 지표가 없는 날의 폴백(향후 48시간 예정, 한국+미국) —
+      // 3구획이 비면 카드가 통째로 사라져 고장처럼 보이던 문제(2026-07-20~21) 보완.
+      const ibSoon = ibEcon.upcomingSoon || [];
       const ibEconRows = _econReleasedRows(ibEcon.korReleasedToday, d.date)
-        + _econUpcomingRows(ibEcon.korTodayUpcoming, d.date);
-      const econSection = _econCard("📅 경제지표 — 오늘 한국 발표·예정",
+        + _econUpcomingRows(ibEcon.korTodayUpcoming, d.date)
+        + _econUpcomingRows(ibSoon, d.date);
+      const econSection = _econCard(
+        ibSoon.length ? "📅 경제지표 — 오늘 발표 없음 · 다가오는 일정 (48시간)"
+                      : "📅 경제지표 — 오늘 한국 발표·예정",
         ibEconRows,
         "서프라이즈: 예상(컨센서스) 대비, 예상치 없으면 이전값 대비 · ★=시장 영향력 · 미국 일정은 모닝 브리핑 참조");
 

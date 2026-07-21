@@ -639,7 +639,9 @@ def _load_econ_events(now):
         return sorted(rows[:limit], key=lambda r: r.get("releaseAtKST") or "")
 
     def ok(r):
-        return (r.get("importance") or 0) >= 2 and r.get("releaseAtKST")
+        # 중요도 1(낮음)도 표시(2026-07-22 사용자 결정) — LLM 입력은 _econ_llm_view 가
+        # 중요도 2+ 만 추려 관전포인트 오염을 막는다(표시/LLM 분리).
+        return (r.get("importance") or 0) >= 1 and r.get("releaseAtKST")
 
     now_str = now.strftime("%Y-%m-%d %H:%M")
     ev = {
@@ -656,6 +658,14 @@ def _load_econ_events(now):
                            if ok(r) and r.get("nation") == "USA"
                            and tonight_from <= r["releaseAtKST"] <= tonight_to]),
     }
+    if not any(ev.values()):
+        # 조용한 날 폴백 — 2026-07-20(발표 0건)·07-21(중요도1 1건) 실측: 3구획이 모두
+        # 비면 카드가 통째로 사라져 고장처럼 보였다. 향후 48시간 내 예정 지표를
+        # '다가오는 지표'로 담아 카드가 항상 정보를 준다.
+        soon_to = (now + datetime.timedelta(hours=48)).strftime("%Y-%m-%d %H:%M")
+        ev = {"upcomingSoon": pick([r for r in cal.get("upcoming") or []
+                                    if ok(r)
+                                    and now_str <= r["releaseAtKST"] <= soon_to])}
     return ev if any(ev.values()) else {}
 
 
@@ -672,7 +682,14 @@ def _econ_llm_view(econ):
             out["surpriseVerdict"] = r["surprise"].get("verdict")
             out["surpriseVs"] = r["surprise"].get("vs")   # forecast=예상 대비 | previous=이전 대비
         return out
-    return {k: [slim(r) for r in v] for k, v in econ.items() if v}
+    # 표시는 중요도 1+ 이지만 LLM 에는 2+ 만 — 모기지 재융자지수류 소음 지표가
+    # 관전포인트 서술을 오염시키지 않게 표시/LLM 입력을 분리(2026-07-22).
+    out = {}
+    for k, v in econ.items():
+        rows = [slim(r) for r in v if (r.get("importance") or 0) >= 2]
+        if rows:
+            out[k] = rows
+    return out
 
 
 def fetch_movers():
@@ -746,7 +763,8 @@ SYSTEM = (
     "  · 뉴스는 corp 필드가 없으니 제목·본문에서 종목명을 추출해 stock 에 넣을 것.\n"
     "- econEvents 가 있으면: korReleasedToday(오늘 발표된 한국 경제지표)는 ① 지수·수급 서술의 "
     "배경으로, korTodayUpcoming(오늘 남은 한국 발표 예정)과 usTonight(오늘 밤 미국 발표 예정 지표)은 "
-    "⑤ 관전 포인트에 반영할 것(수치는 입력값을 그대로 인용). "
+    "⑤ 관전 포인트에 반영할 것(수치는 입력값을 그대로 인용). 당일 지표가 없는 날의 폴백인 "
+    "upcomingSoon(향후 48시간 예정 지표)이 있으면 ⑤ 관전 포인트에 다가오는 일정으로 언급할 것. "
     "surpriseVerdict(above=상회|inline=부합|below=하회)는 surpriseVs 기준을 구분해 "
     "표현할 것 — surpriseVs=forecast 면 '예상(컨센서스) 상회/하회', surpriseVs=previous 면 반드시 "
     "'이전(직전치) 대비 상회/하회'로 쓰고, 이전값 대비를 '예상치 상회/하회'라고 표현하지 말 것.\n"
