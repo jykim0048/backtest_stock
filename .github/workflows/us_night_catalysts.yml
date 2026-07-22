@@ -1,0 +1,87 @@
+name: US Night SEC Catalysts
+
+# 미국 정규장(KST 22:47~04:47) 동안 Railway 상시 서버 스케줄러(railway_server._scheduler)가
+# 30분 간격 workflow_dispatch 로 트리거한다 — 유니버스(한국 연관 미국 종목 ~60티커)의
+# 신규 8-K/6-K 를 수집·LLM 요약해 public/us_catalysts.json 에 세션 누적.
+# 모닝브리프(07:43 daily_report)가 이 파일을 읽어 코멘트·촉매 테이블에 반영한다.
+on:
+  workflow_dispatch: # 수동 실행 + Railway 스케줄러 트리거 진입점
+    inputs:
+      force:
+        description: "시간 게이트 무시(테스트용)"
+        required: false
+        default: "false"
+
+concurrency:
+  group: usnight-push
+  cancel-in-progress: false
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    outputs:
+      proceed: ${{ steps.check.outputs.proceed }}
+    steps:
+      - id: check
+        # 지연 트리거가 엉뚱한 시간에 돌지 않게 KST 22:30~05:30 밖이면 스킵.
+        # 수동 dispatch 는 테스트용이라 항상 통과(intraday_screener guard 패턴 —
+        # 단 여기선 트리거가 전부 workflow_dispatch 라 시간 게이트만 적용).
+        run: |
+          if [ "${{ inputs.force }}" = "true" ]; then
+            echo "force=true — bypassing time gate (manual test)"
+            echo "proceed=true" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          NOW=$(( 10#$(TZ=Asia/Seoul date +%H) * 60 + 10#$(TZ=Asia/Seoul date +%M) ))
+          HM=$(TZ=Asia/Seoul date +%H:%M)
+          if [ "$NOW" -ge 1350 ] || [ "$NOW" -le 330 ]; then
+            echo "KST $HM — US regular session window; proceeding"
+            echo "proceed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "KST $HM — outside US session window; skipping"
+            echo "proceed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  collect:
+    needs: guard
+    if: needs.guard.outputs.proceed == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      # edgartools 는 이 워크플로에서만 설치 — pyarrow 등 무거운 의존성과 pandas
+      # 버전 드리프트가 다른 워크플로(공용 requirements.txt)로 번지지 않게 격리.
+      - name: Install dependencies
+        run: pip install -r requirements.txt edgartools
+
+      - name: Collect US SEC catalysts
+        env:
+          SEC_IDENTITY:      ${{ vars.SEC_IDENTITY }}
+          GEMINI_API_KEY:    ${{ secrets.GEMINI_API_KEY }}
+          LLM_CHAIN:         ${{ vars.LLM_CHAIN }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: python generate_us_catalysts.py
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add public/us_catalysts.json
+          git diff --staged --quiet && echo "No changes to commit" && exit 0
+          git commit -m "chore: US SEC catalysts $(date -u +'%Y-%m-%d %H:%MZ') [skip railway]"
+          for i in $(seq 1 5); do
+            if git push origin HEAD:main; then echo "pushed (attempt $i)"; exit 0; fi
+            echo "push attempt $i rejected; rebasing..."
+            git fetch origin main
+            git rebase FETCH_HEAD || { git rebase --abort; echo "::error::rebase conflict"; exit 1; }
+            sleep $((RANDOM % 4 + 2))
+          done
+          echo "::error::push failed after 5 attempts" && exit 1

@@ -2807,9 +2807,11 @@
 
     // 📰 모닝 브리핑 로드/렌더. briefing/latest.json(오늘) 또는 briefing/<date>.json(과거).
     // 데이터 없으면 배너를 숨긴다(브리핑 미생성 날짜/구버전 graceful).
+    let briefingLiveView = true;   // 과거 브리핑 열람 중엔 SEC 촉매 라이브 갱신 중단
     async function loadBriefing(date) {
       const banner = document.getElementById("briefing-banner");
       const live = (!date || date === "today");
+      briefingLiveView = live;
       const base = live ? "briefing/latest.json" : `briefing/${date}.json`;
       const url = `${base}?t=${Date.now()}`;
       try {
@@ -2817,6 +2819,7 @@
         if (!res.ok) { banner.style.display = "none"; return; }
         const data = await res.json();
         if (!data || !data.stance) { banner.style.display = "none"; return; }
+        data._archiveView = !live;   // 과거 날짜 열람 — SEC 촉매 라이브 갱신으로 덮지 않음
         // 섹터분석(국면·센티먼트·섹터ETF)도 함께 로드해 브리핑 상단에 얹는다(best-effort).
         let sec = null;
         try {
@@ -3172,11 +3175,36 @@
         </div>
         ${flowCols}
         ${econUpcomingCard}
+        <div id="brief-uscat">${_briefUsCatHtml(d.usCatalysts)}</div>
         ${catB ? `<div class="briefing-catalyst"><div class="cat-h">⚡ 전일 장마감 후 국내 촉매</div><div class="cat-b">${_brEsc(catB)}</div></div>` : ""}
         ${picks.length ? `<div class="briefing-wl"><div class="wl-h">오늘의 워치리스트 (장전 선정 ${picks.length}종목)</div>`
           + `<table><thead><tr><th style="width:120px">종목</th><th style="width:58px">시장</th><th>핵심 촉매</th></tr></thead><tbody>${rows}</tbody></table></div>` : ""}
         <div class="briefing-foot">자동 생성 · ${genLabel} · 투자 판단 참고용</div>
       `;
+      // 라이브 뷰면 밤사이 최신 세션 파일로 즉시 갱신(회차마다 커밋되는 us_catalysts.json)
+      if (!d._archiveView) refreshUsCatalysts();
+    }
+
+    // ── 미국 밤사이 SEC 공시 촉매 (us_night_catalysts 회차 누적, 2026-07-22) ────
+    // 아침 브리핑 payload(usCatalysts)로 1차 렌더 후, 라이브 뷰에서는 us_catalysts.json
+    // 을 직접 받아 갱신(미국 정규장 KST 22:47~04:47 동안 30분마다 새 공시 추가됨).
+    function _briefUsCatHtml(cats) {
+      if (!cats || !cats.length) return "";
+      return `<div class="briefing-wl"><div class="wl-h">🌙 미국 밤사이 주요 촉매 — SEC 공시 (${cats.length}건)</div>`
+        + `<table><thead><tr><th style="width:170px">종목</th><th style="width:80px">공시</th><th>촉매</th></tr></thead>`
+        + `<tbody>${_ibCatRows(cats, ["US"])}</tbody></table></div>`;
+    }
+    async function refreshUsCatalysts() {
+      if (!briefingLiveView) return;   // 과거 브리핑 열람 중 — 아카이브 표시 유지
+      const box = document.getElementById("brief-uscat");
+      if (!box) return;
+      try {
+        const r = await fetch(`us_catalysts.json?t=${Date.now()}`, { cache: "no-store" });
+        if (!r.ok) return;
+        const data = await r.json();
+        if (data && Array.isArray(data.catalysts) && data.catalysts.length)
+          box.innerHTML = _briefUsCatHtml(data.catalysts);
+      } catch (_) { /* 다음 주기에 재시도 */ }
     }
 
     // ===== 🔴 장중 시황 (intraday_briefing.json — 30분 회차, 파이프라인 산출) =====
@@ -3208,20 +3236,28 @@
     // ── 장중 주요 촉매: 행 빌드 + 회차 선택 ─────────────────────────────────
     // 한국(KOSPI/KOSDAQ) 상장 종목만 — 해외 종목(특징주 뉴스에 섞여 나오며 market="")은 제외.
     // 구버전 회차(catalysts[].corp, direction 없음)도 관대하게 렌더(stock||corp, 배지 생략).
-    function _ibCatRows(catalysts) {
+    // markets: 허용 시장 목록(기본 국내) — 모닝브리프 SEC 촉매(US)도 같은 렌더 재사용(2026-07-22)
+    function _ibCatRows(catalysts, markets) {
+      const allow = markets || ["KOSPI", "KOSDAQ"];
       const dirBadge = (dir) => dir === "bullish" ? `<span class="dir-badge bull">▲ 상방</span>`
         : dir === "bearish" ? `<span class="dir-badge bear">▼ 하방</span>`
         : dir === "neutral" ? `<span class="dir-badge neu">— 중립</span>` : "";
       const rows = (catalysts || [])
-        .filter(c => c.market === "KOSPI" || c.market === "KOSDAQ")
+        .filter(c => allow.indexOf(c.market) >= 0)
         .map(c => {
-          const icon = c.kind === "disclosure" ? "📑" : (c.kind === "news" ? "📰" : "");
+          const icon = c.kind === "disclosure" ? "📑" : (c.kind === "news" ? "📰"
+            : (c.kind === "sec" ? "🇺🇸" : ""));
           const name = c.stock || c.corp || "—";
-          const mkColor = (c.market === "KOSDAQ") ? "var(--kosdaq-green)" : "var(--kospi-blue)";
+          const mkColor = (c.market === "KOSDAQ") ? "var(--kosdaq-green)"
+            : (c.market === "US") ? "#94a3b8" : "var(--kospi-blue)";
+          const mkLabel = (c.market === "US")
+            ? (c.form ? `SEC ${_brEsc(c.form)}` : "US") : (c.market || "");
+          const chg = (c.market === "US" && typeof c.changePct === "number")
+            ? ` <span style="color:${c.changePct >= 0 ? "var(--up-red)" : "var(--kospi-blue)"}; font-size:11.5px;">${c.changePct >= 0 ? "+" : ""}${c.changePct}%</span>` : "";
           const link = c.url ? ` <a href="${_brEsc(c.url)}" target="_blank" rel="noopener" style="color:var(--text-muted); font-size:11px;">원문</a>` : "";
           return `<tr>`
-            + `<td style="font-weight:600; white-space:nowrap;">${icon} ${_brEsc(name)}${dirBadge(c.direction)}</td>`
-            + `<td style="color:${mkColor}; font-size:13px; white-space:nowrap;">${_brEsc(c.market || "")}</td>`
+            + `<td style="font-weight:600; white-space:nowrap;">${icon} ${_brEsc(name)}${chg}${dirBadge(c.direction)}</td>`
+            + `<td style="color:${mkColor}; font-size:13px; white-space:nowrap;">${mkLabel}</td>`
             + `<td style="color:#cbd5e1;">${_brEsc(c.summary || c.title || "")}${link}</td></tr>`;
         }).join("");
       return rows || `<tr><td colspan="3" style="color:var(--text-muted); font-size:13px; padding:8px 2px;">해당 회차 촉매 없음</td></tr>`;
@@ -3852,6 +3888,7 @@
       // 과거 날짜 열람 중에는 최신본으로 덮어쓰지 않는다.
       setInterval(async () => {
         refreshDailyAnalysis();   // 장전 워치리스트 딥리서치(수급 등) 장중 갱신 병합
+        refreshUsCatalysts();     // 미국 밤사이 SEC 촉매(모닝브리프 섹션, 야간 갱신)
         if (!isWatchLiveView) return;
         await loadIntradayData();
         await loadIntradayDownData();
