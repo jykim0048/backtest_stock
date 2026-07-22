@@ -2151,6 +2151,9 @@
     // 장중 하락 관찰 리스트(참고 전용). intraday_down_report.json 으로 채운다.
     // 장전 downData 와 동일 원칙 — 표시 전용, 매매·계좌 로직과 완전 격리.
     const watchDownData = [];
+    // 당일 장중 '하락 관찰' 이력 코드(상승 전환 movedUp 포함) — 상승 재선정돼도
+    // 자동매수는 차단하는 정책(2026-07-22 ⓑ)의 판정 집합. 뷰 숨김과 무관하게 유지.
+    const intradayDownCodes = new Set();
     let watchView = "up";       // 장중 패널 뷰: "up"(상승, 자동매매) | "down"(하락 관찰)
 
     // 장중 리포트가 '오늘' 생성된 것인지 확인된 날짜 (selection/intraday/<date>.json 존재 기준).
@@ -3613,12 +3616,18 @@
       const base = live ? "intraday_down_report.json" : `reports/intraday_down/${date}.json`;
       const url = `${base}?t=${Date.now()}`;
       watchDownData.length = 0;
+      if (live) intradayDownCodes.clear();
       try {
         const response = await fetch(url, { cache: "no-store" });
         if (!response.ok) return;
         const data = await response.json();
         if (!Array.isArray(data)) return;
         data.forEach(item => {
+          // 당일 하락 관찰 이력 전체(상승 전환 포함) — 자동매수 차단 판정용(ⓑ)
+          if (live && item.code) intradayDownCodes.add(item.code);
+          // 상승 전환(movedUp) 종목은 하락 관찰 뷰에서 숨김 — 상승 리스트와 동시
+          // 노출되는 모순 방지(2026-07-22 LG디스플레이). JSON 기록은 보존된다.
+          if (item.movedUp) return;
           watchDownData.push({
             code:      item.code,
             name:      item.name,
@@ -4140,6 +4149,15 @@
         // 스크리너 플래그(preDownWatch) + 장전 하락 리스트(downData) 직접 대조(플래그가
         // 다음 회차에 도착하기 전에도 즉시 차단). 2026-07-13 서진시스템 정책.
         if (stock.preDownWatch || downData.some(d => d.code === stock.code)) return;
+        // 당일 장중 '하락 관찰' 이력(상승 전환 movedUp 포함) — 상승 재선정돼도 자동매수는
+        // 차단하고 관찰만(2026-07-22 LG디스플레이: 적자 공시로 하락 관찰 후 상승 재판정).
+        if (intradayDownCodes.has(stock.code)) {
+          if (!stock.hasLoggedDownHistFilter && logsBox) {
+            logsBox.innerHTML += `<div class="log-line" style="color:#60a5fa;"><span class="log-time">[${time}]</span> [ALGO FILTER] <b>${stock.name}</b> 당일 하락 관찰 이력 — 상승 재선정에도 자동 매수는 제외합니다 (관찰만).</div>`;
+            stock.hasLoggedDownHistFilter = true;
+          }
+          return;
+        }
         // 상한가 근접(등락률 28%+) 종목 신규/추가 진입 금지 — 상한가 추격 매수는 현실에서
         // 체결이 어렵고, 진입 직후 상한가익절 룰과 충돌해 왕복 슬리피지 손실만 확정된다
         // (2026-07-15 HLB테라퓨틱스: 1,981 매수 → 7초 뒤 1,971 '익절' -6,820원).
@@ -4985,7 +5003,6 @@
               <div class="stock-name-row">
                 <span class="stock-name">${stock.name}</span>
                 <span class="market-badge ${badgeClass}">${stock.market}</span>
-                ${stock.movedUp ? `<span class="intraday-badge" style="background:rgba(239,68,68,.14); color:var(--up-red);" title="하락 관찰 후 장중 상승 관심종목으로 선정됨">↗ 상승 전환</span>` : ""}
               </div>
               <span class="stock-code">${stock.code}</span>
             </div>
