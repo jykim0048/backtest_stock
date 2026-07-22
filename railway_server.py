@@ -555,28 +555,20 @@ class Handler(BaseHTTPRequestHandler):
         now = datetime.datetime.now(KST)
         m2 = (now.replace(day=1) - datetime.timedelta(days=32)).strftime("%Y%m")  # 전전월
         base = "https://apis.data.go.kr/1220000"
-        # 매트릭스 프로브: 500 'Unexpected errors'(백엔드 도달, 파라미터 문제)와
-        # 게이트웨이 404(경로 없음)를 구분해 올바른 오퍼레이션·파라미터를 확정한다.
+        m1 = (now.replace(day=1) - datetime.timedelta(days=1)).strftime("%Y%m")   # 전월
+        m0 = now.strftime("%Y%m")                                                 # 당월
+        # 확정 명세(data.go.kr Swagger 내장 JSON 실측, 2026-07-22):
+        #   총괄=Newtrade, 국가별=nationtrade(소문자), 품목별=Itemtrade,
+        #   수입 10일 잠정치=prlstMmUtPrviImpAcrs (전체+10대 품목, 조회일자별)
         tests = {
-            # 총괄 — 파라미터 변형
-            "total_retry": (f"{base}/Trade/getTradeList", {"strtYymm": m2, "endYymm": m2}),
-            "total_range2m": (f"{base}/Trade/getTradeList",
-                              {"strtYymm": (now.replace(day=1) - datetime.timedelta(days=63)).strftime("%Y%m"),
-                               "endYymm": m2}),
-            # 품목별 — hsSgn 생략(전체/총계 반환 여부)
-            "item_no_hs": (f"{base}/Itemtrade/getItemtradeList",
-                           {"strtYymm": m2, "endYymm": m2}),
-            # 국가별 — 국가코드 변형
-            "cty_US_retry": (f"{base}/Ctytrade/getCtytradeList",
-                             {"strtYymm": m2, "endYymm": m2, "cntyCd": "US"}),
-            "cty_USA": (f"{base}/Ctytrade/getCtytradeList",
-                        {"strtYymm": m2, "endYymm": m2, "cntyCd": "USA"}),
-            # 수입 10일 잠정치 — 경로 후보(404=경로 없음 / 그 외=존재)
-            "tenday_a": (f"{base}/ImpTenday/getImpTendayList", {"strtYymm": m2, "endYymm": m2}),
-            "tenday_b": (f"{base}/impTendayStats/getImpTendayStatsList",
-                         {"strtYymm": m2, "endYymm": m2}),
-            "tenday_c": (f"{base}/Imptendaytrade/getImptendaytradeList",
-                         {"strtYymm": m2, "endYymm": m2}),
+            "total": (f"{base}/Newtrade/getNewtradeList",
+                      {"strtYymm": m2, "endYymm": m2}),
+            "nation_US": (f"{base}/nationtrade/getNationtradeList",
+                          {"strtYymm": m2, "endYymm": m2, "cntyCd": "US"}),
+            "item_8542": (f"{base}/Itemtrade/getItemtradeList",
+                          {"strtYymm": m2, "endYymm": m2, "hsSgn": "8542"}),
+            "imp_tenday": (f"{base}/prlstMmUtPrviImpAcrs/getPrlstMmUtPrviImpAcrs",
+                           {"strtYymm": m1, "endYymm": m0}),
         }
         for name, (url, params) in tests.items():
             try:
