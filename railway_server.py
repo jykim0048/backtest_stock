@@ -408,6 +408,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._prices(u)
         if u.path == "/api/krxtest":
             return self._krxtest()
+        if u.path == "/api/datagokrtest":
+            return self._datagokrtest()
         if u.path == "/api/srctest":
             return self._srctest()
         if u.path == "/api/sector":
@@ -536,6 +538,51 @@ class Handler(BaseHTTPRequestHandler):
             result["checks"]["import"] = {"ok": False, "error": str(ex)[:300]}
         verdict = any(c.get("ok") for c in result["checks"].values())
         result["verdict"] = "KRX reachable from Railway ✅" if verdict else "KRX blocked/empty ❌"
+        return self._send(200, result)
+
+    def _datagokrtest(self):
+        """진단 전용: 관세청 수출입 통계(공공데이터포털 apis.data.go.kr)가 Railway(해외 IP)
+        에서 접근되는지 실측. 게이트웨이가 XML 로 응답만 해도(오류 코드 포함) IP 차단은
+        아니다 — resultCode·authMsg 로 키/경로 문제를 구분한다. 확인 후 제거 예정.
+
+        환경변수 DATA_GO_KR_KEY(일반 인증키 원문 — requests 가 인코딩)를 사용.
+        조회 대상: 전전월(확정치 안전권) 수출입총괄 + 품목별(HS 8542 반도체) + 국가별(US)."""
+        import re as _re
+        import requests as _rq
+        key = os.environ.get("DATA_GO_KR_KEY", "")
+        result = {"region_hint": os.environ.get("RAILWAY_REPLICA_REGION", "unknown"),
+                  "key_set": bool(key), "checks": {}}
+        now = datetime.datetime.now(KST)
+        m2 = (now.replace(day=1) - datetime.timedelta(days=32)).strftime("%Y%m")  # 전전월
+        tests = {
+            "trade_total": ("https://apis.data.go.kr/1220000/Trade/getTradeList",
+                            {"strtYymm": m2, "endYymm": m2}),
+            "item_trade_8542": ("https://apis.data.go.kr/1220000/Itemtrade/getItemtradeList",
+                                {"strtYymm": m2, "endYymm": m2, "hsSgn": "8542"}),
+            "cty_trade_US": ("https://apis.data.go.kr/1220000/Ctytrade/getCtytradeList",
+                             {"strtYymm": m2, "endYymm": m2, "cntyCd": "US"}),
+        }
+        for name, (url, params) in tests.items():
+            try:
+                r = _rq.get(url, params={"serviceKey": key, **params}, timeout=20)
+                text = r.text or ""
+                rc = _re.search(r"<resultCode>\s*([^<]+?)\s*</resultCode>", text)
+                auth = _re.search(r"<returnAuthMsg>\s*([^<]+?)\s*</returnAuthMsg>", text)
+                result["checks"][name] = {
+                    "http": r.status_code,
+                    "resultCode": rc.group(1) if rc else None,
+                    "authMsg": auth.group(1) if auth else None,
+                    "items": len(_re.findall(r"<item>", text)),
+                    "head": text.lstrip()[:300],
+                }
+            except Exception as ex:
+                result["checks"][name] = {"error": str(ex)[:200]}
+        reach = any("http" in c for c in result["checks"].values())
+        ok = any((c.get("resultCode") in ("00", "0")) or c.get("items")
+                 for c in result["checks"].values())
+        result["verdict"] = ("customs API OK from Railway ✅" if ok
+                             else "gateway reachable — key/path issue ⚠️" if reach
+                             else "unreachable from Railway ❌")
         return self._send(200, result)
 
     def _srctest(self):
