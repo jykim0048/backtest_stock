@@ -666,6 +666,10 @@ def _load_econ_events(now):
         ev = {"upcomingSoon": pick([r for r in cal.get("upcoming") or []
                                     if ok(r)
                                     and now_str <= r["releaseAtKST"] <= soon_to])}
+    # 관세청 수출입 통계(월간 + 수입 10일 잠정) — 발표일 외에도 최신 블록을 카드에 상시
+    # 표시(fetch_econ_calendar 가 이월 관리). 지표 행과 형태가 달라 별도 키로 동봉.
+    if cal.get("trade"):
+        ev["trade"] = cal["trade"]
     return ev if any(ev.values()) else {}
 
 
@@ -686,9 +690,17 @@ def _econ_llm_view(econ):
     # 관전포인트 서술을 오염시키지 않게 표시/LLM 입력을 분리(2026-07-22).
     out = {}
     for k, v in econ.items():
+        if not isinstance(v, list):
+            continue                      # trade(dict)는 아래에서 별도 처리
         rows = [slim(r) for r in v if (r.get("importance") or 0) >= 2]
         if rows:
             out[k] = rows
+    # 관세청 수출입 — 수집 당일(발표일)만 LLM 에 전달(상시 주입은 관전포인트 오염).
+    # 카드 표시는 econ["trade"] 원본이 상시 담당.
+    t = econ.get("trade")
+    if t and str(t.get("asof", ""))[:10] == datetime.datetime.now(KST).strftime("%Y-%m-%d"):
+        out["tradeStats"] = {k: t[k] for k in ("monthly", "monthlyItems", "impTenday")
+                             if t.get(k)}
     return out
 
 
@@ -765,6 +777,9 @@ SYSTEM = (
     "배경으로, korTodayUpcoming(오늘 남은 한국 발표 예정)과 usTonight(오늘 밤 미국 발표 예정 지표)은 "
     "⑤ 관전 포인트에 반영할 것(수치는 입력값을 그대로 인용). 당일 지표가 없는 날의 폴백인 "
     "upcomingSoon(향후 48시간 예정 지표)이 있으면 ⑤ 관전 포인트에 다가오는 일정으로 언급할 것. "
+    "tradeStats(관세청 수출입 발표 — monthly: 전월 수출/수입/무역수지 백만$ 와 YoY%, "
+    "monthlyItems: 품목별 수출 YoY, impTenday: 이달 수입 10일 단위 잠정치)가 있으면 "
+    "① 배경 또는 ⑤ 관전 포인트에 반도체 등 품목 흐름과 함께 반영할 것(수치 그대로 인용). "
     "surpriseVerdict(above=상회|inline=부합|below=하회)는 surpriseVs 기준을 구분해 "
     "표현할 것 — surpriseVs=forecast 면 '예상(컨센서스) 상회/하회', surpriseVs=previous 면 반드시 "
     "'이전(직전치) 대비 상회/하회'로 쓰고, 이전값 대비를 '예상치 상회/하회'라고 표현하지 말 것.\n"

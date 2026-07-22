@@ -2995,6 +2995,36 @@
              + `<td></td></tr>`;
       }).join("");
     }
+    // 관세청 수출입 행 — 월간(총괄+YoY) 1행 + 수입 10일 잠정 1행. 금액 백만$ → 억$.
+    function _econTradeRows(trade) {
+      if (!trade) return "";
+      const eok = (v) => (v == null) ? "—" : Math.round(v / 100).toLocaleString() + "억$";
+      const yy = (v) => (v == null) ? ""
+        : ` <span style="color:${v >= 0 ? "var(--up-red)" : "var(--kospi-blue)"}; font-size:11px;">(${v >= 0 ? "+" : ""}${v}%)</span>`;
+      let rows = "";
+      const m = trade.monthly;
+      if (m) {
+        const per = (m.period || "").replace(/^\d{4}\./, "") * 1 + "월";
+        const itemsTxt = (trade.monthlyItems || []).slice(0, 3)
+          .map(x => `${_brEsc(x.name)}${yy(x.expYoy)}`).join(" · ");
+        rows += `<tr><td class="econ-time">${per}</td><td>${_econNation({nation: "KOR"})}</td>`
+          + `<td>${_econImp(4)}</td><td>수출입 월간 (관세청)</td>`
+          + `<td class="econ-vals">수출 <b>${eok(m.exp)}</b>${yy(m.expYoy)}<span class="ev-sub"> · 수입 ${eok(m.imp)}${yy(m.impYoy)} · 무역수지 ${m.bal >= 0 ? "+" : "-"}${eok(Math.abs(m.bal))}${itemsTxt ? " · " + itemsTxt : ""}</span></td>`
+          + `<td></td></tr>`;
+      }
+      const t = trade.impTenday;
+      if (t && t.items && t.items.length) {
+        const per = (t.period || "").replace(/^\d{4}\./, "").replace(/^0/, "").replace(" ", "월 ");
+        const total = t.items.find(x => x.name === "전체");
+        const tops = t.items.filter(x => x.name !== "전체" && x.yoy != null)
+          .sort((a, b) => (b.usd || 0) - (a.usd || 0)).slice(0, 3);
+        rows += `<tr><td class="econ-time">${_brEsc(per)}</td><td>${_econNation({nation: "KOR"})}</td>`
+          + `<td>${_econImp(3)}</td><td>수입 10일 잠정 (관세청)</td>`
+          + `<td class="econ-vals">${total ? `전체 <b>${eok(total.usd)}</b>${yy(total.yoy)}` : ""}<span class="ev-sub">${tops.length ? " · " + tops.map(x => `${_brEsc(x.name)}${yy(x.yoy)}`).join(" · ") : ""}</span></td>`
+          + `<td></td></tr>`;
+      }
+      return rows;
+    }
     function _econCard(title, rowsHtml, note) {
       if (!rowsHtml) return "";
       return `<div class="briefing-wl" style="margin-top:12px"><div class="wl-h">${title}</div>`
@@ -3383,12 +3413,13 @@
       const ibSoon = ibEcon.upcomingSoon || [];
       const ibEconRows = _econReleasedRows(ibEcon.korReleasedToday, d.date)
         + _econUpcomingRows(ibEcon.korTodayUpcoming, d.date)
-        + _econUpcomingRows(ibSoon, d.date);
+        + _econUpcomingRows(ibSoon, d.date)
+        + _econTradeRows(ibEcon.trade);
       const econSection = _econCard(
-        ibSoon.length ? "📅 경제지표 — 오늘 발표 없음 · 다가오는 일정 (48시간)"
-                      : "📅 경제지표 — 오늘 한국 발표·예정",
+        (ibSoon.length && !(ibEcon.trade)) ? "📅 경제지표 — 오늘 발표 없음 · 다가오는 일정 (48시간)"
+                      : "📅 경제지표 — 오늘 한국 발표·예정 · 수출입(관세청)",
         ibEconRows,
-        "서프라이즈: 예상(컨센서스) 대비, 예상치 없으면 이전값 대비 · ★=시장 영향력 · 미국 일정은 모닝 브리핑 참조");
+        "서프라이즈: 예상(컨센서스) 대비, 예상치 없으면 이전값 대비 · ★=시장 영향력 · 수출입 금액=억$ · 미국 일정은 모닝 브리핑 참조");
 
       // 장중 촉매 — 종목 단위(중복 통합) + 회차 선택 셀렉터(이전 회차 촉매 조회).
       // 행 빌드는 _ibCatRows(회차 전환 시 재사용), 셀렉터는 렌더 후 _ibLoadRounds 가 채운다.

@@ -19,6 +19,8 @@ forecast 를 (지표키, 발표일) 기준으로 이월해 병합한다.
 import os
 import json
 import datetime
+import xml.etree.ElementTree as ET
+
 import requests
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -41,6 +43,19 @@ TIMEOUT = 20
 NATIONS = ["USA", "KOR"]
 RELEASED_LOOKBACK_DAYS = 3   # 월요일 아침에 금·토·일 발표분 커버
 UPCOMING_DAYS = 7
+
+# ── 관세청 수출입 통계 (공공데이터포털 apis.data.go.kr — 해외 IP 접근 실측 완료) ──
+# 발표 주기: 11일(1~10일 수입 잠정), 21일(1~20일), 익월 1일(월간) — 다음날까지 여유.
+# 발표일 외에는 API 호출 없이 직전 파일의 trade 블록을 이월한다(월 ~3회 × ~12콜).
+CUSTOMS_BASE = "https://apis.data.go.kr/1220000"
+CUSTOMS_KEY = os.environ.get("DATA_GO_KR_KEY", "")
+TRADE_FETCH_DAYS = {1, 2, 11, 12, 21, 22}
+# prlstMmUtPrviImpAcrs 의 itemUsdAmt00~10 인덱스 → 품목명 (기술문서 순서, 단위 천달러)
+TENDAY_ITEMS = ["전체", "반도체", "원유", "기계류", "가스", "반도체 제조용 장비",
+                "정밀기기", "석유제품", "무선통신기기", "승용차", "석탄"]
+# 월간 품목 하이라이트: HS 4단위 (Itemtrade 가 하위 10단위 행들을 반환 → 합산)
+TRADE_HS_ITEMS = [("반도체", "8542"), ("석유제품", "2710"),
+                  ("승용차", "8703"), ("무선통신기기", "8517")]
 
 # -- 네이버 지표 <-> Forex Factory 컨센서스 매칭 테이블 -------------------------
 # reuters 코드는 2026-07 API 실측치. 미확인 지표는 reuters=None + 한글명 부분일치.
@@ -276,6 +291,135 @@ def _surprise(row):
     return {"vs": vs, "diff": diff, "verdict": verdict}
 
 
+# -- 관세청 수출입 통계 --------------------------------------------------------
+
+def _customs_items(service, op, **params):
+    """관세청 GW API 호출 → <item> element 리스트. resultCode!=00 이면 예외."""
+    r = requests.get(f"{CUSTOMS_BASE}/{service}/{op}",
+                     params={"serviceKey": CUSTOMS_KEY, **params},
+                     headers=UA, timeout=25)
+    r.raise_for_status()
+    root = ET.fromstring(r.text)
+    rc = (root.findtext(".//resultCode") or "").strip()
+    if rc not in ("00", "0"):
+        raise RuntimeError(f"{service}/{op} resultCode={rc}")
+    return root.findall(".//item")
+
+
+def _cnum(s):
+    try:
+        return float(str(s).replace(",", "").strip())
+    except (TypeError, ValueError):
+        return None
+
+
+def _yoy(cur, prev):
+    """전년 대비 증감률(%) — 비교값 없으면 None."""
+    if cur is None or not prev:
+        return None
+    return round((cur / prev - 1) * 100, 1)
+
+
+def _newtrade_month(yymm):
+    """월간 총괄 — year='YYYY.MM' 행만('총계' 행 제외). 금액 백만$ 반올림."""
+    label = f"{yymm[:4]}.{yymm[4:]}"
+    for it in _customs_items("Newtrade", "getNewtradeList", strtYymm=yymm, endYymm=yymm):
+        if (it.findtext("year") or "").strip() == label:
+            return {"exp": round((_cnum(it.findtext("expDlr")) or 0) / 1e6),
+                    "imp": round((_cnum(it.findtext("impDlr")) or 0) / 1e6),
+                    "bal": round((_cnum(it.findtext("balPayments")) or 0) / 1e6)}
+    return None
+
+
+def _itemtrade_month(yymm, hs):
+    """품목(HS 4단위) 월간 수출액 — 하위 10단위 행 합산. 백만$."""
+    label = f"{yymm[:4]}.{yymm[4:]}"
+    tot = 0.0
+    for it in _customs_items("Itemtrade", "getItemtradeList",
+                             strtYymm=yymm, endYymm=yymm, hsSgn=hs):
+        if (it.findtext("year") or "").strip() == label:
+            tot += _cnum(it.findtext("expDlr")) or 0
+    return round(tot / 1e6) if tot else None
+
+
+def _tenday_rows(strt, end):
+    """수입 10일 잠정치 → [{mon, dt('01~10'), amts[11]}] (천달러, 00=전체)."""
+    out = []
+    for it in _customs_items("prlstMmUtPrviImpAcrs", "getPrlstMmUtPrviImpAcrs",
+                             strtYymm=strt, endYymm=end):
+        out.append({"mon": (it.findtext("priodMon") or "").strip(),
+                    "dt": (it.findtext("priodDt") or "").strip(),
+                    "amts": [_cnum(it.findtext(f"itemUsdAmt{i:02d}")) for i in range(11)]})
+    return out
+
+
+def fetch_customs_trade(now_kst, prev_trade):
+    """관세청 수출입 통계 블록 — 발표일(1·11·21일 ±1)에만 수집, 그 외/실패 시 이월.
+
+    반환: {asof, monthly{period, exp, imp, bal, expYoy, impYoy},
+           monthlyItems[{name, exp, expYoy}], impTenday{period, items[{name, usd, yoy}]}}
+    금액은 전부 백만$ 정수. YoY 는 전년 같은 기간(월간=전년 동월, 10일=전년 같은 구간) 대비 %.
+    """
+    if not CUSTOMS_KEY:
+        return prev_trade
+    if now_kst.day not in TRADE_FETCH_DAYS and prev_trade:
+        return prev_trade
+    trade = dict(prev_trade or {})
+    base = now_kst.replace(day=1) - datetime.timedelta(days=1)      # 전월(최신 월간)
+    yymm = base.strftime("%Y%m")
+    ago = base.replace(year=base.year - 1).strftime("%Y%m")          # 전년 동월
+
+    try:                                                             # ① 월간 총괄 + YoY
+        cur, old = _newtrade_month(yymm), _newtrade_month(ago)
+        if cur:
+            cur["period"] = f"{base.year}.{base.month:02d}"
+            if old:
+                cur["expYoy"] = _yoy(cur["exp"], old["exp"])
+                cur["impYoy"] = _yoy(cur["imp"], old["imp"])
+            trade["monthly"] = cur
+    except Exception as e:
+        print(f"[trade] 월간 총괄 실패(이월): {e}")
+
+    try:                                                             # ② 품목 하이라이트(수출)
+        rows = []
+        for name, hs in TRADE_HS_ITEMS:
+            c, o = _itemtrade_month(yymm, hs), _itemtrade_month(ago, hs)
+            if c:
+                rows.append({"name": name, "exp": c, "expYoy": _yoy(c, o)})
+        if rows:
+            trade["monthlyItems"] = rows
+    except Exception as e:
+        print(f"[trade] 품목별 실패(이월): {e}")
+
+    try:                                                             # ③ 수입 10일 잠정 + YoY
+        m0 = now_kst.strftime("%Y%m")
+        rows = _tenday_rows(yymm, m0)
+        if rows:
+            latest = rows[-1]
+            lm = latest["mon"]
+            old_amts = None
+            for r in _tenday_rows(f"{int(lm[:4]) - 1}{lm[4:]}", f"{int(lm[:4]) - 1}{lm[4:]}"):
+                if r["dt"] == latest["dt"]:
+                    old_amts = r["amts"]
+                    break
+            items = []
+            for i, nm in enumerate(TENDAY_ITEMS):
+                v = latest["amts"][i]
+                if v is None:
+                    continue
+                items.append({"name": nm, "usd": round(v / 1000),     # 천$ → 백만$
+                              "yoy": _yoy(v, old_amts[i] if old_amts else None)})
+            if items:
+                trade["impTenday"] = {"period": f"{lm[:4]}.{lm[4:]} {latest['dt']}일",
+                                      "items": items}
+    except Exception as e:
+        print(f"[trade] 수입 10일 잠정 실패(이월): {e}")
+
+    if trade:
+        trade["asof"] = now_kst.strftime("%Y-%m-%d %H:%M KST")
+    return trade or None
+
+
 # -- 조립 ----------------------------------------------------------------------
 
 def build(now_kst):
@@ -380,12 +524,26 @@ def build(now_kst):
     released.sort(key=lambda r: (r["releaseAtKST"], -r["importance"]))
     upcoming.sort(key=lambda r: (r["releaseAtKST"], -r["importance"]))
 
+    # 관세청 수출입 통계 — 발표일에만 수집, 그 외엔 직전 파일 블록 이월
+    prev_trade = None
+    try:
+        with open(OUT_PATH, encoding="utf-8") as f:
+            prev_trade = (json.load(f) or {}).get("trade")
+    except Exception:
+        pass
+    try:
+        trade = fetch_customs_trade(now_kst, prev_trade)
+    except Exception as e:
+        print(f"[trade] 수집 실패(이월): {e}")
+        trade = prev_trade
+
     return {
         "date": today_str,
         "asof": now_kst.strftime("%Y-%m-%d %H:%M KST"),
         "sources": sources,
         "released": released,
         "upcoming": upcoming,
+        "trade": trade,
     }
 
 

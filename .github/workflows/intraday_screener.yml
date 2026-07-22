@@ -147,6 +147,8 @@ jobs:
       # generate_intraday_briefing.py 가 econEvents 로 반영한다.
       - name: Fetch economic calendar (네이버 경제캘린더 + ForexFactory 컨센서스)
         continue-on-error: true   # best-effort; 실패 시 기존 econ_calendar.json 유지
+        env:
+          DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}   # 관세청 수출입 통계(발표일만 호출)
         run: python fetch_econ_calendar.py
 
       - name: Generate intraday market briefing (장중 시황판)
