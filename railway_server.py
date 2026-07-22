@@ -554,13 +554,29 @@ class Handler(BaseHTTPRequestHandler):
                   "key_set": bool(key), "checks": {}}
         now = datetime.datetime.now(KST)
         m2 = (now.replace(day=1) - datetime.timedelta(days=32)).strftime("%Y%m")  # 전전월
+        base = "https://apis.data.go.kr/1220000"
+        # 매트릭스 프로브: 500 'Unexpected errors'(백엔드 도달, 파라미터 문제)와
+        # 게이트웨이 404(경로 없음)를 구분해 올바른 오퍼레이션·파라미터를 확정한다.
         tests = {
-            "trade_total": ("https://apis.data.go.kr/1220000/Trade/getTradeList",
-                            {"strtYymm": m2, "endYymm": m2}),
-            "item_trade_8542": ("https://apis.data.go.kr/1220000/Itemtrade/getItemtradeList",
-                                {"strtYymm": m2, "endYymm": m2, "hsSgn": "8542"}),
-            "cty_trade_US": ("https://apis.data.go.kr/1220000/Ctytrade/getCtytradeList",
+            # 총괄 — 파라미터 변형
+            "total_retry": (f"{base}/Trade/getTradeList", {"strtYymm": m2, "endYymm": m2}),
+            "total_range2m": (f"{base}/Trade/getTradeList",
+                              {"strtYymm": (now.replace(day=1) - datetime.timedelta(days=63)).strftime("%Y%m"),
+                               "endYymm": m2}),
+            # 품목별 — hsSgn 생략(전체/총계 반환 여부)
+            "item_no_hs": (f"{base}/Itemtrade/getItemtradeList",
+                           {"strtYymm": m2, "endYymm": m2}),
+            # 국가별 — 국가코드 변형
+            "cty_US_retry": (f"{base}/Ctytrade/getCtytradeList",
                              {"strtYymm": m2, "endYymm": m2, "cntyCd": "US"}),
+            "cty_USA": (f"{base}/Ctytrade/getCtytradeList",
+                        {"strtYymm": m2, "endYymm": m2, "cntyCd": "USA"}),
+            # 수입 10일 잠정치 — 경로 후보(404=경로 없음 / 그 외=존재)
+            "tenday_a": (f"{base}/ImpTenday/getImpTendayList", {"strtYymm": m2, "endYymm": m2}),
+            "tenday_b": (f"{base}/impTendayStats/getImpTendayStatsList",
+                         {"strtYymm": m2, "endYymm": m2}),
+            "tenday_c": (f"{base}/Imptendaytrade/getImptendaytradeList",
+                         {"strtYymm": m2, "endYymm": m2}),
         }
         for name, (url, params) in tests.items():
             try:
