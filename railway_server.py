@@ -581,7 +581,7 @@ class Handler(BaseHTTPRequestHandler):
                     "resultCode": rc.group(1) if rc else None,
                     "authMsg": auth.group(1) if auth else None,
                     "items": len(_re.findall(r"<item>", text)),
-                    "head": text.lstrip()[:300],
+                    "head": text.lstrip()[:1600],
                 }
             except Exception as ex:
                 result["checks"][name] = {"error": str(ex)[:200]}
