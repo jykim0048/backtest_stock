@@ -42,7 +42,7 @@ def _fresh_flow(code):
     except Exception as e:
         print(f"[flow-refresh] {code} 허브 조회 실패(기존 유지): {e}", file=sys.stderr)
     try:
-        trend = sources.naver_investor_trend(code) or None
+        trend = sources.naver_investor_trend_full(code) or None
     except Exception as e:
         print(f"[flow-refresh] {code} 네이버 조회 실패(기존 유지): {e}", file=sys.stderr)
     return kis, trend

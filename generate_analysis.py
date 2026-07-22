@@ -21,6 +21,7 @@ Env: GEMINI_API_KEY (or LLM_CHAIN + matching keys), DART_API_KEY,
 import os
 import sys
 import json
+import time
 import datetime
 import requests
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -55,6 +56,12 @@ MAX_TOKENS  = 8192   # one full analysis is ~3.4-5.3k tokens; 4096 truncated mid
 # Default low — free-tier LLM providers cap requests-per-minute; raise if you
 # have headroom (each stock makes up to 2 calls: peer resolution + analysis).
 CONCURRENCY = int(os.environ.get("ANALYSIS_CONCURRENCY", "3"))  # stocks processed in parallel
+# 종목 1개 안에서 수집 소스들을 동시에 부르는 워커 수(2026-07-22 온디맨드 속도 개선).
+# 배치에서는 CONCURRENCY(3) × 이 값이 최대 동시 외부 호출 — 소스별 API 가 달라 충돌 낮음.
+FETCH_WORKERS = int(os.environ.get("ANALYSIS_FETCH_WORKERS", "8"))
+# 동적 peer resolve(LLM+ticker 검증) 결과의 프로세스 내 캐시 — 온디맨드 상주 서버에서
+# 6h 결과 캐시 만료 후 재조회 시 LLM 1회·yfinance 1회 절약. 배치에도 무해.
+_PEER_CACHE = {}
 
 KST = datetime.timezone(datetime.timedelta(hours=9))
 
@@ -200,11 +207,15 @@ def fetch_peer_reddit(peer_list):
     if not peer_list:
         return []
     posts = []
-    for p in peer_list[:2]:                      # top 2 peers (bellwethers)
-        posts += sources.web_search(f"{p['name']} stock discussion",
-                                    max_results=3, include_domains=["reddit.com"])
+    tops = peer_list[:2]                         # top 2 peers (bellwethers)
+    # 두 peer 검색은 독립 — 병렬 수집(2026-07-22 온디맨드 속도 개선)
+    with ThreadPoolExecutor(max_workers=2) as ex:
+        for res in ex.map(lambda p: sources.web_search(
+                f"{p['name']} stock discussion", max_results=3,
+                include_domains=["reddit.com"]), tops):
+            posts += res
     if not posts:                                # residential-only fallback
-        for p in peer_list[:2]:
+        for p in tops:
             posts += sources.reddit_search(f"{p['name']} stock", max_results=3)
     seen, uniq = set(), []
     for x in posts:                              # dedupe by url, cap at 5
@@ -232,7 +243,7 @@ def _valid_tickers(peer_list):
     tickers = [p["ticker"] for p in peer_list]
     try:
         df = yf.download(tickers, period="5d", group_by="ticker",
-                         progress=False, threads=True, auto_adjust=True)
+                         progress=False, threads=True, auto_adjust=True, timeout=15)
     except Exception:
         return peer_list                         # 검증 자체가 실패하면 과도하게 거르지 않음
     keep = []
@@ -305,6 +316,8 @@ def resolve_peers(stock, peer_cfg):
     code = stock["code"]
     if peer_cfg.get(code):
         return peer_cfg[code]                     # 큐레이션된 정적 peer 우선
+    if code in _PEER_CACHE:
+        return _PEER_CACHE[code]                  # 프로세스 내 resolve 캐시(LLM·검증 절약)
     try:
         data = llm.generate_json(
             PEER_SYSTEM,
@@ -320,6 +333,7 @@ def resolve_peers(stock, peer_cfg):
     valid = _valid_tickers(proposed)
     print(f"[peers] {stock['name']}: {len(valid)}/{len(proposed)} peer tickers valid",
           file=sys.stderr)
+    _PEER_CACHE[code] = valid    # LLM 성공 결과만 캐시(예외 경로는 다음 호출에서 재시도)
     return valid
 
 
@@ -355,42 +369,102 @@ def fetch_investor_flow(code, timeout=12):
     return {}
 
 
-def gather_raw(stock, peer_list):
-    """Collect raw data for one stock. peer_list is already resolved (static or LLM)."""
-    code, name = stock["code"], stock["name"]
-    peers = sources.get_peer_quotes(peer_list)
-
-    raw = {
-        "stock": {"code": code, "name": name, "market": stock["market"]},
-        "peers_items": peers,                                   # deterministic, reused verbatim
-        "peers_reddit": fetch_peer_reddit(peer_list),           # Reddit on the peer group
-        "naver_news": sources.naver_search("news", name, display=8),
-        "overseas_news": sources.web_search(f"{name} stock news", max_results=5),
-        "naver_cafe": sources.naver_search("cafearticle", name, display=6),  # 국내 community
-        "naver_board": sources.naver_board(code, pages=2),                   # 종목토론방(개인투자자)
-        "research_reports": sources.combined_research(code, days=60),        # 증권사 리포트(네이버+FnGuide, 최근 60일)
-        "dart": {},
-    }
-    corp = sources.dart_corp_code(code)
-    if corp:
-        raw["dart"] = {
-            "financials": sources.dart_financials(corp),
-            "disclosures": sources.dart_disclosures(corp),
-            "major_holders": sources.dart_major_holders(corp),
-        }
-    return raw, peers
+def _fetch_base_price(stock):
+    """온디맨드 경로(가격 미포함)용 현재가 — yfinance fast_info. 리포트 경로처럼
+    이미 가격이 있으면 네트워크 없이 None(호출부가 기존 가격 우선 사용)."""
+    if stock.get("basePrice") or stock.get("price"):
+        return None
+    suffix = ".KS" if stock.get("market") == "KOSPI" else ".KQ"
+    px = yf.Ticker(f"{stock['code']}{suffix}").fast_info.last_price
+    return float(px) if px else None
 
 
 def analyze_stock(stock, peer_cfg):
-    peer_list = resolve_peers(stock, peer_cfg)
-    raw, peers = gather_raw(stock, peer_list)
+    code, name = stock["code"], stock["name"]
+    t0 = time.perf_counter()
 
-    # 투자자 수급(KIS): LLM 프롬프트에는 최근 10거래일 + 당일 가집계 랭킹만 (경량화).
-    # 전체(20일)는 아래에서 analysis["flow"] 로 결정적으로 실어 대시보드가 렌더링.
-    flow = fetch_investor_flow(stock["code"])
-    # 네이버 일자별 매매동향(수량·보유율): KIS daily(대금)가 장중 시간제한(00:00~15:40)으로
-    # 비는 구간을 메운다 — 전일까지 확정치라 장중에도 항상 조회 가능.
-    trend = sources.naver_investor_trend(stock["code"])
+    # ── 수집 병렬화(2026-07-22): 기존 완전 순차(외부 호출 ~20개 합산 30-60s)를 futures
+    #    그래프로 — wall time = 최장 leg. 실패한 leg 는 기존 graceful 과 동일한 빈 기본값.
+    #    의존성 체인(peer→quotes/reddit, DART corp→3종)은 메인 스레드가 해소한다 —
+    #    풀 태스크가 같은 풀의 결과를 기다리지 않게(워커 고갈 데드락 방지).
+    durations = {}
+
+    def _timed(label, fn, *a, **kw):
+        def run():
+            t = time.perf_counter()
+            try:
+                return fn(*a, **kw)
+            finally:
+                durations[label] = time.perf_counter() - t
+        return run
+
+    def _res(fut, label, default):
+        try:
+            return fut.result()
+        except Exception as e:
+            print(f"[research] {code} {label} 실패(빈 값 대체): {e}", file=sys.stderr)
+            return default
+
+    with ThreadPoolExecutor(max_workers=FETCH_WORKERS) as pool:
+        def sub(label, fn, *a, **kw):
+            return pool.submit(_timed(label, fn, *a, **kw))
+
+        f_peers = sub("peers", resolve_peers, stock, peer_cfg)
+        f_news  = sub("naver_news", sources.naver_search, "news", name, display=8)
+        f_osn   = sub("overseas_news", sources.web_search, f"{name} stock news", max_results=5)
+        f_cafe  = sub("naver_cafe", sources.naver_search, "cafearticle", name, display=6)
+        f_board = sub("naver_board", sources.naver_board, code, pages=2)
+        f_rsch  = sub("research", sources.combined_research, code, days=60)
+        f_flow  = sub("flow", fetch_investor_flow, code)
+        f_trend = sub("trend", sources.naver_investor_trend_full, code)
+        f_px    = sub("base_price", _fetch_base_price, stock)   # 온디맨드 컨센서스 괴리용
+
+        # DART: corp 코드는 정적 맵이라 ~0초 — 메인 스레드에서 확정 후 3종 병렬 제출
+        dart_futs = {}
+        try:
+            corp = sources.dart_corp_code(code)
+        except Exception as e:
+            print(f"[research] {code} dart_corp 실패: {e}", file=sys.stderr)
+            corp = None
+        if corp:
+            dart_futs = {
+                "financials":    sub("dart_financials", sources.dart_financials, corp),
+                "disclosures":   sub("dart_disclosures", sources.dart_disclosures, corp),
+                "major_holders": sub("dart_major_holders", sources.dart_major_holders, corp),
+            }
+
+        # peer 확정(동적 종목은 LLM+ticker 검증 — 다른 leg 들과 병렬 진행) 후
+        # peer 의존 2건(시세·Reddit) 제출
+        peer_list = _res(f_peers, "peers", [])
+        f_quotes = sub("peer_quotes", sources.get_peer_quotes, peer_list)
+        f_reddit = sub("peer_reddit", fetch_peer_reddit, peer_list)
+
+        peers = _res(f_quotes, "peer_quotes", [])
+        raw = {
+            "stock": {"code": code, "name": name, "market": stock["market"]},
+            "peers_items": peers,                                   # deterministic, reused verbatim
+            "peers_reddit": _res(f_reddit, "peer_reddit", []),      # Reddit on the peer group
+            "naver_news": _res(f_news, "naver_news", []),
+            "overseas_news": _res(f_osn, "overseas_news", []),
+            "naver_cafe": _res(f_cafe, "naver_cafe", []),           # 국내 community
+            "naver_board": _res(f_board, "naver_board", []),        # 종목토론방(개인투자자)
+            "research_reports": _res(f_rsch, "research", []),       # 증권사 리포트(네이버+FnGuide)
+            "dart": {},
+        }
+        if dart_futs:
+            raw["dart"] = {k: _res(f, k, {} if k == "financials" else [])
+                           for k, f in dart_futs.items()}
+        # 투자자 수급(KIS): LLM 프롬프트에는 최근 10거래일 + 당일 가집계 랭킹만 (경량화).
+        # 전체(20일)는 아래에서 analysis["flow"] 로 결정적으로 실어 대시보드가 렌더링.
+        flow = _res(f_flow, "flow", {})
+        # 네이버 일자별 매매동향(수량·보유율): KIS daily(대금)가 장중 시간제한으로 비는
+        # 구간을 메운다 — 전일까지 확정치라 장중에도 항상 조회 가능.
+        trend = _res(f_trend, "trend", [])
+        base_px = _res(f_px, "base_price", None)
+
+    fetch_s = time.perf_counter() - t0
+    slow = max(durations.items(), key=lambda kv: kv[1]) if durations else ("-", 0.0)
+
     if trend:
         flow = dict(flow) if flow else {}
         flow["trend"] = trend
@@ -406,9 +480,14 @@ def analyze_stock(stock, peer_cfg):
     # llm.generate_json returns parsed JSON from the first chain link that
     # succeeds (auto-failover on quota/billing/rate-limit). Providers that
     # support it enforce ANALYSIS_SCHEMA; all return valid, escaped JSON.
+    t1 = time.perf_counter()
     analysis, model_used = llm.generate_json(
         SYSTEM, user, max_tokens=MAX_TOKENS, schema=ANALYSIS_SCHEMA, return_model=True)
     analysis["generatedBy"] = model_used   # surfaced on the dashboard
+    # 단계별 계측(온디맨드 서버·Actions 로그 공용) — 병목 진단용
+    print(f"[research] {code} fetch={fetch_s:.1f}s(최장 {slow[0]} {slow[1]:.1f}s) "
+          f"llm={time.perf_counter() - t1:.1f}s({model_used}) "
+          f"total={time.perf_counter() - t0:.1f}s", file=sys.stderr)
 
     # Force deterministic peer items (LLM only authored peers.summary/peers.reddit).
     analysis.setdefault("peers", {})["items"] = peers
@@ -441,16 +520,9 @@ def analyze_stock(stock, peer_cfg):
     if tps:
         cons = {"avg": round(sum(tps) / len(tps)), "high": max(tps), "low": min(tps),
                 "n": len(tps)}
-        base = stock.get("basePrice") or stock.get("price")
-        if not base:
-            # 온디맨드(Railway) 경로는 가격 없이 들어온다 — yfinance 로 현재가 보강.
-            try:
-                suffix = ".KS" if stock.get("market") == "KOSPI" else ".KQ"
-                px = yf.Ticker(f"{stock['code']}{suffix}").fast_info.last_price
-                base = float(px) if px else None
-            except Exception as e:
-                print(f"[research] base price fetch failed {stock.get('code')}: {e}",
-                      file=sys.stderr)
+        # 온디맨드(Railway) 경로는 가격 없이 들어온다 — 수집 병렬 단계에서 미리 받아둔
+        # 현재가(base_px)로 보강 (기존엔 여기서 순차 yfinance 호출, 2026-07-22 이동).
+        base = stock.get("basePrice") or stock.get("price") or base_px
         if base:
             cons["upsidePct"] = round((cons["avg"] / base - 1) * 100, 1)
         opinions = {}

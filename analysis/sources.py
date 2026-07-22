@@ -19,6 +19,7 @@ import zipfile
 import datetime
 import threading
 import xml.etree.ElementTree as ET
+from concurrent.futures import ThreadPoolExecutor
 
 import requests
 
@@ -62,7 +63,7 @@ def get_peer_quotes(peers):
     tickers = [p["ticker"] for p in peers]
     try:
         df = yf.download(tickers, period="2d", group_by="ticker",
-                         progress=False, threads=True, auto_adjust=True)
+                         progress=False, threads=True, auto_adjust=True, timeout=15)
     except Exception as e:
         _warn(f"yfinance download failed: {e}")
         df = None
@@ -137,8 +138,7 @@ def naver_board(code, pages=1, limit=15):
         _warn("beautifulsoup4 not installed — naver_board skipped")
         return []
 
-    out = []
-    for page in range(1, pages + 1):
+    def _fetch_page(page):
         try:
             r = requests.get(
                 "https://finance.naver.com/item/board.naver",
@@ -149,13 +149,25 @@ def naver_board(code, pages=1, limit=15):
             )
             r.encoding = r.apparent_encoding or "utf-8"   # 자동 감지 (UTF-8/EUC-KR 모두 대응)
             r.raise_for_status()
+            return r.text
         except Exception as e:
             _warn(f"naver_board({code}, p{page}) failed: {e}")
-            break
+            return None
 
-        table = BeautifulSoup(r.text, "html.parser").select_one("table.type2")
+    # 페이지 병렬 수집(2026-07-22 온디맨드 속도 개선) — 결과는 공감순 정렬이라 순서 무관
+    if pages > 1:
+        with ThreadPoolExecutor(max_workers=pages) as ex:
+            texts = list(ex.map(_fetch_page, range(1, pages + 1)))
+    else:
+        texts = [_fetch_page(1)]
+
+    out = []
+    for text in texts:
+        if not text:
+            continue
+        table = BeautifulSoup(text, "html.parser").select_one("table.type2")
         if table is None:
-            break
+            continue
         for tr in table.select("tr"):
             a = tr.select_one("td.title a")
             if not a:
@@ -243,8 +255,9 @@ def naver_research(code, days=30, limit=6, detail_top=3):
         if len(out) >= limit:
             break
 
-    # 상위 detail_top 건만 상세 조회(요청 수 절약): 목표주가·투자의견·요약 본문
-    for rpt in out[:detail_top]:
+    # 상위 detail_top 건만 상세 조회(요청 수 절약): 목표주가·투자의견·요약 본문.
+    # 상세는 서로 독립이라 병렬 수집(2026-07-22 온디맨드 속도 개선 — 순차 15s×3 제거).
+    def _detail(rpt):
         try:
             rd = requests.get(rpt["url"], headers={**UA, "Referer":
                               "https://finance.naver.com/research/company_list.naver"},
@@ -267,6 +280,13 @@ def naver_research(code, days=30, limit=6, detail_top=3):
                 rpt["summary"] = text[:500]
         except Exception as e:
             _warn(f"naver_research detail({rpt.get('url','')}) failed: {e}")
+
+    top = out[:detail_top]
+    if len(top) > 1:
+        with ThreadPoolExecutor(max_workers=len(top)) as ex:
+            list(ex.map(_detail, top))
+    elif top:
+        _detail(top[0])
     return out
 
 
@@ -620,8 +640,20 @@ def combined_research(code, days=60, limit=8):
     링크가 있는 네이버 항목을 우선하되 상세 미조회로 비어 있는 목표주가·의견·
     요약은 FnGuide 값으로 채운다. 최신순 정렬 후 limit 건 반환.
     """
-    naver = naver_research(code, days=days, limit=limit)
-    fng = fnguide_research(code, days=days, limit=limit)
+    # 네이버·FnGuide 는 독립 소스 — 병렬 수집(2026-07-22 온디맨드 속도 개선)
+    with ThreadPoolExecutor(max_workers=2) as ex:
+        f_n = ex.submit(naver_research, code, days=days, limit=limit)
+        f_f = ex.submit(fnguide_research, code, days=days, limit=limit)
+        try:
+            naver = f_n.result()
+        except Exception as e:
+            _warn(f"combined_research naver({code}) failed: {e}")
+            naver = []
+        try:
+            fng = f_f.result()
+        except Exception as e:
+            _warn(f"combined_research fnguide({code}) failed: {e}")
+            fng = []
 
     def _key(r):
         return (r.get("date", ""), (r.get("broker") or "").replace(" ", ""))
@@ -932,11 +964,15 @@ def naver_stock_flow(code):
     return out
 
 
-def naver_investor_trend(code, rows=20):
+def naver_investor_trend_full(code, rows=20):
     """일자별 외국인/기관/개인 순매매량(주)·외국인 보유율 — m.stock.naver.com trend API.
     KIS 일별 대금(FHPTJ04160001)이 장중 시간제한(00:00~15:40)으로 비는 구간을 메운다
     (전일까지 확정, 당일치는 장 마감 후 반영). 최신순 [{date, close, rate, frgn, orgn,
-    prsn, holdRatio}]. 수량 필드는 "+1,799,843" 형식(부호 포함). 실패 시 [] (graceful)."""
+    prsn, holdRatio}]. 수량 필드는 "+1,799,843" 형식(부호 포함). 실패 시 [] (graceful).
+
+    주의: 동명의 naver_investor_trend(위, Q점수 Flow 팩터용 {foreigner, organ})와
+    별개 함수 — 2026-07-22 이름 충돌로 후자 정의가 덮여 sector.py 의 Flow 팩터가
+    TypeError(days= 키워드)로 조용히 미산출되던 사고를 _full 접미사로 분리 복구."""
     try:
         r = requests.get(f"https://m.stock.naver.com/api/stock/{code}/trend",
                          params={"pageSize": rows, "page": 1}, headers=UA, timeout=10)
@@ -1071,7 +1107,9 @@ def tavily_search(query, max_results=5, include_domains=None):
                    "search_depth": "basic"}
         if include_domains:
             payload["include_domains"] = include_domains
-        r = requests.post("https://api.tavily.com/search", json=payload, timeout=25)
+        # 25→12s (2026-07-22): 병렬화 후 wall time 은 최장 leg 가 결정 — 폴백 포함
+        # 웹검색 leg 상한을 50s→24s 로 억제 (Tavily 정상 응답은 수 초 내)
+        r = requests.post("https://api.tavily.com/search", json=payload, timeout=12)
         r.raise_for_status()
         return [{
             "title": it.get("title", ""),
@@ -1098,7 +1136,7 @@ def brave_search(query, max_results=5, include_domains=None):
             "https://api.search.brave.com/res/v1/web/search",
             params={"q": q, "count": min(max_results, 20)},
             headers={"Accept": "application/json", "X-Subscription-Token": key},
-            timeout=25,
+            timeout=12,   # 25→12s (2026-07-22) — tavily 와 동일 사유
         )
         r.raise_for_status()
         results = ((r.json().get("web") or {}).get("results")) or []
