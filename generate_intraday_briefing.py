@@ -21,6 +21,7 @@ import re
 import sys
 import json
 import datetime
+from concurrent.futures import ThreadPoolExecutor
 
 import requests
 
@@ -41,6 +42,10 @@ THEMES_PER_SECTOR = int(os.environ.get("BRIEFING_THEMES_PER_SECTOR", "3"))  # �
 # 반대방향 테마 슬롯: 섹터 방향과 반대로 |등락|이 이 값(%) 이상인 종목이 있으면
 # 그 종목과 가장 연관된 테마 1개를 마지막 슬롯에 노출 (통신 +3.39% 내 프리티 -24% 사례)
 THEME_COUNTER_MIN_CHG = float(os.environ.get("BRIEFING_COUNTER_MIN_CHG", "5"))
+# 섹터 상위 종목 당일 뉴스 부착: 테마명이 아닌 '실제 촉매'(AI데이터센터·수주·정책 등)로
+# 섹터 강세/약세를 서술하게 하는 근거. 섹터당 상위 N종목 × 종목당 M헤드라인.
+SECTOR_NEWS_TOP = int(os.environ.get("BRIEFING_SECTOR_NEWS_TOP", "5"))
+SECTOR_NEWS_PER = int(os.environ.get("BRIEFING_SECTOR_NEWS_PER", "3"))
 # ── 기여도 가중 스코어링(2026-07-15 13:41 회차 시뮬레이션으로 확정) ──────────────
 # 지수는 시총가중이므로 '오늘 이 섹터를 움직인' 테마 = 시총×당일등락 기여가 큰 종목이
 # 속한 테마다(오락·문화 -1.63% 의 동인이 파라다이스·GKL 폭락인데 개수 기준으론 카지노가
@@ -594,6 +599,48 @@ def enrich_sector_stocks(sectors_up, sectors_down):
         s.pop("_matchCaps", None)
 
 
+def attach_sector_stock_news(sectors_up, sectors_down):
+    """섹터 상위 종목(기여순)의 '오늘' 뉴스 헤드라인을 부착 — LLM 이 네이버 테마명이
+    아니라 실제 촉매(예: AI 데이터센터 인프라·수주·정책)로 섹터 강세/약세를 서술하게
+    하는 근거. enrich_sector_stocks(기여순 정렬) 이후에 호출. 상위 SECTOR_NEWS_TOP
+    종목만·종목당 SECTOR_NEWS_PER 건, 병렬·오늘자 우선·graceful(실패 필드 생략).
+
+    테마명은 '무엇'(어느 테마 소속)이지 '왜'(오늘의 촉매)가 아니라, 테마명만 보면
+    'GTX·원자력' 처럼 소속 테마로 원인을 오독한다(2026-07-23 건설 AI데이터센터 사례).
+    당일 뉴스 헤드라인에 실제 촉매가 있어 이를 LLM 입력에 직접 넣는다(추가 LLM 콜 없음)."""
+    today = datetime.datetime.now(KST).strftime("%d %b %Y")   # RFC822 "23 Jul 2026"
+    picked, seen = [], set()
+    for s in sectors_up + sectors_down:
+        for x in (s.get("stocks") or [])[:SECTOR_NEWS_TOP]:
+            code = x.get("code")
+            if code and code not in seen and x.get("name"):
+                seen.add(code)
+                picked.append(x)
+    if not picked:
+        return
+
+    def _one(x):
+        try:
+            items = sources.naver_search("news", x["name"], display=6)
+            todays = [it for it in items if today in (it.get("date") or "")] or items
+            heads = []
+            for it in todays[:SECTOR_NEWS_PER]:
+                t = re.sub(r"<[^>]+>", "", it.get("title") or "").strip()
+                if t:
+                    heads.append(t)
+            return x, heads
+        except Exception:
+            return x, []
+
+    n = 0
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        for x, heads in pool.map(_one, picked):
+            if heads:
+                x["news"] = heads
+                n += 1
+    print(f"  섹터 관련주 뉴스: {n}/{len(picked)}종목 헤드라인 부착")
+
+
 def _load_us_context():
     """모닝브리핑(public/briefing/latest.json)에서 전일 미국장 컨텍스트 발췌 —
     장중 섹터 랠리가 미국장의 연장인 경우(예: 필라델피아 반도체 급등 → 국내 반도체
@@ -793,9 +840,14 @@ SYSTEM = (
     "(예: '외국인은 13:24 순매수 전환 후 매수 폭을 키우는 중'). 전환·변화가 뚜렷할 때만 언급.\n"
     "- ③④는 등락률 나열이 아니라 '동인'을 서술한다: 각 섹터의 stocks(관련주별 changePct 와 "
     "flow — date 집계일의 외국인/기관 순매수 수량(주), 장중엔 전일 확정치일 수 있음)로 어느 "
-    "종목이 끌어올리는지/끌어내리는지, themes 의 reasons(테마 편입 사유)·catalysts·공시·뉴스로 "
-    "그 이유가 무엇인지, usContext(전일 미국장 리뷰·섹터)와 이어지는 흐름인지를 근거와 함께 "
-    "명시할 것. 제공 데이터에 없는 원인을 추정해 지어내지 말 것.\n"
+    "종목이 끌어올리는지/끌어내리는지, 그 '이유(오늘의 촉매)'가 무엇인지를 근거와 함께 명시할 것.\n"
+    "  · **원인은 stocks[].newsHeadlines(상위 종목 당일 뉴스)를 최우선 근거로 서술한다.** "
+    "themes[].name(네이버 테마명)은 종목의 '소속 분류'일 뿐 '오늘 오른 이유'가 아니다 — "
+    "테마명(예: GTX·원자력)만 보고 원인으로 단정하지 말 것. newsHeadlines 에 실제 촉매(예: "
+    "AI 데이터센터·데이터센터 인프라·수주·정책·증설)가 있으면 반드시 그 촉매를 원인으로 쓰고, "
+    "테마명은 부차적으로만 언급한다. 뉴스 근거가 전혀 없을 때만 themes 의 reasons·수급으로 서술한다.\n"
+    "  · usContext(전일 미국장 리뷰·섹터)와 이어지는 흐름인지도 함께 볼 것. "
+    "제공 데이터에 없는 원인을 추정해 지어내지 말 것.\n"
     "- catalysts 는 입력 공시(id: d0,d1,..)·뉴스(id: n0,n1,..) 중 시장 영향이 큰 것을 '종목 단위'로 "
     "정리한다(방향별 — 상방·중립·하방 각각 최대 10건 — 서로 다른 종목을 최대한 많이 포괄):\n"
     "  · 한국(KOSPI/KOSDAQ) 상장 종목만 포함하고 해외 종목·지수·ETF(예: 테슬라·엔비디아 등)는 제외한다.\n"
@@ -892,6 +944,8 @@ def _sector_raw(s):
             d["changePct"] = x["changePct"]
         if x.get("flow"):
             d["flow"] = x["flow"]      # {date, foreign, institution} 순매수 수량(주)
+        if x.get("news"):
+            d["newsHeadlines"] = x["news"]   # 당일 뉴스(상위 종목) — 섹터 '원인' 서술 근거
         return d
     return {
         "name": s["name"], "changePct": s["changePct"],
@@ -1086,6 +1140,7 @@ def main():
     sector_heat, sectors_up, sectors_down = fetch_sectors()   # KIS 업종(KRX 분류) 섹터 히트
     attach_sector_themes(sectors_up, sectors_down)            # 섹터 → 관련 네이버 테마·종목
     enrich_sector_stocks(sectors_up, sectors_down)            # 관련주 등락률·수급(동인 분석 근거)
+    attach_sector_stock_news(sectors_up, sectors_down)        # 상위 종목 당일 뉴스(실제 촉매 근거)
     movers_up, movers_down = fetch_movers()
     disclosures = sources.dart_today_disclosures(limit=40)
     news = fetch_news()
