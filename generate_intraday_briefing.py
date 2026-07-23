@@ -724,7 +724,8 @@ def _load_econ_events(now):
 def _load_earnings_events(now):
     """실적발표 캘린더(public/earnings_calendar.json, fetch_earnings_calendar.py 갱신)에서
     장중 관점 2구획 발췌 — releasedToday(오늘 발표 결과)와 upcomingSoon(오늘 발표 예정).
-    당일자만 표기(2026-07-23 사용자 결정 — 최근 3일 폴백·D+7 예정 제거).
+    당일 발표 + '전일 장 마감 후 발표돼 오늘 처음 포착된' 지연 실적(capturedDate==today,
+    late 플래그)까지 표기 — 전일 마감후 실적도 익일 주가에 영향을 주므로 하루 이월.
     표시 전용(LLM 미전달 — 환각 차단). 없으면 {}."""
     try:
         with open(os.path.join(ROOT, "public", "earnings_calendar.json"),
@@ -735,7 +736,13 @@ def _load_earnings_events(now):
         return {}
     today = now.strftime("%Y-%m-%d")
 
-    rel = [r for r in cal.get("released") or [] if r.get("date") == today]
+    # date==today(당일 발표) + capturedDate==today(전일 마감 후 늦게 발표돼 오늘 처음 포착).
+    rel = []
+    for r in cal.get("released") or []:
+        if r.get("date") == today:
+            rel.append(r)
+        elif r.get("capturedDate") == today:
+            rel.append({**r, "late": True})       # 전일(이전) 발표를 오늘 처음 포착 — 카드에 '전일' 표시
     # 서프라이즈(괴리율 절대값) 큰 순 → 상위 8건만
     rel = sorted(rel, key=lambda r: -abs(((r.get("surprise") or {}).get("opGap")) or 0))[:8]
     rel.sort(key=lambda r: (r.get("date") or "", r.get("name") or ""))

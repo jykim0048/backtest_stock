@@ -693,6 +693,18 @@ def build(wise: list[dict], fng: list[dict], dart: list[dict],
 
 # ── 메인 ─────────────────────────────────────────────────────────────────────
 
+def stamp_captured_date(released, prev_released, today_s):
+    """released 로 '처음' 잡힌 날짜(capturedDate)를 이월/스탬프.
+
+    전일 장 마감 후 늦게 발표된 실적은 익일 첫 수집에서 처음 released 로 잡히므로
+    capturedDate 가 익일이 된다 → 대시보드가 그날 하루 노출(_load_earnings_events 가
+    date==today OR capturedDate==today 로 표시). 이미 잡혀 있던 종목은 기존 값 유지."""
+    prev_cap = {r.get("code"): r.get("capturedDate") for r in (prev_released or [])
+                if r.get("code") and r.get("capturedDate")}
+    for r in released:
+        r["capturedDate"] = prev_cap.get(r.get("code")) or today_s
+
+
 def _load_prev() -> dict:
     try:
         with open(OUT_PATH, encoding="utf-8") as f:
@@ -729,6 +741,8 @@ def main():
         enrich_calendar(merged["released"], merged["upcoming"], today)
     except Exception as e:
         _warn(f"개별 종목 보강 실패(무시): {e}")
+
+    stamp_captured_date(merged["released"], prev.get("released") or [], today.isoformat())
 
     out = {
         "date": today.isoformat(),

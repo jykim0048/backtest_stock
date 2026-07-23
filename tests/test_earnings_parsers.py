@@ -15,6 +15,7 @@ from fetch_earnings_calendar import (parse_wisereport, parse_fnguide, parse_dart
                                      parse_naver_finance, parse_wcomp_cns,
                                      parse_dart_document, _dart_num,
                                      enrich_calendar, _yoy_calc, _target_period,
+                                     stamp_captured_date,
                                      build, _recent_quarters)
 
 
@@ -266,6 +267,26 @@ def main():
     assert not dd2["upcoming"], "released 와 같은 날짜의 upcoming 중복이 남음"
     assert dd["released"][0]["code"] == "010120"
     print("build released/upcoming dedupe OK")
+
+    # ── stamp_captured_date: 전일 마감 후 발표 실적의 익일 이월 (IPARK 사례) ──────
+    # 전일(07-23) 늦게 발표 → 익일(07-24) 첫 수집에서 처음 released 로 잡힘.
+    ipark = {"date": "2026-07-23", "code": "294870", "name": "IPARK현대산업개발"}
+    kept = {"date": "2026-07-24", "code": "005930", "name": "삼성전자",
+            "capturedDate": "2026-07-24"}
+    prev = [{"code": "005930", "capturedDate": "2026-07-24"}]   # 삼성은 이미 잡혀 있던 종목
+    stamp_captured_date([ipark, kept], prev, "2026-07-24")
+    assert ipark["capturedDate"] == "2026-07-24", ipark        # 신규 → 오늘로 스탬프
+    assert kept["capturedDate"] == "2026-07-24"                # 기존값 이월(유지)
+    # 표시 필터 재현: date==today OR capturedDate==today (07-24)
+    today = "2026-07-24"
+    shown = [r for r in [ipark, kept] if r["date"] == today or r.get("capturedDate") == today]
+    assert ipark in shown, "전일 발표(07-23)가 capturedDate 로 익일 표시돼야"
+    assert (ipark["date"] != today)                            # 날짜는 전일 그대로(late 표시 근거)
+    # 다음날(07-25)엔 빠져야 (date·capturedDate 둘 다 07-25 아님)
+    d25 = "2026-07-25"
+    shown25 = [r for r in [ipark] if r["date"] == d25 or r.get("capturedDate") == d25]
+    assert not shown25, "이월은 하루만 — 익익일엔 사라져야"
+    print("stamp_captured_date 익일 이월(IPARK) OK")
     print("ALL PASS")
 
 

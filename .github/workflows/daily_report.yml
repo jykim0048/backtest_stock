@@ -88,6 +88,14 @@ jobs:
           DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}   # 관세청 수출입 통계(발표일만 호출)
         run: python fetch_econ_calendar.py
 
+      # 전일 장 마감 후(마감 회차 15:40 이후) 발표된 실적을 장 열기 전에 포착 —
+      # capturedDate 가 오늘로 찍혀 대시보드가 첫 장중 회차(09:07)부터 '전일' 표시로 이월한다.
+      - name: Fetch earnings calendar (전일 마감 후 발표 포함)
+        continue-on-error: true   # best-effort; 실패 시 기존 earnings_calendar.json 유지
+        env:
+          DART_API_KEY: ${{ secrets.DART_API_KEY }}
+        run: python fetch_earnings_calendar.py
+
       # sector 스텝보다 반드시 먼저: generate_sector.py 가 브리핑의 flow[].krNames 를 입력으로
       # 읽으므로(신선도 갭 방지), 이 순서를 지켜야 같은 날 데이터로 일관되게 맞물린다.
       - name: Generate morning briefing
@@ -114,6 +122,7 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add watchlist.json public/daily_market_report.json public/reports/ public/sector_analysis.json public/briefing/
           git add public/econ_calendar.json 2>/dev/null || true
+          git add public/earnings_calendar.json 2>/dev/null || true
           # 하락 관찰 산출물 — 스크리너 실패 등으로 파일이 없으면 조용히 무시
           git add watchlist_down.json public/down_market_report.json 2>/dev/null || true
           git diff --staged --quiet && echo "No changes to commit" && exit 0
