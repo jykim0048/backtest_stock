@@ -46,6 +46,9 @@ THEME_COUNTER_MIN_CHG = float(os.environ.get("BRIEFING_COUNTER_MIN_CHG", "5"))
 # 섹터 강세/약세를 서술하게 하는 근거. 섹터당 상위 N종목 × 종목당 M헤드라인.
 SECTOR_NEWS_TOP = int(os.environ.get("BRIEFING_SECTOR_NEWS_TOP", "5"))
 SECTOR_NEWS_PER = int(os.environ.get("BRIEFING_SECTOR_NEWS_PER", "3"))
+# 섹터 상위 종목 당일 가집계(외국인/기관/연기금 순매수 대금) — KIS 허브 /flow 로 수집해
+# 섹터 카드 알약·LLM 수급 근거로 사용. 상위 N종목만.
+SECTOR_NETBUY_TOP = int(os.environ.get("BRIEFING_SECTOR_NETBUY_TOP", "5"))
 # ── 기여도 가중 스코어링(2026-07-15 13:41 회차 시뮬레이션으로 확정) ──────────────
 # 지수는 시총가중이므로 '오늘 이 섹터를 움직인' 테마 = 시총×당일등락 기여가 큰 종목이
 # 속한 테마다(오락·문화 -1.63% 의 동인이 파라다이스·GKL 폭락인데 개수 기준으론 카지노가
@@ -641,6 +644,46 @@ def attach_sector_stock_news(sectors_up, sectors_down):
     print(f"  섹터 관련주 뉴스: {n}/{len(picked)}종목 헤드라인 부착")
 
 
+def attach_sector_stock_netbuy(sectors_up, sectors_down):
+    """섹터 상위 종목(기여순)에 당일 매매종목 가집계(잠정) — 외국인/기관/연기금 순매수
+    대금(백만원, 부호) — 를 KIS 허브 /flow 에서 병렬 부착. 섹터를 '누가 사서/팔아'
+    움직이는지 수급 주체를 알약·LLM 근거로 노출. enrich_sector_stocks(기여순 정렬) 이후 호출.
+
+    함정: /flow 의 rank 는 종목이 KIS 순매수/순매도 상위 리스트(대략 top 30)에 들 때만
+    채워진다 — 미랭크 종목은 가집계 금액이 없어 netBuy 미부착(프론트가 합계에서 제외·표에 –)."""
+    picked, seen = [], set()
+    for s in sectors_up + sectors_down:
+        for x in (s.get("stocks") or [])[:SECTOR_NETBUY_TOP]:
+            code = x.get("code")
+            if code and code not in seen:
+                seen.add(code)
+                picked.append(x)
+    if not picked:
+        return
+
+    def _one(x):
+        try:
+            r = requests.get(f"{KIS_HUB_URL}/flow", params={"code": x["code"]}, timeout=12)
+            r.raise_for_status()
+            d = r.json()
+            rank = d.get("rank") or []
+            if d.get("status") == "success" and rank:
+                r0 = rank[0]     # frgn/orgn/fund 는 종목 순매수 대금(리스트 무관 동일 값)
+                return x, {"frgn": r0.get("frgn"), "orgn": r0.get("orgn"),
+                           "fund": r0.get("fund")}
+            return x, None
+        except Exception:
+            return x, None
+
+    n = 0
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        for x, nb in pool.map(_one, picked):
+            if nb and any(v is not None for v in nb.values()):
+                x["netBuy"] = nb
+                n += 1
+    print(f"  섹터 가집계(외국인/기관/연기금): {n}/{len(picked)}종목 부착")
+
+
 def _load_us_context():
     """모닝브리핑(public/briefing/latest.json)에서 전일 미국장 컨텍스트 발췌 —
     장중 섹터 랠리가 미국장의 연장인 경우(예: 필라델피아 반도체 급등 → 국내 반도체
@@ -853,6 +896,9 @@ SYSTEM = (
     "테마명(예: GTX·원자력)만 보고 원인으로 단정하지 말 것. newsHeadlines 에 실제 촉매(예: "
     "AI 데이터센터·데이터센터 인프라·수주·정책·증설)가 있으면 반드시 그 촉매를 원인으로 쓰고, "
     "테마명은 부차적으로만 언급한다. 뉴스 근거가 전혀 없을 때만 themes 의 reasons·수급으로 서술한다.\n"
+    "  · netBuy5(섹터 상위 종목의 외국인/기관/연기금 순매수 대금 합, 억원·부호)가 있으면 "
+    "'누가 사서/팔아' 섹터가 움직이는지 수급 주체를 서술에 반영할 것(예: '외국인이 순매수하며 "
+    "견인' — 양수=순매수, 음수=순매도, 수치 인용). 종목수는 가집계 랭킹에 든 상위 종목 수다.\n"
     "  · usContext(전일 미국장 리뷰·섹터)와 이어지는 흐름인지도 함께 볼 것. "
     "제공 데이터에 없는 원인을 추정해 지어내지 말 것.\n"
     "- catalysts 는 입력 공시(id: d0,d1,..)·뉴스(id: n0,n1,..) 중 시장 영향이 큰 것을 '종목 단위'로 "
@@ -953,8 +999,14 @@ def _sector_raw(s):
             d["flow"] = x["flow"]      # {date, foreign, institution} 순매수 수량(주)
         if x.get("news"):
             d["newsHeadlines"] = x["news"]   # 당일 뉴스(상위 종목) — 섹터 '원인' 서술 근거
+        if x.get("netBuy"):            # 당일 가집계 순매수 대금(억원) — 수급 주체 근거
+            d["netBuyEok"] = {k: round(v / 100, 1) for k, v in x["netBuy"].items()
+                              if v is not None}
         return d
-    return {
+    # 섹터 상위 종목 가집계 합계(억원, 데이터 있는 종목만) — LLM 이 '누가 사서/팔아'를 서술
+    tops = (s.get("stocks") or [])[:SECTOR_NETBUY_TOP]
+    nb = [x["netBuy"] for x in tops if x.get("netBuy")]
+    out = {
         "name": s["name"], "changePct": s["changePct"],
         "stocks": [_stock(x) for x in (s.get("stocks") or [])],
         "themes": [{"name": t["name"], "changePct": t.get("changePct"),
@@ -963,6 +1015,14 @@ def _sector_raw(s):
                     "reasons": t.get("reasons") or []}
                    for t in (s.get("themes") or [])],
     }
+    if nb:
+        out["netBuy5"] = {
+            "외국인": round(sum((d.get("frgn") or 0) for d in nb) / 100, 1),
+            "기관": round(sum((d.get("orgn") or 0) for d in nb) / 100, 1),
+            "연기금": round(sum((d.get("fund") or 0) for d in nb) / 100, 1),
+            "종목수": len(nb),
+        }
+    return out
 
 
 def _ind_llm_view(x):
@@ -1148,6 +1208,7 @@ def main():
     attach_sector_themes(sectors_up, sectors_down)            # 섹터 → 관련 네이버 테마·종목
     enrich_sector_stocks(sectors_up, sectors_down)            # 관련주 등락률·수급(동인 분석 근거)
     attach_sector_stock_news(sectors_up, sectors_down)        # 상위 종목 당일 뉴스(실제 촉매 근거)
+    attach_sector_stock_netbuy(sectors_up, sectors_down)      # 상위 종목 당일 가집계(수급 주체 근거)
     movers_up, movers_down = fetch_movers()
     disclosures = sources.dart_today_disclosures(limit=40)
     news = fetch_news()
