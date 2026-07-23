@@ -19,6 +19,7 @@ Env: GEMINI_API_KEY (or LLM_CHAIN + matching keys), DART_API_KEY,
      NAVER_CLIENT_ID, NAVER_CLIENT_SECRET, TAVILY_API_KEY
 """
 import os
+import re
 import sys
 import json
 import time
@@ -71,6 +72,23 @@ KST = datetime.timezone(datetime.timedelta(hours=9))
 INCREMENTAL    = os.environ.get("ANALYSIS_INCREMENTAL") == "1"
 TTL_HOURS      = float(os.environ.get("ANALYSIS_TTL_HOURS", "2"))
 PRICE_MOVE_PCT = float(os.environ.get("ANALYSIS_PRICE_MOVE_PCT", "5"))
+
+# 조건부 후속 라운드(하이브리드, 2026-07-23): 이상 신호(최근 공시 키워드·공매도 비중 급증·
+# 목표주가 컨센서스 괴리)가 감지된 종목만, 1차 분석에서 LLM 이 추가 조사(화이트리스트 도구
+# 최대 N건)를 요청할 수 있고 코드가 실행해 2차 호출로 최종본을 만든다. 트리거 미감지 종목은
+# 기존 단일 호출 경로와 완전 동일(스키마·프롬프트·비용 불변). 기본 off — Railway 온디맨드만
+# 켜는 것을 전제(배치는 종목수 × 2차 호출이라 무료 쿼터 압박).
+FOLLOWUP_ENABLE          = os.environ.get("FOLLOWUP_ENABLE") == "1"
+FOLLOWUP_MAX_QUERIES     = int(os.environ.get("FOLLOWUP_MAX_QUERIES", "3"))
+FOLLOWUP_DISCLOSURE_DAYS = int(os.environ.get("FOLLOWUP_DISCLOSURE_DAYS", "7"))
+FOLLOWUP_SHORT_PCT       = float(os.environ.get("FOLLOWUP_SHORT_PCT", "10"))
+FOLLOWUP_GAP_PCT         = float(os.environ.get("FOLLOWUP_GAP_PCT", "30"))
+FOLLOWUP_TOOL_TIMEOUT    = float(os.environ.get("FOLLOWUP_TOOL_TIMEOUT", "10"))
+# 상승·하락 재료 '충돌' 트리거: 방향성 신호(방향성 공시·공매도·컨센서스 괴리·외인/기관
+# 동반 수급)가 양방향 동시 존재하면 개별 단독 임계치 미달이어도 게이트 통과 — 상반 재료의
+# 우세 판정이야말로 후속 조사 가치가 가장 크다. 충돌용 임계치는 단독 트리거보다 낮게.
+FOLLOWUP_CONFLICT_SHORT_PCT = float(os.environ.get("FOLLOWUP_CONFLICT_SHORT_PCT", "7"))
+FOLLOWUP_CONFLICT_GAP_PCT   = float(os.environ.get("FOLLOWUP_CONFLICT_GAP_PCT", "15"))
 
 # 수급(투자자 매매동향) 프록시 — KIS 허브 토큰을 공유하는 모니터 서버(/flow).
 # 일별 개인/외국인/기관계/기금 순매수 대금(백만원) + 당일 가집계(잠정) 랭킹.
@@ -184,6 +202,46 @@ ANALYSIS_SCHEMA = _obj({
         "items": _arr({"note": _STR}),
     }),
 })
+
+# 후속 라운드 1차 호출용 스키마 변형: 기존 필드 + followUp(추가 조사 요청).
+# 트리거 감지 종목에만 쓰인다 — 평상시 경로는 ANALYSIS_SCHEMA 그대로.
+FOLLOWUP_TOOLS = ("news_search", "web_search", "dart_history", "board_deep")
+
+ANALYSIS_SCHEMA_FU = _obj({
+    **ANALYSIS_SCHEMA["properties"],
+    "followUp": _obj({
+        "needed": {"type": "boolean"},
+        "reason": _STR,
+        "queries": _arr({"tool": {"type": "string", "enum": list(FOLLOWUP_TOOLS)},
+                         "query": _STR}),
+    }),
+})
+
+FOLLOWUP_SYSTEM_EXTRA = """
+
+[추가 조사 요청(followUp) — 이 종목은 코드가 이상 신호를 감지했다]
+- 감지된 트리거: {triggers}
+- RAW 만으로 catalyst/direction 판단이 불충분하면 followUp.needed=true 로 하고, 확인할
+  내용을 queries(최대 {n}건)로 요청하라. RAW 로 충분하면 needed=false — 추가 조사는
+  지연·비용이 들므로 트리거를 규명하는 데 꼭 필요한 질의만 요청한다.
+- 사용 가능한 tool:
+  news_search(query=한국어 검색어): 네이버 뉴스 재검색 — 트리거 관련 구체 키워드로.
+  web_search(query=영어 검색어): 해외 웹 — peer·원자재·섹터 맥락.
+  dart_history(query=""): 이 회사의 과거 1년 공시 목록 — 반복 유증·CB 이력 확인용.
+  board_deep(query=""): 종목토론방 5페이지 — 개인투자자 여론 심층.
+- 트리거가 conflict(상승·하락 재료 동시 존재)면, 어느 쪽 재료가 지배적인지 가릴 수 있는
+  질의를 우선하라 — 최종 direction 판정과 catalyst 에 그 근거를 명시한다.
+- reason 에는 무엇을 왜 확인하려는지 한 줄. needed=false 면 reason=""·queries=[]."""
+
+# 2차(refine) 호출: RAW 재전송 없이 1차 분석 + 후속 수집 결과만으로 최종본을 만든다(A안).
+REFINE_SYSTEM = SYSTEM + """
+
+[2차 호출 — 후속 조사 반영]
+- 이번 입력은 RAW 대신 ① 네가 작성한 1차 분석(JSON) ② 추가 수집 결과(followUpResults)다.
+- followUpResults 가 1차 판단을 바꾸면 catalyst/direction 등 해당 필드에 구체 근거와 함께
+  반영하고, 바꾸지 않으면 1차 내용을 유지한다(불필요한 재서술 금지).
+- research.items 는 1차와 같은 개수·순서를 유지한다(코드가 원문 값을 채우는 규칙 동일).
+- followUpResults 의 수치·사실만 인용하고 지어내지 말 것. followUp 필드는 출력하지 않는다."""
 
 
 def load_json(path, default=None):
@@ -379,6 +437,127 @@ def _fetch_base_price(stock):
     return float(px) if px else None
 
 
+# 희석·지배구조·구조 변경 등 '공시 원문까지 파야 판단되는' 유형 — 단독 트리거.
+_FOLLOWUP_KW = re.compile(
+    r"유상증자|전환사채|신주인수권|교환사채|최대주주|합병|분할|감자|조회공시|공급계약|소송")
+# 방향성 공시(충돌 감지용): 단독 트리거와 별개로 상승/하락 재료를 분류한다.
+_FU_KW_BULL = re.compile(r"공급계약|단일판매|수주|무상증자|자기주식|자사주")
+_FU_KW_BEAR = re.compile(r"유상증자|전환사채|신주인수권|교환사채|감자|소송|횡령|배임")
+
+
+def _followup_triggers(raw, flow, stock, base_px):
+    """후속 라운드 트리거 판정(결정적 규칙, 추가 네트워크 0) → 사유 문자열 리스트.
+
+    이미 수집된 raw/flow 만 본다. 빈 리스트면 기존 단일 호출 경로 그대로 진행.
+    단독 트리거: ① 최근 N일 내 공시 제목 키워드 ② 공매도 거래대금 비중 급증
+    ③ 목표주가 컨센서스와 현재가의 큰 괴리.
+    충돌 트리거: 방향성 신호(방향성 공시·공매도·괴리 부호·외인/기관 3일 동반 수급)를
+    상승/하락으로 분류해 양방향이 동시에 있으면 — 개별 신호가 단독 임계치 미달이어도 —
+    conflict 로 게이트를 통과시킨다(상반 재료의 우세 판정이 후속 조사의 핵심 가치).
+    """
+    trig, bulls, bears = [], [], []
+    today = datetime.datetime.now(KST).date()
+
+    # ① 공시: 단독 키워드 트리거(첫 건) + 방향성 분류(충돌용, 각 방향 첫 건)
+    solo_hit = False
+    for d in ((raw.get("dart") or {}).get("disclosures") or [])[:5]:
+        title = d.get("title", "")
+        try:  # date 는 sources._fmt_date 형식(YYYY-MM-DD) — 오래된 공시가 계속 걸리지 않게
+            if (today - datetime.date.fromisoformat(d.get("date", ""))).days \
+                    > FOLLOWUP_DISCLOSURE_DAYS:
+                continue
+        except ValueError:
+            continue
+        m = _FOLLOWUP_KW.search(title)
+        if m and not solo_hit:
+            trig.append(f"disclosure:{m.group(0)}({d.get('date', '')})")
+            solo_hit = True
+        mb = _FU_KW_BULL.search(title)
+        if mb and not any(b.startswith("공시") for b in bulls):
+            bulls.append(f"공시({mb.group(0)})")
+        ms = _FU_KW_BEAR.search(title)
+        if ms and not any(b.startswith("공시") for b in bears):
+            bears.append(f"공시({ms.group(0)})")
+
+    # ② 공매도 비중: 단독(급증) + 충돌용(완화 임계치, 하락 신호)
+    ratios = []
+    for s in ((flow or {}).get("shorts") or [])[:3]:
+        try:
+            ratios.append(float(s.get("pbmnRlim") or 0))
+        except (TypeError, ValueError):
+            pass
+    short_r = max(ratios) if ratios else 0.0
+    if short_r >= FOLLOWUP_SHORT_PCT:
+        trig.append(f"short_surge:{short_r:.1f}%")
+    if short_r >= FOLLOWUP_CONFLICT_SHORT_PCT:
+        bears.append(f"공매도{short_r:.1f}%")
+
+    # ③ 컨센서스 괴리: 단독(절대값) + 충돌용(부호 → 방향 신호)
+    tps = [r.get("targetPrice") for r in (raw.get("research_reports") or [])
+           if r.get("targetPrice")]
+    base = stock.get("basePrice") or stock.get("price") or base_px
+    if tps and base:
+        gap = (sum(tps) / len(tps) / base - 1) * 100
+        if abs(gap) >= FOLLOWUP_GAP_PCT:
+            trig.append(f"consensus_gap:{gap:+.0f}%")
+        if gap >= FOLLOWUP_CONFLICT_GAP_PCT:
+            bulls.append(f"괴리{gap:+.0f}%")
+        elif gap <= -FOLLOWUP_CONFLICT_GAP_PCT:
+            bears.append(f"괴리{gap:+.0f}%")
+
+    # ④ 외국인·기관 동반 수급(네이버 trend, 최신순·전일까지 확정): 3일 연속 동반
+    #    순매수/순매도만 방향 신호로(단발 소량 순매매 노이즈 배제).
+    t3 = [(r.get("frgn"), r.get("orgn"))
+          for r in ((flow or {}).get("trend") or [])[:3]]
+    if len(t3) == 3 and all(f is not None and o is not None for f, o in t3):
+        if all(f > 0 and o > 0 for f, o in t3):
+            bulls.append("동반순매수3일")
+        elif all(f < 0 and o < 0 for f, o in t3):
+            bears.append("동반순매도3일")
+
+    # ⑤ 충돌: 상승·하락 재료 동시 존재 → 트리거 (단독 임계치와 무관)
+    if bulls and bears:
+        trig.append(f"conflict:{'+'.join(bulls)} vs {'+'.join(bears)}")
+    return trig
+
+
+def _followup_fetch(queries, code, corp):
+    """화이트리스트 도구 실행 — 건당 타임아웃, 실패/빈 결과 leg 는 제외.
+
+    반환: [{tool, query, results}] (refine 호출의 followUpResults 입력).
+    타임아웃된 leg 의 워커는 버려두고 진행한다(shutdown wait=False) — 후속 라운드가
+    온디맨드 응답을 도구 하나 때문에 붙잡지 않게.
+    """
+    def _one(q):
+        tool, query = q["tool"], (q.get("query") or "").strip()
+        if tool == "news_search":
+            return sources.naver_search("news", query, display=8) if query else []
+        if tool == "web_search":
+            return sources.web_search(query, max_results=5) if query else []
+        if tool == "dart_history":
+            return sources.dart_disclosures(corp, days=365) if corp else []
+        if tool == "board_deep":
+            return sources.naver_board(code, pages=5)
+        return []
+
+    out = []
+    pool = ThreadPoolExecutor(max_workers=min(3, len(queries)) or 1)
+    deadline = time.perf_counter() + FOLLOWUP_TOOL_TIMEOUT  # 라운드 전체 상한(건당 아님)
+    try:
+        for q, fut in [(q, pool.submit(_one, q)) for q in queries]:
+            try:
+                res = fut.result(timeout=max(0.1, deadline - time.perf_counter()))
+                if res:
+                    out.append({"tool": q["tool"], "query": q.get("query", ""),
+                                "results": res})
+            except Exception as e:
+                print(f"[research] {code} followup {q.get('tool')} 실패/타임아웃: {e}",
+                      file=sys.stderr)
+    finally:
+        pool.shutdown(wait=False)
+    return out
+
+
 def analyze_stock(stock, peer_cfg):
     code, name = stock["code"], stock["name"]
     t0 = time.perf_counter()
@@ -477,16 +656,62 @@ def analyze_stock(stock, peer_cfg):
     user = (f"종목: {stock['name']} ({stock['code']}, {stock['market']})\n"
             f"RAW 데이터(JSON):\n{json.dumps(raw, ensure_ascii=False)}")
 
+    # 조건부 후속 라운드: 트리거 감지 종목만 followUp 필드가 붙은 스키마·프롬프트로 1차 호출.
+    # 미감지(대부분)는 기존 경로와 완전 동일.
+    triggers = _followup_triggers(raw, flow, stock, base_px) if FOLLOWUP_ENABLE else []
+    system, schema = SYSTEM, ANALYSIS_SCHEMA
+    if triggers:
+        system = SYSTEM + FOLLOWUP_SYSTEM_EXTRA.format(
+            triggers="; ".join(triggers), n=FOLLOWUP_MAX_QUERIES)
+        schema = ANALYSIS_SCHEMA_FU
+
     # llm.generate_json returns parsed JSON from the first chain link that
     # succeeds (auto-failover on quota/billing/rate-limit). Providers that
-    # support it enforce ANALYSIS_SCHEMA; all return valid, escaped JSON.
+    # support it enforce the schema; all return valid, escaped JSON.
     t1 = time.perf_counter()
     analysis, model_used = llm.generate_json(
-        SYSTEM, user, max_tokens=MAX_TOKENS, schema=ANALYSIS_SCHEMA, return_model=True)
+        system, user, max_tokens=MAX_TOKENS, schema=schema, return_model=True)
+    llm1_s = time.perf_counter() - t1
+
+    # 2라운드(A안): 모델이 요청한 후속 질의를 실행하고, RAW 재전송 없이 1차 분석 + 추가
+    # 수집 결과만으로 최종본을 다시 받는다. 출력 스키마는 followUp 없는 기존 스키마 —
+    # 3라운드는 구조적으로 불가. 어떤 실패든 1차 분석 유지(graceful).
+    fu_req = analysis.pop("followUp", None) or {}
+    fu_meta = None
+    if triggers and fu_req.get("needed") and fu_req.get("queries"):
+        t2 = time.perf_counter()
+        queries = [q for q in fu_req["queries"]
+                   if q.get("tool") in FOLLOWUP_TOOLS][:FOLLOWUP_MAX_QUERIES]
+        fu_results = _followup_fetch(queries, code, corp)
+        if fu_results:
+            refine_user = (
+                f"종목: {stock['name']} ({stock['code']}, {stock['market']})\n"
+                f"1차 분석(JSON):\n{json.dumps(analysis, ensure_ascii=False)}\n"
+                f"추가 수집 결과 followUpResults(JSON):\n"
+                f"{json.dumps(fu_results, ensure_ascii=False)}")
+            try:
+                analysis, model_used = llm.generate_json(
+                    REFINE_SYSTEM, refine_user, max_tokens=MAX_TOKENS,
+                    schema=ANALYSIS_SCHEMA, return_model=True)
+                fu_meta = {"triggers": triggers, "reason": fu_req.get("reason", ""),
+                           "queries": queries,
+                           "seconds": round(time.perf_counter() - t2, 1)}
+            except llm.LLMError as e:
+                print(f"[research] {code} followup refine 실패(1차 유지): {e}",
+                      file=sys.stderr)
+
     analysis["generatedBy"] = model_used   # surfaced on the dashboard
+    if fu_meta:
+        analysis["followUp"] = fu_meta     # 대시보드 배지·트리거율 튜닝용 메타
     # 단계별 계측(온디맨드 서버·Actions 로그 공용) — 병목 진단용
+    fu_note = ""
+    if FOLLOWUP_ENABLE:
+        fu_note = " followup=" + ("+".join(t.split(":", 1)[0] for t in triggers)
+                                  if triggers else "miss")
+        if fu_meta:
+            fu_note += f" fu={fu_meta['seconds']}s({len(fu_meta['queries'])}건)"
     print(f"[research] {code} fetch={fetch_s:.1f}s(최장 {slow[0]} {slow[1]:.1f}s) "
-          f"llm={time.perf_counter() - t1:.1f}s({model_used}) "
+          f"llm={llm1_s:.1f}s({model_used}){fu_note} "
           f"total={time.perf_counter() - t0:.1f}s", file=sys.stderr)
 
     # Force deterministic peer items (LLM only authored peers.summary/peers.reddit).
