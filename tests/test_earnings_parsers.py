@@ -150,6 +150,37 @@ def main():
     assert rel2["surprise"]["opGap"] == 2.5       # (1640-1600)/1600
     print("enrich_calendar 실적 보강 OK")
 
+    # ── enrich: 오늘자 우선 — 과거 released 가 예산을 가로채지 않음 (두산밥캣 회귀) ──
+    # ENRICH_MAX 를 넘는 과거 released 를 앞에 두고, 오늘 예정(두산밥캣)이 그래도
+    # 조회·보강되는지 확인 (2026-07-23: 과거 released 24건이 10 예산을 소진해 실패).
+    import fetch_earnings_calendar as _fc
+    old_rels = [{"date": "2026-07-20", "code": f"9000{i:02d}", "name": f"과거{i}",
+                 "period": None, "quarter": None, "fs": None,
+                 "sales": None, "op": None, "np": None,
+                 "salesYoY": None, "opYoY": None, "npYoY": None, "tag": None,
+                 "consensus": {"op": None, "np": None},
+                 "surprise": {"opGap": None, "npGap": None},
+                 "dartUrl": "u", "dartTitle": "t", "sources": ["dart"]}
+                for i in range(_fc.ENRICH_MAX + 5)]
+    doosan = {"date": "2026-07-23", "code": "241560", "name": "두산밥캣",
+              "period": "202606", "consensus": {"op": None, "np": None, "yoy": None,
+                                                "qoq": None},
+              "provisional": {"op": None, "np": None},
+              "surprise": {"opGap": None, "npGap": None}}
+    fx_d_naver = {"241560": _fixture("naver_finance_quarter_241560.json")}
+    calls = []
+    def _naver_probe(c):
+        calls.append(c)
+        return fx_d_naver[c]      # 오늘자(241560)만 픽스처 보유 — 과거코드면 KeyError
+    enrich_calendar(old_rels, [doosan], datetime.date(2026, 7, 23),
+                    fetch_naver=_naver_probe,
+                    fetch_wcomp=lambda c: (_ for _ in ()).throw(RuntimeError("skip")))
+    assert "241560" in calls, "오늘 예정 종목이 조회되지 않음(과거 released 가 예산 소진)"
+    assert all(not c.startswith("9000") for c in calls), "과거 released(비오늘)가 조회 대상에 포함됨"
+    assert doosan["consensus"]["op"] == 2053.0, doosan["consensus"]
+    assert doosan["consensus"]["yoy"] == -1.1
+    print("enrich_calendar 오늘자 우선(두산밥캣 회귀) OK")
+
     # ── build: 같은 날짜 released 종목은 upcoming 에서 제거 ──────────────────
     dd = build([], [], [{"date": "2026-07-23", "code": "010120",
                          "name": "엘에스일렉트릭", "title": "영업(잠정)실적", "url": "u"}],
