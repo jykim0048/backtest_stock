@@ -804,6 +804,9 @@ SYSTEM = (
     "market(한국 종목이면 반드시 KOSPI 또는 KOSDAQ 로 채울 것 — 비우지 말 것; 해외 종목은 애초에 넣지 말 것), "
     "direction(그 촉매가 주가에 주는 방향 — 상방=bullish|중립=neutral|하방=bearish), summary(핵심 촉매 한 문장).\n"
     "  · 뉴스는 corp 필드가 없으니 제목·본문에서 종목명을 추출해 stock 에 넣을 것.\n"
+    "  · stock 은 반드시 실제 상장 '개별 종목명'이어야 한다 — '~테마주'·'~관련주'·업종/테마 "
+    "묶음(예: 한동훈 테마주, 2차전지 관련주)은 종목이 아니다. 기사에 대표 개별 종목이 명시된 "
+    "경우에만 그 종목명으로 넣고, 개별 종목이 없으면 그 기사는 촉매에서 제외할 것.\n"
     "- econEvents 가 있으면: korReleasedToday(오늘 발표된 한국 경제지표)는 ① 지수·수급 서술의 "
     "배경으로, korTodayUpcoming(오늘 남은 한국 발표 예정)과 usTonight(오늘 밤 미국 발표 예정 지표)은 "
     "⑤ 관전 포인트에 반영할 것(수치는 입력값을 그대로 인용). 당일 지표가 없는 날의 폴백인 "
@@ -968,6 +971,10 @@ def synthesize(indices, investors, indicators, sectors_up, sectors_down,
     for c in (synth.get("catalysts") or []):
         cid = str(c.get("id") or "")
         stock = (c.get("stock") or "").strip()
+        # 결정적 필터: 테마 묶음명은 종목이 아님 — 프롬프트 금지에도 LLM 이 넣은 사례
+        # ('한동훈 테마주' 2026-07-23) 재발을 구조적으로 차단.
+        if re.search(r"(테마주|관련주|수혜주|테마)$", stock):
+            continue
         summary = (c.get("summary") or "").strip()
         direction = str(c.get("direction") or "neutral").lower()
         if direction not in ("bullish", "neutral", "bearish"):
