@@ -51,7 +51,7 @@ TIMEOUT = 20
 
 RELEASED_LOOKBACK_DAYS = int(os.environ.get("EARNINGS_LOOKBACK_DAYS", "7"))
 UPCOMING_DAYS = int(os.environ.get("EARNINGS_UPCOMING_DAYS", "30"))
-ENRICH_MAX = int(os.environ.get("EARNINGS_ENRICH_MAX", "20"))   # 회차당 개별 종목 조회 상한(오늘자 우선)
+ENRICH_MAX = int(os.environ.get("EARNINGS_ENRICH_MAX", "40"))   # 회차당 개별 종목 조회 상한(오늘자 우선, 마감일 다발표 대비)
 
 DART_KEY = os.environ.get("DART_API_KEY", "")
 # 실적 공시 제목 키워드 (screener.py POSITIVE_KEYWORDS 실적 그룹과 동일 취지)
