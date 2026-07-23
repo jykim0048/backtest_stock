@@ -537,13 +537,14 @@ def _naver_finance(code: str) -> dict:
     return r.json()
 
 
-def _dart_get(url, params):
-    """DART 뷰어 호스트(dart.fss.or.kr)는 해외 IP에서 SSL EOF·타임아웃으로 간헐 드롭 —
-    전송 오류만 백오프 재시도(최대 3회). 4xx 등은 즉시 전파."""
+def _dart_get(url, params, headers=None):
+    """DART 호스트(opendart.fss.or.kr 목록·dart.fss.or.kr 뷰어)는 해외(Actions) IP 에서
+    ConnectTimeout·SSL EOF 로 간헐 드롭 — 전송 오류만 백오프 재시도(최대 3회).
+    4xx 등 HTTP 오류는 즉시 전파."""
     last = None
     for i in range(3):
         try:
-            r = requests.get(url, params=params, headers=UA, timeout=TIMEOUT)
+            r = requests.get(url, params=params, headers=headers or UA, timeout=TIMEOUT)
             r.raise_for_status()
             return r
         except (requests.exceptions.SSLError, requests.exceptions.Timeout,
@@ -586,10 +587,10 @@ def fetch_dart(bgn: str, end: str) -> list[dict]:
         page = 1
         while page <= 10:
             try:
-                r = requests.get(DART_LIST_URL, params={
+                r = _dart_get(DART_LIST_URL, {
                     "crtfc_key": DART_KEY, "bgn_de": bgn, "end_de": end,
                     "corp_cls": cls, "page_no": page, "page_count": 100,
-                }, timeout=TIMEOUT)
+                })
                 data = r.json()
                 if data.get("status") != "000":
                     break
