@@ -13,8 +13,14 @@ FIX = os.path.join(ROOT, "tests", "fixtures")
 
 from fetch_earnings_calendar import (parse_wisereport, parse_fnguide, parse_dart,
                                      parse_naver_finance, parse_wcomp_cns,
+                                     parse_dart_document, _dart_num,
                                      enrich_calendar, _yoy_calc, _target_period,
                                      build, _recent_quarters)
+
+
+def _fixture_text(name):
+    with open(os.path.join(FIX, name), encoding="utf-8") as f:
+        return f.read()
 
 
 def _fixture(name):
@@ -108,6 +114,44 @@ def main():
     assert _target_period({"period": "202603", "date": "2026-07-23"},
                           datetime.date(2026, 7, 23)) == "202603"
     print("_yoy_calc / _target_period OK")
+
+    # ── DART 공시 원문 파서 (실측 픽스처: LS일렉트릭 이익 / 유진테크 매출단독) ──
+    assert _dart_num("1,576,998") == 1576998.0
+    assert _dart_num("△1,691") == -1691.0
+    assert _dart_num("(1,691)") == -1691.0
+    assert _dart_num("-1,691") == -1691.0
+    assert _dart_num("-") is None and _dart_num("") is None
+    doc_ls = parse_dart_document(_fixture_text("dart_doc_010120.html"))
+    assert doc_ls["op"] == 1785.2, doc_ls          # 178,520 백만원 → 억
+    assert doc_ls["sales"] == 15770.0
+    assert doc_ls["np"] == 1158.4
+    assert doc_ls["opYoY"] == 64.39
+    doc_yj = parse_dart_document(_fixture_text("dart_doc_240600.html"))
+    assert doc_yj["sales"] == 99.0                 # 매출만 공시(9,905 백만원)
+    assert "op" not in doc_yj                       # 영업이익 미공시('-') → 제외
+    print("parse_dart_document / _dart_num OK")
+
+    # ── enrich: DART 원문으로 실제 실적 + 네이버 컨센서스 → 서프라이즈 갭 ──────
+    rel_doc = {"date": "2026-07-23", "code": "010120", "name": "LS ELECTRIC",
+               "period": "202606", "quarter": None, "fs": None,
+               "sales": None, "op": None, "np": None,
+               "salesYoY": None, "opYoY": None, "npYoY": None, "tag": None,
+               "consensus": {"op": None, "np": None},
+               "surprise": {"opGap": None, "npGap": None},
+               "dartUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260723800150",
+               "dartTitle": "t", "sources": ["dart"]}
+    doc_html = _fixture_text("dart_doc_010120.html")
+    enrich_calendar([rel_doc], [], datetime.date(2026, 7, 23),
+                    fetch_naver=lambda c: _fixture("naver_finance_quarter_010120.json"),
+                    fetch_wcomp=lambda c: _fixture("wcomp_cns_trend_010120.json"),
+                    fetch_doc=lambda rc: parse_dart_document(doc_html))
+    assert rel_doc["op"] == 1785.2, rel_doc          # DART 원문 실적
+    assert rel_doc["sales"] == 15770.0
+    assert rel_doc["opYoY"] == 64.39
+    assert rel_doc["consensus"]["op"] == 1640.0      # 네이버 컨센서스
+    assert rel_doc["surprise"]["opGap"] == 8.9       # (1785.2-1640)/1640 → 컨상 +8.9%
+    assert "dart-doc" in rel_doc["sources"]
+    print("enrich_calendar DART 원문 실적+서프라이즈 OK")
 
     # ── enrich: DART 단독 행(수치 전무)에 컨센서스 채움 + upcoming 컨센 보강 ──
     t = datetime.date(2026, 7, 23)

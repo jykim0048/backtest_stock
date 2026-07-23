@@ -58,6 +58,18 @@ DART_KEY = os.environ.get("DART_API_KEY", "")
 DART_EARNINGS_KEYWORDS = ("잠정실적", "영업(잠정)실적", "영업실적", "손익구조")
 DART_EXCLUDE_KEYWORDS = ("정정", "첨부")
 
+# DART 공시 원문(공정공시 뷰어) — 집계 사이트 미반영 종목의 '실제' 잠정실적을 직접 파싱.
+# viewer 는 인증키 불필요·EUC-KR. dcmNo 는 main.do 의 viewDoc("rcpNo","dcmNo",...) 에서 추출.
+DART_VIEW_MAIN = "https://dart.fss.or.kr/dsaf001/main.do"
+DART_VIEW_DOC = "https://dart.fss.or.kr/report/viewer.do"
+DART_DOC_ON = os.environ.get("EARNINGS_DART_DOC", "1") != "0"
+# 표 단위 → 억원 환산계수
+_DART_UNIT = {"조원": 10000.0, "십억원": 10.0, "억원": 1.0, "백만원": 0.01,
+              "천원": 1e-5, "백원": 1e-6, "원": 1e-8}
+# 전년동기대비 흑자적자전환 표기 정규화 (frontend _earnBadge 태그와 정합)
+_DART_FLAG = {"흑자전환": "흑전", "적자전환": "적전", "적자지속": "적지",
+              "흑전": "흑전", "적전": "적전", "적지": "적지"}
+
 
 def _warn(msg):
     print(f"[earnings] {msg}")
@@ -216,6 +228,57 @@ def parse_dart(rows: list[dict]) -> list[dict]:
     return out
 
 
+def _dart_num(text):
+    """공시 표 셀 -> float. '△1,691'/'(1,691)'/'-1,691' = 음수, '-'/'' = 미기재(None)."""
+    if text is None:
+        return None
+    s = str(text).replace(" ", "").replace("\xa0", "")
+    if s in ("", "-", "–", "—"):
+        return None
+    neg = s[:1] in ("△", "▲", "-") or (s[:1] == "(" and s[-1:] == ")")
+    m = re.search(r"[\d,]+(?:\.\d+)?", s)
+    if not m:
+        return None
+    v = float(m.group(0).replace(",", ""))
+    return -v if neg else v
+
+
+def parse_dart_document(html: str) -> dict:
+    """영업(잠정)실적 공정공시 뷰어 HTML -> 실제 실적(억원) + 전년동기대비.
+
+    표 구조: 지표(매출액/영업이익/당기순이익) 행마다 '당해실적' 칸 뒤로
+    [당기실적, 전기실적, 전기대비%, 전기흑적, 전년동기실적, 전년동기대비%, 전년동기흑적].
+    단위는 '단위 : 백만원' 등에서 읽어 억원으로 환산. 회사가 미공시한 지표는 '-'(제외)."""
+    from bs4 import BeautifulSoup     # 지연 import — 미설치 환경서도 모듈 로드는 유지
+    m = re.search(r"단위\s*[:：]\s*([가-힣]+원)", html)
+    factor = _DART_UNIT.get(m.group(1) if m else "", 0.01)   # 기본 백만원
+    soup = BeautifulSoup(html, "html.parser")
+    want = {"매출액": ("sales", "salesYoY"), "영업이익": ("op", "opYoY"),
+            "당기순이익": ("np", "npYoY")}
+    out = {}
+    for tr in soup.find_all("tr"):
+        cells = [c.get_text(" ", strip=True).replace("\xa0", " ").strip()
+                 for c in tr.find_all(["td", "th"])]
+        if not cells:
+            continue
+        keys = want.get(cells[0].replace(" ", ""))
+        if not keys or keys[0] in out or "당해실적" not in cells:
+            continue
+        vk, yk = keys
+        i = cells.index("당해실적")
+        cur = _dart_num(cells[i + 1]) if i + 1 < len(cells) else None
+        if cur is None:
+            continue                                    # 회사 미공시 지표
+        out[vk] = round(cur * factor, 1)
+        yoy_pct = _dart_num(cells[i + 6]) if i + 6 < len(cells) else None
+        yoy_flag = cells[i + 7].replace(" ", "") if i + 7 < len(cells) else ""
+        if yoy_pct is not None:
+            out[yk] = yoy_pct
+        elif yoy_flag in _DART_FLAG:
+            out[yk] = _DART_FLAG[yoy_flag]
+    return out
+
+
 def _yoy_calc(cur, prev):
     """전년동기 대비 증감 — 적자 구간은 관례 텍스트(흑전/적전/적지)."""
     if cur is None or prev is None:
@@ -347,14 +410,15 @@ def _enrich_upcoming(u, per, src, tag_src):
 
 
 def enrich_calendar(released, upcoming, today: datetime.date,
-                    fetch_naver=None, fetch_wcomp=None) -> int:
-    """개별 종목 페이지(네이버 -> FnGuide wcomp 체인)로 결손 보강. 보강 행 수 반환.
+                    fetch_naver=None, fetch_wcomp=None, fetch_doc=None) -> int:
+    """개별 종목으로 결손 보강. 보강 행 수 반환.
 
-    fetch_* 는 code -> 원본 payload (테스트에서 픽스처 주입). 종목당 두 소스를
-    한 번씩만 조회하고, 조회 종목 수는 ENRICH_MAX 로 제한.
-    """
+    released 실적 미집계(op None)는 DART 공시 원문에서 실제 실적을 직접 파싱하고
+    (집계 사이트 지연 무관), 이어 네이버 -> FnGuide 로 컨센서스를 보강한다.
+    fetch_* 는 테스트 픽스처 주입용. 조회 종목 수는 ENRICH_MAX 로 제한."""
     fetch_naver = fetch_naver or _naver_finance
     fetch_wcomp = fetch_wcomp or _wcomp_cns
+    fetch_doc = fetch_doc or _dart_document
     today_s = today.isoformat()
 
     def _rel_needs(r):
@@ -375,7 +439,22 @@ def enrich_calendar(released, upcoming, today: datetime.date,
         fetched += 1
         per = _target_period(row, today)
         hit = False
-        # 네이버 우선 → 행이 채워지면 FnGuide 생략(호출 절감), 부족하면 폴백.
+        # (A) released 실적 미집계 → DART 원문에서 '실제' 잠정실적 직접 파싱.
+        #     집계 사이트(네이버·FnGuide)가 아직 컨센서스만 들고 있어도 발표 수치를 즉시 반영.
+        if DART_DOC_ON and kind == "rel" and row.get("op") is None:
+            rc = re.search(r"rcpNo=(\d+)", row.get("dartUrl") or "")
+            if rc:
+                try:
+                    act = fetch_doc(rc.group(1)) or {}
+                    for k in ("sales", "op", "np", "salesYoY", "opYoY", "npYoY"):
+                        if row.get(k) is None and act.get(k) is not None:
+                            row[k] = act[k]
+                            hit = True
+                    if hit and "dart-doc" not in row["sources"]:
+                        row["sources"].append("dart-doc")
+                except Exception as e:
+                    _warn(f"enrich dart-doc {row['code']} 실패: {e}")
+        # (B) 네이버 우선 → 행이 채워지면 FnGuide 생략(호출 절감). 컨센서스·서프라이즈 갭 보강.
         for fn, tag, parse in ((fetch_naver, "naver", parse_naver_finance),
                                (fetch_wcomp, "fnguide-cns", parse_wcomp_cns)):
             try:
@@ -451,6 +530,22 @@ def _naver_finance(code: str) -> dict:
     r = requests.get(NAVER_FIN_URL.format(code=code), headers=UA, timeout=TIMEOUT)
     r.raise_for_status()
     return r.json()
+
+
+def _dart_document(rcept_no: str) -> dict:
+    """rcept_no -> DART 공정공시 원문에서 실제 잠정실적(억원). 2요청(main→dcmNo, viewer)."""
+    m = requests.get(DART_VIEW_MAIN, params={"rcpNo": rcept_no}, headers=UA, timeout=TIMEOUT)
+    m.raise_for_status()
+    dm = re.search(r'viewDoc\(\s*"%s"\s*,\s*"(\d+)"' % re.escape(str(rcept_no)), m.text)
+    if not dm:
+        return {}
+    v = requests.get(DART_VIEW_DOC, params={
+        "rcpNo": rcept_no, "dcmNo": dm.group(1), "eleId": "0",
+        "offset": "0", "length": "0", "dtd": "HTML",
+    }, headers=UA, timeout=TIMEOUT)
+    v.raise_for_status()
+    v.encoding = "euc-kr"
+    return parse_dart_document(v.text)
 
 
 def _wcomp_cns(code: str) -> dict:
