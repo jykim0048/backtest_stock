@@ -673,6 +673,41 @@ def _load_econ_events(now):
     return ev if any(ev.values()) else {}
 
 
+def _load_earnings_events(now):
+    """실적발표 캘린더(public/earnings_calendar.json, fetch_earnings_calendar.py 갱신)에서
+    장중 관점 2구획 발췌 — releasedToday(오늘 발표 결과, 없으면 최근 3일 폴백),
+    upcomingSoon(오늘~D+7 발표 예정). 표시 전용(LLM 미전달 — 환각 차단). 없으면 {}."""
+    try:
+        with open(os.path.join(ROOT, "public", "earnings_calendar.json"),
+                  encoding="utf-8") as f:
+            cal = json.load(f) or {}
+    except Exception as e:
+        _warn(f"earnings_calendar.json 로드 실패(실적 캘린더 생략): {e}")
+        return {}
+    today = now.strftime("%Y-%m-%d")
+    d3 = (now - datetime.timedelta(days=3)).strftime("%Y-%m-%d")
+    d7 = (now + datetime.timedelta(days=7)).strftime("%Y-%m-%d")
+
+    released = cal.get("released") or []
+    rel_today = [r for r in released if r.get("date") == today]
+    rel = rel_today or [r for r in released if d3 <= (r.get("date") or "") < today]
+    # 서프라이즈(괴리율 절대값) 큰 순 → 상위 8건만
+    rel = sorted(rel, key=lambda r: -abs(((r.get("surprise") or {}).get("opGap")) or 0))[:8]
+    rel.sort(key=lambda r: (r.get("date") or "", r.get("name") or ""))
+
+    up = [u for u in cal.get("upcoming") or []
+          if today <= (u.get("date") or "") <= d7]
+    up = sorted(up, key=lambda u: (u.get("date") or "",
+                                   -(((u.get("consensus") or {}).get("op")) or 0)))[:8]
+
+    ev = {}
+    if rel:
+        ev["releasedToday" if rel_today else "releasedRecent"] = rel
+    if up:
+        ev["upcomingSoon"] = up
+    return ev
+
+
 def _econ_llm_view(econ):
     """LLM 입력용 축약 — 수치 재생성 유인을 줄이기 위해 필요한 필드만."""
     def slim(r):
@@ -1038,6 +1073,10 @@ def main():
         print(f"  마감 시황 모드 — 이전 회차 {len(prev_rounds)}건 반영")
 
     econ_events = _load_econ_events(now)
+    earnings_events = _load_earnings_events(now)
+    if earnings_events:
+        print(f"  실적발표: 결과 {len(earnings_events.get('releasedToday') or earnings_events.get('releasedRecent') or [])}건, "
+              f"예정 {len(earnings_events.get('upcomingSoon', []))}건")
     if econ_events:
         print(f"  경제지표: 한국 발표 {len(econ_events.get('korReleasedToday', []))}건, "
               f"한국 예정 {len(econ_events.get('korTodayUpcoming', []))}건, "
@@ -1066,6 +1105,7 @@ def main():
         "sectorsDown": sectors_down,    # 급락 상위 섹터
         "catalysts": catalysts,
         "econEvents": econ_events,      # 오늘 한국 지표 결과 + 오늘 밤 미국 예정 (경제지표 카드)
+        "earningsEvents": earnings_events,  # 실적발표 결과·예정 (표시 전용 — LLM 미전달)
         "disclosures": disclosures[:15],
         "news": news[:10],
         "disclaimer": "네이버 금융·DART·네이버뉴스 기반 자동 생성 시황 — 투자 판단 참고용.",

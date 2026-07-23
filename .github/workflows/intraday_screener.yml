@@ -151,6 +151,12 @@ jobs:
           DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}   # 관세청 수출입 통계(발표일만 호출)
         run: python fetch_econ_calendar.py
 
+      - name: Fetch earnings calendar (WiseReport + FnGuide 실적속보 + DART)
+        continue-on-error: true   # best-effort; 실패 시 기존 earnings_calendar.json 유지
+        env:
+          DART_API_KEY: ${{ secrets.DART_API_KEY }}
+        run: python fetch_earnings_calendar.py
+
       - name: Generate intraday market briefing (장중 시황판)
         continue-on-error: true   # best-effort; 시황 실패가 관심종목 회차를 막지 않게
         timeout-minutes: 15       # LLM 정체 등으로 무한 대기 시 다음 회차 지연 방지
@@ -174,6 +180,7 @@ jobs:
           git add intraday_watchlist_down.json public/intraday_down_report.json public/reports/intraday_down/ 2>/dev/null || true
           # 장중 시황 산출물 — 생성 실패 시 파일이 없으면 조용히 무시
           git add public/intraday_briefing.json public/reports/intraday_briefing/ public/econ_calendar.json 2>/dev/null || true
+          git add public/earnings_calendar.json 2>/dev/null || true
           git diff --staged --quiet && echo "No changes to commit" && exit 0
           git commit -m "chore: auto-generate intraday watchlist $(date -u +'%Y-%m-%d %H:%MZ') [skip railway]"
           # Remote may have advanced (daily report or concurrent pushes); push, and
