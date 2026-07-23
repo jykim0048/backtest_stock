@@ -3096,9 +3096,15 @@
         const cons = (r.consensus || {}).op;
         const sub = (cons !== null && cons !== undefined)
           ? `<span class="ev-sub"> / 컨센 ${_earnEok(cons)}</span>` : "";
+        // DART 만 감지하고 집계 사이트(WiseReport·FnGuide·네이버) 미반영 — 수치 없는 행
+        const noFig = (r.op === null || r.op === undefined)
+                   && (r.sales === null || r.sales === undefined);
+        const opCell = noFig
+          ? `<span class="ev-sub">공시 발표 — 수치 집계 중${sub}</span>`
+          : `영업이익 <b>${_earnEok(r.op)}</b>${_earnYoY(r.opYoY)}${sub}`;
         return `<tr><td class="econ-time">${_earnDate(r.date, todayStr)}</td>`
              + `<td>${_earnName(r)}</td>`
-             + `<td class="econ-vals">영업이익 <b>${_earnEok(r.op)}</b>${_earnYoY(r.opYoY)}${sub}</td>`
+             + `<td class="econ-vals">${opCell}</td>`
              + `<td class="econ-vals"><span class="ev-sub">${r.sales !== null && r.sales !== undefined ? "매출 " + _earnEok(r.sales) : ""}</span>${r.sales !== null && r.sales !== undefined ? _earnYoY(r.salesYoY) : ""}</td>`
              + `<td style="text-align:right">${_earnBadge(r)}</td></tr>`;
       }).join("");

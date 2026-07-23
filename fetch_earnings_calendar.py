@@ -12,7 +12,14 @@
   3. DART 공시목록 list.json — 잠정실적 공시 원문 링크 + 캘린더에 없는 발표 감지.
      제목 필터: 잠정실적/영업(잠정)실적/손익구조. (list 는 접수 '날짜'만 제공, 시각 없음)
 
-금액 단위: WiseReport·FnGuide 모두 억원 (삼성전자 2Q 영업이익 894,000억 실측 일치).
+개별 종목 보강 (2026-07-23 — 위 캘린더 소스만으론 수치·컨센서스 결손이 잦음):
+  4. 네이버 모바일 finance/quarter JSON — 분기 실적 5개+컨센서스(isConsensus 플래그,
+     기간 키 명시). 결손 실적·컨센서스·전년동기(YoY 계산 기반)를 종목 단위로 채움.
+  5. FnGuide wcomp getCnsPerforTrend JSON — 컨센서스·전년동기대비·컨센서스대비(%)
+     행 제공. 네이버가 못 채운 필드의 2차 폴백.
+  회차당 종목 조회 상한 EARNINGS_ENRICH_MAX(기본 10).
+
+금액 단위: WiseReport·FnGuide·네이버 모두 억원 (삼성전자 2Q 영업이익 894,000억 실측 일치).
 
 실패 내성: 소스별 try/except 독립(부분 성공 허용). 주 소스(WiseReport)가 전멸하면
 기존 파일의 upcoming 을 이월하고, 그마저 없으면 기존 파일을 보존한 채 exit 0.
@@ -32,6 +39,8 @@ KST = datetime.timezone(datetime.timedelta(hours=9))
 WISE_URL = "https://comp.wisereport.co.kr/wiseCalendar/GetCalendarAjax.aspx"
 FNGUIDE_URL = "https://comp.fnguide.com/SVO2/common/sp_read_json_cache.asp"
 DART_LIST_URL = "https://opendart.fss.or.kr/api/list.json"
+NAVER_FIN_URL = "https://m.stock.naver.com/api/stock/{code}/finance/quarter"
+WCOMP_CNS_URL = "https://wcomp.fnguide.com/CompanyInfo/getCnsPerforTrend"
 
 UA = {
     "User-Agent": ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -42,6 +51,7 @@ TIMEOUT = 20
 
 RELEASED_LOOKBACK_DAYS = int(os.environ.get("EARNINGS_LOOKBACK_DAYS", "7"))
 UPCOMING_DAYS = int(os.environ.get("EARNINGS_UPCOMING_DAYS", "30"))
+ENRICH_MAX = int(os.environ.get("EARNINGS_ENRICH_MAX", "10"))   # 회차당 개별 종목 조회 상한
 
 DART_KEY = os.environ.get("DART_API_KEY", "")
 # 실적 공시 제목 키워드 (screener.py POSITIVE_KEYWORDS 실적 그룹과 동일 취지)
@@ -206,6 +216,180 @@ def parse_dart(rows: list[dict]) -> list[dict]:
     return out
 
 
+def _yoy_calc(cur, prev):
+    """전년동기 대비 증감 — 적자 구간은 관례 텍스트(흑전/적전/적지)."""
+    if cur is None or prev is None:
+        return None
+    if prev < 0:
+        return "흑전" if cur >= 0 else "적지"
+    if cur < 0:
+        return "적전"
+    if prev == 0:
+        return None
+    return round((cur / prev - 1) * 100, 1)
+
+
+def parse_naver_finance(payload: dict) -> dict:
+    """m.stock.naver.com /api/stock/{code}/finance/quarter 응답 ->
+    {"periods": {"202606": True(컨센서스)}, "metrics": {"op": {"202606": 1640.0}}} (억원)."""
+    fi = (payload or {}).get("financeInfo") or {}
+    periods = {t["key"]: t.get("isConsensus") == "Y"
+               for t in fi.get("trTitleList") or [] if t.get("key")}
+    name_map = {"매출액": "sales", "영업이익": "op", "당기순이익": "np"}
+    metrics = {v: {} for v in name_map.values()}
+    for row in fi.get("rowList") or []:
+        key = name_map.get((row.get("title") or "").strip())
+        if not key:
+            continue
+        for per, cell in (row.get("columns") or {}).items():
+            v = _num((cell or {}).get("value"))
+            if v is not None:
+                metrics[key][per] = v
+    return {"periods": periods, "metrics": metrics, "yoy": {}, "consGap": {}}
+
+
+def parse_wcomp_cns(payload: dict) -> dict:
+    """wcomp.fnguide.com getCnsPerforTrend(freq_typ=Q) 응답 -> parse_naver_finance 와
+    같은 형태 + 소스 제공 yoy(전년동기대비 행)·consGap(컨센서스대비 행, %)."""
+    ds = (payload or {}).get("dataset") or {}
+    header = {h["CD"]: (h["YYMM"].replace("/", ""), (h.get("EP_CHK") or "").strip() == "E")
+              for h in ds.get("header") or []}
+    ac_map = {"121000": "sales", "121450": "op", "122700": "np"}
+    out = {"periods": {per: is_e for per, is_e in header.values()},
+           "metrics": {}, "yoy": {}, "consGap": {}}
+    for row in ds.get("data") or []:
+        key = ac_map.get(row.get("AC_CODE") or "")
+        if not key:
+            continue
+        name = (row.get("NAME") or "").strip()
+        vals = {per: row.get(cd) for cd, (per, _) in header.items()}
+        if row.get("LVL") == 1:
+            out["metrics"][key] = {p: _num(v) for p, v in vals.items() if _num(v) is not None}
+        elif name == "전년동기대비":       # 숫자(%) 또는 '적자지속' 등 텍스트
+            out["yoy"][key] = {p: (_num(v) if _num(v) is not None else str(v).strip())
+                               for p, v in vals.items() if v not in (None, "")}
+        elif name == "컨센서스대비":
+            out["consGap"][key] = {p: _num(v) for p, v in vals.items() if _num(v) is not None}
+    return out
+
+
+def _target_period(row, today: datetime.date) -> str:
+    """행의 실적 귀속 분기 말월(YYYYMM) — period 명시가 없으면 발표일 기준 직전 분기."""
+    if row.get("period"):
+        return row["period"]
+    d = row.get("date") or today.isoformat()
+    y, m = int(d[:4]), int(d[5:7])
+    qm = ((m - 1) // 3) * 3
+    if qm == 0:
+        y, qm = y - 1, 12
+    return f"{y}{qm:02d}"
+
+
+def _enrich_released(r, per, src, tag_src):
+    """released 행의 결손 필드를 소스 하나로 채움. 채운 게 있으면 True."""
+    prev = f"{int(per[:4]) - 1}{per[4:]}"
+    is_cons = src["periods"].get(per)      # True=컨센서스, False=발표 실적, None=기간 없음
+    filled = False
+    for k in ("sales", "op", "np"):
+        v = (src["metrics"].get(k) or {}).get(per)
+        if v is None:
+            continue
+        if is_cons:                        # 아직 추정치 — 컨센서스 슬롯만
+            if k != "sales" and r["consensus"].get(k) is None:
+                r["consensus"][k] = v
+                filled = True
+            continue
+        if r.get(k) is None:               # 발표 실적
+            r[k] = v
+            filled = True
+        yk = {"sales": "salesYoY", "op": "opYoY", "np": "npYoY"}[k]
+        if r.get(yk) is None:
+            yv = (src["yoy"].get(k) or {}).get(per)
+            if yv is None:
+                yv = _yoy_calc(v, (src["metrics"].get(k) or {}).get(prev))
+            if yv is not None:
+                r[yk] = yv
+                filled = True
+    # 컨센서스대비(%) — 소스 제공 우선, 없으면 실적·컨센서스로 계산
+    if r["surprise"]["opGap"] is None:
+        gap = (src["consGap"].get("op") or {}).get(per)
+        if gap is None and r.get("op") is not None and r["consensus"].get("op"):
+            cons = r["consensus"]["op"]
+            gap = round((r["op"] - cons) / abs(cons) * 100, 1)
+        if gap is not None:
+            r["surprise"]["opGap"] = gap
+            filled = True
+    # 배지 태그 — 적자 관련은 YoY 텍스트로 보완 (컨상/컨하/부합은 프론트가 opGap 으로 판정)
+    if r.get("tag") is None and isinstance(r.get("opYoY"), str):
+        r["tag"] = {"흑전": "턴어", "적전": "적전", "적지": "적지"}.get(r["opYoY"])
+    if filled and tag_src not in r["sources"]:
+        r["sources"].append(tag_src)
+    return filled
+
+
+def _enrich_upcoming(u, per, src, tag_src):
+    """upcoming 행의 컨센서스 결손만 채움 (실적은 아직 없음)."""
+    if not src["periods"].get(per):        # 해당 분기가 컨센서스 상태일 때만
+        return False
+    prev = f"{int(per[:4]) - 1}{per[4:]}"
+    filled = False
+    for k in ("op", "np"):
+        v = (src["metrics"].get(k) or {}).get(per)
+        if v is not None and u["consensus"].get(k) is None:
+            u["consensus"][k] = v
+            filled = True
+    if u["consensus"].get("yoy") is None and u["consensus"].get("op") is not None:
+        yv = _yoy_calc(u["consensus"]["op"], (src["metrics"].get("op") or {}).get(prev))
+        if isinstance(yv, float):
+            u["consensus"]["yoy"] = yv
+            filled = True
+    return filled
+
+
+def enrich_calendar(released, upcoming, today: datetime.date,
+                    fetch_naver=None, fetch_wcomp=None) -> int:
+    """개별 종목 페이지(네이버 -> FnGuide wcomp 체인)로 결손 보강. 보강 행 수 반환.
+
+    fetch_* 는 code -> 원본 payload (테스트에서 픽스처 주입). 종목당 두 소스를
+    한 번씩만 조회하고, 조회 종목 수는 ENRICH_MAX 로 제한.
+    """
+    fetch_naver = fetch_naver or _naver_finance
+    fetch_wcomp = fetch_wcomp or _wcomp_cns
+    today_s = today.isoformat()
+
+    targets = [("rel", r) for r in released
+               if r["op"] is None or r["sales"] is None or r["consensus"]["op"] is None]
+    targets += [("up", u) for u in upcoming
+                if u["date"] == today_s and u["consensus"]["op"] is None]
+
+    cache, fetched, enriched = {}, 0, 0
+    for kind, row in targets:
+        code = row["code"]
+        if code not in cache:
+            if fetched >= ENRICH_MAX:
+                continue
+            fetched += 1
+            srcs = []
+            for fn, tag in ((fetch_naver, "naver"), (fetch_wcomp, "fnguide-cns")):
+                try:
+                    parse = parse_naver_finance if tag == "naver" else parse_wcomp_cns
+                    srcs.append((parse(fn(code)), tag))
+                except Exception as e:
+                    _warn(f"enrich {tag} {code} 실패: {e}")
+            cache[code] = srcs
+        per = _target_period(row, today)
+        hit = False
+        for src, tag in cache[code]:
+            if kind == "rel":
+                hit = _enrich_released(row, per, src, tag) or hit
+            else:
+                hit = _enrich_upcoming(row, per, src, tag) or hit
+        enriched += 1 if hit else 0
+    if fetched:
+        _warn(f"개별 종목 보강: {fetched}종목 조회, {enriched}행 채움")
+    return enriched
+
+
 # ── 수집 ─────────────────────────────────────────────────────────────────────
 
 def fetch_wisereport(months: list[str]) -> list[dict]:
@@ -250,6 +434,21 @@ def fetch_fnguide(gs_yms: list[str]) -> list[dict]:
             continue
         seen.add(k); uniq.append(x)
     return uniq
+
+
+def _naver_finance(code: str) -> dict:
+    r = requests.get(NAVER_FIN_URL.format(code=code), headers=UA, timeout=TIMEOUT)
+    r.raise_for_status()
+    return r.json()
+
+
+def _wcomp_cns(code: str) -> dict:
+    r = requests.get(WCOMP_CNS_URL, params={
+        "cmp_cd": code, "consol_typ": "C", "freq_typ": "Q", "data_typ": "2",
+    }, headers=dict(UA, Referer="https://wcomp.fnguide.com/CompanyInfo/Consensus"),
+        timeout=TIMEOUT)
+    r.raise_for_status()
+    return r.json()
 
 
 def fetch_dart(bgn: str, end: str) -> list[dict]:
@@ -358,6 +557,10 @@ def build(wise: list[dict], fng: list[dict], dart: list[dict],
     released = sorted(rel.values(),
                       key=lambda x: (x["date"] or "", abs(x["surprise"]["opGap"] or 0)),
                       reverse=True)
+    # 이미 발표된 종목이 같은 날짜의 '예정'에도 남아 있으면 제거 (WiseReport 반영 지연 —
+    # DART 가 먼저 감지한 발표가 예정·결과 양쪽에 중복 표시되던 문제)
+    released_by_date = {(x["code"], x["date"]) for x in released}
+    upcoming = [u for u in upcoming if (u["code"], u["date"]) not in released_by_date]
     return {"upcoming": upcoming, "released": released}
 
 
@@ -394,6 +597,11 @@ def main():
     merged = build(wise, fng, dart, today)
     if not wise and prev.get("upcoming"):
         merged["upcoming"] = prev["upcoming"]
+
+    try:
+        enrich_calendar(merged["released"], merged["upcoming"], today)
+    except Exception as e:
+        _warn(f"개별 종목 보강 실패(무시): {e}")
 
     out = {
         "date": today.isoformat(),

@@ -12,6 +12,8 @@ sys.path.insert(0, ROOT)
 FIX = os.path.join(ROOT, "tests", "fixtures")
 
 from fetch_earnings_calendar import (parse_wisereport, parse_fnguide, parse_dart,
+                                     parse_naver_finance, parse_wcomp_cns,
+                                     enrich_calendar, _yoy_calc, _target_period,
                                      build, _recent_quarters)
 
 
@@ -75,6 +77,96 @@ def main():
     assert _recent_quarters(datetime.date(2026, 7, 23)) == ["202606", "202603"]
     assert _recent_quarters(datetime.date(2026, 1, 5)) == ["202512", "202509"]
     print("_recent_quarters OK")
+
+    # ── 네이버 finance/quarter 파서 (실측 픽스처: LS ELECTRIC·유진테크놀로지) ──
+    nv_ls = parse_naver_finance(_fixture("naver_finance_quarter_010120.json"))
+    assert nv_ls["periods"]["202606"] is True     # 컨센서스 플래그
+    assert nv_ls["periods"]["202603"] is False    # 발표 실적
+    assert nv_ls["metrics"]["op"]["202606"] == 1640.0
+    assert nv_ls["metrics"]["op"]["202506"] == 1086.0   # 전년동기(YoY 기반)
+    nv_yj = parse_naver_finance(_fixture("naver_finance_quarter_240600.json"))
+    assert nv_yj["metrics"]["op"]["202603"] == -17.0    # 스몰캡 적자 분기
+    assert "202606" not in nv_yj["metrics"]["op"]       # 컨센 없음('-')
+    print("parse_naver_finance OK")
+
+    # ── FnGuide wcomp 컨센서스 파서 ─────────────────────────────────────────
+    wc_ls = parse_wcomp_cns(_fixture("wcomp_cns_trend_010120.json"))
+    assert wc_ls["periods"]["202606"] is True
+    assert round(wc_ls["metrics"]["op"]["202606"]) == 1640
+    assert wc_ls["yoy"]["op"]["202603"] == 44.96
+    assert wc_ls["consGap"]["op"]["202603"] == -4.98
+    wc_yj = parse_wcomp_cns(_fixture("wcomp_cns_trend_240600.json"))
+    assert wc_yj["yoy"]["op"]["202603"] == "적자지속"   # 텍스트 보존
+    print("parse_wcomp_cns OK")
+
+    # ── YoY 계산 규칙 (적자 관례 텍스트) ────────────────────────────────────
+    assert _yoy_calc(150.0, 100.0) == 50.0
+    assert _yoy_calc(50.0, -10.0) == "흑전"
+    assert _yoy_calc(-5.0, -10.0) == "적지"
+    assert _yoy_calc(-5.0, 10.0) == "적전"
+    assert _target_period({"date": "2026-07-23"}, datetime.date(2026, 7, 23)) == "202606"
+    assert _target_period({"period": "202603", "date": "2026-07-23"},
+                          datetime.date(2026, 7, 23)) == "202603"
+    print("_yoy_calc / _target_period OK")
+
+    # ── enrich: DART 단독 행(수치 전무)에 컨센서스 채움 + upcoming 컨센 보강 ──
+    t = datetime.date(2026, 7, 23)
+    rel_row = {"date": "2026-07-23", "code": "010120", "name": "엘에스일렉트릭",
+               "period": None, "quarter": None, "fs": None,
+               "sales": None, "op": None, "np": None,
+               "salesYoY": None, "opYoY": None, "npYoY": None, "tag": None,
+               "consensus": {"op": None, "np": None},
+               "surprise": {"opGap": None, "npGap": None},
+               "dartUrl": "u", "dartTitle": "t", "sources": ["dart"]}
+    up_row = {"date": "2026-07-23", "code": "010120", "name": "LS ELECTRIC",
+              "period": "202606", "consensus": {"op": None, "np": None, "yoy": None,
+                                                "qoq": None},
+              "provisional": {"op": None, "np": None},
+              "surprise": {"opGap": None, "npGap": None}}
+    fx_naver = {"010120": _fixture("naver_finance_quarter_010120.json")}
+    fx_wcomp = {"010120": _fixture("wcomp_cns_trend_010120.json")}
+    enrich_calendar([rel_row], [up_row], t,
+                    fetch_naver=lambda c: fx_naver[c], fetch_wcomp=lambda c: fx_wcomp[c])
+    assert rel_row["consensus"]["op"] == 1640.0, rel_row["consensus"]
+    assert rel_row["op"] is None                  # 실적은 아직 미집계 — 채우면 안 됨
+    assert "naver" in rel_row["sources"]
+    assert up_row["consensus"]["op"] == 1640.0
+    assert up_row["consensus"]["yoy"] == 51.0     # 컨센 1640 vs 전년동기 1086
+    print("enrich_calendar 컨센서스 보강 OK")
+
+    # ── enrich: 실적이 집계된 경우 (컨센서스 기간을 실적으로 바꾼 가공 픽스처) ──
+    fx2 = json.loads(json.dumps(fx_naver["010120"]))
+    for tt in fx2["financeInfo"]["trTitleList"]:
+        if tt["key"] == "202606":
+            tt["isConsensus"] = "N"               # 잠정 집계 완료 상황 시뮬레이션
+    rel2 = json.loads(json.dumps(rel_row))
+    rel2.update({"sales": None, "op": None, "np": None, "opYoY": None,
+                 "sources": ["dart"], "consensus": {"op": 1600.0, "np": None},
+                 "surprise": {"opGap": None, "npGap": None}})
+    enrich_calendar([rel2], [], t,
+                    fetch_naver=lambda c: fx2, fetch_wcomp=lambda c: (_ for _ in ()).throw(RuntimeError("skip")))
+    assert rel2["op"] == 1640.0
+    assert rel2["opYoY"] == 51.0                  # 전년동기 1086 대비 계산
+    assert rel2["surprise"]["opGap"] == 2.5       # (1640-1600)/1600
+    print("enrich_calendar 실적 보강 OK")
+
+    # ── build: 같은 날짜 released 종목은 upcoming 에서 제거 ──────────────────
+    dd = build([], [], [{"date": "2026-07-23", "code": "010120",
+                         "name": "엘에스일렉트릭", "title": "영업(잠정)실적", "url": "u"}],
+               datetime.date(2026, 7, 23))
+    dup_wise = [{"date": "2026-07-23", "code": "010120", "name": "LS ELECTRIC",
+                 "sector": None, "fs": None, "period": "202606", "periodType": "분기",
+                 "opinion": None, "targetPrice": None,
+                 "consensus": {"op": None, "np": None, "yoy": None, "qoq": None},
+                 "provisional": {"op": None, "np": None},
+                 "surprise": {"opGap": None, "npGap": None}}]
+    dd2 = build(dup_wise, [], [{"date": "2026-07-23", "code": "010120",
+                                "name": "엘에스일렉트릭", "title": "영업(잠정)실적",
+                                "url": "u"}], datetime.date(2026, 7, 23))
+    assert len(dd2["released"]) == 1
+    assert not dd2["upcoming"], "released 와 같은 날짜의 upcoming 중복이 남음"
+    assert dd["released"][0]["code"] == "010120"
+    print("build released/upcoming dedupe OK")
     print("ALL PASS")
 
 
