@@ -1672,6 +1672,7 @@
           <div class="status-item" style="color: var(--text-muted);">
             <span>ALGO ENGINE:</span>
             <span id="engine-status-txt" style="color: var(--kospi-blue); font-weight: 600;">ACTIVE</span>
+            <span id="regime-badge" style="display: none; font-weight: 600; cursor: default;"></span>
           </div>
         </div>
       </div>
@@ -2062,6 +2063,15 @@
               <span class="config-name" style="font-weight: 600; color: #fbbf24;">🔬 시뮬레이션 데모 모드</span>
               <label class="switch-container" style="position: relative; display: inline-block; width: 44px; height: 22px;">
                 <input type="checkbox" id="demo-mode-toggle" onchange="toggleDemoMode()" style="opacity: 0; width: 0; height: 0;">
+                <span class="slider-toggle" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #1e293b; transition: .3s; border-radius: 20px; border: 1px solid var(--border-color);"></span>
+              </label>
+            </div>
+
+            <!-- Regime Link Toggle -->
+            <div class="config-item" style="flex-direction: row; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 12px; margin-bottom: 8px;">
+              <span class="config-name" style="font-weight: 600; color: #7dd3fc;" title="장중 시황 LLM의 국면 판정 연동 — 하락 국면이면 신규 매수 차단, 확신 높으면 보유 청산. 상승·중립은 현행 룰 그대로.">🧭 국면 연동 (LLM)</span>
+              <label class="switch-container" style="position: relative; display: inline-block; width: 44px; height: 22px;">
+                <input type="checkbox" id="regime-toggle" onchange="toggleRegimeLink()" checked style="opacity: 0; width: 0; height: 0;">
                 <span class="slider-toggle" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #1e293b; transition: .3s; border-radius: 20px; border: 1px solid var(--border-color);"></span>
               </label>
             </div>
@@ -2820,6 +2830,8 @@
         const data = await res.json();
         if (!data || !data.stance) { banner.style.display = "none"; return; }
         data._archiveView = !live;   // 과거 날짜 열람 — SEC 촉매 라이브 갱신으로 덮지 않음
+        // 모닝브리핑 stance — 첫 장중 시황(09:11) 전 국면 폴백(위험회피=신규 차단만)
+        if (live && data.stance) { morningStance = data.stance; updateRegimeBadge(); }
         // 섹터분석(국면·센티먼트·섹터ETF)도 함께 로드해 브리핑 상단에 얹는다(best-effort).
         let sec = null;
         try {
@@ -3285,6 +3297,12 @@
         if (d.asof !== _ibLastAsof) {       // 동일 회차면 리렌더 생략
           _ibLastAsof = d.asof;
           renderIntradayBriefing(d);
+        }
+        // 모의투자 국면 갱신(회차마다) — 마감 시황(final) 이후엔 freshness 게이트가 무효화
+        if (d.regime && d.regime.stance) {
+          marketRegime = { stance: d.regime.stance, confidence: d.regime.confidence || "low",
+                           reason: d.regime.reason || "", asof: d.asof || "" };
+          updateRegimeBadge();
         }
         banner.style.display = "";
       } catch (_) { banner.style.display = "none"; }
@@ -3916,6 +3934,7 @@
       loadIntradayBriefing();  // 🔴 장중 시황(한국장 테마·촉매, 30분 회차)
       refreshIndicesOnce();    // 📈 지수 카드 — 장외에도 전일 종가 1회 반영
       isLiveView = true;
+      applyRegimeToggleState();  // 🧭 국면 연동 토글 복원 — 시초 매수 게이트보다 먼저
       // 저장된 모의투자 계좌를 복원 (없으면 깨끗한 계좌). 새로고침/장 마감 후에도 누적 유지.
       const saved = restorePortfolio();
       // 매매일지 로드 → 전 거래일 미청산분 소급 정산(확정 종가) → 오늘자 레코드 확보.
@@ -4010,6 +4029,9 @@
     function executeOpeningOrder() {
       if (!isLiveView) return;        // 과거 리포트 열람 중엔 매매하지 않음
       if (!needsOpeningOrder()) return;
+      // 하락 국면 — 시초 시드 보류(집행 마킹은 안 함: 국면 해제 시 늦게라도 집행 허용)
+      const rBlockO = regimeBlocksBuy();
+      if (rBlockO) { _regimeLogOnce("buy", rBlockO); return; }
 
       recomputeAllocation();          // 오늘 장전 슬롯 기준 배분액 산정
       const targetBuyAmt = maxAllocationPerStock * 0.05; // 배분액의 5% 시드
@@ -4085,8 +4107,78 @@
       // 트랜치 카운터는 유지(청산 후 재진입 방지) — 새 거래일 초기화는 applyDefaults 담당.
     }
 
+    // ===== 🧭 모의투자 국면 연동 (장중 시황 LLM regime — 2026-07-23) =====
+    // LLM 은 판단만(시황 파이프라인 regime 필드), 엔진은 결정적 룰로 집행:
+    //   risk_off → 신규·추가 매수 차단(+confidence=high 면 보유 전량 국면 청산)
+    //   risk_on/neutral → 현행 룰 그대로 (오판 리스크를 하락 방어에만 노출)
+    let marketRegime = null;    // {stance, confidence, reason, asof} — 시황 회차마다 갱신
+    let morningStance = null;   // 모닝브리핑 stance — 첫 시황(09:11) 전 공백 폴백(차단만)
+    const REGIME_TOGGLE_KEY = "qa_regime_link";
+    function regimeLinkOn() {
+      const el = document.getElementById("regime-toggle");
+      return el ? el.checked : true;
+    }
+    // 유효 국면: 토글 on + asof 오늘·45분 이내. 시황 공백엔 모닝 위험회피를 low 로 매핑.
+    function effectiveRegime() {
+      if (!regimeLinkOn()) return null;
+      if (marketRegime && marketRegime.asof) {
+        const iso = marketRegime.asof.replace(" KST", "").replace(" ", "T") + ":00+09:00";
+        const ts = Date.parse(iso);
+        if (!isNaN(ts) && Date.now() - ts <= 45 * 60000
+            && marketRegime.asof.slice(0, 10) === todayKST()) return marketRegime;
+      }
+      if (morningStance === "위험회피")
+        return { stance: "risk_off", confidence: "low",
+                 reason: "모닝브리핑 위험회피 스탠스(전일 미국장 기반) — 첫 시황 전 방어", asof: null };
+      return null;
+    }
+    function regimeBlocksBuy() {         // risk_off(신뢰도 무관) → 신규·추가 매수 차단
+      const r = effectiveRegime();
+      return (r && r.stance === "risk_off") ? r : null;
+    }
+    function regimeForcesExit() {        // risk_off + high 만 → 보유 전량 국면 청산
+      const r = effectiveRegime();
+      return (r && r.stance === "risk_off" && r.confidence === "high") ? r : null;
+    }
+    const _regimeLogged = {};            // 같은 사유·같은 날 1회만 로그
+    function _regimeLogOnce(kind, r) {
+      const key = `${kind}|${r.reason || ""}|${todayKST()}`;
+      if (_regimeLogged[key]) return;
+      _regimeLogged[key] = true;
+      const logsBox = document.getElementById("logs-box");
+      if (!logsBox) return;
+      const time = new Date().toTimeString().split(" ")[0];
+      logsBox.innerHTML += `<div class="log-line" style="color:#f87171; font-weight:bold;"><span class="log-time">[${time}]</span> [REGIME] 하락 국면 — ${kind === "buy" ? "신규·추가 매수 중단" : "보유 포지션 국면 청산 개시"} (${_brEsc(r.reason || "")})</div>`;
+      logsBox.scrollTop = logsBox.scrollHeight;
+    }
+    function updateRegimeBadge() {
+      const el = document.getElementById("regime-badge");
+      if (!el) return;
+      if (!regimeLinkOn()) { el.style.display = "none"; return; }
+      el.style.display = "";
+      const r = effectiveRegime();
+      const map = { risk_off: ["🔴 하락 국면", "#f87171"],
+                    risk_on:  ["🟢 상승 국면", "var(--kosdaq-green)"] };
+      const [txt, color] = (r && map[r.stance]) || ["🟡 중립", "#fbbf24"];
+      el.textContent = txt;
+      el.style.color = color;
+      el.title = (r && r.reason) || "국면 데이터 없음/스테일 — 현행 룰 적용";
+    }
+    function toggleRegimeLink() {
+      try { localStorage.setItem(REGIME_TOGGLE_KEY, regimeLinkOn() ? "1" : "0"); } catch (_) {}
+      updateRegimeBadge();
+    }
+    function applyRegimeToggleState() {
+      const el = document.getElementById("regime-toggle");
+      if (!el) return;
+      let on = true;   // 기본 ON
+      try { on = localStorage.getItem(REGIME_TOGGLE_KEY) !== "0"; } catch (_) {}
+      el.checked = on;
+      updateRegimeBadge();
+    }
+
     // 익절/손절 판정 — 장전(stockData)·장중(watchData) 공용. 매도 발생 시 true.
-    // 판정 순서: 상한가 → 목표가 부분익절 → 트레일링 → 손절/본전 → 정체 청산.
+    // 판정 순서: 국면 청산 → 상한가 → 목표가 부분익절 → 트레일링 → 손절/본전 → 정체 청산.
     const _LIMIT_UP_PCT = 29.5;   // 전일종가 대비 등락률 이 이상이면 상한가로 간주
     const _LIMIT_UP_ENTRY_BLOCK = 25;  // 이 등락률 이상이면 신규 진입 금지(상한가 추격 매수 봉쇄)
     const _TRAIL_ARM_PCT = 3;     // 고점 수익률이 이만큼 넘어야 트레일링 활성
@@ -4165,6 +4257,18 @@
         return true;
       };
 
+      // 0. 국면 청산 — 시황 LLM 이 하락 국면(risk_off/high) 판정 시 보유 전량 매도.
+      //    수익 중=국면 익절 / 손실=방어 청산(손절선 대기 없음). 2026-07-23 사용자 정책.
+      const rExit = regimeForcesExit();
+      if (rExit) {
+        _regimeLogOnce("exit", rExit);
+        return sellAll("REGIME_EXIT",
+          gainPct >= 0 ? "하락 국면 전환 — 보유 수익 국면 익절." : "하락 국면 전환 — 방어 청산.",
+          gainPct >= 0 ? "var(--kosdaq-green)" : "var(--up-red)",
+          { regime: rExit.stance, regimeConfidence: rExit.confidence,
+            regimeReason: rExit.reason });
+      }
+
       // 1. 상한가 익절 — 목표가 무관 전량(목표가가 상한가 위라 영영 못 닿는 종목 회수).
       // 단, 왕복 슬리피지 이상 '실제 수익'일 때만 — 상한가 부근에서 방금 진입한 포지션을
       // '익절'로 팔아 슬리피지 손실을 확정하던 결함 방지(2026-07-15 HLB테라퓨틱스 사례).
@@ -4232,6 +4336,9 @@
       // 에는 신규 진입 금지 — 전일 종목을 전일 기준가로 일괄 매수하는 사고 방지.
       // 데모 모드는 게이트 우회(오토트레이딩 테스트용).
       if (!_isDemo() && intradayDataDate !== todayKST()) return;
+      // 하락 국면 — 장중 신규 진입 전면 차단(관찰만)
+      const rBlockI = regimeBlocksBuy();
+      if (rBlockI) { _regimeLogOnce("buy", rBlockI); return; }
       const logsBox = document.getElementById("logs-box");
       const time = new Date().toTimeString().split(" ")[0];
       const slip = getSlippagePct();
@@ -4725,6 +4832,9 @@
       const time = new Date().toTimeString().split(" ")[0];
 
       const slip = getSlippagePct();
+      // 하락 국면 — 추가 매수만 차단(아래 익절/손절 판정은 계속 돌아야 함)
+      const rBlockF = regimeBlocksBuy();
+      if (rBlockF) _regimeLogOnce("buy", rBlockF);
 
       stockData.forEach((stock, idx) => {
         if (stock.quantity === 0) return; // Skip if already fully liquidated
@@ -4738,6 +4848,7 @@
           logsBox.scrollTop = logsBox.scrollHeight;
           return;
         }
+        if (rBlockF) return;      // 국면 차단 — 추가 매수 스킵(청산 판정만 수행)
 
         // 3. 95% 잔여 비중 추가매수 — 09:01~09:30 창에서 하이브리드 N분할.
         //    갭 필터 통과 + 진입선 이하 + 배분액 상한(동적) 내 + 잔여 트랜치 있을 때만.
@@ -5278,6 +5389,7 @@
       TAKE_PROFIT: "익절매도", TAKE_PROFIT_LIMITUP: "상한가익절", TAKE_PROFIT_PARTIAL: "부분익절",
       TRAILING_STOP: "트레일링", TIME_EXIT: "정체청산",
       STOP_LOSS: "손절매도", EOD_LIQUIDATION: "장마감청산",
+      REGIME_EXIT: "국면청산",
     };
 
     // 구분별 일반 로직 설명 — 체결 상세 팝업의 규칙 문단(ctx 스냅샷이 없는 구기록의 폴백 겸용)
@@ -5292,6 +5404,7 @@
       STOP_LOSS: "손절/본전 스탑 — 유효 손절선(ATR·최대손절% + 본전 상향) 이탈 시 전량 매도.",
       TIME_EXIT: "정체 청산 — 진입 후 1시간 동안 ±2% 밴드를 못 벗어나면 자본 회수 차원 전량 매도.",
       EOD_LIQUIDATION: "장 마감 청산 — 15:15 전 보유 전량 매도(오버나이트 리스크 제거). 마감 평가금액이 익일 시작 자본(복리 이월).",
+      REGIME_EXIT: "국면 청산 — 장중 시황 LLM 이 하락 국면(risk_off/high)으로 판정하면 보유 전량 매도(수익=국면 익절, 손실=방어 청산). 국면 지속 중 신규 매수도 차단.",
     };
 
     // ctx 스냅샷 키 → 표기 라벨/단위 (체결 상세 팝업 파라미터 그리드)
@@ -5302,6 +5415,7 @@
       gapFromBase: ["기준가 대비 갭", "%"], gapLimit: ["갭 필터 한도", "%"], gainPct: ["체결 시 수익률", "%"],
       alloc: ["종목 배분액", "원"], portion: ["매도/보유 수량", ""], holdMin: ["보유 시간", "분"],
       gap: ["시초 갭", "%"], basis: ["정산 기준가", "원"], breakeven: ["본전 스탑", ""],
+      regime: ["국면 판정", ""], regimeConfidence: ["판정 신뢰도", ""], regimeReason: ["국면 근거", ""],
     };
 
     // 체결 내역 행 클릭 → 진입/청산 로직 상세 팝업

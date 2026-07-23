@@ -820,8 +820,30 @@ SYSTEM = (
     "- fxBullets 는 환율 관련 1~3개 불릿(fxNews·marketIndicators.exchange/world 근거): "
     "원/달러·달러인덱스·엔/달러 흐름과 그 배경(뉴스 근거), 국내 증시(수출주·환율 민감주)에 주는 "
     "함의를 담을 것. 근거 데이터가 전혀 없으면 빈 배열.\n"
+    "- regime: 모의투자 엔진이 소비하는 '지금부터 장 마감까지'의 시장 국면 판정. "
+    "지수(indices.rate)·투자자 수급(investors, investorFlow 의 방향·전환)·섹터 상하위 분포·"
+    "환율/지표(marketIndicators)·촉매(catalysts 방향 분포)를 종합한다. "
+    "가이드: 양 지수 -1% 이상 하락 + 외국인 순매도 지속 + 하락 섹터 우위 같은 복수 근거가 "
+    "겹치면 stance=risk_off, 반대로 강한 동반 상승·수급 유입이면 risk_on, 그 외 neutral. "
+    "confidence 는 근거가 뚜렷하고 상충 신호가 없을 때만 high — risk_off/high 는 보유 포지션 "
+    "전량 청산을 유발하므로 **확신이 없으면 반드시 neutral 또는 confidence=low** 를 택한다. "
+    "reason 은 판정 근거 한 문장(수치 인용).\n"
     "- 한국어. 출력은 지정된 JSON 스키마를 엄격히 따를 것."
 )
+
+
+def _mechanical_regime(indices):
+    """LLM 부재/실패/누락 시 결정적 국면 폴백 — 양 지수 평균 등락률 기준(항상 low)."""
+    try:
+        chgs = [float((indices.get(k) or {}).get("rate"))
+                for k in ("kospi", "kosdaq")
+                if (indices.get(k) or {}).get("rate") is not None]
+        avg = sum(chgs) / len(chgs) if chgs else 0.0
+    except Exception:
+        avg = 0.0
+    stance = "risk_off" if avg <= -1.0 else ("risk_on" if avg >= 1.0 else "neutral")
+    return {"stance": stance, "confidence": "low",
+            "reason": f"기계적 판정 — 코스피·코스닥 평균 {avg:+.2f}%"}
 
 # 마감 시황(장 마감 후 마지막 회차) 전용 추가 지침 — previousRounds 를 반영해 하루를 종합
 FINAL_ADDENDUM = (
@@ -844,8 +866,16 @@ SCHEMA = {
                 "direction": {"type": "string", "enum": ["bullish", "neutral", "bearish"]},
                 "summary": _STR},
             "required": ["id", "stock", "direction", "summary"]}},
+        # 모의투자 국면 연동(2026-07-23): LLM 이 판단, 엔진이 결정적 룰로 집행
+        "regime": {
+            "type": "object",
+            "properties": {
+                "stance": {"type": "string", "enum": ["risk_on", "neutral", "risk_off"]},
+                "confidence": {"type": "string", "enum": ["high", "low"]},
+                "reason": _STR},
+            "required": ["stance", "confidence", "reason"]},
     },
-    "required": ["briefing", "catalysts"],
+    "required": ["briefing", "catalysts", "regime"],
 }
 
 
@@ -1096,6 +1126,13 @@ def main():
         "asof": now.strftime("%Y-%m-%d %H:%M KST"),
         "final": final,                 # 마감 시황 여부 (대시보드 배지)
         "generatedBy": model or "mechanical",
+        # 모의투자 국면(2026-07-23): LLM 판정 검증 후 채택, 무효/누락이면 기계적 폴백
+        "regime": (lambda rg: {
+            "stance": rg["stance"],
+            "confidence": rg.get("confidence") if rg.get("confidence") in ("high", "low") else "low",
+            "reason": str(rg.get("reason") or "")[:200],
+        } if str(rg.get("stance")) in ("risk_on", "neutral", "risk_off")
+          else _mechanical_regime(indices))(synth.get("regime") or {}),
         "indices": indices,
         "investors": investors,
         "indicators": indicators,
