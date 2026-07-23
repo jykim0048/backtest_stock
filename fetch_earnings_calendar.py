@@ -27,6 +27,7 @@
 import os
 import re
 import json
+import time
 import datetime
 
 import requests
@@ -532,18 +533,32 @@ def _naver_finance(code: str) -> dict:
     return r.json()
 
 
+def _dart_get(url, params):
+    """DART 뷰어 호스트(dart.fss.or.kr)는 해외 IP에서 SSL EOF·타임아웃으로 간헐 드롭 —
+    전송 오류만 백오프 재시도(최대 3회). 4xx 등은 즉시 전파."""
+    last = None
+    for i in range(3):
+        try:
+            r = requests.get(url, params=params, headers=UA, timeout=TIMEOUT)
+            r.raise_for_status()
+            return r
+        except (requests.exceptions.SSLError, requests.exceptions.Timeout,
+                requests.exceptions.ConnectionError) as e:
+            last = e
+            time.sleep(0.8 * (i + 1))
+    raise last
+
+
 def _dart_document(rcept_no: str) -> dict:
     """rcept_no -> DART 공정공시 원문에서 실제 잠정실적(억원). 2요청(main→dcmNo, viewer)."""
-    m = requests.get(DART_VIEW_MAIN, params={"rcpNo": rcept_no}, headers=UA, timeout=TIMEOUT)
-    m.raise_for_status()
+    m = _dart_get(DART_VIEW_MAIN, {"rcpNo": rcept_no})
     dm = re.search(r'viewDoc\(\s*"%s"\s*,\s*"(\d+)"' % re.escape(str(rcept_no)), m.text)
     if not dm:
         return {}
-    v = requests.get(DART_VIEW_DOC, params={
+    v = _dart_get(DART_VIEW_DOC, {
         "rcpNo": rcept_no, "dcmNo": dm.group(1), "eleId": "0",
         "offset": "0", "length": "0", "dtd": "HTML",
-    }, headers=UA, timeout=TIMEOUT)
-    v.raise_for_status()
+    })
     v.encoding = "euc-kr"
     return parse_dart_document(v.text)
 
