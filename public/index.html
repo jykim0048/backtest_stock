@@ -3517,18 +3517,16 @@
         + _econTradeRows(ibEcon.trade);
       const econSection = _econCard(
         (ibSoon.length && !(ibEcon.trade)) ? "📅 경제지표 — 오늘 발표 없음 · 다가오는 일정 (48시간)"
-                      : "📅 경제지표 — 오늘 한국 발표·예정 · 수출입(관세청)",
+                      : ("📅 경제지표 — 오늘 한국 발표·예정" + (ibEcon.trade ? " · 수출입(관세청)" : "")),
         ibEconRows,
         "서프라이즈: 예상(컨센서스) 대비, 예상치 없으면 이전값 대비 · ★=시장 영향력 · 수출입 금액=억$ · 미국 일정은 모닝 브리핑 참조");
 
-      // 실적발표 카드 — 결과(오늘, 없으면 최근 3일) + 예정(D+7). 데이터 없으면 카드 숨김.
+      // 실적발표 카드 — 당일자만(오늘 결과 + 오늘 예정, 2026-07-23). 데이터 없으면 카드 숨김.
       const ibEarn = d.earningsEvents || {};
-      const earnRel = ibEarn.releasedToday || ibEarn.releasedRecent || [];
-      const earnRows = _earnReleasedRows(earnRel, d.date)
+      const earnRows = _earnReleasedRows(ibEarn.releasedToday, d.date)
         + _earnUpcomingRows(ibEarn.upcomingSoon, d.date);
       const earningsSection = _econCard(
-        ibEarn.releasedToday ? "📈 실적발표 — 오늘 결과 · 예정 (D+7)"
-                             : "📈 실적발표 — 최근 결과 · 예정 (D+7)",
+        "📈 실적발표 — 오늘 결과 · 오늘 예정",
         earnRows,
         "잠정실적 기준(억원, 조=1만억) · 컨센서스/괴리율=WiseReport · 컨상/컨하=FnGuide 실적속보 · 📄=DART 공시 원문");
 

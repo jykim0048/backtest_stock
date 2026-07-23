@@ -666,17 +666,19 @@ def _load_econ_events(now):
         ev = {"upcomingSoon": pick([r for r in cal.get("upcoming") or []
                                     if ok(r)
                                     and now_str <= r["releaseAtKST"] <= soon_to])}
-    # 관세청 수출입 통계(월간 + 수입 10일 잠정) — 발표일 외에도 최신 블록을 카드에 상시
-    # 표시(fetch_econ_calendar 가 이월 관리). 지표 행과 형태가 달라 별도 키로 동봉.
-    if cal.get("trade"):
-        ev["trade"] = cal["trade"]
+    # 관세청 수출입 통계(월간 + 수입 10일 잠정) — 발표(수집) 당일만 카드에 표기
+    # (2026-07-23 사용자 결정: 상시 이월 표시 → 당일자만). LLM 게이트와 동일 기준.
+    trade = cal.get("trade")
+    if trade and str(trade.get("asof", ""))[:10] == today:
+        ev["trade"] = trade
     return ev if any(ev.values()) else {}
 
 
 def _load_earnings_events(now):
     """실적발표 캘린더(public/earnings_calendar.json, fetch_earnings_calendar.py 갱신)에서
-    장중 관점 2구획 발췌 — releasedToday(오늘 발표 결과, 없으면 최근 3일 폴백),
-    upcomingSoon(오늘~D+7 발표 예정). 표시 전용(LLM 미전달 — 환각 차단). 없으면 {}."""
+    장중 관점 2구획 발췌 — releasedToday(오늘 발표 결과)와 upcomingSoon(오늘 발표 예정).
+    당일자만 표기(2026-07-23 사용자 결정 — 최근 3일 폴백·D+7 예정 제거).
+    표시 전용(LLM 미전달 — 환각 차단). 없으면 {}."""
     try:
         with open(os.path.join(ROOT, "public", "earnings_calendar.json"),
                   encoding="utf-8") as f:
@@ -685,24 +687,18 @@ def _load_earnings_events(now):
         _warn(f"earnings_calendar.json 로드 실패(실적 캘린더 생략): {e}")
         return {}
     today = now.strftime("%Y-%m-%d")
-    d3 = (now - datetime.timedelta(days=3)).strftime("%Y-%m-%d")
-    d7 = (now + datetime.timedelta(days=7)).strftime("%Y-%m-%d")
 
-    released = cal.get("released") or []
-    rel_today = [r for r in released if r.get("date") == today]
-    rel = rel_today or [r for r in released if d3 <= (r.get("date") or "") < today]
+    rel = [r for r in cal.get("released") or [] if r.get("date") == today]
     # 서프라이즈(괴리율 절대값) 큰 순 → 상위 8건만
     rel = sorted(rel, key=lambda r: -abs(((r.get("surprise") or {}).get("opGap")) or 0))[:8]
     rel.sort(key=lambda r: (r.get("date") or "", r.get("name") or ""))
 
-    up = [u for u in cal.get("upcoming") or []
-          if today <= (u.get("date") or "") <= d7]
-    up = sorted(up, key=lambda u: (u.get("date") or "",
-                                   -(((u.get("consensus") or {}).get("op")) or 0)))[:8]
+    up = [u for u in cal.get("upcoming") or [] if (u.get("date") or "") == today]
+    up = sorted(up, key=lambda u: -(((u.get("consensus") or {}).get("op")) or 0))[:8]
 
     ev = {}
     if rel:
-        ev["releasedToday" if rel_today else "releasedRecent"] = rel
+        ev["releasedToday"] = rel
     if up:
         ev["upcomingSoon"] = up
     return ev

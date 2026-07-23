@@ -43,14 +43,22 @@ def main():
     # ── DART 필터: 실적 공시만, 정정 제외 ───────────────────────────────────
     dart = parse_dart([
         {"report_nm": "연결재무제표기준영업(잠정)실적", "stock_code": "005930",
-         "rcept_dt": "20260722", "rcept_no": "1"},
+         "corp_name": "삼성전자", "rcept_dt": "20260722", "rcept_no": "1"},
         {"report_nm": "[정정]연결재무제표기준영업(잠정)실적", "stock_code": "005930",
-         "rcept_dt": "20260722", "rcept_no": "2"},
+         "corp_name": "삼성전자", "rcept_dt": "20260722", "rcept_no": "2"},
         {"report_nm": "주요사항보고서", "stock_code": "000660",
-         "rcept_dt": "20260722", "rcept_no": "3"},
+         "corp_name": "SK하이닉스", "rcept_dt": "20260722", "rcept_no": "3"},
     ])
     assert len(dart) == 1 and dart[0]["code"] == "005930"
-    print("parse_dart OK (실적만 통과, 정정 제외)")
+    assert dart[0]["name"] == "삼성전자", "DART corp_name 추출(240600 코드 표시 사고 방지)"
+    print("parse_dart OK (실적만 통과, 정정 제외, 이름 추출)")
+
+    # DART 단독 종목도 이름이 병합되는지 (유진테크놀로지 240600 사례)
+    only_dart = build([], [], [{"date": "2026-07-23", "code": "240600",
+                                "name": "유진테크놀로지", "title": "영업(잠정)실적",
+                                "url": "u"}], datetime.date(2026, 7, 23))
+    assert only_dart["released"][0]["name"] == "유진테크놀로지"
+    print("build DART-only name OK")
 
     # ── build 병합: 픽스처 날짜 기준 upcoming/released 분리 ─────────────────
     dates = sorted({w["date"] for w in wise if w["date"]})

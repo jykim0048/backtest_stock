@@ -199,6 +199,7 @@ def parse_dart(rows: list[dict]) -> list[dict]:
         out.append({
             "date":  f"{d[:4]}-{d[4:6]}-{d[6:8]}" if len(d) == 8 else None,
             "code":  code,
+            "name":  (r.get("corp_name") or "").strip() or None,   # DART 단독 종목 이름 표시용
             "title": title,
             "url":   f"https://dart.fss.or.kr/dsaf001/main.do?rcpNo={r.get('rcept_no')}",
         })
@@ -350,6 +351,7 @@ def build(wise: list[dict], fng: list[dict], dart: list[dict],
             continue
         s = slot(d["code"])
         s["date"] = s["date"] or d["date"]
+        s["name"] = s["name"] or d.get("name")   # DART 단독 종목도 이름 표시(240600 사례)
         s["dartUrl"], s["dartTitle"] = d["url"], d["title"]
         s["sources"].append("dart")
 
