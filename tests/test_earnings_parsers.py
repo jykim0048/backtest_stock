@@ -129,6 +129,9 @@ def main():
     doc_yj = parse_dart_document(_fixture_text("dart_doc_240600.html"))
     assert doc_yj["sales"] == 99.0                 # 매출만 공시(9,905 백만원)
     assert "op" not in doc_yj                       # 영업이익 미공시('-') → 제외
+    doc_sh = parse_dart_document(_fixture_text("dart_doc_055550.html"))
+    assert doc_sh["sales"] == 250631.6             # 금융지주 매출액(이자+수수료+기타, 25.06조)
+    assert doc_sh["op"] == 24762.8                 # 영업이익 2,476,281 백만원
     print("parse_dart_document / _dart_num OK")
 
     # ── enrich: DART 원문으로 실제 실적 + 네이버 컨센서스 → 서프라이즈 갭 ──────
@@ -152,6 +155,27 @@ def main():
     assert rel_doc["surprise"]["opGap"] == 8.9       # (1785.2-1640)/1640 → 컨상 +8.9%
     assert "dart-doc" in rel_doc["sources"]
     print("enrich_calendar DART 원문 실적+서프라이즈 OK")
+
+    # ── enrich: op 는 집계됐지만 매출 결손(금융지주) → DART 원문이 매출을 채운다 ──
+    #    신한지주 2026-07-23: 집계 사이트가 op 만 주고 매출액을 비워, op None 조건이면
+    #    DART-doc 이 스킵돼 매출이 영영 누락되던 회귀.
+    rel_sh = {"date": "2026-07-23", "code": "055550", "name": "신한지주",
+              "period": "202606", "quarter": None, "fs": None,
+              "sales": None, "op": 24763.0, "np": None,     # op 만 집계됨
+              "salesYoY": None, "opYoY": None, "npYoY": None, "tag": None,
+              "consensus": {"op": 22532.0, "np": None},
+              "surprise": {"opGap": None, "npGap": None},
+              "dartUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260723800269",
+              "dartTitle": "t", "sources": ["wisereport", "dart"]}
+    sh_html = _fixture_text("dart_doc_055550.html")
+    enrich_calendar([rel_sh], [], datetime.date(2026, 7, 23),
+                    fetch_naver=lambda c: {"financeInfo": {"trTitleList": [], "rowList": []}},
+                    fetch_wcomp=lambda c: {"dataset": {"header": [], "data": []}},
+                    fetch_doc=lambda rc: parse_dart_document(sh_html))
+    assert rel_sh["sales"] == 250631.6, rel_sh     # DART 원문이 매출 채움
+    assert rel_sh["op"] == 24763.0                  # 기존 op 는 보존(덮어쓰지 않음)
+    assert "dart-doc" in rel_sh["sources"]
+    print("enrich_calendar 매출 결손(금융지주) 보강 OK")
 
     # ── enrich: DART 단독 행(수치 전무)에 컨센서스 채움 + upcoming 컨센 보강 ──
     t = datetime.date(2026, 7, 23)

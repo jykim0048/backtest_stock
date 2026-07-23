@@ -442,7 +442,11 @@ def enrich_calendar(released, upcoming, today: datetime.date,
         hit = False
         # (A) released 실적 미집계 → DART 원문에서 '실제' 잠정실적 직접 파싱.
         #     집계 사이트(네이버·FnGuide)가 아직 컨센서스만 들고 있어도 발표 수치를 즉시 반영.
-        if DART_DOC_ON and kind == "rel" and row.get("op") is None:
+        #     op 뿐 아니라 매출·순이익 중 하나라도 결손이면 시도 — 금융지주처럼 집계 사이트가
+        #     op 만 주고 매출액을 비우는 경우(신한지주 2026-07-23)도 원문에서 채운다.
+        need_actual = (row.get("op") is None or row.get("sales") is None
+                       or row.get("np") is None)
+        if DART_DOC_ON and kind == "rel" and need_actual:
             rc = re.search(r"rcpNo=(\d+)", row.get("dartUrl") or "")
             if rc:
                 try:
@@ -673,7 +677,8 @@ def build(wise: list[dict], fng: list[dict], dart: list[dict],
         s["date"] = s["date"] or d["date"]
         s["name"] = s["name"] or d.get("name")   # DART 단독 종목도 이름 표시(240600 사례)
         s["dartUrl"], s["dartTitle"] = d["url"], d["title"]
-        s["sources"].append("dart")
+        if "dart" not in s["sources"]:           # 한 종목이 연결·별도 등 복수 공시여도 1회만
+            s["sources"].append("dart")
 
     released = sorted(rel.values(),
                       key=lambda x: (x["date"] or "", abs(x["surprise"]["opGap"] or 0)),
