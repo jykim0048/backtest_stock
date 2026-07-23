@@ -64,8 +64,9 @@ jobs:
 
       - name: Collect US SEC catalysts
         env:
-          # vars 미설정이면 빈 문자열이 넘어가므로 워크플로 차원에서도 기본값 보장
-          SEC_IDENTITY:      ${{ vars.SEC_IDENTITY || 'QuantAntigravity cyb1100@gmail.com' }}
+          # vars 미설정이면 빈 문자열이 넘어가므로 워크플로 차원에서도 기본값 보장.
+          # 개인 이메일은 코드에 두지 않는다(public 레포) — 실 연락처는 vars 로 설정.
+          SEC_IDENTITY:      ${{ vars.SEC_IDENTITY || 'QuantAntigravity jykim0048@users.noreply.github.com' }}
           GEMINI_API_KEY:    ${{ secrets.GEMINI_API_KEY }}
           LLM_CHAIN:         ${{ vars.LLM_CHAIN }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}

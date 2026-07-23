@@ -38,7 +38,9 @@ KST = datetime.timezone(datetime.timedelta(hours=9))
 
 # or 폴백: Actions 에서 vars 미설정 시 env 가 '빈 문자열'로 들어와 get() 기본값이
 # 안 먹힌다 — 빈 UA 는 SEC 가 즉시 403 (2026-07-23 밤 13회차 전멸 원인 1).
-SEC_IDENTITY = os.environ.get("SEC_IDENTITY") or "QuantAntigravity cyb1100@gmail.com"
+# 개인 이메일 하드코딩 금지(public 레포) — 실 연락처는 Actions vars.SEC_IDENTITY 로.
+SEC_IDENTITY = (os.environ.get("SEC_IDENTITY")
+                or "QuantAntigravity jykim0048@users.noreply.github.com")
 FORMS = ("8-K", "6-K")      # 6-K: TSMC·ASML 등 외국계 미국상장(peer 다수)의 주요 공시
 MAX_TOKENS = 2048
 
