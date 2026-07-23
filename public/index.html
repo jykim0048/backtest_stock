@@ -2066,15 +2066,6 @@
                 <span class="slider-toggle" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #1e293b; transition: .3s; border-radius: 20px; border: 1px solid var(--border-color);"></span>
               </label>
             </div>
-
-            <!-- Regime Link Toggle -->
-            <div class="config-item" style="flex-direction: row; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 12px; margin-bottom: 8px;">
-              <span class="config-name" style="font-weight: 600; color: #7dd3fc;" title="장중 시황 LLM의 국면 판정 연동 — 하락 국면이면 신규 매수 차단, 확신 높으면 보유 청산. 상승·중립은 현행 룰 그대로.">🧭 국면 연동 (LLM)</span>
-              <label class="switch-container" style="position: relative; display: inline-block; width: 44px; height: 22px;">
-                <input type="checkbox" id="regime-toggle" onchange="toggleRegimeLink()" checked style="opacity: 0; width: 0; height: 0;">
-                <span class="slider-toggle" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #1e293b; transition: .3s; border-radius: 20px; border: 1px solid var(--border-color);"></span>
-              </label>
-            </div>
             
             <div class="config-item">
               <div class="config-label-row">
@@ -3940,7 +3931,7 @@
       loadIntradayBriefing();  // 🔴 장중 시황(한국장 테마·촉매, 30분 회차)
       refreshIndicesOnce();    // 📈 지수 카드 — 장외에도 전일 종가 1회 반영
       isLiveView = true;
-      applyRegimeToggleState();  // 🧭 국면 연동 토글 복원 — 시초 매수 게이트보다 먼저
+      updateRegimeBadge();     // 🧭 국면 배지 초기 표시(상시 연동)
       // 저장된 모의투자 계좌를 복원 (없으면 깨끗한 계좌). 새로고침/장 마감 후에도 누적 유지.
       const saved = restorePortfolio();
       // 매매일지 로드 → 전 거래일 미청산분 소급 정산(확정 종가) → 오늘자 레코드 확보.
@@ -4119,14 +4110,10 @@
     //   risk_on/neutral → 현행 룰 그대로 (오판 리스크를 하락 방어에만 노출)
     let marketRegime = null;    // {stance, confidence, reason, asof} — 시황 회차마다 갱신
     let morningStance = null;   // 모닝브리핑 stance — 첫 시황(09:11) 전 공백 폴백(차단만)
-    const REGIME_TOGGLE_KEY = "qa_regime_link";
-    function regimeLinkOn() {
-      const el = document.getElementById("regime-toggle");
-      return el ? el.checked : true;
-    }
-    // 유효 국면: 토글 on + asof 오늘·45분 이내. 시황 공백엔 모닝 위험회피를 low 로 매핑.
+    // 국면 연동은 자동 시뮬레이션에 상시 적용(별도 토글 없음). 오판 방어는 2겹으로 충분 —
+    // 조기 청산은 risk_off/high 일 때만, 확신 없으면 LLM 이 neutral/low 로 보수 판정.
+    // 유효 국면: asof 오늘·45분 이내. 시황 공백엔 모닝 위험회피를 low 로 매핑.
     function effectiveRegime() {
-      if (!regimeLinkOn()) return null;
       if (marketRegime && marketRegime.asof) {
         const iso = marketRegime.asof.replace(" KST", "").replace(" ", "T") + ":00+09:00";
         const ts = Date.parse(iso);
@@ -4160,7 +4147,6 @@
     function updateRegimeBadge() {
       const el = document.getElementById("regime-badge");
       if (!el) return;
-      if (!regimeLinkOn()) { el.style.display = "none"; return; }
       el.style.display = "";
       const r = effectiveRegime();
       const map = { risk_off: ["🔴 하락 국면", "#f87171"],
@@ -4169,18 +4155,6 @@
       el.textContent = txt;
       el.style.color = color;
       el.title = (r && r.reason) || "국면 데이터 없음/스테일 — 현행 룰 적용";
-    }
-    function toggleRegimeLink() {
-      try { localStorage.setItem(REGIME_TOGGLE_KEY, regimeLinkOn() ? "1" : "0"); } catch (_) {}
-      updateRegimeBadge();
-    }
-    function applyRegimeToggleState() {
-      const el = document.getElementById("regime-toggle");
-      if (!el) return;
-      let on = true;   // 기본 ON
-      try { on = localStorage.getItem(REGIME_TOGGLE_KEY) !== "0"; } catch (_) {}
-      el.checked = on;
-      updateRegimeBadge();
     }
 
     // 익절/손절 판정 — 장전(stockData)·장중(watchData) 공용. 매도 발생 시 true.
