@@ -116,7 +116,7 @@ backtest_stock/
 │   ├── sector_analysis.json        # 섹터 분석 + 퀀트 팩터
 │   ├── econ_calendar.json          # 경제지표 + 관세청 수출입 통계
 │   ├── earnings_calendar.json      # 실적발표 캘린더
-│   ├── us_catalysts.json           # 미국 SEC 공시 촉매
+│   ├── us_catalysts.json           # 미국 밤사이 촉매 (SEC 공시 원문 + 시장 뉴스)
 │   ├── assets/                     # KRX 종목 마스터 등 정적 에셋
 │   └── reports/                    # 일자별 아카이브 (워치리스트·시황·선정 근거)
 │
@@ -130,7 +130,7 @@ backtest_stock/
 │   ├── generate_intraday_briefing.py # 장중/마감 시황 + 국면(regime) 판정
 │   ├── generate_eod_close.py         # 장 마감 정산
 │   ├── refresh_flow.py               # 수급만 갱신 (LLM 미사용, 회차마다)
-│   └── generate_us_catalysts.py      # 미국 SEC 공시 촉매 (edgartools)
+│   └── generate_us_catalysts.py      # 미국 밤사이 촉매 (SEC 공시 원문 + 뉴스, edgartools)
 │
 ├── 캘린더·데이터 수집
 │   ├── fetch_econ_calendar.py        # 경제지표 + 관세청 수출입 통계

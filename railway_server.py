@@ -699,7 +699,7 @@ INDEXCON_WF  = "index_constituents.yml"
 THEMEMAP_WF  = "theme_map.yml"
 USNIGHT_WF   = "us_night_catalysts.yml"
 INTRADAY_MIN = {7, 37}            # KST 09:07~14:37, 30분 간격 (장 마감 전후 회차 제외)
-USNIGHT_MIN  = {17, 47}           # KST 22:47~04:47, 30분 간격 (미국 정규장 SEC 촉매)
+USNIGHT_MIN  = {17, 47}           # KST 20:47~06:17, 30분 간격 (미국 프리~애프터마켓 촉매)
 
 
 def _dispatch(workflow_file):
@@ -755,12 +755,17 @@ def _scheduler():
                     key = (today, "thememap")
                     if key not in fired and _dispatch(THEMEMAP_WF):
                         fired.add(key)
-            # 미국 정규장 SEC 촉매(KST 밤) — 저녁(월~금 22:47~23:47)은 미국 당일 개장,
-            # 새벽(화~토 00:17~04:47)은 전날 저녁 개장 세션의 연속이라 weekday-1 기준.
-            us_evening = now.weekday() <= 4 and now.hour >= 22
-            us_dawn = 1 <= now.weekday() <= 5 and now.hour <= 4
-            if (us_evening or us_dawn) and now.minute in USNIGHT_MIN \
-               and not (now.hour == 22 and now.minute == 17):    # 첫 회차는 22:47(개장 후)
+            # 미국 프리~애프터마켓 촉매(KST 밤) — 실적 8-K 는 대부분 프리마켓(KST
+            # 19~22시)/애프터마켓(KST 05~06시) 접수라 정규장(22:47~04:47)만 돌면
+            # 구조적으로 놓쳐 20:47~06:17 로 확장(2026-07-24). 저녁(월~금)은 미국
+            # 당일 세션, 새벽(화~토)은 전날 저녁 세션의 연속이라 weekday-1 기준.
+            # GH cron 백스톱(us_night_catalysts.yml schedule)과 이중화 — 겹쳐도
+            # concurrency+seen dedup 으로 무해.
+            us_evening = now.weekday() <= 4 and (
+                now.hour >= 21 or (now.hour == 20 and now.minute >= 47))
+            us_dawn = 1 <= now.weekday() <= 5 and (
+                now.hour <= 5 or (now.hour == 6 and now.minute <= 17))
+            if (us_evening or us_dawn) and now.minute in USNIGHT_MIN:
                 key = (today, f"usnight-{now.hour:02d}{now.minute:02d}")
                 if key not in fired and _dispatch(USNIGHT_WF):
                     fired.add(key)

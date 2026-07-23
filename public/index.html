@@ -3307,8 +3307,8 @@
     // 을 직접 받아 갱신(미국 정규장 KST 22:47~04:47 동안 30분마다 새 공시 추가됨).
     function _briefUsCatHtml(cats) {
       if (!cats || !cats.length) return "";
-      return `<div class="briefing-wl"><div class="wl-h">🌙 미국 밤사이 주요 촉매 — SEC 공시 (${cats.length}건)</div>`
-        + `<table><thead><tr><th style="width:170px">종목</th><th style="width:80px">공시</th><th>촉매</th></tr></thead>`
+      return `<div class="briefing-wl"><div class="wl-h">🌙 미국 밤사이 주요 촉매 — SEC 공시·뉴스 (${cats.length}건)</div>`
+        + `<table><thead><tr><th style="width:170px">종목·이벤트</th><th style="width:80px">유형</th><th>촉매</th></tr></thead>`
         + `<tbody>${_ibCatRows(cats, ["US"])}</tbody></table></div>`;
     }
     async function refreshUsCatalysts() {

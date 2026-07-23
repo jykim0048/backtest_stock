@@ -345,8 +345,9 @@ SYSTEM = """\
 - econEvents : 경제지표 캘린더. usReleased(전일 발표된 미국 지표 — actual/forecast/previous 와
   surpriseVerdict: above=상회 / inline=부합 / below=하회), korToday(당일 발표 예정 한국 지표),
   usTonight(오늘 밤 미국 발표 예정). 없을 수 있다.
-- usCatalysts : 밤사이 미국 세션 중 접수된 SEC 공시 촉매(ticker/stock/form/direction/summary/
-  changePct — 한국 연관 미국 종목 한정). 없을 수 있다.
+- usCatalysts : 밤사이 미국 세션 촉매 — kind=sec 는 SEC 공시(한국 연관 미국 종목 한정,
+  원문 기반 요약), kind=news 는 시장 뉴스(지정학·매크로·대형주 실적 보도, stock 필드가
+  사건명). 공통 필드 ticker/stock/form/kind/direction/summary/changePct. 없을 수 있다.
   **surpriseVs 가 비교 기준이다: forecast 면 '예상(컨센서스) 상회/하회', previous 면 반드시
   '이전(직전치) 대비 상회/하회'로 표현을 구분하고, 이전값 대비를 '예상치 상회/하회'라고 쓰지 말 것.**
 
@@ -363,9 +364,9 @@ SYSTEM = """\
    요약한다(불릿 하나 = 한 문장, 문단이 아니라 리스트로 가독성 있게).
    econEvents.usReleased 가 있으면 불릿 중 1개는 그 지표 결과와 시장 반응 해석을 담는다
    (수치는 입력값을 그대로 인용하고 새로 만들지 않는다).
-   usCatalysts 가 있으면 불릿 중 1개는 시장 영향이 큰 SEC 공시(들)를 종목명·주가 반응과
-   함께 담고, 유의미한 하방/상방 공시는 stance 판단에도 반영한다. 공시 본문은 입력에
-   없으므로 summary 내용 밖의 사실을 지어내지 말 것.
+   usCatalysts 가 있으면 불릿 중 1개는 시장 영향이 큰 촉매(SEC 공시·뉴스)를 종목명(또는
+   사건명)·주가 반응과 함께 담고, 유의미한 하방/상방 촉매(특히 지정학·매크로 뉴스)는
+   stance 판단에도 반영한다. summary 내용 밖의 사실을 지어내지 말 것.
 3) upRationale: **upThemes 와 정확히 같은 개수·순서**로, 각 테마별 "왜 미국 이 섹터 강세가
    국내 이 테마로 이어지는지" 한 줄 근거. 주어진 usStocks/krStocks 종목명을 자연스럽게
    인용해도 좋다(새 종목 언급 금지). 테마에 industryReports 가 있으면 그 제목·summary 의
@@ -433,7 +434,7 @@ def _llm_input(sel, up_themes, down_themes, econ=None, us_cats=None):
         payload["econEvents"] = _econ_llm_view(econ)
     if us_cats:
         payload["usCatalysts"] = [{k: c.get(k) for k in
-                                   ("ticker", "stock", "form", "direction",
+                                   ("ticker", "stock", "form", "kind", "direction",
                                     "summary", "changePct")}
                                   for c in us_cats[:15]]
     return json.dumps(payload, ensure_ascii=False)
