@@ -3056,13 +3056,17 @@
     }
     function _earnBadge(r) {
       const gap = (r.surprise || {}).opGap;
-      let label = r.tag;                // FnGuide 태그 우선 (컨상/컨하/턴어)
+      let label = r.tag;                // FnGuide 태그 우선 (컨상/컨하/턴어/적전)
       if (!label && gap !== null && gap !== undefined)
         label = gap >= 5 ? "컨상" : gap <= -5 ? "컨하" : "부합";
       if (!label) return "";
-      const cls = label === "컨상" || label === "턴어" ? "above" : label === "컨하" ? "below" : "inline";
+      // 축약 태그 → 전체 표기 (2026-07-23 사용자 결정 — 행 공간 여유)
+      const FULL = { "컨상": "컨센서스 상회", "컨하": "컨센서스 하회", "부합": "예상치 부합",
+                     "턴어": "턴어라운드", "적전": "적자전환", "적지": "적자지속" };
+      const cls = (label === "컨상" || label === "턴어") ? "above"
+        : (label === "컨하" || label === "적전" || label === "적지") ? "below" : "inline";
       const gapTxt = (gap !== null && gap !== undefined) ? ` ${gap >= 0 ? "+" : ""}${gap}%` : "";
-      return `<span class="econ-badge ${cls}">${label}${gapTxt}</span>`;
+      return `<span class="econ-badge ${cls}">${_brEsc(FULL[label] || label)}${gapTxt}</span>`;
     }
     function _earnDate(d, todayStr) {
       if (!d) return "";
@@ -3528,7 +3532,7 @@
       const earningsSection = _econCard(
         "📈 실적발표 — 오늘 결과 · 오늘 예정",
         earnRows,
-        "잠정실적 기준(억원, 조=1만억) · 컨센서스/괴리율=WiseReport · 컨상/컨하=FnGuide 실적속보 · 📄=DART 공시 원문");
+        "잠정실적 기준(억원, 조=1만억) · 컨센서스/괴리율=WiseReport · 상회/하회·턴어라운드 판정=FnGuide 실적속보 · 📄=DART 공시 원문");
 
       // 장중 촉매 — 종목 단위(중복 통합) + 회차 선택 셀렉터(이전 회차 촉매 조회).
       // 행 빌드는 _ibCatRows(회차 전환 시 재사용), 셀렉터는 렌더 후 _ibLoadRounds 가 채운다.
