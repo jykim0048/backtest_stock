@@ -1047,7 +1047,7 @@ def synthesize(indices, investors, indicators, sectors_up, sectors_down,
     if not briefing:
         briefing = _mechanical_briefing(indices, investors, sectors_up, sectors_down,
                                         bool(prev_rounds))
-    return briefing, fx_bullets, catalysts, model
+    return briefing, fx_bullets, catalysts, model, synth.get("regime") or {}
 
 
 def _mechanical_briefing(indices, investors, sectors_up, sectors_down, final):
@@ -1115,7 +1115,7 @@ def main():
               f"한국 예정 {len(econ_events.get('korTodayUpcoming', []))}건, "
               f"오늘 밤 미국 예정 {len(econ_events.get('usTonight', []))}건")
 
-    briefing, fx_bullets, catalysts, model = synthesize(
+    briefing, fx_bullets, catalysts, model, llm_regime = synthesize(
         indices, investors, indicators, sectors_up, sectors_down,
         movers_up, movers_down, disclosures, news, fx_news,
         prev_rounds=prev_rounds, us_context=_load_us_context(),
@@ -1132,7 +1132,7 @@ def main():
             "confidence": rg.get("confidence") if rg.get("confidence") in ("high", "low") else "low",
             "reason": str(rg.get("reason") or "")[:200],
         } if str(rg.get("stance")) in ("risk_on", "neutral", "risk_off")
-          else _mechanical_regime(indices))(synth.get("regime") or {}),
+          else _mechanical_regime(indices))(llm_regime),
         "indices": indices,
         "investors": investors,
         "indicators": indicators,
