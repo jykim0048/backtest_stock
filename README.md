@@ -1,22 +1,102 @@
-# QUANT ANTIGRAVITY — 자동매매 대시보드
+# QUANT ANTIGRAVITY — 한국 주식 자동매매 대시보드
 
-한국 주식(KOSPI/KOSDAQ) 모멘텀 종목을 추적하고, 매일 자동으로 리포트를 생성하며,
-실시간 시세 기반 자동매매 시뮬레이션을 보여주는 웹 대시보드입니다.
+KOSPI/KOSDAQ 종목을 장전·장중으로 스크리닝하고, LLM이 장중 시황·딥리서치·미국
+공시 촉매를 종합하며, 실시간 시세 기반 자동매매 시뮬레이션을 국면(regime)에 맞춰
+운용하는 웹 대시보드입니다.
 
-🔗 **Live Demo:** https://backtest-stock.vercel.app
+🔗 **Live Demo:** https://backteststock-production.up.railway.app
+
+> 학습·시뮬레이션용 프로젝트입니다. 표시되는 신호·리포트는 자동 생성된 것으로
+> **투자 권유가 아닙니다.** 자세한 내용은 맨 아래 면책 조항을 참고하세요.
 
 ---
 
 ## 주요 기능
 
-- **장전 종목 자동 선정** — 매일 장 시작 전, 전일 미국시장 + 국내 뉴스/공시를 분석해 코스피200·코스닥150에서 '오늘 급등 예상 종목'을 선별(**워치리스트**, 자동매매 대상)
-- **장중 관심종목 스크리닝** — 장중 30분 간격으로 '지금 막 이슈가 터진 종목'을 선별(**관심종목**, 모니터링 전용). 대시보드에서 워치리스트와 탭으로 전환해 조회
-- **실시간 시세 피드** — Yahoo Finance(yfinance)에서 워치리스트·관심종목 현재가를 5초마다 갱신
-- **자동매매 시뮬레이션** — 시초가 갭 필터, 분할 매수, 익절/손절 로직을 대시보드에서 시각화
-- **딥리서치 분석** — 선정 종목별 peer 시세·뉴스·커뮤니티·DART 공시를 LLM이 요약
-- **일일 리포트 자동 생성** — 매일 GitHub Actions가 종목별 진입가·목표가·손절가를 산출
-- **일자별 리포트 누적** — 날짜 선택 드롭다운으로 과거 리포트 조회 가능
-- **데모 모드** — 장외 시간에도 시뮬레이션 틱으로 로직 테스트 가능
+### 종목 스크리닝 (2트랙)
+- **장전 워치리스트** — 매일 장 시작 전, 전일 미국시장 + 국내 뉴스/공시(DART)를
+  분석해 코스피200·코스닥150에서 '오늘 급등 예상 종목'을 촉매 중심으로 선별.
+  자동매매 시뮬레이션 대상.
+- **장중 관심종목** — 장중 30분 간격으로 '지금 막 이슈가 터진 종목'을 누적 선별
+  (모니터링 전용). 시황 상방 촉매를 후보 풀에 시드해 뉴스 기반 대형주 발굴 갭을 보완.
+- **하락 관찰** — 급락·악재 종목을 별도 트랙으로 표시(참고용, 자동매수 제외).
+
+### 장중 시황판 (30분 회차, LLM 종합)
+- 지수·투자자 수급(1분 누적 시계열)·섹터 히트·섹터↔테마 매칭·환율/지표를 종합한
+  장중 브리핑과 **종목별 촉매**(상방/중립/하방).
+- **경제지표 캘린더** — 네이버 경제캘린더 + ForexFactory 컨센서스, **관세청 수출입
+  통계**(월간 YoY·품목·수입 10일 잠정).
+- **실적발표 캘린더** — WiseReport(일정·컨센서스) + FnGuide 실적속보 + DART 공시,
+  네이버/FnGuide 종목 페이지로 컨센서스·YoY 보강.
+
+### 국면(Regime) 연동 모의투자
+- 룰베이스 자동매매 엔진(시드 5% + 분할 진입, 5단계 익절/손절, EOD 복리 이월)이
+  **장중 시황 LLM의 국면 판정을 소비**해 하락 국면을 방어.
+- 하락(risk_off) → 신규·추가 매수 차단, 확신 높으면(high) 보유 전량 조기 청산
+  (수익=국면 익절 / 손실=방어 청산). 상승·중립은 현행 룰 그대로.
+- "LLM은 판단, 엔진은 결정적 룰 집행" — 새 LLM 호출 0, 비용 0, 감사 가능.
+
+### 딥리서치
+- 선정 종목별 해외 peer 시세·뉴스·커뮤니티·DART 공시를 수집해 LLM이 요약.
+  peer는 큐레이션이 없으면 LLM 제안 + yfinance 티커 검증으로 동적 해결.
+- 수집 ~20콜을 futures 그래프로 병렬화(온디맨드 ~30s). 방향성 신호가 상충하는
+  종목은 조건부 후속 라운드(화이트리스트 도구 질의)로 심화.
+
+### 수급 탭 (KIS 허브 연동)
+- 외국인·기관 일별 매매동향, 공매도 20일 추이, 대차거래 잔고, VI·상하한가를
+  KIS 실매매 허브(별도 레포)에서 Redis 경유로 받아 표시.
+
+### 미국 공시 촉매 (모닝브리프)
+- 미국 정규장 시간대(KST 밤) 30분 간격으로 SEC 8-K/6-K 신규 공시를 스캔
+  (edgartools), 한국 연관·주도주 촉매를 모닝브리프에 반영.
+
+### 섹터 분석 · 퀀트 팩터
+- 섹터 국면/센티먼트/ETF 카드, 섹터 8항목 스코어카드 + Q점수 6팩터·게이트.
+
+---
+
+## 아키텍처
+
+배포는 **Railway 상주 Python 서버**(`railway_server.py`)가 담당합니다. 이 서버는
+세 가지 역할을 합니다.
+
+1. **대시보드 서빙** — `public/index.html` + 에셋은 컨테이너 로컬본, 데이터 JSON은
+   GitHub raw 프록시로 서빙. 리포트 커밋은 `[skip railway]`라 재배포 없이도 항상
+   최신 데이터가 보입니다.
+2. **정확한 KST 스케줄러** — GitHub cron은 지연이 커서, 이 상주 서버가 **정확한
+   KST 시각에 `workflow_dispatch`로 각 워크플로를 트리거**합니다. (워크플로의
+   `schedule:` 블록은 백업일 뿐 실질 트리거는 이 서버)
+3. **API 프록시** — 실시간 시세(`/api/prices`), VI·상하한가, 딥리서치 온디맨드,
+   매매일지 등.
+
+```
+┌────────────────────┐   workflow_dispatch    ┌─────────────────────┐
+│  Railway 상주 서버   │ ─── (정확한 KST 시각) ──▶ │   GitHub Actions     │
+│  railway_server.py │                        │   파이프라인 실행      │
+│  ├ 대시보드 서빙     │ ◀── GitHub raw (JSON) ── │   → public/*.json 커밋 │
+│  ├ KST 스케줄러      │                        └─────────────────────┘
+│  └ /api/* 프록시     │
+└────────────────────┘
+        ▲  KIS 허브(별도 레포) → Redis → 수급·VI·상하한가
+```
+
+LLM은 폴백 체인(`llm.py`) — 기본 Google Gemini, 쿼터 소진 시 Anthropic으로 자동 전환.
+
+---
+
+## 파이프라인 스케줄 (KST, 월–금)
+
+| 시각 | 워크플로 | 산출 |
+|------|----------|------|
+| 07:43 | `daily_report.yml` | 장전 워치리스트 + 리포트 + 딥리서치 + 브리핑 + 섹터 |
+| 07:50 | `investment_warning.yml` | 투자주의/경고 지정·해제 계산 |
+| 09:07~14:37 (30분) | `intraday_screener.yml` | 장중 관심종목 + 시황판 + 수급 + 경제/실적 캘린더 |
+| 15:40 | `closing_briefing.yml` | 마감 시황(당일 회차 종합) |
+| 22:47~04:47 (30분) | `us_night_catalysts.yml` | 미국 SEC 공시 촉매 |
+| 월 06:30 | `theme_map.yml` | 테마맵·섹터맵 재생성 |
+| 매월 2일 · 반기 | `build_corp_map.yml` · `index_constituents.yml` | 기업 코드맵 · 지수 구성 |
+
+각 워크플로는 Actions 탭의 **Run workflow**로 수동 트리거도 가능합니다.
 
 ---
 
@@ -24,184 +104,98 @@
 
 ```
 backtest_stock/
-├── api/
-│   └── index.py              # Vercel 서버리스 함수 (/api/prices 실시간 시세)
-├── local_server/
-│   ├── server.py             # 로컬 개발용 통합 서버 (정적 파일 + API)
-│   └── news_mcp.py           # 종목 뉴스 MCP 서버
-├── public/                   # Vercel 정적 서빙 디렉토리
-│   ├── index.html            # 대시보드 UI (단일 파일, 워치리스트/관심종목 탭 전환)
-│   ├── daily_market_report.json  # 최신 워치리스트 리포트 (대시보드가 로드)
-│   ├── intraday_report.json  # 최신 장중 관심종목 리포트 (대시보드가 로드)
-│   ├── assets/
-│   │   └── krx_companies.json
-│   └── reports/
-│       ├── index.json        # 사용 가능한 리포트 날짜 목록 (워치리스트만)
-│       ├── selection/        # 일자별 종목 선정 근거 (장전 스크리닝 결과)
-│       │   └── intraday/     # 장중 스크리닝 선정 근거 (당일 최신)
-│       └── YYYY-MM-DD.json   # 일자별 워치리스트 리포트 아카이브
-├── .github/workflows/
-│   ├── daily_report.yml      # 장전: 08:30 KST 스크리닝 → 워치리스트 리포트
-│   └── intraday_screener.yml # 장중: 09:00~15:30 KST 30분 간격 관심종목 갱신
-├── analysis/                 # 딥리서치용 RAW 데이터 수집기 (뉴스·DART·peer)
-├── data/
-│   └── index_constituents.json  # (선택) 코스피200·코스닥150 정확 멤버십 코드
-├── screener.py               # 종목 선정 스크립트 (SCREEN_MODE=pre|intraday)
-├── generate_report.py        # 리포트 생성 (REPORT_* env로 입출력 지정)
-├── generate_analysis.py      # 딥리서치 분석 생성 (ANALYSIS_* env로 입출력 지정)
-├── ticker_utils.py           # 종목코드 → Yahoo 티커 변환 (워치리스트 ∪ 관심종목)
-├── watchlist.json            # 장전 선정 종목 (screener.py pre 모드가 갱신)
-├── intraday_watchlist.json   # 장중 선정 종목 (screener.py intraday 모드가 갱신)
-├── requirements.txt
-└── vercel.json               # Vercel 라우팅 설정
+├── railway_server.py          # ★ Railway 상주 서버 (대시보드 서빙 + KST 스케줄러 + API)
+├── Procfile                   # web: python railway_server.py
+│
+├── public/
+│   ├── index.html             # 대시보드 UI (단일 파일 — 워치리스트/관심종목/수급/시황 탭)
+│   ├── daily_market_report.json    # 장전 워치리스트 리포트
+│   ├── intraday_report.json        # 장중 관심종목 리포트
+│   ├── intraday_briefing.json      # 장중 시황판 (30분 회차)
+│   ├── down_market_report.json     # 하락 관찰 (장전/장중)
+│   ├── sector_analysis.json        # 섹터 분석 + 퀀트 팩터
+│   ├── econ_calendar.json          # 경제지표 + 관세청 수출입 통계
+│   ├── earnings_calendar.json      # 실적발표 캘린더
+│   ├── us_catalysts.json           # 미국 SEC 공시 촉매
+│   ├── assets/                     # KRX 종목 마스터 등 정적 에셋
+│   └── reports/                    # 일자별 아카이브 (워치리스트·시황·선정 근거)
+│
+├── 스크리닝·리포트
+│   ├── screener.py            # 종목 선정 (SCREEN_MODE=pre|intraday)
+│   ├── generate_report.py     # 진입가·목표가·손절가 산출
+│   └── generate_analysis.py   # 딥리서치 분석 (병렬 수집 + 조건부 후속 라운드)
+│
+├── 시황·브리핑
+│   ├── generate_briefing.py          # 모닝 브리핑 (전일 미국장 + 당일 프리뷰)
+│   ├── generate_intraday_briefing.py # 장중/마감 시황 + 국면(regime) 판정
+│   ├── generate_eod_close.py         # 장 마감 정산
+│   ├── refresh_flow.py               # 수급만 갱신 (LLM 미사용, 회차마다)
+│   └── generate_us_catalysts.py      # 미국 SEC 공시 촉매 (edgartools)
+│
+├── 캘린더·데이터 수집
+│   ├── fetch_econ_calendar.py        # 경제지표 + 관세청 수출입 통계
+│   ├── fetch_earnings_calendar.py    # 실적발표 캘린더 (WiseReport/FnGuide/DART/네이버)
+│   ├── fetch_investment_warning.py   # 투자주의/경고
+│   └── fetch_index_constituents.py   # 코스피200/코스닥150 구성
+│
+├── 섹터·테마·팩터
+│   ├── generate_sector.py     # 섹터 분석 + 퀀트 스코어카드
+│   ├── build_theme_map.py     # 섹터↔테마 매칭 맵
+│   └── build_krx_sector_map.py / build_sector_map_auto.py
+│
+├── analysis/                  # 딥리서치 RAW 수집기 (sources.py, peers.json)
+├── llm.py                     # LLM 폴백 체인 (Gemini → Anthropic)
+├── ticker_utils.py            # 종목코드 → Yahoo 티커 변환
+├── tests/                     # 파서·게이트 회귀 테스트 (픽스처 기반, 오프라인)
+├── docs/DEEP_RESEARCH.md      # 딥리서치 설계 문서
+├── .github/workflows/         # 파이프라인 (Railway 스케줄러가 dispatch)
+└── requirements.txt
 ```
 
 ---
 
 ## 로컬 실행
 
-### 1. 의존성 설치
-
 ```bash
 pip install -r requirements.txt
 ```
 
-### 2. 로컬 서버 실행
+대시보드만 정적으로 미리보기:
 
 ```bash
-python local_server/server.py
+cd public && python -m http.server 8123
 ```
 
-브라우저에서 http://localhost:8000 접속하면 대시보드가 열립니다.
-실시간 시세는 `/api/prices` 엔드포인트가 제공합니다.
+브라우저에서 http://localhost:8123 접속. (데이터 JSON은 마지막 커밋 스냅샷이 보이며,
+실시간 시세·프록시 API는 Railway 서버에서만 동작합니다.)
 
----
-
-## 일일 자동화 파이프라인
-
-매 거래일 **08:00 KST(월–금)**에 `.github/workflows/daily_report.yml`이 아래 4단계를 순서대로 실행하고, 결과를 커밋·푸시합니다. Actions 탭의 **Run workflow**로 수동 트리거도 가능합니다.
-
-```
-① screener.py        →  ② generate_report.py  →  ③ generate_analysis.py  →  커밋·푸시
-   장전 종목 선정          가격 레벨 산출            딥리서치 분석
-```
-
-### ① 장전 종목 선정 — `screener.py`
-
-장 시작 전, '오늘 급등 예상 종목'을 **촉매(공시) 중심**으로 선별해 `watchlist.json`을 **자동 갱신**합니다.
-
-1. **전일 미국시장 분석** — yfinance로 미국 지수(S&P500·나스닥·다우·필라델피아 반도체·VIX), 섹터 ETF(기술·반도체·헬스케어·바이오 등), 그리고 **당일 급등 특징주**(`day_gainers` 스크리너, 시총 하한 없음)를 수집. 강세 섹터·테마와 급등 종목을 파악해 국내 동조/밸류체인 연결 추론에 사용.
-2. **후보 구성** — FinanceDataReader KRX 스냅샷에서 **코스피200 + 코스닥150**(시총 상위 200/150 근사)을 유니버스로 잡고:
-   - **ⓐ 공시 촉매 [주동력]** — DART **시장 전체 공시**를 `corp_cls`(유가증권/코스닥) + 전일 장마감~당일 날짜로 한 번에 스캔(per-stock 호출 없음)해, 유니버스 종목 중 **긍정 촉매 공시**(공급계약·수주·실적·임상/허가·투자·자사주 등) 보유 종목을 추림. **정정·해지 등 주요 내용 변경이 없는 공시는 제외.**
-   - **ⓑ 가격 확인 [보조]** — 거래대금회전율·등락률 상위 일부를 보완 후보로 합침.
-3. **뉴스 보강** — 후보별 **전일 장 마감(15:30 KST) 이후 ~ 실행 시각**의 네이버 뉴스 헤드라인을 수집(`pubDate` 시간창 필터). 주말은 직전 거래일(금요일) 마감 기준.
-4. **LLM 최종 선정** — Claude가 ① 촉매 공시 → ② 미국 강세 섹터·특징주 연결 → ③ 우호적 뉴스 순으로 종합하고, 가격·거래대금은 '시장 반응 강도' 확인용으로만 써서 최종 종목(기본 6개)을 선정·사유 작성.
-
-> ⓐ는 DART 시각 정보가 없어(날짜 단위) 공시 시간창은 **거래일 단위 근사**(직전 거래일+당일)입니다. 뉴스는 `pubDate`로 15:30 분 단위까지 자릅니다.
-
-산출물:
-- `watchlist.json` — 선정 종목(`code`/`name`/`market`). 이후 단계가 소비.
-- `public/reports/selection/YYYY-MM-DD.json` — 선정 근거(미국시장·시장관 + 종목별 사유).
-
-> **데이터 소스 메모:** 정확한 코스피200/코스닥150 멤버십은 KRX 로그인이 필요해 기본은 **시가총액 상위 근사**를 씁니다. `data/index_constituents.json`(`{"KOSPI200":[...],"KOSDAQ150":[...]}`)에 정확한 종목코드 명단을 두면 그 명단을 우선 사용합니다. 실시간 시세는 스크리닝에 불필요하며(전일 확정 데이터 사용), 대시보드 실시간 시세는 기존 yfinance `/api/prices`가 담당합니다.
-
-### ② 가격 레벨 산출 — `generate_report.py`
-
-`watchlist.json` 종목의 데이터를 가져와 진입가·목표가·손절가를 계산하고 다음을 생성/갱신합니다.
-
-- `public/daily_market_report.json` — 대시보드가 읽는 최신 리포트
-- `public/reports/YYYY-MM-DD.json` — 일자별 아카이브 / `public/reports/index.json` — 날짜 목록
-
-### ③ 딥리서치 분석 — `generate_analysis.py`
-
-선정 종목별 RAW 데이터(해외 peer 시세·뉴스·국내 커뮤니티·DART 공시)를 수집해 Claude가 요약하고, 리포트에 `analysis` 필드로 병합합니다(best-effort, 실패 종목은 건너뜀).
-
-- **해외 peer 동적 해결** — `analysis/peers.json`에 큐레이션된 peer가 있으면 그대로 쓰고, **없으면(동적 와치리스트로 새로 들어온 종목) Claude가 해외 비교기업+Yahoo 티커를 제안 → yfinance로 티커 유효성을 검증**(조회 안 되는 환각 티커 제거)해서 채웁니다. 덕분에 매일 종목이 바뀌어도 peer 분석이 비지 않습니다.
-- **Market Moving Catalysts** — 분석 단계가 뉴스·공시·수급을 종합한 `catalyst`(오늘의 핵심 촉매)를 생성해 리포트 최상위 필드로 올립니다(대시보드 'Market Moving Catalysts'에 노출). `generate_report.py`가 쓰는 placeholder를 덮어씁니다.
-- **DART 최신 공시 5건**은 LLM 큐레이션 없이 결정적으로 채웁니다.
-
-상세 설계는 [`docs/DEEP_RESEARCH.md`](docs/DEEP_RESEARCH.md) 참고.
-
-### 장중 관심종목 파이프라인 — `intraday_screener.yml`
-
-장전 워치리스트와 **별개의 트랙**으로, 장중(**09:00~15:30 KST, 30분 간격, 월–금**) '지금 막 이슈가 터진 종목'을 선별해 대시보드 **'관심종목'** 탭에 띄웁니다. **모니터링 전용**이라 자동매매·계좌에는 포함되지 않습니다.
-
-같은 스크립트를 환경변수로 모드만 바꿔 재사용합니다.
-
-```
-① screener.py (SCREEN_MODE=intraday)         → intraday_watchlist.json
-② generate_report.py (REPORT_*=intraday 경로)  → public/intraday_report.json
-③ generate_analysis.py (ANALYSIS_*=intraday)   → intraday_report.json 에 analysis 병합
-```
-
-- **시간창**: 장전은 '전일 장마감~', 장중은 '당일 09:00~현재'로 뉴스·공시를 좁혀 *오늘 장 들어 나온* 촉매만 본다.
-- **선정 개수(최대 N, 미만 허용)**: 장중 LLM 은 근거(촉매 공시·당일 뉴스·미국 테마)가 충분한 종목만 **최대 `SCREEN_N_FINAL`개**(장중 기본 6) 고른다. 근거가 분명한 종목이 적으면 그보다 적게, 없으면 **0개**도 정상이다(개수를 채우려 억지로 넣지 않는다). 장전 워치리스트는 기존대로 N개를 채운다.
-- **누적(append)**: 장중은 회차마다 결과를 **덮어쓰지 않고 누적**한다. 새로 포착한 종목만 기존 관심종목에 더하고(중복은 종목코드로 제거), **당일 첫 회차에 리셋**해 전일 종목이 이어지지 않게 한다. 누적 상한은 `SCREEN_INTRADAY_CAP`(기본 20, 초과 시 최근 종목 우선 유지). LLM 호출이 실패한 회차는 신규 없이 기존 누적을 유지한다.
-- **등락률**: 장중에는 yfinance 일봉의 당일 진행봉이 마지막 행이 되어 `ChagesRatio`가 자동으로 장중 등락률이 된다.
-- **산출물 분리**: 워치리스트(`watchlist.json`/`daily_market_report.json`)와 관심종목(`intraday_watchlist.json`/`intraday_report.json`)은 서로 덮어쓰지 않는다. 관심종목은 날짜 드롭다운/아카이브에 섞지 않고 **최신본만** 갱신한다.
-- **실시간 시세**: `/api/prices`는 `ticker_utils`가 두 리스트를 합쳐 양쪽 모두에 시세를 제공한다(`vercel.json`의 `includeFiles`에 두 파일 포함).
-
-### 수동 실행
+파이프라인 스크립트 수동 실행 예:
 
 ```bash
-# 장전 워치리스트 (기본)
-python screener.py          # 종목 선정 → watchlist.json 갱신
-python generate_report.py   # 가격 레벨 리포트 생성
-python generate_analysis.py # 딥리서치 분석 병합 (API 키 필요)
+# 장전 워치리스트
+python screener.py            # 종목 선정 → watchlist.json
+python generate_report.py     # 가격 레벨 리포트
+python generate_analysis.py   # 딥리서치 분석 (LLM API 키 필요)
 
 # 장중 관심종목 (모드/경로를 env로 지정)
 SCREEN_MODE=intraday python screener.py
-REPORT_WATCHLIST=intraday_watchlist.json REPORT_OUT=public/intraday_report.json REPORT_ARCHIVE=0 python generate_report.py
-ANALYSIS_WATCHLIST=intraday_watchlist.json ANALYSIS_REPORT=public/intraday_report.json ANALYSIS_ARCHIVE=0 python generate_analysis.py
+python generate_intraday_briefing.py   # 장중 시황 + 국면 판정
 ```
 
----
-
-## 관심 종목 변경
-
-종목은 매일 `screener.py`가 자동 선정하지만, `watchlist.json`을 직접 편집해 **수동으로 고정**할 수도 있습니다(다음 자동 실행 시 다시 갱신됨).
-
-```json
-[
-  { "code": "066570", "name": "LG전자",   "market": "KOSPI"  },
-  { "code": "035420", "name": "네이버",   "market": "KOSPI"  },
-  { "code": "090360", "name": "로보스타", "market": "KOSDAQ" }
-]
-```
-
-- `code` — 6자리 종목코드
-- `market` — `KOSPI`(→ `.KS`) 또는 `KOSDAQ`(→ `.KQ`)
-
-스크리너 동작은 환경변수로 조정합니다: `SCREEN_N_FINAL`(최종 선정 수, 기본 6), `SCREEN_PRICE_BACKUP`(가격 보조 후보 수, 기본 15), `SCREEN_MAX_CANDIDATES`(LLM 후보 상한, 기본 40).
-
----
-
-## 배포 (Vercel)
-
-1. [vercel.com](https://vercel.com)에서 GitHub 로그인 후 이 레포를 **Import**
-2. Framework Preset은 **Other** 선택, 나머지는 기본값으로 **Deploy**
-3. `git push`할 때마다 자동 재배포
-
-`vercel.json`이 라우팅을 처리합니다.
-
-| 경로 | 대상 |
-|------|------|
-| `/` | `public/index.html` (대시보드) |
-| `/api/prices` | `api/index.py` (실시간 시세) |
-| 기타 | `public/*` 정적 파일 |
-
-> 모바일에서는 브라우저로 접속 후 **홈 화면에 추가**하면 앱처럼 사용할 수 있습니다.
+> ⚠️ 외부 API 호출(수집·LLM)은 크레덴셜과 해외 IP 접근성이 필요해 실제 데이터
+> 파이프라인은 **GitHub Actions / Railway에서** 실행합니다.
 
 ---
 
 ## 기술 스택
 
-- **Frontend:** Vanilla JS, HTML, CSS (단일 `index.html`)
-- **Backend:** Python `http.server` (로컬), Vercel Python Serverless (배포)
-- **Data:** [yfinance](https://github.com/ranaroussi/yfinance)(미국·실시간), [FinanceDataReader](https://github.com/FinanceData/FinanceDataReader)(KRX 유니버스), 네이버 뉴스 API, DART OpenAPI
-- **선정/분석:** LLM 폴백 체인 (`llm.py`, 기본 Google Gemini · 쿼터 소진 시 자동 전환) — 장전 종목 선정 + 딥리서치
-- **자동화:** GitHub Actions (cron)
-- **배포:** Vercel
+- **Frontend:** Vanilla JS · HTML · CSS (단일 `index.html`)
+- **Backend:** Python `http.server` 기반 상주 서버 (Railway)
+- **Data:** yfinance(미국·실시간), FinanceDataReader(KRX), 네이버 금융/뉴스,
+  DART OpenAPI, 관세청(data.go.kr), edgartools(SEC), KIS 실매매 허브(수급·VI)
+- **LLM:** 폴백 체인 (`llm.py` — Google Gemini 기본, Anthropic 폴백)
+- **자동화:** GitHub Actions (Railway 상주 스케줄러가 `workflow_dispatch`)
+- **배포:** Railway
 
 ---
 
@@ -209,4 +203,5 @@ ANALYSIS_WATCHLIST=intraday_watchlist.json ANALYSIS_REPORT=public/intraday_repor
 
 본 프로젝트는 **학습 및 시뮬레이션 목적**으로 제작되었습니다.
 표시되는 매매 신호·리포트는 자동 생성된 기술적 지표이며 **투자 권유가 아닙니다.**
+모의투자는 가상 계좌 시뮬레이션이며 실제 주문·체결과 무관합니다.
 실제 투자 판단과 그에 따른 책임은 전적으로 사용자 본인에게 있습니다.
