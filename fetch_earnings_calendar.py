@@ -859,6 +859,40 @@ def build(wise: list[dict], fng: list[dict], dart: list[dict],
 
 # ── 메인 ─────────────────────────────────────────────────────────────────────
 
+_STICKY_FIELDS = ("op", "sales", "np", "salesYoY", "opYoY", "npYoY",
+                  "tag", "quarter", "period", "fs", "time", "dartUrl", "dartTitle")
+
+
+def carry_prev_released(released, prev_released):
+    """직전 파일 값 이월(sticky) — released 는 회차마다 새로 build 되는데, 이번 회차 소스가
+    일시 실패(DART viewer SSL/타임아웃 드롭·enrich 예산 초과)하면 이미 알던 실적 수치·시각이
+    None 으로 회귀해 카드가 '수치 집계 중'으로 뜬다(동국씨엠 14:18 op 211억 → 14:41 None 회귀,
+    하나금융지주 시각 같은 분 레이스 실측). 같은 code+date 의 직전 값을 '이번 값이 빈 경우에만'
+    채운다 — 이번 회차가 새 값을 얻으면 그게 우선(정정 반영 유지). 채운 행 수 반환."""
+    prev_rel = {(r.get("code"), r.get("date")): r for r in prev_released or []}
+    n = 0
+    for r in released:
+        pr = prev_rel.get((r.get("code"), r.get("date")))
+        if not pr:
+            continue
+        filled = False
+        for k in _STICKY_FIELDS:
+            if r.get(k) is None and pr.get(k) is not None:
+                r[k] = pr[k]
+                filled = True
+        for grp in ("consensus", "surprise"):        # dict — 하위 필드별 이월
+            cur, old = r.get(grp) or {}, pr.get(grp) or {}
+            for k, v in old.items():
+                if cur.get(k) is None and v is not None:
+                    cur[k] = v
+                    filled = True
+            r[grp] = cur
+        n += 1 if filled else 0
+    if n:
+        _warn(f"직전 값 이월(sticky): {n}행")
+    return n
+
+
 def stamp_captured_date(released, prev_released, today_s):
     """released 로 '처음' 잡힌 날짜(capturedDate)를 이월/스탬프.
 
@@ -927,14 +961,7 @@ def main():
 
     stamp_captured_date(merged["released"], prev.get("released") or [], today.isoformat())
 
-    # 공시 접수시각(HH:MM) — 이전 파일 값 이월(재조회 절감) 후 결손만 DART 목록 조회.
-    # 표시 창(오늘+직전 거래일)만 대상 — 카드의 '전일' 이월 행까지 시각 표기.
-    prev_time = {(r.get("code"), r.get("date")): r.get("time")
-                 for r in prev.get("released") or [] if r.get("time")}
-    for r in merged["released"]:
-        t = prev_time.get((r.get("code"), r.get("date")))
-        if t and not r.get("time"):
-            r["time"] = t
+    carry_prev_released(merged["released"], prev.get("released") or [])
     try:
         attach_disclosure_times(merged["released"],
                                 {today.isoformat(), prev_bd.isoformat()})

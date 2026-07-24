@@ -16,7 +16,7 @@ from fetch_earnings_calendar import (parse_wisereport, parse_fnguide, parse_dart
                                      parse_dart_document, _dart_num,
                                      enrich_calendar, _yoy_calc, _target_period,
                                      stamp_captured_date, attach_disclosure_times,
-                                     fetch_dart_daylist_earnings,
+                                     fetch_dart_daylist_earnings, carry_prev_released,
                                      build, _recent_quarters)
 import fetch_earnings_calendar as _fec
 
@@ -377,6 +377,31 @@ def main():
     rows.sort(key=lambda r: (r.get("date") or "", r.get("time") or "99:99", r.get("name") or ""))
     assert [r["name"] for r in rows] == ["IPARK", "코렌텍", "기아", "무시각"], rows
     print("실적 카드 발표시간 순 정렬 OK")
+
+    # ── carry_prev_released: 수치·시각 이월(sticky) — 동국씨엠/하나 회귀 방어 ──────
+    # 이번 회차 소스 실패로 op/sales/time 이 None 회귀 → 직전 값 이월. 신선값은 미침범.
+    cur = [
+        {"code": "460850", "date": "2026-07-24", "op": None, "sales": None, "time": None,
+         "opYoY": None, "consensus": {"op": None}, "surprise": {"opGap": None},
+         "dartUrl": "u1", "sources": ["dart"]},                       # 회귀 → 이월 대상
+        {"code": "086790", "date": "2026-07-24", "op": 15943.8, "sales": 272589.4,
+         "time": None, "consensus": {"op": 17000.0}, "surprise": {"opGap": -6.2}},  # 시각만 결손
+        {"code": "999999", "date": "2026-07-24", "op": 100, "time": "09:00",
+         "consensus": {}, "surprise": {}},                            # 직전 없음 → 무변화
+    ]
+    prev = [
+        {"code": "460850", "date": "2026-07-24", "op": 211.1, "sales": 5451.3, "time": "13:20",
+         "opYoY": 52.3, "consensus": {"op": 200.0}, "surprise": {"opGap": 5.6}, "dartUrl": "u1"},
+        {"code": "086790", "date": "2026-07-24", "op": 15900.0, "time": "14:41"},   # 시각 공급
+    ]
+    n = carry_prev_released(cur, prev)
+    assert cur[0]["op"] == 211.1 and cur[0]["sales"] == 5451.3, cur[0]      # 회귀 복구
+    assert cur[0]["time"] == "13:20" and cur[0]["opYoY"] == 52.3
+    assert cur[0]["consensus"]["op"] == 200.0 and cur[0]["surprise"]["opGap"] == 5.6
+    assert cur[1]["op"] == 15943.8 and cur[1]["time"] == "14:41"            # 신선 op 유지·시각만 이월
+    assert cur[2]["op"] == 100 and "time" in cur[2] and cur[2]["time"] == "09:00"  # 무변화
+    assert n == 2
+    print("carry_prev_released 수치·시각 이월 OK")
     print("ALL PASS")
 
 
