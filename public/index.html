@@ -3359,6 +3359,8 @@
                            reason: d.regime.reason || "", asof: d.asof || "" };
           updateRegimeBadge();
         }
+        // 섹터 수급 알약 라이브 갱신 — 회차 attach 이후의 KIS 랭킹 변동을 즉시 반영
+        if (live) { _ibLiveData = d; refreshSectorNetbuy(); }
         banner.style.display = "";
       } catch (_) { banner.style.display = "none"; }
     }
@@ -3469,6 +3471,42 @@
       const collapsed = document.getElementById("ib-banner").classList.toggle("collapsed");
       // 접힌 채 로드되면 차트가 숨김 상태라 그려지지 못한다 — 펼칠 때 그린다
       if (!collapsed && _ibFlowData) _ibDrawFlowCharts(_ibFlowData);
+    }
+
+    // ── 섹터 수급 알약 라이브 갱신 (2026-07-24) ─────────────────────────────
+    // attach_sector_stock_netbuy(파이프라인)는 회차 시점 스냅샷 1회 부착 — 장 초반엔
+    // KIS 랭킹 미집계로 비고(전기·전자 09:41 회차 0/5 실측), 이후 다음 회차까지 30분
+    // 프리즈돼 온디맨드 /flow 라이브 조회와 괴리. VI 탭과 같은 허브 직접 조회로 top5
+    // 종목 가집계를 폴링 주기마다 덮어써 알약을 살아있게 한다. LLM 근거(netBuy5)는
+    // 회차 시점 값 그대로(파이프라인 무변경) — 화면 표시만 갱신.
+    let _ibLiveData = null;   // 라이브 회차 데이터(과거 열람 중엔 갱신 안 함)
+    async function refreshSectorNetbuy() {
+      if (!isWatchLiveView || !_ibLiveData) return;  // 과거 열람 — 아카이브 알약 보존
+      if (!isMarketOpen()) return;                   // 장외 — 마감 회차 attach 값 유지
+      const secs = [...(_ibLiveData.sectorsUp || []), ...(_ibLiveData.sectorsDown || [])];
+      const stocks = [], seen = new Set();
+      secs.forEach(s => (s.stocks || []).slice(0, 5).forEach(x => {
+        if (x.code && !seen.has(x.code)) { seen.add(x.code); stocks.push(x); }
+      }));
+      if (!stocks.length) return;
+      await Promise.all(stocks.map(async x => {
+        try {
+          const r = await fetch(`${VI_API_BASE}/flow?code=${x.code}`, { cache: "no-store" });
+          if (!r.ok) return;
+          const d = await r.json();
+          const r0 = (d && d.status === "success" && (d.rank || [])[0]) || null;
+          // 미랭크/실패 종목은 기존 값 유지 — 랭킹 리스트 등락으로 값이 깜빡이지 않게
+          if (r0) x.netBuy = { frgn: r0.frgn, orgn: r0.orgn, fund: r0.fund };
+        } catch (_) { /* 실패 — 기존 값 유지, 다음 주기에 재시도 */ }
+      }));
+      secs.forEach(s => {
+        const sel = `.sec-nb[data-sec="${(window.CSS && CSS.escape) ? CSS.escape(s.name) : s.name}"]`;
+        const box = document.querySelector(sel);
+        if (!box) return;
+        const wasOpen = !!box.querySelector("details[open]");   // 펼침 상태 보존
+        box.innerHTML = _secNetbuyPills(s);
+        if (wasOpen) { const det = box.querySelector("details"); if (det) det.open = true; }
+      });
     }
 
     let _ibRounds = null;   // 당일 아카이브 rounds[] (회차 선택용)
@@ -3669,7 +3707,7 @@
               + `<div class="fk-names">${(s.stocks || []).slice(0, 5).map(x => `<span class="fk-name">${_brEsc(x.name)}</span>`).join("")}</div></div></div>`;
           return `<div class="flow-row ib-flow-row">`
             + `<div class="flow-us"><div class="fu-theme">${_brEsc(s.name)} <span style="color:${_brPctColor(s.changePct)}">${_brPctFmt(s.changePct)}%</span></div>`
-            + _secNetbuyPills(s)
+            + `<div class="sec-nb" data-sec="${_brEsc(s.name)}">${_secNetbuyPills(s)}</div>`
             + `<div class="fu-syms">${secStocks}</div></div>`
             + `<div class="ib-mid"></div>`
             + `<div class="fk-stack">${right}</div></div>`;
