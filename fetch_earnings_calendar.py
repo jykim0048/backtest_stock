@@ -41,6 +41,7 @@ WISE_URL = "https://comp.wisereport.co.kr/wiseCalendar/GetCalendarAjax.aspx"
 FNGUIDE_URL = "https://comp.fnguide.com/SVO2/common/sp_read_json_cache.asp"
 DART_LIST_URL = "https://opendart.fss.or.kr/api/list.json"
 NAVER_FIN_URL = "https://m.stock.naver.com/api/stock/{code}/finance/quarter"
+NAVER_FIN_ANNUAL_URL = "https://m.stock.naver.com/api/stock/{code}/finance/annual"
 WCOMP_CNS_URL = "https://wcomp.fnguide.com/CompanyInfo/getCnsPerforTrend"
 
 UA = {
@@ -411,7 +412,8 @@ def _enrich_upcoming(u, per, src, tag_src):
 
 
 def enrich_calendar(released, upcoming, today: datetime.date,
-                    fetch_naver=None, fetch_wcomp=None, fetch_doc=None) -> int:
+                    fetch_naver=None, fetch_wcomp=None, fetch_doc=None,
+                    fetch_annual=None) -> int:
     """개별 종목으로 결손 보강. 보강 행 수 반환.
 
     released 실적 미집계(op None)는 DART 공시 원문에서 실제 실적을 직접 파싱하고
@@ -420,6 +422,7 @@ def enrich_calendar(released, upcoming, today: datetime.date,
     fetch_naver = fetch_naver or _naver_finance
     fetch_wcomp = fetch_wcomp or _wcomp_cns
     fetch_doc = fetch_doc or _dart_document
+    fetch_annual = fetch_annual or _naver_annual
     today_s = today.isoformat()
 
     def _rel_needs(r):
@@ -471,6 +474,30 @@ def enrich_calendar(released, upcoming, today: datetime.date,
             hit = enr(row, per, src, tag) or hit
             if _row_complete(kind, row):
                 break
+        # (C) 분기 컨센서스가 아예 없는 종목(증권사가 연간 추정만 제시 — 두산로보틱스
+        #     2026-07-24 실측: 네이버·FnGuide 둘 다 202606 E 기간만 있고 값 없음) →
+        #     네이버 '연간' 컨센서스 폴백. 연간 수치임을 scope 로 표시(카드 '연간' 라벨).
+        #     upcoming 만 — released 의 분기 실적 vs 연간 컨센 서프라이즈 비교는 무의미.
+        if kind == "up" and row["consensus"].get("op") is None:
+            try:
+                src = parse_naver_finance(fetch_annual(row["code"]))
+                fy = per[:4] + "12"               # 12월 결산 가정 — 아니면 기간 미매칭으로 무시
+                if src["periods"].get(fy):
+                    v = (src["metrics"].get("op") or {}).get(fy)
+                    if v is not None:
+                        row["consensus"]["op"] = v
+                        row["consensus"]["scope"] = "annual"
+                        if row["consensus"].get("yoy") is None:
+                            prev_fy = f"{int(per[:4]) - 1}12"
+                            yv = _yoy_calc(v, (src["metrics"].get("op") or {}).get(prev_fy))
+                            if yv is not None:
+                                row["consensus"]["yoy"] = yv
+                        row.setdefault("sources", [])
+                        if "naver-fy" not in row["sources"]:
+                            row["sources"].append("naver-fy")
+                        hit = True
+            except Exception as e:
+                _warn(f"enrich naver-annual {row['code']} 실패: {e}")
         enriched += 1 if hit else 0
     if fetched:
         _warn(f"개별 종목 보강: {fetched}종목 조회, {enriched}행 채움")
@@ -533,6 +560,12 @@ def fetch_fnguide(gs_yms: list[str]) -> list[dict]:
 
 def _naver_finance(code: str) -> dict:
     r = requests.get(NAVER_FIN_URL.format(code=code), headers=UA, timeout=TIMEOUT)
+    r.raise_for_status()
+    return r.json()
+
+
+def _naver_annual(code: str) -> dict:
+    r = requests.get(NAVER_FIN_ANNUAL_URL.format(code=code), headers=UA, timeout=TIMEOUT)
     r.raise_for_status()
     return r.json()
 

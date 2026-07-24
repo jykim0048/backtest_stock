@@ -3148,9 +3148,11 @@
       return (items || []).map(r => {
         const c = r.consensus || {};
         const tp = r.targetPrice ? `<span class="ev-sub">목표가 ${Math.round(r.targetPrice).toLocaleString()}원</span>` : "";
+        // scope=annual: 분기 컨센이 없어 연간 컨센으로 폴백(두산로보틱스류) — 연간임을 명시
+        const consLbl = c.scope === "annual" ? "컨센 영업이익(연간)" : "컨센 영업이익";
         return `<tr><td class="econ-time">${_earnDate(r.date, todayStr)}</td>`
              + `<td>${_earnName(r)}</td>`
-             + `<td class="econ-vals"><span class="ev-sub">컨센 영업이익</span> <b>${_earnEok(c.op)}</b>${_earnYoY(c.yoy)}</td>`
+             + `<td class="econ-vals"><span class="ev-sub">${consLbl}</span> <b>${_earnEok(c.op)}</b>${_earnYoY(c.yoy)}</td>`
              + `<td class="econ-vals">${tp}</td>`
              + `<td></td></tr>`;
       }).join("");

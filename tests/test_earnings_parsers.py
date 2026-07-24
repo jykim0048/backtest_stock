@@ -296,6 +296,31 @@ def main():
     stamp_captured_date([old], prev_legacy, "2026-07-24")
     assert old["capturedDate"] == "2026-07-20", old   # 오늘(07-24) 아닌 발표일로 소급
     print("stamp_captured_date 구버전 소급 OK")
+
+    # ── enrich_calendar: 분기 컨센 부재 종목의 연간 컨센 폴백 (두산로보틱스 사례) ──
+    # 증권사가 연간 추정만 제시 — 분기 소스(네이버 Q·FnGuide Q)는 E 기간만 있고 값이
+    # 없어 '컨센 —' 로 비던 문제. 네이버 연간(finance/annual) 폴백 + scope=annual 라벨.
+    up_dsr = {"date": "2026-07-24", "code": "454910", "name": "두산로보틱스",
+              "period": "202606", "consensus": {"op": None, "np": None, "yoy": None}}
+    nv_q = {"financeInfo": {   # 202606 은 컨센 '기간'만 있고 값 없음(실측 응답 형태)
+        "trTitleList": [{"key": "202603", "isConsensus": "N"},
+                        {"key": "202606", "isConsensus": "Y"}],
+        "rowList": [{"title": "영업이익", "columns": {"202603": {"value": "-121"}}}]}}
+    nv_a = {"financeInfo": {   # 연간: 202612 컨센 op 130 존재(실측 값)
+        "trTitleList": [{"key": "202512", "isConsensus": "N"},
+                        {"key": "202612", "isConsensus": "Y"}],
+        "rowList": [{"title": "영업이익",
+                     "columns": {"202512": {"value": "-595"}, "202612": {"value": "130"}}}]}}
+    n = enrich_calendar([], [up_dsr], datetime.date(2026, 7, 24),
+                        fetch_naver=lambda c: nv_q,
+                        fetch_wcomp=lambda c: {},
+                        fetch_annual=lambda c: nv_a)
+    assert up_dsr["consensus"]["op"] == 130.0, up_dsr
+    assert up_dsr["consensus"]["scope"] == "annual"
+    assert up_dsr["consensus"]["yoy"] == "흑전"        # 연간 -595 → +130
+    assert "naver-fy" in up_dsr["sources"]
+    assert n == 1
+    print("enrich_calendar 연간 컨센 폴백(두산로보틱스) OK")
     print("ALL PASS")
 
 
