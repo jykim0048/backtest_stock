@@ -287,6 +287,15 @@ def main():
     shown25 = [r for r in [ipark] if r["date"] == d25 or r.get("capturedDate") == d25]
     assert not shown25, "이월은 하루만 — 익익일엔 사라져야"
     print("stamp_captured_date 익일 이월(IPARK) OK")
+
+    # ── stamp_captured_date: 구버전(capturedDate 없는) 이전 파일 항목의 소급 ─────
+    # 스탬프 도입 전 파일에 이미 있던 released 를 오늘로 재스탬프하면 과거 발표 전체가
+    # '오늘 처음 포착'(전일 칩 폭주, 2026-07-24 실측) — 발표일로 소급돼야 한다.
+    old = {"date": "2026-07-20", "code": "440110", "name": "파두"}
+    prev_legacy = [{"date": "2026-07-20", "code": "440110", "name": "파두"}]  # capturedDate 없음
+    stamp_captured_date([old], prev_legacy, "2026-07-24")
+    assert old["capturedDate"] == "2026-07-20", old   # 오늘(07-24) 아닌 발표일로 소급
+    print("stamp_captured_date 구버전 소급 OK")
     print("ALL PASS")
 
 

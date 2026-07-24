@@ -780,12 +780,17 @@ def _load_earnings_events(now):
     today = now.strftime("%Y-%m-%d")
 
     # date==today(당일 발표) + capturedDate==today(전일 마감 후 늦게 발표돼 오늘 처음 포착).
+    # 지연 이월은 '직전 거래일' 발표만 — 수집망에 뒤늦게 잡힌 며칠 지난 실적(소스가 과거
+    # 발표를 늦게 노출)이 '전일' 칩으로 쏟아지는 것 방지(월요일은 금요일까지 소급.
+    # 공휴일 연휴는 미반영 — 드물고, capturedDate==today 조건이 1차로 거른다).
+    prev_bd = (now - datetime.timedelta(days=3 if now.weekday() == 0 else 1)) \
+        .strftime("%Y-%m-%d")
     rel = []
     for r in cal.get("released") or []:
         if r.get("date") == today:
             rel.append(r)
-        elif r.get("capturedDate") == today:
-            rel.append({**r, "late": True})       # 전일(이전) 발표를 오늘 처음 포착 — 카드에 '전일' 표시
+        elif r.get("capturedDate") == today and (r.get("date") or "") >= prev_bd:
+            rel.append({**r, "late": True})       # 전일 발표를 오늘 처음 포착 — 카드에 '전일' 표시
     # 서프라이즈(괴리율 절대값) 큰 순 → 상위 8건만
     rel = sorted(rel, key=lambda r: -abs(((r.get("surprise") or {}).get("opGap")) or 0))[:8]
     rel.sort(key=lambda r: (r.get("date") or "", r.get("name") or ""))

@@ -698,9 +698,16 @@ def stamp_captured_date(released, prev_released, today_s):
 
     전일 장 마감 후 늦게 발표된 실적은 익일 첫 수집에서 처음 released 로 잡히므로
     capturedDate 가 익일이 된다 → 대시보드가 그날 하루 노출(_load_earnings_events 가
-    date==today OR capturedDate==today 로 표시). 이미 잡혀 있던 종목은 기존 값 유지."""
-    prev_cap = {r.get("code"): r.get("capturedDate") for r in (prev_released or [])
-                if r.get("code") and r.get("capturedDate")}
+    date==today OR capturedDate==today 로 표시). 이미 잡혀 있던 종목은 기존 값 유지.
+
+    이전 파일에 있었지만 capturedDate 가 없는 항목(스탬프 도입 전 구버전)은 발표일로
+    소급한다 — 오늘로 재스탬프하면 과거 발표 전체가 '오늘 처음 포착'이 돼 지연 이월
+    표시가 폭주(2026-07-24 첫 실행에서 7/20~7/23 released 33건 전부 '전일' 칩 실측)."""
+    prev_cap = {}
+    for r in (prev_released or []):
+        code = r.get("code")
+        if code:
+            prev_cap[code] = r.get("capturedDate") or r.get("date") or today_s
     for r in released:
         r["capturedDate"] = prev_cap.get(r.get("code")) or today_s
 
