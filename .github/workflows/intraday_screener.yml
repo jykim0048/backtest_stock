@@ -1,9 +1,9 @@
 name: Intraday Watchlist Screener
 
 on:
-  # 정기 실행은 Railway 상시 서버 스케줄러(railway_server._scheduler)가 평일 09:07~14:37 KST,
-  # 30분 간격(:07/:37)으로 workflow_dispatch 로 트리거한다. GitHub 자체 schedule 은 지연·드롭이
-  # 잦아 제거했다(아래 guard job 은 비정상 트리거 대비 안전망으로 유지).
+  # 정기 실행은 Railway 상시 서버 스케줄러(railway_server._scheduler)가 평일 09:07~15:07 KST,
+  # 30분 간격(:07/:37, 마지막 15:07 은 최종 가집계 14:30±10분 포착용)으로 workflow_dispatch
+  # 트리거한다. GitHub 자체 schedule 은 지연·드롭이 잦아 제거했다(guard 는 안전망으로 유지).
   workflow_dispatch: # 수동 실행 + Railway 스케줄러 트리거 진입점
 
 # 장중 관심종목은 자체 그룹으로 직렬화한다. 장전(daily_report)·아카이브와 group 을 공유하면
