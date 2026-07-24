@@ -786,34 +786,6 @@ def _load_earnings_events(now):
         return {}
     today = now.strftime("%Y-%m-%d")
 
-    # 표시 유니버스 = K200+KQ150 구성종목 ∪ 섹터 시총상위(krx_sector_map) (2026-07-24
-    # 사용자 결정 + 보완). 건수 컷은 없앰 — 상위 8건 컷이 장중 발표 누적 시 전일 이월·
-    # 컨센 없는 발표를 밀어내던 문제(멀티캠퍼스 오전 표시 → 오후 실종 실측).
-    # sector_map union 이유: index_constituents 는 반기 수동 스냅샷(pykrx 해외 IP 차단
-    # 으로 자동 갱신 부재)이라 스테일 — 실제 K200 인 두산로보틱스(454910)가 빠져 있던
-    # 실측. sector_map 은 주 1회 KIS 마스터로 자동 갱신되어 구멍을 자가 치유한다.
-    idx_codes = set()
-    try:
-        with open(os.path.join(ROOT, "public", "assets", "index_constituents.json"),
-                  encoding="utf-8") as f:
-            d = json.load(f) or {}
-        idx_codes |= set(d.get("KOSPI200") or []) | set(d.get("KOSDAQ150") or [])
-    except Exception as e:
-        _warn(f"index_constituents 로드 실패(sector_map 만 사용): {e}")
-    try:
-        with open(os.path.join(ROOT, "public", "assets", "krx_sector_map.json"),
-                  encoding="utf-8") as f:
-            sm = json.load(f) or {}
-        idx_codes |= {x.get("code") for s in (sm.get("sectors") or {}).values()
-                      for x in (s.get("stocks") or []) + (s.get("kosdaqStocks") or [])
-                      if x.get("code")}
-    except Exception as e:
-        _warn(f"krx_sector_map 로드 실패(구성종목만 사용): {e}")
-    idx_codes = idx_codes or None            # 둘 다 실패 → 무필터(graceful)
-
-    def _in_idx(row):
-        return idx_codes is None or (row.get("code") or "") in idx_codes
-
     # date==today(당일 발표) + capturedDate==today(전일 마감 후 늦게 발표돼 오늘 처음 포착).
     # 지연 이월은 '직전 거래일' 발표만 — 수집망에 뒤늦게 잡힌 며칠 지난 실적(소스가 과거
     # 발표를 늦게 노출)이 '전일' 칩으로 쏟아지는 것 방지(월요일은 금요일까지 소급.
@@ -822,21 +794,16 @@ def _load_earnings_events(now):
         .strftime("%Y-%m-%d")
     rel = []
     for r in cal.get("released") or []:
-        if not _in_idx(r):
-            continue
         if r.get("date") == today:
             rel.append(r)
         elif r.get("capturedDate") == today and (r.get("date") or "") >= prev_bd:
             rel.append({**r, "late": True})       # 전일 발표를 오늘 처음 포착 — 카드에 '전일' 표시
-    # 표시 정렬: 발표일(전일 먼저) → 서프라이즈 큰 순 → 이름. 컨센 없던 발표(opGap
-    # None)는 자연히 날짜 그룹 하단(컷이 없으니 사라지진 않음).
-    rel.sort(key=lambda r: ((r.get("date") or ""),
-                            -abs(((r.get("surprise") or {}).get("opGap")) or 0),
-                            (r.get("name") or "")))
+    # 서프라이즈(괴리율 절대값) 큰 순 → 상위 8건만
+    rel = sorted(rel, key=lambda r: -abs(((r.get("surprise") or {}).get("opGap")) or 0))[:8]
+    rel.sort(key=lambda r: (r.get("date") or "", r.get("name") or ""))
 
-    up = [u for u in cal.get("upcoming") or []
-          if (u.get("date") or "") == today and _in_idx(u)]
-    up.sort(key=lambda u: -(((u.get("consensus") or {}).get("op")) or 0))
+    up = [u for u in cal.get("upcoming") or [] if (u.get("date") or "") == today]
+    up = sorted(up, key=lambda u: -(((u.get("consensus") or {}).get("op")) or 0))[:8]
 
     ev = {}
     if rel:

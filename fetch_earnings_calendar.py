@@ -413,7 +413,7 @@ def _enrich_upcoming(u, per, src, tag_src):
 
 def enrich_calendar(released, upcoming, today: datetime.date,
                     fetch_naver=None, fetch_wcomp=None, fetch_doc=None,
-                    fetch_annual=None, index_codes=None) -> int:
+                    fetch_annual=None) -> int:
     """개별 종목으로 결손 보강. 보강 행 수 반환.
 
     released 실적 미집계(op None)는 DART 공시 원문에서 실제 실적을 직접 파싱하고
@@ -434,10 +434,6 @@ def enrich_calendar(released, upcoming, today: datetime.date,
     targets = [("rel", r) for r in released if r.get("date") == today_s and _rel_needs(r)]
     targets += [("up", u) for u in upcoming if u["date"] == today_s
                 and u["consensus"]["op"] is None]
-    # 표시 유니버스(K200+KQ150) 밖 종목은 조회 예산에서 제외 — 카드에 안 뜨는 행에
-    # ENRICH_MAX 를 소진하지 않는다(index_codes=None 이면 무필터, 테스트 하위호환).
-    if index_codes:
-        targets = [(k, r) for k, r in targets if (r.get("code") or "") in index_codes]
 
     fetched, enriched = 0, 0
     for kind, row in targets:                 # build() 상 종목코드는 타깃마다 유일
@@ -808,31 +804,6 @@ def _load_prev() -> dict:
         return {}
 
 
-def _load_index_codes():
-    """표시 유니버스(K200+KQ150 ∪ 섹터 시총상위) 코드 set — 대시보드 실적 카드와
-    동일하게 enrich(개별 종목 조회) 예산을 한정한다(표시 안 될 종목에 ENRICH_MAX
-    소진 방지, 2026-07-24). sector_map union 은 index_constituents 스테일 보완
-    (두산로보틱스 K200 누락 실측). 둘 다 없으면 None(무필터). 수집·저장은 전 종목."""
-    codes = set()
-    try:
-        with open(os.path.join(ROOT, "public", "assets", "index_constituents.json"),
-                  encoding="utf-8") as f:
-            d = json.load(f) or {}
-        codes |= set(d.get("KOSPI200") or []) | set(d.get("KOSDAQ150") or [])
-    except Exception:
-        pass
-    try:
-        with open(os.path.join(ROOT, "public", "assets", "krx_sector_map.json"),
-                  encoding="utf-8") as f:
-            sm = json.load(f) or {}
-        codes |= {x.get("code") for s in (sm.get("sectors") or {}).values()
-                  for x in (s.get("stocks") or []) + (s.get("kosdaqStocks") or [])
-                  if x.get("code")}
-    except Exception:
-        pass
-    return codes or None
-
-
 def main():
     now = datetime.datetime.now(KST)
     today = now.date()
@@ -858,8 +829,7 @@ def main():
         merged["upcoming"] = prev["upcoming"]
 
     try:
-        enrich_calendar(merged["released"], merged["upcoming"], today,
-                        index_codes=_load_index_codes())
+        enrich_calendar(merged["released"], merged["upcoming"], today)
     except Exception as e:
         _warn(f"개별 종목 보강 실패(무시): {e}")
 
