@@ -3327,19 +3327,34 @@
     // ===== 🔴 장중 시황 (intraday_briefing.json — 30분 회차, 파이프라인 산출) =====
     let _ibLastAsof = null;
 
-    async function loadIntradayBriefing() {
+    // date 없음/"today" → 라이브(intraday_briefing.json), 과거 날짜 → 일자별 아카이브
+    // (reports/intraday_briefing/<date>.json 의 마지막 회차 — 마감 시황). 날짜 전환 시
+    // onReportDateChange 가 호출(2026-07-24 — 다른 섹션은 연동되는데 장중 시황만 빠져
+    // 과거 날짜에서도 오늘 라이브가 남아 있던 문제). 과거 열람 중 5분 폴링은
+    // isWatchLiveView 게이트가 이미 막고 있어 라이브로 덮이지 않는다.
+    async function loadIntradayBriefing(date) {
+      const live = (!date || date === "today");
       const banner = document.getElementById("ib-banner");
       try {
-        const r = await fetch(`intraday_briefing.json?t=${Date.now()}`, { cache: "no-store" });
-        if (!r.ok) { banner.style.display = "none"; return; }
-        const d = await r.json();
+        let d;
+        if (live) {
+          const r = await fetch(`intraday_briefing.json?t=${Date.now()}`, { cache: "no-store" });
+          if (!r.ok) { banner.style.display = "none"; return; }
+          d = await r.json();
+        } else {
+          const r = await fetch(`reports/intraday_briefing/${date}.json?t=${Date.now()}`, { cache: "no-store" });
+          if (!r.ok) { banner.style.display = "none"; return; }   // 해당 날짜 시황 없음
+          const rounds = ((await r.json()) || {}).rounds || [];
+          d = rounds[rounds.length - 1];                          // 마지막 회차(마감 시황)
+        }
         if (!d || !d.asof) { banner.style.display = "none"; return; }
         if (d.asof !== _ibLastAsof) {       // 동일 회차면 리렌더 생략
           _ibLastAsof = d.asof;
           renderIntradayBriefing(d);
         }
-        // 모의투자 국면 갱신(회차마다) — 마감 시황(final) 이후엔 freshness 게이트가 무효화
-        if (d.regime && d.regime.stance) {
+        // 모의투자 국면 갱신(라이브 회차만) — 아카이브 국면으로 배지를 덮지 않는다.
+        // 마감 시황(final) 이후엔 freshness 게이트가 무효화.
+        if (live && d.regime && d.regime.stance) {
           marketRegime = { stance: d.regime.stance, confidence: d.regime.confidence || "low",
                            reason: d.regime.reason || "", asof: d.asof || "" };
           updateRegimeBadge();
@@ -3957,6 +3972,9 @@
       loadInvWarn(date);
       // 모닝 브리핑도 같은 날짜로 연동(과거 날짜는 briefing/<date>.json)
       loadBriefing(date);
+      // 장중 시황도 같은 날짜로 연동(과거 날짜는 reports/intraday_briefing/<date>.json
+      // 마지막 회차 — 회차 셀렉터로 당일 다른 회차도 열람 가능)
+      loadIntradayBriefing(date);
       const logsBox = document.getElementById("logs-box");
       const time = new Date().toTimeString().split(" ")[0];
       const label = (date === "today") ? "최신 리포트" : `${date} 리포트`;
