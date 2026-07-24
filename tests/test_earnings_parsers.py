@@ -16,7 +16,9 @@ from fetch_earnings_calendar import (parse_wisereport, parse_fnguide, parse_dart
                                      parse_dart_document, _dart_num,
                                      enrich_calendar, _yoy_calc, _target_period,
                                      stamp_captured_date, attach_disclosure_times,
+                                     fetch_dart_daylist_earnings,
                                      build, _recent_quarters)
+import fetch_earnings_calendar as _fec
 
 
 def _fixture_text(name):
@@ -343,6 +345,38 @@ def main():
                                  fetch_times=lambda ds: (_ for _ in ()).throw(AssertionError("호출되면 안 됨")))
     assert n3 == 0 and "time" not in rel_old[0]
     print("attach_disclosure_times 접수시각 부착 OK")
+
+    # ── fetch_dart_daylist_earnings: I001 독립 감지 (기아 000270 사례) ──────────
+    # opendart list.json 볼륨 캡으로 놓친 실적을 I001 스크랩이 키 없이 잡는다.
+    # _I001_CACHE 주입으로 네트워크 없이 파싱·매핑·필터 검증.
+    _fec._I001_CACHE["20260724"] = [
+        {"rcpNo": "20260724800340", "corp": "00106641", "name": "기아",
+         "title": "연결재무제표기준영업(잠정)실적(공정공시)", "time": "13:59", "market": "KOSPI"},
+        {"rcpNo": "20260724800888", "corp": "00126380", "name": "삼성전자",
+         "title": "주식등의대량보유상황보고서", "time": "10:00", "market": "KOSPI"},   # 실적 아님
+        {"rcpNo": "20260724800111", "corp": "99999999", "name": "미상장",
+         "title": "영업(잠정)실적(공정공시)", "time": "09:00", "market": "KOSDAQ"},    # corp맵 없음
+        {"rcpNo": "20260724800222", "corp": "00106641", "name": "기아",
+         "title": "[정정]연결재무제표기준영업(잠정)실적(공정공시)", "time": "14:30", "market": "KOSPI"},  # 정정 제외
+    ]
+    er = fetch_dart_daylist_earnings(["2026-07-24"], {"00106641": "000270"})
+    assert len(er) == 1, er                        # 기아만 (비실적·미매핑·정정 제외)
+    assert er[0]["code"] == "000270" and er[0]["time"] == "13:59"
+    assert er[0]["date"] == "2026-07-24" and er[0]["url"].endswith("rcpNo=20260724800340")
+    assert fetch_dart_daylist_earnings(["2026-07-24"], {}) == []   # corp맵 없으면 생략
+    del _fec._I001_CACHE["20260724"]
+    print("fetch_dart_daylist_earnings I001 독립 감지 OK")
+
+    # ── 실적 카드 발표시간 순 정렬 키 검증 ──────────────────────────────────────
+    rows = [
+        {"date": "2026-07-24", "time": "13:59", "name": "기아"},
+        {"date": "2026-07-24", "time": "09:00", "name": "코렌텍"},
+        {"date": "2026-07-24", "time": None,    "name": "무시각"},
+        {"date": "2026-07-23", "time": "17:10", "name": "IPARK"},
+    ]
+    rows.sort(key=lambda r: (r.get("date") or "", r.get("time") or "99:99", r.get("name") or ""))
+    assert [r["name"] for r in rows] == ["IPARK", "코렌텍", "기아", "무시각"], rows
+    print("실적 카드 발표시간 순 정렬 OK")
     print("ALL PASS")
 
 

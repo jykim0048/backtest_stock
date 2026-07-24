@@ -613,30 +613,106 @@ def _wcomp_cns(code: str) -> dict:
 DART_DAYLIST_URL = "https://dart.fss.or.kr/dsac001/search.ax"
 
 
-def fetch_dart_times(dates: list[str]) -> dict:
-    """{YYYY-MM-DD: {rcpNo: "HH:MM"}} — DART '오늘의 공시' 거래소공시(I001) 목록에서
-    접수시각을 스크랩. 잠정실적(공정공시)은 전부 I001 채널로 접수됨(2026-07-24 실측
-    27/27 매칭, 하루 ~500행=5p 이하). opendart list.json 엔 시각이 없어(rcept_dt 일자만)
-    웹 목록이 유일한 시각 소스. 실패 시 해당 날짜만 빈 dict(graceful)."""
+_I001_CACHE: dict = {}       # {ymd: [row]} — 프로세스 내 1회 스크랩 재사용
+
+
+def _fetch_i001_daylist(dates: list[str]) -> dict:
+    """{YYYY-MM-DD: [{"rcpNo","corp","name","title","time","market"}]} — DART '오늘의
+    공시' 거래소공시(I001) 전체 행 파싱. 종목코드 없음(corp=DART 8자리 corp_code).
+    잠정실적(공정공시)은 전부 I001 채널이고 하루 단위라 opendart list.json 의 볼륨 캡과
+    독립·전수(2026-07-24 실측 하루 ~500행=5p 이하). 실패 시 해당 날짜만 빈 리스트."""
     out = {}
     for d in dates:
         ymd = d.replace("-", "")
-        m = {}
+        if ymd in _I001_CACHE:
+            out[d] = _I001_CACHE[ymd]
+            continue
+        rows = []
         try:
-            for page in range(1, 8):          # 상한 7p — 폭주 방어
+            for page in range(1, 9):          # 상한 8p — 폭주 방어(I001 하루 5p 내외)
                 r = _dart_get(DART_DAYLIST_URL, {
                     "selectDate": ymd, "sort": "time", "series": "desc",
                     "mdayCnt": "0", "currentPage": page, "pageCount": "100",
                     "publicType": "I001",
                 }, headers=dict(UA, Referer="https://dart.fss.or.kr/dsac001/mainAll.do"))
-                pairs = re.findall(r"(\d{2}:\d{2})[\s\S]{0,700}?rcpNo=(\d{14})", r.text)
-                for t, rcp in pairs:
-                    m.setdefault(rcp, t)
-                if len(pairs) < 100:
+                # dsac001/search.ax 응답은 UTF-8 — r.text 기본추정(ISO-8859-1)은 한글을
+                # 깨뜨려 제목 키워드 매칭이 전멸한다(시각칩은 ASCII 만 뽑아 무증상이었음).
+                html = r.content.decode("utf-8", "replace")
+                n0 = len(rows)
+                for tr in re.split(r"<tr[>\s]", html):
+                    mrcp = re.search(r"rcpNo=(\d{14})", tr)
+                    if not mrcp:
+                        continue
+                    mt = re.search(r"<td[^>]*>\s*(\d{2}:\d{2})\s*</td>", tr)
+                    mc = re.search(r"openCorpInfoNew\('(\d{8})'", tr)
+                    mn = re.search(r'title="([^"]+?)\s*기업개황', tr)
+                    mtt = re.search(r'id="r_\d{14}"[^>]*\btitle="([^"]+)"', tr)
+                    title = re.sub(r"\s*공시뷰어.*$", "", mtt.group(1)).strip() if mtt else ""
+                    rows.append({
+                        "rcpNo": mrcp.group(1),
+                        "corp":  mc.group(1) if mc else "",
+                        "name":  mn.group(1).strip() if mn else "",
+                        "title": title,
+                        "time":  mt.group(1) if mt else "",
+                        "market": ("KOSPI" if "tagCom_kospi" in tr else
+                                   "KOSDAQ" if "tagCom_kosdaq" in tr else ""),
+                    })
+                if len(rows) - n0 < 100:
                     break
         except Exception as e:
-            _warn(f"dart 접수시각 목록({d}) 실패: {e}")
-        out[d] = m
+            _warn(f"I001 오늘의공시 목록({d}) 실패: {e}")
+        _I001_CACHE[ymd] = rows
+        out[d] = rows
+    return out
+
+
+def fetch_dart_times(dates: list[str]) -> dict:
+    """{YYYY-MM-DD: {rcpNo: "HH:MM"}} — I001 목록의 접수시각. opendart list.json 엔
+    시각이 없어(rcept_dt 일자만) 이 웹 목록이 유일한 시각 소스."""
+    dl = _fetch_i001_daylist(dates)
+    return {d: {r["rcpNo"]: r["time"] for r in rows if r["time"]}
+            for d, rows in dl.items()}
+
+
+def _load_corp2stock() -> dict:
+    """DART corp_code(8) -> stock_code(6). dart_corp_map.json(stock->corp) 역인덱스.
+    I001 목록은 6자리 종목코드가 없고 corp_code 만 있어(이름 매칭 함정 회피용) 필요.
+    없으면 {} (I001 실적 감지 생략)."""
+    try:
+        with open(os.path.join(ROOT, "public", "assets", "dart_corp_map.json"),
+                  encoding="utf-8") as f:
+            m = json.load(f) or {}
+        return {v: k for k, v in m.items() if v and k}
+    except Exception as e:
+        _warn(f"dart_corp_map 로드 실패(I001 실적감지 생략): {e}")
+        return {}
+
+
+def fetch_dart_daylist_earnings(dates: list[str], corp2stock: dict) -> list[dict]:
+    """I001 오늘의공시에서 실적 공시만 → parse_dart 호환 rows(+time). opendart list.json
+    이 볼륨 캡으로 놓친 발표를 키 없이 독립 감지(기아 000270 사례, 2026-07-24). 집계
+    사이트(FnGuide·WiseReport) 일정에 없어도 잡는다 — build 가 code 슬롯으로 병합."""
+    if not corp2stock:
+        return []
+    dl = _fetch_i001_daylist(dates)
+    out = []
+    for d, rows in dl.items():
+        for r in rows:
+            title = r.get("title") or ""
+            if not any(k in title for k in DART_EARNINGS_KEYWORDS):
+                continue
+            if any(k in title for k in DART_EXCLUDE_KEYWORDS):
+                continue
+            code = corp2stock.get(r.get("corp"))
+            if not code:
+                continue
+            out.append({
+                "date": d, "code": code, "name": r.get("name") or None,
+                "title": title, "time": r.get("time") or None,
+                "url": f"https://dart.fss.or.kr/dsaf001/main.do?rcpNo={r['rcpNo']}",
+            })
+    if out:
+        _warn(f"I001 실적 공시 감지: {len(out)}건")
     return out
 
 
@@ -662,18 +738,24 @@ def attach_disclosure_times(released, dates, fetch_times=None):
 
 
 def fetch_dart(bgn: str, end: str) -> list[dict]:
-    """상장(Y)+코스닥(K) 최근 공시를 페이지네이션 스캔 후 실적 공시 필터."""
+    """상장(Y)+코스닥(K) 최근 거래소공시를 페이지네이션 스캔 후 실적 공시 필터.
+
+    pblntf_ty="I"(거래소공시)로 한정 — 영업(잠정)실적·손익구조 공정공시는 전부 이
+    채널이라 볼륨이 5~10배 줄어 페이지 캡 절삭을 막는다. 이 필터 없이 전 공시유형을
+    7일 긁으면 클래스당 수천 건→1000(page10) 캡에서 실적 공시가 잘려 나갔다(기아
+    000270 누락, 2026-07-24). 캡도 20p 로 상향(백스톱)."""
     if not DART_KEY:
         _warn("DART_API_KEY 미설정 — dart 소스 생략")
         return []
     raw = []
     for cls in ("Y", "K"):
         page = 1
-        while page <= 10:
+        while page <= 20:
             try:
                 r = _dart_get(DART_LIST_URL, {
                     "crtfc_key": DART_KEY, "bgn_de": bgn, "end_de": end,
-                    "corp_cls": cls, "page_no": page, "page_count": 100,
+                    "corp_cls": cls, "pblntf_ty": "I",   # 거래소공시만(실적 공정공시 포함)
+                    "page_no": page, "page_count": 100,
                 })
                 data = r.json()
                 if data.get("status") != "000":
@@ -810,10 +892,20 @@ def main():
     this_ym = today.strftime("%Y%m")
     nxt = (today.replace(day=1) + datetime.timedelta(days=32)).strftime("%Y%m")
 
+    prev_bd = today - datetime.timedelta(days=3 if today.weekday() == 0 else 1)
     wise = fetch_wisereport([this_ym, nxt])
     fng = fetch_fnguide(_recent_quarters(today))
-    bgn = (today - datetime.timedelta(days=RELEASED_LOOKBACK_DAYS)).strftime("%Y%m%d")
+    # opendart 조회 창은 짧게(오늘+직전 거래일 여유) — 표시·capturedDate 이월은 이 범위면
+    # 충분하고, 창이 짧을수록 pblntf_ty=I 볼륨이 더 작아 캡 절삭 위험이 사라진다.
+    bgn = min(prev_bd, today - datetime.timedelta(days=2)).strftime("%Y%m%d")
     dart = fetch_dart(bgn, today.strftime("%Y%m%d"))
+    # 독립 안전망: I001 오늘의공시 스크랩(키 불필요)으로 opendart 가 놓친 실적 공시 감지
+    # (FnGuide·WiseReport 일정에 없어도 잡음 — 기아 000270 사례). build 가 code 로 병합.
+    try:
+        dart += fetch_dart_daylist_earnings(
+            [today.isoformat(), prev_bd.isoformat()], _load_corp2stock())
+    except Exception as e:
+        _warn(f"I001 실적 감지 실패(무시): {e}")
 
     prev = _load_prev()
     if not wise:
@@ -844,7 +936,6 @@ def main():
         if t and not r.get("time"):
             r["time"] = t
     try:
-        prev_bd = today - datetime.timedelta(days=3 if today.weekday() == 0 else 1)
         attach_disclosure_times(merged["released"],
                                 {today.isoformat(), prev_bd.isoformat()})
     except Exception as e:
