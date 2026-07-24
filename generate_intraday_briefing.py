@@ -612,36 +612,39 @@ def attach_sector_stock_news(sectors_up, sectors_down):
     'GTX·원자력' 처럼 소속 테마로 원인을 오독한다(2026-07-23 건설 AI데이터센터 사례).
     당일 뉴스 헤드라인에 실제 촉매가 있어 이를 LLM 입력에 직접 넣는다(추가 LLM 콜 없음)."""
     today = datetime.datetime.now(KST).strftime("%d %b %Y")   # RFC822 "23 Jul 2026"
-    picked, seen = [], set()
+    # 같은 종목이 여러 섹터 top 에 별개 '객체'로 들어간다(예: SK하이닉스 = 전기·전자
+    # + 제조) — 조회는 코드당 1회로 dedup 하되, 결과는 모든 객체에 부착해야 한다.
+    # (기존엔 첫 객체에만 부착 → 두 번째 섹터에서 데이터 누락, 2026-07-24 실측)
+    by_code = {}
     for s in sectors_up + sectors_down:
         for x in (s.get("stocks") or [])[:SECTOR_NEWS_TOP]:
             code = x.get("code")
-            if code and code not in seen and x.get("name"):
-                seen.add(code)
-                picked.append(x)
-    if not picked:
+            if code and x.get("name"):
+                by_code.setdefault(code, []).append(x)
+    if not by_code:
         return
 
-    def _one(x):
+    def _one(xs):
         try:
-            items = sources.naver_search("news", x["name"], display=6)
+            items = sources.naver_search("news", xs[0]["name"], display=6)
             todays = [it for it in items if today in (it.get("date") or "")] or items
             heads = []
             for it in todays[:SECTOR_NEWS_PER]:
                 t = re.sub(r"<[^>]+>", "", it.get("title") or "").strip()
                 if t:
                     heads.append(t)
-            return x, heads
+            return xs, heads
         except Exception:
-            return x, []
+            return xs, []
 
     n = 0
     with ThreadPoolExecutor(max_workers=8) as pool:
-        for x, heads in pool.map(_one, picked):
+        for xs, heads in pool.map(_one, by_code.values()):
             if heads:
-                x["news"] = heads
+                for x in xs:
+                    x["news"] = heads
                 n += 1
-    print(f"  섹터 관련주 뉴스: {n}/{len(picked)}종목 헤드라인 부착")
+    print(f"  섹터 관련주 뉴스: {n}/{len(by_code)}종목 헤드라인 부착")
 
 
 def attach_sector_stock_netbuy(sectors_up, sectors_down):
@@ -651,37 +654,41 @@ def attach_sector_stock_netbuy(sectors_up, sectors_down):
 
     함정: /flow 의 rank 는 종목이 KIS 순매수/순매도 상위 리스트(대략 top 30)에 들 때만
     채워진다 — 미랭크 종목은 가집계 금액이 없어 netBuy 미부착(프론트가 합계에서 제외·표에 –)."""
-    picked, seen = [], set()
+    # 같은 종목이 여러 섹터 top 에 별개 '객체'로 들어간다 — 조회는 코드당 1회로
+    # dedup 하되 결과는 모든 객체에 부착(첫 객체만 부착하면 두 번째 섹터가 – 로 비는
+    # 버그: 제조의 SK하이닉스·삼성전자가 전기·전자에만 반영되던 2026-07-24 실측).
+    by_code = {}
     for s in sectors_up + sectors_down:
         for x in (s.get("stocks") or [])[:SECTOR_NETBUY_TOP]:
             code = x.get("code")
-            if code and code not in seen:
-                seen.add(code)
-                picked.append(x)
-    if not picked:
+            if code:
+                by_code.setdefault(code, []).append(x)
+    if not by_code:
         return
 
-    def _one(x):
+    def _one(item):
+        code, xs = item
         try:
-            r = requests.get(f"{KIS_HUB_URL}/flow", params={"code": x["code"]}, timeout=12)
+            r = requests.get(f"{KIS_HUB_URL}/flow", params={"code": code}, timeout=12)
             r.raise_for_status()
             d = r.json()
             rank = d.get("rank") or []
             if d.get("status") == "success" and rank:
                 r0 = rank[0]     # frgn/orgn/fund 는 종목 순매수 대금(리스트 무관 동일 값)
-                return x, {"frgn": r0.get("frgn"), "orgn": r0.get("orgn"),
-                           "fund": r0.get("fund")}
-            return x, None
+                return xs, {"frgn": r0.get("frgn"), "orgn": r0.get("orgn"),
+                            "fund": r0.get("fund")}
+            return xs, None
         except Exception:
-            return x, None
+            return xs, None
 
     n = 0
     with ThreadPoolExecutor(max_workers=8) as pool:
-        for x, nb in pool.map(_one, picked):
+        for xs, nb in pool.map(_one, by_code.items()):
             if nb and any(v is not None for v in nb.values()):
-                x["netBuy"] = nb
+                for x in xs:
+                    x["netBuy"] = nb
                 n += 1
-    print(f"  섹터 가집계(외국인/기관/연기금): {n}/{len(picked)}종목 부착")
+    print(f"  섹터 가집계(외국인/기관/연기금): {n}/{len(by_code)}종목 부착")
 
 
 def _load_us_context():

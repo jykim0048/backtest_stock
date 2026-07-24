@@ -3484,19 +3484,24 @@
       if (!isWatchLiveView || !_ibLiveData) return;  // 과거 열람 — 아카이브 알약 보존
       if (!isMarketOpen()) return;                   // 장외 — 마감 회차 attach 값 유지
       const secs = [...(_ibLiveData.sectorsUp || []), ...(_ibLiveData.sectorsDown || [])];
-      const stocks = [], seen = new Set();
+      // 같은 종목이 여러 섹터 top5 에 '별개 객체'로 들어간다(예: SK하이닉스 = 전기·전자
+      // + 제조) — 조회는 코드당 1회, 결과는 같은 코드의 모든 객체에 부착해야 한다
+      // (첫 객체만 갱신하면 두 번째 섹터 표가 – 로 비는 버그, 2026-07-24 실측).
+      const byCode = new Map();
       secs.forEach(s => (s.stocks || []).slice(0, 5).forEach(x => {
-        if (x.code && !seen.has(x.code)) { seen.add(x.code); stocks.push(x); }
+        if (!x.code) return;
+        if (!byCode.has(x.code)) byCode.set(x.code, []);
+        byCode.get(x.code).push(x);
       }));
-      if (!stocks.length) return;
-      await Promise.all(stocks.map(async x => {
+      if (!byCode.size) return;
+      await Promise.all([...byCode.entries()].map(async ([code, xs]) => {
         try {
-          const r = await fetch(`${VI_API_BASE}/flow?code=${x.code}`, { cache: "no-store" });
+          const r = await fetch(`${VI_API_BASE}/flow?code=${code}`, { cache: "no-store" });
           if (!r.ok) return;
           const d = await r.json();
           const r0 = (d && d.status === "success" && (d.rank || [])[0]) || null;
           // 미랭크/실패 종목은 기존 값 유지 — 랭킹 리스트 등락으로 값이 깜빡이지 않게
-          if (r0) x.netBuy = { frgn: r0.frgn, orgn: r0.orgn, fund: r0.fund };
+          if (r0) xs.forEach(x => { x.netBuy = { frgn: r0.frgn, orgn: r0.orgn, fund: r0.fund }; });
         } catch (_) { /* 실패 — 기존 값 유지, 다음 주기에 재시도 */ }
       }));
       secs.forEach(s => {
