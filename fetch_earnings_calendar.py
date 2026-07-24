@@ -614,6 +614,57 @@ def _wcomp_cns(code: str) -> dict:
     return r.json()
 
 
+DART_DAYLIST_URL = "https://dart.fss.or.kr/dsac001/search.ax"
+
+
+def fetch_dart_times(dates: list[str]) -> dict:
+    """{YYYY-MM-DD: {rcpNo: "HH:MM"}} — DART '오늘의 공시' 거래소공시(I001) 목록에서
+    접수시각을 스크랩. 잠정실적(공정공시)은 전부 I001 채널로 접수됨(2026-07-24 실측
+    27/27 매칭, 하루 ~500행=5p 이하). opendart list.json 엔 시각이 없어(rcept_dt 일자만)
+    웹 목록이 유일한 시각 소스. 실패 시 해당 날짜만 빈 dict(graceful)."""
+    out = {}
+    for d in dates:
+        ymd = d.replace("-", "")
+        m = {}
+        try:
+            for page in range(1, 8):          # 상한 7p — 폭주 방어
+                r = _dart_get(DART_DAYLIST_URL, {
+                    "selectDate": ymd, "sort": "time", "series": "desc",
+                    "mdayCnt": "0", "currentPage": page, "pageCount": "100",
+                    "publicType": "I001",
+                }, headers=dict(UA, Referer="https://dart.fss.or.kr/dsac001/mainAll.do"))
+                pairs = re.findall(r"(\d{2}:\d{2})[\s\S]{0,700}?rcpNo=(\d{14})", r.text)
+                for t, rcp in pairs:
+                    m.setdefault(rcp, t)
+                if len(pairs) < 100:
+                    break
+        except Exception as e:
+            _warn(f"dart 접수시각 목록({d}) 실패: {e}")
+        out[d] = m
+    return out
+
+
+def attach_disclosure_times(released, dates, fetch_times=None):
+    """released 행(dartUrl 보유)에 접수시각 r['time']="HH:MM" 부착. 부착 건수 반환.
+    dates 범위(오늘+직전 거래일 — 카드 표시 창)만 조회해 콜 수를 제한한다."""
+    fetch_times = fetch_times or fetch_dart_times
+    need = [r for r in released
+            if r.get("date") in dates and r.get("dartUrl") and not r.get("time")]
+    if not need:
+        return 0
+    times = fetch_times(sorted({r["date"] for r in need}))
+    n = 0
+    for r in need:
+        m = re.search(r"rcpNo=(\d+)", r["dartUrl"])
+        t = (times.get(r["date"]) or {}).get(m.group(1)) if m else None
+        if t:
+            r["time"] = t
+            n += 1
+    if n:
+        _warn(f"공시 접수시각 부착: {n}/{len(need)}행")
+    return n
+
+
 def fetch_dart(bgn: str, end: str) -> list[dict]:
     """상장(Y)+코스닥(K) 최근 공시를 페이지네이션 스캔 후 실적 공시 필터."""
     if not DART_KEY:
@@ -813,6 +864,21 @@ def main():
         _warn(f"개별 종목 보강 실패(무시): {e}")
 
     stamp_captured_date(merged["released"], prev.get("released") or [], today.isoformat())
+
+    # 공시 접수시각(HH:MM) — 이전 파일 값 이월(재조회 절감) 후 결손만 DART 목록 조회.
+    # 표시 창(오늘+직전 거래일)만 대상 — 카드의 '전일' 이월 행까지 시각 표기.
+    prev_time = {(r.get("code"), r.get("date")): r.get("time")
+                 for r in prev.get("released") or [] if r.get("time")}
+    for r in merged["released"]:
+        t = prev_time.get((r.get("code"), r.get("date")))
+        if t and not r.get("time"):
+            r["time"] = t
+    try:
+        prev_bd = today - datetime.timedelta(days=3 if today.weekday() == 0 else 1)
+        attach_disclosure_times(merged["released"],
+                                {today.isoformat(), prev_bd.isoformat()})
+    except Exception as e:
+        _warn(f"공시 접수시각 부착 실패(무시): {e}")
 
     out = {
         "date": today.isoformat(),

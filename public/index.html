@@ -3136,7 +3136,12 @@
         // 전일 장 마감 후 발표돼 오늘 처음 포착된 지연 실적 — 날짜 옆 '전일' 표시
         const lateTag = r.late
           ? ` <span class="econ-badge inline" style="font-size:10px;" title="전일 장 마감 후 발표 — 익일 반영">전일</span>` : "";
-        return `<tr><td class="econ-time">${_earnDate(r.date, todayStr)}${lateTag}</td>`
+        // 공시 접수시각(DART 거래소공시 목록) — 15:30 이후는 '마감후'로 강조
+        const afterClose = r.time && r.time >= "15:30";
+        const timeTag = r.time
+          ? ` <span class="ev-sub" style="font-size:10.5px;${afterClose ? "color:#fbbf24;" : ""}"`
+            + ` title="${afterClose ? "장 마감 후 발표" : "공시 접수시각"}">${_brEsc(r.time)}${afterClose ? " 마감후" : ""}</span>` : "";
+        return `<tr><td class="econ-time">${_earnDate(r.date, todayStr)}${lateTag}${timeTag}</td>`
              + `<td>${_earnName(r)}</td>`
              + `<td class="econ-vals">${opCell}</td>`
              + `<td class="econ-vals"><span class="ev-sub">${r.sales !== null && r.sales !== undefined ? "매출 " + _earnEok(r.sales) : ""}</span>${r.sales !== null && r.sales !== undefined ? _earnYoY(r.salesYoY) : ""}</td>`

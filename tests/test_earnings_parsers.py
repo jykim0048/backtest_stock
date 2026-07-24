@@ -15,7 +15,7 @@ from fetch_earnings_calendar import (parse_wisereport, parse_fnguide, parse_dart
                                      parse_naver_finance, parse_wcomp_cns,
                                      parse_dart_document, _dart_num,
                                      enrich_calendar, _yoy_calc, _target_period,
-                                     stamp_captured_date,
+                                     stamp_captured_date, attach_disclosure_times,
                                      build, _recent_quarters)
 
 
@@ -321,6 +321,28 @@ def main():
     assert "naver-fy" in up_dsr["sources"]
     assert n == 1
     print("enrich_calendar 연간 컨센 폴백(두산로보틱스) OK")
+
+    # ── attach_disclosure_times: DART 접수시각 부착 (I001 목록 rcpNo 매핑) ────────
+    rel_t = [
+        {"date": "2026-07-23", "code": "294870", "name": "IPARK현대산업개발",
+         "dartUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260723800878"},
+        {"date": "2026-07-24", "code": "012330", "name": "현대모비스",
+         "dartUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260724800096"},
+        {"date": "2026-07-24", "code": "000000", "name": "비DART", },   # dartUrl 없음 — 스킵
+    ]
+    fixture = {"2026-07-23": {"20260723800878": "17:10"},
+               "2026-07-24": {"20260724800096": "09:52"}}
+    n2 = attach_disclosure_times(rel_t, {"2026-07-23", "2026-07-24"},
+                                 fetch_times=lambda ds: {d: fixture.get(d, {}) for d in ds})
+    assert n2 == 2 and rel_t[0]["time"] == "17:10" and rel_t[1]["time"] == "09:52"
+    assert "time" not in rel_t[2]
+    # 표시 창 밖 날짜는 조회 대상에서 제외
+    rel_old = [{"date": "2026-07-20", "code": "440110", "name": "파두",
+                "dartUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260720800001"}]
+    n3 = attach_disclosure_times(rel_old, {"2026-07-23", "2026-07-24"},
+                                 fetch_times=lambda ds: (_ for _ in ()).throw(AssertionError("호출되면 안 됨")))
+    assert n3 == 0 and "time" not in rel_old[0]
+    print("attach_disclosure_times 접수시각 부착 OK")
     print("ALL PASS")
 
 
