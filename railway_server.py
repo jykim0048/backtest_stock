@@ -214,11 +214,16 @@ def _raw_fetch(relpath):
         e = _RAW_CACHE.get(relpath)
         if e and now - e["ts"] < DATA_TTL:
             return e["body"]
-    url = f"https://raw.githubusercontent.com/{_RAW_REPO}/{_RAW_REF}/{relpath}"
+    # 캐시버스터(?t=초) — raw.githubusercontent 은 브랜치 경로를 Fastly CDN 으로 ~5분
+    # 캐시해, 회차 커밋 직후에도 옛 파일을 계속 서빙한다(대시보드 반영 지연의 주범:
+    # 커밋 후 Railway 가 신선본을 못 받아 최대 5분 스테일 실측). 이 함수는 60s TTL 만료
+    # 시에만 원격 조회하므로 int(now) 버스터는 파일당 ~분당 1회 origin 히트로 항상 최신.
+    url = f"https://raw.githubusercontent.com/{_RAW_REPO}/{_RAW_REF}/{relpath}?t={int(now)}"
     req = urllib.request.Request(url)
     if _RAW_TOKEN:
         req.add_header("Authorization", f"token {_RAW_TOKEN}")
     req.add_header("User-Agent", "railway-dashboard")
+    req.add_header("Cache-Control", "no-cache")
     body = None
     try:
         with urllib.request.urlopen(req, timeout=10) as r:

@@ -4095,7 +4095,9 @@
       setInterval(loadViLimit, 15000);
       setInterval(tickSimulation, 1500);
       setInterval(updateEngineStatusIndicator, 5000);
-      // 장중 관심종목은 30분 간격으로 서버에서 갱신되므로 5분마다 다시 로드한다.
+      // 회차 데이터는 서버에서 30분 간격 갱신되지만, Actions 완료 시점이 불규칙해
+      // 폴링을 60초로 좁혀 반영 지연을 줄인다(각 로더에 asof/코드 병합 가드가 있어
+      // 동일 회차면 리렌더 스킵 — 부하 미미, Railway 는 60s TTL 캐시로 서빙).
       // 과거 날짜 열람 중에는 최신본으로 덮어쓰지 않는다.
       setInterval(async () => {
         refreshDailyAnalysis();   // 장전 워치리스트 딥리서치(수급 등) 장중 갱신 병합
@@ -4106,8 +4108,8 @@
         renderWatchTable();
         renderWatchDownTable();
         updateWatchAsof();
-        loadIntradayBriefing();   // 🔴 장중 시황도 같은 주기(30분 회차물이라 5분이면 충분)
-      }, 300000);
+        loadIntradayBriefing();   // 🔴 장중 시황(동일 asof 면 renderIntradayBriefing 스킵)
+      }, 60000);
     };
 
     // intraday_report.json 갱신 시각 표시 (selection/intraday/<date>.json 의 asof)
