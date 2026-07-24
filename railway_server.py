@@ -78,6 +78,24 @@ def _load_master():
                 by_name.setdefault(name, entry)
     except Exception as ex:
         print(f"[research] master load failed: {ex}", file=sys.stderr)
+    # 약명 별칭 — KRX 마스터는 정식명(현대자동차)인데 대시보드·KIS·네이버는 약명(현대차).
+    # 약명 검색이 부분일치 폴백으로 흘러 '현대차 → 현대차증권' 오매칭(2026-07-24 실측).
+    # 시총상위 KIS 약명(krx_sector_map)을 별칭으로 흡수 — 기존 정식명 키는 침범 안 함.
+    try:
+        with open(os.path.join(ROOT, "public", "assets", "krx_sector_map.json"),
+                  encoding="utf-8") as f:
+            sm = json.load(f) or {}
+        n_alias = 0
+        for s in (sm.get("sectors") or {}).values():
+            for x in (s.get("stocks") or []) + (s.get("kosdaqStocks") or []):
+                code = str(x.get("code") or "").zfill(6)
+                name = (x.get("name") or "").strip()
+                if name and code in by_code and name not in by_name:
+                    by_name[name] = by_code[code]
+                    n_alias += 1
+        print(f"[research] master alias: {n_alias}건 약명 병합")
+    except Exception as ex:
+        print(f"[research] alias load failed: {ex}", file=sys.stderr)
     return by_code, by_name
 
 
