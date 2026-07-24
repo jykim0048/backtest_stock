@@ -798,12 +798,13 @@ def _load_earnings_events(now):
             rel.append(r)
         elif r.get("capturedDate") == today and (r.get("date") or "") >= prev_bd:
             rel.append({**r, "late": True})       # 전일 발표를 오늘 처음 포착 — 카드에 '전일' 표시
-    # 서프라이즈(괴리율 절대값) 큰 순 → 상위 8건만
-    rel = sorted(rel, key=lambda r: -abs(((r.get("surprise") or {}).get("opGap")) or 0))[:8]
+    # 건수 리밋 없음(2026-07-24 사용자 결정) — 상위 8건 컷이 장중 발표 누적 시 정상
+    # 발표·전일 이월을 밀어내 사라지게 하던 문제(멀티캠퍼스·두산퓨얼셀류). 표시 정렬만:
+    # 발표일(전일 먼저) → 이름. (유니버스 필터는 도입 안 함 — whitelist 누락 재발 우려.)
     rel.sort(key=lambda r: (r.get("date") or "", r.get("name") or ""))
 
     up = [u for u in cal.get("upcoming") or [] if (u.get("date") or "") == today]
-    up = sorted(up, key=lambda u: -(((u.get("consensus") or {}).get("op")) or 0))[:8]
+    up.sort(key=lambda u: -(((u.get("consensus") or {}).get("op")) or 0))
 
     ev = {}
     if rel:
