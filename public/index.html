@@ -3103,12 +3103,12 @@
                  + _earnUpcomingRows(pick(_earnData.up), _earnData.date);
       const total = (_earnData.rel || []).length + (_earnData.up || []).length;
       const tab = (f, label) => `<span onclick="earnMktToggle('${f}')" style="cursor:pointer;`
-        + ` padding:2px 10px; border-radius:999px; font-size:11.5px; ${_earnMkt === f
+        + ` padding:2px 10px; border-radius:999px; font-size:12.5px; ${_earnMkt === f
           ? "background:var(--kospi-blue); color:#fff; font-weight:600;"
           : "background:rgba(255,255,255,.06); color:var(--text-muted);"}">${label}</span>`;
       return `<div class="briefing-wl" style="margin-top:12px"><div class="wl-h"`
         + ` style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">`
-        + `<span>📈 실적발표 — 오늘 결과 · 오늘 예정 <span style="opacity:.6;">(${total})</span></span>`
+        + `<span style="font-size:15.5px;">📈 실적발표 — 오늘 결과 · 오늘 예정 <span style="opacity:.6;">(${total})</span></span>`
         + `<span style="margin-left:auto; display:flex; gap:4px;">`
         + `${tab("전체", "전체")}${tab("KOSPI", "코스피")}${tab("KOSDAQ", "코스닥")}</span></div>`
         + `<table><tbody>${rows || `<tr><td colspan="5" style="color:var(--text-muted);`
