@@ -29,6 +29,7 @@ import re
 import json
 import time
 import datetime
+from concurrent.futures import ThreadPoolExecutor
 
 import requests
 
@@ -470,12 +471,17 @@ def enrich_calendar(released, upcoming, today: datetime.date,
     targets += [("up", u) for u in upcoming if u["date"] == today_s
                 and u["consensus"]["op"] is None]
 
-    fetched, enriched = 0, 0
-    for kind, row in targets:                 # build() 상 종목코드는 타깃마다 유일
-        if fetched >= ENRICH_MAX:
-            _warn(f"개별 종목 보강: ENRICH_MAX({ENRICH_MAX}) 도달 — 잔여 {len(targets) - fetched}행 생략")
-            break
-        fetched += 1
+    # 타깃 상한 선적용 후 TP6 병렬 조회(2026-07-27): 순차 28종목×(dart-doc 2요청+네이버
+    # +FnGuide)가 earnings 스텝 150s 의 대부분이던 병목. 행 객체는 타깃마다 유일하고
+    # (build 가 code 로 병합) 변경은 자기 행에만 닿아 스레드 안전. DART 전송 플레이크의
+    # 백오프 대기도 다른 타깃 조회와 겹쳐 벽시계에서 대부분 사라진다.
+    if len(targets) > ENRICH_MAX:
+        _warn(f"개별 종목 보강: ENRICH_MAX({ENRICH_MAX}) 도달 — 잔여 {len(targets) - ENRICH_MAX}행 생략")
+        targets = targets[:ENRICH_MAX]
+    fetched = len(targets)
+
+    def _one(item):                           # build() 상 종목코드는 타깃마다 유일
+        kind, row = item
         per = _target_period(row, today)
         hit = False
         # (A) released 실적 미집계 → DART 원문에서 '실제' 잠정실적 직접 파싱.
@@ -533,7 +539,12 @@ def enrich_calendar(released, upcoming, today: datetime.date,
                         hit = True
             except Exception as e:
                 _warn(f"enrich naver-annual {row['code']} 실패: {e}")
-        enriched += 1 if hit else 0
+        return 1 if hit else 0
+
+    enriched = 0
+    if targets:
+        with ThreadPoolExecutor(max_workers=6) as pool:
+            enriched = sum(pool.map(_one, targets))
     if fetched:
         _warn(f"개별 종목 보강: {fetched}종목 조회, {enriched}행 채움")
     return enriched
@@ -958,16 +969,16 @@ def retry_dart_doc(released, today_s, fetch_doc=None, limit=None):
             if r.get("date") == today_s and r.get("dartUrl")
             and (r.get("op") is None or r.get("sales") is None or r.get("np") is None
                  or _missing_yoy(r))]
-    n = 0
-    for r in need[:limit]:
+    # 행별 조회는 상호 독립(자기 행만 변경) — TP4 병렬(enrich_calendar 와 동일 근거).
+    def _one(r):
         rc = re.search(r"rcpNo=(\d+)", r["dartUrl"])
         if not rc:
-            continue
+            return 0
         try:
             act = fetch_doc(rc.group(1)) or {}
         except Exception as e:
             _warn(f"dart-doc 재시도 {r.get('code')} 실패: {e}")
-            continue
+            return 0
         hit = False
         for k in ("sales", "op", "np", "salesYoY", "opYoY", "npYoY"):
             if r.get(k) is None and act.get(k) is not None:
@@ -977,7 +988,14 @@ def retry_dart_doc(released, today_s, fetch_doc=None, limit=None):
             r.setdefault("sources", [])
             if "dart-doc" not in r["sources"]:
                 r["sources"].append("dart-doc")
-            n += 1
+            return 1
+        return 0
+
+    n = 0
+    todo = need[:limit]
+    if todo:
+        with ThreadPoolExecutor(max_workers=4) as pool:
+            n = sum(pool.map(_one, todo))
     if n:
         _warn(f"dart-doc 재시도 보강: {n}/{len(need)}행")
     return n
@@ -1017,12 +1035,24 @@ def main():
     nxt = (today.replace(day=1) + datetime.timedelta(days=32)).strftime("%Y%m")
 
     prev_bd = today - datetime.timedelta(days=3 if today.weekday() == 0 else 1)
+
+    # 단계별 소요 계측 — 어느 소스가 스텝 시간을 먹는지 회차 로그로 추적(150s 병목 진단용).
+    _t = time.time()
+
+    def _lap(label):
+        nonlocal _t
+        _warn(f"[timing] {label} {time.time() - _t:.1f}s")
+        _t = time.time()
+
     wise = fetch_wisereport([this_ym, nxt])
+    _lap("wise")
     fng = fetch_fnguide(_recent_quarters(today))
+    _lap("fnguide")
     # opendart 조회 창은 짧게(오늘+직전 거래일 여유) — 표시·capturedDate 이월은 이 범위면
     # 충분하고, 창이 짧을수록 pblntf_ty=I 볼륨이 더 작아 캡 절삭 위험이 사라진다.
     bgn = min(prev_bd, today - datetime.timedelta(days=2)).strftime("%Y%m%d")
     dart = fetch_dart(bgn, today.strftime("%Y%m%d"))
+    _lap("dart-list")
     # 독립 안전망: I001 오늘의공시 스크랩(키 불필요)으로 opendart 가 놓친 실적 공시 감지
     # (FnGuide·WiseReport 일정에 없어도 잡음 — 기아 000270 사례). build 가 code 로 병합.
     try:
@@ -1030,6 +1060,7 @@ def main():
             [today.isoformat(), prev_bd.isoformat()], _load_corp2stock())
     except Exception as e:
         _warn(f"I001 실적 감지 실패(무시): {e}")
+    _lap("dart-daylist")
 
     prev = _load_prev()
     if not wise:
@@ -1051,16 +1082,19 @@ def main():
         if m:
             r["market"] = m
 
+    _t = time.time()
     try:
         enrich_calendar(merged["released"], merged["upcoming"], today)
     except Exception as e:
         _warn(f"개별 종목 보강 실패(무시): {e}")
+    _lap("enrich")
 
     # enrich 시점 DART 원문 fetch 가 드롭된 결손 종목 재공략(전송 플레이크 → 회차 내 재시도)
     try:
         retry_dart_doc(merged["released"], today.isoformat())
     except Exception as e:
         _warn(f"dart-doc 재시도 실패(무시): {e}")
+    _lap("dart-retry")
 
     stamp_captured_date(merged["released"], prev.get("released") or [], today.isoformat())
 
@@ -1071,6 +1105,7 @@ def main():
                                 {today.isoformat(), prev_bd.isoformat()})
     except Exception as e:
         _warn(f"공시 접수시각 부착 실패(무시): {e}")
+    _lap("receipt-times")
 
     out = {
         "date": today.isoformat(),
