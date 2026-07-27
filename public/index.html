@@ -3347,9 +3347,103 @@
     // 을 직접 받아 갱신(미국 정규장 KST 22:47~04:47 동안 30분마다 새 공시 추가됨).
     function _briefUsCatHtml(cats) {
       if (!cats || !cats.length) return "";
-      return `<div class="briefing-wl"><div class="wl-h">🌙 미국 밤사이 주요 촉매 — SEC 공시·뉴스 (${cats.length}건)</div>`
-        + `<table><thead><tr><th style="width:130px">종목</th><th style="width:72px">유형</th><th>핵심 촉매</th></tr></thead>`
-        + `<tbody>${_ibCatRows(cats, ["US"])}</tbody></table></div>`;
+      const groups = _consolidateUsCats(cats);   // 종목 단위 종합(회차 누적 중복 제거)
+      const n = (cats || []).filter(c => c.market === "US").length;
+      return `<div class="briefing-wl"><div class="wl-h">🌙 미국 밤사이 주요 촉매 — SEC 공시·뉴스 (${groups.length}종목 · ${n}건)</div>`
+        + `<table><thead><tr><th style="width:150px">종목</th><th style="width:72px">유형</th><th>핵심 촉매</th></tr></thead>`
+        + `<tbody>${_usCatRows(groups)}</tbody></table></div>`;
+    }
+
+    // 밤사이 미국 촉매는 30분 회차마다 append 돼 같은 종목에 기사가 여러 건 쌓인다
+    // (사용자 지적 2026-07-28). 종목(ticker 우선, 없으면 주체명) 단위로 묶어 ① 방향 순합
+    // ② 요약 중복 제거 후 최신순 종합 ③ 원문 링크 합침 하여 한 행으로 압축한다.
+    function _usCatToks(s) {   // 요약 유사도용 토큰 집합(2자 이상)
+      return (String(s || "").toLowerCase().replace(/[.,%()·\-—/]+/g, " ")
+        .split(/\s+/).filter(w => w.length > 1));
+    }
+    function _usCatDup(aToks, bToks) {   // Jaccard>0.6 이면 사실상 같은 사건(재보도)
+      if (!aToks.length || !bToks.length) return false;
+      const A = new Set(aToks); let inter = 0;
+      bToks.forEach(w => { if (A.has(w)) inter++; });
+      return inter / (A.size + bToks.length - inter) > 0.6;
+    }
+    function _consolidateUsCats(cats) {
+      const norm = s => String(s || "").toLowerCase().replace(/[\s,.\-·%()]/g, "");
+      const keyOf = c => (c.ticker && String(c.ticker).trim())
+        ? "T:" + String(c.ticker).trim().toUpperCase()
+        : "N:" + norm(c.stock || c.corp || c.summary || "");
+      const order = [], map = {};
+      (cats || []).filter(c => c.market === "US").forEach(c => {
+        const k = keyOf(c);
+        if (!map[k]) { map[k] = []; order.push(k); }
+        map[k].push(c);
+      });
+      return order.map(k => {
+        const items = map[k];
+        const rep = items[items.length - 1];                 // 최신 회차 = 대표 메타
+        let bull = 0, bear = 0;
+        items.forEach(c => { if (c.direction === "bullish") bull++; else if (c.direction === "bearish") bear++; });
+        const direction = bull > bear ? "bullish" : bear > bull ? "bearish" : "neutral";
+        // 요약 종합 — 최신순으로 훑되 유사(재보도) 건은 접고 서로 다른 전개만 최대 3개
+        const kept = [], keptToks = [];
+        for (let i = items.length - 1; i >= 0; i--) {
+          const s = (items[i].summary || items[i].title || "").trim();
+          if (!s) continue;
+          const tk = _usCatToks(s);
+          if (keptToks.some(x => _usCatDup(x, tk))) continue;
+          kept.push(s); keptToks.push(tk);
+          if (kept.length >= 3) break;
+        }
+        // 원문 링크 최신순 dedupe(사건 기사)
+        const urls = [];
+        for (let i = items.length - 1; i >= 0; i--) {
+          const u = items[i].url;
+          if (u && urls.indexOf(u) < 0) { urls.push(u); if (urls.length >= 3) break; }
+        }
+        const catCount = {};
+        items.forEach(c => { const cc = c.category || ""; catCount[cc] = (catCount[cc] || 0) + 1; });
+        const category = Object.keys(catCount).sort((a, b) => catCount[b] - catCount[a])[0] || rep.category;
+        let related = "", relatedUrl = "";
+        for (const c of items) { if ((c.relatedStock || "").trim()) { related = c.relatedStock.trim(); relatedUrl = c.relatedUrl || ""; break; } }
+        let chg = null;
+        for (let i = items.length - 1; i >= 0; i--) { if (typeof items[i].changePct === "number") { chg = items[i].changePct; break; } }
+        return {
+          stock: rep.stock || rep.corp || "—", ticker: rep.ticker || "",
+          category, direction, market: "US", kind: rep.kind, form: rep.form,
+          relatedStock: related, relatedUrl, changePct: chg,
+          summary: kept.join("  ·  "), _urls: urls, _count: items.length,
+        };
+      });
+    }
+    function _usCatRows(groups) {
+      const dirBadge = (dir) => dir === "bullish" ? `<span class="dir-badge bull">▲ 상방</span>`
+        : dir === "bearish" ? `<span class="dir-badge bear">▼ 하방</span>`
+        : dir === "neutral" ? `<span class="dir-badge neu">— 중립</span>` : "";
+      const CAT = { macro: ["매크로", "#94a3b8"], nasdaq: ["나스닥", "#38bdf8"], sp: ["S&P", "#a78bfa"] };
+      const rows = (groups || []).map(c => {
+        const icon = c.kind === "news" ? "📰" : (c.kind === "sec" ? "🇺🇸" : (c.kind === "disclosure" ? "📑" : ""));
+        const hit = CAT[c.category];
+        const mkLabel = hit ? hit[0] : (c.form ? `SEC ${_brEsc(c.form)}` : "US");
+        const mkColor = hit ? hit[1] : "#94a3b8";
+        const chg = (typeof c.changePct === "number")
+          ? ` <span style="color:${c.changePct >= 0 ? "var(--up-red)" : "var(--kospi-blue)"}; font-size:11.5px;">${c.changePct >= 0 ? "+" : ""}${c.changePct}%</span>` : "";
+        const cnt = c._count > 1 ? ` <span style="color:var(--text-muted); font-size:11px;">(${c._count}건)</span>` : "";
+        // 종목명 칸 = 해외 주체만(사용자 지정 2026-07-28): 주체명 + 티커(있고 이름과 다를 때).
+        const tkr = (c.ticker && c.ticker.toUpperCase() !== String(c.stock).toUpperCase())
+          ? ` <span style="color:var(--text-muted); font-size:11px; font-weight:500;">(${_brEsc(c.ticker)})</span>` : "";
+        const links = (c._urls || []).map((u, i) =>
+          `<a href="${_brEsc(u)}" target="_blank" rel="noopener" style="color:var(--text-muted); font-size:11px;">원문${c._urls.length > 1 ? (i + 1) : ""}</a>`).join(" ");
+        const relLink = c.relatedUrl
+          ? ` <a href="${_brEsc(c.relatedUrl)}" target="_blank" rel="noopener" style="color:var(--kospi-blue); font-size:11px;">관련뉴스</a>` : "";
+        // 국내 관련주 칩은 핵심촉매 칸으로 이동(종목명 칸엔 해외 주체만) — 클릭 시 딥리서치.
+        const rel = (c.relatedStock && c.relatedStock !== c.stock)
+          ? ` <span onclick="ibResearch('${_brEsc(c.relatedStock)}')" title="관련 국내주 딥리서치" style="cursor:pointer; color:var(--kospi-blue); font-size:11px; border:1px solid rgba(96,165,250,.35); border-radius:6px; padding:0 5px; margin-left:3px; white-space:nowrap;">🇰🇷 ${_brEsc(c.relatedStock)}</span>` : "";
+        return `<tr>`
+          + `<td style="font-weight:600; white-space:nowrap;">${icon} ${_brEsc(c.stock)}${tkr}${chg}${dirBadge(c.direction)}${cnt}</td>`
+          + `<td style="color:${mkColor}; font-size:13px; white-space:nowrap;">${mkLabel}</td>`
+          + `<td style="color:#cbd5e1;">${_brEsc(c.summary)} ${links}${relLink}${rel}</td></tr>`;
+      }).join("");
+      return rows || `<tr><td colspan="3" style="color:var(--text-muted); font-size:13px; padding:8px 2px;">해당 회차 촉매 없음</td></tr>`;
     }
     async function refreshUsCatalysts() {
       if (!briefingLiveView) return;   // 과거 브리핑 열람 중 — 아카이브 표시 유지
