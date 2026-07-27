@@ -317,24 +317,54 @@ NEWS_SYSTEM = """\
         "필라델피아반도체"). **긴 문장 금지**(사건 설명은 summary 로).
   category: "macro"(유가·금리·관세·지정학·지표 등 개별종목 아님) | "nasdaq"(기술·성장·
             반도체 중심) | "sp"(전통·금융·산업 등 광범위/NYSE).
+  relatedStock: 이 촉매로 실제 매매할 **국내 상장 대표 관련주 1개(한국 종목명)**.
+    category=macro 면 반드시 채운다 — 예: 국제유가→"S-Oil", 미국 관세→"현대차",
+    연준 금리인상→"KB금융", 지정학 방산→"한화에어로스페이스". 개별 미국주(nasdaq/sp)면
+    국내 밸류체인 대표 1개 또는 "".
   ticker: 대표 티커(개별 기업 사건일 때만, 없으면 "").
   direction: 한국 증시 관점 방향(bullish|neutral|bearish). 근거 약하면 neutral.
   summary: 한국어 1-2문장 — 무슨 일이 있었는지 + 한국 증시/밸류체인 함의 한 마디.
 - 헤드라인에 없는 사실·수치를 지어내지 말 것.
 출력은 정확히 이 JSON 만: {{"picks": [{{"idx": 0, "name": "...", "category": "macro|nasdaq|sp",
-"ticker": "...", "direction": "bullish|neutral|bearish", "summary": "..."}}]}}"""
+"relatedStock": "...", "ticker": "...", "direction": "bullish|neutral|bearish", "summary": "..."}}]}}"""
 
 NEWS_SCHEMA = {
     "type": "object", "additionalProperties": False,
     "properties": {"picks": {"type": "array", "items": {
         "type": "object", "additionalProperties": False,
         "properties": {"idx": {"type": "integer"}, "name": {"type": "string"},
-                       "category": {"type": "string"},
+                       "category": {"type": "string"}, "relatedStock": {"type": "string"},
                        "ticker": {"type": "string"}, "direction": {"type": "string"},
                        "summary": {"type": "string"}},
         "required": ["idx", "name", "direction", "summary"]}}},
     "required": ["picks"],
 }
+
+
+def _related_stock_article(name, now):
+    """국내 관련주 종목명 → 그 종목 관련 최신 네이버 뉴스 URL(없으면 None). 매크로 촉매의
+    '원문'을 국내 관련주 기사로 돌리기 위함(사용자 요청 2026-07-27). 최신순 top, graceful."""
+    try:
+        items = sources.naver_search("news", name, display=5) or []
+    except Exception as e:
+        _log(f"관련주 뉴스 검색 실패({name}): {e}")
+        return None
+    floor = _fresh_epoch(now)
+    dated = []
+    for it in items:
+        link = (it.get("link") or "").strip()
+        if not link:
+            continue
+        try:
+            ts = datetime.datetime.strptime(
+                it.get("date") or "", "%a, %d %b %Y %H:%M:%S %z").timestamp()
+        except Exception:
+            ts = 0
+        dated.append((ts, link))
+    if not dated:
+        return None
+    fresh = [l for ts, l in dated if ts >= floor]
+    return fresh[0] if fresh else dated[0][1]      # 신선분 우선, 없으면 top
 
 
 def _fresh_epoch(now):
@@ -425,16 +455,29 @@ def collect_news(state, now):
         direction = str(p.get("direction") or "neutral").lower()
         if direction not in ("bullish", "neutral", "bearish"):
             direction = "neutral"
+        category = _norm_category(p.get("category"), allow_macro=True)
+        stock = (p.get("name") or "").strip() or h["title"][:20]
+        url = h["url"]
+        related = (p.get("relatedStock") or "").strip()
+        # 매크로 촉매(국제유가·관세·금리·지정학)는 종목명을 국내 대표 관련주로 치환하고
+        # 원문도 그 관련주 뉴스로 돌린다 — 매크로 라벨 자체는 매매 불가라 실전 액션화
+        # (사용자 요청 2026-07-27). 관련주 뉴스 없으면 원 기사 URL 유지(graceful).
+        if category == "macro" and related:
+            stock = related
+            art = _related_stock_article(related, now)
+            if art:
+                url = art
         out.append({
             "ticker": str(p.get("ticker") or "").upper(),
-            "stock": (p.get("name") or "").strip() or h["title"][:20],
-            "category": _norm_category(p.get("category"), allow_macro=True),
+            "stock": stock,
+            "category": category,
+            "relatedStock": related,
             "market": "US",
             "kind": "news",
             "form": "",
             "direction": direction,
             "summary": p.get("summary") or h["title"],
-            "url": h["url"],
+            "url": url,
             "filedAt": now.strftime("%Y-%m-%d"),
             "changePct": None,
             "accession": h["url"],          # 뉴스는 URL 이 dedup 키
