@@ -786,10 +786,13 @@ def _load_earnings_events(now):
         return {}
     today = now.strftime("%Y-%m-%d")
 
-    # date==today(당일 발표) + capturedDate==today(전일 마감 후 늦게 발표돼 오늘 처음 포착).
-    # 지연 이월은 '직전 거래일' 발표만 — 수집망에 뒤늦게 잡힌 며칠 지난 실적(소스가 과거
-    # 발표를 늦게 노출)이 '전일' 칩으로 쏟아지는 것 방지(월요일은 금요일까지 소급.
-    # 공휴일 연휴는 미반영 — 드물고, capturedDate==today 조건이 1차로 거른다).
+    # date==today(당일 발표) + 직전 거래일 마감 후(15:30+) 발표분 이월 — 익일 개장 관점에서
+    # 전일 마감후 실적이 오늘 시초에 영향을 주므로 '전일' 칩으로 하루 더 노출한다. 이월 대상 2갈래:
+    #   ⓐ capturedDate==today: 전일 마감 회차(15:40) 이후 발표돼 오늘 아침 처음 포착(예: 17:10).
+    #   ⓑ date==prev_bd & time>=15:30: 전일 마감 회차가 당일 즉시 포착한 마감후 발표(예: 15:36
+    #      우리금융지주 — capturedDate=전일이라 ⓐ에 안 걸려 익일에 누락되던 것, 2026-07-27).
+    # 직전 거래일만(월요일은 금요일까지 소급) — 며칠 지난 실적이 '전일'로 쏟아지는 것 방지.
+    # 공휴일 연휴는 미반영(드묾). if/elif 라 한 행이 오늘·이월 양쪽에 중복 편입되지 않는다.
     prev_bd = (now - datetime.timedelta(days=3 if now.weekday() == 0 else 1)) \
         .strftime("%Y-%m-%d")
     rel = []
@@ -797,7 +800,9 @@ def _load_earnings_events(now):
         if r.get("date") == today:
             rel.append(r)
         elif r.get("capturedDate") == today and (r.get("date") or "") >= prev_bd:
-            rel.append({**r, "late": True})       # 전일 발표를 오늘 처음 포착 — 카드에 '전일' 표시
+            rel.append({**r, "late": True})       # ⓐ 익일 첫 포착 (마감 회차 이후 발표)
+        elif r.get("date") == prev_bd and (r.get("time") or "") >= "15:30":
+            rel.append({**r, "late": True})       # ⓑ 전일 마감후(15:30+) 발표 — 당일 포착분도 이월
     # 건수 리밋 없음(2026-07-24 사용자 결정) — 상위 8건 컷이 장중 발표 누적 시 정상
     # 발표·전일 이월을 밀어내 사라지게 하던 문제(멀티캠퍼스·두산퓨얼셀류). 유니버스
     # 필터도 도입 안 함(whitelist 누락 재발 우려). 정렬 = 발표시간 순: 발표일 → 공시
