@@ -413,6 +413,25 @@ def _enrich_upcoming(u, per, src, tag_src):
     return filled
 
 
+def fill_surprise(released):
+    """실적(op/np)과 컨센서스가 다 있는데 괴리율(surprise)이 결손이면 계산해 채운다.
+    괴리율은 공시 원문에 없어 dart-doc/retry 로는 안 붙고, _enrich_released 는 op 가 그 시점에
+    있어야만 계산한다 — op 가 retry_dart_doc 으로 늦게 붙으면(발표 직후 회차 dart-doc 실패 →
+    다음 pass 에서 op 만 채움) 괴리율은 영영 None 이고, 이후 회차는 op·컨센 완비라 enrich 대상
+    에서도 빠진다(삼성카드 2026-07-27 12:36 발표). 순수 산술 보정으로 확정. 채운 수 반환."""
+    n = 0
+    for r in released:
+        cons = r.get("consensus") or {}
+        s = r.setdefault("surprise", {})
+        for gap_k, val_k in (("opGap", "op"), ("npGap", "np")):
+            if s.get(gap_k) is None and r.get(val_k) is not None and cons.get(val_k):
+                s[gap_k] = round((r[val_k] - cons[val_k]) / abs(cons[val_k]) * 100, 1)
+                n += 1
+    if n:
+        _warn(f"괴리율 산술 보정: {n}건")
+    return n
+
+
 def _missing_yoy(r):
     """실적(actual)은 있는데 그 증감률(YoY)이 결손인가 — 집계 피드(FnGuide 실적속보 등)가
     YoY 칸을 비운 적자종목 등(두산퓨얼셀 2026-07-24: op·매출은 있는데 YoY 전멸). dart-doc 이
@@ -1046,6 +1065,7 @@ def main():
     stamp_captured_date(merged["released"], prev.get("released") or [], today.isoformat())
 
     carry_prev_released(merged["released"], prev.get("released") or [])
+    fill_surprise(merged["released"])   # op·컨센 있으면 괴리율 확정(retry 로 op 늦게 붙은 케이스)
     try:
         attach_disclosure_times(merged["released"],
                                 {today.isoformat(), prev_bd.isoformat()})

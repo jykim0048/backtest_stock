@@ -17,7 +17,7 @@ from fetch_earnings_calendar import (parse_wisereport, parse_fnguide, parse_dart
                                      enrich_calendar, _yoy_calc, _target_period,
                                      stamp_captured_date, attach_disclosure_times,
                                      fetch_dart_daylist_earnings, carry_prev_released,
-                                     retry_dart_doc, _missing_yoy,
+                                     retry_dart_doc, _missing_yoy, fill_surprise,
                                      build, _recent_quarters)
 import fetch_earnings_calendar as _fec
 
@@ -461,6 +461,22 @@ def main():
     assert dsfc2["opYoY"] == -2559.6 and dsfc2["salesYoY"] == -65.5 and dsfc2["npYoY"] == -2055.9, dsfc2
     assert dsfc2["op"] == -504.0          # 기존 실적 미변경(dart-doc 은 결손만 채움)
     print("enrich 전일 이월분 YoY 보강 OK")
+
+    # ── fill_surprise: op·컨센 있는데 괴리율 결손이면 산술 보정 (삼성카드 배지 누락) ──
+    rows = [
+        {"op": 2086.0, "np": 1564.0, "consensus": {"op": 2144.0, "np": 1594.0},
+         "surprise": {"opGap": None, "npGap": None}},        # 삼성카드 — 계산 대상
+        {"op": 500.0, "consensus": {"op": 400.0}, "surprise": {"opGap": 25.0}},  # 이미 있음 — 미변경
+        {"op": None, "consensus": {"op": 100.0}, "surprise": {"opGap": None}},   # op 없음 — 스킵
+        {"op": 100.0, "consensus": {"op": None}, "surprise": {"opGap": None}},   # 컨센 없음 — 스킵
+    ]
+    n = fill_surprise(rows)
+    assert rows[0]["surprise"]["opGap"] == -2.7, rows[0]     # (2086-2144)/2144*100
+    assert rows[0]["surprise"]["npGap"] == -1.9              # (1564-1594)/1594*100
+    assert rows[1]["surprise"]["opGap"] == 25.0             # 기존값 미변경
+    assert rows[2]["surprise"]["opGap"] is None and rows[3]["surprise"]["opGap"] is None
+    assert n == 2                                            # 삼성카드 op+np
+    print("fill_surprise 괴리율 산술 보정 OK")
     print("ALL PASS")
 
 
