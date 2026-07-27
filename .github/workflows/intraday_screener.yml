@@ -81,6 +81,38 @@ jobs:
           NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
         run: python screener.py
 
+      # 시황 브랜치(경제·실적 캘린더 → 장중 시황)를 여기서 백그라운드로 띄운다.
+      # 반드시 screener 뒤: screener 는 '직전 회차' intraday_briefing.json 을 시드로 읽으므로
+      # (screener.py:637 briefing_catalyst_candidates), 그 전에 시황을 재생성하면 같은 회차
+      # read/write 레이스가 난다. 리포트·분석·수급 스텝은 econ/earnings/briefing 파일을
+      # 건드리지 않으므로(검증 완료) 이 브랜치와 완전 독립 — 15분짜리 시황을 크리티컬
+      # 패스에서 빼 아래 브랜치 A 와 병렬로 돌린다. 커밋 전 'Join' 스텝에서 마커로 합류.
+      - name: Start briefing branch in background (경제·실적 캘린더 + 장중 시황)
+        continue-on-error: true
+        env:
+          GEMINI_API_KEY:      ${{ secrets.GEMINI_API_KEY }}
+          LLM_CHAIN:           ${{ vars.LLM_CHAIN }}
+          ANTHROPIC_API_KEY:   ${{ secrets.ANTHROPIC_API_KEY }}
+          DART_API_KEY:        ${{ secrets.DART_API_KEY }}
+          DATA_GO_KR_KEY:      ${{ secrets.DATA_GO_KR_KEY }}   # 관세청 수출입 통계(발표일만 호출)
+          NAVER_CLIENT_ID:     ${{ secrets.NAVER_CLIENT_ID }}
+          NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
+        run: |
+          rm -f briefing_branch.done briefing_branch.log
+          # nohup+백그라운드로 스텝(shell) 종료 후에도 살아남게 한다. env 는 fork 시점에
+          # 상속되므로 위 env 블록이 그대로 전파된다. 각 스크립트는 best-effort — 하나가
+          # 실패/타임아웃해도 다음으로 진행하고, 끝에서 항상 done 마커를 남긴다(원래 각
+          # 스텝의 continue-on-error 의미 유지). 시황엔 원래 timeout-minutes:15 가 있었으므로
+          # timeout 720s(12분)로 무한 대기 방어.
+          nohup bash -c '
+            set +e
+            timeout 180 python fetch_econ_calendar.py    ; echo "[branchB] econ rc=$?"
+            timeout 180 python fetch_earnings_calendar.py ; echo "[branchB] earnings rc=$?"
+            timeout 720 python generate_intraday_briefing.py ; echo "[branchB] briefing rc=$?"
+            echo done > briefing_branch.done
+          ' > briefing_branch.log 2>&1 &
+          echo "briefing branch launched (pid=$!)"
+
       - name: Generate intraday price-level report
         env:
           REPORT_WATCHLIST:      intraday_watchlist.json
@@ -145,31 +177,24 @@ jobs:
         continue-on-error: true   # best-effort; 실패 시 기존 수급 유지
         run: python refresh_flow.py
 
-      # 시황 스텝보다 먼저: 아침 발표 한국 지표(무역수지 09:00 등)의 실제값을 회차마다 갱신해
-      # generate_intraday_briefing.py 가 econEvents 로 반영한다.
-      - name: Fetch economic calendar (네이버 경제캘린더 + ForexFactory 컨센서스)
-        continue-on-error: true   # best-effort; 실패 시 기존 econ_calendar.json 유지
-        env:
-          DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}   # 관세청 수출입 통계(발표일만 호출)
-        run: python fetch_econ_calendar.py
-
-      - name: Fetch earnings calendar (WiseReport + FnGuide 실적속보 + DART)
-        continue-on-error: true   # best-effort; 실패 시 기존 earnings_calendar.json 유지
-        env:
-          DART_API_KEY: ${{ secrets.DART_API_KEY }}
-        run: python fetch_earnings_calendar.py
-
-      - name: Generate intraday market briefing (장중 시황판)
-        continue-on-error: true   # best-effort; 시황 실패가 관심종목 회차를 막지 않게
-        timeout-minutes: 15       # LLM 정체 등으로 무한 대기 시 다음 회차 지연 방지
-        env:
-          GEMINI_API_KEY:      ${{ secrets.GEMINI_API_KEY }}
-          LLM_CHAIN:           ${{ vars.LLM_CHAIN }}
-          ANTHROPIC_API_KEY:   ${{ secrets.ANTHROPIC_API_KEY }}
-          DART_API_KEY:        ${{ secrets.DART_API_KEY }}
-          NAVER_CLIENT_ID:     ${{ secrets.NAVER_CLIENT_ID }}
-          NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
-        run: python generate_intraday_briefing.py
+      # 시황 브랜치 합류: 위에서 백그라운드로 띄운 경제·실적 캘린더+시황이 끝날 때까지
+      # (done 마커) 대기 후 로그를 출력한다. 브랜치 A(리포트·분석·수급)가 도는 동안 시황이
+      # 병렬로 진행됐으므로 보통 이미 완료돼 즉시 통과한다. best-effort — 상한(≈13분) 내
+      # 미완이면 경고만 남기고 커밋으로 진행(기존 continue-on-error 의미 유지).
+      - name: Join briefing branch (시황 브랜치 합류)
+        continue-on-error: true
+        run: |
+          for i in $(seq 1 390); do   # 390 x 2s = 780s(13분) 상한
+            [ -f briefing_branch.done ] && break
+            sleep 2
+          done
+          echo "--- briefing branch log ---"
+          cat briefing_branch.log 2>/dev/null || true
+          if [ -f briefing_branch.done ]; then
+            echo "briefing branch finished"
+          else
+            echo "::warning::briefing branch did not finish within 13min — proceeding (best-effort)"
+          fi
 
       - name: Commit and push intraday report
         run: |
