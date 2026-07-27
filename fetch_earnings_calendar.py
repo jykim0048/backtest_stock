@@ -249,11 +249,16 @@ def _dart_num(text):
 
 
 def parse_dart_document(html: str) -> dict:
-    """영업(잠정)실적 공정공시 뷰어 HTML -> 실제 실적(억원) + 전년동기대비.
+    """DART 공정공시 뷰어 HTML -> 실제 실적(억원) + 증감률. 두 레이아웃 지원:
 
-    표 구조: 지표(매출액/영업이익/당기순이익) 행마다 '당해실적' 칸 뒤로
-    [당기실적, 전기실적, 전기대비%, 전기흑적, 전년동기실적, 전년동기대비%, 전년동기흑적].
-    단위는 '단위 : 백만원' 등에서 읽어 억원으로 환산. 회사가 미공시한 지표는 '-'(제외)."""
+    ① 영업(잠정)실적: 지표 행에 '당해실적' 칸 뒤로 [당기, 전기, 전기대비%, 전기흑적,
+       전년동기, 전년동기대비%, 전년동기흑적] — 전년동기대비(%)를 YoY 로.
+    ② 매출액/손익구조 30% 변경: [- 지표, 당해사업연도, 직전사업연도, 증감금액, 증감비율%,
+       흑자적자전환] — '당해실적' 칸이 없고 라벨에 '- ' 접두사(신한서부티엔디리츠 2026-07-27
+       '집계 중' 사례, 리츠·반기결산 등이 이 공시로 발표). 증감비율(%)을 증감률로.
+       (증감비율은 '직전 결산기' 대비 — 연결산 회사는 YoY, 반기결산은 H/H. 공시 헤드라인 값.)
+
+    단위는 '단위:백만원/천원/억원' 등에서 읽어 억원으로 환산. 미공시 지표('-')는 제외."""
     from bs4 import BeautifulSoup     # 지연 import — 미설치 환경서도 모듈 로드는 유지
     m = re.search(r"단위\s*[:：]\s*([가-힣]+원)", html)
     factor = _DART_UNIT.get(m.group(1) if m else "", 0.01)   # 기본 백만원
@@ -266,21 +271,30 @@ def parse_dart_document(html: str) -> dict:
                  for c in tr.find_all(["td", "th"])]
         if not cells:
             continue
-        keys = want.get(cells[0].replace(" ", ""))
-        if not keys or keys[0] in out or "당해실적" not in cells:
+        keys = want.get(cells[0].replace(" ", "").lstrip("-"))   # '- 매출액' → '매출액'
+        if not keys or keys[0] in out:
             continue
         vk, yk = keys
-        i = cells.index("당해실적")
-        cur = _dart_num(cells[i + 1]) if i + 1 < len(cells) else None
-        if cur is None:
-            continue                                    # 회사 미공시 지표
-        out[vk] = round(cur * factor, 1)
-        yoy_pct = _dart_num(cells[i + 6]) if i + 6 < len(cells) else None
-        yoy_flag = cells[i + 7].replace(" ", "") if i + 7 < len(cells) else ""
-        if yoy_pct is not None:
-            out[yk] = yoy_pct
-        elif yoy_flag in _DART_FLAG:
-            out[yk] = _DART_FLAG[yoy_flag]
+        if "당해실적" in cells:                          # ① 영업(잠정)실적 레이아웃
+            i = cells.index("당해실적")
+            cur = _dart_num(cells[i + 1]) if i + 1 < len(cells) else None
+            if cur is None:
+                continue                                # 회사 미공시 지표
+            out[vk] = round(cur * factor, 1)
+            yoy_pct = _dart_num(cells[i + 6]) if i + 6 < len(cells) else None
+            yoy_flag = cells[i + 7].replace(" ", "") if i + 7 < len(cells) else ""
+            if yoy_pct is not None:
+                out[yk] = yoy_pct
+            elif yoy_flag in _DART_FLAG:
+                out[yk] = _DART_FLAG[yoy_flag]
+        elif len(cells) >= 5 and _dart_num(cells[1]) is not None:   # ② 손익구조 변경 레이아웃
+            out[vk] = round(_dart_num(cells[1]) * factor, 1)        # cells[1] = 당해사업연도
+            gap = _dart_num(cells[4])                               # cells[4] = 증감비율(%)
+            flag = cells[5].replace(" ", "") if len(cells) > 5 else ""
+            if gap is not None:
+                out[yk] = gap
+            elif flag in _DART_FLAG:
+                out[yk] = _DART_FLAG[flag]
     return out
 
 
