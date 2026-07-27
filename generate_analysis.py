@@ -636,6 +636,7 @@ def analyze_stock(stock, peer_cfg):
         # 투자자 수급(KIS): LLM 프롬프트에는 최근 10거래일 + 당일 가집계 랭킹만 (경량화).
         # 전체(20일)는 아래에서 analysis["flow"] 로 결정적으로 실어 대시보드가 렌더링.
         flow = _res(f_flow, "flow", {})
+        flow_ok = bool(flow)   # KIS 허브 /flow 성공 여부(공매도/대차 완전성) — 캐시 재시도 판정용
         # 네이버 일자별 매매동향(수량·보유율): KIS daily(대금)가 장중 시간제한으로 비는
         # 구간을 메운다 — 전일까지 확정치라 장중에도 항상 조회 가능.
         trend = _res(f_trend, "trend", [])
@@ -720,6 +721,9 @@ def analyze_stock(stock, peer_cfg):
     # 수급 원본(최근 20거래일 + 가집계 랭킹)은 LLM 을 거치지 않고 그대로 싣는다 — 수치 환각 방지.
     if flow:
         analysis["flow"] = flow
+    # 허브 /flow 실패(공매도/대차 결손)면 False 로 표시 — railway_server 가 이 결과를 짧은
+    # TTL 로만 캐시해 허브 복구 후 재리서치(허브 다운 시 6h 고착 방지, 2026-07-27).
+    analysis["_flowOk"] = flow_ok
 
     # Deterministic recent filings: latest 5 DART disclosures, no LLM curation.
     disclosures = (raw.get("dart") or {}).get("disclosures") or []
