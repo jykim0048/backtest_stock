@@ -444,6 +444,23 @@ def main():
     assert dsfc["op"] == -504.0                             # 기존 실적은 미변경(YoY 만 보강)
     assert n == 1                                           # complete 은 미대상
     print("YoY 결손 트리거(_missing_yoy·retry) OK")
+
+    # ── enrich: 전일 이월분(prev_bd) YoY 결손 보강 — 두산퓨얼셀(date=전일, 오늘 카드 표시) ──
+    # date==today 만 보강하던 게 진짜 블로커였음: 7/24 발표가 7/27 카드에 이월되는데 enrich
+    # 대상에서 빠져 YoY 가 계속 None. 대상 창을 prev_bd 까지 확장.
+    tue = datetime.date(2026, 7, 28)      # prev_bd = 2026-07-27
+    dsfc2 = {"date": "2026-07-27", "code": "336260", "name": "두산퓨얼셀",
+             "op": -504.0, "opYoY": None, "sales": 443.0, "salesYoY": None,
+             "np": -549.0, "npYoY": None, "consensus": {"op": -454.0, "np": None},
+             "surprise": {"opGap": None}, "sources": ["fnguide"], "tag": None,
+             "dartUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260724800675"}
+    doc = {"sales": 442.6, "salesYoY": -65.5, "op": -509.1, "opYoY": -2559.6,
+           "np": -556.0, "npYoY": -2055.9}
+    enrich_calendar([dsfc2], [], tue, fetch_naver=lambda c: {},
+                    fetch_wcomp=lambda c: {}, fetch_doc=lambda rcp: doc)
+    assert dsfc2["opYoY"] == -2559.6 and dsfc2["salesYoY"] == -65.5 and dsfc2["npYoY"] == -2055.9, dsfc2
+    assert dsfc2["op"] == -504.0          # 기존 실적 미변경(dart-doc 은 결손만 채움)
+    print("enrich 전일 이월분 YoY 보강 OK")
     print("ALL PASS")
 
 

@@ -440,10 +440,14 @@ def enrich_calendar(released, upcoming, today: datetime.date,
         return (r["op"] is None or r["sales"] is None or r["consensus"]["op"] is None
                 or _missing_yoy(r))     # 실적 있어도 YoY 결손이면 보강(두산퓨얼셀 사례)
 
-    # 대시보드는 '오늘자' 행만 표시(_load_earnings_events) → 오늘자를 우선 보강한다.
-    # (과거 released 를 먼저 보강하면 ENRICH_MAX 예산이 표시 안 되는 행에 소진돼
-    #  오늘 예정 종목이 조회되지 못했던 회귀: 두산밥캣 2026-07-23.)
-    targets = [("rel", r) for r in released if r.get("date") == today_s and _rel_needs(r)]
+    # 대시보드 표시 대상 = 오늘 발표 + 전일 마감후 이월(_load_earnings_events). 이 둘만 보강한다
+    # (며칠 지난 비표시 과거분은 제외 — ENRICH_MAX 예산이 표시 안 될 행에 소진돼 오늘 예정이
+    #  누락되던 회귀 방지: 두산밥캣 2026-07-23). build 가 date 내림차순 정렬이라 오늘자가 먼저
+    #  예산을 받고 전일 이월분은 잔여 예산으로 — 전일 마감후 발표(두산퓨얼셀 7/24)가 오늘 카드에
+    #  뜨는데 enrich 에서 빠져 YoY 등이 계속 결손이던 문제(2026-07-27).
+    prev_bd = (today - datetime.timedelta(days=3 if today.weekday() == 0 else 1)).isoformat()
+    targets = [("rel", r) for r in released
+               if r.get("date") in (today_s, prev_bd) and _rel_needs(r)]
     targets += [("up", u) for u in upcoming if u["date"] == today_s
                 and u["consensus"]["op"] is None]
 
