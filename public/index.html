@@ -3084,6 +3084,39 @@
 
     // ===== 실적발표 카드 (earningsEvents — fetch_earnings_calendar.py 산출) =====
     // WiseReport(일정·컨센서스·괴리율) + FnGuide 실적속보(매출·YoY·컨상/컨하) + DART(공시 링크)
+    // 시장(코스피/코스닥) 토글 — 리스트가 길어져 선택 조회(2026-07-27). market 은 파이프라인이
+    // krx_companies 로 태깅. 구버전 데이터(market 없음)는 '전체'에서만 노출(다음 회차부터 완비).
+    let _earnData = null;          // {rel, up, date} — 토글 재렌더용 저장
+    let _earnMkt = "전체";         // 전체 | KOSPI | KOSDAQ
+    try { _earnMkt = localStorage.getItem("qa_earn_mkt") || "전체"; } catch (_) {}
+
+    function earnMktToggle(f) {
+      _earnMkt = f;
+      try { localStorage.setItem("qa_earn_mkt", f); } catch (_) {}
+      const box = document.getElementById("ib-earn");
+      if (box) box.innerHTML = _earnCardHtml();
+    }
+    function _earnCardHtml() {
+      if (!_earnData) return "";
+      const pick = (arr) => (arr || []).filter(r => _earnMkt === "전체" || r.market === _earnMkt);
+      const rows = _earnReleasedRows(pick(_earnData.rel), _earnData.date)
+                 + _earnUpcomingRows(pick(_earnData.up), _earnData.date);
+      const total = (_earnData.rel || []).length + (_earnData.up || []).length;
+      const tab = (f, label) => `<span onclick="earnMktToggle('${f}')" style="cursor:pointer;`
+        + ` padding:2px 10px; border-radius:999px; font-size:11.5px; ${_earnMkt === f
+          ? "background:var(--kospi-blue); color:#fff; font-weight:600;"
+          : "background:rgba(255,255,255,.06); color:var(--text-muted);"}">${label}</span>`;
+      return `<div class="briefing-wl" style="margin-top:12px"><div class="wl-h"`
+        + ` style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">`
+        + `<span>📈 실적발표 — 오늘 결과 · 오늘 예정 <span style="opacity:.6;">(${total})</span></span>`
+        + `<span style="margin-left:auto; display:flex; gap:4px;">`
+        + `${tab("전체", "전체")}${tab("KOSPI", "코스피")}${tab("KOSDAQ", "코스닥")}</span></div>`
+        + `<table><tbody>${rows || `<tr><td colspan="5" style="color:var(--text-muted);`
+        + ` font-size:13px; padding:8px 2px;">선택 시장 발표 없음</td></tr>`}</tbody></table>`
+        + `<div style="font-size:10.5px;color:var(--text-muted);margin-top:6px">잠정실적 기준`
+        + `(억원, 조=1만억) · 컨센서스/괴리율=WiseReport · 상회/하회·턴어라운드 판정=FnGuide `
+        + `실적속보 · 📄=DART 공시 원문</div></div>`;
+    }
     function _earnEok(v) {              // 억원 → 조/억 축약
       if (v === null || v === undefined) return "—";
       const sign = v < 0 ? "-" : "";
@@ -3665,14 +3698,12 @@
         ibEconRows,
         "서프라이즈: 예상(컨센서스) 대비, 예상치 없으면 이전값 대비 · ★=시장 영향력 · 수출입 금액=억$ · 미국 일정은 모닝 브리핑 참조");
 
-      // 실적발표 카드 — 당일자만(오늘 결과 + 오늘 예정, 2026-07-23). 데이터 없으면 카드 숨김.
+      // 실적발표 카드 — 시장(코스피/코스닥) 토글로 필터. 데이터 없으면 카드 숨김.
+      // 토글 재렌더를 위해 데이터를 _earnData 에 저장하고 #ib-earn 컨테이너에 렌더.
       const ibEarn = d.earningsEvents || {};
-      const earnRows = _earnReleasedRows(ibEarn.releasedToday, d.date)
-        + _earnUpcomingRows(ibEarn.upcomingSoon, d.date);
-      const earningsSection = _econCard(
-        "📈 실적발표 — 오늘 결과 · 오늘 예정",
-        earnRows,
-        "잠정실적 기준(억원, 조=1만억) · 컨센서스/괴리율=WiseReport · 상회/하회·턴어라운드 판정=FnGuide 실적속보 · 📄=DART 공시 원문");
+      _earnData = { rel: ibEarn.releasedToday || [], up: ibEarn.upcomingSoon || [], date: d.date };
+      const earningsSection = (_earnData.rel.length || _earnData.up.length)
+        ? `<div id="ib-earn">${_earnCardHtml()}</div>` : "";
 
       // 장중 촉매 — 종목 단위(중복 통합) + 회차 선택 셀렉터(이전 회차 촉매 조회).
       // 행 빌드는 _ibCatRows(회차 전환 시 재사용), 셀렉터는 렌더 후 _ibLoadRounds 가 채운다.

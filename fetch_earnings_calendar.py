@@ -861,6 +861,23 @@ def build(wise: list[dict], fng: list[dict], dart: list[dict],
 
 # ── 메인 ─────────────────────────────────────────────────────────────────────
 
+def _load_market_map():
+    """{code(6): "KOSPI"|"KOSDAQ"} — krx_companies.json 시장 구분(실적 카드 시장 토글용).
+    없으면 {} (market 미표기 → 프런트 '전체'에서만 노출)."""
+    try:
+        with open(os.path.join(ROOT, "public", "assets", "krx_companies.json"),
+                  encoding="utf-8") as f:
+            out = {}
+            for c in json.load(f) or []:
+                code = str(c.get("code") or "").zfill(6)
+                if code:
+                    out[code] = "KOSDAQ" if "코스닥" in (c.get("market") or "") else "KOSPI"
+            return out
+    except Exception as e:
+        _warn(f"krx_companies 로드 실패(실적 시장 미표기): {e}")
+        return {}
+
+
 _STICKY_FIELDS = ("op", "sales", "np", "salesYoY", "opYoY", "npYoY",
                   "tag", "quarter", "period", "fs", "time", "dartUrl", "dartTitle")
 
@@ -992,6 +1009,13 @@ def main():
     merged = build(wise, fng, dart, today)
     if not wise and prev.get("upcoming"):
         merged["upcoming"] = prev["upcoming"]
+
+    # 시장(KOSPI/KOSDAQ) 태깅 — 프런트 실적 카드 시장 토글용(krx_companies 전종목).
+    mkt_map = _load_market_map()
+    for r in merged["released"] + merged["upcoming"]:
+        m = mkt_map.get(r.get("code"))
+        if m:
+            r["market"] = m
 
     try:
         enrich_calendar(merged["released"], merged["upcoming"], today)
