@@ -3405,11 +3405,13 @@
         const category = Object.keys(catCount).sort((a, b) => catCount[b] - catCount[a])[0] || rep.category;
         let related = "", relatedUrl = "";
         for (const c of items) { if ((c.relatedStock || "").trim()) { related = c.relatedStock.trim(); relatedUrl = c.relatedUrl || ""; break; } }
+        let region = "";
+        for (let i = items.length - 1; i >= 0; i--) { if ((items[i].region || "").trim()) { region = items[i].region.trim().toLowerCase(); break; } }
         let chg = null;
         for (let i = items.length - 1; i >= 0; i--) { if (typeof items[i].changePct === "number") { chg = items[i].changePct; break; } }
         return {
           stock: rep.stock || rep.corp || "—", ticker: rep.ticker || "",
-          category, direction, market: "US", kind: rep.kind, form: rep.form,
+          category, region, direction, market: "US", kind: rep.kind, form: rep.form,
           relatedStock: related, relatedUrl, changePct: chg,
           summary: kept.join("  ·  "), _urls: urls, _count: items.length,
         };
@@ -3420,11 +3422,16 @@
         : dir === "bearish" ? `<span class="dir-badge bear">▼ 하방</span>`
         : dir === "neutral" ? `<span class="dir-badge neu">— 중립</span>` : "";
       const CAT = { macro: ["매크로", "#94a3b8"], nasdaq: ["나스닥", "#38bdf8"], sp: ["S&P", "#a78bfa"] };
+      // 비미국 홈 마켓은 유형 칸에 그 시장을 표기(사용자 요청 2026-07-28: CXMT→중국·ASML→유럽).
+      // region 이 있으면 category(나스닥/매크로)보다 우선 — 주체의 실제 상장·소재 시장이 정보량이 큼.
+      const REGION = { china: ["중국", "#f87171"], europe: ["유럽", "#818cf8"], taiwan: ["대만", "#2dd4bf"],
+                       japan: ["일본", "#fb7185"], hongkong: ["홍콩", "#f472b6"], korea: ["한국", "#60a5fa"] };
       const rows = (groups || []).map(c => {
         const icon = c.kind === "news" ? "📰" : (c.kind === "sec" ? "🇺🇸" : (c.kind === "disclosure" ? "📑" : ""));
+        const reg = REGION[(c.region || "").toLowerCase()];
         const hit = CAT[c.category];
-        const mkLabel = hit ? hit[0] : (c.form ? `SEC ${_brEsc(c.form)}` : "US");
-        const mkColor = hit ? hit[1] : "#94a3b8";
+        const mkLabel = reg ? reg[0] : (hit ? hit[0] : (c.form ? `SEC ${_brEsc(c.form)}` : "US"));
+        const mkColor = reg ? reg[1] : (hit ? hit[1] : "#94a3b8");
         const chg = (typeof c.changePct === "number")
           ? ` <span style="color:${c.changePct >= 0 ? "var(--up-red)" : "var(--kospi-blue)"}; font-size:11.5px;">${c.changePct >= 0 ? "+" : ""}${c.changePct}%</span>` : "";
         const cnt = c._count > 1 ? ` <span style="color:var(--text-muted); font-size:11px;">(${c._count}건)</span>` : "";
