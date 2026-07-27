@@ -3315,7 +3315,7 @@
     function _briefUsCatHtml(cats) {
       if (!cats || !cats.length) return "";
       return `<div class="briefing-wl"><div class="wl-h">🌙 미국 밤사이 주요 촉매 — SEC 공시·뉴스 (${cats.length}건)</div>`
-        + `<table><thead><tr><th style="width:170px">종목·이벤트</th><th style="width:80px">유형</th><th>촉매</th></tr></thead>`
+        + `<table><thead><tr><th style="width:130px">종목</th><th style="width:72px">유형</th><th>핵심 촉매</th></tr></thead>`
         + `<tbody>${_ibCatRows(cats, ["US"])}</tbody></table></div>`;
     }
     async function refreshUsCatalysts() {
@@ -3402,10 +3402,19 @@
           const icon = c.kind === "disclosure" ? "📑" : (c.kind === "news" ? "📰"
             : (c.kind === "sec" ? "🇺🇸" : ""));
           const name = c.stock || c.corp || "—";
-          const mkColor = (c.market === "KOSDAQ") ? "var(--kosdaq-green)"
-            : (c.market === "US") ? "#94a3b8" : "var(--kospi-blue)";
-          const mkLabel = (c.market === "US")
-            ? (c.form ? `SEC ${_brEsc(c.form)}` : "US") : (c.market || "");
+          // 미국 촉매 유형: macro/nasdaq/s&p(신규 category). 구버전 데이터(category 없음)는
+          // SEC form 또는 "US" 폴백. 국내(KOSPI/KOSDAQ)는 시장명 그대로.
+          const CAT = { macro: ["매크로", "#94a3b8"], nasdaq: ["나스닥", "#38bdf8"],
+                        sp: ["S&P", "#a78bfa"] };
+          let mkLabel, mkColor;
+          if (c.market === "US") {
+            const hit = CAT[c.category];
+            mkLabel = hit ? hit[0] : (c.form ? `SEC ${_brEsc(c.form)}` : "US");
+            mkColor = hit ? hit[1] : "#94a3b8";
+          } else {
+            mkColor = (c.market === "KOSDAQ") ? "var(--kosdaq-green)" : "var(--kospi-blue)";
+            mkLabel = c.market || "";
+          }
           const chg = (c.market === "US" && typeof c.changePct === "number")
             ? ` <span style="color:${c.changePct >= 0 ? "var(--up-red)" : "var(--kospi-blue)"}; font-size:11.5px;">${c.changePct >= 0 ? "+" : ""}${c.changePct}%</span>` : "";
           const link = c.url ? ` <a href="${_brEsc(c.url)}" target="_blank" rel="noopener" style="color:var(--text-muted); font-size:11px;">원문</a>` : "";

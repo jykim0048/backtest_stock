@@ -227,20 +227,31 @@ CAT_SYSTEM = """\
 - bodyExcerpt 가 없으면 공시 유형(form·items)과 당일 주가 반응(changePct)만 근거로
   담백하게 서술한다. 예: "8-K(실적 관련 항목) 제출, 주가 +3.2% 반응".
 - direction: 그 공시·주가 반응이 시사하는 방향(bullish|neutral|bearish). 근거가 약하면 neutral.
+- category: 종목 성격 — "nasdaq"(기술·성장·반도체·나스닥 상장주) | "sp"(전통·금융·산업·
+  헬스케어 등 광범위/NYSE). 개별 기업이라 "macro" 는 쓰지 않는다.
 - summary 끝에 가능하면 한국 증시 연관 한 마디(밸류체인·경쟁사 관점).
 출력은 정확히 이 JSON 만:
-{"catalysts": [{"ticker": "...", "stock": "회사명", "direction": "bullish|neutral|bearish",
-               "summary": "한국어 1-2문장"}]}"""
+{"catalysts": [{"ticker": "...", "stock": "회사명", "category": "nasdaq|sp",
+               "direction": "bullish|neutral|bearish", "summary": "한국어 1-2문장"}]}"""
 
 CAT_SCHEMA = {
     "type": "object", "additionalProperties": False,
     "properties": {"catalysts": {"type": "array", "items": {
         "type": "object", "additionalProperties": False,
         "properties": {"ticker": {"type": "string"}, "stock": {"type": "string"},
+                       "category": {"type": "string"},
                        "direction": {"type": "string"}, "summary": {"type": "string"}},
         "required": ["ticker", "stock", "direction", "summary"]}}},
     "required": ["catalysts"],
 }
+
+
+def _norm_category(v, allow_macro=True):
+    """LLM 출력 category 정규화 — 허용값 밖이면 폴백."""
+    v = str(v or "").lower().replace("s&p", "sp").replace("snp", "sp").strip()
+    if v in ("nasdaq", "sp") or (allow_macro and v == "macro"):
+        return v
+    return "macro" if allow_macro else "sp"
 
 
 def summarize(filings):
@@ -269,6 +280,7 @@ def summarize(filings):
         out.append({
             "ticker": f["ticker"],
             "stock": c.get("stock") or f.get("company") or f["ticker"],
+            "category": _norm_category(c.get("category"), allow_macro=False),
             "market": "US",
             "kind": "sec",
             "form": f["form"],
@@ -300,22 +312,27 @@ NEWS_SYSTEM = """\
 - 최대 {max_picks}건. 확실한 촉매가 없으면 빈 배열을 반환한다(억지로 고르지 말 것).
 - 각 pick 필드:
   idx: 입력 headlines 의 번호(그 기사가 근거).
-  event: 사건의 한글 명칭(예: "미-이란 군사 긴장 고조", "인텔 2분기 실적 발표").
+  name: 표 첫 칸에 들어갈 **짧은 주체명(2~10자)** — 개별기업이면 기업명(예: "인텔","애플",
+        "테슬라"), 매크로/지정학이면 핵심 주체(예: "국제유가","미국 관세","연준","미-이란",
+        "필라델피아반도체"). **긴 문장 금지**(사건 설명은 summary 로).
+  category: "macro"(유가·금리·관세·지정학·지표 등 개별종목 아님) | "nasdaq"(기술·성장·
+            반도체 중심) | "sp"(전통·금융·산업 등 광범위/NYSE).
   ticker: 대표 티커(개별 기업 사건일 때만, 없으면 "").
   direction: 한국 증시 관점 방향(bullish|neutral|bearish). 근거 약하면 neutral.
-  summary: 한국어 1-2문장 — 헤드라인 사실 요약 + 한국 증시/밸류체인 함의 한 마디.
+  summary: 한국어 1-2문장 — 무슨 일이 있었는지 + 한국 증시/밸류체인 함의 한 마디.
 - 헤드라인에 없는 사실·수치를 지어내지 말 것.
-출력은 정확히 이 JSON 만: {{"picks": [{{"idx": 0, "event": "...", "ticker": "...",
-"direction": "bullish|neutral|bearish", "summary": "..."}}]}}"""
+출력은 정확히 이 JSON 만: {{"picks": [{{"idx": 0, "name": "...", "category": "macro|nasdaq|sp",
+"ticker": "...", "direction": "bullish|neutral|bearish", "summary": "..."}}]}}"""
 
 NEWS_SCHEMA = {
     "type": "object", "additionalProperties": False,
     "properties": {"picks": {"type": "array", "items": {
         "type": "object", "additionalProperties": False,
-        "properties": {"idx": {"type": "integer"}, "event": {"type": "string"},
+        "properties": {"idx": {"type": "integer"}, "name": {"type": "string"},
+                       "category": {"type": "string"},
                        "ticker": {"type": "string"}, "direction": {"type": "string"},
                        "summary": {"type": "string"}},
-        "required": ["idx", "event", "ticker", "direction", "summary"]}}},
+        "required": ["idx", "name", "direction", "summary"]}}},
     "required": ["picks"],
 }
 
@@ -410,10 +427,11 @@ def collect_news(state, now):
             direction = "neutral"
         out.append({
             "ticker": str(p.get("ticker") or "").upper(),
-            "stock": p.get("event") or h["title"][:40],
+            "stock": (p.get("name") or "").strip() or h["title"][:20],
+            "category": _norm_category(p.get("category"), allow_macro=True),
             "market": "US",
             "kind": "news",
-            "form": "",                     # 프런트 mkLabel 이 "US" 로 렌더
+            "form": "",
             "direction": direction,
             "summary": p.get("summary") or h["title"],
             "url": h["url"],
