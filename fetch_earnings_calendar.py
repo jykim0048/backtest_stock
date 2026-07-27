@@ -413,6 +413,15 @@ def _enrich_upcoming(u, per, src, tag_src):
     return filled
 
 
+def _missing_yoy(r):
+    """실적(actual)은 있는데 그 증감률(YoY)이 결손인가 — 집계 피드(FnGuide 실적속보 등)가
+    YoY 칸을 비운 적자종목 등(두산퓨얼셀 2026-07-24: op·매출은 있는데 YoY 전멸). dart-doc 이
+    전년동기대비를 채우게 enrich·재시도를 트리거하는 조건. naver 는 미발표 분기를 컨센으로
+    잡고 있으면 _yoy_calc 폴백이 안 되므로 dart 원문이 유일 경로."""
+    return any(r.get(v) is not None and r.get(y) is None
+               for v, y in (("op", "opYoY"), ("sales", "salesYoY"), ("np", "npYoY")))
+
+
 def enrich_calendar(released, upcoming, today: datetime.date,
                     fetch_naver=None, fetch_wcomp=None, fetch_doc=None,
                     fetch_annual=None) -> int:
@@ -428,7 +437,8 @@ def enrich_calendar(released, upcoming, today: datetime.date,
     today_s = today.isoformat()
 
     def _rel_needs(r):
-        return r["op"] is None or r["sales"] is None or r["consensus"]["op"] is None
+        return (r["op"] is None or r["sales"] is None or r["consensus"]["op"] is None
+                or _missing_yoy(r))     # 실적 있어도 YoY 결손이면 보강(두산퓨얼셀 사례)
 
     # 대시보드는 '오늘자' 행만 표시(_load_earnings_events) → 오늘자를 우선 보강한다.
     # (과거 released 를 먼저 보강하면 ENRICH_MAX 예산이 표시 안 되는 행에 소진돼
@@ -450,7 +460,7 @@ def enrich_calendar(released, upcoming, today: datetime.date,
         #     op 뿐 아니라 매출·순이익 중 하나라도 결손이면 시도 — 금융지주처럼 집계 사이트가
         #     op 만 주고 매출액을 비우는 경우(신한지주 2026-07-23)도 원문에서 채운다.
         need_actual = (row.get("op") is None or row.get("sales") is None
-                       or row.get("np") is None)
+                       or row.get("np") is None or _missing_yoy(row))
         if DART_DOC_ON and kind == "rel" and need_actual:
             rc = re.search(r"rcpNo=(\d+)", row.get("dartUrl") or "")
             if rc:
@@ -923,7 +933,8 @@ def retry_dart_doc(released, today_s, fetch_doc=None, limit=None):
     limit = DART_DOC_RETRY_MAX if limit is None else limit
     need = [r for r in released
             if r.get("date") == today_s and r.get("dartUrl")
-            and (r.get("op") is None or r.get("sales") is None or r.get("np") is None)]
+            and (r.get("op") is None or r.get("sales") is None or r.get("np") is None
+                 or _missing_yoy(r))]
     n = 0
     for r in need[:limit]:
         rc = re.search(r"rcpNo=(\d+)", r["dartUrl"])

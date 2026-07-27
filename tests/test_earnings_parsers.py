@@ -17,7 +17,7 @@ from fetch_earnings_calendar import (parse_wisereport, parse_fnguide, parse_dart
                                      enrich_calendar, _yoy_calc, _target_period,
                                      stamp_captured_date, attach_disclosure_times,
                                      fetch_dart_daylist_earnings, carry_prev_released,
-                                     retry_dart_doc,
+                                     retry_dart_doc, _missing_yoy,
                                      build, _recent_quarters)
 import fetch_earnings_calendar as _fec
 
@@ -424,6 +424,26 @@ def main():
     assert "op" not in rel_rt[2] or rel_rt[2]["op"] is None                    # 오늘 아님 — 미조회
     assert n == 1
     print("retry_dart_doc 결손 재공략 OK")
+
+    # ── YoY 결손 트리거: 실적 있어도 증감률 없으면 enrich/dart-doc 재공략(두산퓨얼셀) ──
+    # 적자종목이라 집계 피드가 YoY 를 비우고 op/매출/컨센은 다 있어 기존엔 보강 스킵됐다.
+    dsfc = {"date": "2026-07-27", "code": "336260", "name": "두산퓨얼셀",
+            "op": -504.0, "opYoY": None, "sales": 443.0, "salesYoY": None,
+            "np": -549.0, "npYoY": None,
+            "consensus": {"op": -454.0}, "dartUrl": "...rcpNo=20260724800675", "sources": ["fnguide"]}
+    complete = {"date": "2026-07-27", "code": "000000", "op": 100, "opYoY": 5.0,
+                "sales": 900, "salesYoY": 3.0, "np": 80, "npYoY": 4.0,
+                "consensus": {"op": 90}, "dartUrl": "u", "sources": ["fnguide"]}
+    assert _missing_yoy(dsfc) is True                       # op 있고 opYoY 없음 → True
+    assert _missing_yoy(complete) is False                  # 다 채워짐 → False
+    # retry_dart_doc 이 YoY 결손도 대상에 넣어 dart-doc 로 채우는지
+    fake = {"20260724800675": {"salesYoY": -65.5, "opYoY": -2559.6, "npYoY": -2055.9}}
+    n = retry_dart_doc([dsfc, complete], "2026-07-27",
+                       fetch_doc=lambda rcp: fake.get(rcp, {}))
+    assert dsfc["opYoY"] == -2559.6 and dsfc["salesYoY"] == -65.5 and dsfc["npYoY"] == -2055.9
+    assert dsfc["op"] == -504.0                             # 기존 실적은 미변경(YoY 만 보강)
+    assert n == 1                                           # complete 은 미대상
+    print("YoY 결손 트리거(_missing_yoy·retry) OK")
     print("ALL PASS")
 
 
