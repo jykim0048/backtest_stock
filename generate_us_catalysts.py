@@ -312,15 +312,17 @@ NEWS_SYSTEM = """\
 - 최대 {max_picks}건. 확실한 촉매가 없으면 빈 배열을 반환한다(억지로 고르지 말 것).
 - 각 pick 필드:
   idx: 입력 headlines 의 번호(그 기사가 근거).
-  name: 표 첫 칸에 들어갈 **짧은 주체명(2~10자)** — 개별기업이면 기업명(예: "인텔","애플",
-        "테슬라"), 매크로/지정학이면 핵심 주체(예: "국제유가","미국 관세","연준","미-이란",
-        "필라델피아반도체"). **긴 문장 금지**(사건 설명은 summary 로).
+  name: 표 첫 칸에 들어갈 **뉴스의 실제 주체(2~12자)** — 그 사건의 '주어'를 그대로 쓴다.
+        개별기업이면 기업명(예: "인텔","애플","테슬라","엔비디아"), 해외 비상장·신규상장·
+        중국기업 등도 그 이름 그대로(예: "CXMT","창신메모리","화웨이"), 매크로/지정학이면
+        핵심 주체(예: "국제유가","미국 관세","연준","미-이란"). **절대 국내 관련주로 바꾸지
+        말 것**(국내주는 relatedStock 칸). **긴 문장 금지**(사건 설명은 summary 로).
   category: "macro"(유가·금리·관세·지정학·지표 등 개별종목 아님) | "nasdaq"(기술·성장·
             반도체 중심) | "sp"(전통·금융·산업 등 광범위/NYSE).
   relatedStock: 이 촉매로 실제 매매할 **국내 상장 대표 관련주 1개(한국 종목명)**.
     category=macro 면 반드시 채운다 — 예: 국제유가→"S-Oil", 미국 관세→"현대차",
-    연준 금리인상→"KB금융", 지정학 방산→"한화에어로스페이스". 개별 미국주(nasdaq/sp)면
-    국내 밸류체인 대표 1개 또는 "".
+    연준 금리인상→"KB금융", 지정학 방산→"한화에어로스페이스", CXMT 급등→"삼성전자".
+    개별 미국주(nasdaq/sp)면 국내 밸류체인 대표 1개 또는 "".
   ticker: 대표 티커(개별 기업 사건일 때만, 없으면 "").
   direction: 한국 증시 관점 방향(bullish|neutral|bearish). 근거 약하면 neutral.
   summary: 한국어 1-2문장 — 무슨 일이 있었는지 + 한국 증시/밸류체인 함의 한 마디.
@@ -457,27 +459,26 @@ def collect_news(state, now):
             direction = "neutral"
         category = _norm_category(p.get("category"), allow_macro=True)
         stock = (p.get("name") or "").strip() or h["title"][:20]
-        url = h["url"]
         related = (p.get("relatedStock") or "").strip()
-        # 매크로 촉매(국제유가·관세·금리·지정학)는 종목명을 국내 대표 관련주로 치환하고
-        # 원문도 그 관련주 뉴스로 돌린다 — 매크로 라벨 자체는 매매 불가라 실전 액션화
-        # (사용자 요청 2026-07-27). 관련주 뉴스 없으면 원 기사 URL 유지(graceful).
-        if category == "macro" and related:
-            stock = related
-            art = _related_stock_article(related, now)
-            if art:
-                url = art
+        # 종목명(stock)은 항상 뉴스의 '실제 주체'(해외 기업·지수·원자재·이슈, 예: CXMT·인텔·
+        # 국제유가·연준)를 그대로 둔다 — 국내 관련주로 덮어쓰지 않는다(사용자 요청 2026-07-28:
+        # 매크로도 해외 주체를 표기). 국내 대표 관련주는 relatedStock 로 분리하고, 그 관련주의
+        # 최신 뉴스를 relatedUrl 로 붙여 프런트가 '관련주 딥리서치/뉴스'로 액션화한다
+        # (2026-07-27 매크로 액션화 기능은 relatedStock/relatedUrl 로 이관·유지).
+        related_url = (_related_stock_article(related, now)
+                       if (category == "macro" and related) else None)
         out.append({
             "ticker": str(p.get("ticker") or "").upper(),
-            "stock": stock,
+            "stock": stock,                 # 해외 주체(CXMT 등) — 국내주로 치환하지 않음
             "category": category,
-            "relatedStock": related,
+            "relatedStock": related,        # 국내 대표 관련주(매매 액션용)
+            "relatedUrl": related_url,      # 그 관련주 최신 뉴스(없으면 None)
             "market": "US",
             "kind": "news",
             "form": "",
             "direction": direction,
             "summary": p.get("summary") or h["title"],
-            "url": url,
+            "url": h["url"],                # 원문 = 사건 기사 그대로
             "filedAt": now.strftime("%Y-%m-%d"),
             "changePct": None,
             "accession": h["url"],          # 뉴스는 URL 이 dedup 키

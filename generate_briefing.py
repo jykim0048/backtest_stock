@@ -346,8 +346,10 @@ SYSTEM = """\
   surpriseVerdict: above=상회 / inline=부합 / below=하회), korToday(당일 발표 예정 한국 지표),
   usTonight(오늘 밤 미국 발표 예정). 없을 수 있다.
 - usCatalysts : 밤사이 미국 세션 촉매 — kind=sec 는 SEC 공시(한국 연관 미국 종목 한정,
-  원문 기반 요약), kind=news 는 시장 뉴스(지정학·매크로·대형주 실적 보도, stock 필드가
-  사건명). 공통 필드 ticker/stock/form/kind/direction/summary/changePct. 없을 수 있다.
+  원문 기반 요약), kind=news 는 시장 뉴스(지정학·매크로·대형주 실적 보도). stock 필드는
+  사건의 실제 주체(해외 기업·지수·이슈, 예: CXMT·국제유가), relatedStock 은 그 촉매의
+  국내 대표 관련주(매매 관점). 공통 필드 ticker/stock/relatedStock/form/kind/direction/
+  summary/changePct. 없을 수 있다.
   **surpriseVs 가 비교 기준이다: forecast 면 '예상(컨센서스) 상회/하회', previous 면 반드시
   '이전(직전치) 대비 상회/하회'로 표현을 구분하고, 이전값 대비를 '예상치 상회/하회'라고 쓰지 말 것.**
 
@@ -434,8 +436,8 @@ def _llm_input(sel, up_themes, down_themes, econ=None, us_cats=None):
         payload["econEvents"] = _econ_llm_view(econ)
     if us_cats:
         payload["usCatalysts"] = [{k: c.get(k) for k in
-                                   ("ticker", "stock", "form", "kind", "direction",
-                                    "summary", "changePct")}
+                                   ("ticker", "stock", "relatedStock", "form", "kind",
+                                    "direction", "summary", "changePct")}
                                   for c in us_cats[:15]]
     return json.dumps(payload, ensure_ascii=False)
 
