@@ -4139,7 +4139,7 @@
       // 폴링을 60초로 좁혀 반영 지연을 줄인다(각 로더에 asof/코드 병합 가드가 있어
       // 동일 회차면 리렌더 스킵 — 부하 미미, Railway 는 60s TTL 캐시로 서빙).
       // 과거 날짜 열람 중에는 최신본으로 덮어쓰지 않는다.
-      setInterval(async () => {
+      const refreshRoundData = async () => {
         refreshDailyAnalysis();   // 장전 워치리스트 딥리서치(수급 등) 장중 갱신 병합
         refreshUsCatalysts();     // 미국 밤사이 SEC 촉매(모닝브리프 섹션, 야간 갱신)
         if (!isWatchLiveView) return;
@@ -4149,7 +4149,15 @@
         renderWatchDownTable();
         updateWatchAsof();
         loadIntradayBriefing();   // 🔴 장중 시황(동일 asof 면 renderIntradayBriefing 스킵)
-      }, 60000);
+      };
+      setInterval(refreshRoundData, 60000);
+      // 백그라운드 탭 스로틀링 보정: 브라우저가 백그라운드 탭의 타이머를 수 분까지
+      // 지연시켜, 탭 복귀 직후 최신 회차가 반영 안 된 것처럼 보이던 문제
+      // (2026-07-27 15:18 실측 — 서버·프록시는 신선한데 열린 탭만 스테일).
+      // 탭이 다시 보이는 순간 즉시 1회 갱신한다(로더별 asof 가드로 중복 렌더 무해).
+      document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "visible") refreshRoundData();
+      });
     };
 
     // intraday_report.json 갱신 시각 표시 (selection/intraday/<date>.json 의 asof)
