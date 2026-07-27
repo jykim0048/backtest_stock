@@ -35,6 +35,13 @@ DEFAULT_CHAIN = ("gemini:gemini-3.5-flash,"
 MAX_RETRY = 3                                   # transient retries within one link
 RETRYABLE = {429, 500, 502, 503, 504, 529}      # HTTP codes worth retrying / then switching
 
+# 워스트케이스 꼬리 제어(브리핑 등 폴백 산출물이 있는 호출자용) — 기본값은 기존과 동일.
+#   LLM_TIMEOUT_S : 요청당 HTTP 타임아웃(초). 120s×링크당 재시도 3회×5링크가 슬로우
+#                   회차 꼬리를 만들 수 있어, 기계적 폴백이 있는 스텝은 짧게 잡는다.
+#   LLM_MAX_LINKS : 폴백 체인 길이 상한(0=무제한). 하위 링크까지 다 도는 최악 경로 차단.
+TIMEOUT_S = float(os.environ.get("LLM_TIMEOUT_S", "120"))
+MAX_LINKS = int(os.environ.get("LLM_MAX_LINKS", "0"))
+
 _CLIENTS = {}                                   # (provider, key) -> SDK client (reused)
 
 
@@ -75,10 +82,11 @@ def _gemini(model, system, user, max_tokens, schema):
     client = _CLIENTS.get(("gemini", key))
     if client is None:
         # SDK 기본 HTTP 타임아웃이 무제한이라 정체된 연결 하나가 호출을 무한 대기시킨다
-        # (2026-07-13 마감 시황 재실행이 생성 스텝에서 30분+ 걸린 원인). 120초로 제한 —
-        # 초과 시 transport 예외 → _Retryable → 백오프 재시도/다음 링크 전환.
+        # (2026-07-13 마감 시황 재실행이 생성 스텝에서 30분+ 걸린 원인). 기본 120초 제한
+        # (LLM_TIMEOUT_S 로 조정) — 초과 시 transport 예외 → _Retryable → 재시도/링크 전환.
         client = genai.Client(api_key=key,
-                              http_options=genai.types.HttpOptions(timeout=120_000))
+                              http_options=genai.types.HttpOptions(
+                                  timeout=int(TIMEOUT_S * 1000)))
         _CLIENTS[("gemini", key)] = client
 
     # Gemini 는 Anthropic 의 output_config 같은 스키마 강제 수단을 쓰지 않으므로
@@ -132,7 +140,7 @@ def _anthropic(model, system, user, max_tokens, schema):
     key = os.environ["ANTHROPIC_API_KEY"]
     client = _CLIENTS.get(("anthropic", key))
     if client is None:
-        client = anthropic.Anthropic()
+        client = anthropic.Anthropic(timeout=TIMEOUT_S)   # gemini 와 동일한 요청 타임아웃
         _CLIENTS[("anthropic", key)] = client
 
     kwargs = dict(
@@ -173,6 +181,8 @@ def _chain():
         provider, model = provider.strip().lower(), model.strip()
         if provider in _ADAPTERS and model:
             out.append((provider, model))
+    if MAX_LINKS > 0:
+        out = out[:MAX_LINKS]
     return out or [("gemini", "gemini-3.5-flash")]
 
 

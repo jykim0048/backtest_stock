@@ -10,6 +10,7 @@ import json
 import os
 import sys
 import datetime
+from concurrent.futures import ThreadPoolExecutor
 
 import pandas as pd
 import yfinance as yf
@@ -120,12 +121,23 @@ def generate_report():
         except Exception as ex:
             print(f"  [carry] 직전 리포트 로드 실패: {ex}", file=sys.stderr)
 
-    report = []
-    for stock in watchlist:
-        code, name, market = stock['code'], stock['name'], stock['market']
-        print(f"  Fetching {name} ({code})...")
+    # 종목별 yf.download 순차 루프가 이 스텝 시간의 대부분(10~20종목×~2초, 상승/하락 2회 실행)
+    # → TP8 병렬화. 결과는 watchlist 원래 순서로 조립하고 실패 종목 skip 동작은 기존과 동일.
+    # (일괄 yf.download 배치는 MultiIndex 형태가 달라져 미채택 — 종목별 정규화 로직 보존.)
+    def _fetch(stock):
+        try:
+            return fetch_stock_data(stock['code'], stock['market'])
+        except Exception as ex:
+            print(f"  [fetch] {stock['name']} ({stock['code']}) 실패: {ex}", file=sys.stderr)
+            return None
 
-        data = fetch_stock_data(code, market)
+    print(f"  Fetching {len(watchlist)} stocks (8 workers)...")
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        fetched = list(pool.map(_fetch, watchlist))
+
+    report = []
+    for stock, data in zip(watchlist, fetched):
+        code, name, market = stock['code'], stock['name'], stock['market']
         if not data:
             print(f"  Skipped {name}: no data returned", file=sys.stderr)
             continue

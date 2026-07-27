@@ -14,37 +14,7 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  # GitHub Actions schedule 은 혼잡 시간대에 수십 분~수 시간 지연·이월된다. cron 을
-  # 09:07~14:37(KST)로 좁혀도 지연 트리거가 KST 18시대(장 마감 후)에 실행되는 일이 잦다.
-  # 그래서 실제 실행 시점의 KST 가 장중(09:00~15:00 평일)이 아니면 본 작업을 스킵한다.
-  # 수동 workflow_dispatch 는 테스트용이라 항상 통과시킨다.
-  guard:
-    runs-on: ubuntu-latest
-    outputs:
-      proceed: ${{ steps.check.outputs.proceed }}
-    steps:
-      - id: check
-        name: Run only during KST market hours (defend against delayed schedule)
-        run: |
-          if [ "${{ github.event_name }}" != "schedule" ]; then
-            echo "event=${{ github.event_name }} (manual) — proceeding"
-            echo "proceed=true" >> "$GITHUB_OUTPUT"; exit 0
-          fi
-          NOW=$(( 10#$(TZ=Asia/Seoul date +%H) * 60 + 10#$(TZ=Asia/Seoul date +%M) ))
-          DOW=$(TZ=Asia/Seoul date +%u)   # 1=Mon … 7=Sun
-          HM=$(TZ=Asia/Seoul date +%H:%M)
-          # 장중 회차는 09:07~14:37(KST). 정상 지연 여유를 둬 09:00~15:00(540~900분) 평일만 허용.
-          if [ "$DOW" -le 5 ] && [ "$NOW" -ge 540 ] && [ "$NOW" -le 900 ]; then
-            echo "KST $HM (min=$NOW dow=$DOW) — within market hours; proceeding"
-            echo "proceed=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "KST $HM (min=$NOW dow=$DOW) — outside market hours; skipping (delayed schedule)"
-            echo "proceed=false" >> "$GITHUB_OUTPUT"
-          fi
-
   intraday-screen:
-    needs: guard
-    if: needs.guard.outputs.proceed == 'true'
     runs-on: ubuntu-latest
 
     permissions:
@@ -55,6 +25,28 @@ jobs:
       SCREEN_N_FINAL: '10'
 
     steps:
+      # (구 guard job 인라인, 2026-07-27) 별도 job 이던 KST 장중 가드는 workflow_dispatch
+      # 전용이 된 지금 항상 통과하는 no-op 인데, 러너 스핀업+잡 핸드오프로 회차마다
+      # ~20-45초를 낭비해 같은 job 의 첫 스텝으로 이동했다. schedule: 재도입 시 방어는
+      # 유지 — GitHub schedule 은 혼잡 시간대 수십 분~수 시간 지연·이월되므로(KST 18시대
+      # 실행 사례) 지연 발화가 장외(평일 09:00~15:00 밖)면 여기서 job 을 중단한다.
+      - name: Guard — KST market hours (schedule 지연 발화 방어)
+        run: |
+          if [ "${{ github.event_name }}" != "schedule" ]; then
+            echo "event=${{ github.event_name }} (dispatch/manual) — proceeding"
+            exit 0
+          fi
+          NOW=$(( 10#$(TZ=Asia/Seoul date +%H) * 60 + 10#$(TZ=Asia/Seoul date +%M) ))
+          DOW=$(TZ=Asia/Seoul date +%u)   # 1=Mon … 7=Sun
+          HM=$(TZ=Asia/Seoul date +%H:%M)
+          # 장중 회차는 09:07~14:37(KST). 정상 지연 여유를 둬 09:00~15:00(540~900분) 평일만 허용.
+          if [ "$DOW" -le 5 ] && [ "$NOW" -ge 540 ] && [ "$NOW" -le 900 ]; then
+            echo "KST $HM (min=$NOW dow=$DOW) — within market hours; proceeding"
+          else
+            echo "::warning::KST $HM (min=$NOW dow=$DOW) — outside market hours; aborting delayed schedule run"
+            exit 1
+          fi
+
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0   # full history so the push-time rebase is clean
@@ -79,7 +71,10 @@ jobs:
           TAVILY_API_KEY:      ${{ secrets.TAVILY_API_KEY }}
           NAVER_CLIENT_ID:     ${{ secrets.NAVER_CLIENT_ID }}
           NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
-        run: python screener.py
+        run: |
+          python screener.py; rc=$?
+          echo "[timing] screener ${SECONDS}s rc=$rc"
+          exit $rc
 
       # 시황 브랜치(경제·실적 캘린더 → 장중 시황)를 여기서 백그라운드로 띄운다.
       # 반드시 screener 뒤: screener 는 '직전 회차' intraday_briefing.json 을 시드로 읽으므로
@@ -97,6 +92,11 @@ jobs:
           DATA_GO_KR_KEY:      ${{ secrets.DATA_GO_KR_KEY }}   # 관세청 수출입 통계(발표일만 호출)
           NAVER_CLIENT_ID:     ${{ secrets.NAVER_CLIENT_ID }}
           NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
+          # LLM 워스트케이스 꼬리 캡(시황 전용): 브리핑엔 _mechanical_briefing 폴백이 있어
+          # 빨리 실패해도 산출물이 보장된다 — 요청 타임아웃 120→75s, 폴백 체인 5→3링크.
+          # 브랜치 A(딥리서치)는 폴백 산출물이 없으므로 기본값(120s/전체 체인) 유지.
+          LLM_TIMEOUT_S:       '75'
+          LLM_MAX_LINKS:       '3'
         run: |
           rm -f briefing_branch.done briefing_branch.log
           # nohup+백그라운드로 스텝(shell) 종료 후에도 살아남게 한다. env 는 fork 시점에
@@ -106,9 +106,13 @@ jobs:
           # timeout 720s(12분)로 무한 대기 방어.
           nohup bash -c '
             set +e
-            timeout 180 python fetch_econ_calendar.py    ; echo "[branchB] econ rc=$?"
-            timeout 180 python fetch_earnings_calendar.py ; echo "[branchB] earnings rc=$?"
-            timeout 720 python generate_intraday_briefing.py ; echo "[branchB] briefing rc=$?"
+            t0=$SECONDS
+            timeout 180 python fetch_econ_calendar.py    ; rc=$?; echo "[branchB][timing] econ rc=$rc $((SECONDS-t0))s"
+            t0=$SECONDS
+            timeout 180 python fetch_earnings_calendar.py ; rc=$?; echo "[branchB][timing] earnings rc=$rc $((SECONDS-t0))s"
+            t0=$SECONDS
+            timeout 720 python generate_intraday_briefing.py ; rc=$?; echo "[branchB][timing] briefing rc=$rc $((SECONDS-t0))s"
+            echo "[branchB][timing] total ${SECONDS}s"
             echo done > briefing_branch.done
           ' > briefing_branch.log 2>&1 &
           echo "briefing branch launched (pid=$!)"
@@ -120,7 +124,10 @@ jobs:
           REPORT_ARCHIVE:        '1'                    # 날짜별 아카이브(나중에 과거 조회)
           REPORT_ARCHIVE_DIR:    public/reports/intraday   # 장전(reports/)과 분리된 장중 전용
           REPORT_CARRY_ANALYSIS: '1'                    # 직전 리포트 deep-research 이월(증분 분석)
-        run: python generate_report.py
+        run: |
+          python generate_report.py; rc=$?
+          echo "[timing] report ${SECONDS}s rc=$rc"
+          exit $rc
 
       - name: Generate intraday down-watch report (하락 관찰, 참고용)
         continue-on-error: true   # best-effort; 하락 리스트 없으면 빈 리포트
@@ -131,7 +138,10 @@ jobs:
           REPORT_ARCHIVE_DIR:    public/reports/intraday_down   # 과거 날짜 조회용(상승과 분리)
           REPORT_SIDE:           down
           REPORT_CARRY_ANALYSIS: '1'   # 직전 deep-research 이월(증분 분석 + 아카이브에 분석 반영)
-        run: python generate_report.py
+        run: |
+          python generate_report.py; rc=$?
+          echo "[timing] report-down ${SECONDS}s rc=$rc"
+          exit $rc
 
       - name: Generate intraday deep research analysis
         continue-on-error: true   # best-effort; never block the price report
@@ -149,7 +159,10 @@ jobs:
           TAVILY_API_KEY:      ${{ secrets.TAVILY_API_KEY }}
           NAVER_CLIENT_ID:     ${{ secrets.NAVER_CLIENT_ID }}
           NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
-        run: python generate_analysis.py
+        run: |
+          python generate_analysis.py; rc=$?
+          echo "[timing] analysis ${SECONDS}s rc=$rc"
+          exit $rc
 
       - name: Generate intraday down-watch deep research (하락 관찰 딥리서치)
         continue-on-error: true   # best-effort; 하락 리스트가 비면 no-op
@@ -167,7 +180,10 @@ jobs:
           TAVILY_API_KEY:      ${{ secrets.TAVILY_API_KEY }}
           NAVER_CLIENT_ID:     ${{ secrets.NAVER_CLIENT_ID }}
           NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
-        run: python generate_analysis.py
+        run: |
+          python generate_analysis.py; rc=$?
+          echo "[timing] analysis-down ${SECONDS}s rc=$rc"
+          exit $rc
 
       # 수급(flow)만 회차마다 풀 갱신 — LLM 재분석 없이 장전 워치리스트·장중 관심종목·
       # 하락 관찰 리포트의 analysis.flow 를 KIS 허브(/flow)+네이버 trend 최신값으로 교체.
@@ -175,7 +191,10 @@ jobs:
       # 재분석된 종목도 같은 회차 기준 수급으로 통일된다.
       - name: Refresh investor flow only (수급 갱신 — LLM 미사용)
         continue-on-error: true   # best-effort; 실패 시 기존 수급 유지
-        run: python refresh_flow.py
+        run: |
+          python refresh_flow.py; rc=$?
+          echo "[timing] flow ${SECONDS}s rc=$rc"
+          exit $rc
 
       # 시황 브랜치 합류: 위에서 백그라운드로 띄운 경제·실적 캘린더+시황이 끝날 때까지
       # (done 마커) 대기 후 로그를 출력한다. 브랜치 A(리포트·분석·수급)가 도는 동안 시황이
@@ -188,6 +207,7 @@ jobs:
             [ -f briefing_branch.done ] && break
             sleep 2
           done
+          echo "[timing] join waited ${SECONDS}s"   # 브랜치 A 가 시황을 기다린 실제 시간
           echo "--- briefing branch log ---"
           cat briefing_branch.log 2>/dev/null || true
           if [ -f briefing_branch.done ]; then

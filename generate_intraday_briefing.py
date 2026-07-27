@@ -20,6 +20,7 @@ import os
 import re
 import sys
 import json
+import time
 import datetime
 from concurrent.futures import ThreadPoolExecutor
 
@@ -569,9 +570,10 @@ def enrich_sector_stocks(sectors_up, sectors_down):
             prices = (r.json() or {}).get("stocks") or {}
         except Exception as e:
             _warn(f"관련주 시세 조회 실패: {e}")
-        flows = {}
-        for c in codes:
-            flows[c] = sources.naver_stock_flow(c)
+        # 종목당 1콜 순차(30~60콜 × ~0.5s)가 수집 단계의 주요 꼬리 — TP8 병렬
+        # (attach_sector_stock_news 와 동일 패턴, naver_stock_flow 는 실패 시 {} graceful).
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            flows = dict(zip(codes, pool.map(sources.naver_stock_flow, codes)))
         n_p, n_f = 0, 0
         for x in stocks:
             p = prices.get(x.get("code")) or {}
@@ -1221,20 +1223,53 @@ def _mechanical_briefing(indices, investors, sectors_up, sectors_down, final):
 def main():
     print("=== Intraday Market Briefing ===")
     now = datetime.datetime.now(KST)
-    indices = fetch_indices()
-    investors = sources.naver_index_investors()          # 기관/외인/개인 순매수(억원)
-    indicators = sources.naver_market_indicators()       # 환율·금리·유가·금
-    sector_heat, sectors_up, sectors_down = fetch_sectors()   # KIS 업종(KRX 분류) 섹터 히트
-    attach_sector_themes(sectors_up, sectors_down)            # 섹터 → 관련 네이버 테마·종목
-    enrich_sector_stocks(sectors_up, sectors_down)            # 관련주 등락률·수급(동인 분석 근거)
-    attach_sector_stock_news(sectors_up, sectors_down)        # 상위 종목 당일 뉴스(실제 촉매 근거)
-    attach_sector_stock_netbuy(sectors_up, sectors_down)      # 상위 종목 당일 가집계(수급 주체 근거)
-    movers_up, movers_down = fetch_movers()
-    disclosures = sources.dart_today_disclosures(limit=40)
-    news = fetch_news()
-    fx_news = fetch_fx_news()                             # 환율 관련 뉴스(원달러·환율)
-    investor_series = fetch_investor_series()             # 1분 투자자 누적 순매수(이월+증분)
+    _t_collect = time.time()
+
+    def _timed(label, fn, *a):
+        t0 = time.time()
+        try:
+            return fn(*a)
+        finally:
+            print(f"  [timing] {label} {time.time() - t0:.1f}s")
+
+    # 수집 병렬화(2026-07-27): 원래 13개 수집 호출이 전부 직렬이라 수집 단계만 3~5분 —
+    # 상호 파일/상태 공유가 없는 9건을 동시 실행한다(각자 내부 예외 처리·graceful empty,
+    # sources 함수들은 attach_* 의 기존 TP8 로 이미 동시 사용 실적 있음). 워커 6 =
+    # 네이버/DART 레이트리밋 보수 고려. 섹터 체인(themes→enrich→news∥netbuy)만
+    # fetch_sectors 결과에 순서 의존이라, sectors 완료 즉시 메인 스레드에서 이어 돌린다
+    # (남은 독립 수집과 자연히 겹침). news/netbuy 는 상호 독립이라 마지막에 동시 실행.
+    with ThreadPoolExecutor(max_workers=6) as pool:
+        futs = {
+            "indices":     pool.submit(_timed, "indices", fetch_indices),
+            "investors":   pool.submit(_timed, "index_investors", sources.naver_index_investors),
+            "indicators":  pool.submit(_timed, "market_indicators", sources.naver_market_indicators),
+            "sectors":     pool.submit(_timed, "sectors", fetch_sectors),
+            "movers":      pool.submit(_timed, "movers", fetch_movers),
+            "disclosures": pool.submit(_timed, "disclosures",
+                                       lambda: sources.dart_today_disclosures(limit=40)),
+            "news":        pool.submit(_timed, "news", fetch_news),
+            "fx_news":     pool.submit(_timed, "fx_news", fetch_fx_news),
+            "inv_series":  pool.submit(_timed, "investor_series", fetch_investor_series),
+        }
+        sector_heat, sectors_up, sectors_down = futs["sectors"].result()  # KIS 업종 섹터 히트
+        _timed("sector_themes", attach_sector_themes, sectors_up, sectors_down)   # 섹터→테마·종목
+        _timed("sector_enrich", enrich_sector_stocks, sectors_up, sectors_down)   # 관련주 등락·수급
+        f_news = pool.submit(_timed, "sector_news",
+                             attach_sector_stock_news, sectors_up, sectors_down)  # 상위 종목 뉴스
+        f_netbuy = pool.submit(_timed, "sector_netbuy",
+                               attach_sector_stock_netbuy, sectors_up, sectors_down)  # 가집계
+        f_news.result()
+        f_netbuy.result()
+        indices = futs["indices"].result()
+        investors = futs["investors"].result()            # 기관/외인/개인 순매수(억원)
+        indicators = futs["indicators"].result()          # 환율·금리·유가·금
+        movers_up, movers_down = futs["movers"].result()
+        disclosures = futs["disclosures"].result()
+        news = futs["news"].result()
+        fx_news = futs["fx_news"].result()                # 환율 관련 뉴스(원달러·환율)
+        investor_series = futs["inv_series"].result()     # 1분 투자자 누적 순매수(이월+증분)
     investor_flow = _flow_trend(investor_series)          # LLM 용 요약(전환·가속)
+    print(f"  [timing] collect-total {time.time() - _t_collect:.1f}s")
     _tm = sum(len(s.get("themes") or []) for s in sectors_up + sectors_down)
     print(f"  수집: 섹터 {len(sector_heat)}개(↑{len(sectors_up)}/↓{len(sectors_down)}, 테마매칭 {_tm}), "
           f"공시 {len(disclosures)}, 뉴스 {len(news)}, 환율뉴스 {len(fx_news)}, "
@@ -1258,11 +1293,13 @@ def main():
               f"한국 예정 {len(econ_events.get('korTodayUpcoming', []))}건, "
               f"오늘 밤 미국 예정 {len(econ_events.get('usTonight', []))}건")
 
+    _t_synth = time.time()
     briefing, fx_bullets, catalysts, model, llm_regime = synthesize(
         indices, investors, indicators, sectors_up, sectors_down,
         movers_up, movers_down, disclosures, news, fx_news,
         prev_rounds=prev_rounds, us_context=_load_us_context(),
         investor_flow=investor_flow, econ_events=econ_events)
+    print(f"  [timing] synthesize {time.time() - _t_synth:.1f}s")
 
     out = {
         "date": now.strftime("%Y-%m-%d"),
