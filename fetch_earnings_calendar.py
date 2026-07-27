@@ -65,6 +65,8 @@ DART_EXCLUDE_KEYWORDS = ("정정", "첨부")
 DART_VIEW_MAIN = "https://dart.fss.or.kr/dsaf001/main.do"
 DART_VIEW_DOC = "https://dart.fss.or.kr/report/viewer.do"
 DART_DOC_ON = os.environ.get("EARNINGS_DART_DOC", "1") != "0"
+# enrich 후에도 결손인 오늘자 released 에 dart-doc 한 번 더 재시도할 상한(회차 부하 보호).
+DART_DOC_RETRY_MAX = int(os.environ.get("EARNINGS_DART_DOC_RETRY_MAX", "15"))
 # 표 단위 → 억원 환산계수
 _DART_UNIT = {"조원": 10000.0, "십억원": 10.0, "억원": 1.0, "백만원": 0.01,
               "천원": 1e-5, "백원": 1e-6, "원": 1e-8}
@@ -893,6 +895,43 @@ def carry_prev_released(released, prev_released):
     return n
 
 
+def retry_dart_doc(released, today_s, fetch_doc=None, limit=None):
+    """enrich 후에도 op·매출·순이익이 결손인 오늘자 released(dartUrl 보유)에 dart-doc 를
+    한 번 더 시도. 회차 시점 DART 원문 fetch 랜덤 드롭(동양생명·비씨엔씨 사례 — 같은 회차
+    다른 종목은 성공)을 회차 내에서 재공략한다. 파서·데이터는 정상이고 전송만 실패하므로
+    유효(enrich 이후라 DART 호스트가 회복됐을 확률↑). 채운 행 수 반환."""
+    if not DART_DOC_ON:
+        return 0
+    fetch_doc = fetch_doc or _dart_document
+    limit = DART_DOC_RETRY_MAX if limit is None else limit
+    need = [r for r in released
+            if r.get("date") == today_s and r.get("dartUrl")
+            and (r.get("op") is None or r.get("sales") is None or r.get("np") is None)]
+    n = 0
+    for r in need[:limit]:
+        rc = re.search(r"rcpNo=(\d+)", r["dartUrl"])
+        if not rc:
+            continue
+        try:
+            act = fetch_doc(rc.group(1)) or {}
+        except Exception as e:
+            _warn(f"dart-doc 재시도 {r.get('code')} 실패: {e}")
+            continue
+        hit = False
+        for k in ("sales", "op", "np", "salesYoY", "opYoY", "npYoY"):
+            if r.get(k) is None and act.get(k) is not None:
+                r[k] = act[k]
+                hit = True
+        if hit:
+            r.setdefault("sources", [])
+            if "dart-doc" not in r["sources"]:
+                r["sources"].append("dart-doc")
+            n += 1
+    if n:
+        _warn(f"dart-doc 재시도 보강: {n}/{len(need)}행")
+    return n
+
+
 def stamp_captured_date(released, prev_released, today_s):
     """released 로 '처음' 잡힌 날짜(capturedDate)를 이월/스탬프.
 
@@ -958,6 +997,12 @@ def main():
         enrich_calendar(merged["released"], merged["upcoming"], today)
     except Exception as e:
         _warn(f"개별 종목 보강 실패(무시): {e}")
+
+    # enrich 시점 DART 원문 fetch 가 드롭된 결손 종목 재공략(전송 플레이크 → 회차 내 재시도)
+    try:
+        retry_dart_doc(merged["released"], today.isoformat())
+    except Exception as e:
+        _warn(f"dart-doc 재시도 실패(무시): {e}")
 
     stamp_captured_date(merged["released"], prev.get("released") or [], today.isoformat())
 

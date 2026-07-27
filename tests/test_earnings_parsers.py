@@ -17,6 +17,7 @@ from fetch_earnings_calendar import (parse_wisereport, parse_fnguide, parse_dart
                                      enrich_calendar, _yoy_calc, _target_period,
                                      stamp_captured_date, attach_disclosure_times,
                                      fetch_dart_daylist_earnings, carry_prev_released,
+                                     retry_dart_doc,
                                      build, _recent_quarters)
 import fetch_earnings_calendar as _fec
 
@@ -402,6 +403,27 @@ def main():
     assert cur[2]["op"] == 100 and "time" in cur[2] and cur[2]["time"] == "09:00"  # 무변화
     assert n == 2
     print("carry_prev_released 수치·시각 이월 OK")
+
+    # ── retry_dart_doc: enrich 후 결손 종목 dart-doc 재공략 (동양생명·비씨엔씨 사례) ──
+    rel_rt = [
+        {"date": "2026-07-27", "code": "082640", "name": "동양생명", "op": None, "sales": None,
+         "np": None, "dartUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260727800118",
+         "sources": ["dart"]},
+        {"date": "2026-07-27", "code": "000660", "name": "이미채움", "op": 500, "sales": 9000,
+         "np": 400, "dartUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=X", "sources": ["fnguide"]},
+        {"date": "2026-07-24", "code": "111111", "name": "과거", "op": None, "sales": None,
+         "dartUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=Y", "sources": ["dart"]},  # 오늘 아님
+    ]
+    fake_doc = {"20260727800118": {"sales": 13788.7, "salesYoY": 25.74, "op": 868.4,
+                                   "opYoY": 109.81, "np": 669.1, "npYoY": 84.73}}
+    n = retry_dart_doc(rel_rt, "2026-07-27",
+                       fetch_doc=lambda rcp: fake_doc.get(rcp, {}))
+    assert rel_rt[0]["op"] == 868.4 and rel_rt[0]["sales"] == 13788.7 and rel_rt[0]["np"] == 669.1
+    assert "dart-doc" in rel_rt[0]["sources"]
+    assert rel_rt[1]["op"] == 500 and "dart-doc" not in rel_rt[1]["sources"]   # 이미 채움 — 미변경
+    assert "op" not in rel_rt[2] or rel_rt[2]["op"] is None                    # 오늘 아님 — 미조회
+    assert n == 1
+    print("retry_dart_doc 결손 재공략 OK")
     print("ALL PASS")
 
 
