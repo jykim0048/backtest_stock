@@ -436,8 +436,8 @@ def _llm_input(sel, up_themes, down_themes, econ=None, us_cats=None):
         payload["econEvents"] = _econ_llm_view(econ)
     if us_cats:
         payload["usCatalysts"] = [{k: c.get(k) for k in
-                                   ("ticker", "stock", "relatedStock", "form", "kind",
-                                    "direction", "summary", "changePct")}
+                                   ("ticker", "stock", "relatedStock", "region", "form",
+                                    "kind", "direction", "summary", "changePct")}
                                   for c in us_cats[:15]]
     return json.dumps(payload, ensure_ascii=False)
 
