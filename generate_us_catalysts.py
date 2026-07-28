@@ -229,13 +229,12 @@ CAT_SYSTEM = """\
 - direction: 그 공시·주가 반응이 시사하는 방향(bullish|neutral|bearish). 근거가 약하면 neutral.
 - category: 종목 성격 — "nasdaq"(기술·성장·반도체·나스닥 상장주) | "sp"(전통·금융·산업·
   헬스케어 등 광범위/NYSE). 개별 기업이라 "macro" 는 쓰지 않는다.
-- exchange: 회사가 상장된 **주(主) 시장(거래소)**. 미국 본토면 "nasdaq"|"nyse", 미국 ADR·
-  6-K 제출 외국계면 본국 시장으로 — "amsterdam"(예: ASML), "taiwan"(예: TSMC),
-  "tokyo","shanghai","shenzhen","hongkong","london","frankfurt".
+- exchange: 회사의 ADR/주식이 거래되는 **미국 거래소** — "nasdaq" | "nyse". (SEC 8-K/6-K
+  제출사는 미국 상장·ADR 이 있으므로 항상 미국 시장 기준: ASML→nasdaq, TSMC→nyse.)
 - summary 끝에 가능하면 한국 증시 연관 한 마디(밸류체인·경쟁사 관점).
 출력은 정확히 이 JSON 만:
 {"catalysts": [{"ticker": "...", "stock": "회사명", "category": "nasdaq|sp",
-               "exchange": "nasdaq|nyse|amsterdam|taiwan|tokyo|shanghai|shenzhen|hongkong|london|frankfurt",
+               "exchange": "nasdaq|nyse",
                "direction": "bullish|neutral|bearish", "summary": "한국어 1-2문장"}]}"""
 
 CAT_SCHEMA = {
@@ -311,7 +310,7 @@ def summarize(filings):
             "ticker": f["ticker"],
             "stock": c.get("stock") or f.get("company") or f["ticker"],
             "category": _norm_category(c.get("category"), allow_macro=False),
-            "exchange": _norm_exchange(c.get("exchange")),   # 상장 시장(외국계 6-K 는 본국 거래소)
+            "exchange": _norm_exchange(c.get("exchange")),   # 미국 거래소(SEC 제출사=미국 상장/ADR)
             "market": "US",
             "kind": "sec",
             "form": f["form"],
@@ -350,12 +349,14 @@ NEWS_SYSTEM = """\
         말 것**(국내주는 relatedStock 칸). **긴 문장 금지**(사건 설명은 summary 로).
   category: "macro"(유가·금리·관세·지정학·지표 등 개별종목 아님) | "nasdaq"(기술·성장·
             반도체 중심) | "sp"(전통·금융·산업 등 광범위/NYSE).
-  exchange: 주체(name)가 상장된 **시장(거래소)**. 개별 기업/지수면 그 주(主) 상장시장 코드 —
-    "nasdaq" | "nyse"(뉴욕) | "kospi" | "kosdaq" | "shanghai"(상하이, 예: CXMT) |
-    "shenzhen"(선전) | "hongkong"(홍콩) | "tokyo"(도쿄) | "taiwan"(대만, 예: TSMC) |
-    "amsterdam"(유로넥스트, 예: ASML) | "london" | "frankfurt".
-    ADR 로 미국 동시상장이어도 **주 상장시장(본국)** 기준(ASML→amsterdam, TSMC→taiwan,
-    알리바바→hongkong). 미상장·순수 매크로/지정학(유가·금리·연준·관세)이면 "".
+  exchange: 주체(name)가 거래되는 **시장(거래소)** 코드. 아래 순서로 판정:
+    ① 미국에 상장된 종목(직상장 또는 ADR)이면 그 **미국 거래소** — "nasdaq" | "nyse".
+       ADR 이 있으면 본국이 어디든 미국 기준으로 분류한다
+       (ASML→nasdaq, TSMC→nyse, 알리바바→nyse, 도요타→nyse).
+    ② 미국 상장(ADR)이 없고 본주만 있는 종목이면 그 **본국 거래소** —
+       "kospi" | "kosdaq" | "shanghai"(예: CXMT) | "shenzhen" | "hongkong" | "tokyo" |
+       "taiwan" | "amsterdam" | "london" | "frankfurt".
+    ③ 미상장·순수 매크로/지정학(유가·금리·연준·관세)이면 "".
   relatedStock: 이 촉매로 실제 매매할 **국내 상장 대표 관련주 1개(한국 종목명)**.
     category=macro 면 반드시 채운다 — 예: 국제유가→"S-Oil", 미국 관세→"현대차",
     연준 금리인상→"KB금융", 지정학 방산→"한화에어로스페이스", CXMT 급등→"삼성전자".
