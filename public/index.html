@@ -3076,7 +3076,8 @@
     }
     function _econCard(title, rowsHtml, note) {
       if (!rowsHtml) return "";
-      return `<div class="briefing-wl" style="margin-top:12px"><div class="wl-h">${title}</div>`
+      return `<div class="briefing-wl" style="margin-top:12px"><div class="wl-h">`
+           + `<span style="font-size:15.5px;">${title}</span></div>`   // 실적발표 제목행과 동일 크기(2026-07-28)
            + `<table><tbody>${rowsHtml}</tbody></table>`
            + (note ? `<div style="font-size:10.5px;color:var(--text-muted);margin-top:6px">${note}</div>` : "")
            + `</div>`;
