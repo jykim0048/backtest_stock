@@ -229,12 +229,13 @@ CAT_SYSTEM = """\
 - direction: 그 공시·주가 반응이 시사하는 방향(bullish|neutral|bearish). 근거가 약하면 neutral.
 - category: 종목 성격 — "nasdaq"(기술·성장·반도체·나스닥 상장주) | "sp"(전통·금융·산업·
   헬스케어 등 광범위/NYSE). 개별 기업이라 "macro" 는 쓰지 않는다.
-- region: 회사의 **홈 마켓**. 미국 본토 기업이면 "us", 미국 ADR·6-K 제출 외국계면 본국
-  시장으로 — "europe"(예: ASML), "taiwan"(예: TSMC), "japan","china","hongkong","korea".
+- exchange: 회사가 상장된 **주(主) 시장(거래소)**. 미국 본토면 "nasdaq"|"nyse", 미국 ADR·
+  6-K 제출 외국계면 본국 시장으로 — "amsterdam"(예: ASML), "taiwan"(예: TSMC),
+  "tokyo","shanghai","shenzhen","hongkong","london","frankfurt".
 - summary 끝에 가능하면 한국 증시 연관 한 마디(밸류체인·경쟁사 관점).
 출력은 정확히 이 JSON 만:
 {"catalysts": [{"ticker": "...", "stock": "회사명", "category": "nasdaq|sp",
-               "region": "us|europe|taiwan|japan|china|hongkong|korea",
+               "exchange": "nasdaq|nyse|amsterdam|taiwan|tokyo|shanghai|shenzhen|hongkong|london|frankfurt",
                "direction": "bullish|neutral|bearish", "summary": "한국어 1-2문장"}]}"""
 
 CAT_SCHEMA = {
@@ -242,7 +243,7 @@ CAT_SCHEMA = {
     "properties": {"catalysts": {"type": "array", "items": {
         "type": "object", "additionalProperties": False,
         "properties": {"ticker": {"type": "string"}, "stock": {"type": "string"},
-                       "category": {"type": "string"}, "region": {"type": "string"},
+                       "category": {"type": "string"}, "exchange": {"type": "string"},
                        "direction": {"type": "string"}, "summary": {"type": "string"}},
         "required": ["ticker", "stock", "direction", "summary"]}}},
     "required": ["catalysts"],
@@ -257,18 +258,30 @@ def _norm_category(v, allow_macro=True):
     return "macro" if allow_macro else "sp"
 
 
-_REGIONS = ("us", "china", "europe", "taiwan", "japan", "hongkong", "korea")
+_EXCHANGES = ("nasdaq", "nyse", "amex", "kospi", "kosdaq", "shanghai", "shenzhen",
+              "hongkong", "tokyo", "taiwan", "amsterdam", "london", "frankfurt")
 
 
-def _norm_region(v):
-    """주체 홈 마켓 정규화 — 알려진 시장이면 그 코드, 아니면 ""(=미국/글로벌, 유형은
-    category 로 폴백). 별칭 몇 가지 흡수."""
+def _norm_exchange(v):
+    """주체가 상장된 시장(거래소) 정규화 — 알려진 거래소 코드면 그대로, 아니면 ""
+    (미상장·순수 매크로 → 유형은 category 로 폴백). 별칭 다수 흡수."""
     v = str(v or "").lower().strip()
-    alias = {"cn": "china", "chinese": "china", "eu": "europe", "netherlands": "europe",
-             "nl": "europe", "tw": "taiwan", "jp": "japan", "hk": "hongkong",
-             "kr": "korea", "korean": "korea"}
+    alias = {
+        "nasdaq gs": "nasdaq", "nasdaq gm": "nasdaq", "ndaq": "nasdaq", "나스닥": "nasdaq",
+        "new york": "nyse", "nyse arca": "nyse", "big board": "nyse", "뉴욕": "nyse",
+        "krx": "kospi", "kse": "kospi", "코스피": "kospi", "코스닥": "kosdaq",
+        "sse": "shanghai", "star": "shanghai", "star market": "shanghai", "커촹반": "shanghai",
+        "상하이": "shanghai", "szse": "shenzhen", "선전": "shenzhen",
+        "hkex": "hongkong", "hk": "hongkong", "hong kong": "hongkong", "홍콩": "hongkong",
+        "tse": "tokyo", "tyo": "tokyo", "tokyo stock exchange": "tokyo", "도쿄": "tokyo",
+        "twse": "taiwan", "taipei": "taiwan", "tw": "taiwan", "대만": "taiwan",
+        "euronext": "amsterdam", "euronext amsterdam": "amsterdam", "ams": "amsterdam",
+        "netherlands": "amsterdam", "암스테르담": "amsterdam",
+        "lse": "london", "런던": "london", "fwb": "frankfurt", "xetra": "frankfurt",
+        "global": "", "macro": "", "us": "", "usa": "",
+    }
     v = alias.get(v, v)
-    return v if v in _REGIONS and v != "us" else ""
+    return v if v in _EXCHANGES else ""
 
 
 def summarize(filings):
@@ -298,7 +311,7 @@ def summarize(filings):
             "ticker": f["ticker"],
             "stock": c.get("stock") or f.get("company") or f["ticker"],
             "category": _norm_category(c.get("category"), allow_macro=False),
-            "region": _norm_region(c.get("region")),   # 외국계(6-K 등)면 본국 시장, 미국은 ""
+            "exchange": _norm_exchange(c.get("exchange")),   # 상장 시장(외국계 6-K 는 본국 거래소)
             "market": "US",
             "kind": "sec",
             "form": f["form"],
@@ -337,11 +350,12 @@ NEWS_SYSTEM = """\
         말 것**(국내주는 relatedStock 칸). **긴 문장 금지**(사건 설명은 summary 로).
   category: "macro"(유가·금리·관세·지정학·지표 등 개별종목 아님) | "nasdaq"(기술·성장·
             반도체 중심) | "sp"(전통·금융·산업 등 광범위/NYSE).
-  region: 주체(name)의 **홈 마켓**. 개별 기업/지수면 그 상장·소재 시장을 쓴다 —
-    "us"(미국) | "china"(중국, 예: CXMT·창신메모리) | "europe"(유럽, 예: ASML) |
-    "taiwan"(대만, 예: TSMC) | "japan"(일본) | "hongkong"(홍콩) | "korea"(한국).
-    유가·금리·연준·관세 등 특정 해외 종목이 아닌 순수 매크로/지정학이면 "global".
-    (ADR 로 미국 동시상장이어도 본국 시장 기준: ASML→europe, TSMC→taiwan.)
+  exchange: 주체(name)가 상장된 **시장(거래소)**. 개별 기업/지수면 그 주(主) 상장시장 코드 —
+    "nasdaq" | "nyse"(뉴욕) | "kospi" | "kosdaq" | "shanghai"(상하이, 예: CXMT) |
+    "shenzhen"(선전) | "hongkong"(홍콩) | "tokyo"(도쿄) | "taiwan"(대만, 예: TSMC) |
+    "amsterdam"(유로넥스트, 예: ASML) | "london" | "frankfurt".
+    ADR 로 미국 동시상장이어도 **주 상장시장(본국)** 기준(ASML→amsterdam, TSMC→taiwan,
+    알리바바→hongkong). 미상장·순수 매크로/지정학(유가·금리·연준·관세)이면 "".
   relatedStock: 이 촉매로 실제 매매할 **국내 상장 대표 관련주 1개(한국 종목명)**.
     category=macro 면 반드시 채운다 — 예: 국제유가→"S-Oil", 미국 관세→"현대차",
     연준 금리인상→"KB금융", 지정학 방산→"한화에어로스페이스", CXMT 급등→"삼성전자".
@@ -351,15 +365,15 @@ NEWS_SYSTEM = """\
   summary: 한국어 1-2문장 — 무슨 일이 있었는지 + 한국 증시/밸류체인 함의 한 마디.
 - 헤드라인에 없는 사실·수치를 지어내지 말 것.
 출력은 정확히 이 JSON 만: {{"picks": [{{"idx": 0, "name": "...", "category": "macro|nasdaq|sp",
-"region": "us|china|europe|taiwan|japan|hongkong|korea|global", "relatedStock": "...",
-"ticker": "...", "direction": "bullish|neutral|bearish", "summary": "..."}}]}}"""
+"exchange": "nasdaq|nyse|kospi|kosdaq|shanghai|shenzhen|hongkong|tokyo|taiwan|amsterdam|london|frankfurt|",
+"relatedStock": "...", "ticker": "...", "direction": "bullish|neutral|bearish", "summary": "..."}}]}}"""
 
 NEWS_SCHEMA = {
     "type": "object", "additionalProperties": False,
     "properties": {"picks": {"type": "array", "items": {
         "type": "object", "additionalProperties": False,
         "properties": {"idx": {"type": "integer"}, "name": {"type": "string"},
-                       "category": {"type": "string"}, "region": {"type": "string"},
+                       "category": {"type": "string"}, "exchange": {"type": "string"},
                        "relatedStock": {"type": "string"},
                        "ticker": {"type": "string"}, "direction": {"type": "string"},
                        "summary": {"type": "string"}},
@@ -496,7 +510,7 @@ def collect_news(state, now):
             "ticker": str(p.get("ticker") or "").upper(),
             "stock": stock,                 # 해외 주체(CXMT 등) — 국내주로 치환하지 않음
             "category": category,
-            "region": _norm_region(p.get("region")),   # 홈 마켓(중국·유럽 등, 미국/글로벌은 "")
+            "exchange": _norm_exchange(p.get("exchange")),   # 상장 시장(nasdaq·shanghai 등, 미상장/매크로는 "")
             "relatedStock": related,        # 국내 대표 관련주(매매 액션용)
             "relatedUrl": related_url,      # 그 관련주 최신 뉴스(없으면 None)
             "market": "US",
