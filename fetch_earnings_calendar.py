@@ -266,6 +266,7 @@ def parse_dart_document(html: str) -> dict:
     want = {"매출액": ("sales", "salesYoY"), "영업이익": ("op", "opYoY"),
             "당기순이익": ("np", "npYoY")}
     out = {}
+    saw_blank = False   # ① 레이아웃에서 지표 행은 있으나 당해실적이 '-'(회사가 수치 미기재)
     for tr in soup.find_all("tr"):
         cells = [c.get_text(" ", strip=True).replace("\xa0", " ").strip()
                  for c in tr.find_all(["td", "th"])]
@@ -279,6 +280,7 @@ def parse_dart_document(html: str) -> dict:
             i = cells.index("당해실적")
             cur = _dart_num(cells[i + 1]) if i + 1 < len(cells) else None
             if cur is None:
+                saw_blank = True                        # 지표 행 존재 + 당해실적 '-' → 미기재 공시
                 continue                                # 회사 미공시 지표
             out[vk] = round(cur * factor, 1)
             yoy_pct = _dart_num(cells[i + 6]) if i + 6 < len(cells) else None
@@ -295,6 +297,11 @@ def parse_dart_document(html: str) -> dict:
                 out[yk] = gap
             elif flag in _DART_FLAG:
                 out[yk] = _DART_FLAG[flag]
+    # 원문은 정상 파싱했는데 지표 행 당해실적이 전부 '-'(지역난방공사 2026-07-27 사례:
+    # 잠정실적에 매출·영업이익 미기재, 판매량만 공시) → '집계 중'(일시 결손)과 구분되는
+    # '미기재' 신호. fetch 실패({} 반환)와도 구분돼 무의미한 재시도를 멈출 수 있다.
+    if not out and saw_blank:
+        return {"_blank": True}
     return out
 
 
@@ -509,6 +516,8 @@ def enrich_calendar(released, upcoming, today: datetime.date,
             if rc:
                 try:
                     act = fetch_doc(rc.group(1)) or {}
+                    if act.get("_blank"):               # 공시했으나 재무수치 미기재(지역난방공사류)
+                        row["noFigures"] = True          # '집계 중' 아님 — 프런트가 '실적 미공시'로 표기
                     for k in ("sales", "op", "np", "salesYoY", "opYoY", "npYoY"):
                         if row.get(k) is None and act.get(k) is not None:
                             row[k] = act[k]
@@ -937,7 +946,8 @@ def _load_market_map():
 
 
 _STICKY_FIELDS = ("op", "sales", "np", "salesYoY", "opYoY", "npYoY",
-                  "tag", "quarter", "period", "fs", "time", "dartUrl", "dartTitle")
+                  "tag", "quarter", "period", "fs", "time", "dartUrl", "dartTitle",
+                  "noFigures")   # 재무수치 미기재 확정 — 회차 간 유지(fetch 일시 실패에도 표기 안정)
 
 
 def carry_prev_released(released, prev_released):
@@ -980,9 +990,9 @@ def retry_dart_doc(released, today_s, fetch_doc=None, limit=None):
     fetch_doc = fetch_doc or _dart_document
     limit = DART_DOC_RETRY_MAX if limit is None else limit
     need = [r for r in released
-            if r.get("date") == today_s and r.get("dartUrl")
+            if r.get("date") == today_s and r.get("dartUrl") and not r.get("noFigures")
             and (r.get("op") is None or r.get("sales") is None or r.get("np") is None
-                 or _missing_yoy(r))]
+                 or _missing_yoy(r))]   # 미기재 확정(noFigures)은 재시도 무의미 — 제외
     # 행별 조회는 상호 독립(자기 행만 변경) — TP4 병렬(enrich_calendar 와 동일 근거).
     def _one(r):
         rc = re.search(r"rcpNo=(\d+)", r["dartUrl"])
@@ -993,6 +1003,8 @@ def retry_dart_doc(released, today_s, fetch_doc=None, limit=None):
         except Exception as e:
             _warn(f"dart-doc 재시도 {r.get('code')} 실패: {e}")
             return 0
+        if act.get("_blank"):               # 원문 확인 결과 재무수치 미기재 → 확정
+            r["noFigures"] = True
         hit = False
         for k in ("sales", "op", "np", "salesYoY", "opYoY", "npYoY"):
             if r.get(k) is None and act.get(k) is not None:
