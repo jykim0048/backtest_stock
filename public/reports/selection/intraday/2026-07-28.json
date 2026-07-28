@@ -1,38 +1,38 @@
 {
   "date": "2026-07-28",
   "mode": "intraday",
-  "asof": "2026-07-28 14:38",
+  "asof": "2026-07-28 15:09",
   "usMarket": {
     "indices": [
       {
         "name": "S&P500",
         "ticker": "^GSPC",
         "price": 7413.18,
-        "changePct": 0.07
+        "changePct": 0.02
       },
       {
         "name": "나스닥",
         "ticker": "^IXIC",
         "price": 24932.08,
-        "changePct": -0.82
+        "changePct": -0.18
       },
       {
         "name": "다우",
         "ticker": "^DJI",
         "price": 52210.08,
-        "changePct": 0.96
+        "changePct": 0.51
       },
       {
         "name": "필라델피아 반도체",
         "ticker": "^SOX",
         "price": 11554.88,
-        "changePct": -6.39
+        "changePct": -2.23
       },
       {
         "name": "VIX 변동성",
         "ticker": "^VIX",
         "price": 18.67,
-        "changePct": -0.16
+        "changePct": 0.48
       }
     ],
     "sectors": [
@@ -40,7 +40,7 @@
         "name": "임의소비재",
         "ticker": "XLY",
         "price": 110.84,
-        "changePct": 1.91
+        "changePct": 1.31
       },
       {
         "name": "금융",
@@ -372,6 +372,11 @@
           "changePct": 0.97
         },
         {
+          "symbol": "ABBV",
+          "name": "AbbVie",
+          "changePct": -0.94
+        },
+        {
           "symbol": "UNH",
           "name": "UnitedHealth",
           "changePct": -0.74
@@ -385,11 +390,6 @@
           "symbol": "LLY",
           "name": "Eli Lilly",
           "changePct": 0.13
-        },
-        {
-          "symbol": "ABBV",
-          "name": "AbbVie",
-          "changePct": -0.0
         }
       ],
       "바이오": [
@@ -401,22 +401,22 @@
         {
           "symbol": "REGN",
           "name": "Regeneron",
-          "changePct": 2.34
-        },
-        {
-          "symbol": "AMGN",
-          "name": "Amgen",
-          "changePct": 1.28
-        },
-        {
-          "symbol": "VRTX",
-          "name": "Vertex Pharmaceuticals",
-          "changePct": 1.25
+          "changePct": 1.7
         },
         {
           "symbol": "GILD",
           "name": "Gilead Sciences",
-          "changePct": -0.26
+          "changePct": 0.94
+        },
+        {
+          "symbol": "VRTX",
+          "name": "Vertex Pharmaceuticals",
+          "changePct": 0.34
+        },
+        {
+          "symbol": "AMGN",
+          "name": "Amgen",
+          "changePct": 0.06
         }
       ],
       "에너지": [
@@ -450,7 +450,7 @@
         {
           "symbol": "GS",
           "name": "Goldman Sachs",
-          "changePct": -2.46
+          "changePct": -1.22
         },
         {
           "symbol": "WFC",
@@ -463,14 +463,14 @@
           "changePct": 0.85
         },
         {
-          "symbol": "MS",
-          "name": "Morgan Stanley",
-          "changePct": -0.29
-        },
-        {
           "symbol": "BAC",
           "name": "Bank of America",
           "changePct": 0.13
+        },
+        {
+          "symbol": "MS",
+          "name": "Morgan Stanley",
+          "changePct": 0.04
         }
       ],
       "산업재": [
@@ -490,14 +490,14 @@
           "changePct": -1.6
         },
         {
+          "symbol": "HON",
+          "name": "Honeywell",
+          "changePct": 1.07
+        },
+        {
           "symbol": "BA",
           "name": "Boeing",
           "changePct": 0.95
-        },
-        {
-          "symbol": "HON",
-          "name": "Honeywell",
-          "changePct": -0.21
         }
       ],
       "소재": [
@@ -509,7 +509,12 @@
         {
           "symbol": "APD",
           "name": "Air Products",
-          "changePct": -0.58
+          "changePct": -1.78
+        },
+        {
+          "symbol": "LIN",
+          "name": "Linde",
+          "changePct": -1.03
         },
         {
           "symbol": "NEM",
@@ -520,19 +525,9 @@
           "symbol": "FCX",
           "name": "Freeport-McMoRan",
           "changePct": 0.19
-        },
-        {
-          "symbol": "LIN",
-          "name": "Linde",
-          "changePct": 0.14
         }
       ],
       "임의소비재": [
-        {
-          "symbol": "HD",
-          "name": "Home Depot",
-          "changePct": 3.5
-        },
         {
           "symbol": "MCD",
           "name": "McDonald's",
@@ -549,6 +544,11 @@
           "changePct": 1.06
         },
         {
+          "symbol": "HD",
+          "name": "Home Depot",
+          "changePct": 0.93
+        },
+        {
           "symbol": "AMZN",
           "name": "Amazon",
           "changePct": -0.31
@@ -561,22 +561,22 @@
         {
           "code": "018260",
           "name": "삼성에스디에스",
-          "changePct": -7.59
-        },
-        {
-          "code": "035420",
-          "name": "NAVER",
-          "changePct": -6.67
+          "changePct": -6.9
         },
         {
           "code": "293490",
           "name": "카카오게임즈",
-          "changePct": -6.07
+          "changePct": -6.32
+        },
+        {
+          "code": "035420",
+          "name": "NAVER",
+          "changePct": -6.22
         },
         {
           "code": "035720",
           "name": "카카오",
-          "changePct": -4.45
+          "changePct": -4.18
         },
         {
           "code": "259960",
@@ -588,39 +588,39 @@
         {
           "code": "240810",
           "name": "원익IPS",
-          "changePct": -14.53
+          "changePct": -15.47
         },
         {
           "code": "039030",
           "name": "이오테크닉스",
-          "changePct": -13.11
+          "changePct": -13.27
+        },
+        {
+          "code": "095340",
+          "name": "ISC",
+          "changePct": -13.07
         },
         {
           "code": "000660",
           "name": "SK하이닉스",
-          "changePct": -13.0
+          "changePct": -12.61
+        },
+        {
+          "code": "058470",
+          "name": "리노공업",
+          "changePct": -12.61
         },
         {
           "code": "005930",
           "name": "삼성전자",
           "changePct": -12.4
-        },
-        {
-          "code": "095340",
-          "name": "ISC",
-          "changePct": -11.24
-        },
-        {
-          "code": "058470",
-          "name": "리노공업",
-          "changePct": -11.17
         }
       ],
       "헬스케어": [
         {
           "code": "128940",
           "name": "한미약품",
-          "changePct": -6.27
+          "changePct": -5.51
         },
         {
           "code": "000100",
@@ -640,14 +640,14 @@
         {
           "code": "207940",
           "name": "삼성바이오로직스",
-          "changePct": -0.91
+          "changePct": -0.13
         }
       ],
       "바이오": [
         {
           "code": "141080",
           "name": "리가켐바이오",
-          "changePct": -8.71
+          "changePct": -9.02
         },
         {
           "code": "196170",
@@ -657,78 +657,78 @@
         {
           "code": "214150",
           "name": "클래시스",
-          "changePct": -5.51
+          "changePct": -6.06
         },
         {
           "code": "145020",
           "name": "휴젤",
-          "changePct": -1.65
+          "changePct": -3.09
         },
         {
           "code": "068270",
           "name": "셀트리온",
-          "changePct": -0.5
+          "changePct": -1.06
         }
       ],
       "에너지": [
         {
           "code": "010950",
           "name": "S-Oil",
-          "changePct": -5.57
-        },
-        {
-          "code": "078930",
-          "name": "GS",
-          "changePct": -4.59
+          "changePct": -6.23
         },
         {
           "code": "047050",
           "name": "포스코인터내셔널",
-          "changePct": -4.36
+          "changePct": -4.55
         },
         {
           "code": "096770",
           "name": "SK이노베이션",
-          "changePct": -3.51
+          "changePct": -4.28
+        },
+        {
+          "code": "078930",
+          "name": "GS",
+          "changePct": -3.93
         }
       ],
       "금융": [
         {
           "code": "006800",
           "name": "미래에셋증권",
-          "changePct": -11.34
+          "changePct": -11.47
         },
         {
           "code": "016360",
           "name": "삼성증권",
-          "changePct": -9.17
+          "changePct": -9.27
         },
         {
           "code": "086790",
           "name": "하나금융지주",
-          "changePct": -6.97
-        },
-        {
-          "code": "316140",
-          "name": "우리금융지주",
-          "changePct": -4.83
+          "changePct": -6.58
         },
         {
           "code": "105560",
           "name": "KB금융",
-          "changePct": -4.75
+          "changePct": -4.58
+        },
+        {
+          "code": "316140",
+          "name": "우리금융지주",
+          "changePct": -4.23
         },
         {
           "code": "055550",
           "name": "신한지주",
-          "changePct": -4.57
+          "changePct": -4.19
         }
       ],
       "산업재": [
         {
           "code": "000150",
           "name": "두산",
-          "changePct": -13.62
+          "changePct": -12.95
         },
         {
           "code": "006360",
@@ -738,51 +738,51 @@
         {
           "code": "034020",
           "name": "두산에너빌리티",
-          "changePct": -8.6
+          "changePct": -9.45
         },
         {
           "code": "267270",
           "name": "HD건설기계",
-          "changePct": -8.17
+          "changePct": -8.77
         }
       ],
       "소재": [
         {
           "code": "051910",
           "name": "LG화학",
-          "changePct": -6.92
+          "changePct": -8.27
         },
         {
           "code": "003670",
           "name": "포스코퓨처엠",
-          "changePct": -6.82
+          "changePct": -7.66
         },
         {
           "code": "011170",
           "name": "롯데케미칼",
-          "changePct": -5.77
+          "changePct": -5.93
         },
         {
           "code": "011780",
           "name": "금호석유화학",
-          "changePct": -5.51
+          "changePct": -5.43
         }
       ],
       "임의소비재": [
         {
           "code": "004170",
           "name": "신세계",
-          "changePct": -12.86
+          "changePct": -11.22
         },
         {
           "code": "139480",
           "name": "이마트",
-          "changePct": -4.59
+          "changePct": -4.84
         },
         {
           "code": "008770",
           "name": "호텔신라",
-          "changePct": -2.84
+          "changePct": -3.15
         },
         {
           "code": "383220",
@@ -792,47 +792,71 @@
       ]
     }
   },
-  "marketView": "전일 미국 증시는 필라델피아 반도체 지수가 6.39% 급락하는 등 기술주 중심의 강한 조정을 겪었으며, 이에 동조화되어 국내 증시도 반도체 및 금융 섹터를 중심으로 전반적인 하락세를 보이고 있습니다. 장중 코스피와 코스닥이 동반 급락하는 '검은 화요일' 장세 속에서, 시장의 수급은 지수 영향력이 적은 개별 실적 호조주 및 엔터, 게임, AI 테마의 일부 모멘텀 종목으로 압축되는 흐름입니다. 특히 장중 발표된 잠정 실적 공시 결과에 따라 종목별 희비가 극명하게 갈리고 있습니다.",
+  "marketView": "현재 코스피와 코스닥이 동반 급락하며 시장 전반에 공포 심리가 확산된 '검은 화요일' 장세입니다. 반도체와 기술주 중심의 투매가 이어지고 있으나, 실적이 뒷받침되는 종목이나 개별 호재(수주, 실적 서프라이즈)를 보유한 종목들은 상대적으로 강한 방어력을 보이고 있습니다. 시장 변동성이 극대화된 만큼, 단순 테마성 급등주보다는 확실한 실적 모멘텀이 확인된 종목 위주로 선별적 대응이 필요합니다.",
   "picks": [
     {
       "code": "352820",
       "name": "하이브",
       "market": "KOSPI",
-      "reason": "당일 장중 공시를 통해 2분기 영업이익이 전년 동기 대비 159% 급증한 1,709억 원을 기록하며 어닝 서프라이즈를 달성했다고 밝혔습니다. 시장 급락세 속에서도 강력한 실적 모멘텀을 바탕으로 6%대 상승세를 유지하며 추가 급등 여력이 높습니다.",
-      "catalyst": "2분기 영업이익 1,709억 원 발표로 전년비 159% 급증 및 어닝 서프라이즈 달성",
+      "reason": "분기 매출 1조 원을 돌파하는 사상 최대 실적을 발표하며 시장 급락 속에서도 6%대 상승세를 유지하고 있습니다. BTS 컴백 효과가 본격화되며 실적 모멘텀이 강력하게 작용하고 있습니다.",
+      "catalyst": "분기 매출 1조 원 돌파 및 사상 최대 실적 달성",
       "changePct": 6.13
     },
     {
       "code": "068270",
       "name": "셀트리온",
       "market": "KOSPI",
-      "reason": "코스피 지수가 급락하는 상황에서도 2분기 역대 최대 실적 달성 전망 및 하반기 신제품 성장 기대감 뉴스가 유입되며 장중 강세를 보이고 있습니다. 기관 및 외국인의 차익 실현 압박 속에서도 실적 방어주로서의 매수세가 유입 중입니다.",
-      "catalyst": "2분기 역대 최대 실적 달성 및 하반기 신제품 성장세 지속 전망",
-      "changePct": -0.5
+      "reason": "코스피 급락장 속에서도 2분기 역대 최대 실적 기대감으로 장중 강한 방어력을 보이고 있습니다. 하반기 성장세 지속 전망이 부각되며 수급이 유입되고 있습니다.",
+      "catalyst": "2분기 역대 최대 실적 및 하반기 성장세 지속 전망",
+      "changePct": -1.06
+    },
+    {
+      "code": "326030",
+      "name": "에스케이바이오팜",
+      "market": "KOSPI",
+      "reason": "811억 원 규모의 대규모 의약품 공급계약 체결 공시가 장중 호재로 작용하며 시장 하락에도 상승세를 유지하고 있습니다.",
+      "catalyst": "811억 원 규모 의약품 공급계약 체결",
+      "changePct": 1.61
+    },
+    {
+      "code": "377480",
+      "name": "마음AI",
+      "market": "KOSDAQ",
+      "reason": "시장 전반의 급락에도 불구하고 AI 관련주로 수급이 쏠리며 28%대 급등을 기록 중입니다. 생성형 AI 열풍 재확산 기대감이 반영되고 있습니다.",
+      "catalyst": "생성형 AI 관련주 수급 쏠림 및 기술적 급등",
+      "changePct": 28.56
+    },
+    {
+      "code": "042000",
+      "name": "카페24",
+      "market": "KOSDAQ",
+      "reason": "시장 하락세 속에서도 7%대 상승하며 견조한 흐름을 보이고 있습니다. 플랫폼 비즈니스 모델의 안정성이 부각되는 것으로 판단됩니다.",
+      "catalyst": "시장 대비 강한 상대적 강세 및 수급 유입",
+      "changePct": 7.42
     },
     {
       "code": "035760",
       "name": "CJ ENM",
       "market": "KOSDAQ",
-      "reason": "아마존 프라임 비디오 인도와의 콘텐츠 공급 파트너십 체결 뉴스가 전해지며 글로벌 K-콘텐츠 영토 확장 모멘텀이 부각되었습니다. 장중 4%대 상승하며 하락장 속 대안주로 주목받고 있습니다.",
-      "catalyst": "아마존 프라임 비디오 인도와 파트너십 체결 및 K-콘텐츠 100여 편 공급",
+      "reason": "아마존 프라임 비디오와의 콘텐츠 공급 파트너십 체결 뉴스가 부각되며 시장 하락을 뚫고 상승세를 보이고 있습니다.",
+      "catalyst": "아마존 프라임 비디오 인도 콘텐츠 공급 파트너십",
       "changePct": 4.62
     },
     {
       "code": "259960",
       "name": "크래프톤",
       "market": "KOSPI",
-      "reason": "배틀그라운드 IP의 견조한 매출과 신작 효과에 힘입어 2분기 어닝 서프라이즈가 예고되며 게임 섹터 내 차별화된 상승세를 보이고 있습니다. 미국 기술주 약세 속에서도 실적 기반의 방어력이 돋보입니다.",
-      "catalyst": "배틀그라운드 및 신작 효과에 따른 2분기 어닝 서프라이즈 전망",
+      "reason": "2분기 어닝 서프라이즈 기대감과 신작 흥행 모멘텀이 유효하여 시장 급락 속에서도 상승세를 유지하고 있습니다.",
+      "catalyst": "2분기 어닝 서프라이즈 기대감 및 신작 흥행",
       "changePct": 2.27
     },
     {
-      "code": "042000",
-      "name": "카페24",
+      "code": "214450",
+      "name": "파마리서치",
       "market": "KOSDAQ",
-      "reason": "생성형 AI 쇼핑 유입이 72% 증가했다는 소식과 함께 AI 커머스 시장에서의 실질적인 성과가 부각되며 장중 7% 이상 상승하고 있습니다.",
-      "catalyst": "생성형 AI 쇼핑 유입 72% 증가에 따른 AI 커머스 성장 모멘텀",
-      "changePct": 7.42
+      "reason": "시장 급락장에서도 3%대 상승하며 견조한 흐름을 보이고 있습니다. 실적 기반의 방어주 성격이 강하게 나타나고 있습니다.",
+      "catalyst": "시장 대비 견조한 주가 흐름 및 실적 기대감",
+      "changePct": 3.64
     }
   ],
   "downPicks": [
@@ -840,16 +864,16 @@
       "code": "267260",
       "name": "HD현대일렉트릭",
       "market": "KOSPI",
-      "reason": "장중 2분기 영업이익이 전년 대비 37.3% 증가한 2,870억 원을 기록했다고 공시했으나, 최근 급등에 따른 기대치 미달 및 차익 실현 매물이 쏟아지며 10% 이상 급락하고 있습니다.",
-      "catalyst": "실적 발표 이후 차익 실현 매물 출회로 인한 장중 10%대 급락",
-      "changePct": -10.66
+      "reason": "2분기 호실적 발표에도 불구하고 차익 실현 매물이 쏟아지며 12%대 급락 중입니다. 재료 소멸로 인식되는 모습입니다.",
+      "catalyst": "호실적 발표 후 차익 실현 매물 출회",
+      "changePct": -12.42
     },
     {
       "code": "272210",
       "name": "한화시스템",
       "market": "KOSPI",
-      "reason": "2분기 영업이익 급증 공시에도 불구하고 오스탈 평가손실 360억 원 반영 소식과 방산 섹터 전반의 투자심리 위축이 겹치며 장중 7% 넘게 하락하고 있습니다.",
-      "catalyst": "오스탈 평가손실 반영 및 방산 섹터 차익 실현 압력",
+      "reason": "어닝 서프라이즈를 기록했음에도 불구하고 시장 투매 심리에 밀려 7%대 하락하고 있습니다. 단기 과열 해소 과정으로 보입니다.",
+      "catalyst": "실적 호조에도 시장 투매에 따른 동반 하락",
       "changePct": -7.62
     }
   ]
