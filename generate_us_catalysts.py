@@ -310,15 +310,30 @@ def _bigrams(s):
     return {t[i:i + 2] for i in range(len(t) - 1)}
 
 
-def _is_rereport(summary, subject, existing):
-    """같은 주체(subject=ticker 또는 name)의 기존 촉매와 요약 유사도(bigram Jaccard)>0.3
+_ALIAS_RE = re.compile(r"([A-Za-z가-힣0-9]{2,15})\s*\(\s*([A-Za-z가-힣0-9]{2,10})\s*\)")
+
+
+def _subject_keys(name, ticker, summary):
+    """주체 식별 키 집합 — 이름·티커에 요약 속 '이름(별칭)' 괄호 표기(예: '창신메모리
+    (CXMT)')를 더해 같은 기업 다른 표기를 연결한다(CXMT↔창신메모리, 2026-07-29).
+    괄호 별칭은 이름·티커와 닿아 있는 쌍만 흡수(무관 인용 오병합 방지)."""
+    keys = {k for k in (str(ticker or "").upper().strip(), str(name or "").strip()) if k}
+    for m in _ALIAS_RE.finditer(str(summary or "")):
+        a, b = m.group(1).strip(), m.group(2).strip()
+        if keys & {a, b, a.upper(), b.upper()}:
+            keys |= {a, b, a.upper(), b.upper()}
+    return keys
+
+
+def _is_rereport(summary, keys, existing):
+    """같은 주체(별칭 포함 keys 교집합)의 기존 촉매와 요약 유사도(bigram Jaccard)>0.3
     이면 같은 사건의 재보도 — 세션에 다시 쌓지 않는다(애플 '시총 5조 돌파' 4건 누적,
     2026-07-29 실측: 재보도 쌍 0.32 vs 다른 전개 0.16~0.24). LLM reported 지시의 코드 백스톱."""
     nb = _bigrams(summary)
     if not nb:
         return False
     for c in existing:
-        if subject not in (str(c.get("ticker") or "").upper(), (c.get("stock") or "").strip()):
+        if not (keys & _subject_keys(c.get("stock"), c.get("ticker"), c.get("summary"))):
             continue
         ob = _bigrams(c.get("summary"))
         if ob and len(nb & ob) / len(nb | ob) > 0.3:
@@ -389,9 +404,11 @@ NEWS_SYSTEM = """\
   idx: 입력 headlines 의 번호(그 기사가 근거).
   name: 표 첫 칸에 들어갈 **뉴스의 실제 주체(2~12자)** — 그 사건의 '주어'를 그대로 쓴다.
         개별기업이면 기업명(예: "인텔","애플","테슬라","엔비디아"), 해외 비상장·신규상장·
-        중국기업 등도 그 이름 그대로(예: "CXMT","창신메모리","화웨이"), 매크로/지정학이면
+        중국기업 등도 그 이름 그대로(예: "CXMT","화웨이"), 매크로/지정학이면
         핵심 주체(예: "국제유가","미국 관세","연준","미-이란"). **절대 국내 관련주로 바꾸지
         말 것**(국내주는 relatedStock 칸). **긴 문장 금지**(사건 설명은 summary 로).
+        **같은 기업은 세션 내 같은 표기를 재사용** — reported 목록에 이미 쓴 표기가 있으면
+        그대로(예: 'CXMT'로 보고했으면 '창신메모리'로 바꿔 쓰지 말 것).
   category: "macro" | "nasdaq"(기술·성장·반도체 중심) | "sp"(전통·금융·산업 등 광범위/NYSE).
     **macro 는 '순수 매크로'만**: 금리·연준·환율·유가·원자재·관세·무역정책·지정학(전쟁·
     제재)·경제지표(CPI·고용 등). **업황·섹터 테마는 macro 금지** — '중국 반도체','빅테크',
@@ -553,7 +570,7 @@ def collect_news(state, now):
         summary = p.get("summary") or h["title"]
         # 같은 주체의 같은 사건 재보도(표현만 다른 재요약)는 세션에 다시 쌓지 않는다 —
         # 회차마다 다른 기사가 새 헤드라인으로 들어와 LLM 이 재선별하는 누적 중복 차단.
-        subject = str(p.get("ticker") or "").upper() or stock
+        subject = _subject_keys(stock, p.get("ticker"), summary)
         if _is_rereport(summary, subject, (state.get("catalysts") or []) + out):
             _log(f"재보도 스킵: {stock} — {summary[:40]}")
             continue
