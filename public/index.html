@@ -3379,12 +3379,41 @@
     }
     function _consolidateUsCats(cats) {
       const norm = s => String(s || "").toLowerCase().replace(/[\s,.\-·%()]/g, "");
-      const keyOf = c => (c.ticker && String(c.ticker).trim())
-        ? "T:" + String(c.ticker).trim().toUpperCase()
-        : "N:" + norm(c.stock || c.corp || c.summary || "");
+      const us = (cats || []).filter(c => c.market === "US");
+      // 주체 키(티커 T:·정규화 이름 N:)를 union-find 로 병합 — 같은 기업 다른 표기
+      // (CXMT↔창신메모리, 티커有↔티커無 회차)를 한 그룹으로(2026-07-29). 별칭 연결은
+      // 요약 속 '이름(별칭)' 괄호 표기(예: '창신메모리(CXMT)')를 쓰되, **양쪽 다 실제
+      // 주체 키로 존재할 때만** 연결(마이크론 언급 등 단순 인용으로 인한 오병합 방지).
+      const parent = {};
+      const add = k => { if (!(k in parent)) parent[k] = k; return k; };
+      const find = k => { add(k); while (parent[k] !== k) { parent[k] = parent[parent[k]]; k = parent[k]; } return k; };
+      const union = (a, b) => { a = find(a); b = find(b); if (a !== b) parent[b] = a; };
+      const keysOf = c => {
+        const ks = [];
+        const t = String(c.ticker || "").trim().toUpperCase();
+        if (t) ks.push("T:" + t);
+        const n = norm(c.stock || c.corp || "");
+        if (n) ks.push("N:" + n);
+        return ks.length ? ks : ["N:" + norm(c.summary || "")];
+      };
+      const allKeys = new Set();
+      us.forEach(c => {
+        const ks = keysOf(c);
+        for (let i = 1; i < ks.length; i++) union(ks[0], ks[i]);   // 같은 아이템의 티커·이름 연결
+        ks.forEach(k => allKeys.add(k));                           // raw 키 저장(별칭 스캔 has 용)
+      });
+      us.forEach(c => {          // '이름(별칭)' 패턴 스캔 — 실존 주체 키끼리만 union
+        const re = /([A-Za-z가-힣0-9]{2,15})\s*\(\s*([A-Za-z가-힣0-9]{2,10})\s*\)/g;
+        let m;
+        while ((m = re.exec(c.summary || ""))) {
+          const a = "N:" + norm(m[1]), b = "N:" + norm(m[2]), bt = "T:" + m[2].toUpperCase();
+          if (allKeys.has(a) && allKeys.has(b)) union(a, b);
+          if (allKeys.has(a) && allKeys.has(bt)) union(a, bt);
+        }
+      });
       const order = [], map = {};
-      (cats || []).filter(c => c.market === "US").forEach(c => {
-        const k = keyOf(c);
+      us.forEach(c => {
+        const k = find(keysOf(c)[0]);
         if (!map[k]) { map[k] = []; order.push(k); }
         map[k].push(c);
       });
@@ -3420,8 +3449,10 @@
         for (let i = items.length - 1; i >= 0; i--) { if ((items[i].region || "").trim()) { region = items[i].region.trim().toLowerCase(); break; } }
         let chg = null;
         for (let i = items.length - 1; i >= 0; i--) { if (typeof items[i].changePct === "number") { chg = items[i].changePct; break; } }
+        let tkr = "";                       // 병합 그룹은 최신 항목에 티커가 없을 수 있음 — 최신 비어있지 않은 값
+        for (let i = items.length - 1; i >= 0; i--) { if ((items[i].ticker || "").trim()) { tkr = String(items[i].ticker).trim().toUpperCase(); break; } }
         return {
-          stock: rep.stock || rep.corp || "—", ticker: rep.ticker || "",
+          stock: rep.stock || rep.corp || "—", ticker: tkr,
           category, exchange, region, direction, market: "US", kind: rep.kind, form: rep.form,
           relatedStock: related, relatedUrl, changePct: chg,
           summary: kept.join("  ·  "), _urls: urls, _count: items.length,
