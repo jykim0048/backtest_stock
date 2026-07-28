@@ -3362,15 +3362,20 @@
     // 밤사이 미국 촉매는 30분 회차마다 append 돼 같은 종목에 기사가 여러 건 쌓인다
     // (사용자 지적 2026-07-28). 종목(ticker 우선, 없으면 주체명) 단위로 묶어 ① 방향 순합
     // ② 요약 중복 제거 후 최신순 종합 ③ 원문 링크 합침 하여 한 행으로 압축한다.
-    function _usCatToks(s) {   // 요약 유사도용 토큰 집합(2자 이상)
-      return (String(s || "").toLowerCase().replace(/[.,%()·\-—/]+/g, " ")
-        .split(/\s+/).filter(w => w.length > 1));
+    // 요약 유사도 = 문자 바이그램 Jaccard — 단어 토큰(>0.6)은 한국어 패러프레이즈를 놓침
+    // (애플 '시총 5조 돌파' 재보도 쌍이 0.32로 통과, 2026-07-29 실측). 같은 사건 재보도는
+    // 0.3+, 진짜 다른 전개(비자 0.16·코카콜라 0.19·빅테크 0.24)는 미만 — 임계 0.3.
+    function _usCatToks(s) {   // 문자 바이그램 집합(공백·구두점 제거)
+      const t = String(s || "").toLowerCase().replace(/[\s.,%()·\-—/]+/g, "");
+      const out = new Set();
+      for (let i = 0; i < t.length - 1; i++) out.add(t.slice(i, i + 2));
+      return out;
     }
-    function _usCatDup(aToks, bToks) {   // Jaccard>0.6 이면 사실상 같은 사건(재보도)
-      if (!aToks.length || !bToks.length) return false;
-      const A = new Set(aToks); let inter = 0;
-      bToks.forEach(w => { if (A.has(w)) inter++; });
-      return inter / (A.size + bToks.length - inter) > 0.6;
+    function _usCatDup(aSet, bSet) {   // bigram Jaccard>0.3 이면 같은 사건(재보도)
+      if (!aSet.size || !bSet.size) return false;
+      let inter = 0;
+      bSet.forEach(x => { if (aSet.has(x)) inter++; });
+      return inter / (aSet.size + bSet.size - inter) > 0.3;
     }
     function _consolidateUsCats(cats) {
       const norm = s => String(s || "").toLowerCase().replace(/[\s,.\-·%()]/g, "");
