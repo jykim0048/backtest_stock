@@ -3423,15 +3423,15 @@
         : dir === "bearish" ? `<span class="dir-badge bear">▼ 하방</span>`
         : dir === "neutral" ? `<span class="dir-badge neu">— 중립</span>` : "";
       const CAT = { macro: ["매크로", "#94a3b8"], nasdaq: ["나스닥", "#38bdf8"], sp: ["S&P", "#a78bfa"] };
-      // 유형 칸 = 각 종목이 소속된 시장(거래소)명(사용자 요청 2026-07-28: CXMT→상하이·ASML→암스테르담).
-      // exchange 가 있으면 category(나스닥/매크로)보다 우선. 구버전 데이터는 region(국가) 폴백.
-      const EXMK = { nasdaq: ["나스닥", "#38bdf8"], nyse: ["뉴욕", "#60a5fa"], amex: ["아멕스", "#60a5fa"],
+      // 유형 칸 = 각 종목이 소속된 시장의 **대표지수**(사용자 요청 2026-07-28: CXMT→상하이종합·
+      // ASML→AEX·TSMC→가권). exchange 가 있으면 category(나스닥/매크로)보다 우선. 구버전 region 폴백.
+      const EXMK = { nasdaq: ["나스닥", "#38bdf8"], nyse: ["다우", "#60a5fa"], amex: ["아멕스", "#60a5fa"],
                      kospi: ["코스피", "#3b82f6"], kosdaq: ["코스닥", "#22c55e"],
-                     shanghai: ["상하이", "#f87171"], shenzhen: ["선전", "#fb7185"], hongkong: ["홍콩", "#f472b6"],
-                     tokyo: ["도쿄", "#fca5a5"], taiwan: ["대만", "#2dd4bf"],
-                     amsterdam: ["암스테르담", "#818cf8"], london: ["런던", "#a78bfa"], frankfurt: ["프랑크푸르트", "#c4b5fd"] };
-      const LEG = { china: ["상하이", "#f87171"], europe: ["암스테르담", "#818cf8"], taiwan: ["대만", "#2dd4bf"],
-                    japan: ["도쿄", "#fca5a5"], hongkong: ["홍콩", "#f472b6"], korea: ["코스피", "#3b82f6"] };
+                     shanghai: ["상하이종합", "#f87171"], shenzhen: ["선전종합", "#fb7185"], hongkong: ["항셍", "#f472b6"],
+                     tokyo: ["닛케이", "#fca5a5"], taiwan: ["가권", "#2dd4bf"],
+                     amsterdam: ["AEX", "#818cf8"], london: ["FTSE", "#a78bfa"], frankfurt: ["DAX", "#c4b5fd"] };
+      const LEG = { china: ["상하이종합", "#f87171"], europe: ["AEX", "#818cf8"], taiwan: ["가권", "#2dd4bf"],
+                    japan: ["닛케이", "#fca5a5"], hongkong: ["항셍", "#f472b6"], korea: ["코스피", "#3b82f6"] };
       const rows = (groups || []).map(c => {
         const icon = c.kind === "news" ? "📰" : (c.kind === "sec" ? "🇺🇸" : (c.kind === "disclosure" ? "📑" : ""));
         const ex = EXMK[(c.exchange || "").toLowerCase()] || LEG[(c.region || "").toLowerCase()];
