@@ -554,6 +554,25 @@ def _flow_trend(series):
     return out
 
 
+def _fmt_investors(investors):
+    """투자자 순매수 금액(억원)을 LLM 이 '그대로 인용'할 미리 완성된 문자열로 — LLM 이 큰
+    억원 수치를 조 변환하며 자릿수를 흘리는 오류(외국인 -46,494억을 -4,649억으로 ÷10 표기,
+    2026-07-28 사용자 지적) 방지. |v|>=1만억이면 조 병기. 반환: {kospi: "개인 +…억 · …"}."""
+    order = (("개인", "individual"), ("외국인", "foreign"), ("기관", "institution"))
+    out = {}
+    for mk, iv in (investors or {}).items():
+        parts = []
+        for label, k in order:
+            v = (iv or {}).get(k)
+            if v is None:
+                continue
+            jo = f"(={v / 10000:+.1f}조)" if abs(v) >= 10000 else ""
+            parts.append(f"{label} {v:+,.0f}억{jo}")
+        if parts:
+            out[mk] = " · ".join(parts)
+    return out
+
+
 def enrich_sector_stocks(sectors_up, sectors_down):
     """급등/급락 섹터 관련주에 ① 실시간 등락률(KIS 허브 /prices, 1회 일괄)과
     ② 최신 집계일 외국인·기관 순매수 수량(네이버 trend, 종목당 1회)을 부착.
@@ -907,6 +926,9 @@ SYSTEM = (
     "- briefing 은 3~5개의 완결된 문장(각각이 대시보드 불릿 하나): ① 지수 흐름과 수급 주체"
     "(investors — 기관/외국인/개인 순매수, 단위 억원)를 함께, ② 환율·금리·유가(marketIndicators)가 "
     "시장에 주는 함의, ③ 주도 섹터(sectorsUp), ④ 약세 섹터(sectorsDown), ⑤ 관전 포인트 순으로.\n"
+    "  · **수급 금액을 쓸 때는 investorsFmt(시장별로 이미 완성된 억원 표기, 예: '외국인 "
+    "-46,494억(=-4.6조)')를 글자 그대로 인용한다. 자릿수를 임의로 줄이거나(÷10 등) 늘리거나 "
+    "재계산하지 말 것 — 조 표기는 1조=10,000억(46,494억=약 4.6조).**\n"
     "- ①의 수급은 investorFlow(1분 누적 순매수 요약 — now 현재 누적(억원), chg30m 최근 "
     "30분 변화량, flipAt 그 시각부터 현재 부호 유지)로 방향 '전환·가속'까지 서술할 것 "
     "(예: '외국인은 13:24 순매수 전환 후 매수 폭을 키우는 중'). 전환·변화가 뚜렷할 때만 언급.\n"
@@ -1080,6 +1102,7 @@ def synthesize(indices, investors, indicators, sectors_up, sectors_down,
     raw = {
         "indices": indices,
         "investors": investors,          # 억원 단위 순매수 (개인/외국인/기관)
+        "investorsFmt": _fmt_investors(investors),   # LLM 이 그대로 인용할 억원 표기(자릿수 오류 방지)
         "marketIndicators": core_ind,
         "sectorsUp": [_sector_raw(s) for s in sectors_up],
         "sectorsDown": [_sector_raw(s) for s in sectors_down],
