@@ -3160,11 +3160,15 @@
         const cons = (r.consensus || {}).op;
         const sub = (cons !== null && cons !== undefined)
           ? `<span class="ev-sub"> / 컨센 ${_earnEok(cons)}</span>` : "";
-        // DART 만 감지하고 집계 사이트(WiseReport·FnGuide·네이버) 미반영 — 수치 없는 행
+        // DART 만 감지하고 집계 사이트(WiseReport·FnGuide·네이버) 미반영 — 수치 없는 행.
+        // noFigures=공시 원문에 재무수치 자체가 미기재(지역난방공사 잠정실적 판매량만 공시)
+        //  → 영영 안 채워지므로 '집계 중'(일시 결손, 곧 채워짐)과 구분해 '실적 미공시'로 표기.
         const noFig = (r.op === null || r.op === undefined)
                    && (r.sales === null || r.sales === undefined);
         const opCell = noFig
-          ? `<span class="ev-sub">공시 발표 — 수치 집계 중${sub}</span>`
+          ? (r.noFigures
+              ? `<span class="ev-sub" title="공시 원문에 매출·영업이익 미기재(판매량 등만 공시)">공시 발표 — 실적 미공시${sub}</span>`
+              : `<span class="ev-sub">공시 발표 — 수치 집계 중${sub}</span>`)
           : `영업이익 <b>${_earnEok(r.op)}</b>${_earnYoY(r.opYoY)}${sub}`;
         // 전일 장 마감 후 발표돼 오늘 처음 포착된 지연 실적 — 날짜 옆 '전일' 표시
         const lateTag = r.late
