@@ -304,6 +304,28 @@ def _demote_fake_macro(name, category):
     return "nasdaq" if any(k in name for k in _TECH_HINTS) else "sp"
 
 
+def _bigrams(s):
+    """문자 바이그램 집합(공백·구두점 제거) — 한국어 패러프레이즈 유사도용."""
+    t = re.sub(r"[\s.,%()·\-—/]+", "", str(s or "").lower())
+    return {t[i:i + 2] for i in range(len(t) - 1)}
+
+
+def _is_rereport(summary, subject, existing):
+    """같은 주체(subject=ticker 또는 name)의 기존 촉매와 요약 유사도(bigram Jaccard)>0.3
+    이면 같은 사건의 재보도 — 세션에 다시 쌓지 않는다(애플 '시총 5조 돌파' 4건 누적,
+    2026-07-29 실측: 재보도 쌍 0.32 vs 다른 전개 0.16~0.24). LLM reported 지시의 코드 백스톱."""
+    nb = _bigrams(summary)
+    if not nb:
+        return False
+    for c in existing:
+        if subject not in (str(c.get("ticker") or "").upper(), (c.get("stock") or "").strip()):
+            continue
+        ob = _bigrams(c.get("summary"))
+        if ob and len(nb & ob) / len(nb | ob) > 0.3:
+            return True
+    return False
+
+
 def summarize(filings):
     """LLM 1콜 — 실패 시 기계적 폴백(공시 유형 문구)."""
     view = [{k: f.get(k) for k in ("ticker", "company", "form", "items",
@@ -358,8 +380,10 @@ NEWS_SYSTEM = """\
 헤드라인 목록(headlines)에서 '시장을 실제로 움직이는' 신규 촉매만 고른다.
 - 포함: 매크로(연준·금리·핵심 지표 서프라이즈), 지정학(전쟁·군사 긴장·제재·관세),
   대형주 실적·가이던스, 섹터 전반에 파급되는 빅뉴스(M&A·규제·사고).
-- 제외: 단순 시황 리캡("나스닥 상승 마감"류), 전망·칼럼·해설, reported 목록과 같은
-  사건의 재보도, 한국 증시와 무관한 로컬 뉴스.
+- 제외: 단순 시황 리캡("나스닥 상승 마감"류), 전망·칼럼·해설, 한국 증시와 무관한 로컬 뉴스.
+- **재보도 절대 금지**: reported 목록에 이미 있는 사건은 표현·기사만 달라도 다시 고르지
+  않는다(예: '애플 시총 5조 돌파'가 reported 에 있으면 그 사건의 다른 기사·재해석은 전부
+  제외). 같은 종목이라도 **새로운 전개**(새 수치·새 발표·별개 사건)가 있을 때만 다시 선택.
 - 최대 {max_picks}건. 확실한 촉매가 없으면 빈 배열을 반환한다(억지로 고르지 말 것).
 - 각 pick 필드:
   idx: 입력 headlines 의 번호(그 기사가 근거).
@@ -526,6 +550,13 @@ def collect_news(state, now):
         category = _norm_category(p.get("category"), allow_macro=True)
         stock = (p.get("name") or "").strip() or h["title"][:20]
         category = _demote_fake_macro(stock, category)   # 업황 테마 macro 오분류 강등
+        summary = p.get("summary") or h["title"]
+        # 같은 주체의 같은 사건 재보도(표현만 다른 재요약)는 세션에 다시 쌓지 않는다 —
+        # 회차마다 다른 기사가 새 헤드라인으로 들어와 LLM 이 재선별하는 누적 중복 차단.
+        subject = str(p.get("ticker") or "").upper() or stock
+        if _is_rereport(summary, subject, (state.get("catalysts") or []) + out):
+            _log(f"재보도 스킵: {stock} — {summary[:40]}")
+            continue
         related = (p.get("relatedStock") or "").strip()
         # 종목명(stock)은 항상 뉴스의 '실제 주체'(해외 기업·지수·원자재·이슈, 예: CXMT·인텔·
         # 국제유가·연준)를 그대로 둔다 — 국내 관련주로 덮어쓰지 않는다(사용자 요청 2026-07-28:
@@ -545,7 +576,7 @@ def collect_news(state, now):
             "kind": "news",
             "form": "",
             "direction": direction,
-            "summary": p.get("summary") or h["title"],
+            "summary": summary,
             "url": h["url"],                # 원문 = 사건 기사 그대로
             "filedAt": now.strftime("%Y-%m-%d"),
             "changePct": None,
