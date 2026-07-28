@@ -283,6 +283,27 @@ def _norm_exchange(v):
     return v if v in _EXCHANGES else ""
 
 
+# 순수 매크로 주체 키워드 — macro 카테고리는 이 중 하나를 포함할 때만 유효(2026-07-29
+# 사용자 요청: '중국 반도체'·'빅테크' 같은 업황 테마가 매크로로 새는 것 차단).
+_MACRO_KEYWORDS = (
+    "유가", "금리", "연준", "Fed", "FOMC", "환율", "달러", "엔화", "위안",
+    "관세", "무역", "지정학", "전쟁", "제재", "휴전", "중동", "이란", "러시아", "우크라",
+    "국채", "인플레", "물가", "CPI", "PPI", "고용", "실업", "GDP", "경기", "침체",
+    "부양", "재정", "정부", "셧다운", "선거", "OPEC", "원자재", "국제 금", "금값",
+    "천연가스", "곡물", "비트코인", "미-", "북한",
+)
+_TECH_HINTS = ("반도체", "빅테크", "테크", "AI", "메모리", "칩", "소프트웨어",
+               "전기차", "배터리", "바이오")
+
+
+def _demote_fake_macro(name, category):
+    """macro 인데 주체명이 순수 매크로가 아니면(업황·섹터 테마) 강등 — 기술 계열은
+    nasdaq, 그 외 sp. LLM 프롬프트 1차 방어의 코드 백스톱."""
+    if category != "macro" or any(k in name for k in _MACRO_KEYWORDS):
+        return category
+    return "nasdaq" if any(k in name for k in _TECH_HINTS) else "sp"
+
+
 def summarize(filings):
     """LLM 1콜 — 실패 시 기계적 폴백(공시 유형 문구)."""
     view = [{k: f.get(k) for k in ("ticker", "company", "form", "items",
@@ -347,8 +368,12 @@ NEWS_SYSTEM = """\
         중국기업 등도 그 이름 그대로(예: "CXMT","창신메모리","화웨이"), 매크로/지정학이면
         핵심 주체(예: "국제유가","미국 관세","연준","미-이란"). **절대 국내 관련주로 바꾸지
         말 것**(국내주는 relatedStock 칸). **긴 문장 금지**(사건 설명은 summary 로).
-  category: "macro"(유가·금리·관세·지정학·지표 등 개별종목 아님) | "nasdaq"(기술·성장·
-            반도체 중심) | "sp"(전통·금융·산업 등 광범위/NYSE).
+  category: "macro" | "nasdaq"(기술·성장·반도체 중심) | "sp"(전통·금융·산업 등 광범위/NYSE).
+    **macro 는 '순수 매크로'만**: 금리·연준·환율·유가·원자재·관세·무역정책·지정학(전쟁·
+    제재)·경제지표(CPI·고용 등). **업황·섹터 테마는 macro 금지** — '중국 반도체','빅테크',
+    'AI 반도체','메모리 업황' 같은 이름을 name 으로 쓰지 말 것. 그런 뉴스는 실질 동인
+    기업으로 내려가 name·exchange 를 특정하고(예: 중국 반도체 추격→"창신메모리"/shanghai,
+    빅테크 실적 경계→해당 기업), 기업 특정이 정말 안 되면 섹터 성격대로 nasdaq|sp 로 분류.
   exchange: 주체(name)가 거래되는 **시장(거래소)** 코드. 아래 순서로 판정:
     ① 미국에 상장된 종목(직상장 또는 ADR)이면 그 **미국 거래소** — "nasdaq" | "nyse".
        ADR 이 있으면 본국이 어디든 미국 기준으로 분류한다
@@ -359,8 +384,9 @@ NEWS_SYSTEM = """\
     ③ 미상장·순수 매크로/지정학(유가·금리·연준·관세)이면 "".
   relatedStock: 이 촉매로 실제 매매할 **국내 상장 대표 관련주 1개(한국 종목명)**.
     category=macro 면 반드시 채운다 — 예: 국제유가→"S-Oil", 미국 관세→"현대차",
-    연준 금리인상→"KB금융", 지정학 방산→"한화에어로스페이스", CXMT 급등→"삼성전자".
-    개별 미국주(nasdaq/sp)면 국내 밸류체인 대표 1개 또는 "".
+    연준 금리인상→"KB금융", 지정학 방산→"한화에어로스페이스".
+    개별 기업(nasdaq/sp·해외 본주 포함)이면 국내 밸류체인 대표 1개 또는 ""
+    (예: 창신메모리→"삼성전자").
   ticker: 대표 티커(개별 기업 사건일 때만, 없으면 "").
   direction: 한국 증시 관점 방향(bullish|neutral|bearish). 근거 약하면 neutral.
   summary: 한국어 1-2문장 — 무슨 일이 있었는지 + 한국 증시/밸류체인 함의 한 마디.
@@ -499,6 +525,7 @@ def collect_news(state, now):
             direction = "neutral"
         category = _norm_category(p.get("category"), allow_macro=True)
         stock = (p.get("name") or "").strip() or h["title"][:20]
+        category = _demote_fake_macro(stock, category)   # 업황 테마 macro 오분류 강등
         related = (p.get("relatedStock") or "").strip()
         # 종목명(stock)은 항상 뉴스의 '실제 주체'(해외 기업·지수·원자재·이슈, 예: CXMT·인텔·
         # 국제유가·연준)를 그대로 둔다 — 국내 관련주로 덮어쓰지 않는다(사용자 요청 2026-07-28:
