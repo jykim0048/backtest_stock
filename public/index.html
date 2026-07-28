@@ -3350,9 +3350,26 @@
     // ── 미국 밤사이 SEC 공시 촉매 (us_night_catalysts 회차 누적, 2026-07-22) ────
     // 아침 브리핑 payload(usCatalysts)로 1차 렌더 후, 라이브 뷰에서는 us_catalysts.json
     // 을 직접 받아 갱신(미국 정규장 KST 22:47~04:47 동안 30분마다 새 공시 추가됨).
+    // 유형 정렬 순서(사용자 지정 2026-07-29): 매크로 → 나스닥 → 다우(NYSE·S&P) → 상하이종합
+    // → 기타 시장 → 미상. 같은 유형 안에서는 기존 순서 유지(sort 는 stable).
+    const _USCAT_RANK = { macro: 0, nasdaq: 1, nyse: 2, sp: 2, amex: 2, shanghai: 3,
+                          shenzhen: 4, hongkong: 5, tokyo: 6, taiwan: 7, amsterdam: 8,
+                          london: 9, frankfurt: 10, kospi: 11, kosdaq: 12 };
+    function _usCatTypeRank(g) {
+      const ex = (g.exchange || "").toLowerCase();
+      if (ex in _USCAT_RANK) return _USCAT_RANK[ex];
+      // 구버전 region(국가) 폴백 → 시장 코드 근사(렌더 LEG 맵과 동일 매핑)
+      const LEGX = { china: "shanghai", europe: "amsterdam", taiwan: "taiwan",
+                     japan: "tokyo", hongkong: "hongkong", korea: "kospi" };
+      const rg = LEGX[(g.region || "").toLowerCase()];
+      if (rg) return _USCAT_RANK[rg];
+      const c = (g.category || "").toLowerCase();
+      return (c in _USCAT_RANK) ? _USCAT_RANK[c] : 99;
+    }
     function _briefUsCatHtml(cats) {
       if (!cats || !cats.length) return "";
       const groups = _consolidateUsCats(cats);   // 종목 단위 종합(회차 누적 중복 제거)
+      groups.sort((a, b) => _usCatTypeRank(a) - _usCatTypeRank(b));   // 유형순 정렬
       const n = (cats || []).filter(c => c.market === "US").length;
       return `<div class="briefing-wl"><div class="wl-h">🌙 미국 밤사이 주요 촉매 — SEC 공시·뉴스 (${groups.length}종목 · ${n}건)</div>`
         + `<table><thead><tr><th style="width:150px">종목</th><th style="width:72px">유형</th><th>핵심 촉매</th></tr></thead>`
