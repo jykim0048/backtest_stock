@@ -3405,13 +3405,14 @@
         const category = Object.keys(catCount).sort((a, b) => catCount[b] - catCount[a])[0] || rep.category;
         let related = "", relatedUrl = "";
         for (const c of items) { if ((c.relatedStock || "").trim()) { related = c.relatedStock.trim(); relatedUrl = c.relatedUrl || ""; break; } }
-        let region = "";
+        let exchange = "", region = "";   // exchange=상장시장(신규), region=구버전 폴백
+        for (let i = items.length - 1; i >= 0; i--) { if ((items[i].exchange || "").trim()) { exchange = items[i].exchange.trim().toLowerCase(); break; } }
         for (let i = items.length - 1; i >= 0; i--) { if ((items[i].region || "").trim()) { region = items[i].region.trim().toLowerCase(); break; } }
         let chg = null;
         for (let i = items.length - 1; i >= 0; i--) { if (typeof items[i].changePct === "number") { chg = items[i].changePct; break; } }
         return {
           stock: rep.stock || rep.corp || "—", ticker: rep.ticker || "",
-          category, region, direction, market: "US", kind: rep.kind, form: rep.form,
+          category, exchange, region, direction, market: "US", kind: rep.kind, form: rep.form,
           relatedStock: related, relatedUrl, changePct: chg,
           summary: kept.join("  ·  "), _urls: urls, _count: items.length,
         };
@@ -3422,16 +3423,21 @@
         : dir === "bearish" ? `<span class="dir-badge bear">▼ 하방</span>`
         : dir === "neutral" ? `<span class="dir-badge neu">— 중립</span>` : "";
       const CAT = { macro: ["매크로", "#94a3b8"], nasdaq: ["나스닥", "#38bdf8"], sp: ["S&P", "#a78bfa"] };
-      // 비미국 홈 마켓은 유형 칸에 그 시장을 표기(사용자 요청 2026-07-28: CXMT→중국·ASML→유럽).
-      // region 이 있으면 category(나스닥/매크로)보다 우선 — 주체의 실제 상장·소재 시장이 정보량이 큼.
-      const REGION = { china: ["중국", "#f87171"], europe: ["유럽", "#818cf8"], taiwan: ["대만", "#2dd4bf"],
-                       japan: ["일본", "#fb7185"], hongkong: ["홍콩", "#f472b6"], korea: ["한국", "#60a5fa"] };
+      // 유형 칸 = 각 종목이 소속된 시장(거래소)명(사용자 요청 2026-07-28: CXMT→상하이·ASML→암스테르담).
+      // exchange 가 있으면 category(나스닥/매크로)보다 우선. 구버전 데이터는 region(국가) 폴백.
+      const EXMK = { nasdaq: ["나스닥", "#38bdf8"], nyse: ["뉴욕", "#60a5fa"], amex: ["아멕스", "#60a5fa"],
+                     kospi: ["코스피", "#3b82f6"], kosdaq: ["코스닥", "#22c55e"],
+                     shanghai: ["상하이", "#f87171"], shenzhen: ["선전", "#fb7185"], hongkong: ["홍콩", "#f472b6"],
+                     tokyo: ["도쿄", "#fca5a5"], taiwan: ["대만", "#2dd4bf"],
+                     amsterdam: ["암스테르담", "#818cf8"], london: ["런던", "#a78bfa"], frankfurt: ["프랑크푸르트", "#c4b5fd"] };
+      const LEG = { china: ["상하이", "#f87171"], europe: ["암스테르담", "#818cf8"], taiwan: ["대만", "#2dd4bf"],
+                    japan: ["도쿄", "#fca5a5"], hongkong: ["홍콩", "#f472b6"], korea: ["코스피", "#3b82f6"] };
       const rows = (groups || []).map(c => {
         const icon = c.kind === "news" ? "📰" : (c.kind === "sec" ? "🇺🇸" : (c.kind === "disclosure" ? "📑" : ""));
-        const reg = REGION[(c.region || "").toLowerCase()];
+        const ex = EXMK[(c.exchange || "").toLowerCase()] || LEG[(c.region || "").toLowerCase()];
         const hit = CAT[c.category];
-        const mkLabel = reg ? reg[0] : (hit ? hit[0] : (c.form ? `SEC ${_brEsc(c.form)}` : "US"));
-        const mkColor = reg ? reg[1] : (hit ? hit[1] : "#94a3b8");
+        const mkLabel = ex ? ex[0] : (hit ? hit[0] : (c.form ? `SEC ${_brEsc(c.form)}` : "US"));
+        const mkColor = ex ? ex[1] : (hit ? hit[1] : "#94a3b8");
         const chg = (typeof c.changePct === "number")
           ? ` <span style="color:${c.changePct >= 0 ? "var(--up-red)" : "var(--kospi-blue)"}; font-size:11.5px;">${c.changePct >= 0 ? "+" : ""}${c.changePct}%</span>` : "";
         const cnt = c._count > 1 ? ` <span style="color:var(--text-muted); font-size:11px;">(${c._count}건)</span>` : "";
