@@ -3638,7 +3638,7 @@
       if (!det) return "";
       const item = (lb, v) => (v == null) ? "" :
         `<span style="margin-right:9px; white-space:nowrap;">${lb} <b style="color:${v >= 0 ? "var(--up-red)" : "var(--kospi-blue)"};">${v >= 0 ? "+" : ""}${Math.round(v).toLocaleString()}</b></span>`;
-      return `<div id="ib-orgnd-${k}" style="display:none; font-size:11.5px; color:#cbd5e1; padding:4px 2px 0;">`
+      return `<div id="ib-orgnd-${k}" style="display:none; font-size:11.5px; color:#cbd5e1; padding:4px 2px 0; text-align:right;">`
         + item("연기금", det.pension) + item("금융투자", det.finInv)
         + item("보험", det.insur) + item("투신(사모)", det.trust)
         + `<span style="color:var(--text-muted); font-size:10px;">억원 · ${_brEsc(det.time)} 기준</span></div>`;
