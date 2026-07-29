@@ -728,7 +728,7 @@ CORPMAP_WF   = "build_corp_map.yml"
 INDEXCON_WF  = "index_constituents.yml"
 THEMEMAP_WF  = "theme_map.yml"
 USNIGHT_WF   = "us_night_catalysts.yml"
-INTRADAY_MIN = {7, 37}            # KST 09:07~15:07, 30분 간격 (15:07 은 아래 단독 조건)
+INTRADAY_MIN = {7, 37}            # KST 09:07~14:37, 30분 간격 (장전 08:37·15:07 은 단독 조건)
 USNIGHT_MIN  = {17, 47}           # KST 20:47~06:17, 30분 간격 (미국 프리~애프터마켓 촉매)
 
 
@@ -773,10 +773,13 @@ def _scheduler():
                     key = (today, "invwarn")
                     if key not in fired and _dispatch(INVWARN_WF):
                         fired.add(key)
-                # 장중 09:07~14:37(:07/:37) + 15:07 — 15:07 회차는 최종 가집계 입력
-                # (14:30±10분, FHPTJ04400000 수기 입력)이 14:37 회차를 놓친 경우를
-                # 확실히 포착한다(2026-07-24). 15:40 마감 시황(closing)은 별도.
-                if (9 <= now.hour <= 14 and now.minute in INTRADAY_MIN) \
+                # 장전 08:37(개장 전 회차 — 회차 ~5.5분이라 09:00 전 시황 준비 완료,
+                # 2026-07-29 사용자 요청. 지수·수급은 전일/빈 값이라 미국 촉매·공시·경제
+                # 지표 중심 장전 브리핑이 된다) + 장중 09:07~14:37(:07/:37) + 15:07 —
+                # 15:07 회차는 최종 가집계 입력(14:30±10분, FHPTJ04400000 수기 입력)이
+                # 14:37 회차를 놓친 경우를 확실히 포착한다(2026-07-24). 15:40 마감은 별도.
+                if (now.hour == 8 and now.minute == 37) \
+                   or (9 <= now.hour <= 14 and now.minute in INTRADAY_MIN) \
                    or (now.hour == 15 and now.minute == 7):
                     key = (today, f"intraday-{now.hour:02d}{now.minute:02d}")
                     if key not in fired and _dispatch(INTRADAY_WF):
