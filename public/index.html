@@ -3428,6 +3428,25 @@
           if (allKeys.has(a) && allKeys.has(bt)) union(a, bt);
         }
       });
+      // 매크로 스토리 군집(2026-07-29 사용자 요청): 같은 원인(미-이란 갈등)이 이란·국제유가·
+      // 미-이란 등 다른 주체명으로 흩어지면 한 행으로 종합. 병합 조건(둘 중 하나):
+      // ① 이름 포함관계('이란'⊂'미-이란') ② 상호 언급 — A 이름이 B 요약에 나오고 B 이름도
+      // A 요약에 나올 때만(양방향 요구로 '금리' 등 일반어 단방향 인용 오병합 방지). macro 한정.
+      const mac = {};
+      us.forEach(c => {
+        if ((c.category || "") !== "macro") return;
+        const n = norm(c.stock || c.corp || "");
+        if (n.length < 2) return;
+        if (!mac[n]) mac[n] = { key: "N:" + n, text: "" };
+        mac[n].text += norm(c.summary || "");
+      });
+      const macNames = Object.keys(mac);
+      for (let i = 0; i < macNames.length; i++) for (let j = i + 1; j < macNames.length; j++) {
+        const a = macNames[i], b = macNames[j];
+        const nameRel = a.includes(b) || b.includes(a);
+        const crossRef = mac[a].text.includes(b) && mac[b].text.includes(a);
+        if (nameRel || crossRef) union(mac[a].key, mac[b].key);
+      }
       const order = [], map = {};
       us.forEach(c => {
         const k = find(keysOf(c)[0]);
@@ -3468,8 +3487,13 @@
         for (let i = items.length - 1; i >= 0; i--) { if (typeof items[i].changePct === "number") { chg = items[i].changePct; break; } }
         let tkr = "";                       // 병합 그룹은 최신 항목에 티커가 없을 수 있음 — 최신 비어있지 않은 값
         for (let i = items.length - 1; i >= 0; i--) { if ((items[i].ticker || "").trim()) { tkr = String(items[i].ticker).trim().toUpperCase(); break; } }
+        // 병합 그룹 대표 이름 = 최빈 표기(동률이면 더 구체적인 긴 이름: 이란 vs 미-이란 → 미-이란)
+        const nameCount = {};
+        items.forEach(c => { const nm = (c.stock || c.corp || "").trim(); if (nm) nameCount[nm] = (nameCount[nm] || 0) + 1; });
+        const dispName = Object.keys(nameCount)
+          .sort((a, b) => (nameCount[b] - nameCount[a]) || (b.length - a.length))[0] || "—";
         return {
-          stock: rep.stock || rep.corp || "—", ticker: tkr,
+          stock: dispName, ticker: tkr,
           category, exchange, region, direction, market: "US", kind: rep.kind, form: rep.form,
           relatedStock: related, relatedUrl, changePct: chg,
           summary: kept.join("  ·  "), _urls: urls, _count: items.length,
