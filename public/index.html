@@ -3624,6 +3624,30 @@
       return rows || `<tr><td colspan="3" style="color:var(--text-muted); font-size:13px; padding:8px 2px;">해당 회차 촉매 없음</td></tr>`;
     }
 
+    // ── 기관 수급 세부내역(연기금·금융투자·보험·투신) — 기관 알약 클릭 토글(2026-07-29) ──
+    // 데이터 = investorSeries 최신 행의 세부 필드(네이버 시간별 순매수 기관계 분해, 억원).
+    // 세부 필드는 파이프라인 갱신 이후 회차부터 존재 — 없으면 알약 클릭 비활성(graceful).
+    function _ibOrgnDetail(series) {
+      for (let i = (series || []).length - 1; i >= 0; i--) {
+        const r = series[i];
+        if (r && r.pension != null) return r;
+      }
+      return null;
+    }
+    function _ibOrgnDetailHtml(det, k) {
+      if (!det) return "";
+      const item = (lb, v) => (v == null) ? "" :
+        `<span style="margin-right:9px; white-space:nowrap;">${lb} <b style="color:${v >= 0 ? "var(--up-red)" : "var(--kospi-blue)"};">${v >= 0 ? "+" : ""}${Math.round(v).toLocaleString()}</b></span>`;
+      return `<div id="ib-orgnd-${k}" style="display:none; font-size:11.5px; color:#cbd5e1; padding:4px 2px 0;">`
+        + item("연기금", det.pension) + item("금융투자", det.finInv)
+        + item("보험", det.insur) + item("투신(사모)", det.trust)
+        + `<span style="color:var(--text-muted); font-size:10px;">억원 · ${_brEsc(det.time)} 기준</span></div>`;
+    }
+    function ibOrgnToggle(k) {
+      const el = document.getElementById(`ib-orgnd-${k}`);
+      if (el) el.style.display = el.style.display === "none" ? "" : "none";
+    }
+
     // ── 지수 카드 내부: 1분 투자자 누적 순매수 멀티라인 차트 ─────────────────
     // 개인(회색)·외인(파랑)·기관(앰버) 누적 곡선 + 0선(점선) + 우측 최신값 라벨.
     const _IB_FLOW_KEYS = [["individual", "#94a3b8"], ["foreign", "#60a5fa"], ["institution", "#fbbf24"]];
@@ -3785,28 +3809,32 @@
       const inv = d.investors || {};
       // 투자자별 순매수(억원)를 알약(pill)로 — 알약 색은 주체별로 고정(개인 회색·외인 파랑·기관 앰버),
       // 순매수/순매도는 +/- 부호로 표기. 차트 선 색과 통일.
-      const invPill = (label, v, cls) => v == null ? ""
-        : `<span class="ib-flowpill ${cls}">${label} <b>${v >= 0 ? "+" : ""}${Math.round(v).toLocaleString()}</b></span>`;
+      const invPill = (label, v, cls, extra) => v == null ? ""
+        : `<span class="ib-flowpill ${cls}"${extra || ""}>${label} <b>${v >= 0 ? "+" : ""}${Math.round(v).toLocaleString()}</b>${extra ? " ▾" : ""}</span>`;
       const idxCards = [["KOSPI", "kospi"], ["KOSDAQ", "kosdaq"]].map(([nm, k]) => {
         const v = idx[k];
         if (!v || typeof v.price !== "number") return "";
         const iv = inv[k];
+        // 1분 누적 순매수 차트 (investorSeries — 데이터 없으면 생략)
+        const series = (d.investorSeries || {})[k] || [];
+        // 기관 알약 클릭 → 기관계 세부(연기금·금융투자·보험·투신) 토글(2026-07-29 사용자 요청).
+        // 세부 데이터 없는 회차(구버전)는 알약 비클릭·패널 미생성.
+        const det = _ibOrgnDetail(series);
         const flow = iv
           ? `<div class="ib-idxflow">`
             + invPill("개인", iv.individual, "ib-flowpill-prsn")
             + invPill("외인", iv.foreign, "ib-flowpill-frgn")
-            + invPill("기관", iv.institution, "ib-flowpill-orgn")
+            + invPill("기관", iv.institution, "ib-flowpill-orgn",
+                      det ? ` onclick="ibOrgnToggle('${k}')" style="cursor:pointer;" title="클릭: 기관 세부(연기금·금융투자·보험·투신)"` : "")
             + `</div>`
           : "";
-        // 1분 누적 순매수 차트 (investorSeries — 데이터 없으면 생략)
-        const series = (d.investorSeries || {})[k] || [];
         const chart = series.length > 5
           ? `<canvas class="ib-flowchart" id="ib-flowchart-${k}" height="52"></canvas>` : "";
         return `<div class="ib-idxcard"><div class="ib-idxhead">`
           + `<span class="ib-idxname">${nm}</span>`
           + `<span class="ib-idxval" style="color:${_brPctColor(v.rate)}">${v.price.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} · ${_brPctFmt(v.rate)}%</span>`
           + flow
-          + `</div>${chart}</div>`;
+          + `</div>${_ibOrgnDetailHtml(det, k)}${chart}</div>`;
       }).join("");
       const idxRow = idxCards ? `<div class="ib-idxrow">${idxCards}</div>` : "";
 
