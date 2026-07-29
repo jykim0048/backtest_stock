@@ -921,8 +921,17 @@ def naver_investor_timeline(market="KOSPI", pages=6):
             ind, frn, inst = _n(nums[0]), _n(nums[1]), _n(nums[2])
             if ind is None or tm in out:
                 continue
-            out[tm] = {"time": tm, "individual": ind,
-                       "foreign": frn, "institution": inst}
+            row = {"time": tm, "individual": ind,
+                   "foreign": frn, "institution": inst}
+            # 기관계 세부(같은 행 후속 컬럼: 금융투자·보험·투신(사모)·은행·기타금융·연기금등·
+            # 기타법인) — 대시보드 기관 알약 클릭 세부내역용(2026-07-29). 컬럼 수가 다르면
+            # (레이아웃 변경) 세부만 생략(graceful) — 기존 3주체는 영향 없음.
+            if len(nums) >= 9:
+                row["finInv"] = _n(nums[3])     # 금융투자
+                row["insur"] = _n(nums[4])      # 보험
+                row["trust"] = _n(nums[5])      # 투신(사모)
+                row["pension"] = _n(nums[8])    # 연기금등
+            out[tm] = row
             new += 1
         if not rows or not new:
             break
