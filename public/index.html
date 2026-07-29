@@ -3810,7 +3810,7 @@
       // 투자자별 순매수(억원)를 알약(pill)로 — 알약 색은 주체별로 고정(개인 회색·외인 파랑·기관 앰버),
       // 순매수/순매도는 +/- 부호로 표기. 차트 선 색과 통일.
       const invPill = (label, v, cls, extra) => v == null ? ""
-        : `<span class="ib-flowpill ${cls}"${extra || ""}>${label} <b>${v >= 0 ? "+" : ""}${Math.round(v).toLocaleString()}</b>${extra ? " ▾" : ""}</span>`;
+        : `<span class="ib-flowpill ${cls}"${extra || ""}>${label} <b>${v >= 0 ? "+" : ""}${Math.round(v).toLocaleString()}</b>${extra ? ` <span style="font-size:14px; line-height:1; vertical-align:-1px;">▾</span>` : ""}</span>`;
       const idxCards = [["KOSPI", "kospi"], ["KOSDAQ", "kosdaq"]].map(([nm, k]) => {
         const v = idx[k];
         if (!v || typeof v.price !== "number") return "";
