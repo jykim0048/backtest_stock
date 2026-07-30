@@ -3022,11 +3022,15 @@
         const sub = (r.forecast !== null && r.forecast !== undefined)
           ? `<span class="ev-sub"> / 예상 ${_econFc(r)} · 이전 ${_econVal(r.previous, r)}</span>`
           : `<span class="ev-sub"> / 이전 ${_econVal(r.previous, r)}</span>`;
+        // 수치 없는 이벤트(FOMC 성명서·기자회견 — FF 단독 released 이월) — '발표 완료' 표기
+        const valCell = (r.actual !== null && r.actual !== undefined)
+          ? `<b>${_econVal(r.actual, r)}</b>${sub}`
+          : `<span class="ev-sub">발표 완료</span>`;
         return `<tr><td class="econ-time">${_econTime(r, todayStr)}</td>`
              + `<td>${_econNation(r)}</td>`
              + `<td>${_econImp(r.importance)}</td>`
              + `<td>${_econName(r)}</td>`
-             + `<td class="econ-vals"><b>${_econVal(r.actual, r)}</b>${sub}</td>`
+             + `<td class="econ-vals">${valCell}</td>`
              + `<td style="text-align:right">${_econBadge(r)}</td></tr>`;
       }).join("");
     }
