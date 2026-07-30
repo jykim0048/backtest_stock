@@ -3813,11 +3813,18 @@
       const today = todayKST();
       document.getElementById("ib-date").textContent = `${d.asof || ""} 회차`;
       const statusEl = document.getElementById("ib-status");
+      // 장전 회차(08:37 — asof 시각 09시 이전, 2026-07-30): '장 마감·최종 회차' 오표기 방지
+      // + 시황 불릿 생략(지수·수급이 전일/0 값이라 무의미 — 미국 촉매·공시·지표 카드가 본체).
+      const asofHm = ((d.asof || "").split(" ")[1]) || "";
+      const preOpen = !d.final && asofHm !== "" && asofHm.slice(0, 2) < "09";
       if (d.date !== today) {
         statusEl.textContent = `${d.date} 마감 시황`;
         statusEl.className = "briefing-stance neutral";
       } else if (d.final) {
         statusEl.textContent = "마감 시황";
+        statusEl.className = "briefing-stance neutral";
+      } else if (preOpen) {
+        statusEl.textContent = "장전 회차 · 개장 전";
         statusEl.className = "briefing-stance neutral";
       } else if (isMarketOpen()) {
         statusEl.textContent = "LIVE";
@@ -3887,7 +3894,7 @@
       }).join("");
 
       // LLM 시황 브리핑 불릿
-      const bullets = (d.briefing || []).length
+      const bullets = (!preOpen && (d.briefing || []).length)
         ? `<ul class="briefing-usbullets">${d.briefing.map(b => `<li>${_brEsc(b)}</li>`).join("")}</ul>` : "";
 
       // 환율 브리핑 불릿 — LLM 요약(fxBullets) 우선, 없으면 환율 뉴스 헤드라인 폴백.
