@@ -3788,6 +3788,68 @@
       });
     }
 
+    // ── 섹터 히트 셀 클릭 → 해당 업종 가집계 (2026-07-30 사용자 요청) ────────────────
+    // 급등/급락 상위 3개 제한 없이 24개 업종 전부 온디맨드 조회. 종목 소스 =
+    // assets/krx_sector_map.json(시총 상위 — 파이프라인과 동일 맵·정규화·접두 매칭),
+    // 가집계 = 모니터 /flow(종목당 1콜, 60s 캐시 — 셀 연속 클릭 시 재호출 방지).
+    // 같은 셀 재클릭 = 닫기. 표 렌더는 기존 _secNetbuyPills 재사용(클릭 목적이라 바로 펼침).
+    let _krxSecMap = null, _heatNbOpen = "";
+    const _flowNbCache = new Map();   // code -> {t, nb|null}
+    function _normSector(n) { return String(n || "").replace(/[\s·・()]/g, ""); }
+    async function _loadKrxSecMap() {
+      if (_krxSecMap) return _krxSecMap;
+      try {
+        const r = await fetch(`assets/krx_sector_map.json?t=${Date.now()}`, { cache: "no-store" });
+        if (r.ok) _krxSecMap = ((await r.json()) || {}).sectors || {};
+      } catch (_) { /* 다음 클릭에 재시도 */ }
+      return _krxSecMap || {};
+    }
+    async function _flowNb(code) {
+      const c = _flowNbCache.get(code);
+      if (c && Date.now() - c.t < 60000) return c.nb;
+      let nb = null;
+      try {
+        const r = await fetch(`${VI_API_BASE}/flow?code=${code}`, { cache: "no-store" });
+        if (r.ok) {
+          const d = await r.json();
+          const r0 = (d && d.status === "success" && (d.rank || [])[0]) || null;
+          if (r0) nb = { frgn: r0.frgn, orgn: r0.orgn, fund: r0.fund };
+        }
+      } catch (_) { /* 미랭크와 동일 취급(–) */ }
+      _flowNbCache.set(code, { t: Date.now(), nb });
+      return nb;
+    }
+    async function ibSecHeatNb(name) {
+      const box = document.getElementById("ib-heatnb");
+      if (!box) return;
+      if (_heatNbOpen === name) { box.innerHTML = ""; _heatNbOpen = ""; return; }
+      _heatNbOpen = name;
+      box.innerHTML = `<div style="font-size:11.5px; color:var(--text-muted); padding:6px 2px;">${_brEsc(name)} 가집계 조회 중…</div>`;
+      const map = await _loadKrxSecMap();
+      const key = _normSector(name);
+      let entry = map[key] || null;
+      if (!entry) { for (const k in map) { if (k.startsWith(key) || key.startsWith(k)) { entry = map[k]; break; } } }
+      if (_heatNbOpen !== name) return;          // 조회 중 다른 셀 클릭 — 이 결과 폐기
+      const stocks = ((entry || {}).stocks || []).slice(0, 5)
+        .map(x => ({ code: x.code, name: x.name }));
+      if (!stocks.length) {
+        box.innerHTML = `<div style="font-size:11.5px; color:var(--text-muted); padding:6px 2px;">${_brEsc(name)} — 업종 매핑 없음</div>`;
+        return;
+      }
+      await Promise.all(stocks.map(async x => {
+        const nb = await _flowNb(x.code);
+        if (nb) x.netBuy = nb;
+      }));
+      if (_heatNbOpen !== name) return;
+      const inner = _secNetbuyPills({ name: name, stocks: stocks });
+      box.innerHTML = `<div style="margin-top:8px; padding:8px 10px; border:1px solid rgba(148,163,184,.18); border-radius:9px; max-width:560px;">`
+        + `<div style="font-size:12px; font-weight:600; margin-bottom:3px;">${_brEsc(name)} <span style="font-size:10.5px; color:var(--text-muted); font-weight:400;">시총 상위 ${stocks.length} · 매매종목 가집계(잠정)</span></div>`
+        + (inner || `<div style="font-size:11.5px; color:var(--text-muted);">가집계 랭킹(KIS 순매수/순매도 상위)에 든 종목이 없습니다.</div>`)
+        + `</div>`;
+      const det = box.querySelector("details");
+      if (det) det.open = true;                  // 클릭 목적이 세부 확인이라 표 바로 펼침
+    }
+
     let _ibRounds = null;   // 당일 아카이브 rounds[] (회차 선택용)
     async function _ibLoadRounds(d) {
       _ibRounds = null;
@@ -3815,6 +3877,7 @@
 
     function renderIntradayBriefing(d) {
       const today = todayKST();
+      _heatNbOpen = "";   // 회차 리렌더로 히트 가집계 패널이 사라지므로 열림 상태도 리셋
       document.getElementById("ib-date").textContent = `${d.asof || ""} 회차`;
       const statusEl = document.getElementById("ib-status");
       // 장전 회차(08:37 — asof 시각 09시 이전, 2026-07-30): '장 마감·최종 회차' 오표기 방지
@@ -3968,7 +4031,7 @@
           const a = (0.06 + 0.34 * Math.min(1, Math.abs(v) / maxAbs)).toFixed(3);
           const bg = up ? `rgba(239,68,68,${a})` : `rgba(59,130,246,${a})`;
           const nc = up ? "#fca5a5" : "#93c5fd";
-          return `<div class="h-cell" style="background:${bg}" title="${_brEsc(s.name)} ${_brPctFmt(s.changePct)}%">`
+          return `<div class="h-cell" style="background:${bg}; cursor:pointer;" onclick="ibSecHeatNb('${_brEsc(s.name)}')" title="${_brEsc(s.name)} ${_brPctFmt(s.changePct)}% · 클릭: 가집계">`
             + `<div class="h-name" style="color:${nc}">${_brEsc(s.name)}</div>`
             + `<div class="h-val" style="color:${_brPctColor(v)}">${_brPctFmt(s.changePct)}</div></div>`;
         }).join("");
@@ -4003,8 +4066,9 @@
         const upFlow = (d.sectorsUp || []).map(secFlowRow).join("");
         const dnFlow = (d.sectorsDown || []).map(secFlowRow).join("");
         sectorSection = `
-          <div class="ib-sector-label">🧭 섹터 히트 <b>(강 → 약)</b> · KIS 업종 · KOSPI 산업별 ${secHeat.length}개</div>
+          <div class="ib-sector-label">🧭 섹터 히트 <b>(강 → 약)</b> · KIS 업종 · KOSPI 산업별 ${secHeat.length}개 <span style="font-weight:400; color:var(--text-muted); font-size:10.5px;">· 셀 클릭 = 가집계</span></div>
           <div class="briefing-heat ib-heat-2row">${cells}</div>
+          <div id="ib-heatnb"></div>
           <div class="ib-sector-label" style="margin-top:14px;">🔀 급등·급락 섹터 <b>→ 관련 네이버 테마·종목</b></div>
           <div class="briefing-flowcols">
             <div class="briefing-flowcol">
