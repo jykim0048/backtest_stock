@@ -3794,7 +3794,7 @@
     // 가집계 = 모니터 /flow(종목당 1콜, 60s 캐시 — 셀 연속 클릭 시 재호출 방지).
     // 같은 셀 재클릭 = 닫기. 표 렌더는 기존 _secNetbuyPills 재사용(클릭 목적이라 바로 펼침).
     let _krxSecMap = null, _heatNbOpen = "";
-    const _flowNbCache = new Map();   // code -> {t, nb|null}
+    let _flowRank = { t: 0, byCode: new Map() };   // /flow-rank 전체 랭킹(60s 클라 캐시, 서버 5분 캐시)
     function _normSector(n) { return String(n || "").replace(/[\s·・()]/g, ""); }
     async function _loadKrxSecMap() {
       if (_krxSecMap) return _krxSecMap;
@@ -3804,20 +3804,48 @@
       } catch (_) { /* 다음 클릭에 재시도 */ }
       return _krxSecMap || {};
     }
-    async function _flowNb(code) {
-      const c = _flowNbCache.get(code);
-      if (c && Date.now() - c.t < 60000) return c.nb;
-      let nb = null;
+    function _secTopStocks(map, name) {   // 업종명 → 시총 상위 5 (파이프라인과 동일 정규화·접두 매칭)
+      const key = _normSector(name);
+      let entry = map[key] || null;
+      if (!entry) { for (const k in map) { if (k.startsWith(key) || key.startsWith(k)) { entry = map[k]; break; } } }
+      return ((entry || {}).stocks || []).slice(0, 5).map(x => ({ code: x.code, name: x.name }));
+    }
+    async function _loadFlowRank() {
+      if (Date.now() - _flowRank.t < 60000) return _flowRank.byCode;
       try {
-        const r = await fetch(`${VI_API_BASE}/flow?code=${code}`, { cache: "no-store" });
+        const r = await fetch(`${VI_API_BASE}/flow-rank`, { cache: "no-store" });
         if (r.ok) {
           const d = await r.json();
-          const r0 = (d && d.status === "success" && (d.rank || [])[0]) || null;
-          if (r0) nb = { frgn: r0.frgn, orgn: r0.orgn, fund: r0.fund };
+          const byCode = new Map();
+          if (d && d.status === "success") {
+            Object.values(d.lists || {}).forEach(rows => (rows || []).forEach(o => {
+              if (o.code && !byCode.has(o.code))   // 여러 리스트 중복 — 값 동일이라 첫 것
+                byCode.set(o.code, { frgn: o.frgn, orgn: o.orgn, fund: o.fund });
+            }));
+          }
+          _flowRank = { t: Date.now(), byCode };
         }
-      } catch (_) { /* 미랭크와 동일 취급(–) */ }
-      _flowNbCache.set(code, { t: Date.now(), nb });
-      return nb;
+      } catch (_) { /* 실패 — 기존 캐시 유지, 다음 호출에 재시도 */ }
+      return _flowRank.byCode;
+    }
+    // 렌더 후 호출 — '가집계 랭킹에 상위 종목이 든 업종'에만 클릭 + ▾ 토글을 부여
+    // (사용자 요청 2026-07-30: 토글은 가집계 있는 섹터만, 크기는 등락률 숫자와 동일
+    //  → ▾ 를 .h-val 안에 넣어 폰트 크기·굵기·색을 그대로 상속).
+    async function _annotateHeatToggles() {
+      const cells = document.querySelectorAll(".ib-heat-2row .h-cell[data-sec]");
+      if (!cells.length) return;
+      const [map, rank] = await Promise.all([_loadKrxSecMap(), _loadFlowRank()]);
+      if (!rank.size) return;                     // 랭킹 없음(장외·허브 미응답) — 토글 미부여
+      cells.forEach(c => {
+        const name = c.getAttribute("data-sec") || "";
+        if (!_secTopStocks(map, name).some(x => rank.has(x.code))) return;
+        c.style.cursor = "pointer";
+        c.setAttribute("onclick", `ibSecHeatNb('${name.replace(/['"\\]/g, "")}')`);
+        c.setAttribute("title", `${name} · 클릭: 가집계`);
+        const val = c.querySelector(".h-val");
+        if (val && !val.querySelector(".h-nbtg"))
+          val.insertAdjacentHTML("beforeend", ` <span class="h-nbtg">▾</span>`);
+      });
     }
     async function ibSecHeatNb(name) {
       const box = document.getElementById("ib-heatnb");
@@ -3825,22 +3853,14 @@
       if (_heatNbOpen === name) { box.innerHTML = ""; _heatNbOpen = ""; return; }
       _heatNbOpen = name;
       box.innerHTML = `<div style="font-size:11.5px; color:var(--text-muted); padding:6px 2px;">${_brEsc(name)} 가집계 조회 중…</div>`;
-      const map = await _loadKrxSecMap();
-      const key = _normSector(name);
-      let entry = map[key] || null;
-      if (!entry) { for (const k in map) { if (k.startsWith(key) || key.startsWith(k)) { entry = map[k]; break; } } }
+      const [map, rank] = await Promise.all([_loadKrxSecMap(), _loadFlowRank()]);
       if (_heatNbOpen !== name) return;          // 조회 중 다른 셀 클릭 — 이 결과 폐기
-      const stocks = ((entry || {}).stocks || []).slice(0, 5)
-        .map(x => ({ code: x.code, name: x.name }));
+      const stocks = _secTopStocks(map, name);
       if (!stocks.length) {
         box.innerHTML = `<div style="font-size:11.5px; color:var(--text-muted); padding:6px 2px;">${_brEsc(name)} — 업종 매핑 없음</div>`;
         return;
       }
-      await Promise.all(stocks.map(async x => {
-        const nb = await _flowNb(x.code);
-        if (nb) x.netBuy = nb;
-      }));
-      if (_heatNbOpen !== name) return;
+      stocks.forEach(x => { const nb = rank.get(x.code); if (nb) x.netBuy = nb; });
       const inner = _secNetbuyPills({ name: name, stocks: stocks });
       box.innerHTML = `<div style="margin-top:8px; padding:8px 10px; border:1px solid rgba(148,163,184,.18); border-radius:9px; max-width:560px;">`
         + `<div style="font-size:12px; font-weight:600; margin-bottom:3px;">${_brEsc(name)} <span style="font-size:10.5px; color:var(--text-muted); font-weight:400;">시총 상위 ${stocks.length} · 매매종목 가집계(잠정)</span></div>`
@@ -4031,7 +4051,9 @@
           const a = (0.06 + 0.34 * Math.min(1, Math.abs(v) / maxAbs)).toFixed(3);
           const bg = up ? `rgba(239,68,68,${a})` : `rgba(59,130,246,${a})`;
           const nc = up ? "#fca5a5" : "#93c5fd";
-          return `<div class="h-cell" style="background:${bg}; cursor:pointer;" onclick="ibSecHeatNb('${_brEsc(s.name)}')" title="${_brEsc(s.name)} ${_brPctFmt(s.changePct)}% · 클릭: 가집계">`
+          // 클릭·▾ 토글은 렌더 후 _annotateHeatToggles 가 '가집계 보유 섹터에만' 부여
+          // (2026-07-30 — /flow-rank 랭킹에 상위 종목이 든 업종만 조회 의미가 있음).
+          return `<div class="h-cell" data-sec="${_brEsc(s.name)}" style="background:${bg}" title="${_brEsc(s.name)} ${_brPctFmt(s.changePct)}%">`
             + `<div class="h-name" style="color:${nc}">${_brEsc(s.name)}</div>`
             + `<div class="h-val" style="color:${_brPctColor(v)}">${_brPctFmt(s.changePct)}</div></div>`;
         }).join("");
@@ -4105,6 +4127,7 @@
       `;
       _ibLoadRounds(d);      // 회차 선택 셀렉터 채움 (아카이브 lazy fetch)
       _ibDrawFlowCharts(d);  // 지수 카드 내부 1분 수급 차트
+      _annotateHeatToggles(); // 가집계 보유 업종에만 히트 셀 클릭·▾ 부여 (비동기, 실패 무해)
     }
 
     // Load a report by date string (YYYY-MM-DD) or "today"
