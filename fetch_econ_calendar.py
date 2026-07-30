@@ -521,6 +521,39 @@ def build(now_kst):
             "source": "forexfactory",
         })
 
+    # FF 단독 이벤트 released 이월(2026-07-30): FOMC 성명서·기자회견은 네이버에 항목이
+    # 없어(FF 단독, upcoming 전용) 발표 시각이 지나면 캘린더에서 사라졌다 — 모닝브리프
+    # '전일 미국 경제지표'(usReleased)는 released 만 보므로 구조적 누락(사용자 지적).
+    # 발표가 지난 FF 단독 이벤트를 released 에도 넣는다. actual 은 None(수치 없는 이벤트,
+    # 프런트 '발표 완료' 표기). 값 있는 Federal Funds Rate 는 제외 — 네이버 '중앙은행
+    # 기준금리'(actual 보유)가 이미 released 에 있어 중복. 창 3일 = 월요일 lookback 대응.
+    rel_floor = f"{today - datetime.timedelta(days=3)} 00:00"
+    now_hm = now_kst.strftime("%Y-%m-%d %H:%M")
+    rel_keys = {(r["name"], r["releaseAtKST"]) for r in released}
+    for ev in ff_events:
+        title = ev.get("title")
+        if (ev.get("country") != "USD" or title not in FF_STANDALONE
+                or title == "Federal Funds Rate"):
+            continue
+        dt = _ff_kst(ev)
+        if dt is None:
+            continue
+        at = dt.strftime("%Y-%m-%d %H:%M")
+        if not (rel_floor <= at <= now_hm):
+            continue                            # 미래(upcoming 담당)·창 밖 제외
+        label = FF_STANDALONE[title]
+        if (label, at) in rel_keys:
+            continue
+        released.append({
+            "nation": "USA", "name": label, "reutersCode": None,
+            "importance": FF_IMPACT_IMPORTANCE.get(ev.get("impact"), 3),
+            "period": None, "category": "FOMC",
+            "releaseAtKST": at,
+            "actual": None, "previous": None, "unit": "", "unitScale": "",
+            "forecast": None, "forecastSource": None, "surprise": None,
+            "source": "forexfactory",
+        })
+
     released.sort(key=lambda r: (r["releaseAtKST"], -r["importance"]))
     upcoming.sort(key=lambda r: (r["releaseAtKST"], -r["importance"]))
 
