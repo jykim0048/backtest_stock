@@ -605,20 +605,22 @@ def enrich_sector_stocks(sectors_up, sectors_down):
                 n_f += 1
         print(f"  섹터 관련주 보강: 시세 {n_p}/{len(stocks)}, 수급 {n_f}/{len(stocks)}")
 
-    # 대표주 배지 정렬: 부호 있는 기여도 d×cap×chg 내림차순 — 맨 위=동인(섹터 방향으로
-    # 시총×등락 기여 큰 종목), 맨 아래=역행. 지수는 시총가중이라 등락률만으론 동인 순서가
-    # 틀리고(2026-07-20 비금속 사례), 테마 카드의 기여순 정렬과 논리도 일치시킨다.
-    # cap 없는 구맵은 d×chg(방향 등락순) 폴백, 등락률 없는 종목은 0(중간).
+    # 표시 순서 = 시총순 고정(2026-07-30 사용자 결정 — 종목 자리가 회차마다 바뀌지 않게).
+    # 단 '오늘의 동인' 정보(기여도 d×cap×chg, 2026-07-20 비금속 사례로 도입)는 잃지 않도록
+    # 종목별 기여도를 내부 필드 _contrib 로 남긴다 — attach_sector_stock_news 가 뉴스 수집
+    # 대상(상위 N)을 기여순으로 골라 LLM 의 '왜 움직였나' 근거는 유지(표시/뉴스근거 분리).
+    # cap 없는 구맵은 d×chg 폴백·순서는 맵 순서(=시총순) 그대로, 등락률 없는 종목은 0.
     for s in sectors_up + sectors_down:
         d = 1 if (s.get("changePct") or 0) >= 0 else -1
         caps = s.get("_matchCaps") or {}
         has_cap = any(caps.get(x.get("code")) for x in (s.get("stocks") or []))
-        def _key(x, d=d, caps=caps, has_cap=has_cap):
+        for x in (s.get("stocks") or []):
             chg = x.get("changePct")
-            if chg is None:
-                return 0.0
-            return d * ((caps.get(x.get("code")) or 0) if has_cap else 1.0) * chg
-        (s.get("stocks") or []).sort(key=_key, reverse=True)
+            x["_contrib"] = 0.0 if chg is None else (
+                d * ((caps.get(x.get("code")) or 0) if has_cap else 1.0) * chg)
+        if has_cap:
+            (s.get("stocks") or []).sort(
+                key=lambda x: -(caps.get(x.get("code")) or 0))
         s.pop("_matchCodes", None)     # 내부 매칭·정렬용 — 산출 JSON 에서 제거
         s.pop("_matchCaps", None)
 
@@ -638,10 +640,16 @@ def attach_sector_stock_news(sectors_up, sectors_down):
     # (기존엔 첫 객체에만 부착 → 두 번째 섹터에서 데이터 누락, 2026-07-24 실측)
     by_code = {}
     for s in sectors_up + sectors_down:
-        for x in (s.get("stocks") or [])[:SECTOR_NEWS_TOP]:
+        stocks = s.get("stocks") or []
+        # 뉴스 대상 = 기여도(_contrib) 상위 — 표시 배열은 시총순 고정이라(2026-07-30)
+        # '오늘 섹터를 움직인' 종목의 뉴스가 밀리지 않게 별도 선정. _contrib 없으면
+        # (enrich 실패 등) 0 → 배열 앞 종목(시총 상위) 폴백.
+        for x in sorted(stocks, key=lambda x: -(x.get("_contrib") or 0))[:SECTOR_NEWS_TOP]:
             code = x.get("code")
             if code and x.get("name"):
                 by_code.setdefault(code, []).append(x)
+        for x in stocks:
+            x.pop("_contrib", None)    # 내부 선정용 — 산출 JSON 누출 방지
     if not by_code:
         return
 
