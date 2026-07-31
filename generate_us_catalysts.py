@@ -606,6 +606,85 @@ def collect_news(state, now):
     return out
 
 
+# ----------------------------------------------------------------------------
+# 세션 마감 방향 재검증(A, 2026-07-31) — 촉매는 '포착 시점' 기록이라 장중 반전 밤엔
+# 초반 항목의 direction 이 마감 결과와 어긋난다(빅테크 하방 vs 나스닥 +2.78% 마감 사례).
+# 마지막 회차(06:1x)에서 지수 마감과 대조해 뒤집힌 항목만 갱신 + '(마감) …' 한 줄.
+# ----------------------------------------------------------------------------
+REVAL_SYSTEM = """\
+미국 세션이 마감됐다. 아래 촉매들은 밤사이 '포착 시점 기준'으로 기록된 것이라, 장중
+반전이 있었던 밤엔 초반 항목의 direction(한국 증시 관점)이 마감 결과와 어긋날 수 있다.
+- indexCloses(나스닥·S&P500·필라델피아반도체 당일 등락%)가 마감 사실이다.
+- 각 촉매의 direction 이 '마감 기준'으로도 유효한지 판정해, **마감 결과와 뒤집혔거나
+  명백히 낡은 항목만** updates 로 반환한다(유효한 항목은 출력하지 말 것).
+- closingNote: 그 항목 요약 끝에 덧붙일 마감 기준 한 문장(예: "장 후반 기술주 랠리로
+  반등 마감하며 하방 압력은 완화"). indexCloses 밖의 수치·사실을 지어내지 말 것.
+출력은 정확히 이 JSON 만:
+{"updates": [{"idx": 0, "direction": "bullish|neutral|bearish", "closingNote": "..."}]}"""
+
+REVAL_SCHEMA = {
+    "type": "object", "additionalProperties": False,
+    "properties": {"updates": {"type": "array", "items": {
+        "type": "object", "additionalProperties": False,
+        "properties": {"idx": {"type": "integer"}, "direction": {"type": "string"},
+                       "closingNote": {"type": "string"}},
+        "required": ["idx", "direction"]}}},
+    "required": ["updates"],
+}
+
+
+def _us_index_closes():
+    """나스닥/S&P500/SOX 당일 등락률(%) — 마감 재검증 근거. 실패 시 {}."""
+    try:
+        import yfinance as yf
+        df = yf.download(["^IXIC", "^GSPC", "^SOX"], period="2d", group_by="ticker",
+                         progress=False, threads=True, auto_adjust=True, timeout=15)
+        out = {}
+        for sym, name in (("^IXIC", "nasdaq"), ("^GSPC", "sp500"), ("^SOX", "sox")):
+            closes = df[sym]["Close"].dropna()
+            if len(closes) >= 2:
+                out[name] = round(
+                    (float(closes.iloc[-1]) / float(closes.iloc[-2]) - 1) * 100, 2)
+        return out
+    except Exception as e:
+        _log(f"지수 마감 조회 실패: {e}")
+        return {}
+
+
+def revalidate_directions(state):
+    """세션 촉매 방향을 마감 결과와 정합화 — 갱신 건수>0 이면 True."""
+    cats = state.get("catalysts") or []
+    if not cats or not llm.configured():
+        return False
+    closes = _us_index_closes()
+    if not closes:
+        return False                    # 마감 근거 없이 재판정하면 환각 위험 — 스킵
+    view = {"indexCloses": closes,
+            "catalysts": [{"idx": i, "stock": c.get("stock"),
+                           "direction": c.get("direction"),
+                           "capturedAt": c.get("capturedAt"),
+                           "summary": (c.get("summary") or "")[:160]}
+                          for i, c in enumerate(cats)]}
+    data = llm.generate_json(REVAL_SYSTEM, json.dumps(view, ensure_ascii=False),
+                             max_tokens=1024, schema=REVAL_SCHEMA)
+    n = 0
+    for u in (data or {}).get("updates", []):
+        try:
+            c = cats[int(u.get("idx", -1))]
+        except (IndexError, ValueError, TypeError):
+            continue
+        d = str(u.get("direction") or "").lower()
+        if d in ("bullish", "neutral", "bearish") and d != c.get("direction"):
+            c["direction"] = d
+            n += 1
+        note = (u.get("closingNote") or "").strip()
+        if note and "(마감)" not in (c.get("summary") or ""):
+            c["summary"] = (c.get("summary") or "") + " · (마감) " + note
+            n += 1
+    _log(f"마감 재검증: {n}건 갱신 (closes={closes})")
+    return n > 0
+
+
 def main():
     now = datetime.datetime.now(KST)
     sess = session_key(now)
@@ -653,13 +732,30 @@ def main():
         _log(f"뉴스 레그 실패: {e}")
 
     added = sec_cats + news_cats
+    stamp = now.strftime("%H:%M")
+    for c in added:
+        c["capturedAt"] = stamp        # 포착 회차 시각(B) — 반전 밤의 '시점 문맥' 칩용
+    state["catalysts"] = (state.get("catalysts") or []) + added
+
+    # 세션 마지막 회차(06:1x)에서 마감 재검증(A) — 백스톱 이중 실행 방지 플래그.
+    # 실패해도 closeChecked 를 세워 재시도하지 않는다('(마감)' 노트 중복 방지는
+    # revalidate 내부 가드도 있지만 LLM 콜 낭비 차단).
+    revalidated = False
+    if now.hour == 6 and now.minute >= 10 and not state.get("closeChecked") \
+       and (state.get("catalysts") or []):
+        try:
+            revalidate_directions(state)
+        except Exception as e:
+            _log(f"마감 재검증 실패(스킵): {e}")
+        state["closeChecked"] = True
+        revalidated = True             # 플래그 영속화 — 저장 강제
+
     seen_changed = list(state.get("seen") or []) != seen_before
     # seen 만 바뀐 회차도 저장 — 안 하면 다음 회차가 같은 헤드라인을 LLM 재평가(낭비)
-    if not added and not reset and not seen_changed:
+    if not added and not reset and not seen_changed and not revalidated:
         _log("신규 촉매 0건 — 종료(파일 무변경)")
         return
 
-    state["catalysts"] = (state.get("catalysts") or []) + added
     state["asof"] = now.strftime("%Y-%m-%d %H:%M KST")
     with open(OUT_PATH, "w", encoding="utf-8") as f:
         json.dump(state, f, ensure_ascii=False, indent=1)
