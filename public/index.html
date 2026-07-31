@@ -2894,15 +2894,18 @@
              + `<td style="padding:2px 6px; text-align:right;">${cell("orgn")}</td>`
              + `<td style="padding:2px 6px; text-align:right;">${cell("fund")}</td></tr>`;
       }).join("");
+      // 마감 회차(15:40+)는 파이프라인이 일별 '확정'(FHPTJ04160001)으로 부착하고
+      // netBuyFinal 플래그를 세운다 — 라벨을 가집계(잠정)와 구분(2026-07-31).
+      const nbLabel = s.netBuyFinal ? "확정" : "가집계";
       return `<details class="flow-details" style="margin-top:4px;">`
         + `<summary style="display:flex; gap:5px; flex-wrap:wrap; align-items:center; cursor:pointer; list-style:none;">`
-        + `<span style="font-size:10.5px; color:var(--text-muted);">가집계(억)</span>`
+        + `<span style="font-size:10.5px; color:var(--text-muted);">${nbLabel}(억)</span>`
         + pill("외국인", "frgn") + pill("기관", "orgn") + pill("연기금", "fund") + `</summary>`
         + `<table style="width:100%; margin-top:5px; font-size:11.5px; border-collapse:collapse;">`
         + `<thead><tr style="color:var(--text-muted);"><th style="text-align:left; padding:2px 6px;">종목</th>`
         + `<th style="text-align:right; padding:2px 6px;">외국인</th><th style="text-align:right; padding:2px 6px;">기관</th>`
         + `<th style="text-align:right; padding:2px 6px;">연기금</th></tr></thead><tbody>${rows}</tbody></table>`
-        + `<div style="font-size:10px; color:var(--text-muted); margin-top:3px;">${have.length}/${tops.length}종목 가집계 · 단위 억원</div>`
+        + `<div style="font-size:10px; color:var(--text-muted); margin-top:3px;">${have.length}/${tops.length}종목 ${nbLabel} · 단위 억원</div>`
         + `</details>`;
     }
 
