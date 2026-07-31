@@ -694,6 +694,7 @@ def attach_sector_stock_netbuy(sectors_up, sectors_down):
                 by_code.setdefault(code, []).append(x)
     if not by_code:
         return
+    today_c = datetime.datetime.now(KST).strftime("%Y%m%d")
 
     def _one(item):
         code, xs = item
@@ -701,23 +702,42 @@ def attach_sector_stock_netbuy(sectors_up, sectors_down):
             r = requests.get(f"{KIS_HUB_URL}/flow", params={"code": code}, timeout=12)
             r.raise_for_status()
             d = r.json()
+            if d.get("status") != "success":
+                return xs, None, False
+            # 장 마감(15:40, KIS FHPTJ04160001 시간제한 해제) 후엔 허브가 daily 에 일별
+            # '확정' 수급을 실어준다 — 당일 확정 행이 있으면 가집계(잠정)보다 우선
+            # (사용자 요청 2026-07-31: 마감 회차는 최종 집계 반영). 단위·필드 동일(백만원,
+            # frgn/orgn/fund). 장중·허브 구버전·미집계 시 daily 빈 배열 → 가집계 폴백.
+            d0 = (d.get("daily") or [None])[0]
+            if d0 and str(d0.get("date")) == today_c:
+                return xs, {"frgn": d0.get("frgn"), "orgn": d0.get("orgn"),
+                            "fund": d0.get("fund")}, True
             rank = d.get("rank") or []
-            if d.get("status") == "success" and rank:
+            if rank:
                 r0 = rank[0]     # frgn/orgn/fund 는 종목 순매수 대금(리스트 무관 동일 값)
                 return xs, {"frgn": r0.get("frgn"), "orgn": r0.get("orgn"),
-                            "fund": r0.get("fund")}
-            return xs, None
+                            "fund": r0.get("fund")}, False
+            return xs, None, False
         except Exception:
-            return xs, None
+            return xs, None, False
 
-    n = 0
+    n, n_final = 0, 0
     with ThreadPoolExecutor(max_workers=8) as pool:
-        for xs, nb in pool.map(_one, by_code.items()):
+        for xs, nb, is_final in pool.map(_one, by_code.items()):
             if nb and any(v is not None for v in nb.values()):
                 for x in xs:
                     x["netBuy"] = nb
+                    x["_nbFinal"] = is_final
                 n += 1
-    print(f"  섹터 가집계(외국인/기관/연기금): {n}/{len(by_code)}종목 부착")
+                n_final += 1 if is_final else 0
+    # 섹터 단위 확정 라벨 — 부착된 종목이 전부 확정일 때만(혼재 시 가집계 표기 유지)
+    for s in sectors_up + sectors_down:
+        got = [x for x in (s.get("stocks") or []) if x.get("netBuy")]
+        if got and all(x.get("_nbFinal") for x in got):
+            s["netBuyFinal"] = True
+        for x in (s.get("stocks") or []):
+            x.pop("_nbFinal", None)
+    print(f"  섹터 가집계(외국인/기관/연기금): {n}/{len(by_code)}종목 부착 (확정 {n_final})")
 
 
 def _load_us_context():
