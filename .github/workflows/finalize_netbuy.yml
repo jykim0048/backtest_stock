@@ -1,0 +1,53 @@
+name: Finalize Sector Netbuy
+
+on:
+  # Railway 상시 서버 스케줄러가 평일 16:00 KST 에 트리거. KIS FHPTJ04160001(일별 확정)
+  # 이 15:40 이후 반영되는 TR 이라, 15:40 마감 회차가 확정을 못 받았을 때를 대비해
+  # 확정 집계'만' 한 번 더 조회해 마감 산출물의 섹터 수급을 패치한다(finalize_netbuy.py —
+  # 전체 회차 재실행은 마감 시황 LLM·아카이브 회차 중복이라 배제, 2026-07-31 사용자 결정).
+  workflow_dispatch: # 수동 실행 + Railway 스케줄러 트리거 진입점
+
+# 장중 회차·마감 시황과 같은 그룹 — intraday_briefing 산출물 push 를 직렬화
+concurrency:
+  group: intraday-push
+  cancel-in-progress: false
+
+jobs:
+  finalize-netbuy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0   # full history so the push-time rebase is clean
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      # 경량 의존성만 — generate_intraday_briefing import 체인(pandas/yfinance) 회피
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Finalize sector netbuy (일별 확정 수급 패치)
+        run: python finalize_netbuy.py
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add public/intraday_briefing.json public/reports/intraday_briefing/
+          git diff --staged --quiet && echo "No changes to commit" && exit 0
+          git commit -m "chore: finalize sector netbuy $(date -u +'%Y-%m-%d %H:%MZ') [skip railway]"
+          for i in $(seq 1 5); do
+            if git push origin HEAD:main; then echo "pushed (attempt $i)"; exit 0; fi
+            echo "push attempt $i rejected; rebasing onto latest main..."
+            git fetch origin main
+            git rebase FETCH_HEAD || { git rebase --abort; echo "::error::rebase conflict"; exit 1; }
+            sleep $((RANDOM % 4 + 2))
+          done
+          echo "::error::push failed after 5 attempts" && exit 1
