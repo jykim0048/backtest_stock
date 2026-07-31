@@ -723,6 +723,7 @@ GH_TOKEN = os.environ.get("GH_DISPATCH_TOKEN", "")
 DAILY_WF     = "daily_report.yml"
 INTRADAY_WF  = "intraday_screener.yml"
 CLOSING_WF   = "closing_briefing.yml"
+FINALIZE_WF  = "finalize_netbuy.yml"     # 16:00 수급 확정 패스(마감 회차 netbuy 패치)
 INVWARN_WF   = "investment_warning.yml"
 CORPMAP_WF   = "build_corp_map.yml"
 INDEXCON_WF  = "index_constituents.yml"
@@ -787,6 +788,12 @@ def _scheduler():
                 if now.hour == 15 and now.minute == 40:          # 마감 시황 15:40 KST
                     key = (today, "closing")
                     if key not in fired and _dispatch(CLOSING_WF):
+                        fired.add(key)
+                # 수급 확정 패스 16:00 — FHPTJ04160001(일별 확정)이 15:40 이후 반영이라
+                # 마감 회차(15:40)가 확정을 못 받았을 때 확정 집계만 재조회·패치(2026-07-31)
+                if now.hour == 16 and now.minute == 0:
+                    key = (today, "finalize-netbuy")
+                    if key not in fired and _dispatch(FINALIZE_WF):
                         fired.add(key)
                 if now.weekday() == 0 and now.hour == 6 and now.minute == 30:   # 테마맵 주1회 월 06:30 KST
                     key = (today, "thememap")
