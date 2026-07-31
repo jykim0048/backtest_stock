@@ -96,6 +96,13 @@ FF_STANDALONE = {
     "FOMC Press Conference":  "FOMC 기자회견",
     "FOMC Meeting Minutes":   "FOMC 의사록",
     "Federal Funds Rate":     "미국 기준금리 결정(FOMC)",
+    # 미국 GDP — 네이버 글로벌 캘린더가 미커버(2026-07-31 실측: 7/30 2분기 속보 발표가
+    # 원본 응답에 없음). US_INDICATOR_MAP 의 GDP 매핑은 네이버 행이 있을 때만 컨센 결합
+    # 하므로, 행 자체가 없는 소스 공백은 FF 단독 주입으로 메운다. actual 은 FF 피드에
+    # 없어 발표 후엔 '발표 완료 · 예상/이전'으로 표시(released 이월).
+    "Advance GDP q/q":        "미국 GDP 성장률 속보치(전분기 연율)",
+    "Prelim GDP q/q":         "미국 GDP 성장률 잠정치(전분기 연율)",
+    "Final GDP q/q":          "미국 GDP 성장률 확정치(전분기 연율)",
 }
 FF_IMPACT_IMPORTANCE = {"High": 4, "Medium": 3, "Low": 2}
 
@@ -544,13 +551,21 @@ def build(now_kst):
         label = FF_STANDALONE[title]
         if (label, at) in rel_keys:
             continue
+        # 예상/이전은 FF 피드 값 그대로(있으면) — GDP 처럼 수치형 이벤트는 '발표 완료'
+        # 옆에 예상·이전이라도 보여준다(FF 피드에 actual 은 없음). FOMC 류는 둘 다 없어 무영향.
+        fval, fsuf, ftext = _num(ev.get("forecast"))
+        pval, _, _ = _num(ev.get("previous"))
         released.append({
             "nation": "USA", "name": label, "reutersCode": None,
             "importance": FF_IMPACT_IMPORTANCE.get(ev.get("impact"), 3),
             "period": None, "category": "FOMC",
             "releaseAtKST": at,
-            "actual": None, "previous": None, "unit": "", "unitScale": "",
-            "forecast": None, "forecastSource": None, "surprise": None,
+            "actual": None, "previous": pval,
+            "unit": fsuf if fsuf == "%" else "",
+            "unitScale": "" if fsuf == "%" else fsuf,
+            "forecast": fval, "forecastText": ftext,
+            "forecastSource": "forexfactory" if fval is not None else None,
+            "surprise": None,
             "source": "forexfactory",
         })
 
