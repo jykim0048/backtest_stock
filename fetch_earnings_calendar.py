@@ -989,8 +989,14 @@ def retry_dart_doc(released, today_s, fetch_doc=None, limit=None):
         return 0
     fetch_doc = fetch_doc or _dart_document
     limit = DART_DOC_RETRY_MAX if limit is None else limit
+    # 창 = 오늘 + 직전 거래일(월요일은 금요일) — 표시·enrich 대상과 정합(2026-07-31).
+    # 기존 오늘 한정으론 전일 마감후 발표(대한유화 7/30 18:17, 오늘 첫 포착)가 재시도
+    # 안전망에서 빠져, enrich 드롭 시 '집계 중' 고착.
+    d0 = datetime.date.fromisoformat(today_s)
+    prev_bd = (d0 - datetime.timedelta(days=3 if d0.weekday() == 0 else 1)).isoformat()
     need = [r for r in released
-            if r.get("date") == today_s and r.get("dartUrl") and not r.get("noFigures")
+            if r.get("date") in (today_s, prev_bd) and r.get("dartUrl")
+            and not r.get("noFigures")
             and (r.get("op") is None or r.get("sales") is None or r.get("np") is None
                  or _missing_yoy(r))]   # 미기재 확정(noFigures)은 재시도 무의미 — 제외
     # 행별 조회는 상호 독립(자기 행만 변경) — TP4 병렬(enrich_calendar 와 동일 근거).
@@ -1107,6 +1113,13 @@ def main():
         m = mkt_map.get(r.get("code"))
         if m:
             r["market"] = m
+
+    # sticky 이월을 enrich '앞'에 1차 적용(2026-07-31): 직전 파일이 이미 아는 값(컨센·
+    # YoY·실적)을 먼저 채운 뒤 타깃을 판정해야 _rel_needs 가 '진짜 결손'만 잡는다.
+    # 이월 전 판정은 시즌 피크에 타깃 70행(어제 발표 54건 전부 재보강 대상화)으로
+    # ENRICH_MAX(40) 컷을 일으켜, 유일한 실결손(대한유화 7/30 마감후 발표)이 잔여 30행
+    # 으로 생략되던 원인. 뒤쪽 기존 carry 는 안전망으로 유지(빈 필드만 채워 중복=무해).
+    carry_prev_released(merged["released"], prev.get("released") or [])
 
     _t = time.time()
     try:
