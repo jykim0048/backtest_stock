@@ -3491,13 +3491,17 @@
         for (let i = items.length - 1; i >= 0; i--) { if (typeof items[i].changePct === "number") { chg = items[i].changePct; break; } }
         let tkr = "";                       // 병합 그룹은 최신 항목에 티커가 없을 수 있음 — 최신 비어있지 않은 값
         for (let i = items.length - 1; i >= 0; i--) { if ((items[i].ticker || "").trim()) { tkr = String(items[i].ticker).trim().toUpperCase(); break; } }
+        // 포착 시각(첫~끝, append 순서=시계열 — 세션이 자정을 걸쳐 문자열 정렬 불가)
+        let capFirst = "", capLast = "";
+        items.forEach(c => { const t = (c.capturedAt || "").trim(); if (t) { if (!capFirst) capFirst = t; capLast = t; } });
+        const capturedAt = capFirst ? (capFirst === capLast ? capFirst : `${capFirst}~${capLast}`) : "";
         // 병합 그룹 대표 이름 = 최빈 표기(동률이면 더 구체적인 긴 이름: 이란 vs 미-이란 → 미-이란)
         const nameCount = {};
         items.forEach(c => { const nm = (c.stock || c.corp || "").trim(); if (nm) nameCount[nm] = (nameCount[nm] || 0) + 1; });
         const dispName = Object.keys(nameCount)
           .sort((a, b) => (nameCount[b] - nameCount[a]) || (b.length - a.length))[0] || "—";
         return {
-          stock: dispName, ticker: tkr,
+          stock: dispName, ticker: tkr, capturedAt,
           category, exchange, region, direction, market: "US", kind: rep.kind, form: rep.form,
           relatedStock: related, relatedUrl, changePct: chg,
           summary: kept.join("  ·  "), _urls: urls, _count: items.length,
@@ -3527,6 +3531,10 @@
         const chg = (typeof c.changePct === "number")
           ? ` <span style="color:${c.changePct >= 0 ? "var(--up-red)" : "var(--kospi-blue)"}; font-size:11.5px;">${c.changePct >= 0 ? "+" : ""}${c.changePct}%</span>` : "";
         const cnt = c._count > 1 ? ` <span style="color:var(--text-muted); font-size:11px;">(${c._count}건)</span>` : "";
+        // 포착 시각 칩(2026-07-31) — 촉매는 '그 시점' 기록이라 반전 밤(빅테크 초반 하방 →
+        // 마감 랠리)에 마감 리뷰와 모순으로 읽히지 않게 시점 문맥을 표기. 병합은 첫~끝.
+        const capChip = c.capturedAt
+          ? ` <span style="color:var(--text-muted); font-size:10px; border:1px solid rgba(148,163,184,.25); border-radius:5px; padding:0 4px;" title="포착 회차 시각(KST)">${_brEsc(c.capturedAt)}</span>` : "";
         // 종목명 칸 = 해외 주체만(사용자 지정 2026-07-28): 주체명 + 티커(있고 이름과 다를 때).
         const tkr = (c.ticker && c.ticker.toUpperCase() !== String(c.stock).toUpperCase())
           ? ` <span style="color:var(--text-muted); font-size:11px; font-weight:500;">(${_brEsc(c.ticker)})</span>` : "";
@@ -3538,7 +3546,7 @@
         const rel = (c.relatedStock && c.relatedStock !== c.stock)
           ? ` <span onclick="ibResearch('${_brEsc(c.relatedStock)}')" title="관련 국내주 딥리서치" style="cursor:pointer; color:var(--kospi-blue); font-size:11px; border:1px solid rgba(96,165,250,.35); border-radius:6px; padding:0 5px; margin-left:3px; white-space:nowrap;">🇰🇷 ${_brEsc(c.relatedStock)}</span>` : "";
         return `<tr>`
-          + `<td style="font-weight:600; white-space:nowrap;">${icon} ${_brEsc(c.stock)}${tkr}${chg}${dirBadge(c.direction)}${cnt}</td>`
+          + `<td style="font-weight:600; white-space:nowrap;">${icon} ${_brEsc(c.stock)}${tkr}${chg}${dirBadge(c.direction)}${cnt}${capChip}</td>`
           + `<td style="color:${mkColor}; font-size:13px; white-space:nowrap;">${mkLabel}</td>`
           + `<td style="color:#cbd5e1;">${_brEsc(c.summary)} ${links}${relLink}${rel}</td></tr>`;
       }).join("");
