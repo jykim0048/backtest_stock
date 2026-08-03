@@ -1,6 +1,6 @@
 {
  "date": "2026-08-04",
- "asof": "2026-08-04 07:46 KST",
+ "asof": "2026-08-04 08:38 KST",
  "sources": {
   "naver": true,
   "forexfactory": true
@@ -132,9 +132,7 @@
     "diff": 3.1,
     "verdict": "above"
    }
-  }
- ],
- "upcoming": [
+  },
   {
    "nation": "KOR",
    "name": "소비자물가지수(CPI) 전년대비",
@@ -143,12 +141,18 @@
    "period": "Jul 2026",
    "category": "PRICE",
    "releaseAtKST": "2026-08-04 08:00",
+   "actual": 2.8,
    "previous": 3.2,
    "unit": "%",
    "unitScale": "",
    "forecast": null,
    "forecastSource": null,
-   "source": "naver"
+   "source": "naver",
+   "surprise": {
+    "vs": "previous",
+    "diff": -0.4,
+    "verdict": "below"
+   }
   },
   {
    "nation": "KOR",
@@ -158,13 +162,21 @@
    "period": "Jul 2026",
    "category": "PRICE",
    "releaseAtKST": "2026-08-04 08:00",
+   "actual": -0.2,
    "previous": 0.1,
    "unit": "%",
    "unitScale": "",
    "forecast": null,
    "forecastSource": null,
-   "source": "naver"
-  },
+   "source": "naver",
+   "surprise": {
+    "vs": "previous",
+    "diff": -0.3,
+    "verdict": "below"
+   }
+  }
+ ],
+ "upcoming": [
   {
    "nation": "USA",
    "name": "무역수지",
