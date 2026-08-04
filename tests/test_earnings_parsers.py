@@ -18,7 +18,7 @@ from fetch_earnings_calendar import (parse_wisereport, parse_fnguide, parse_dart
                                      stamp_captured_date, attach_disclosure_times,
                                      fetch_dart_daylist_earnings, carry_prev_released,
                                      retry_dart_doc, _missing_yoy, fill_surprise,
-                                     build, _recent_quarters)
+                                     build, _recent_quarters, _seg_quarter)
 import fetch_earnings_calendar as _fec
 
 
@@ -137,6 +137,88 @@ def main():
     assert doc_sh["sales"] == 250631.6             # 금융지주 매출액(이자+수수료+기타, 25.06조)
     assert doc_sh["op"] == 24762.8                 # 영업이익 2,476,281 백만원
     print("parse_dart_document / _dart_num OK")
+
+    # ── DART 원문 ③ 월간 부문별 공시 (2026-08-03 실측 4개 레이아웃 변형) ──────────
+    # 롯데관광개발: 백만원·헤더에 기간·총계행 없음 → 상위(카지노+호텔) 합산 + YoY 재계산
+    doc_lt = parse_dart_document(_fixture_text("dart_doc_seg_032350.html"))
+    assert doc_lt.get("_blank") is True and "sales" not in doc_lt
+    sg = doc_lt["segments"]
+    assert sg["period"] == "2026-07" and sg["unit"] == "억원", sg
+    assert [i["name"] for i in sg["items"]] == ["카지노 매출액", "테이블", "머신", "호텔 매출액"]
+    assert [i["sub"] for i in sg["items"]] == [False, True, True, False]
+    assert sg["items"][0]["value"] == 515.9 and sg["items"][0]["yoy"] == 18.8
+    assert sg["items"][0]["mom"] == 5.8
+    assert sg["total"] == 603.8, sg          # (51,594+8,784)백만원 합산 → 억원
+    assert sg["totalYoY"] == 17.7            # vs 전년동기 합(43,413+7,889)
+    # KG모빌리티: 단위 '대'·총계행 존재 → 총계 행 사용(내수+수출+완성차계 중복 합산 금지)
+    sg = parse_dart_document(_fixture_text("dart_doc_seg_003620.html"))["segments"]
+    assert sg["unit"] == "대" and sg["period"] == "2026-07", sg
+    assert [i["name"] for i in sg["items"]] == ["내수", "수출", "완성차 계", "CKD", "총계"]
+    assert sg["total"] == 8551.0 and sg["totalYoY"] == -11.1, sg
+    assert sg["items"][0]["yoy"] == -41.4 and sg["items"][3]["value"] == 0.0   # CKD 0대
+    # 현대차: 단위 '대'·총계행 이름이 '계'
+    sg = parse_dart_document(_fixture_text("dart_doc_seg_005380.html"))["segments"]
+    assert sg["unit"] == "대" and sg["period"] == "2026-07", sg
+    assert sg["total"] == 318454.0 and sg["totalYoY"] == -5.1, sg
+    # 파라다이스: 부문 헤더에 기간 없음 → '실적기간' 표 폴백. 상위 1개(카지노) 합산
+    sg = parse_dart_document(_fixture_text("dart_doc_seg_034230.html"))["segments"]
+    assert sg["period"] == "2026-06" and sg["unit"] == "억원", sg
+    assert sg["total"] == 631.7 and sg["totalYoY"] == -21.2, sg
+    # 미기재 + 부문표도 없음(지역난방공사류) → segments 없이 _blank 만 (기존 동작 유지)
+    blank_html = ("<table><tr><td>매출액</td><td>당해실적</td><td>-</td><td>-</td>"
+                  "<td>-</td><td>-</td><td>-</td><td>-</td></tr></table>")
+    assert parse_dart_document(blank_html) == {"_blank": True}
+    # 월간 부문 공시의 소속 분기 말월
+    assert _seg_quarter("2026-07") == "202609"
+    assert _seg_quarter("2026-12") == "202612"
+    assert _seg_quarter("2026-01") == "202603"
+    print("parse_dart_document 월간 부문별 공시(③) OK")
+
+    # ── enrich: 월간 부문 공시 → segments 부착 + 소속 분기 매출컨센 월평균 비교 ────
+    rel_seg = {"date": "2026-08-03", "code": "032350", "name": "롯데관광개발",
+               "period": None, "quarter": None, "fs": None,
+               "sales": None, "op": None, "np": None,
+               "salesYoY": None, "opYoY": None, "npYoY": None, "tag": None,
+               "consensus": {"op": None, "np": None},
+               "surprise": {"opGap": None, "npGap": None},
+               "dartUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260803800659",
+               "dartTitle": "t", "sources": ["dart"]}
+    lt_html = _fixture_text("dart_doc_seg_032350.html")
+    nv_seg = {"financeInfo": {   # 3Q(202609) 매출 컨센 1,800억 — 월평균 600억
+        "trTitleList": [{"key": "202609", "isConsensus": "Y"}],
+        "rowList": [{"title": "매출액", "columns": {"202609": {"value": "1,800"}}}]}}
+    enrich_calendar([rel_seg], [], datetime.date(2026, 8, 3),
+                    fetch_naver=lambda c: nv_seg, fetch_wcomp=lambda c: {},
+                    fetch_doc=lambda rc: parse_dart_document(lt_html))
+    assert rel_seg["noFigures"] is True and rel_seg["op"] is None   # 요약수치는 그대로 미기재
+    assert rel_seg["segments"]["total"] == 603.8, rel_seg["segments"]
+    assert rel_seg["segments"]["salesCons"] == {"period": "202609", "value": 1800.0,
+                                                "avgGap": 0.6}      # 603.8 vs 600
+    assert "dart-doc" in rel_seg["sources"]
+    print("enrich_calendar 월간 부문 공시 segments+분기컨센 OK")
+
+    # ── retry_dart_doc: 구버전 noFigures 행(부문 미확인) 소급 / noSegments 는 재조회 금지 ──
+    legacy = {"date": "2026-08-03", "code": "032350", "op": None, "sales": None, "np": None,
+              "noFigures": True, "sources": ["dart"],
+              "dartUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260803800659"}
+    marked = {"date": "2026-08-03", "code": "071320", "op": None, "sales": None, "np": None,
+              "noFigures": True, "noSegments": True, "sources": ["dart"],
+              "dartUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=99999999999999"}
+    n = retry_dart_doc([legacy, marked], "2026-08-03",
+                       fetch_doc=lambda rc: parse_dart_document(lt_html)
+                       if rc == "20260803800659"
+                       else (_ for _ in ()).throw(AssertionError("noSegments 행 재조회 금지")))
+    assert legacy["segments"]["total"] == 603.8 and n == 1, legacy
+    assert "segments" not in marked
+    print("retry_dart_doc 월간 부문 소급/미재조회 OK")
+
+    # ── carry: segments·noSegments 도 sticky 이월 ────────────────────────────────
+    cur_s = {"code": "032350", "date": "2026-08-03", "op": None,
+             "consensus": {}, "surprise": {}}
+    carry_prev_released([cur_s], [{"code": "032350", "date": "2026-08-03",
+                                   "noFigures": True, "segments": {"total": 603.8}}])
+    assert cur_s["segments"]["total"] == 603.8 and cur_s["noFigures"] is True
+    print("carry_prev_released segments 이월 OK")
 
     # ── enrich: DART 원문으로 실제 실적 + 네이버 컨센서스 → 서프라이즈 갭 ──────
     rel_doc = {"date": "2026-07-23", "code": "010120", "name": "LS ELECTRIC",

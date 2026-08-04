@@ -3174,13 +3174,42 @@
         // DART 만 감지하고 집계 사이트(WiseReport·FnGuide·네이버) 미반영 — 수치 없는 행.
         // noFigures=공시 원문에 재무수치 자체가 미기재(지역난방공사 잠정실적 판매량만 공시)
         //  → 영영 안 채워지므로 '집계 중'(일시 결손, 곧 채워짐)과 구분해 '실적 미공시'로 표기.
+        // segments=월간 부문별 공시(롯데관광 카지노·호텔, 현대차/기아/KG 판매대수,
+        //  파라다이스/GKL 카지노) — 요약표는 미기재지만 부문수치를 대신 표시.
         const noFig = (r.op === null || r.op === undefined)
                    && (r.sales === null || r.sales === undefined);
-        const opCell = noFig
-          ? (r.noFigures
-              ? `<span class="ev-sub" title="공시 원문에 매출·영업이익 미기재(판매량 등만 공시)">공시 발표 — 실적 미공시${sub}</span>`
-              : `<span class="ev-sub">공시 발표 — 수치 집계 중${sub}</span>`)
-          : `영업이익 <b>${_earnEok(r.op)}</b>${_earnYoY(r.opYoY)}${sub}`;
+        const seg = r.segments;
+        let opCell;
+        if (noFig && seg && (seg.items || []).length) {
+          const mon = seg.unit === "억원";
+          const perTxt = seg.period ? `${parseInt(seg.period.slice(5, 7), 10)}월` : "월간";
+          const isTot = n => ["계", "총계", "합계"].includes(String(n || "").replace(/\s/g, ""));
+          const fmtV = v => mon ? _earnEok(v)
+            : `${Math.round(v).toLocaleString()}${_brEsc(seg.unit || "")}`;
+          let parts;
+          if (mon) {           // 금액: 상위 부문(총계행 제외) 최대 3개 — 카지노 516억 (YoY +18.8%)
+            parts = (seg.items || []).filter(i => !i.sub && !isTot(i.name)).slice(0, 3)
+              .map(i => `${_brEsc(String(i.name).replace(/\s*매출액?$/, ""))} <b>${_earnEok(i.value)}</b>${_earnYoY(i.yoy)}`);
+          } else {             // 수량(대 등): 총계 한 줄 — 판매 8,551대 (YoY -11.1%)
+            parts = [`판매 <b>${fmtV(seg.total)}</b>${_earnYoY(seg.totalYoY)}`];
+          }
+          // 같은 분기 매출 컨센/3(월평균) 대비 — 부문 합산이 전체 매출이 아닐 수 있는 근사 지표
+          const sc = mon ? seg.salesCons : null;
+          const consBit = sc
+            ? ` <span class="ev-sub" title="소속 분기 매출 컨센서스 ${_earnEok(sc.value)}를 3등분한 월평균 대비 (공시 부문 합산 기준 — 미공시 부문 제외 시 실제보다 낮게 보일 수 있음)">/ 분기컨센 월평균比 ${sc.avgGap >= 0 ? "+" : ""}${sc.avgGap}%</span>`
+            : (cons !== null && cons !== undefined
+                ? `<span class="ev-sub" title="직전 분기 영업이익 컨센서스 — 월간 부문 공시와 지표·기간이 달라 직접 비교 불가"> / 분기 op컨센 ${_earnEok(cons)}</span>` : "");
+          const tip = `${seg.period || ""} 월간 부문별 공시${mon ? " (부문 합산 " + _earnEok(seg.total) + ")" : ""} — `
+            + (seg.items || []).map(i => `${i.sub ? "·" : ""}${i.name} ${fmtV(i.value)}`
+              + (i.yoy !== null && i.yoy !== undefined ? ` (YoY ${i.yoy >= 0 ? "+" : ""}${i.yoy}%)` : "")).join(" / ");
+          opCell = `<span title="${_brEsc(tip).replace(/"/g, "&quot;")}">${perTxt} ${parts.join(" · ")}</span>${consBit}`;
+        } else if (noFig) {
+          opCell = r.noFigures
+            ? `<span class="ev-sub" title="공시 원문에 매출·영업이익 미기재(판매량 등만 공시)">공시 발표 — 실적 미공시${sub}</span>`
+            : `<span class="ev-sub">공시 발표 — 수치 집계 중${sub}</span>`;
+        } else {
+          opCell = `영업이익 <b>${_earnEok(r.op)}</b>${_earnYoY(r.opYoY)}${sub}`;
+        }
         // 전일 장 마감 후 발표돼 오늘 처음 포착된 지연 실적 — 날짜 옆 '전일' 표시
         const lateTag = r.late
           ? ` <span class="econ-badge inline" style="font-size:10px;" title="전일 장 마감 후 발표 — 익일 반영">전일</span>` : "";

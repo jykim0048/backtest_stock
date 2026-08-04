@@ -248,6 +248,41 @@ def _dart_num(text):
     return -v if neg else v
 
 
+def _build_segments(state: dict):
+    """월간 부문 블록 수집 상태 -> segments dict (없으면 None).
+
+    금액 단위(…원)는 억원 환산, 수량 단위(대 등)는 원값 유지. 총계 행(계/총계/합계)이
+    있으면 그 행을 합계로(KG모빌리티 '완성차 계'+'총계' 중복 합산 방지), 없으면 상위
+    항목('- ' 접두사 없는 행) 합산 + 전년동기 합으로 YoY 계산(롯데관광 카지노+호텔)."""
+    items, unit = state["items"], state["unit"]
+    period = state["period"] or state["fkPeriod"]
+    if not items or not period:
+        return None
+    monetary = bool(unit) and unit.endswith("원")
+    factor = _DART_UNIT.get(unit, 0.01) if monetary else 1.0
+
+    def conv(v):
+        return None if v is None else (round(v * factor, 1) if monetary else v)
+
+    out_items, tot = [], None
+    for i in items:
+        sub = i["name"].startswith("-")
+        out_items.append({"name": i["name"].lstrip("- ").strip(),
+                          "value": conv(i["value"]), "mom": i["mom"],
+                          "yoy": i["yoy"], "sub": sub})
+        if not sub and i["name"].replace(" ", "") in ("계", "총계", "합계"):
+            tot = i
+    if tot is not None:
+        total, total_yoy = conv(tot["value"]), tot["yoy"]
+    else:
+        top = [i for i in items if not i["name"].startswith("-")]
+        cur = sum(i["value"] for i in top if i["value"] is not None)
+        base = sum(i["base"] for i in top if i["base"] is not None)
+        total, total_yoy = conv(cur), (_yoy_calc(cur, base) if base else None)
+    return {"period": period, "unit": "억원" if monetary else (unit or ""),
+            "items": out_items, "total": total, "totalYoY": total_yoy}
+
+
 def parse_dart_document(html: str) -> dict:
     """DART 공정공시 뷰어 HTML -> 실제 실적(억원) + 증감률. 두 레이아웃 지원:
 
@@ -258,7 +293,14 @@ def parse_dart_document(html: str) -> dict:
        '집계 중' 사례, 리츠·반기결산 등이 이 공시로 발표). 증감비율(%)을 증감률로.
        (증감비율은 '직전 결산기' 대비 — 연결산 회사는 YoY, 반기결산은 H/H. 공시 헤드라인 값.)
 
-    단위는 '단위:백만원/천원/억원' 등에서 읽어 억원으로 환산. 미공시 지표('-')는 제외."""
+    단위는 '단위:백만원/천원/억원' 등에서 읽어 억원으로 환산. 미공시 지표('-')는 제외.
+
+    ③ 월간 부문별 공시(2026-08-03 실측: 롯데관광·KG모빌리티·현대차·기아·파라다이스·GKL):
+       표준 지표가 전부 '-'이고, 같은 표에 '구분(단위…)' 헤더 + 부문 행이 이어진다.
+       데이터 행 8칸 [항목, 당기, 전기, 전기대비%, 흑적, 전년동기, 전년동기대비%, 흑적]은
+       전 종목 동일. 기간은 헤더 '(2026년07월)' 또는 별도 '실적기간' 표(파라다이스처럼
+       헤더 무기간)에서. 누계 블록(당기누계/누적)은 미수집. 결과는
+       {"_blank": True, "segments": {...}} 로 반환 — 요약수치 미기재이되 부문수치는 있음."""
     from bs4 import BeautifulSoup     # 지연 import — 미설치 환경서도 모듈 로드는 유지
     m = re.search(r"단위\s*[:：]\s*([가-힣]+원)", html)
     factor = _DART_UNIT.get(m.group(1) if m else "", 0.01)   # 기본 백만원
@@ -267,42 +309,104 @@ def parse_dart_document(html: str) -> dict:
             "당기순이익": ("np", "npYoY")}
     out = {}
     saw_blank = False   # ① 레이아웃에서 지표 행은 있으나 당해실적이 '-'(회사가 수치 미기재)
+    seg = {"state": None, "unit": None, "period": None, "fkPeriod": None, "items": []}
     for tr in soup.find_all("tr"):
         cells = [c.get_text(" ", strip=True).replace("\xa0", " ").strip()
                  for c in tr.find_all(["td", "th"])]
         if not cells:
             continue
-        keys = want.get(cells[0].replace(" ", "").lstrip("-"))   # '- 매출액' → '매출액'
-        if not keys or keys[0] in out:
+        c0 = cells[0].replace(" ", "")
+        # '실적기간' 표(전 공시 공통): 당기실적이 월초~월말 한 달이면 월간 공시 — 기간 폴백
+        if c0 == "당기실적" and len(cells) > 1:
+            ds = re.findall(r"\d{4}-\d{2}-\d{2}", " ".join(cells[1:]))
+            if len(ds) >= 2 and ds[0][:7] == ds[1][:7] and ds[0].endswith("-01"):
+                seg["fkPeriod"] = ds[0][:7]
             continue
-        vk, yk = keys
-        if "당해실적" in cells:                          # ① 영업(잠정)실적 레이아웃
-            i = cells.index("당해실적")
-            cur = _dart_num(cells[i + 1]) if i + 1 < len(cells) else None
-            if cur is None:
-                saw_blank = True                        # 지표 행 존재 + 당해실적 '-' → 미기재 공시
-                continue                                # 회사 미공시 지표
-            out[vk] = round(cur * factor, 1)
-            yoy_pct = _dart_num(cells[i + 6]) if i + 6 < len(cells) else None
-            yoy_flag = cells[i + 7].replace(" ", "") if i + 7 < len(cells) else ""
-            if yoy_pct is not None:
-                out[yk] = yoy_pct
-            elif yoy_flag in _DART_FLAG:
-                out[yk] = _DART_FLAG[yoy_flag]
-        elif len(cells) >= 5 and _dart_num(cells[1]) is not None:   # ② 손익구조 변경 레이아웃
-            out[vk] = round(_dart_num(cells[1]) * factor, 1)        # cells[1] = 당해사업연도
-            gap = _dart_num(cells[4])                               # cells[4] = 증감비율(%)
-            flag = cells[5].replace(" ", "") if len(cells) > 5 else ""
-            if gap is not None:
-                out[yk] = gap
-            elif flag in _DART_FLAG:
-                out[yk] = _DART_FLAG[flag]
+        # ③ 부문 블록 헤더 '구분(단위…)' — 표준 요약표 헤더(셀 텍스트 '구분' 단독)와 구별
+        if c0.startswith("구분") and "(" in c0:
+            joined = "".join(cells).replace(" ", "")
+            if "당기누계" in joined or "당기누적" in joined:
+                seg["state"] = "cum"                     # 누계 블록 — 미수집(월간만)
+            else:
+                seg["state"] = "cur"
+                um = re.search(r"[（(](?:단위\s*[:：]?\s*)?([가-힣]+원|대)", c0)
+                seg["unit"] = um.group(1) if um else seg["unit"]
+                pm = re.search(r"(\d{4})\s*년\s*(\d{1,2})\s*월", joined)
+                if pm:
+                    seg["period"] = f"{pm.group(1)}-{int(pm.group(2)):02d}"
+            continue
+        keys = want.get(c0.lstrip("-"))                  # '- 매출액' → '매출액'
+        if keys:
+            if keys[0] in out:
+                continue
+            vk, yk = keys
+            if "당해실적" in cells:                          # ① 영업(잠정)실적 레이아웃
+                i = cells.index("당해실적")
+                cur = _dart_num(cells[i + 1]) if i + 1 < len(cells) else None
+                if cur is None:
+                    saw_blank = True                    # 지표 행 존재 + 당해실적 '-' → 미기재 공시
+                    continue                            # 회사 미공시 지표
+                out[vk] = round(cur * factor, 1)
+                yoy_pct = _dart_num(cells[i + 6]) if i + 6 < len(cells) else None
+                yoy_flag = cells[i + 7].replace(" ", "") if i + 7 < len(cells) else ""
+                if yoy_pct is not None:
+                    out[yk] = yoy_pct
+                elif yoy_flag in _DART_FLAG:
+                    out[yk] = _DART_FLAG[yoy_flag]
+            elif len(cells) >= 5 and _dart_num(cells[1]) is not None:   # ② 손익구조 변경 레이아웃
+                out[vk] = round(_dart_num(cells[1]) * factor, 1)        # cells[1] = 당해사업연도
+                gap = _dart_num(cells[4])                               # cells[4] = 증감비율(%)
+                flag = cells[5].replace(" ", "") if len(cells) > 5 else ""
+                if gap is not None:
+                    out[yk] = gap
+                elif flag in _DART_FLAG:
+                    out[yk] = _DART_FLAG[flag]
+            continue
+        # ③ 부문 데이터 행: [항목, 당기, 전기, 전기대비%, 흑적, 전년동기, 전년동기대비%, 흑적]
+        if seg["state"] == "cur" and len(cells) >= 7 and _dart_num(cells[1]) is not None:
+            seg["items"].append({"name": cells[0].strip(), "value": _dart_num(cells[1]),
+                                 "mom": _dart_num(cells[3]), "base": _dart_num(cells[5]),
+                                 "yoy": _dart_num(cells[6])})
+        elif seg["state"]:
+            seg["state"] = None                          # 블록 종료(정보제공내역 등)
     # 원문은 정상 파싱했는데 지표 행 당해실적이 전부 '-'(지역난방공사 2026-07-27 사례:
     # 잠정실적에 매출·영업이익 미기재, 판매량만 공시) → '집계 중'(일시 결손)과 구분되는
     # '미기재' 신호. fetch 실패({} 반환)와도 구분돼 무의미한 재시도를 멈출 수 있다.
     if not out and saw_blank:
-        return {"_blank": True}
+        r = {"_blank": True}
+        segments = _build_segments(seg)
+        if segments:                                     # ③ 부문수치는 공시함(월간 공시)
+            r["segments"] = segments
+        return r
     return out
+
+
+def _seg_quarter(period: str) -> str:
+    """'2026-07' -> 그 달이 속한 분기 말월 '202609' (월간 부문 공시의 컨센 비교 분기)."""
+    y, m = int(period[:4]), int(period[5:7])
+    return f"{y}{((m - 1) // 3 + 1) * 3:02d}"
+
+
+def _attach_seg_cons(row, src):
+    """월간 부문 공시(금액 단위) 행에 '같은 분기 매출 컨센서스' 월평균 대비 괴리를 부착.
+
+    직전 분기 영업이익 컨센(consensus.op)은 지표(매출vs영업이익)·기간(당월vs전분기)이
+    모두 어긋나 비교 불가 — 소속 분기 매출 컨센/3 이 유일하게 정합한 비교축. 단 부문
+    합산이 전체 매출이 아닐 수 있어(롯데관광 카지노+호텔=매출의 ~85%) 근사 지표.
+    src 는 parse_naver_finance/parse_wcomp_cns 형태. 부착했으면 True."""
+    seg = row.get("segments")
+    if not seg or seg.get("unit") != "억원" or seg.get("salesCons") or not seg.get("total"):
+        return False
+    q = _seg_quarter(seg["period"])
+    if not src["periods"].get(q):          # 해당 분기가 아직 컨센서스 상태일 때만
+        return False
+    v = (src["metrics"].get("sales") or {}).get(q)
+    if not v:
+        return False
+    avg = v / 3.0
+    seg["salesCons"] = {"period": q, "value": v,
+                        "avgGap": round((seg["total"] - avg) / avg * 100, 1)}
+    return True
 
 
 def _yoy_calc(cur, prev):
@@ -511,13 +615,22 @@ def enrich_calendar(released, upcoming, today: datetime.date,
         #     op 만 주고 매출액을 비우는 경우(신한지주 2026-07-23)도 원문에서 채운다.
         need_actual = (row.get("op") is None or row.get("sales") is None
                        or row.get("np") is None or _missing_yoy(row))
-        if DART_DOC_ON and kind == "rel" and need_actual:
+        # 미기재 확정 행은 부문(segments) 확인까지 끝났을 때만 원문 재조회 생략 —
+        # segments 도입 전 noFigures 만 찍힌 행(sticky 이월)은 한 번 더 원문을 봐야 한다.
+        seg_done = row.get("noFigures") and (row.get("segments") or row.get("noSegments"))
+        if DART_DOC_ON and kind == "rel" and need_actual and not seg_done:
             rc = re.search(r"rcpNo=(\d+)", row.get("dartUrl") or "")
             if rc:
                 try:
                     act = fetch_doc(rc.group(1)) or {}
                     if act.get("_blank"):               # 공시했으나 재무수치 미기재(지역난방공사류)
                         row["noFigures"] = True          # '집계 중' 아님 — 프런트가 '실적 미공시'로 표기
+                        if act.get("segments"):          # 월간 부문 공시(롯데관광·현대차류)
+                            if row.get("segments") is None:
+                                row["segments"] = act["segments"]
+                                hit = True
+                        else:
+                            row["noSegments"] = True     # 부문수치도 없음 확정 — 재조회 중단
                     for k in ("sales", "op", "np", "salesYoY", "opYoY", "npYoY"):
                         if row.get(k) is None and act.get(k) is not None:
                             row[k] = act[k]
@@ -536,6 +649,8 @@ def enrich_calendar(released, upcoming, today: datetime.date,
                 continue
             enr = _enrich_released if kind == "rel" else _enrich_upcoming
             hit = enr(row, per, src, tag) or hit
+            if kind == "rel":                # 월간 부문 공시 → 소속 분기 매출컨센 비교 부착
+                hit = _attach_seg_cons(row, src) or hit
             if _row_complete(kind, row):
                 break
         # (C) 분기 컨센서스가 아예 없는 종목(증권사가 연간 추정만 제시 — 두산로보틱스
@@ -947,7 +1062,8 @@ def _load_market_map():
 
 _STICKY_FIELDS = ("op", "sales", "np", "salesYoY", "opYoY", "npYoY",
                   "tag", "quarter", "period", "fs", "time", "dartUrl", "dartTitle",
-                  "noFigures")   # 재무수치 미기재 확정 — 회차 간 유지(fetch 일시 실패에도 표기 안정)
+                  "noFigures",   # 재무수치 미기재 확정 — 회차 간 유지(fetch 일시 실패에도 표기 안정)
+                  "segments", "noSegments")   # 월간 부문 공시 수치·부문없음 확정도 동일하게 유지
 
 
 def carry_prev_released(released, prev_released):
@@ -996,9 +1112,9 @@ def retry_dart_doc(released, today_s, fetch_doc=None, limit=None):
     prev_bd = (d0 - datetime.timedelta(days=3 if d0.weekday() == 0 else 1)).isoformat()
     need = [r for r in released
             if r.get("date") in (today_s, prev_bd) and r.get("dartUrl")
-            and not r.get("noFigures")
+            and not (r.get("noFigures") and (r.get("segments") or r.get("noSegments")))
             and (r.get("op") is None or r.get("sales") is None or r.get("np") is None
-                 or _missing_yoy(r))]   # 미기재 확정(noFigures)은 재시도 무의미 — 제외
+                 or _missing_yoy(r))]   # 미기재 확정은 부문(segments) 확인까지 끝났을 때만 제외
     # 행별 조회는 상호 독립(자기 행만 변경) — TP4 병렬(enrich_calendar 와 동일 근거).
     def _one(r):
         rc = re.search(r"rcpNo=(\d+)", r["dartUrl"])
@@ -1009,9 +1125,15 @@ def retry_dart_doc(released, today_s, fetch_doc=None, limit=None):
         except Exception as e:
             _warn(f"dart-doc 재시도 {r.get('code')} 실패: {e}")
             return 0
+        hit = False
         if act.get("_blank"):               # 원문 확인 결과 재무수치 미기재 → 확정
             r["noFigures"] = True
-        hit = False
+            if act.get("segments"):          # 월간 부문 공시 — 부문수치는 부착
+                if r.get("segments") is None:
+                    r["segments"] = act["segments"]
+                    hit = True
+            else:
+                r["noSegments"] = True
         for k in ("sales", "op", "np", "salesYoY", "opYoY", "npYoY"):
             if r.get(k) is None and act.get(k) is not None:
                 r[k] = act[k]
