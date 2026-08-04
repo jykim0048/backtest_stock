@@ -3639,7 +3639,8 @@
         // 마감 시황(final) 이후엔 freshness 게이트가 무효화.
         if (live && d.regime && d.regime.stance) {
           marketRegime = { stance: d.regime.stance, confidence: d.regime.confidence || "low",
-                           reason: d.regime.reason || "", asof: d.asof || "" };
+                           reason: d.regime.reason || "", asof: d.asof || "",
+                           signals: d.regime.signals || null };   // 후검증 근거 수치(툴팁)
           updateRegimeBadge();
         }
         banner.style.display = "";
@@ -4682,7 +4683,13 @@
       const [txt, color] = (r && map[r.stance]) || ["🟡 중립", "#fbbf24"];
       el.textContent = txt;
       el.style.color = color;
-      el.title = (r && r.reason) || "국면 데이터 없음/스테일 — 현행 룰 적용";
+      // 후검증 signals(지수평균·수급·강등/승격) — 판정 근거를 툴팁으로 노출
+      const sg = r && r.signals;
+      const fmtN = (v, unit) => v === null || v === undefined
+        ? "—" : `${v >= 0 ? "+" : ""}${unit === "억" ? Math.round(v).toLocaleString() : v}${unit}`;
+      const sgTxt = sg ? ` [지수평균 ${fmtN(sg.idxAvg, "%")} · 외인+기관 ${fmtN(sg.flowSum, "억")}`
+        + `${sg.demoted ? " · 신뢰도 강등" : ""}${sg.promoted ? " · 극단 승격" : ""}]` : "";
+      el.title = ((r && r.reason) || "국면 데이터 없음/스테일 — 현행 룰 적용") + sgTxt;
     }
 
     // 익절/손절 판정 — 장전(stockData)·장중(watchData) 공용. 매도 발생 시 true.

@@ -1022,6 +1022,74 @@ def _mechanical_regime(indices):
     return {"stance": stance, "confidence": "low",
             "reason": f"기계적 판정 — 코스피·코스닥 평균 {avg:+.2f}%"}
 
+
+# ── regime 후검증(2026-08-04) — v9 크기 게이트의 안전판을 판정 생산지로 이식 ──────
+# LLM regime 을 소비하는 쪽이 대시보드 모의투자(전량청산)에 더해 v9 실매매(방향 필터)로
+# 늘어나 오판 비용이 커짐 — 가격·수급 결정적 신호로 confidence 강등/stance 승격을 걸어
+# 모든 소비자가 공통 수혜를 받게 한다.
+REGIME_DEMOTE = os.environ.get("REGIME_DEMOTE", "1") != "0"          # 모순 시 high→low 강등
+REGIME_EXTREME_PCT = float(os.environ.get("REGIME_EXTREME_PCT", "2.5"))  # 극단 승격 임계(%)
+REGIME_PROMOTE_HIGH = os.environ.get("REGIME_PROMOTE_HIGH", "0") == "1"  # 승격 시 high 부여(기본 OFF)
+
+
+def _finalize_regime(llm_regime, indices, investors):
+    """LLM regime -> 검증·강등·승격·signals 부착한 최종 regime (순수 함수 — 테스트 대상).
+
+    ① 검증: stance enum 밖/누락 → _mechanical_regime 폴백(기존 동작 유지).
+    ② 모순 강등(v9 모순 게이트 이식): risk_off/high 인데 양 지수 평균이 상승이거나
+       KOSPI (외국인+기관) 순매수가 양수 — 가격·수급이 판정과 반대면 high→low.
+       (high 는 모의투자 전량청산·v9 방향 필터 발동 조건 — 강등으로 강제만 막고
+        stance 는 유지해 매수 차단 등 저비용 방어는 살린다.) risk_on/high 대칭.
+    ③ 극단 승격(v9 ★D안 '가격 권위' 이식): 양 지수 평균 |등락| ≥ REGIME_EXTREME_PCT 면
+       LLM 이 뭐라 했든 그 방향 stance 로 승격 — LLM 빈응답·언어드리프트·기계폴백 회차
+       방어. 수급이 '적극 반대'(방향과 역부호)면 승격 보류(휩소 방어). confidence 는
+       low 유지(REGIME_PROMOTE_HIGH=1 일 때만 high — 전량청산 트리거라 기본 OFF).
+    ④ signals: 판정 근거 수치·강등/승격 플래그 동봉(배지 툴팁·v9 로그 공용 관측성)."""
+    rg = (llm_regime if str((llm_regime or {}).get("stance"))
+          in ("risk_on", "neutral", "risk_off") else _mechanical_regime(indices))
+    out = {"stance": rg["stance"],
+           "confidence": rg.get("confidence") if rg.get("confidence") in ("high", "low") else "low",
+           "reason": str(rg.get("reason") or "")[:200]}
+    try:
+        chgs = [float((indices.get(k) or {}).get("rate"))
+                for k in ("kospi", "kosdaq")
+                if (indices.get(k) or {}).get("rate") is not None]
+        idx_avg = round(sum(chgs) / len(chgs), 2) if chgs else None
+    except Exception:
+        idx_avg = None
+    iv = (investors or {}).get("kospi") or {}
+    f_eok, i_eok = iv.get("foreign"), iv.get("institution")
+    flow_sum = (f_eok + i_eok) if (f_eok is not None and i_eok is not None) else None
+    demoted = promoted = False
+    # ② 모순 강등 — 실측 데이터가 실제로 반대 방향일 때만(결측은 강등 근거 아님)
+    if REGIME_DEMOTE and out["confidence"] == "high":
+        contra_off = (out["stance"] == "risk_off"
+                      and ((idx_avg is not None and idx_avg > 0)
+                           or (flow_sum is not None and flow_sum > 0)))
+        contra_on = (out["stance"] == "risk_on"
+                     and ((idx_avg is not None and idx_avg < 0)
+                          or (flow_sum is not None and flow_sum < 0)))
+        if contra_off or contra_on:
+            out["confidence"] = "low"
+            demoted = True
+            out["reason"] = (out["reason"] + f" [강등: 지수평균 {idx_avg}% · "
+                             f"외인+기관 {flow_sum}억 상충]")[:280]
+    # ③ 극단 승격 — 가격 권위. 수급이 방향과 역부호로 '적극 반대'면 보류
+    if idx_avg is not None and abs(idx_avg) >= REGIME_EXTREME_PCT:
+        want = "risk_off" if idx_avg < 0 else "risk_on"
+        flow_contra = (flow_sum is not None
+                       and ((want == "risk_off" and flow_sum > 0)
+                            or (want == "risk_on" and flow_sum < 0)))
+        if out["stance"] != want and not flow_contra:
+            out["stance"] = want
+            out["confidence"] = "high" if REGIME_PROMOTE_HIGH else "low"
+            promoted = True
+            out["reason"] = (f"극단 승격 — 지수평균 {idx_avg:+.2f}% "
+                             f"(임계 {REGIME_EXTREME_PCT}%). " + out["reason"])[:280]
+    out["signals"] = {"idxAvg": idx_avg, "flowSum": flow_sum,
+                      "demoted": demoted, "promoted": promoted}
+    return out
+
 # 마감 시황(장 마감 후 마지막 회차) 전용 추가 지침 — previousRounds 를 반영해 하루를 종합
 FINAL_ADDENDUM = (
     "\n- 이번 회차는 장 마감 후 작성하는 '마감 시황'이다. previousRounds(당일 이전 회차별 "
@@ -1357,13 +1425,9 @@ def main():
         "asof": now.strftime("%Y-%m-%d %H:%M KST"),
         "final": final,                 # 마감 시황 여부 (대시보드 배지)
         "generatedBy": model or "mechanical",
-        # 모의투자 국면(2026-07-23): LLM 판정 검증 후 채택, 무효/누락이면 기계적 폴백
-        "regime": (lambda rg: {
-            "stance": rg["stance"],
-            "confidence": rg.get("confidence") if rg.get("confidence") in ("high", "low") else "low",
-            "reason": str(rg.get("reason") or "")[:200],
-        } if str(rg.get("stance")) in ("risk_on", "neutral", "risk_off")
-          else _mechanical_regime(indices))(llm_regime),
+        # 모의투자·v9 국면(2026-07-23, 후검증 2026-08-04): LLM 판정을 검증·강등·승격
+        # (_finalize_regime) 거쳐 채택 — 무효/누락이면 기계적 폴백 후 동일 후검증.
+        "regime": _finalize_regime(llm_regime, indices, investors),
         "indices": indices,
         "investors": investors,
         "indicators": indicators,
