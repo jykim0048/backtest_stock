@@ -9,9 +9,767 @@
     "target": 117700,
     "stop": 73800,
     "stars": "⭐⭐⭐⭐",
-    "catalyst": "실적 부진 및 반도체 섹터 약세",
+    "catalyst": "2분기 영업이익 184억 원으로 전년 동기 대비 49.6% 감소하며 시장 기대치를 하회하는 어닝 쇼크를 기록함. 다만 증권가에서는 이를 일시적 현상으로 평가하며, 하반기 수주 잔고 증가에 따른 실적 턴어라운드 기대감을 유지하고 있음.",
     "scenario": "<b>[하락 관찰 종목]</b><br>하방 재료가 관찰된 참고용 종목입니다 — 자동매매(매수) 대상이 아닙니다. 전일 종가 92,600원. 반등 전환 시 관찰 레벨: 93,100원.",
-    "reason": "반도체 섹터 전반의 약세와 더불어 실적 부진이 확인되어 추가 하락 가능성이 높습니다."
+    "reason": "반도체 섹터 전반의 약세와 더불어 실적 부진이 확인되어 추가 하락 가능성이 높습니다.",
+    "analysis": {
+      "catalyst": "2분기 영업이익 184억 원으로 전년 동기 대비 49.6% 감소하며 시장 기대치를 하회하는 어닝 쇼크를 기록함. 다만 증권가에서는 이를 일시적 현상으로 평가하며, 하반기 수주 잔고 증가에 따른 실적 턴어라운드 기대감을 유지하고 있음.",
+      "direction": "neutral",
+      "flowComment": "8월 6일 외국인이 10만 주 이상 순매수하며 저가 매수세를 보였으나, 기관과 개인은 동반 순매도함. 공매도 비중은 8월 3일 31%에서 8월 6일 4.95%로 급격히 축소되었으며, 대차잔고 역시 상환 우위로 전환되어 하방 압력은 다소 완화되는 모습임.",
+      "peers": {
+        "summary": "글로벌 반도체 장비주(AMAT, LRCX 등) 전반이 약세를 보이며 동종 업계 투자 심리가 위축됨. 원익IPS 역시 이러한 글로벌 섹터 조정과 실적 쇼크가 맞물려 동반 하락함.",
+        "reddit": [],
+        "items": [
+          {
+            "name": "Applied Materials",
+            "ticker": "AMAT",
+            "price": 527.48,
+            "changePct": -1.27,
+            "note": "반도체 증착 및 식각 장비 분야의 글로벌 선도 기업으로 원익IPS의 핵심 사업과 가장 유사함"
+          },
+          {
+            "name": "Lam Research",
+            "ticker": "LRCX",
+            "price": 305.77,
+            "changePct": -0.54,
+            "note": "식각 및 증착 공정 장비에 특화된 글로벌 기업으로 원익IPS의 주요 제품군과 경쟁 관계"
+          },
+          {
+            "name": "Tokyo Electron",
+            "ticker": "8035.T",
+            "price": 55330.0,
+            "changePct": -5.5,
+            "note": "일본의 대표적인 반도체 장비 기업으로 증착 및 코터/디벨로퍼 장비 등 포트폴리오가 겹침"
+          },
+          {
+            "name": "ASM International",
+            "ticker": "ASM.AS",
+            "price": 820.2,
+            "changePct": 0.0,
+            "note": "원자층 증착(ALD) 장비 분야의 강자로 원익IPS의 주력 기술인 증착 공정에서 직접적인 경쟁사"
+          },
+          {
+            "name": "Kokusai Electric",
+            "ticker": "6525.T",
+            "price": 8224.0,
+            "changePct": -3.11,
+            "note": "반도체 배치식 증착 장비(Batch Deposition) 분야에서 원익IPS와 유사한 사업 구조를 가짐"
+          }
+        ]
+      },
+      "news": {
+        "summary": "2분기 실적 쇼크에 대한 언론 보도가 주를 이룸. 증권가에서는 실적 부진에도 불구하고 하반기 수주 모멘텀을 근거로 매수 의견을 유지하는 리포트가 다수 발간됨.",
+        "items": [
+          {
+            "title": "원익IPS, 반도체 투자 사이클 수혜 '본격화'…하반기 실적 개선 기대",
+            "source": "뉴스프라임",
+            "date": "2026-08-07",
+            "sentiment": "긍정",
+            "url": "http://www.newsprime.co.kr/news/article.html?no=743044",
+            "insight": "실적 쇼크에도 불구하고 하반기 실적 개선 전망을 근거로 매수 의견 유지."
+          },
+          {
+            "title": "원익IPS 2분기 영업이익 184억원…작년 동기 대비 49.6% 감소",
+            "source": "아주경제",
+            "date": "2026-08-07",
+            "sentiment": "부정",
+            "url": "https://www.ajunews.com/view/20260807073622268",
+            "insight": "전년 대비 큰 폭의 영업이익 감소로 인한 단기 실적 악화 확인."
+          },
+          {
+            "title": "코스닥, 기관과 개인 매수에 상승 마감...알테오젠, 에이비엘바이오 상승",
+            "source": "이코노뉴스",
+            "date": "2026-08-06",
+            "sentiment": "부정",
+            "url": "http://www.econonews.co.kr/news/articleView.html?idxno=442426",
+            "insight": "시장 전반의 상승세와 달리 실적 악재로 인해 주가 하락 마감."
+          },
+          {
+            "title": "원익IPS, 2분기 영업익 184억…전년比 절반 이상 감소",
+            "source": "아시아타임즈",
+            "date": "2026-08-06",
+            "sentiment": "부정",
+            "url": "https://www.asiatime.co.kr/article/20260806500375",
+            "insight": "전년 동기 대비 반토막 난 영업이익으로 인한 투자 심리 위축."
+          },
+          {
+            "title": "외국인 3.3조 던졌다…코스피 4.58% 급락, ‘삼전닉스’ 와르르",
+            "source": "경북매일",
+            "date": "2026-08-06",
+            "sentiment": "부정",
+            "url": "https://www.kbmaeil.com/article/20260806500732",
+            "insight": "시장 급락과 반도체 투자심리 악화가 겹치며 주가 하락폭 확대."
+          }
+        ]
+      },
+      "community": {
+        "summary": "실적 발표 후 종목토론방에서는 '어닝 쇼크'에 대한 실망감과 '3분기부터 진짜 실적'이라는 기대감이 팽팽하게 맞섬. 재고자산 증가 등 재무제표 세부 항목에 대한 개인 투자자들의 분석 글이 활발함.",
+        "sentimentLabel": "중립",
+        "naver": [
+          {
+            "title": "재고자산이 전분기대비 1100억이 늘었네~굿",
+            "url": "https://finance.naver.com/item/board_read.naver?code=240810&nid=427333607&page=2",
+            "sentiment": "중립",
+            "summary": "재고자산 증가를 긍정적(수주 대응) 혹은 부정적(재고 부담)으로 해석하는 의견 대립."
+          },
+          {
+            "title": "원익IPS 영업실적 착시의 전말",
+            "url": "https://finance.naver.com/item/board_read.naver?code=240810&nid=427357554&page=1",
+            "sentiment": "긍정",
+            "summary": "현재의 실적 부진은 일시적이며 본질적인 가치는 훼손되지 않았다는 주장."
+          },
+          {
+            "title": "영업이익이 적게 나온 이유-진짜 실적은 3,4분기다",
+            "url": "https://finance.naver.com/item/board_read.naver?code=240810&nid=427341987&page=1",
+            "sentiment": "긍정",
+            "summary": "2분기 실적은 지나간 것이며 하반기 실적 개선에 집중해야 한다는 의견."
+          },
+          {
+            "title": "실적",
+            "url": "https://finance.naver.com/item/board_read.naver?code=240810&nid=427337531&page=1",
+            "sentiment": "부정",
+            "summary": "실적 발표 결과에 대한 실망감을 표출하는 짧은 게시글."
+          },
+          {
+            "title": "이 회사는 누군가 힘쓰는 이가 있는가 질문한 분의 답변",
+            "url": "https://finance.naver.com/item/board_read.naver?code=240810&nid=427340283&page=1",
+            "sentiment": "중립",
+            "summary": "주가 흐름과 세력의 개입 여부에 대한 개인 투자자들의 추측성 논의."
+          }
+        ]
+      },
+      "dart": {
+        "summary": "2026년 2분기 잠정 실적 발표가 핵심. 영업이익 감소에도 불구하고 수주 잔고 등 미래 성장 지표에 대한 시장의 관심이 높음.",
+        "highlights": [
+          {
+            "label": "2분기 영업이익",
+            "value": "184억 원",
+            "note": "전년 동기 대비 49.6% 감소하며 시장 기대치 하회."
+          },
+          {
+            "label": "재무 건전성",
+            "value": "부채비율 감소",
+            "note": "부채총계가 전분기 대비 감소하며 재무 구조 개선세 유지."
+          },
+          {
+            "label": "주주총회",
+            "value": "소집 결의",
+            "note": "7월 24일 주주총회 소집 결의 공시."
+          },
+          {
+            "label": "대량보유상황",
+            "value": "기관 변동",
+            "note": "미래에셋자산운용 등 주요 기관의 지분 변동 지속."
+          }
+        ],
+        "recentFilings": [
+          {
+            "date": "2026-08-06",
+            "title": "연결재무제표기준영업(잠정)실적(공정공시)              ",
+            "filer": "원익IPS",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260806900323"
+          },
+          {
+            "date": "2026-08-03",
+            "title": "주식등의대량보유상황보고서(약식)",
+            "filer": "미래에셋자산운용",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260803000366"
+          },
+          {
+            "date": "2026-07-30",
+            "title": "결산실적공시예고              ",
+            "filer": "원익IPS",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260730900506"
+          },
+          {
+            "date": "2026-07-24",
+            "title": "주주총회소집결의              ",
+            "filer": "원익IPS",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260724900432"
+          },
+          {
+            "date": "2026-07-24",
+            "title": "주주명부폐쇄기간또는기준일설정              ",
+            "filer": "원익IPS",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260724900424"
+          }
+        ]
+      },
+      "research": {
+        "summary": "증권가에서는 2분기 실적을 일시적 쇼크로 규정하고, 하반기부터 본격화될 수주 잔고 반영과 실적 개선을 근거로 매수 의견을 유지함.",
+        "items": [
+          {
+            "title": "수주가 쌓이기 시작했습니다",
+            "broker": "SK증권",
+            "date": "2026-08-07",
+            "url": "https://wcomp.fnguide.com/CompanyInfo/Consensus?cmp_cd=240810",
+            "pdfUrl": "",
+            "targetPrice": 190000,
+            "opinion": "매수",
+            "note": "강한 수주 흐름이 확인되며, 수주 잔고 증가로 인해 실적 우려가 해소될 것으로 전망."
+          },
+          {
+            "title": "2Q26 review - 일시적 쇼크, 반도체 전망은 오히려 강화",
+            "broker": "삼성증권",
+            "date": "2026-08-07",
+            "url": "https://wcomp.fnguide.com/CompanyInfo/Consensus?cmp_cd=240810",
+            "pdfUrl": "",
+            "targetPrice": 140000,
+            "opinion": "BUY",
+            "note": "일시적인 실적 쇼크이나 반도체 업황 전망은 오히려 강화되고 있어 매수 의견 유지."
+          },
+          {
+            "title": "주가는 원점으로, 실적 전망은 우상향",
+            "broker": "신한투자증권",
+            "date": "2026-08-06",
+            "url": "https://wcomp.fnguide.com/CompanyInfo/Consensus?cmp_cd=240810",
+            "pdfUrl": "",
+            "targetPrice": 165000,
+            "opinion": "매수",
+            "note": "주가는 연초 수준으로 회귀했으나 실적 전망은 우상향 중으로, 3분기부터 본격적인 성장 예상."
+          },
+          {
+            "title": "전공정의 상징",
+            "broker": "SK증권",
+            "date": "2026-07-13",
+            "url": "https://finance.naver.com/research/company_read.naver?nid=94098&page=1&searchType=itemCode&itemCode=240810",
+            "pdfUrl": "https://stock.pstatic.net/stock-research/company/64/20260713_company_519637000.pdf",
+            "targetPrice": 190000,
+            "opinion": "매수",
+            "note": "수주 잔고 급증과 리드 타임을 고려할 때 국내 고객사 중심의 매출 확대가 3분기부터 가시화될 것."
+          },
+          {
+            "title": "전공정 장비 슈퍼사이클, 진짜 성장은 이제 시작",
+            "broker": "핀릿",
+            "date": "2026-07-06",
+            "url": "https://wcomp.fnguide.com/CompanyInfo/Consensus?cmp_cd=240810",
+            "pdfUrl": "",
+            "targetPrice": null,
+            "opinion": "Not Rated",
+            "note": "전공정 증착 국산화의 대표주로서 메모리와 파운드리 투자 동시 수혜 구간 진입."
+          },
+          {
+            "title": "2Q26 Preview: 3분기부터 본격적인 성장",
+            "broker": "NH투자증권",
+            "date": "2026-06-29",
+            "url": "https://wcomp.fnguide.com/CompanyInfo/Consensus?cmp_cd=240810",
+            "pdfUrl": "",
+            "targetPrice": 207000,
+            "opinion": "Buy",
+            "note": "글로벌 장비 시장에 대한 기대감이 유효하며, 본격적인 매출 성장은 3분기부터 시작될 것."
+          }
+        ],
+        "consensus": {
+          "avg": 178400,
+          "high": 207000,
+          "low": 140000,
+          "n": 5,
+          "upsidePct": 92.7,
+          "opinions": {
+            "매수": 5,
+            "Not Rated": 1
+          }
+        }
+      },
+      "generatedBy": "gemini-3.1-flash-lite",
+      "flow": {
+        "rank": [],
+        "shorts": [
+          {
+            "date": "20260806",
+            "qty": 51353.0,
+            "volRlim": 4.95,
+            "pbmn": 47.8,
+            "pbmnRlim": 4.95
+          },
+          {
+            "date": "20260805",
+            "qty": 200258.0,
+            "volRlim": 15.63,
+            "pbmn": 195.9,
+            "pbmnRlim": 15.61
+          },
+          {
+            "date": "20260804",
+            "qty": 128383.0,
+            "volRlim": 11.57,
+            "pbmn": 121.2,
+            "pbmnRlim": 11.53
+          },
+          {
+            "date": "20260803",
+            "qty": 420379.0,
+            "volRlim": 31.03,
+            "pbmn": 393.1,
+            "pbmnRlim": 31.02
+          },
+          {
+            "date": "20260731",
+            "qty": 171650.0,
+            "volRlim": 8.02,
+            "pbmn": 160.5,
+            "pbmnRlim": 7.99
+          },
+          {
+            "date": "20260730",
+            "qty": 260810.0,
+            "volRlim": 19.54,
+            "pbmn": 205.3,
+            "pbmnRlim": 19.45
+          },
+          {
+            "date": "20260729",
+            "qty": 250784.0,
+            "volRlim": 13.47,
+            "pbmn": 209.1,
+            "pbmnRlim": 13.62
+          },
+          {
+            "date": "20260728",
+            "qty": 83316.0,
+            "volRlim": 8.15,
+            "pbmn": 75.8,
+            "pbmnRlim": 8.14
+          },
+          {
+            "date": "20260727",
+            "qty": 74749.0,
+            "volRlim": 8.06,
+            "pbmn": 77.1,
+            "pbmnRlim": 8.07
+          },
+          {
+            "date": "20260724",
+            "qty": 93280.0,
+            "volRlim": 9.18,
+            "pbmn": 96.5,
+            "pbmnRlim": 9.16
+          },
+          {
+            "date": "20260723",
+            "qty": 108949.0,
+            "volRlim": 9.06,
+            "pbmn": 123.5,
+            "pbmnRlim": 9.06
+          },
+          {
+            "date": "20260722",
+            "qty": 263122.0,
+            "volRlim": 12.1,
+            "pbmn": 314.7,
+            "pbmnRlim": 11.98
+          },
+          {
+            "date": "20260721",
+            "qty": 64040.0,
+            "volRlim": 5.45,
+            "pbmn": 73.9,
+            "pbmnRlim": 5.47
+          },
+          {
+            "date": "20260720",
+            "qty": 662191.0,
+            "volRlim": 30.95,
+            "pbmn": 802.7,
+            "pbmnRlim": 30.75
+          },
+          {
+            "date": "20260716",
+            "qty": 201115.0,
+            "volRlim": 11.25,
+            "pbmn": 279.0,
+            "pbmnRlim": 11.21
+          },
+          {
+            "date": "20260715",
+            "qty": 236413.0,
+            "volRlim": 9.93,
+            "pbmn": 326.6,
+            "pbmnRlim": 9.85
+          },
+          {
+            "date": "20260714",
+            "qty": 274867.0,
+            "volRlim": 11.83,
+            "pbmn": 336.7,
+            "pbmnRlim": 11.8
+          },
+          {
+            "date": "20260713",
+            "qty": 308128.0,
+            "volRlim": 9.33,
+            "pbmn": 404.4,
+            "pbmnRlim": 9.36
+          },
+          {
+            "date": "20260710",
+            "qty": 150586.0,
+            "volRlim": 5.06,
+            "pbmn": 184.4,
+            "pbmnRlim": 5.09
+          },
+          {
+            "date": "20260709",
+            "qty": 32165.0,
+            "volRlim": 2.3,
+            "pbmn": 33.7,
+            "pbmnRlim": 2.29
+          }
+        ],
+        "loans": [
+          {
+            "date": "20260806",
+            "newQty": 35001.0,
+            "rdmpQty": 110936.0,
+            "rmndChg": -75935.0,
+            "rmndQty": 6665152.0,
+            "rmndAmt": 6171.9
+          },
+          {
+            "date": "20260805",
+            "newQty": 42648.0,
+            "rdmpQty": 243931.0,
+            "rmndChg": -201283.0,
+            "rmndQty": 6741087.0,
+            "rmndAmt": 6586.0
+          },
+          {
+            "date": "20260804",
+            "newQty": 308456.0,
+            "rdmpQty": 116422.0,
+            "rmndChg": 192034.0,
+            "rmndQty": 6942370.0,
+            "rmndAmt": 6699.4
+          },
+          {
+            "date": "20260803",
+            "newQty": 276142.0,
+            "rdmpQty": 334031.0,
+            "rmndChg": -57889.0,
+            "rmndQty": 6750336.0,
+            "rmndAmt": 6325.1
+          },
+          {
+            "date": "20260731",
+            "newQty": 115978.0,
+            "rdmpQty": 135184.0,
+            "rmndChg": -19206.0,
+            "rmndQty": 6808225.0,
+            "rmndAmt": 6644.8
+          },
+          {
+            "date": "20260730",
+            "newQty": 43502.0,
+            "rdmpQty": 110581.0,
+            "rmndChg": -67079.0,
+            "rmndQty": 6827431.0,
+            "rmndAmt": 5209.3
+          },
+          {
+            "date": "20260729",
+            "newQty": 30531.0,
+            "rdmpQty": 60719.0,
+            "rmndChg": -30188.0,
+            "rmndQty": 6894510.0,
+            "rmndAmt": 5736.2
+          },
+          {
+            "date": "20260728",
+            "newQty": 152175.0,
+            "rdmpQty": 50818.0,
+            "rmndChg": 101357.0,
+            "rmndQty": 6924698.0,
+            "rmndAmt": 6197.6
+          },
+          {
+            "date": "20260727",
+            "newQty": 246225.0,
+            "rdmpQty": 259981.0,
+            "rmndChg": -13756.0,
+            "rmndQty": 6823341.0,
+            "rmndAmt": 7232.7
+          },
+          {
+            "date": "20260724",
+            "newQty": 21238.0,
+            "rdmpQty": 203133.0,
+            "rmndChg": -181895.0,
+            "rmndQty": 6837097.0,
+            "rmndAmt": 6871.3
+          },
+          {
+            "date": "20260723",
+            "newQty": 66609.0,
+            "rdmpQty": 78713.0,
+            "rmndChg": -12104.0,
+            "rmndQty": 7018992.0,
+            "rmndAmt": 7952.5
+          },
+          {
+            "date": "20260722",
+            "newQty": 1214753.0,
+            "rdmpQty": 39387.0,
+            "rmndChg": 1175366.0,
+            "rmndQty": 7031096.0,
+            "rmndAmt": 7853.7
+          },
+          {
+            "date": "20260721",
+            "newQty": 850271.0,
+            "rdmpQty": 65977.0,
+            "rmndChg": 784294.0,
+            "rmndQty": 5855730.0,
+            "rmndAmt": 6798.5
+          },
+          {
+            "date": "20260720",
+            "newQty": 665889.0,
+            "rdmpQty": 238492.0,
+            "rmndChg": 427397.0,
+            "rmndQty": 5071436.0,
+            "rmndAmt": 5837.2
+          },
+          {
+            "date": "20260716",
+            "newQty": 289278.0,
+            "rdmpQty": 135825.0,
+            "rmndChg": 153453.0,
+            "rmndQty": 4644039.0,
+            "rmndAmt": 6534.2
+          },
+          {
+            "date": "20260715",
+            "newQty": 259015.0,
+            "rdmpQty": 8707.0,
+            "rmndChg": 250308.0,
+            "rmndQty": 4490586.0,
+            "rmndAmt": 6408.1
+          },
+          {
+            "date": "20260714",
+            "newQty": 206797.0,
+            "rdmpQty": 179224.0,
+            "rmndChg": 27573.0,
+            "rmndQty": 4240278.0,
+            "rmndAmt": 5389.4
+          },
+          {
+            "date": "20260713",
+            "newQty": 335860.0,
+            "rdmpQty": 235319.0,
+            "rmndChg": 100541.0,
+            "rmndQty": 4212705.0,
+            "rmndAmt": 5257.4
+          },
+          {
+            "date": "20260710",
+            "newQty": 44107.0,
+            "rdmpQty": 135725.0,
+            "rmndChg": -91618.0,
+            "rmndQty": 4112164.0,
+            "rmndAmt": 5140.2
+          },
+          {
+            "date": "20260709",
+            "newQty": 24072.0,
+            "rdmpQty": 111346.0,
+            "rmndChg": -87274.0,
+            "rmndQty": 4203782.0,
+            "rmndAmt": 4409.8
+          }
+        ],
+        "rankAsof": "08:37",
+        "trend": [
+          {
+            "date": "20260806",
+            "frgn": 103178,
+            "orgn": -76359,
+            "prsn": -15619,
+            "holdRatio": 14.89,
+            "close": 92600,
+            "rate": -5.22
+          },
+          {
+            "date": "20260805",
+            "frgn": -173158,
+            "orgn": -38534,
+            "prsn": 209028,
+            "holdRatio": 14.67,
+            "close": 97700,
+            "rate": 1.24
+          },
+          {
+            "date": "20260804",
+            "frgn": -70410,
+            "orgn": 53256,
+            "prsn": 16700,
+            "holdRatio": 15.0,
+            "close": 96500,
+            "rate": 2.99
+          },
+          {
+            "date": "20260803",
+            "frgn": -274558,
+            "orgn": 142320,
+            "prsn": 133685,
+            "holdRatio": 15.15,
+            "close": 93700,
+            "rate": -4.0
+          },
+          {
+            "date": "20260731",
+            "frgn": -184567,
+            "orgn": 248170,
+            "prsn": -77608,
+            "holdRatio": 15.63,
+            "close": 97600,
+            "rate": 27.92
+          },
+          {
+            "date": "20260730",
+            "frgn": 208953,
+            "orgn": -173170,
+            "prsn": -30625,
+            "holdRatio": 15.98,
+            "close": 76300,
+            "rate": -8.29
+          },
+          {
+            "date": "20260729",
+            "frgn": 402892,
+            "orgn": -206500,
+            "prsn": -192452,
+            "holdRatio": 15.56,
+            "close": 83200,
+            "rate": -7.04
+          },
+          {
+            "date": "20260728",
+            "frgn": 235916,
+            "orgn": -188294,
+            "prsn": -50863,
+            "holdRatio": 14.7,
+            "close": 89500,
+            "rate": -15.57
+          },
+          {
+            "date": "20260727",
+            "frgn": 8778,
+            "orgn": 85258,
+            "prsn": -93861,
+            "holdRatio": 14.14,
+            "close": 106000,
+            "rate": 5.47
+          },
+          {
+            "date": "20260724",
+            "frgn": 33859,
+            "orgn": -195598,
+            "prsn": 168062,
+            "holdRatio": 13.97,
+            "close": 100500,
+            "rate": -11.3
+          },
+          {
+            "date": "20260723",
+            "frgn": 94039,
+            "orgn": -80340,
+            "prsn": -2249,
+            "holdRatio": 14.02,
+            "close": 113300,
+            "rate": 1.43
+          },
+          {
+            "date": "20260722",
+            "frgn": -204013,
+            "orgn": -60245,
+            "prsn": 240207,
+            "holdRatio": 13.91,
+            "close": 111700,
+            "rate": -3.79
+          },
+          {
+            "date": "20260721",
+            "frgn": 30033,
+            "orgn": -28492,
+            "prsn": -7324,
+            "holdRatio": 14.53,
+            "close": 116100,
+            "rate": 0.87
+          },
+          {
+            "date": "20260720",
+            "frgn": -397795,
+            "orgn": -37502,
+            "prsn": 434210,
+            "holdRatio": 14.54,
+            "close": 115100,
+            "rate": -18.19
+          },
+          {
+            "date": "20260716",
+            "frgn": -251779,
+            "orgn": 208664,
+            "prsn": 37569,
+            "holdRatio": 15.33,
+            "close": 140700,
+            "rate": -1.4
+          },
+          {
+            "date": "20260715",
+            "frgn": 22843,
+            "orgn": 239418,
+            "prsn": -253840,
+            "holdRatio": 15.83,
+            "close": 142700,
+            "rate": 12.27
+          },
+          {
+            "date": "20260714",
+            "frgn": -563176,
+            "orgn": 474439,
+            "prsn": 84838,
+            "holdRatio": 15.82,
+            "close": 127100,
+            "rate": 1.84
+          },
+          {
+            "date": "20260713",
+            "frgn": -332993,
+            "orgn": 389344,
+            "prsn": -57312,
+            "holdRatio": 17.06,
+            "close": 124800,
+            "rate": -0.16
+          },
+          {
+            "date": "20260710",
+            "frgn": -799594,
+            "orgn": 1025652,
+            "prsn": -225842,
+            "holdRatio": 17.74,
+            "close": 125000,
+            "rate": 19.16
+          },
+          {
+            "date": "20260709",
+            "frgn": -56844,
+            "orgn": 100245,
+            "prsn": -41747,
+            "holdRatio": 19.59,
+            "close": 104900,
+            "rate": 2.14
+          }
+        ]
+      },
+      "_flowOk": true,
+      "_meta": {
+        "filingKey": "2026-08-06|연결재무제표기준영업(잠정)실적(공정공시)              ",
+        "asOf": "2026-08-07T08:41:36.415083+09:00",
+        "price": 92600
+      }
+    },
+    "direction": "neutral"
   },
   {
     "code": "071050",
@@ -20,11 +778,803 @@
     "selectedDate": "2026-08-07",
     "basePrice": 204000,
     "entry": 205000,
-    "target": 237400,
-    "stop": 179000,
+    "target": 238100,
+    "stop": 178400,
     "stars": "⭐⭐⭐",
-    "catalyst": "실적 둔화 전망 및 목표가 하향",
+    "catalyst": "2분기 연결 영업이익 1조 원을 돌파하는 어닝 서프라이즈를 기록했으나, 하반기 업황 둔화 우려가 부각되며 주가는 약세를 보임. 증권가에서는 압도적인 수익성을 인정하면서도 일부 목표주가를 하향 조정하는 등 실적과 주가 간 괴리가 발생하고 있음.",
     "scenario": "<b>[하락 관찰 종목]</b><br>하방 재료가 관찰된 참고용 종목입니다 — 자동매매(매수) 대상이 아닙니다. 전일 종가 204,000원. 반등 전환 시 관찰 레벨: 205,000원.",
-    "reason": "하반기 실적 둔화 전망과 증권가의 목표가 하향 리포트가 이어지며 투자 심리가 위축되었습니다."
+    "reason": "하반기 실적 둔화 전망과 증권가의 목표가 하향 리포트가 이어지며 투자 심리가 위축되었습니다.",
+    "analysis": {
+      "catalyst": "2분기 연결 영업이익 1조 원을 돌파하는 어닝 서프라이즈를 기록했으나, 하반기 업황 둔화 우려가 부각되며 주가는 약세를 보임. 증권가에서는 압도적인 수익성을 인정하면서도 일부 목표주가를 하향 조정하는 등 실적과 주가 간 괴리가 발생하고 있음.",
+      "direction": "neutral",
+      "flowComment": "8월 6일 외국인이 순매도로 전환하며 수급이 악화되었고, 공매도 거래대금이 108.7억 원으로 급증(거래 비중 22.17%)하며 하방 압력이 강해짐. 대차잔고 역시 4.7만 주 증가하며 단기적인 수급 부담이 가중되는 모습임.",
+      "peers": {
+        "summary": "글로벌 금융사들은 혼조세를 보이고 있으며, 한국금융지주는 업종 내 차별화된 수익성을 보여주고 있으나 증권업 전반의 하반기 업황 둔화 우려에서 자유롭지 못한 상황임.",
+        "reddit": [],
+        "items": [
+          {
+            "name": "Nomura Holdings",
+            "ticker": "8604.T",
+            "price": 1577.0,
+            "changePct": 1.19,
+            "note": "일본의 대표적인 종합 금융 그룹으로 증권업 중심의 사업 구조가 유사함"
+          },
+          {
+            "name": "Charles Schwab",
+            "ticker": "SCHW",
+            "price": 107.66,
+            "changePct": -0.33,
+            "note": "자산관리 및 증권 중개업을 핵심으로 하는 글로벌 금융 서비스 기업"
+          },
+          {
+            "name": "UBS Group",
+            "ticker": "UBS",
+            "price": 52.84,
+            "changePct": -1.36,
+            "note": "투자은행(IB)과 자산관리(WM) 부문에서 강력한 입지를 가진 글로벌 금융 그룹"
+          },
+          {
+            "name": "Daiwa Securities Group",
+            "ticker": "8601.T",
+            "price": 1825.5,
+            "changePct": 0.8,
+            "note": "일본의 대형 증권사로 한국금융지주의 증권 부문과 사업 모델이 유사함"
+          },
+          {
+            "name": "Raymond James Financial",
+            "ticker": "RJF",
+            "price": 179.33,
+            "changePct": -0.68,
+            "note": "자산관리, 투자은행, 자본시장 서비스를 제공하는 미국의 종합 금융 지주사"
+          }
+        ]
+      },
+      "news": {
+        "summary": "2분기 영업이익 1조 원 달성이라는 역대급 실적을 발표했으나, 증권가에서는 하반기 업황 둔화와 투자심리 위축을 이유로 목표주가를 하향 조정하는 리포트가 다수 발간됨. 실적 서프라이즈에도 불구하고 주가가 하락하는 '뉴스에 파는' 현상이 나타남.",
+        "items": [
+          {
+            "title": "신한투자증권 \"한국금융지주, 업황은 같은데 다른 보법\"",
+            "source": "컨슈머타임스",
+            "date": "2026-08-07",
+            "sentiment": "긍정",
+            "url": "https://www.cstimes.com/news/articleView.html?idxno=716067",
+            "insight": "업황 둔화 우려 속에서도 차별화된 수익성을 보여주고 있다는 평가."
+          },
+          {
+            "title": "하나證 “한국금융지주, 현재 주가 업황 둔화 우려 반영된 수준…목표가...",
+            "source": "조선비즈",
+            "date": "2026-08-07",
+            "sentiment": "긍정",
+            "url": "https://biz.chosun.com/stock/stock_general/2026/08/07/3VQJDDVXYZAW5OK2ZNTNWOHU54/?utm_source=naver&utm_medium=original&utm_campaign=biz",
+            "insight": "현재 주가는 이미 업황 둔화 우려를 충분히 반영했다는 분석."
+          },
+          {
+            "title": "\"한국금융지주, 하반기 실적 둔화 전망… 목표가↓\"-대신",
+            "source": "머니투데이",
+            "date": "2026-08-07",
+            "sentiment": "부정",
+            "url": "https://www.mt.co.kr/stock/2026/08/07/2026080708040629182",
+            "insight": "하반기 실적 둔화와 투자심리 위축을 근거로 목표가 하향."
+          },
+          {
+            "title": "연간 순익 3조 전망에도…한국금융지주 목표가 낮춘 증권가, 왜",
+            "source": "쿠키뉴스",
+            "date": "2026-08-07",
+            "sentiment": "중립",
+            "url": "https://www.kukinews.com/article/view/kuk202608070014",
+            "insight": "실적은 좋지만 증권업 전반의 불확실성으로 인해 목표가 조정이 이어짐."
+          },
+          {
+            "title": "[모닝 리포트] \"한국금융지주 목표가 41만원…최선호주 유지\"",
+            "source": "뉴스핌",
+            "date": "2026-08-07",
+            "sentiment": "긍정",
+            "url": "https://www.newspim.com/news/view/20260807000045",
+            "insight": "증권업종 최선호주 의견을 유지하며 높은 상승 여력을 제시."
+          }
+        ]
+      },
+      "community": {
+        "summary": "어닝 서프라이즈에도 불구하고 주가가 하락하는 현상에 대해 개인 투자자들의 당혹감과 불만이 큼. 실적은 좋지만 주가 흐름이 따라주지 않는 것에 대한 의구심과 향후 주주환원 정책에 대한 기대가 공존함.",
+        "sentimentLabel": "부정",
+        "naver": [
+          {
+            "title": "분리과세 25%배당시",
+            "url": "https://finance.naver.com/item/board_read.naver?code=071050&nid=427327485&page=1",
+            "sentiment": "중립",
+            "summary": "배당 정책에 대한 관심이 높음."
+          },
+          {
+            "title": "장중 이런실적발표에 하락이라니",
+            "url": "https://finance.naver.com/item/board_read.naver?code=071050&nid=427324636&page=1",
+            "sentiment": "부정",
+            "summary": "호실적에도 주가가 하락하는 것에 대한 당혹감 표출."
+          },
+          {
+            "title": "실발 하니까 더 처박네",
+            "url": "https://finance.naver.com/item/board_read.naver?code=071050&nid=427319453&page=2",
+            "sentiment": "부정",
+            "summary": "실적 발표 후 주가 하락에 대한 실망감."
+          },
+          {
+            "title": "이종목은 외인형님들을 조심해야된다",
+            "url": "https://finance.naver.com/item/board_read.naver?code=071050&nid=427339019&page=1",
+            "sentiment": "부정",
+            "summary": "외국인 수급에 대한 경계심."
+          },
+          {
+            "title": "설마 일부러 주가 누르는건가 ㅋㅋ",
+            "url": "https://finance.naver.com/item/board_read.naver?code=071050&nid=427321577&page=1",
+            "sentiment": "중립",
+            "summary": "주가 흐름에 대한 의구심."
+          }
+        ]
+      },
+      "dart": {
+        "summary": "2026년 2분기 연결 기준 영업이익 1조 원을 상회하는 잠정 실적을 공시함. 자산총계와 자본총계가 전년 대비 큰 폭으로 증가하며 견조한 성장세를 입증함.",
+        "highlights": [
+          {
+            "label": "2Q26 영업이익",
+            "value": "1조 3,442억 원",
+            "note": "시장 기대치를 상회하는 어닝 서프라이즈 기록."
+          },
+          {
+            "label": "자산총계",
+            "value": "136조 1,619억 원",
+            "note": "전년 동기 대비 자산 규모의 큰 폭 확대."
+          },
+          {
+            "label": "당기순이익",
+            "value": "2조 243억 원",
+            "note": "전년 대비 큰 폭의 이익 성장세 시현."
+          },
+          {
+            "label": "주요 주주",
+            "value": "국민연금공단(12.86%)",
+            "note": "기관 투자자의 지속적인 지분 보유."
+          }
+        ],
+        "recentFilings": [
+          {
+            "date": "2026-08-06",
+            "title": "연결재무제표기준영업(잠정)실적(공정공시)              ",
+            "filer": "한국금융지주",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260806800245"
+          },
+          {
+            "date": "2026-08-06",
+            "title": "연결재무제표기준영업(잠정)실적(공정공시)(자회사의 주요경영사항)              ",
+            "filer": "한국금융지주",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260806800244"
+          },
+          {
+            "date": "2026-08-03",
+            "title": "결산실적공시예고(안내공시)              ",
+            "filer": "한국금융지주",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260803800496"
+          },
+          {
+            "date": "2026-07-28",
+            "title": "풍문또는보도에대한해명(미확정)              ",
+            "filer": "한국금융지주",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260728800658"
+          },
+          {
+            "date": "2026-07-16",
+            "title": "[기재정정]타법인주식및출자증권취득결정(자회사의 주요경영사항)              ",
+            "filer": "한국금융지주",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260716800493"
+          }
+        ]
+      },
+      "research": {
+        "summary": "대부분의 증권사가 '매수' 의견을 유지하며 업종 내 최선호주로 꼽고 있으나, 하반기 업황 둔화 가능성을 반영해 일부 목표주가를 하향 조정함. 압도적인 ROE와 수익성을 근거로 펀더멘털은 견고하다는 평가가 지배적임.",
+        "items": [
+          {
+            "title": "거래대금은 거들 뿐",
+            "broker": "iM증권",
+            "date": "2026-08-07",
+            "url": "https://finance.naver.com/research/company_read.naver?nid=95211&page=1&searchType=itemCode&itemCode=071050",
+            "pdfUrl": "https://stock.pstatic.net/stock-research/company/61/20260807_company_166057000.pdf",
+            "targetPrice": 284000,
+            "opinion": "Buy",
+            "note": "거래대금 확대와 자회사 실적 개선으로 컨센서스를 상회했으나 하반기 규제 영향 고려 필요."
+          },
+          {
+            "title": "2Q26 Review: 1조 야르~",
+            "broker": "SK증권",
+            "date": "2026-08-07",
+            "url": "https://finance.naver.com/research/company_read.naver?nid=95209&page=1&searchType=itemCode&itemCode=071050",
+            "pdfUrl": "https://stock.pstatic.net/stock-research/company/64/20260807_company_389215000.pdf",
+            "targetPrice": 410000,
+            "opinion": "매수",
+            "note": "분기 실적 1조 원을 기록하며 역대급 어닝 서프라이즈 달성."
+          },
+          {
+            "title": "펀더멘털에 비해 과도한 저평가",
+            "broker": "NH투자증권",
+            "date": "2026-08-07",
+            "url": "https://wcomp.fnguide.com/CompanyInfo/Consensus?cmp_cd=071050",
+            "pdfUrl": "",
+            "targetPrice": 340000,
+            "opinion": "Buy",
+            "note": "밸류에이션 매력이 부각되며 최대 실적을 경신 중."
+          },
+          {
+            "title": "업황은 같은데 보법이 다르네",
+            "broker": "신한투자증권",
+            "date": "2026-08-07",
+            "url": "https://wcomp.fnguide.com/CompanyInfo/Consensus?cmp_cd=071050",
+            "pdfUrl": "",
+            "targetPrice": 300000,
+            "opinion": "매수",
+            "note": "증권/자산운용 업황 견고하며 저축은행/캐피탈 부문 정상화 진행 중."
+          },
+          {
+            "title": "2Q26 Re - 업황 둔화 우려는 충분히 반영된 주가 수준",
+            "broker": "하나증권",
+            "date": "2026-08-07",
+            "url": "https://wcomp.fnguide.com/CompanyInfo/Consensus?cmp_cd=071050",
+            "pdfUrl": "",
+            "targetPrice": 330000,
+            "opinion": "BUY",
+            "note": "하반기 업황 둔화 우려가 주가에 충분히 반영되었다는 판단."
+          },
+          {
+            "title": "일단 업종 최고 ROE 재차 확인",
+            "broker": "다올투자증권",
+            "date": "2026-08-07",
+            "url": "https://wcomp.fnguide.com/CompanyInfo/Consensus?cmp_cd=071050",
+            "pdfUrl": "",
+            "targetPrice": 370000,
+            "opinion": "BUY",
+            "note": "업종 최고 수준의 ROE를 입증하며 충당금 부담 완화 확인."
+          },
+          {
+            "title": "펀더로 압도해버림",
+            "broker": "대신증권",
+            "date": "2026-08-07",
+            "url": "https://wcomp.fnguide.com/CompanyInfo/Consensus?cmp_cd=071050",
+            "pdfUrl": "",
+            "targetPrice": 286000,
+            "opinion": "Buy",
+            "note": "펀더멘털은 압도적이나 하반기 업황 둔화 우려로 목표가 하향."
+          },
+          {
+            "title": "2026.1H Earnings Release",
+            "broker": "해당기업",
+            "date": "2026-08-06",
+            "url": "https://wcomp.fnguide.com/CompanyInfo/Consensus?cmp_cd=071050",
+            "pdfUrl": "",
+            "targetPrice": null,
+            "opinion": "Not Rated",
+            "note": "2026년 상반기 실적 발표."
+          }
+        ],
+        "consensus": {
+          "avg": 331429,
+          "high": 410000,
+          "low": 284000,
+          "n": 7,
+          "upsidePct": 62.5,
+          "opinions": {
+            "매수": 7,
+            "Not Rated": 1
+          }
+        }
+      },
+      "generatedBy": "gemini-3.1-flash-lite",
+      "flow": {
+        "rank": [],
+        "shorts": [
+          {
+            "date": "20260806",
+            "qty": 53344.0,
+            "volRlim": 22.17,
+            "pbmn": 108.7,
+            "pbmnRlim": 22.05
+          },
+          {
+            "date": "20260805",
+            "qty": 12833.0,
+            "volRlim": 6.98,
+            "pbmn": 26.8,
+            "pbmnRlim": 6.98
+          },
+          {
+            "date": "20260804",
+            "qty": 11712.0,
+            "volRlim": 6.44,
+            "pbmn": 23.1,
+            "pbmnRlim": 6.43
+          },
+          {
+            "date": "20260803",
+            "qty": 18767.0,
+            "volRlim": 8.4,
+            "pbmn": 36.7,
+            "pbmnRlim": 8.41
+          },
+          {
+            "date": "20260731",
+            "qty": 21067.0,
+            "volRlim": 7.61,
+            "pbmn": 42.7,
+            "pbmnRlim": 7.63
+          },
+          {
+            "date": "20260730",
+            "qty": 18594.0,
+            "volRlim": 5.32,
+            "pbmn": 34.5,
+            "pbmnRlim": 5.3
+          },
+          {
+            "date": "20260729",
+            "qty": 32485.0,
+            "volRlim": 8.97,
+            "pbmn": 58.8,
+            "pbmnRlim": 8.87
+          },
+          {
+            "date": "20260728",
+            "qty": 21333.0,
+            "volRlim": 8.63,
+            "pbmn": 41.8,
+            "pbmnRlim": 8.69
+          },
+          {
+            "date": "20260727",
+            "qty": 12240.0,
+            "volRlim": 10.35,
+            "pbmn": 26.1,
+            "pbmnRlim": 10.36
+          },
+          {
+            "date": "20260724",
+            "qty": 9152.0,
+            "volRlim": 3.78,
+            "pbmn": 19.4,
+            "pbmnRlim": 3.8
+          },
+          {
+            "date": "20260723",
+            "qty": 11988.0,
+            "volRlim": 6.91,
+            "pbmn": 26.4,
+            "pbmnRlim": 6.94
+          },
+          {
+            "date": "20260722",
+            "qty": 24250.0,
+            "volRlim": 17.08,
+            "pbmn": 53.7,
+            "pbmnRlim": 17.07
+          },
+          {
+            "date": "20260721",
+            "qty": 21233.0,
+            "volRlim": 16.22,
+            "pbmn": 46.3,
+            "pbmnRlim": 16.24
+          },
+          {
+            "date": "20260720",
+            "qty": 28477.0,
+            "volRlim": 15.13,
+            "pbmn": 61.7,
+            "pbmnRlim": 15.16
+          },
+          {
+            "date": "20260716",
+            "qty": 23786.0,
+            "volRlim": 13.89,
+            "pbmn": 53.9,
+            "pbmnRlim": 13.94
+          },
+          {
+            "date": "20260715",
+            "qty": 29982.0,
+            "volRlim": 11.83,
+            "pbmn": 70.2,
+            "pbmnRlim": 11.85
+          },
+          {
+            "date": "20260714",
+            "qty": 42193.0,
+            "volRlim": 9.95,
+            "pbmn": 92.7,
+            "pbmnRlim": 9.97
+          },
+          {
+            "date": "20260713",
+            "qty": 33171.0,
+            "volRlim": 13.6,
+            "pbmn": 79.8,
+            "pbmnRlim": 13.48
+          },
+          {
+            "date": "20260710",
+            "qty": 26338.0,
+            "volRlim": 13.11,
+            "pbmn": 63.5,
+            "pbmnRlim": 13.15
+          },
+          {
+            "date": "20260709",
+            "qty": 60267.0,
+            "volRlim": 23.08,
+            "pbmn": 134.8,
+            "pbmnRlim": 23.06
+          }
+        ],
+        "loans": [
+          {
+            "date": "20260806",
+            "newQty": 86643.0,
+            "rdmpQty": 39585.0,
+            "rmndChg": 47058.0,
+            "rmndQty": 1505894.0,
+            "rmndAmt": 3072.0
+          },
+          {
+            "date": "20260805",
+            "newQty": 29463.0,
+            "rdmpQty": 76844.0,
+            "rmndChg": -47381.0,
+            "rmndQty": 1458836.0,
+            "rmndAmt": 3056.3
+          },
+          {
+            "date": "20260804",
+            "newQty": 31485.0,
+            "rdmpQty": 50085.0,
+            "rmndChg": -18600.0,
+            "rmndQty": 1506217.0,
+            "rmndAmt": 3050.1
+          },
+          {
+            "date": "20260803",
+            "newQty": 40068.0,
+            "rdmpQty": 37368.0,
+            "rmndChg": 2700.0,
+            "rmndQty": 1524817.0,
+            "rmndAmt": 3002.4
+          },
+          {
+            "date": "20260731",
+            "newQty": 62.0,
+            "rdmpQty": 1873.0,
+            "rmndChg": -1811.0,
+            "rmndQty": 1522117.0,
+            "rmndAmt": 3143.2
+          },
+          {
+            "date": "20260730",
+            "newQty": 7910.0,
+            "rdmpQty": 1437.0,
+            "rmndChg": 6473.0,
+            "rmndQty": 1523928.0,
+            "rmndAmt": 2769.0
+          },
+          {
+            "date": "20260729",
+            "newQty": 7711.0,
+            "rdmpQty": 762.0,
+            "rmndChg": 6949.0,
+            "rmndQty": 1517455.0,
+            "rmndAmt": 2784.5
+          },
+          {
+            "date": "20260728",
+            "newQty": 4003.0,
+            "rdmpQty": 25289.0,
+            "rmndChg": -21286.0,
+            "rmndQty": 1510506.0,
+            "rmndAmt": 2925.8
+          },
+          {
+            "date": "20260727",
+            "newQty": 28102.0,
+            "rdmpQty": 36769.0,
+            "rmndChg": -8667.0,
+            "rmndQty": 1531792.0,
+            "rmndAmt": 3255.1
+          },
+          {
+            "date": "20260724",
+            "newQty": 16126.0,
+            "rdmpQty": 4607.0,
+            "rmndChg": 11519.0,
+            "rmndQty": 1540459.0,
+            "rmndAmt": 3281.2
+          },
+          {
+            "date": "20260723",
+            "newQty": 20068.0,
+            "rdmpQty": 26797.0,
+            "rmndChg": -6729.0,
+            "rmndQty": 1528940.0,
+            "rmndAmt": 3386.6
+          },
+          {
+            "date": "20260722",
+            "newQty": 27022.0,
+            "rdmpQty": 38066.0,
+            "rmndChg": -11044.0,
+            "rmndQty": 1535669.0,
+            "rmndAmt": 3301.7
+          },
+          {
+            "date": "20260721",
+            "newQty": 30755.0,
+            "rdmpQty": 10521.0,
+            "rmndChg": 20234.0,
+            "rmndQty": 1546713.0,
+            "rmndAmt": 3387.3
+          },
+          {
+            "date": "20260720",
+            "newQty": 50318.0,
+            "rdmpQty": 43282.0,
+            "rmndChg": 7036.0,
+            "rmndQty": 1526479.0,
+            "rmndAmt": 3304.8
+          },
+          {
+            "date": "20260716",
+            "newQty": 13915.0,
+            "rdmpQty": 11517.0,
+            "rmndChg": 2398.0,
+            "rmndQty": 1519443.0,
+            "rmndAmt": 3479.5
+          },
+          {
+            "date": "20260715",
+            "newQty": 13972.0,
+            "rdmpQty": 49875.0,
+            "rmndChg": -35903.0,
+            "rmndQty": 1517045.0,
+            "rmndAmt": 3565.1
+          },
+          {
+            "date": "20260714",
+            "newQty": 76383.0,
+            "rdmpQty": 48767.0,
+            "rmndChg": 27616.0,
+            "rmndQty": 1552948.0,
+            "rmndAmt": 3362.1
+          },
+          {
+            "date": "20260713",
+            "newQty": 14721.0,
+            "rdmpQty": 57919.0,
+            "rmndChg": -43198.0,
+            "rmndQty": 1525332.0,
+            "rmndAmt": 3615.0
+          },
+          {
+            "date": "20260710",
+            "newQty": 67290.0,
+            "rdmpQty": 49979.0,
+            "rmndChg": 17311.0,
+            "rmndQty": 1568530.0,
+            "rmndAmt": 3748.8
+          },
+          {
+            "date": "20260709",
+            "newQty": 7594.0,
+            "rdmpQty": 1043.0,
+            "rmndChg": 6551.0,
+            "rmndQty": 1551219.0,
+            "rmndAmt": 3451.5
+          }
+        ],
+        "rankAsof": "08:37",
+        "trend": [
+          {
+            "date": "20260806",
+            "frgn": -22158,
+            "orgn": 7008,
+            "prsn": 15362,
+            "holdRatio": 35.99,
+            "close": 204000,
+            "rate": -2.63
+          },
+          {
+            "date": "20260805",
+            "frgn": 28136,
+            "orgn": 6712,
+            "prsn": -32480,
+            "holdRatio": 36.06,
+            "close": 209500,
+            "rate": 3.46
+          },
+          {
+            "date": "20260804",
+            "frgn": 57037,
+            "orgn": -36969,
+            "prsn": -20042,
+            "holdRatio": 36.01,
+            "close": 202500,
+            "rate": 2.84
+          },
+          {
+            "date": "20260803",
+            "frgn": 44255,
+            "orgn": -77569,
+            "prsn": 38528,
+            "holdRatio": 35.88,
+            "close": 196900,
+            "rate": -4.65
+          },
+          {
+            "date": "20260731",
+            "frgn": 97912,
+            "orgn": -10565,
+            "prsn": -84393,
+            "holdRatio": 35.77,
+            "close": 206500,
+            "rate": 13.65
+          },
+          {
+            "date": "20260730",
+            "frgn": -6219,
+            "orgn": 10828,
+            "prsn": -3737,
+            "holdRatio": 35.54,
+            "close": 181700,
+            "rate": -0.98
+          },
+          {
+            "date": "20260729",
+            "frgn": -25089,
+            "orgn": 4788,
+            "prsn": 15872,
+            "holdRatio": 35.53,
+            "close": 183500,
+            "rate": -5.27
+          },
+          {
+            "date": "20260728",
+            "frgn": 35155,
+            "orgn": -68875,
+            "prsn": 31610,
+            "holdRatio": 35.59,
+            "close": 193700,
+            "rate": -8.85
+          },
+          {
+            "date": "20260727",
+            "frgn": 15190,
+            "orgn": -22926,
+            "prsn": 7837,
+            "holdRatio": 35.55,
+            "close": 212500,
+            "rate": -0.23
+          },
+          {
+            "date": "20260724",
+            "frgn": 54858,
+            "orgn": -115572,
+            "prsn": 58936,
+            "holdRatio": 35.55,
+            "close": 213000,
+            "rate": -3.84
+          },
+          {
+            "date": "20260723",
+            "frgn": 57899,
+            "orgn": -54363,
+            "prsn": -3686,
+            "holdRatio": 35.48,
+            "close": 221500,
+            "rate": 3.02
+          },
+          {
+            "date": "20260722",
+            "frgn": 20458,
+            "orgn": -26288,
+            "prsn": 5847,
+            "holdRatio": 35.41,
+            "close": 215000,
+            "rate": -1.83
+          },
+          {
+            "date": "20260721",
+            "frgn": 15709,
+            "orgn": -11974,
+            "prsn": -3889,
+            "holdRatio": 35.36,
+            "close": 219000,
+            "rate": 1.15
+          },
+          {
+            "date": "20260720",
+            "frgn": 5167,
+            "orgn": -36832,
+            "prsn": 25017,
+            "holdRatio": 35.33,
+            "close": 216500,
+            "rate": -5.46
+          },
+          {
+            "date": "20260716",
+            "frgn": 19673,
+            "orgn": -18026,
+            "prsn": -2473,
+            "holdRatio": 35.34,
+            "close": 229000,
+            "rate": -2.55
+          },
+          {
+            "date": "20260715",
+            "frgn": 69174,
+            "orgn": 13608,
+            "prsn": -79688,
+            "holdRatio": 35.31,
+            "close": 235000,
+            "rate": 8.55
+          },
+          {
+            "date": "20260714",
+            "frgn": -25276,
+            "orgn": -24516,
+            "prsn": 41492,
+            "holdRatio": 35.12,
+            "close": 216500,
+            "rate": -8.65
+          },
+          {
+            "date": "20260713",
+            "frgn": 15354,
+            "orgn": 23821,
+            "prsn": -39017,
+            "holdRatio": 35.23,
+            "close": 237000,
+            "rate": -0.84
+          },
+          {
+            "date": "20260710",
+            "frgn": 45862,
+            "orgn": -2547,
+            "prsn": -40938,
+            "holdRatio": 35.2,
+            "close": 239000,
+            "rate": 7.42
+          },
+          {
+            "date": "20260709",
+            "frgn": -12273,
+            "orgn": 814,
+            "prsn": 10031,
+            "holdRatio": 35.09,
+            "close": 222500,
+            "rate": -4.71
+          }
+        ]
+      },
+      "_flowOk": true,
+      "_meta": {
+        "filingKey": "2026-08-06|연결재무제표기준영업(잠정)실적(공정공시)              ",
+        "asOf": "2026-08-07T08:41:36.415083+09:00",
+        "price": 204000
+      }
+    },
+    "direction": "neutral"
+  },
+  {
+    "code": "035420",
+    "name": "NAVER",
+    "market": "KOSPI",
+    "selectedDate": "2026-08-07",
+    "basePrice": 226000,
+    "entry": 227100,
+    "target": 256600,
+    "stop": 203100,
+    "stars": "⭐⭐⭐",
+    "catalyst": "실적 발표 후 차익 실현 매물 출회",
+    "scenario": "<b>[하락 관찰 종목]</b><br>하방 재료가 관찰된 참고용 종목입니다 — 자동매매(매수) 대상이 아닙니다. 전일 종가 226,000원. 반등 전환 시 관찰 레벨: 227,100원.",
+    "reason": "실적 발표 이후 차익 실현 매물이 출회되며 하락 압력을 받고 있어 단기적인 관망이 필요합니다."
   }
 ]
