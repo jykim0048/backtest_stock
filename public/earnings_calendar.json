@@ -1,6 +1,6 @@
 {
  "date": "2026-08-10",
- "asof": "2026-08-10 11:38 KST",
+ "asof": "2026-08-10 12:08 KST",
  "sources": {
   "wisereport": true,
   "fnguide": false,
@@ -73,32 +73,6 @@
     "op": null,
     "np": null,
     "yoy": null,
-    "qoq": null
-   },
-   "provisional": {
-    "op": null,
-    "np": null
-   },
-   "surprise": {
-    "opGap": null,
-    "npGap": null
-   },
-   "market": "KOSPI"
-  },
-  {
-   "date": "2026-08-10",
-   "code": "051600",
-   "name": "한전KPS",
-   "sector": "유틸리티",
-   "fs": "연결",
-   "period": "202606",
-   "periodType": "분기",
-   "opinion": 4.0,
-   "targetPrice": 69091.0,
-   "consensus": {
-    "op": 623.0,
-    "np": 507.0,
-    "yoy": -5.0,
     "qoq": null
    },
    "provisional": {
@@ -1001,20 +975,22 @@
    "date": "2026-08-10",
    "code": "071320",
    "name": "지역난방공사",
-   "sector": null,
+   "sector": "유틸리티",
    "quarter": null,
-   "period": null,
-   "fs": null,
+   "period": "202606",
+   "fs": "연결",
    "sales": 6531.1,
-   "op": 330.9,
-   "np": 104.1,
+   "op": 331.0,
+   "np": 104.0,
    "salesYoY": 4.8,
    "opYoY": "흑전",
    "npYoY": "흑전",
    "tag": "턴어",
    "consensus": {
     "op": -246.0,
-    "np": -251.0
+    "np": -251.0,
+    "yoy": -16.37,
+    "qoq": -111.6
    },
    "surprise": {
     "opGap": 234.5,
@@ -1023,11 +999,46 @@
    "dartUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260810800081",
    "dartTitle": "연결재무제표기준영업(잠정)실적(공정공시)",
    "sources": [
+    "wisereport",
     "dart"
    ],
    "market": "KOSPI",
    "time": "09:41",
    "capturedDate": "2026-08-10"
+  },
+  {
+   "date": "2026-08-10",
+   "code": "051600",
+   "name": "한전KPS",
+   "sector": null,
+   "quarter": null,
+   "period": null,
+   "fs": null,
+   "sales": 4379.4,
+   "op": 435.8,
+   "np": 382.7,
+   "salesYoY": -3.53,
+   "opYoY": -33.59,
+   "npYoY": -24.77,
+   "tag": null,
+   "consensus": {
+    "op": 623.0,
+    "np": 507.0
+   },
+   "surprise": {
+    "opGap": -30.0,
+    "npGap": -24.5
+   },
+   "dartUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260810800186",
+   "dartTitle": "연결재무제표기준영업(잠정)실적(공정공시)",
+   "sources": [
+    "dart",
+    "dart-doc",
+    "naver"
+   ],
+   "market": "KOSPI",
+   "capturedDate": "2026-08-10",
+   "time": "11:57"
   },
   {
    "date": "2026-08-10",
@@ -1055,12 +1066,11 @@
    "dartUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260810900171",
    "dartTitle": "연결재무제표기준영업(잠정)실적(공정공시)",
    "sources": [
-    "dart",
-    "dart-doc"
+    "dart"
    ],
    "market": "KOSDAQ",
-   "capturedDate": "2026-08-10",
-   "time": "11:32"
+   "time": "11:32",
+   "capturedDate": "2026-08-10"
   },
   {
    "date": "2026-08-10",
@@ -1088,12 +1098,11 @@
    "dartUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260810900158",
    "dartTitle": "연결재무제표기준영업(잠정)실적(공정공시)",
    "sources": [
-    "dart",
-    "dart-doc"
+    "dart"
    ],
    "market": "KOSDAQ",
-   "capturedDate": "2026-08-10",
-   "time": "11:18"
+   "time": "11:18",
+   "capturedDate": "2026-08-10"
   },
   {
    "date": "2026-08-10",
@@ -1808,7 +1817,7 @@
     "opGap": -16.6,
     "npGap": -36.7
    },
-   "dartUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260807900187",
+   "dartUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260807900201",
    "dartTitle": "연결재무제표기준영업(잠정)실적(공정공시)",
    "sources": [
     "wisereport",
