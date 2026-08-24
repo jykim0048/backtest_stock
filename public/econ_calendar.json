@@ -1,55 +1,11 @@
 {
- "date": "2026-08-24",
- "asof": "2026-08-24 15:40 KST",
+ "date": "2026-08-25",
+ "asof": "2026-08-25 07:46 KST",
  "sources": {
   "naver": true,
   "forexfactory": true
  },
  "released": [
-  {
-   "nation": "KOR",
-   "name": "생산자물가지수 전월대비",
-   "reutersCode": "KRPPI=ECIX",
-   "importance": 4,
-   "period": "Jul 2026",
-   "category": "PRICE",
-   "releaseAtKST": "2026-08-21 06:00",
-   "actual": -0.4,
-   "previous": 0,
-   "unit": "%",
-   "unitScale": "",
-   "forecast": null,
-   "forecastSource": null,
-   "source": "naver",
-   "surprise": {
-    "vs": "previous",
-    "diff": -0.4,
-    "verdict": "below"
-   }
-  },
-  {
-   "nation": "KOR",
-   "name": "생산자물가지수 전년대비",
-   "reutersCode": "KRPPIY=ECIX",
-   "importance": 1,
-   "period": "Jul 2026",
-   "category": "PRICE",
-   "releaseAtKST": "2026-08-21 06:00",
-   "actual": 7.7,
-   "previous": 8.6,
-   "unit": "%",
-   "unitScale": "",
-   "forecast": null,
-   "forecastSource": null,
-   "source": "naver",
-   "surprise": {
-    "vs": "previous",
-    "diff": -0.9,
-    "verdict": "below"
-   }
-  }
- ],
- "upcoming": [
   {
    "nation": "USA",
    "name": "시카고 연준 국가활동지수",
@@ -58,12 +14,18 @@
    "period": "Jul 2026",
    "category": "EMPLOYMENT",
    "releaseAtKST": "2026-08-24 21:30",
+   "actual": -0.08,
    "previous": -0.02,
    "unit": "",
    "unitScale": "",
    "forecast": null,
    "forecastSource": null,
-   "source": "naver"
+   "source": "naver",
+   "surprise": {
+    "vs": "previous",
+    "diff": -0.06,
+    "verdict": "below"
+   }
   },
   {
    "nation": "KOR",
@@ -73,13 +35,21 @@
    "period": "Aug 2026",
    "category": "BSI_CSI",
    "releaseAtKST": "2026-08-25 06:00",
+   "actual": 104.5,
    "previous": 106.8,
    "unit": "",
    "unitScale": "",
    "forecast": null,
    "forecastSource": null,
-   "source": "naver"
-  },
+   "source": "naver",
+   "surprise": {
+    "vs": "previous",
+    "diff": -2.3,
+    "verdict": "below"
+   }
+  }
+ ],
+ "upcoming": [
   {
    "nation": "USA",
    "name": "건축승인건수",
@@ -980,6 +950,141 @@
    "category": "EMPLOYMENT",
    "releaseAtKST": "2026-08-31 23:30",
    "previous": 1.3,
+   "unit": "",
+   "unitScale": "",
+   "forecast": null,
+   "forecastSource": null,
+   "source": "naver"
+  },
+  {
+   "nation": "KOR",
+   "name": "수입 전년대비",
+   "reutersCode": "KRIMP=ECIX",
+   "importance": 4,
+   "period": "Aug 2026",
+   "category": "BALANCE",
+   "releaseAtKST": "2026-09-01 09:00",
+   "previous": 26.5,
+   "unit": "%",
+   "unitScale": "",
+   "forecast": null,
+   "forecastSource": null,
+   "source": "naver"
+  },
+  {
+   "nation": "KOR",
+   "name": "수출 전년대비",
+   "reutersCode": "KREXP=ECIX",
+   "importance": 4,
+   "period": "Aug 2026",
+   "category": "BALANCE",
+   "releaseAtKST": "2026-09-01 09:00",
+   "previous": 62.8,
+   "unit": "%",
+   "unitScale": "",
+   "forecast": null,
+   "forecastSource": null,
+   "source": "naver"
+  },
+  {
+   "nation": "USA",
+   "name": "ISM 제조업 구매관리자지수(PMI)",
+   "reutersCode": "USPMI=ECIX",
+   "importance": 4,
+   "period": "Aug 2026",
+   "category": "EMPLOYMENT",
+   "releaseAtKST": "2026-09-01 23:00",
+   "previous": 55.6,
+   "unit": "",
+   "unitScale": "",
+   "forecast": null,
+   "forecastSource": null,
+   "source": "naver"
+  },
+  {
+   "nation": "USA",
+   "name": "ISM 제조업 물가지수",
+   "reutersCode": "USISMP=ECIX",
+   "importance": 2,
+   "period": "Aug 2026",
+   "category": "EMPLOYMENT",
+   "releaseAtKST": "2026-09-01 23:00",
+   "previous": 71.1,
+   "unit": "",
+   "unitScale": "",
+   "forecast": null,
+   "forecastSource": null,
+   "source": "naver"
+  },
+  {
+   "nation": "USA",
+   "name": "건설지출 전월대비",
+   "reutersCode": "USTCNS=ECIX",
+   "importance": 2,
+   "period": "Jul 2026",
+   "category": "EMPLOYMENT",
+   "releaseAtKST": "2026-09-01 23:00",
+   "previous": -0.1,
+   "unit": "%",
+   "unitScale": "",
+   "forecast": null,
+   "forecastSource": null,
+   "source": "naver"
+  },
+  {
+   "nation": "USA",
+   "name": "노동부 채용 및 노동 회전률 조사 (JOLT) 빈 일자리 수",
+   "reutersCode": "USJOLT=ECIX",
+   "importance": 2,
+   "period": "Jul 2026",
+   "category": "EMPLOYMENT",
+   "releaseAtKST": "2026-09-01 23:00",
+   "previous": 7.359,
+   "unit": "pers",
+   "unitScale": "M",
+   "forecast": null,
+   "forecastSource": null,
+   "source": "naver"
+  },
+  {
+   "nation": "USA",
+   "name": "ISM 제조업 고용지수",
+   "reutersCode": "USISME=ECIX",
+   "importance": 1,
+   "period": "Aug 2026",
+   "category": "EMPLOYMENT",
+   "releaseAtKST": "2026-09-01 23:00",
+   "previous": 52.8,
+   "unit": "",
+   "unitScale": "",
+   "forecast": null,
+   "forecastSource": null,
+   "source": "naver"
+  },
+  {
+   "nation": "USA",
+   "name": "달라스 연준 서비스 매출",
+   "reutersCode": "USTXR=ECIX",
+   "importance": 1,
+   "period": "Aug 2026",
+   "category": "BSI_CSI",
+   "releaseAtKST": "2026-09-01 23:30",
+   "previous": 9.5,
+   "unit": "",
+   "unitScale": "",
+   "forecast": null,
+   "forecastSource": null,
+   "source": "naver"
+  },
+  {
+   "nation": "USA",
+   "name": "텍사스 서비스분야 전망",
+   "reutersCode": "USTXS=ECIX",
+   "importance": 1,
+   "period": "Aug 2026",
+   "category": "EMPLOYMENT",
+   "releaseAtKST": "2026-09-01 23:30",
+   "previous": 6.6,
    "unit": "",
    "unitScale": "",
    "forecast": null,
