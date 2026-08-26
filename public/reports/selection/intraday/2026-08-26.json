@@ -1,7 +1,7 @@
 {
   "date": "2026-08-26",
   "mode": "intraday",
-  "asof": "2026-08-26 08:39",
+  "asof": "2026-08-26 09:09",
   "usMarket": {
     "indices": [
       {
@@ -205,9 +205,19 @@
         "changePct": -8.29
       },
       {
+        "symbol": "DY",
+        "name": "Dycom Industries, Inc.",
+        "changePct": -7.65
+      },
+      {
         "symbol": "BETA",
         "name": "Beta Technologies, Inc.",
         "changePct": -7.26
+      },
+      {
+        "symbol": "SSL",
+        "name": "Sasol Ltd.",
+        "changePct": -6.68
       },
       {
         "symbol": "ALB",
@@ -283,16 +293,6 @@
         "symbol": "ZS",
         "name": "Zscaler, Inc.",
         "changePct": -4.34
-      },
-      {
-        "symbol": "PBF",
-        "name": "PBF Energy Inc.",
-        "changePct": -4.32
-      },
-      {
-        "symbol": "KRMN",
-        "name": "Karman Holdings Inc.",
-        "changePct": -4.22
       }
     ],
     "sectorStocks": {
@@ -792,97 +792,48 @@
       ]
     }
   },
-  "marketView": "미국 증시의 반도체 및 바이오 섹터 강세가 국내 시장으로 이어지며 반도체 소부장 및 건설/인프라 관련주가 강한 상승세를 보이고 있습니다. 특히 반도체 섹터는 필라델피아 반도체 지수 상승과 맞물려 수급이 집중되고 있으며, 건설주는 수주 가이던스 상향 등 펀더멘털 개선 뉴스가 주가 상승을 견인 중입니다. 다만, 기업 합병 등 대형 공시가 나온 종목은 시장의 해석에 따라 변동성이 확대되고 있으므로 주의가 필요합니다.",
+  "marketView": "전일 미국 증시는 필라델피아 반도체 지수(+1.44%)와 바이오 섹터(+3.0%)의 강세가 두드러졌으며, SMR 및 원자력 관련주(Oklo, NuScale Power)가 급등했습니다. 국내 시장에서도 반도체 장비 및 테스트 소켓 관련주들이 강한 동조화를 보이며 상승세를 주도하고 있습니다. 또한, 해외 수주 모멘텀을 보유한 건설 및 인프라 섹터로의 장중 수급 유입이 포착되고 있습니다.",
   "picks": [
     {
-      "code": "034730",
-      "name": "SK",
+      "code": "047040",
+      "name": "대우건설",
       "market": "KOSPI",
-      "reason": "자회사 관련 주요 경영사항 공시로 인한 기업 가치 재평가 기대감 반영.",
-      "catalyst": "주요사항보고서(회사합병결정) 공시",
-      "changePct": 1.28
+      "reason": "해외 대규모 수주 및 주택 원가율 개선 기대감이 장중 상방 촉매로 작용하며 거래대금을 동반한 강한 상승세를 보이고 있습니다.",
+      "catalyst": "해외 대규모 수주 및 주택 원가율 개선 기대감",
+      "changePct": 11.8
     },
     {
-      "code": "303030",
-      "name": "지니틱스",
-      "market": "KOSDAQ",
-      "reason": "중국 AI 인프라 자회사 설립 공시로 AI 컴퓨팅 및 네트워크 시장 진출 모멘텀 발생.",
-      "catalyst": "타법인주식및출자증권취득결정 공시",
-      "changePct": 2.25
-    },
-    {
-      "code": "232140",
-      "name": "와이씨",
-      "market": "KOSDAQ",
-      "reason": "반도체 섹터 전반의 강세와 함께 거래대금 급증하며 강한 모멘텀 형성.",
-      "catalyst": "반도체 섹터 수급 집중 및 강세",
-      "changePct": 19.02
+      "code": "267270",
+      "name": "HD건설기계",
+      "market": "KOSPI",
+      "reason": "2분기 매출 호조와 더불어 미국 AI 데이터센터 인프라 구축에 따른 건설기계 수혜 기대감이 지속되며 상승 중입니다.",
+      "catalyst": "2분기 매출 호조 및 AI 인프라 관련 수혜 기대감",
+      "changePct": 6.06
     },
     {
       "code": "403870",
       "name": "HPSP",
       "market": "KOSDAQ",
-      "reason": "미국 반도체 지수 상승에 따른 국내 소부장주 동반 강세 수혜.",
-      "catalyst": "필라델피아 반도체 지수 상승",
+      "reason": "미국 반도체 지수 상승 및 AMD, 엔비디아 등 주요 반도체주 강세에 힘입어 국내 고압 수소 어닐링 장비 대장주로서 강한 수급이 유입되고 있습니다.",
+      "catalyst": "미국 반도체 지수 강세 및 고압 수소 어닐링 장비 모멘텀",
       "changePct": 10.35
-    },
-    {
-      "code": "047040",
-      "name": "대우건설",
-      "market": "KOSPI",
-      "reason": "신규 수주 가이던스 상향 조정 뉴스로 인한 실적 개선 기대감 반영.",
-      "catalyst": "수주 가이던스 18조→27조 상향 뉴스",
-      "changePct": 11.8
     },
     {
       "code": "089030",
       "name": "테크윙",
       "market": "KOSDAQ",
-      "reason": "반도체 업황 회복 기대감에 따른 수급 유입 및 주가 상승세.",
-      "catalyst": "반도체 소부장 섹터 강세",
+      "reason": "반도체 검사장비 및 HBM용 핸들러 공급 모멘텀이 부각되며 반도체 섹터 전반의 온기와 함께 상승 흐름을 타고 있습니다.",
+      "catalyst": "HBM용 반도체 검사장비 공급 모멘텀",
       "changePct": 8.47
     },
     {
-      "code": "166090",
-      "name": "하나머티리얼즈",
+      "code": "253590",
+      "name": "네오셈",
       "market": "KOSDAQ",
-      "reason": "반도체 소부장 섹터 내 저평가 매력 부각 및 수급 집중.",
-      "catalyst": "반도체 성장성 주목 뉴스",
-      "changePct": 8.25
-    },
-    {
-      "code": "086280",
-      "name": "현대글로비스",
-      "market": "KOSPI",
-      "reason": "현대차그룹 밸류체인 강화 및 로봇 관련 모멘텀 지속.",
-      "catalyst": "현대차 로봇 밸류체인 수혜 기대",
-      "changePct": 7.39
-    },
-    {
-      "code": "004020",
-      "name": "현대제철",
-      "market": "KOSPI",
-      "reason": "철강 업황 개선 기대감 및 그룹사 밸류체인 시너지 부각.",
-      "catalyst": "현대차그룹 美 밸류체인 완결 기대",
-      "changePct": 7.5
-    },
-    {
-      "code": "225570",
-      "name": "넥슨게임즈",
-      "market": "KOSDAQ",
-      "reason": "K-게임 글로벌 매출 성장세와 맞물린 게임 섹터 투자 심리 개선.",
-      "catalyst": "K게임 상반기 해외매출 성장 뉴스",
-      "changePct": 15.39
+      "reason": "CXL(컴퓨터 익스프레스 링크) 검사장비 선두주자로서 미국 반도체 업황 개선에 따른 차세대 메모리 검사장비 수요 증가 기대감이 반영되고 있습니다.",
+      "catalyst": "CXL 검사장비 수요 증가 기대감",
+      "changePct": 9.61
     }
   ],
-  "downPicks": [
-    {
-      "code": "096770",
-      "name": "SK이노베이션",
-      "market": "KOSPI",
-      "reason": "SKIET 흡수합병 결정 공시 이후 시장의 부정적 반응으로 인한 주가 하락세.",
-      "catalyst": "SKIET 흡수합병 결정 공시",
-      "changePct": -3.92
-    }
-  ]
+  "downPicks": []
 }
