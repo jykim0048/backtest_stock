@@ -1,6 +1,7 @@
 name: Build DART Corp Map
 
-# public/assets/dart_corp_map.json (종목코드→DART corp_code 정적 맵)을 클라우드에서 생성한다.
+# public/assets/dart_corp_map.json (종목코드→DART corp_code 정적 맵)과
+# public/assets/krx_listed_names.json (상장사 정규화명→종목코드, 촉매 상장 검증용)을 클라우드에서 생성한다.
 # 클라우드 러너에는 사내 SSL 인터셉션/약한 DH 문제가 없어 우회 없이 평범한 requests 로 동작한다
 # (로컬 PC 에선 막혀서 일회성 우회로 만들었었음 — 이제 이 워크플로로 대체).
 on:
@@ -41,7 +42,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add public/assets/dart_corp_map.json
+          git add public/assets/dart_corp_map.json public/assets/krx_listed_names.json
           git diff --staged --quiet && echo "No changes — corp map up to date" && exit 0
           git commit -m "chore: refresh dart_corp_map.json $(date -u +'%Y-%m-%d') [skip railway]"
           # Remote may have advanced (other auto-commits); push, and on rejection rebase and retry.

@@ -975,10 +975,13 @@ SYSTEM = (
     "제공 데이터에 없는 원인을 추정해 지어내지 말 것.\n"
     "- catalysts 는 입력 공시(id: d0,d1,..)·뉴스(id: n0,n1,..) 중 시장 영향이 큰 것을 '종목 단위'로 "
     "정리한다(방향별 — 상방·중립·하방 각각 최대 10건 — 서로 다른 종목을 최대한 많이 포괄):\n"
-    "  · 한국(KOSPI/KOSDAQ) 상장 종목만 포함하고 해외 종목·지수·ETF(예: 테슬라·엔비디아 등)는 제외한다.\n"
+    "  · 한국(KOSPI/KOSDAQ) 상장 종목만 포함한다. 해외 기업·해외 지수·ETF(예: 테슬라·엔비디아·"
+    "키옥시아·HP·TSMC)는 국내 증시에 영향을 줘도 stock 에 절대 넣지 말 것 — 그 영향은 영향받는 "
+    "'국내 상장 종목' 행으로만 반영한다(예: 엔비디아 실적 호조 → 삼성전자·SK하이닉스 행).\n"
     "  · 같은 종목이 공시·뉴스에 중복 등장하면 반드시 하나로 합쳐 한 줄로 요약할 것(같은 종목 중복 금지).\n"
     "  · 각 항목 필드: id(대표 출처 1개만, 공시가 있으면 공시 우선), stock(종목명), "
-    "market(한국 종목이면 반드시 KOSPI 또는 KOSDAQ 로 채울 것 — 비우지 말 것; 해외 종목은 애초에 넣지 말 것), "
+    "market(그 종목이 실제 상장된 시장 — KOSPI 또는 KOSDAQ. 한국 상장 종목이 아니거나 불확실하면 "
+    "market 을 지어내지 말고 그 항목 자체를 제외할 것), "
     "direction(그 촉매가 주가에 주는 방향 — 상방=bullish|중립=neutral|하방=bearish), summary(핵심 촉매 한 문장).\n"
     "  · 뉴스는 corp 필드가 없으니 제목·본문에서 종목명을 추출해 stock 에 넣을 것.\n"
     "  · stock 은 반드시 실제 상장 '개별 종목명'이어야 한다 — '~테마주'·'~관련주'·업종/테마 "
@@ -1128,6 +1131,37 @@ def _norm(s):
     return "".join(ch for ch in str(s or "") if ch not in " \t·ㆍ・")
 
 
+LISTED_NAMES_PATH = os.path.join(ROOT, "public", "assets", "krx_listed_names.json")
+
+
+def _norm_listed_name(s):
+    """상장사명 정규화 — tools/build_dart_corp_map.py 의 규칙과 동일해야 한다."""
+    s = _norm(s)
+    for tok in ("(주)", "주식회사"):
+        s = s.replace(tok, "")
+    return s.upper()
+
+
+def _load_listed_names():
+    """상장사 정규화명→종목코드 맵(krx_listed_names.json, build_corp_map 워크플로 산출).
+    파일 부재/파손 시 빈 dict — 촉매 상장 검증은 fail-open(기존 동작 유지)."""
+    try:
+        with open(LISTED_NAMES_PATH, encoding="utf-8") as f:
+            m = json.load(f)
+        return m if isinstance(m, dict) else {}
+    except Exception:
+        return {}
+
+
+def _listed_code(stock, names):
+    """한국 상장사명이면 종목코드, 아니면 None. 우선주 표기(…우/…우B)는 본주로 매칭."""
+    k = _norm_listed_name(stock)
+    for cand in (k, re.sub(r"우B?$", "", k)):
+        if cand and cand in names:
+            return names[cand]
+    return None
+
+
 def _sector_raw(s):
     """섹터 → LLM raw. 관련주는 등락률·수급(enrich_sector_stocks)까지, 테마는
     구성종목 등락률·편입사유(reasons)까지 — 섹터 등락의 '동인' 서술 근거."""
@@ -1260,6 +1294,9 @@ def synthesize(indices, investors, indicators, sectors_up, sectors_down,
     # 촉매: 종목 단위(중복 통합) + 방향(상방/중립/하방). id → 원문 URL 매칭(공시 dN / 뉴스 nN).
     # 방향별 상한 10건(상방·중립·하방 각각) — 한 방향이 표를 독점하지 않도록.
     catalysts, seen, dir_count = [], set(), {"bullish": 0, "neutral": 0, "bearish": 0}
+    listed_names = _load_listed_names()
+    if not listed_names:
+        _warn("krx_listed_names.json 없음/빈 값 — 뉴스 촉매 상장 검증 생략(fail-open)")
     for c in (synth.get("catalysts") or []):
         cid = str(c.get("id") or "")
         stock = (c.get("stock") or "").strip()
@@ -1285,6 +1322,13 @@ def synthesize(indices, investors, indicators, sectors_up, sectors_down,
         elif cid.startswith("n") and 0 <= idx < len(news):
             url, kind = news[idx].get("link", ""), "news"
         if not stock or not summary:
+            continue
+        # 결정적 백스톱: 뉴스발(비공시) 촉매는 실제 한국 상장사명일 때만 통과.
+        # market 은 LLM 자기 신고 값이라 해외 종목(키옥시아·HP, 2026-08-27)에 KOSPI 를
+        # 채우면 아래 시장 가드가 뚫린다 — 상장 유니버스(krx_listed_names) 대조로 차단.
+        # 공시(d*)는 공시 기록의 market 을 쓰므로 제외, 맵 부재 시 fail-open.
+        if kind != "disclosure" and listed_names and _listed_code(stock, listed_names) is None:
+            _warn(f"촉매 드롭(한국 상장사 미확인): {stock}")
             continue
         if market not in ("KOSPI", "KOSDAQ"):   # 한국 상장 종목만 — 해외 종목/지수는 제외
             continue
