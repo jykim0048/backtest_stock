@@ -1,7 +1,7 @@
 {
   "date": "2026-08-28",
   "mode": "intraday",
-  "asof": "2026-08-28 09:38",
+  "asof": "2026-08-28 10:08",
   "usMarket": {
     "indices": [
       {
@@ -98,6 +98,11 @@
         "changePct": 28.63
       },
       {
+        "symbol": "CRM",
+        "name": "Salesforce, Inc.",
+        "changePct": 22.58
+      },
+      {
         "symbol": "CRWD",
         "name": "CrowdStrike Holdings, Inc.",
         "changePct": 20.5
@@ -186,11 +191,6 @@
         "symbol": "KVYO",
         "name": "Klaviyo, Inc. Series A",
         "changePct": 10.23
-      },
-      {
-        "symbol": "TEAM",
-        "name": "Atlassian Corporation",
-        "changePct": 10.18
       }
     ],
     "losers": [
@@ -200,9 +200,19 @@
         "changePct": -10.56
       },
       {
+        "symbol": "HRL",
+        "name": "Hormel Foods Corporation",
+        "changePct": -10.25
+      },
+      {
         "symbol": "PAY",
         "name": "Paymentus Holdings, Inc.",
         "changePct": -9.69
+      },
+      {
+        "symbol": "P",
+        "name": "Everpure, Inc.",
+        "changePct": -8.87
       },
       {
         "symbol": "BURL",
@@ -223,6 +233,11 @@
         "symbol": "CELH",
         "name": "Celsius Holdings, Inc.",
         "changePct": -6.36
+      },
+      {
+        "symbol": "HMY",
+        "name": "Harmony Gold Mining Company Lim",
+        "changePct": -6.24
       },
       {
         "symbol": "VERA",
@@ -250,6 +265,11 @@
         "changePct": -5.16
       },
       {
+        "symbol": "AEO",
+        "name": "American Eagle Outfitters, Inc.",
+        "changePct": -5.12
+      },
+      {
         "symbol": "URBN",
         "name": "Urban Outfitters, Inc.",
         "changePct": -5.02
@@ -273,26 +293,6 @@
         "symbol": "MAIR",
         "name": "Madison Air Solutions Corporati",
         "changePct": -4.7
-      },
-      {
-        "symbol": "MRNA",
-        "name": "Moderna, Inc.",
-        "changePct": -4.6
-      },
-      {
-        "symbol": "CAKE",
-        "name": "The Cheesecake Factory Incorpor",
-        "changePct": -4.56
-      },
-      {
-        "symbol": "GNRC",
-        "name": "Generac Holdlings Inc.",
-        "changePct": -4.52
-      },
-      {
-        "symbol": "BZ",
-        "name": "KANZHUN LIMITED - American Depo",
-        "changePct": -4.46
       }
     ],
     "sectorStocks": {
@@ -559,68 +559,68 @@
     "krSectorStocks": {
       "기술": [
         {
-          "code": "018260",
-          "name": "삼성에스디에스",
-          "changePct": 4.06
-        },
-        {
           "code": "259960",
           "name": "크래프톤",
           "changePct": -3.73
         },
         {
+          "code": "018260",
+          "name": "삼성에스디에스",
+          "changePct": 3.1
+        },
+        {
           "code": "035420",
           "name": "NAVER",
-          "changePct": 3.46
+          "changePct": 3.0
         },
         {
           "code": "035720",
           "name": "카카오",
-          "changePct": 1.39
+          "changePct": 0.69
         },
         {
           "code": "293490",
           "name": "카카오게임즈",
-          "changePct": 1.22
+          "changePct": -0.24
         }
       ],
       "반도체": [
         {
-          "code": "240810",
-          "name": "원익IPS",
-          "changePct": -2.66
+          "code": "095340",
+          "name": "ISC",
+          "changePct": 0.99
         },
         {
           "code": "039030",
           "name": "이오테크닉스",
-          "changePct": -2.46
-        },
-        {
-          "code": "005930",
-          "name": "삼성전자",
-          "changePct": -2.26
+          "changePct": -0.98
         },
         {
           "code": "000660",
           "name": "SK하이닉스",
-          "changePct": -2.06
-        },
-        {
-          "code": "095340",
-          "name": "ISC",
-          "changePct": -1.87
+          "changePct": -0.5
         },
         {
           "code": "058470",
           "name": "리노공업",
-          "changePct": 0.3
+          "changePct": 0.45
+        },
+        {
+          "code": "005930",
+          "name": "삼성전자",
+          "changePct": -0.38
+        },
+        {
+          "code": "240810",
+          "name": "원익IPS",
+          "changePct": 0.18
         }
       ],
       "헬스케어": [
         {
           "code": "207940",
           "name": "삼성바이오로직스",
-          "changePct": -5.83
+          "changePct": -4.71
         },
         {
           "code": "326030",
@@ -630,17 +630,17 @@
         {
           "code": "000100",
           "name": "유한양행",
-          "changePct": -1.09
+          "changePct": -0.73
         },
         {
           "code": "128940",
           "name": "한미약품",
-          "changePct": -0.6
+          "changePct": 0.6
         },
         {
           "code": "185750",
           "name": "종근당",
-          "changePct": 0.0
+          "changePct": -0.3
         }
       ],
       "바이오": [
@@ -657,100 +657,105 @@
         {
           "code": "068270",
           "name": "셀트리온",
-          "changePct": -1.36
-        },
-        {
-          "code": "145020",
-          "name": "휴젤",
-          "changePct": 1.22
+          "changePct": -1.52
         },
         {
           "code": "214150",
           "name": "클래시스",
           "changePct": 0.93
+        },
+        {
+          "code": "145020",
+          "name": "휴젤",
+          "changePct": 0.61
         }
       ],
       "에너지": [
         {
           "code": "010950",
           "name": "S-Oil",
-          "changePct": 6.36
-        },
-        {
-          "code": "078930",
-          "name": "GS",
-          "changePct": 4.95
+          "changePct": 7.32
         },
         {
           "code": "096770",
           "name": "SK이노베이션",
-          "changePct": 3.04
+          "changePct": 3.84
+        },
+        {
+          "code": "078930",
+          "name": "GS",
+          "changePct": 3.0
         },
         {
           "code": "047050",
           "name": "포스코인터내셔널",
-          "changePct": -1.33
+          "changePct": -1.52
         }
       ],
       "금융": [
         {
           "code": "006800",
           "name": "미래에셋증권",
-          "changePct": -1.39
+          "changePct": -1.11
         },
         {
           "code": "016360",
           "name": "삼성증권",
-          "changePct": -1.13
-        },
-        {
-          "code": "105560",
-          "name": "KB금융",
-          "changePct": -0.95
-        },
-        {
-          "code": "055550",
-          "name": "신한지주",
-          "changePct": -0.92
-        },
-        {
-          "code": "086790",
-          "name": "하나금융지주",
-          "changePct": -0.75
+          "changePct": -0.91
         },
         {
           "code": "316140",
           "name": "우리금융지주",
-          "changePct": 0.0
+          "changePct": 0.76
+        },
+        {
+          "code": "086790",
+          "name": "하나금융지주",
+          "changePct": -0.37
+        },
+        {
+          "code": "105560",
+          "name": "KB금융",
+          "changePct": 0.36
+        },
+        {
+          "code": "055550",
+          "name": "신한지주",
+          "changePct": 0.09
         }
       ],
       "산업재": [
         {
           "code": "267270",
           "name": "HD건설기계",
-          "changePct": -3.27
+          "changePct": -3.98
         },
         {
           "code": "006360",
           "name": "GS건설",
-          "changePct": -1.83
-        },
-        {
-          "code": "034020",
-          "name": "두산에너빌리티",
-          "changePct": 0.58
+          "changePct": -1.63
         },
         {
           "code": "000150",
           "name": "두산",
-          "changePct": -0.33
+          "changePct": 0.49
+        },
+        {
+          "code": "034020",
+          "name": "두산에너빌리티",
+          "changePct": 0.12
         }
       ],
       "소재": [
         {
           "code": "011780",
           "name": "금호석유화학",
-          "changePct": -0.97
+          "changePct": -1.54
+        },
+        {
+          "code": "051910",
+          "name": "LG화학",
+          "changePct": -0.73
         },
         {
           "code": "011170",
@@ -760,19 +765,14 @@
         {
           "code": "003670",
           "name": "포스코퓨처엠",
-          "changePct": 0.22
-        },
-        {
-          "code": "051910",
-          "name": "LG화학",
-          "changePct": 0.0
+          "changePct": -0.49
         }
       ],
       "임의소비재": [
         {
           "code": "004170",
           "name": "신세계",
-          "changePct": -4.18
+          "changePct": -3.94
         },
         {
           "code": "383220",
@@ -782,73 +782,81 @@
         {
           "code": "008770",
           "name": "호텔신라",
-          "changePct": -0.71
+          "changePct": -0.59
         },
         {
           "code": "139480",
           "name": "이마트",
-          "changePct": -0.68
+          "changePct": -0.41
         }
       ]
     }
   },
-  "marketView": "미국 증시의 기술주 및 반도체 강세에도 불구하고 국내 증시는 외국인과 기관의 매도세로 인해 반도체 대형주가 약세를 보이며 전반적으로 조정 국면입니다. 반면, 정제마진 강세 전망에 힘입은 정유 섹터가 시장의 주도 테마로 부상하며 강한 상승 흐름을 보이고 있습니다. 방산 및 AI 관련주와 특정 게임 콘텐츠의 매출 성과가 확인된 종목들이 개별 모멘텀을 바탕으로 시장 대비 견조한 흐름을 유지하고 있습니다.",
+  "marketView": "미국 증시가 기술주와 반도체 섹터 중심으로 강세를 보였으나, 국내 증시는 외인과 기관의 동반 매도세로 인해 코스피 6800선 후퇴 등 약세 흐름을 보이고 있습니다. 시장 전반의 투자 심리는 위축되었으나, 정유주와 같은 특정 섹터의 수급 쏠림과 신작 흥행 모멘텀을 보유한 개별 종목 위주로 장중 변동성이 확대되고 있습니다. 방산 및 무인 이동체 관련 테마가 뉴스 흐름을 타고 있어 단기 트레이딩 관점에서 주목할 필요가 있습니다.",
   "picks": [
-    {
-      "code": "010950",
-      "name": "S-Oil",
-      "market": "KOSPI",
-      "reason": "정제마진 강세 전망과 하반기 실적 개선 기대감이 부각되며 정유 섹터 내 가장 강한 상승 탄력을 보이고 있습니다.",
-      "catalyst": "정제마진 초호황 전망 및 목표가 상향",
-      "changePct": 6.36
-    },
-    {
-      "code": "078930",
-      "name": "GS",
-      "market": "KOSPI",
-      "reason": "정유 테마 전반에 매수세가 확산되면서 S-Oil과 동반 상승 흐름을 보이고 있습니다.",
-      "catalyst": "정유 섹터 동반 상승 및 정제마진 강세",
-      "changePct": 4.95
-    },
-    {
-      "code": "096770",
-      "name": "SK이노베이션",
-      "market": "KOSPI",
-      "reason": "정유 섹터의 전반적인 강세 흐름에 편승하며 주가 상승 동력을 확보했습니다.",
-      "catalyst": "정유 테마 매수 온기 확산",
-      "changePct": 3.04
-    },
     {
       "code": "194480",
       "name": "데브시스터즈",
       "market": "KOSDAQ",
-      "reason": "신작 '쿠키런: 크럼블'의 누적 매출 200억 원 돌파 소식이 전해지며 실적 기대감이 주가에 반영되고 있습니다.",
-      "catalyst": "신작 게임 매출 200억 원 돌파",
-      "changePct": 12.82
+      "reason": "신작 '쿠키런: 크럼블'이 출시 한 달 만에 매출 200억 원을 돌파하며 강력한 실적 모멘텀이 발생했습니다.",
+      "catalyst": "신작 '쿠키런: 크럼블' 흥행에 따른 매출 급증",
+      "changePct": 9.0
     },
     {
-      "code": "272210",
-      "name": "한화시스템",
+      "code": "010950",
+      "name": "S-Oil",
       "market": "KOSPI",
-      "reason": "드론 및 국방 AI 분야에 대한 시장의 높은 관심과 민군기술 수출 모멘텀이 부각되고 있습니다.",
-      "catalyst": "방산 및 국방 AI 섹터 관심 증대",
-      "changePct": 6.13
+      "reason": "미국-이란 외교적 긴장감 고조로 인한 유가 상승과 정제마진 개선 전망이 맞물리며 수급이 집중되고 있습니다.",
+      "catalyst": "유가 상승 및 정제마진 개선 기대감",
+      "changePct": 7.32
     },
     {
       "code": "079550",
       "name": "LIG디펜스앤에어로스페이스",
       "market": "KOSPI",
-      "reason": "방산 섹터 전반의 모멘텀과 함께 수급이 유입되며 안정적인 상승세를 보이고 있습니다.",
-      "catalyst": "방산 섹터 모멘텀 지속",
+      "reason": "무인이동체 엑스포 개최 등 국방 AI 및 드론 관련 뉴스 흐름이 지속되며 방산 섹터 내 강한 모멘텀을 형성하고 있습니다.",
+      "catalyst": "무인이동체 및 국방 AI 관련 산업 성장 기대",
       "changePct": 4.93
     },
     {
-      "code": "018260",
-      "name": "삼성에스디에스",
+      "code": "229640",
+      "name": "LS에코에너지",
       "market": "KOSPI",
-      "reason": "글로벌 AI 경쟁 가속화에 따른 데이터센터 및 지능형 로봇 수요 확대 기대감이 주가에 긍정적으로 작용하고 있습니다.",
-      "catalyst": "AI 및 데이터센터 관련 수요 확대",
-      "changePct": 4.06
+      "reason": "전력 인프라 및 에너지 관련주로 시장 약세 속에서도 견조한 거래대금을 동반하며 상승 탄력을 유지하고 있습니다.",
+      "catalyst": "전력 인프라 수요 증가에 따른 수급 유입",
+      "changePct": 9.38
+    },
+    {
+      "code": "024840",
+      "name": "KBI메탈",
+      "market": "KOSDAQ",
+      "reason": "장중 거래대금이 400억 원을 상회하며 시장의 강한 관심을 받고 있으며, 기술적 반등 구간에서 모멘텀이 붙고 있습니다.",
+      "catalyst": "장중 대규모 거래대금 유입에 따른 수급 강세",
+      "changePct": 6.88
+    },
+    {
+      "code": "272210",
+      "name": "한화시스템",
+      "market": "KOSPI",
+      "reason": "방산 및 무인 이동체 관련 테마와 연동되어 장중 상승폭을 확대하고 있으며, 관련 엑스포 뉴스 모멘텀이 유효합니다.",
+      "catalyst": "방산 및 무인 이동체 테마 강세",
+      "changePct": 6.13
+    },
+    {
+      "code": "096770",
+      "name": "SK이노베이션",
+      "market": "KOSPI",
+      "reason": "정유주 동반 강세 흐름에 편승하여 정제마진 개선 기대감이 주가에 반영되고 있습니다.",
+      "catalyst": "정유 섹터 동반 강세 및 정제마진 개선",
+      "changePct": 3.84
+    },
+    {
+      "code": "281820",
+      "name": "케이씨텍",
+      "market": "KOSPI",
+      "reason": "반도체 장비 관련주로서 미국 필라델피아 반도체 지수 상승에 따른 국내 동조화 기대감이 작용하고 있습니다.",
+      "catalyst": "미국 반도체 섹터 강세에 따른 동조화",
+      "changePct": 5.05
     }
   ],
   "downPicks": []
