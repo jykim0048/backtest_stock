@@ -1,6 +1,6 @@
 {
  "date": "2026-09-02",
- "asof": "2026-09-02 07:48 KST",
+ "asof": "2026-09-02 08:38 KST",
  "sources": {
   "naver": true,
   "forexfactory": true
@@ -301,9 +301,7 @@
     "diff": -2.4,
     "verdict": "below"
    }
-  }
- ],
- "upcoming": [
+  },
   {
    "nation": "KOR",
    "name": "소비자물가지수(CPI) 전년대비",
@@ -312,12 +310,18 @@
    "period": "Aug 2026",
    "category": "PRICE",
    "releaseAtKST": "2026-09-02 08:00",
+   "actual": 3.1,
    "previous": 2.8,
    "unit": "%",
    "unitScale": "",
    "forecast": null,
    "forecastSource": null,
-   "source": "naver"
+   "source": "naver",
+   "surprise": {
+    "vs": "previous",
+    "diff": 0.3,
+    "verdict": "above"
+   }
   },
   {
    "nation": "KOR",
@@ -327,13 +331,21 @@
    "period": "Aug 2026",
    "category": "PRICE",
    "releaseAtKST": "2026-09-02 08:00",
+   "actual": 0.2,
    "previous": -0.2,
    "unit": "%",
    "unitScale": "",
    "forecast": null,
    "forecastSource": null,
-   "source": "naver"
-  },
+   "source": "naver",
+   "surprise": {
+    "vs": "previous",
+    "diff": 0.4,
+    "verdict": "above"
+   }
+  }
+ ],
+ "upcoming": [
   {
    "nation": "USA",
    "name": "MBA 구매지수",
@@ -1171,6 +1183,6 @@
     }
    ]
   },
-  "asof": "2026-09-02 07:48 KST"
+  "asof": "2026-09-02 08:38 KST"
  }
 }
