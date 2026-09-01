@@ -1,6 +1,6 @@
 {
- "date": "2026-09-01",
- "asof": "2026-09-01 15:40 KST",
+ "date": "2026-09-02",
+ "asof": "2026-09-02 07:48 KST",
  "sources": {
   "naver": true,
   "forexfactory": true
@@ -131,9 +131,7 @@
     "diff": 5.9,
     "verdict": "above"
    }
-  }
- ],
- "upcoming": [
+  },
   {
    "nation": "USA",
    "name": "레드북 소매판매지수 전년대비",
@@ -142,12 +140,18 @@
    "period": "29 Aug2026",
    "category": "BSI_CSI",
    "releaseAtKST": "2026-09-01 21:55",
+   "actual": 9.6,
    "previous": 9.1,
    "unit": "%",
    "unitScale": "",
    "forecast": null,
    "forecastSource": null,
-   "source": "naver"
+   "source": "naver",
+   "surprise": {
+    "vs": "previous",
+    "diff": 0.5,
+    "verdict": "above"
+   }
   },
   {
    "nation": "USA",
@@ -157,13 +161,19 @@
    "period": "Aug 2026",
    "category": "EMPLOYMENT",
    "releaseAtKST": "2026-09-01 23:00",
+   "actual": 54.6,
    "previous": 55.6,
    "unit": "",
    "unitScale": "",
    "forecast": 55.2,
    "forecastSource": "forexfactory",
    "source": "naver",
-   "forecastText": "55.2"
+   "forecastText": "55.2",
+   "surprise": {
+    "vs": "forecast",
+    "diff": -0.6,
+    "verdict": "below"
+   }
   },
   {
    "nation": "USA",
@@ -173,12 +183,18 @@
    "period": "Aug 2026",
    "category": "EMPLOYMENT",
    "releaseAtKST": "2026-09-01 23:00",
+   "actual": 71.1,
    "previous": 71.1,
    "unit": "",
    "unitScale": "",
    "forecast": null,
    "forecastSource": null,
-   "source": "naver"
+   "source": "naver",
+   "surprise": {
+    "vs": "previous",
+    "diff": 0.0,
+    "verdict": "inline"
+   }
   },
   {
    "nation": "USA",
@@ -188,12 +204,18 @@
    "period": "Jul 2026",
    "category": "EMPLOYMENT",
    "releaseAtKST": "2026-09-01 23:00",
+   "actual": -0.5,
    "previous": -0.1,
    "unit": "%",
    "unitScale": "",
    "forecast": null,
    "forecastSource": null,
-   "source": "naver"
+   "source": "naver",
+   "surprise": {
+    "vs": "previous",
+    "diff": -0.4,
+    "verdict": "below"
+   }
   },
   {
    "nation": "USA",
@@ -203,13 +225,19 @@
    "period": "Jul 2026",
    "category": "EMPLOYMENT",
    "releaseAtKST": "2026-09-01 23:00",
+   "actual": 7.271,
    "previous": 7.359,
    "unit": "pers",
    "unitScale": "M",
    "forecast": 7.33,
    "forecastSource": "forexfactory",
    "source": "naver",
-   "forecastText": "7.33"
+   "forecastText": "7.33",
+   "surprise": {
+    "vs": "forecast",
+    "diff": -0.059,
+    "verdict": "below"
+   }
   },
   {
    "nation": "USA",
@@ -219,12 +247,18 @@
    "period": "Aug 2026",
    "category": "EMPLOYMENT",
    "releaseAtKST": "2026-09-01 23:00",
+   "actual": 51.2,
    "previous": 52.8,
    "unit": "",
    "unitScale": "",
    "forecast": null,
    "forecastSource": null,
-   "source": "naver"
+   "source": "naver",
+   "surprise": {
+    "vs": "previous",
+    "diff": -1.6,
+    "verdict": "below"
+   }
   },
   {
    "nation": "USA",
@@ -234,12 +268,18 @@
    "period": "Aug 2026",
    "category": "BSI_CSI",
    "releaseAtKST": "2026-09-01 23:30",
+   "actual": 6.6,
    "previous": 9.5,
    "unit": "",
    "unitScale": "",
    "forecast": null,
    "forecastSource": null,
-   "source": "naver"
+   "source": "naver",
+   "surprise": {
+    "vs": "previous",
+    "diff": -2.9,
+    "verdict": "below"
+   }
   },
   {
    "nation": "USA",
@@ -249,13 +289,21 @@
    "period": "Aug 2026",
    "category": "EMPLOYMENT",
    "releaseAtKST": "2026-09-01 23:30",
+   "actual": 4.2,
    "previous": 6.6,
    "unit": "",
    "unitScale": "",
    "forecast": null,
    "forecastSource": null,
-   "source": "naver"
-  },
+   "source": "naver",
+   "surprise": {
+    "vs": "previous",
+    "diff": -2.4,
+    "verdict": "below"
+   }
+  }
+ ],
+ "upcoming": [
   {
    "nation": "KOR",
    "name": "소비자물가지수(CPI) 전년대비",
@@ -372,10 +420,10 @@
    "previous": 44,
    "unit": "pers",
    "unitScale": "K",
-   "forecast": 48.0,
+   "forecast": 47.0,
    "forecastSource": "forexfactory",
    "source": "naver",
-   "forecastText": "48"
+   "forecastText": "47"
   },
   {
    "nation": "USA",
@@ -1000,6 +1048,36 @@
    "forecast": null,
    "forecastSource": null,
    "source": "naver"
+  },
+  {
+   "nation": "USA",
+   "name": "소비자신용",
+   "reutersCode": "USCRED=ECIX",
+   "importance": 2,
+   "period": "Jul 2026",
+   "category": "BSI_CSI",
+   "releaseAtKST": "2026-09-09 04:00",
+   "previous": 14.17,
+   "unit": "USD",
+   "unitScale": "B",
+   "forecast": null,
+   "forecastSource": null,
+   "source": "naver"
+  },
+  {
+   "nation": "KOR",
+   "name": "실업률(계절조정계열)",
+   "reutersCode": "KRUNR=ECIX",
+   "importance": 4,
+   "period": "Aug 2026",
+   "category": "EMPLOYMENT",
+   "releaseAtKST": "2026-09-09 08:00",
+   "previous": 2.8,
+   "unit": "%",
+   "unitScale": "",
+   "forecast": null,
+   "forecastSource": null,
+   "source": "naver"
   }
  ],
  "trade": {
@@ -1093,6 +1171,6 @@
     }
    ]
   },
-  "asof": "2026-09-01 15:08 KST"
+  "asof": "2026-09-02 07:48 KST"
  }
 }
