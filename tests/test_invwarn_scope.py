@@ -59,7 +59,33 @@ def main():
     active = [r for r in fi._scope_filter(rows, "warning") if not r.get("release")]
     assert [r["name"] for r in active] == ["NHN"]
 
-    print("ALL PASS (invwarn scope filter)")
+    # ── 시총 하한 게이트(③b, 기본 1조) ──────────────────────────────────────
+    caps = {"181710.KS": 23000.0, "001210.KS": 800.0, "153890.KQ": None}
+    fetch = lambda t: caps.get(t)
+    gate_rows = [
+        {"name": "NHN", "code": "181710", "ticker": "181710.KS", "index": ""},       # 비편입·대형
+        {"name": "금호전기", "code": "001210", "ticker": "001210.KS", "index": ""},   # 비편입·소형
+        {"name": "져스텍", "code": "153890", "ticker": "153890.KQ", "index": ""},     # 조회 실패
+        {"name": "성호전자", "code": "043260", "ticker": "043260.KQ",
+         "index": "Q150 X300"},                                                       # 지수 편입·소형
+    ]
+    assert fi.MIN_MCAP_EOK == 10000.0   # 기본값(env 미설정 실행 기준)
+    kept = fi._mcap_gate([dict(r) for r in gate_rows], "warning", fetch=fetch)
+    names = [r["name"] for r in kept]
+    # 대형 통과(+mcap 스탬프)·소형 제외·조회 실패 유지(fail-open)·지수 편입 무조건 유지
+    assert names == ["NHN", "져스텍", "성호전자"], names
+    assert kept[0]["mcap_eok"] == 23000 and "mcap_eok" not in kept[2]
+
+    # 투자주의는 게이트 미적용(원본 그대로), 노브 0 이하 = 비활성
+    assert fi._mcap_gate(gate_rows, "caution", fetch=fetch) == gate_rows
+    orig = fi.MIN_MCAP_EOK
+    try:
+        fi.MIN_MCAP_EOK = 0
+        assert fi._mcap_gate(gate_rows, "warning", fetch=fetch) == gate_rows
+    finally:
+        fi.MIN_MCAP_EOK = orig
+
+    print("ALL PASS (invwarn scope filter + mcap gate)")
 
 
 if __name__ == "__main__":

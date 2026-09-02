@@ -6,8 +6,9 @@
       비우면 1472 오류, 과거 범위는 '지정→해제 이력'.
 필터:
   - 투자주의: 지수 뱃지(K200/Q150/X300/V100) 종목만 + 1일 효력 → 최근 지정일(=당일)만.
-  - 투자경고/위험: 코넥스 제외 전 종목(지수 필터 없음 — NHN 누락 교훈, 2026-09-02)
-    중 해제일 공란/"-"(현재 지정 중) 종목만.
+  - 투자경고/위험: 코넥스 제외(지수 필터 없음 — NHN 누락 교훈, 2026-09-02)
+    중 해제일 공란/"-"(현재 지정 중) 종목만. 지수 비편입 종목은 추가로
+    시총 ≥ INVWARN_MIN_MCAP_EOK(억원, 기본 1조) — 소형 잡주 컷, 조회 실패는 유지.
 중복 제거: 같은 종목코드가 여러 행이면 지정일(date) 최신 항목 하나만 유지.
 
 JS 분석 결과 (fnSearch() forward 매핑):
@@ -228,6 +229,52 @@ def _scope_filter(rows: list, category: str) -> list:
     if category == "caution":
         return [r for r in rows if r.get("index")]
     return [r for r in rows if r.get("market") != "코넥스"]
+
+
+# 경고·위험 시총 하한(억원) — 지수 비편입 종목에만 적용. 0 이하면 비활성.
+MIN_MCAP_EOK = float(os.environ.get("INVWARN_MIN_MCAP_EOK", "10000"))
+
+
+def _mcap_eok(ticker: str):
+    """yfinance fast_info 시가총액(원) → 억원. 실패/결측 시 None."""
+    if not ticker:
+        return None
+    try:
+        import yfinance as yf
+        cap = yf.Ticker(ticker).fast_info["market_cap"]
+        if cap:
+            return float(cap) / 1e8
+    except Exception as e:
+        print(f"  [mcap] {ticker} 조회 실패: {e}", file=sys.stderr)
+    return None
+
+
+def _mcap_gate(rows: list, category: str, fetch=None) -> list:
+    """경고·위험 한정 시총 하한(기본 1조, 사용자 결정 2026-09-02).
+
+    지수 편입(K200/Q150/X300/V100)은 시총 무관 유지, 비편입은 시총 ≥ MIN_MCAP_EOK 만.
+    조회 실패(None)는 유지 — 소스 전체 결측 시 리스트가 통째로 사라지는 것 방지(fail-open).
+    통과한 비편입 종목엔 mcap_eok(억원) 스탬프.
+    """
+    if category == "caution" or MIN_MCAP_EOK <= 0:
+        return rows
+    fetch = fetch or _mcap_eok
+    kept = []
+    for r in rows:
+        if r.get("index"):
+            kept.append(r)
+            continue
+        cap = fetch(r.get("ticker", ""))
+        if cap is None:
+            print(f"  [mcap] {r.get('name')} 시총 조회 실패 — 유지(fail-open)", flush=True)
+            kept.append(r)
+        elif cap >= MIN_MCAP_EOK:
+            r["mcap_eok"] = int(round(cap))
+            kept.append(r)
+        else:
+            print(f"  [mcap] {r.get('name')}({r.get('code')}) 시총 {cap:,.0f}억 "
+                  f"< {MIN_MCAP_EOK:,.0f}억 — 제외", flush=True)
+    return kept
 
 
 # -- 중복 제거 -----------------------------------------------------------------
@@ -574,6 +621,9 @@ def main():
                 # ③ 경고/위험: 해제일 공란(현재 지정 중)만 남김
                 rows = [r for r in rows if not r.get("release")]
                 rows = _dedup(rows)
+                # ③b 시총 하한 — 지수 비편입은 시총 ≥ INVWARN_MIN_MCAP_EOK(기본 1조)만.
+                #    ③ 뒤에 둬서 yfinance 호출을 현재 지정 중 종목으로 최소화.
+                rows = _mcap_gate(rows, category)
 
             print(f"  -> [{category}] 전체 {total} -> 지수뱃지 {after_idx} "
                   f"-> 최종 {len(rows)}건", flush=True)
