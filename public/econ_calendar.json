@@ -1,6 +1,6 @@
 {
  "date": "2026-09-04",
- "asof": "2026-09-04 07:45 KST",
+ "asof": "2026-09-04 08:38 KST",
  "sources": {
   "naver": true,
   "forexfactory": true
@@ -938,9 +938,7 @@
     "diff": 15.0,
     "verdict": "above"
    }
-  }
- ],
- "upcoming": [
+  },
   {
    "nation": "KOR",
    "name": "경상수지",
@@ -949,13 +947,21 @@
    "period": "Jul 2026",
    "category": "BALANCE",
    "releaseAtKST": "2026-09-04 08:00",
+   "actual": 42.08,
    "previous": 49.73,
    "unit": "USD",
    "unitScale": "B",
    "forecast": null,
    "forecastSource": null,
-   "source": "naver"
-  },
+   "source": "naver",
+   "surprise": {
+    "vs": "previous",
+    "diff": -7.65,
+    "verdict": "below"
+   }
+  }
+ ],
+ "upcoming": [
   {
    "nation": "USA",
    "name": "실업률",
