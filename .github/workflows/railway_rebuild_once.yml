@@ -1,0 +1,42 @@
+name: Railway Rebuild Once
+
+# 일회성(2026-09-04 장전): llm 체인 재정렬·관용 파싱(`536d0cc`)이 [skip railway] 로
+# 푸시돼 Railway 컨테이너(온디맨드 딥리서치)가 구 체인인 상태 — 장전에 재배포로 반영.
+# 실행 시 이 워크플로 파일 자신을 삭제하는 커밋([skip railway] 없음)을 푸시해
+# Railway rebuild 를 트리거하고 스스로 정리된다.
+#
+# cron 04:30 KST(19:30Z) 선택 이유: US 야간 회차는 GH cron 백스톱이 있어 재배포
+# 무해 구간이고, GH schedule 지연(1~3h)이 있어도 07:50 투자경고·08:37 장전 회차
+# 디스패치 전에 끝날 여유를 둠. 미발화 시 workflow_dispatch 로 수동 실행.
+on:
+  schedule:
+    - cron: '30 19 3 9 *'   # 2026-09-03 19:30 UTC = 09-04 04:30 KST (연 1회 매칭이나 실행 후 자가 삭제)
+  workflow_dispatch:
+
+jobs:
+  rebuild:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Self-removing rebuild commit (no skip -> Railway redeploy)
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/railway_rebuild_once.yml
+          git commit -m "chore: rebuild — llm 체인 재정렬(536d0cc) Railway 반영 + 일회성 워크플로 자가 제거"
+          for i in $(seq 1 5); do
+            if git push origin HEAD:main; then echo "pushed (attempt $i)"; exit 0; fi
+            echo "push rejected; rebasing..."
+            git fetch origin main
+            git rebase FETCH_HEAD || { git rebase --abort; echo "::error::rebase conflict"; exit 1; }
+            sleep $((RANDOM % 4 + 2))
+          done
+          echo "::error::push failed after 5 attempts" && exit 1
