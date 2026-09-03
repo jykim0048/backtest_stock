@@ -11,8 +11,11 @@ priority first); a link whose API key is missing is skipped silently:
 
     LLM_CHAIN=gemini:gemini-2.5-flash,gemini:gemini-2.0-flash,anthropic:claude-sonnet-4-6
 
-Default chain (cost first — all Gemini, separate per-model quotas):
-    gemini-3.5-flash -> gemini-3.1-flash-lite -> gemini-3-flash-preview
+Default chain (all Gemini, separate per-model quotas). 무료 티어 실측(2026-09-03,
+프로브)상 3.1-flash-lite 만 일일 한도가 크고(500/일) 나머지는 전부 20/일이라,
+용량 큰 lite 를 1순위로 두고 20/일 모델들은 '비상 폴백'으로 보존한다(구 1순위
+3.5-flash 는 야간 세션에서 20회 소진 후 상시 429 → 재시도 낭비 + 폴백 쿼터 잠식):
+    gemini-3.1-flash-lite -> gemini-3.5-flash -> gemini-3-flash-preview
     -> gemini-2.5-flash -> gemini-2.5-flash-lite
 
 Keys: GEMINI_API_KEY (or GOOGLE_API_KEY) for gemini, ANTHROPIC_API_KEY for
@@ -26,8 +29,8 @@ import json
 import time
 import random
 
-DEFAULT_CHAIN = ("gemini:gemini-3.5-flash,"
-                 "gemini:gemini-3.1-flash-lite,"
+DEFAULT_CHAIN = ("gemini:gemini-3.1-flash-lite,"
+                 "gemini:gemini-3.5-flash,"
                  "gemini:gemini-3-flash-preview,"
                  "gemini:gemini-2.5-flash,"
                  "gemini:gemini-2.5-flash-lite")
@@ -63,6 +66,24 @@ class _SwitchLink(Exception):
 
 def _warn(msg):
     print(f"[llm] {msg}", file=sys.stderr)
+
+
+def _parse_json(text):
+    """LLM 응답 JSON 파싱 — 엄격 우선, 실패 시 관용(lenient) 파싱.
+
+    모델이 유효한 JSON 뒤에 여분 텍스트를 덧붙이는 사례("Extra data", 2026-09-03
+    장중 회차·딥리서치 실측)에서 유효분까지 통째로 버려져 링크가 실패하던 것 →
+    raw_decode 로 첫 번째 완전한 JSON 값만 취하고 꼬리는 무시한다.
+
+    반환 (data, ignored_chars). 정상 응답이면 ignored_chars=0.
+    앞부분부터 깨진 응답은 JSONDecodeError 전파(기존대로 링크 전환).
+    """
+    try:
+        return json.loads(text), 0
+    except json.JSONDecodeError:
+        stripped = text.lstrip()
+        data, end = json.JSONDecoder().raw_decode(stripped)
+        return data, len(stripped) - end
 
 
 def _backoff(attempt):
@@ -237,10 +258,12 @@ def generate_json(system, user, *, max_tokens=4096, schema=None, return_model=Fa
             seen.append(f"{provider}:{model} failed ({e})")
             continue
         try:
-            data = json.loads(text)
+            data, junk = _parse_json(text)
         except json.JSONDecodeError as e:
             _warn(f"{provider}:{model} returned unparseable JSON ({e}); switching")
             seen.append(f"{provider}:{model} bad JSON ({e})")
             continue
+        if junk:
+            _warn(f"{provider}:{model} JSON 뒤 여분 텍스트 {junk}자 무시(관용 파싱)")
         return (data, model) if return_model else data
     raise LLMError("all LLM links failed: " + " | ".join(seen))
