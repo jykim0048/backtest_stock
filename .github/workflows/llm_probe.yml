@@ -1,0 +1,26 @@
+name: LLM Quota Probe
+
+# 일회성 진단(2026-09-03): gemini-3.5-flash 상시 429 의 쿼터 메트릭(RPM/RPD) 판별.
+# tools/llm_probe.py 참조. 확인 후 이 워크플로와 스크립트를 함께 제거한다.
+on:
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install google-genai
+
+      - name: Probe Gemini models (429 원문 출력)
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: python tools/llm_probe.py
