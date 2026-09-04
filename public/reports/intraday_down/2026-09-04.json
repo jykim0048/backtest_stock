@@ -4,13 +4,672 @@
     "name": "큐리언트",
     "market": "KOSDAQ",
     "selectedDate": "2026-09-04",
-    "basePrice": 21950,
-    "entry": 22100,
-    "target": 27000,
-    "stop": 18200,
+    "basePrice": 21200,
+    "entry": 21300,
+    "target": 26200,
+    "stop": 17400,
     "stars": "⭐⭐⭐⭐⭐",
-    "catalyst": "1,016억 원 규모 대규모 유상증자 결정",
-    "scenario": "<b>[하락 관찰 종목]</b><br>하방 재료가 관찰된 참고용 종목입니다 — 자동매매(매수) 대상이 아닙니다. 전일 종가 21,950원. 반등 전환 시 관찰 레벨: 22,100원.",
-    "reason": "1,016억 원 규모의 대규모 유상증자 결정 공시로 인해 주주가치 희석 우려가 크게 작용하고 있습니다."
+    "catalyst": "1,016억 원 규모의 대규모 유상증자 결정이 주가에 가장 큰 하방 압력으로 작용하고 있음. 신약 개발 자금 확보라는 명분에도 불구하고, 주주 가치 희석 우려와 공매도 과열 종목 지정이 겹치며 투자 심리가 크게 위축된 상태임.",
+    "scenario": "<b>[하락 관찰 종목]</b><br>하방 재료가 관찰된 참고용 종목입니다 — 자동매매(매수) 대상이 아닙니다. 전일 종가 21,200원. 반등 전환 시 관찰 레벨: 21,300원.",
+    "reason": "1,016억 원 규모의 대규모 유상증자 결정 공시로 인해 주주가치 희석 우려가 크게 작용하고 있습니다.",
+    "analysis": {
+      "catalyst": "1,016억 원 규모의 대규모 유상증자 결정이 주가에 가장 큰 하방 압력으로 작용하고 있음. 신약 개발 자금 확보라는 명분에도 불구하고, 주주 가치 희석 우려와 공매도 과열 종목 지정이 겹치며 투자 심리가 크게 위축된 상태임.",
+      "direction": "bearish",
+      "flowComment": "공매도 비중이 9월 3일 기준 거래대금의 47.49%에 달할 정도로 매우 높으며, 대차잔고 또한 9월 2일 86만 주가 급증하는 등 하방 압력이 거셈. 외국인과 기관의 동반 매도세가 이어지고 있어 수급 개선이 시급한 상황임.",
+      "peers": {
+        "summary": "해외 피어 그룹인 Exelixis는 대규모 자사주 매입을 발표하며 주주 가치 제고에 나선 반면, 큐리언트는 유상증자를 결정하며 대조적인 행보를 보임.",
+        "reddit": [
+          {
+            "title": "Exelixis ($EXEL) Announces $750M Share Repurchase Plan",
+            "url": "https://www.reddit.com/r/SECWatch/comments/1ook4ix/exelixis_exel_announces_750m_share_repurchase_plan",
+            "subreddit": "r/SECWatch",
+            "sentiment": "긍정",
+            "summary": "대규모 자사주 매입 발표로 주주 가치 제고 신호."
+          },
+          {
+            "title": "Incyte Corporation (INCY)",
+            "url": "https://www.reddit.com/r/biotech_stocks/comments/1nh2c9e/incyte_corporation_incy",
+            "subreddit": "r/biotech_stocks",
+            "sentiment": "중립",
+            "summary": "견조한 펀더멘털을 유지하고 있으나 기대치에 대한 평가가 엇갈림."
+          }
+        ],
+        "items": [
+          {
+            "name": "Exelixis, Inc.",
+            "ticker": "EXEL",
+            "price": 59.13,
+            "changePct": 1.03,
+            "note": "항암제 파이프라인을 보유하고 기술 이전을 통해 수익을 창출하는 신약 개발 전문 기업"
+          },
+          {
+            "name": "Incyte Corporation",
+            "ticker": "INCY",
+            "price": 128.0,
+            "changePct": -0.64,
+            "note": "면역 질환 및 항암제 분야의 신약 개발 및 상업화에 주력하는 중견 바이오 기업"
+          },
+          {
+            "name": "Arcus Biosciences, Inc.",
+            "ticker": "RCUS",
+            "price": 30.13,
+            "changePct": 0.94,
+            "note": "면역 항암제 분야의 신약 후보 물질을 발굴하고 임상을 진행하는 연구 중심 바이오텍"
+          }
+        ]
+      },
+      "news": {
+        "summary": "1,016억 원 규모의 유상증자 결정이 핵심 이슈이며, 이로 인해 공매도 과열 종목으로 지정되는 등 시장의 우려가 큼. 신약 파이프라인의 기술적 성과에도 불구하고 자금 조달 방식에 대한 시장의 부정적 반응이 주가를 짓누르고 있음.",
+        "items": [
+          {
+            "title": "큐리언트, 1,016억원 규모 유상증자…이중 페이로드 ADC 개발에 투입",
+            "source": "프레스나인",
+            "date": "2026-09-04",
+            "sentiment": "부정",
+            "url": "http://www.press9.kr/news/articleView.html?idxno=82215",
+            "insight": "대규모 자금 조달은 신약 개발 동력이 될 수 있으나 단기적 주주 가치 희석 우려가 큼."
+          },
+          {
+            "title": "[공시] 큐리언트 등 공매도 과열종목 지정",
+            "source": "뉴스TNT",
+            "date": "2026-09-03",
+            "sentiment": "부정",
+            "url": "https://www.newstnt.com/news/articleView.html?idxno=716639",
+            "insight": "공매도 과열 종목 지정은 단기적 수급 악화의 신호로 해석됨."
+          },
+          {
+            "title": "K항암신약 임상 성과 '세계의 눈' 쏠린다",
+            "source": "머니투데이",
+            "date": "2026-09-03",
+            "sentiment": "긍정",
+            "url": "https://www.mt.co.kr/thebio/2026/09/03/2026090220073524477",
+            "insight": "기술적 파이프라인의 글로벌 학회 참석 등 R&D 성과는 지속적으로 주목받고 있음."
+          }
+        ]
+      },
+      "community": {
+        "summary": "유상증자 결정 이후 개인 투자자들의 실망감과 공매도 세력에 대한 분노가 극에 달함. 주가 하락에 따른 손절 고민과 공매도 제도 개선을 요구하는 목소리가 높음.",
+        "sentimentLabel": "부정",
+        "naver": [
+          {
+            "title": "유증에 따른 자금확보....",
+            "url": "https://finance.naver.com/item/board_read.naver?code=115180&nid=428947435&page=1",
+            "sentiment": "부정",
+            "summary": "유상증자에 대한 실망감과 향후 주가에 대한 우려 표출."
+          },
+          {
+            "title": "바이오주 공매도 이거 개선안하면 누가 투자를 하겠나?",
+            "url": "https://finance.naver.com/item/board_read.naver?code=115180&nid=428935042&page=1",
+            "sentiment": "부정",
+            "summary": "공매도 제도에 대한 강한 불만과 개선 요구."
+          },
+          {
+            "title": "공매도 미쳤네",
+            "url": "https://finance.naver.com/item/board_read.naver?code=115180&nid=428905550&page=2",
+            "sentiment": "부정",
+            "summary": "높은 공매도 비중에 대한 투자자들의 당혹감."
+          }
+        ]
+      },
+      "dart": {
+        "summary": "2026년 9월 4일 1,016억 원 규모의 유상증자를 결정함. 최근 임상시험 계획 승인 등 R&D 활동은 지속되고 있으나, 재무적 부담과 자금 조달 이슈가 부각됨.",
+        "highlights": [
+          {
+            "label": "유상증자 결정",
+            "value": "1,016억 원",
+            "note": "신약 연구개발 자금 확보 목적의 주주배정 후 실권주 일반공모."
+          },
+          {
+            "label": "임상시험 계획 승인",
+            "value": "Q702",
+            "note": "만성 이식편대숙주질환 환자 대상 스페인 임상 1b상 승인."
+          },
+          {
+            "label": "반기보고서",
+            "value": "2026.08.14",
+            "note": "2026년 6월 기준 재무 현황 공시."
+          },
+          {
+            "label": "주식등의대량보유상황보고",
+            "value": "동구바이오제약 등",
+            "note": "주요 주주들의 지분 변동 사항 지속 보고."
+          }
+        ],
+        "recentFilings": [
+          {
+            "date": "2026-09-04",
+            "title": "주요사항보고서(유상증자결정)",
+            "filer": "큐리언트",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260904000072"
+          },
+          {
+            "date": "2026-08-18",
+            "title": "[기재정정]투자판단관련주요경영사항(임상시험계획승인신청등결정)              (만성 이식편대숙주질환 환자 대상 Q702 단독치료요법의 스페인 임상 제1b상 임상시험계획 승인)",
+            "filer": "큐리언트",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260818900385"
+          },
+          {
+            "date": "2026-08-14",
+            "title": "반기보고서 (2026.06)",
+            "filer": "큐리언트",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003099"
+          },
+          {
+            "date": "2026-08-05",
+            "title": "주식등의대량보유상황보고서(일반)",
+            "filer": "유암코키스톤구조혁신기업재무안정사모투자",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260805000316"
+          },
+          {
+            "date": "2026-08-04",
+            "title": "주식등의대량보유상황보고서(일반)",
+            "filer": "동구바이오제약",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260804000405"
+          }
+        ]
+      },
+      "research": {
+        "summary": "최근 60일 발간 리포트 없음.",
+        "items": []
+      },
+      "generatedBy": "gemini-3.1-flash-lite",
+      "flow": {
+        "rank": [],
+        "shorts": [
+          {
+            "date": "20260903",
+            "qty": 135093.0,
+            "volRlim": 47.53,
+            "pbmn": 26.9,
+            "pbmnRlim": 47.49
+          },
+          {
+            "date": "20260902",
+            "qty": 69528.0,
+            "volRlim": 35.37,
+            "pbmn": 14.7,
+            "pbmnRlim": 35.35
+          },
+          {
+            "date": "20260901",
+            "qty": 17035.0,
+            "volRlim": 9.44,
+            "pbmn": 3.6,
+            "pbmnRlim": 9.46
+          },
+          {
+            "date": "20260831",
+            "qty": 39910.0,
+            "volRlim": 18.2,
+            "pbmn": 7.8,
+            "pbmnRlim": 18.29
+          },
+          {
+            "date": "20260828",
+            "qty": 51058.0,
+            "volRlim": 13.12,
+            "pbmn": 10.3,
+            "pbmnRlim": 13.12
+          },
+          {
+            "date": "20260827",
+            "qty": 41105.0,
+            "volRlim": 6.33,
+            "pbmn": 9.5,
+            "pbmnRlim": 6.56
+          },
+          {
+            "date": "20260826",
+            "qty": 44464.0,
+            "volRlim": 20.08,
+            "pbmn": 11.5,
+            "pbmnRlim": 19.97
+          },
+          {
+            "date": "20260825",
+            "qty": 62975.0,
+            "volRlim": 35.79,
+            "pbmn": 15.4,
+            "pbmnRlim": 35.64
+          },
+          {
+            "date": "20260824",
+            "qty": 52334.0,
+            "volRlim": 13.76,
+            "pbmn": 14.1,
+            "pbmnRlim": 13.74
+          },
+          {
+            "date": "20260821",
+            "qty": 30472.0,
+            "volRlim": 18.89,
+            "pbmn": 7.5,
+            "pbmnRlim": 18.92
+          },
+          {
+            "date": "20260820",
+            "qty": 30017.0,
+            "volRlim": 24.91,
+            "pbmn": 7.8,
+            "pbmnRlim": 24.79
+          },
+          {
+            "date": "20260819",
+            "qty": 33788.0,
+            "volRlim": 16.84,
+            "pbmn": 8.8,
+            "pbmnRlim": 16.86
+          },
+          {
+            "date": "20260818",
+            "qty": 25936.0,
+            "volRlim": 17.89,
+            "pbmn": 6.5,
+            "pbmnRlim": 17.91
+          },
+          {
+            "date": "20260814",
+            "qty": 28425.0,
+            "volRlim": 16.7,
+            "pbmn": 7.3,
+            "pbmnRlim": 16.64
+          },
+          {
+            "date": "20260813",
+            "qty": 17548.0,
+            "volRlim": 9.29,
+            "pbmn": 4.4,
+            "pbmnRlim": 9.27
+          },
+          {
+            "date": "20260812",
+            "qty": 29612.0,
+            "volRlim": 12.86,
+            "pbmn": 7.2,
+            "pbmnRlim": 12.89
+          },
+          {
+            "date": "20260811",
+            "qty": 78.0,
+            "volRlim": 0.03,
+            "pbmn": 0.0,
+            "pbmnRlim": 0.03
+          },
+          {
+            "date": "20260810",
+            "qty": 58179.0,
+            "volRlim": 12.25,
+            "pbmn": 15.8,
+            "pbmnRlim": 12.31
+          },
+          {
+            "date": "20260807",
+            "qty": 27868.0,
+            "volRlim": 19.29,
+            "pbmn": 6.3,
+            "pbmnRlim": 19.25
+          },
+          {
+            "date": "20260806",
+            "qty": 15924.0,
+            "volRlim": 9.86,
+            "pbmn": 3.6,
+            "pbmnRlim": 9.83
+          }
+        ],
+        "loans": [
+          {
+            "date": "20260903",
+            "newQty": 21252.0,
+            "rdmpQty": 7973.0,
+            "rmndChg": 13279.0,
+            "rmndQty": 3692789.0,
+            "rmndAmt": 725.6
+          },
+          {
+            "date": "20260902",
+            "newQty": 863042.0,
+            "rdmpQty": 159.0,
+            "rmndChg": 862883.0,
+            "rmndQty": 3679510.0,
+            "rmndAmt": 754.3
+          },
+          {
+            "date": "20260901",
+            "newQty": 12498.0,
+            "rdmpQty": 3708.0,
+            "rmndChg": 8790.0,
+            "rmndQty": 2816627.0,
+            "rmndAmt": 601.3
+          },
+          {
+            "date": "20260831",
+            "newQty": 29731.0,
+            "rdmpQty": 20917.0,
+            "rmndChg": 8814.0,
+            "rmndQty": 2807837.0,
+            "rmndAmt": 577.0
+          },
+          {
+            "date": "20260828",
+            "newQty": 779383.0,
+            "rdmpQty": 31223.0,
+            "rmndChg": 748160.0,
+            "rmndQty": 2799023.0,
+            "rmndAmt": 568.2
+          },
+          {
+            "date": "20260827",
+            "newQty": 41197.0,
+            "rdmpQty": 47.0,
+            "rmndChg": 41150.0,
+            "rmndQty": 2050863.0,
+            "rmndAmt": 457.3
+          },
+          {
+            "date": "20260826",
+            "newQty": 9009.0,
+            "rdmpQty": 609.0,
+            "rmndChg": 8400.0,
+            "rmndQty": 2009713.0,
+            "rmndAmt": 515.5
+          },
+          {
+            "date": "20260825",
+            "newQty": 51938.0,
+            "rdmpQty": 8.0,
+            "rmndChg": 51930.0,
+            "rmndQty": 2001313.0,
+            "rmndAmt": 501.3
+          },
+          {
+            "date": "20260824",
+            "newQty": 396584.0,
+            "rdmpQty": 335500.0,
+            "rmndChg": 61084.0,
+            "rmndQty": 1949383.0,
+            "rmndAmt": 513.7
+          },
+          {
+            "date": "20260821",
+            "newQty": 6660.0,
+            "rdmpQty": 7851.0,
+            "rmndChg": -1191.0,
+            "rmndQty": 1888299.0,
+            "rmndAmt": 468.3
+          },
+          {
+            "date": "20260820",
+            "newQty": 28846.0,
+            "rdmpQty": 4676.0,
+            "rmndChg": 24170.0,
+            "rmndQty": 1889490.0,
+            "rmndAmt": 492.2
+          },
+          {
+            "date": "20260819",
+            "newQty": 6520.0,
+            "rdmpQty": 448.0,
+            "rmndChg": 6072.0,
+            "rmndQty": 1865320.0,
+            "rmndAmt": 471.0
+          },
+          {
+            "date": "20260818",
+            "newQty": 170610.0,
+            "rdmpQty": 110008.0,
+            "rmndChg": 60602.0,
+            "rmndQty": 1859248.0,
+            "rmndAmt": 458.3
+          },
+          {
+            "date": "20260814",
+            "newQty": 2400.0,
+            "rdmpQty": 0.0,
+            "rmndChg": 2400.0,
+            "rmndQty": 1798646.0,
+            "rmndAmt": 460.4
+          },
+          {
+            "date": "20260813",
+            "newQty": 0.0,
+            "rdmpQty": 0.0,
+            "rmndChg": 0.0,
+            "rmndQty": 1796246.0,
+            "rmndAmt": 448.2
+          },
+          {
+            "date": "20260812",
+            "newQty": 1200.0,
+            "rdmpQty": 1672.0,
+            "rmndChg": -472.0,
+            "rmndQty": 1796246.0,
+            "rmndAmt": 430.2
+          },
+          {
+            "date": "20260811",
+            "newQty": 120.0,
+            "rdmpQty": 155.0,
+            "rmndChg": -35.0,
+            "rmndQty": 1796718.0,
+            "rmndAmt": 471.6
+          },
+          {
+            "date": "20260810",
+            "newQty": 45680.0,
+            "rdmpQty": 31424.0,
+            "rmndChg": 14256.0,
+            "rmndQty": 1796753.0,
+            "rmndAmt": 485.1
+          },
+          {
+            "date": "20260807",
+            "newQty": 0.0,
+            "rdmpQty": 920.0,
+            "rmndChg": -920.0,
+            "rmndQty": 1782497.0,
+            "rmndAmt": 408.2
+          },
+          {
+            "date": "20260806",
+            "newQty": 0.0,
+            "rdmpQty": 0.0,
+            "rmndChg": 0.0,
+            "rmndQty": 1783417.0,
+            "rmndAmt": 417.3
+          }
+        ],
+        "rankAsof": "11:39",
+        "trend": [
+          {
+            "date": "20260903",
+            "frgn": 55155,
+            "orgn": -60423,
+            "prsn": 5005,
+            "holdRatio": 3.87,
+            "close": 19650,
+            "rate": -4.15
+          },
+          {
+            "date": "20260902",
+            "frgn": -7342,
+            "orgn": -508,
+            "prsn": 17432,
+            "holdRatio": 3.71,
+            "close": 20500,
+            "rate": -3.98
+          },
+          {
+            "date": "20260901",
+            "frgn": 26195,
+            "orgn": 3739,
+            "prsn": -21016,
+            "holdRatio": 4.26,
+            "close": 21350,
+            "rate": 3.89
+          },
+          {
+            "date": "20260831",
+            "frgn": 9130,
+            "orgn": -44100,
+            "prsn": 27140,
+            "holdRatio": 4.18,
+            "close": 20550,
+            "rate": 1.23
+          },
+          {
+            "date": "20260828",
+            "frgn": -20559,
+            "orgn": -154203,
+            "prsn": 162555,
+            "holdRatio": 4.13,
+            "close": 20300,
+            "rate": -8.97
+          },
+          {
+            "date": "20260827",
+            "frgn": -80075,
+            "orgn": -178075,
+            "prsn": 250154,
+            "holdRatio": 4.48,
+            "close": 22300,
+            "rate": -13.06
+          },
+          {
+            "date": "20260826",
+            "frgn": -57938,
+            "orgn": -20212,
+            "prsn": 64817,
+            "holdRatio": 4.73,
+            "close": 25650,
+            "rate": 2.4
+          },
+          {
+            "date": "20260825",
+            "frgn": -91907,
+            "orgn": -1256,
+            "prsn": 92281,
+            "holdRatio": 4.86,
+            "close": 25050,
+            "rate": -4.93
+          },
+          {
+            "date": "20260824",
+            "frgn": 45563,
+            "orgn": 62456,
+            "prsn": -110499,
+            "holdRatio": 5.19,
+            "close": 26350,
+            "rate": 6.25
+          },
+          {
+            "date": "20260821",
+            "frgn": -55095,
+            "orgn": 11050,
+            "prsn": 48570,
+            "holdRatio": 4.92,
+            "close": 24800,
+            "rate": -4.8
+          },
+          {
+            "date": "20260820",
+            "frgn": -38661,
+            "orgn": 25534,
+            "prsn": 11972,
+            "holdRatio": 5.08,
+            "close": 26050,
+            "rate": 3.17
+          },
+          {
+            "date": "20260819",
+            "frgn": -47620,
+            "orgn": 67709,
+            "prsn": -20381,
+            "holdRatio": 5.25,
+            "close": 25250,
+            "rate": 2.43
+          },
+          {
+            "date": "20260818",
+            "frgn": -11090,
+            "orgn": 13295,
+            "prsn": -4069,
+            "holdRatio": 5.37,
+            "close": 24650,
+            "rate": -3.71
+          },
+          {
+            "date": "20260814",
+            "frgn": -41516,
+            "orgn": 35785,
+            "prsn": 3389,
+            "holdRatio": 5.51,
+            "close": 25600,
+            "rate": 2.61
+          },
+          {
+            "date": "20260813",
+            "frgn": -49219,
+            "orgn": 36870,
+            "prsn": -3348,
+            "holdRatio": 5.66,
+            "close": 24950,
+            "rate": 4.18
+          },
+          {
+            "date": "20260812",
+            "frgn": -26495,
+            "orgn": -2448,
+            "prsn": 24707,
+            "holdRatio": 5.77,
+            "close": 23950,
+            "rate": -8.76
+          },
+          {
+            "date": "20260811",
+            "frgn": -74035,
+            "orgn": -31689,
+            "prsn": 92843,
+            "holdRatio": 5.87,
+            "close": 26250,
+            "rate": -2.78
+          },
+          {
+            "date": "20260810",
+            "frgn": -19641,
+            "orgn": 67191,
+            "prsn": -47042,
+            "holdRatio": 6.09,
+            "close": 27000,
+            "rate": 17.9
+          },
+          {
+            "date": "20260807",
+            "frgn": -42873,
+            "orgn": 15477,
+            "prsn": 22926,
+            "holdRatio": 6.14,
+            "close": 22900,
+            "rate": -2.14
+          },
+          {
+            "date": "20260806",
+            "frgn": -43685,
+            "orgn": 29978,
+            "prsn": 15802,
+            "holdRatio": 6.27,
+            "close": 23400,
+            "rate": 8.33
+          }
+        ]
+      },
+      "_flowOk": true,
+      "_meta": {
+        "filingKey": "2026-09-04|주요사항보고서(유상증자결정)",
+        "asOf": "2026-09-04T11:41:04.723006+09:00",
+        "price": 21950
+      }
+    },
+    "direction": "bearish"
   }
 ]
