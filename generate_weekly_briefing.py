@@ -383,7 +383,11 @@ _SYSTEM = (
     " 그 날 모닝브리핑 스탠스(stance·stanceReason)의 논조를 기준점으로 삼아 방향이"
     " 일치하게 쓰되, 실제 장 반응이 스탠스와 달랐다면 '신중 스탠스에도 불구하고 ~ 급등'"
     " 처럼 그 괴리를 명시적으로 연결하라 (스탠스 근거를 무시한 반대 논조 금지)"
-    "\n- nextWeekPreview: 다음 주 주목 포인트 2~4개 불릿 (제공된 예정 이벤트 기반, 없으면 빈 배열)"
+    "\n- nextWeekPreview: 시나리오형 대응 관점 4~6개 불릿 —"
+    " ① 다음 주 전개 시나리오 2개를 '~하면 ~ 전개' 조건부 구조로 (예: '반도체 조정에도"
+    " 비테크·브레드스가 버티면 로테이션 지속, 함께 무너지면 단기 리스크오프') ② 두 시나리오를"
+    " 가르는 판별 신호 1개 (어떤 지표·수급·이벤트를 보면 되는지 구체적으로) ③ 제공된 예정"
+    " 이벤트(nextWeekEvents) 중 핵심 체크 항목 1~3개. 모두 이번 주 입력 데이터에 근거할 것"
 )
 
 
@@ -426,6 +430,69 @@ def main():
             except llm.LLMError as ex:
                 print(f"[weekly] LLM 합성 실패 — 집계만 저장: {ex}", file=sys.stderr)
 
+    # ── Phase 1 결정적 집계 (2026-09-08 주간회의 자료 벤치마킹) ──────────────
+    # ① 미국 주간 컨텍스트 — 모닝브리핑 usIndices(전일 미국장) 일별 등락 합산 근사
+    us_weekly = {}
+    for d in days:
+        for i in (d.get("usIndices") or []):
+            nm, ch = i.get("name"), i.get("changePct")
+            if nm and isinstance(ch, (int, float)):
+                us_weekly[nm] = round(us_weekly.get(nm, 0.0) + ch, 2)
+
+    # ② 공매도·대차 주간 동향 — netbuy_rank 유니버스 한정 (억원)
+    short_loan = None
+    acc2 = {}
+    for dt in dates:
+        rel = f"reports/netbuy_rank/{dt.isoformat()}.json"
+        d2 = _fetch(rel)
+        if not d2:
+            continue
+        fin = d2.get("final") or {}
+        seen = set()
+        for rows in (d2.get("lists") or {}).values():
+            for r in rows or []:
+                code = r.get("code")
+                if not code or code in seen:
+                    continue
+                seen.add(code)
+                f = fin.get(code) or {}
+                e = acc2.setdefault(code, {"name": r.get("name"), "shortSum": 0.0, "loans": {}})
+                if f.get("shortAmt") is not None:
+                    e["shortSum"] += float(f["shortAmt"] or 0.0)
+                if f.get("loanAmt") is not None:
+                    e["loans"][dt.isoformat()] = float(f["loanAmt"])
+    if acc2:
+        ent = list(acc2.values())
+        for e in ent:
+            ds = sorted(e["loans"])
+            e["loanChg"] = round(e["loans"][ds[-1]] - e["loans"][ds[0]], 1) if len(ds) >= 2 else 0.0
+            e["loanAmt"] = round(e["loans"][ds[-1]], 1) if ds else None
+        short_top = sorted([e for e in ent if e["shortSum"] > 0],
+                           key=lambda x: -x["shortSum"])[:5]
+        loan_up = sorted([e for e in ent if e["loanChg"] > 0], key=lambda x: -x["loanChg"])[:5]
+        loan_dn = sorted([e for e in ent if e["loanChg"] < 0], key=lambda x: x["loanChg"])[:5]
+        short_loan = {
+            "shortTop": [{"name": e["name"], "amt": round(e["shortSum"])} for e in short_top],
+            "loanUp": [{"name": e["name"], "chg": e["loanChg"], "amt": e["loanAmt"]} for e in loan_up],
+            "loanDown": [{"name": e["name"], "chg": e["loanChg"], "amt": e["loanAmt"]} for e in loan_dn],
+        }
+
+    # ④ 섹터 주간 지속성 — 일별 상위/하위 섹터 등장 일수 + 평균 등락률
+    def _sector_week(key):
+        agg = {}
+        for d in days:
+            for s in (d.get(key) or []):
+                nm = s.get("name")
+                if not nm:
+                    continue
+                a = agg.setdefault(nm, {"name": nm, "days": 0, "sum": 0.0})
+                a["days"] += 1
+                a["sum"] += float(s.get("changePct") or 0.0)
+        out = [{"name": a["name"], "days": a["days"], "avgChg": round(a["sum"] / a["days"], 2)}
+               for a in agg.values()]
+        return sorted(out, key=lambda x: (-x["days"], -abs(x["avgChg"])))[:6]
+    sector_weekly = {"up": _sector_week("sectorsUp"), "down": _sector_week("sectorsDown")}
+
     # 타임라인 병합 — LLM 은 시장 이벤트 행만, 종목 행은 스코어 기준으로 결정적 추가
     # (코스피 ★4 이상 / 코스닥 ★5 — LLM 누락·기준 이탈 방지, 2026-09-08)
     stock_rows = [{"date": d["date"], **p}
@@ -454,6 +521,9 @@ def main():
                   "sectorsDown": d.get("sectorsDown") or [],
                   "catalysts": (d.get("catalysts") or [])[:3]} for d in days],
         "netbuyCum": netbuy_cum,        # 주체별(외인/기관/연기금) 주간 누적 순매수 상/하위
+        "usWeekly": us_weekly,          # 미국 지수 주간 누적 등락(모닝브리핑 전일 기준 합산)
+        "shortLoan": short_loan,        # 공매도 누적·대차잔고 증감 상위 (랭킹 유니버스 한정)
+        "sectorWeekly": sector_weekly,  # 섹터 주간 지속성 (등장 일수·평균 등락)
         "synthesis": synthesis,
     }
 

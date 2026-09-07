@@ -7474,6 +7474,16 @@
     var syn = d.synthesis || {};
     if (syn.headline) h += '<div style="font-weight:700;font-size:14.5px;margin:6px 0 10px">' + esc(syn.headline) + "</div>";
     h += invCharts(d.days || []);
+    // 🇺🇸 미국 주간 컨텍스트 — 모닝브리핑(전일 미국장) 일별 등락 누적
+    if (d.usWeekly && Object.keys(d.usWeekly).length) {
+      h += '<div style="font-size:12.5px;margin:0 0 10px;opacity:.9">🇺🇸 <b>미국 주간</b> <span style="opacity:.55;font-size:11px">(모닝브리핑 전일 기준 누적)</span> ';
+      ["나스닥", "S&P500", "다우", "필라델피아 반도체"].forEach(function (nm) {
+        var v = d.usWeekly[nm];
+        if (typeof v !== "number") return;
+        h += '<span style="margin-right:12px;white-space:nowrap">' + esc(nm) + " " + pct(v) + "</span>";
+      });
+      h += "</div>";
+    }
     // 일별 지수·주도섹터 테이블 (결정적 집계 — LLM 실패 시에도 표시)
     h += '<table style="width:100%;border-collapse:collapse;font-size:12.5px;margin-bottom:10px">';
     h += "<tr style='opacity:.65'><th style='text-align:left'>날짜</th><th>코스피</th><th>코스닥</th><th style='text-align:left'>주도 섹터</th><th style='text-align:left'>전일 미국장 → 한국장 반응</th></tr>";
@@ -7497,7 +7507,41 @@
       arr.forEach(function (b) { s += "<li>" + esc(b) + "</li>"; });
       return s + "</ul>";
     }
+    // 섹터 주간 지속성 — 등장 일수 기준 (2일 이상 = 주도 지속, 1일 = 순환)
+    var sw = d.sectorWeekly || {};
+    function secChips(arr, color) {
+      return (arr || []).map(function (s) {
+        return '<span style="border:1px solid ' + color + '44;background:' + color + '12;color:' + color + ';border-radius:10px;padding:1px 8px;font-size:11.5px;white-space:nowrap;margin-right:5px">'
+          + esc(s.name) + " " + s.days + "일 " + (s.avgChg > 0 ? "+" : "") + s.avgChg + "%</span>";
+      }).join("");
+    }
+    if ((sw.up || []).length || (sw.down || []).length) {
+      h += '<div style="font-size:12px;margin:-4px 0 10px">';
+      if ((sw.up || []).length) h += '<span style="opacity:.65;margin-right:6px">주간 상승 섹터</span>' + secChips(sw.up, "#f04452");
+      if ((sw.down || []).length) h += '<span style="opacity:.65;margin:0 6px 0 10px">하락 섹터</span>' + secChips(sw.down, "#3182f6");
+      h += "</div>";
+    }
     h += netbuyTables(d.netbuyCum);
+    // 공매도 · 대차 주간 동향 (랭킹 유니버스 한정, 억원) — 앰버 접힘
+    var slw = d.shortLoan;
+    if (slw && ((slw.shortTop || []).length || (slw.loanUp || []).length || (slw.loanDown || []).length)) {
+      var slCol = function (title, arr, fmt) {
+        return '<div style="flex:1;min-width:190px"><div style="font-weight:600;opacity:.8;margin-bottom:3px">' + title + "</div>"
+          + ((arr || []).map(fmt).join("") || "<div style='opacity:.5'>— (2일차부터 집계)</div>") + "</div>";
+      };
+      h += '<details class="flow-details" style="margin-top:2px"><summary style="text-align:right">공매도 · 대차 주간 동향 ▾</summary>'
+        + '<div style="display:flex;gap:14px;flex-wrap:wrap;font-size:12px;margin-top:6px">'
+        + slCol("공매도 누적 상위(억)", slw.shortTop, function (e) {
+            return "<div style='display:flex;justify-content:space-between'><span style='opacity:.85'>" + esc(e.name) + "</span><span>" + Math.round(e.amt).toLocaleString() + "</span></div>";
+          })
+        + slCol("대차잔고 증가(억)", slw.loanUp, function (e) {
+            return "<div style='display:flex;justify-content:space-between'><span style='opacity:.85'>" + esc(e.name) + "</span><span style='color:#f04452'>+" + Math.round(e.chg).toLocaleString() + "</span></div>";
+          })
+        + slCol("대차잔고 감소 · 숏커버 추정(억)", slw.loanDown, function (e) {
+            return "<div style='display:flex;justify-content:space-between'><span style='opacity:.85'>" + esc(e.name) + "</span><span style='color:#3182f6'>" + Math.round(e.chg).toLocaleString() + "</span></div>";
+          })
+        + "</div></details>";
+    }
     h += bullets("📈 주간 시장 흐름", syn.weekNarrative);
     h += bullets("🔁 섹터·테마 흐름", syn.sectorRotation);
     if (syn.catalystTimeline && syn.catalystTimeline.length) {
