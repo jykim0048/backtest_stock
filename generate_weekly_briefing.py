@@ -341,7 +341,11 @@ _SCHEMA = {
         "weekNarrative":  {"type": "array", "items": {"type": "string"}},
         "sectorRotation": {"type": "array", "items": {"type": "string"}},
         "catalystTimeline": {"type": "array", "items": {"type": "object", "properties": {
-            "date": {"type": "string"}, "event": {"type": "string"}},
+            "date": {"type": "string"},
+            "stock": {"type": "string"},
+            "event": {"type": "string"},
+            "changePct": {"type": "number"},
+            "star": {"type": "integer"}},
             "required": ["date", "event"]}},
         "dailyContext": {"type": "array", "items": {"type": "object", "properties": {
             "date": {"type": "string"}, "note": {"type": "string"}},
@@ -360,11 +364,11 @@ _SYSTEM = (
     "\n- headline: 이번 주를 한 문장으로 (예: '반도체가 이끈 사상 최고치 랠리')"
     "\n- weekNarrative: 주간 시장 흐름 서사 4~6개 불릿 — 지수 흐름과 그 원인, 수급 주체 변화"
     "\n- sectorRotation: 주도 섹터/테마의 주중 변화 2~4개 불릿 — 순환인지 지속인지"
-    "\n- catalystTimeline: 날짜별 핵심 이벤트 (거래일당 1~3개). 시장 이벤트 외에, 그 날"
-    " 입력의 catalysts(뉴스)·disclosures(공시)·flowTop(확정 순매수 주도주, 억원)에서"
-    " 눈에 띄는 종목이 있으면 종목명과 이유(뉴스/공시/수급)를 구체적으로 언급하라."
-    " fiveStar(촉매 스코어 5점 만점 종목)가 있는 날은 그 종목들을 해당 날짜 타임라인에"
-    " 반드시 포함하고 '★5' 를 붙여 표기하라"
+    "\n- catalystTimeline: 날짜별 핵심 이벤트 행 (거래일당 2~4행). 각 행은 가능한 한"
+    " 종목 1개 단위로 분리해 stock(종목명)·event(촉매 한 문장, 종목명 반복 금지)·"
+    " changePct(입력의 당일 등락률 숫자 그대로)를 채워라. 시장 전체 이벤트(지수·환율 등)는"
+    " stock 없이 event 만. fiveStar(촉매 스코어 5점) 종목이 있는 날은 그 종목 행을 반드시"
+    " 포함하고 star 필드에 5 를 넣어라 (그 외 종목은 star 생략)"
     "\n- dailyContext: 거래일마다 정확히 1개 — 전일 미국장 주요 이슈·경제지표(usReview,"
     " usCatalystsTop)가 당일 한국장에 어떻게 반영됐는지(지수·섹터·수급 반응, briefing 근거)를"
     " 잇는 1문장. 종목 나열이 아니라 '미국장 원인 → 한국장 반응' 구조로 작성"

@@ -3708,11 +3708,14 @@
             mkColor = (c.market === "KOSDAQ") ? "var(--kosdaq-green)" : "var(--kospi-blue)";
             mkLabel = c.market || "";
           }
-          const chg = ((c.market === "US" || typeof c.score === "number") && typeof c.changePct === "number")
-            ? ` <span style="color:${c.changePct >= 0 ? "var(--up-red)" : "var(--kospi-blue)"}; font-size:11.5px;">${c.changePct >= 0 ? "+" : ""}${Math.round(c.changePct * 100) / 100}%</span>` : "";
-          // 16:00 촉매 스코어 회차(scoring) — 5점 만점 별점 + LLM 사유
-          const stars = (typeof c.score === "number")
-            ? `<div style="color:#fbbf24; font-size:12.5px; letter-spacing:1px; white-space:nowrap;">${"★".repeat(c.score)}<span style="opacity:.35">${"☆".repeat(Math.max(0, 5 - c.score))}</span></div>` : "";
+          // 별점 — 스코어 회차 항목이면 자체 score, 다른 회차(마감 등)는 종목명 매칭으로 병기
+          const sc = (typeof c.score === "number") ? c : (_ibScoreMap[c.stock] || null);
+          const chgVal = typeof c.changePct === "number" ? c.changePct
+            : (sc && typeof sc.changePct === "number" ? sc.changePct : null);
+          const chg = ((c.market === "US" || sc) && chgVal != null)
+            ? ` <span style="color:${chgVal >= 0 ? "var(--up-red)" : "var(--kospi-blue)"}; font-size:11.5px;">${chgVal >= 0 ? "+" : ""}${Math.round(chgVal * 100) / 100}%</span>` : "";
+          const stars = sc
+            ? `<div style="color:#fbbf24; font-size:12.5px; letter-spacing:1px; white-space:nowrap;">${"★".repeat(sc.score)}<span style="opacity:.35">${"☆".repeat(Math.max(0, 5 - sc.score))}</span></div>` : "";
           const reason = (typeof c.score === "number" && c.reason)
             ? `<div style="color:var(--text-muted); font-size:11.5px;">${_brEsc(c.reason)}</div>` : "";
           const link = c.url ? ` <a href="${_brEsc(c.url)}" target="_blank" rel="noopener" style="color:var(--text-muted); font-size:11px;">원문</a>` : "";
@@ -3943,6 +3946,7 @@
     }
 
     let _ibRounds = null;   // 당일 아카이브 rounds[] (회차 선택용)
+    let _ibScoreMap = {};   // 종목명 -> 스코어 회차 항목({score, reason, changePct}) — 별점 병기용
     async function _ibLoadRounds(d) {
       _ibRounds = null;
       const sel = document.getElementById("ib-cat-round");
@@ -3953,12 +3957,22 @@
         const rounds = ((await r.json()) || {}).rounds || [];
         if (rounds.length < 2) return;      // 회차가 1개면 선택 무의미 — 셀렉터 숨김 유지
         _ibRounds = rounds;
+        // 16:00 촉매 스코어 회차의 별점을 종목명 기준 맵으로 — 다른 회차 표에도 병기
+        _ibScoreMap = {};
+        rounds.forEach(rd => {
+          if (rd.scoring) (rd.catalysts || []).forEach(c => {
+            if (c.stock && typeof c.score === "number") _ibScoreMap[c.stock] = c;
+          });
+        });
         sel.innerHTML = rounds.map((rd, i) => {
           const hm = ((rd.asof || "").split(" ")[1]) || `#${i + 1}`;
           const label = rd.scoring ? `${hm} 촉매 스코어 ★` : rd.final ? `${hm} 마감` : `${hm} 회차`;
           return `<option value="${i}"${i === rounds.length - 1 ? " selected" : ""}>${label}</option>`;
         }).join("");
         sel.style.display = "";
+        // 셀렉터 기본값(마지막 회차)과 표 내용 동기화 — 렌더 시점 표는 마감 회차라
+        // 스코어 회차가 마지막이면 표기가 어긋난다(2026-09-08 실측: 라벨만 스코어)
+        ibCatRound(rounds.length - 1);
       } catch (_) { /* 아카이브 없음/오류 — 셀렉터 숨김 유지 */ }
     }
 
@@ -7446,11 +7460,20 @@
     h += bullets("📈 주간 시장 흐름", syn.weekNarrative);
     h += bullets("🔁 섹터·테마 흐름", syn.sectorRotation);
     if (syn.catalystTimeline && syn.catalystTimeline.length) {
-      h += '<div style="font-weight:600;margin:8px 0 0">⚡ 주간 촉매 타임라인</div><ul class="briefing-usbullets" style="margin:2px 0 6px">';
+      // 실적발표 카드 양식 참고 — 날짜 칩 | 종목(볼드·★5 배지) | 촉매 | 우측 등락률
+      h += '<div style="font-weight:600;margin:8px 0 4px">⚡ 주간 촉매 타임라인</div>';
+      h += '<div style="border:1px solid rgba(128,128,128,.2);border-radius:10px;padding:2px 12px;margin-bottom:8px">';
       syn.catalystTimeline.forEach(function (t) {
-        h += "<li><b>" + esc((t.date || "").slice(5)) + "</b> " + esc(t.event) + "</li>";
+        var star = (t.star === 5)
+          ? ' <span style="border:1px solid #fbbf2466;background:#fbbf2418;color:#fbbf24;border-radius:9px;padding:0 6px;font-size:10.5px;white-space:nowrap">★5</span>' : "";
+        var chg = (typeof t.changePct === "number")
+          ? '<span style="color:' + (t.changePct >= 0 ? "#f04452" : "#3182f6") + ';font-weight:600;white-space:nowrap;margin-left:10px">' + (t.changePct >= 0 ? "+" : "") + (Math.round(t.changePct * 100) / 100) + "%</span>" : "";
+        h += '<div style="display:flex;align-items:baseline;gap:8px;padding:5px 0;border-top:1px solid rgba(128,128,128,.12);font-size:13px">'
+          + '<span style="background:rgba(128,128,128,.15);border-radius:6px;padding:0 7px;font-size:11px;white-space:nowrap;opacity:.85">' + esc((t.date || "").slice(5)) + "</span>"
+          + (t.stock ? '<span style="font-weight:700;white-space:nowrap">' + esc(t.stock) + "</span>" + star : "")
+          + '<span style="color:#cbd5e1;flex:1">' + esc(t.event) + (t.stock ? "" : star) + "</span>" + chg + "</div>";
       });
-      h += "</ul>";
+      h += "</div>";
     }
     h += bullets("🔮 다음 주 프리뷰", syn.nextWeekPreview);
     if (!syn.headline) h += '<div style="opacity:.6;font-size:12px">주간 종합 코멘트는 다음 갱신(평일 16:10)에 채워집니다.</div>';
