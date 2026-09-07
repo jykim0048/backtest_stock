@@ -63,7 +63,11 @@ def _load(path):
 
 def collect(all_dates):
     """(reports, snapshots) — reports: [(kind, date, path)], snapshots: [(name, path)]"""
-    today = datetime.datetime.now(KST).strftime("%Y-%m-%d")
+    now = datetime.datetime.now(KST)
+    today = now.strftime("%Y-%m-%d")
+    # 주간 브리핑은 '그 주 월요일' 키로 매일 재생성(upsert)되므로 오늘 필터에 걸리지
+    # 않는다 — 이번 주 월요일 파일은 날짜 무관하게 항상 포함(2026-09-08 결손 실측).
+    monday = (now - datetime.timedelta(days=now.weekday())).strftime("%Y-%m-%d")
     reports = []
 
     for path in glob.glob(os.path.join(PUBLIC, "reports", "**", "*.json"), recursive=True):
@@ -73,7 +77,7 @@ def collect(all_dates):
         if not _DATE_RE.match(stem):
             continue                                    # index.json 등
         kind = "/".join(parts[1:-1]) or "daily"
-        if all_dates or stem == today:
+        if all_dates or stem == today or (kind == "weekly_briefing" and stem == monday):
             reports.append((kind, stem, path))
 
     for path in glob.glob(os.path.join(PUBLIC, "briefing", "*.json")):
