@@ -3684,8 +3684,17 @@
     // 한국(KOSPI/KOSDAQ) 상장 종목만 — 해외 종목(특징주 뉴스에 섞여 나오며 market="")은 제외.
     // 구버전 회차(catalysts[].corp, direction 없음)도 관대하게 렌더(stock||corp, 배지 생략).
     // markets: 허용 시장 목록(기본 국내) — 모닝브리프 SEC 촉매(US)도 같은 렌더 재사용(2026-07-22)
+    let _ibCatScoring = false;   // 현재 표시 중인 회차가 스코어 회차인지 — 별점/상승률 열 토글
+    function _ibCatSyncHead() {
+      // 스코어링 안 하는 회차(장중·마감)는 별점/상승률 헤더 자체를 숨김 (2026-09-08)
+      for (const id of ["ib-cat-th-star", "ib-cat-th-chg"]) {
+        const th = document.getElementById(id);
+        if (th) th.style.display = _ibCatScoring ? "" : "none";
+      }
+    }
     function _ibCatRows(catalysts, markets) {
       const allow = markets || ["KOSPI", "KOSDAQ"];
+      _ibCatScoring = (catalysts || []).some(c => typeof c.score === "number");
       const dirBadge = (dir) => dir === "bullish" ? `<span class="dir-badge bull">▲ 상방</span>`
         : dir === "bearish" ? `<span class="dir-badge bear">▼ 하방</span>`
         : dir === "neutral" ? `<span class="dir-badge neu">— 중립</span>` : "";
@@ -3723,8 +3732,9 @@
           return `<tr>`
             + `<td style="font-weight:600; white-space:nowrap;">${icon} ${_brEsc(name)}${dirBadge(c.direction)}</td>`
             + `<td style="color:${mkColor}; font-size:13px; white-space:nowrap;">${mkLabel}</td>`
-            + `<td style="white-space:nowrap;">${stars || `<span style="color:var(--text-muted)">—</span>`}</td>`
-            + `<td style="white-space:nowrap; padding-right:18px;">${chg || ""}</td>`
+            + (_ibCatScoring
+               ? `<td style="white-space:nowrap;">${stars || `<span style="color:var(--text-muted)">—</span>`}</td>`
+                 + `<td style="white-space:nowrap; padding-right:18px;">${chg || ""}</td>` : "")
             + `<td style="color:#cbd5e1;">${_brEsc(c.summary || c.title || "")}${link}${reason}</td></tr>`;
         }).join("");
       return rows || `<tr><td colspan="5" style="color:var(--text-muted); font-size:13px; padding:8px 2px;">해당 회차 촉매 없음</td></tr>`;
@@ -3973,7 +3983,10 @@
 
     function ibCatRound(i) {
       const tb = document.getElementById("ib-cat-tbody");
-      if (tb && _ibRounds && _ibRounds[i]) tb.innerHTML = _ibCatRows(_ibRounds[i].catalysts);
+      if (tb && _ibRounds && _ibRounds[i]) {
+        tb.innerHTML = _ibCatRows(_ibRounds[i].catalysts);
+        _ibCatSyncHead();          // 회차 전환 시 별점/상승률 헤더 동기화
+      }
     }
 
     function renderIntradayBriefing(d) {
@@ -4106,7 +4119,7 @@
         + `<select id="ib-cat-round" onchange="ibCatRound(this.value)" style="display:none; margin-left:auto;`
         + ` background:rgba(255,255,255,.05); color:#cbd5e1; border:1px solid var(--border-color);`
         + ` border-radius:6px; font-size:12px; padding:2px 6px; cursor:pointer;"></select></div>`
-        + `<table><thead><tr><th>종목</th><th>시장</th><th>별점</th><th>상승률</th><th>핵심 촉매</th></tr></thead>`
+        + `<table><thead><tr><th>종목</th><th>시장</th><th id="ib-cat-th-star">별점</th><th id="ib-cat-th-chg">상승률</th><th>핵심 촉매</th></tr></thead>`
         + `<tbody id="ib-cat-tbody">${_ibCatRows(d.catalysts)}</tbody></table></div>`;
 
       // 원자료 접기 (당일 촉매성 공시 / 특징주 뉴스)
@@ -4206,6 +4219,7 @@
         ${rawDisc}${rawNews}${rawFx}
         <div class="briefing-foot">자동 생성 · ${genLabel} · KIS 업종·네이버 금융·DART · 투자 판단 참고용</div>
       `;
+      _ibCatSyncHead();      // 별점/상승률 헤더 — 초기 표시는 마감(비스코어) 회차
       _ibLoadRounds(d);      // 회차 선택 셀렉터 채움 (아카이브 lazy fetch)
       _ibDrawFlowCharts(d);  // 지수 카드 내부 1분 수급 차트
       _annotateHeatToggles(); // 가집계 보유 업종에만 히트 셀 클릭·▾ 부여 (비동기, 실패 무해)
