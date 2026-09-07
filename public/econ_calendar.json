@@ -1,12 +1,11 @@
 {
  "date": "2026-09-08",
- "asof": "2026-09-08 07:45 KST",
+ "asof": "2026-09-08 08:38 KST",
  "sources": {
   "naver": true,
   "forexfactory": true
  },
- "released": [],
- "upcoming": [
+ "released": [
   {
    "nation": "KOR",
    "name": "국내총생산(GDP) 전분기 대비",
@@ -15,12 +14,18 @@
    "period": "Q2 2026",
    "category": "GDP",
    "releaseAtKST": "2026-09-08 08:00",
+   "actual": 0.6,
    "previous": 1.8,
    "unit": "%",
    "unitScale": "",
    "forecast": null,
    "forecastSource": null,
-   "source": "naver"
+   "source": "naver",
+   "surprise": {
+    "vs": "previous",
+    "diff": -1.2,
+    "verdict": "below"
+   }
   },
   {
    "nation": "KOR",
@@ -30,13 +35,21 @@
    "period": "Q2 2026",
    "category": "GDP",
    "releaseAtKST": "2026-09-08 08:00",
+   "actual": 3.7,
    "previous": 3.8,
    "unit": "%",
    "unitScale": "",
    "forecast": null,
    "forecastSource": null,
-   "source": "naver"
-  },
+   "source": "naver",
+   "surprise": {
+    "vs": "previous",
+    "diff": -0.1,
+    "verdict": "below"
+   }
+  }
+ ],
+ "upcoming": [
   {
    "nation": "USA",
    "name": "독립사업체연맹 중소기업낙관지수",
