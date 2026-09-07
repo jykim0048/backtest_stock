@@ -7362,13 +7362,15 @@
           : Math.round(e.loanAmt).toLocaleString() + (e.loanChg ? " (" + (e.loanChg > 0 ? "+" : "") + Math.round(e.loanChg).toLocaleString() + ")" : "");
         return "<tr style='border-top:1px solid rgba(128,128,128,.12)'><td style='padding:2px 6px 2px 0;white-space:nowrap'>" + (i + 1) + ". " + esc(e.name) + secPill(e.code) +
           "</td><td style='text-align:right;color:" + color + ";font-weight:600'>" + eok(e.amt) +
+          "</td><td style='text-align:right'>" + eok(e.frgn) + "</td><td style='text-align:right'>" + eok(e.orgn) +
+          "</td><td style='text-align:right;opacity:.75'>" + eok(e.prsn) +
           "</td><td style='text-align:right;opacity:.75'>" + (e.shortSum == null ? "—" : Math.round(e.shortSum).toLocaleString()) +
           "</td><td style='text-align:right;opacity:.75;white-space:nowrap'>" + loan + "</td></tr>";
       }).join("");
-      return '<div style="flex:1;min-width:330px;border:1px solid rgba(128,128,128,.2);border-radius:10px;padding:8px 12px">'
+      return '<div style="flex:1;min-width:430px;border:1px solid rgba(128,128,128,.2);border-radius:10px;padding:8px 12px;overflow-x:auto">'
         + '<div style="font-weight:600;margin-bottom:4px;color:' + color + '">' + title + "</div>"
         + '<table style="width:100%;border-collapse:collapse;font-size:12px">'
-        + "<tr style='opacity:.6'><th style='text-align:left'>종목</th><th style='text-align:right'>합산(억)</th><th style='text-align:right'>공매도(억)</th><th style='text-align:right'>대차잔고(증감,억)</th></tr>"
+        + "<tr style='opacity:.6'><th style='text-align:left'>종목</th><th style='text-align:right'>합산(억)</th><th style='text-align:right'>외인</th><th style='text-align:right'>기관</th><th style='text-align:right'>개인</th><th style='text-align:right'>공매도(억)</th><th style='text-align:right'>대차잔고(증감,억)</th></tr>"
         + rows + "</table></div>";
     }
     h += '<div style="display:flex;gap:10px;flex-wrap:wrap">'
