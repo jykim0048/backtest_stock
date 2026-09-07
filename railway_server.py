@@ -7,9 +7,11 @@ research SYNCHRONOUSLY and keep an in-memory cache + the DART corp map warm.
 (2026-07 B' 마이그레이션) Vercel Hobby CPU 한도 초과를 계기로, 이 서버가
 대시보드 전체를 병렬 서빙한다(Vercel 은 당분간 유지 — 비교 후 이전 결정):
   GET /                       -> public/index.html (대시보드)
-  GET /<public 정적 경로>      -> 코드/에셋은 로컬, 데이터 JSON 은 GitHub raw
-                                 프록시(60s TTL)로 항상 최신 ([skip railway]
-                                 커밋으로 컨테이너 스냅샷이 얼어붙는 문제 대응)
+  GET /<public 정적 경로>      -> 코드/에셋은 로컬, 데이터 JSON 은 Postgres 우선
+                                 (2026-09 PG 마이그레이션) + GitHub raw 폴백
+                                 (60s TTL 캐시. [skip railway] 커밋으로 컨테이너
+                                 스냅샷이 얼어붙는 문제 대응)
+  POST /api/ingest             -> 파이프라인 리포트 업서트 (Bearer INGEST_TOKEN)
   GET /api/prices[?codes=..]  -> 실시간 시세 (Vercel api/index.py 이식,
                                  4s TTL 캐시로 다중 탭 대응)
   GET /api/research?q=<name|code>
@@ -21,7 +23,8 @@ Reuses generate_analysis.analyze_stock — the same per-stock pipeline the CI ba
 uses (peers + news + DART + community + LLM). No external store needed.
 
 Env (Railway variables): GEMINI_API_KEY (or LLM_CHAIN + matching keys),
-     DART_API_KEY, NAVER_CLIENT_ID, NAVER_CLIENT_SECRET, TAVILY_API_KEY.
+     DART_API_KEY, NAVER_CLIENT_ID, NAVER_CLIENT_SECRET, TAVILY_API_KEY,
+     DATABASE_URL (리포트 Postgres — report_db.py), INGEST_TOKEN (/api/ingest 인증).
      PORT is injected by Railway.
 """
 import os
@@ -41,6 +44,7 @@ ROOT = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, ROOT)
 
 import generate_analysis as ga          # heavy import once at boot — keeps the worker warm
+import report_db                        # 리포트 Postgres 저장소 (DATABASE_URL 미설정 시 자동 비활성)
 
 KRX_MASTER = os.path.join(ROOT, "public", "assets", "krx_companies.json")
 PEERS_PATH = os.path.join(ROOT, "analysis", "peers.json")
@@ -207,6 +211,8 @@ _RAW_REPO  = os.environ.get("GH_REPO", "jykim0048/backtest_stock")
 _RAW_REF   = os.environ.get("GH_REF", "main")
 _RAW_TOKEN = os.environ.get("GH_RAW_TOKEN") or os.environ.get("GH_DISPATCH_TOKEN", "")
 DATA_TTL   = int(os.environ.get("STATIC_DATA_TTL", "60"))   # 데이터 파일 raw 캐시(초)
+INGEST_TOKEN = os.environ.get("INGEST_TOKEN", "")           # POST /api/ingest 인증 (PG 쓰기)
+INGEST_MAX_BODY = int(os.environ.get("INGEST_MAX_BODY", str(64 * 1024 * 1024)))
 
 _RAW_CACHE = {}          # relpath -> {"body": bytes|None, "ts": float}
 _RAW_LOCK  = threading.Lock()
@@ -242,6 +248,30 @@ def _raw_fetch(relpath):
             _RAW_STATE.update(ok=False, note=f"{relpath}: HTTP {e.code}")
     except Exception as ex:
         _RAW_STATE.update(ok=False, note=f"{relpath}: {str(ex)[:120]}")
+    with _RAW_LOCK:
+        _RAW_CACHE[relpath] = {"body": body, "ts": now}
+    return body
+
+
+def _data_fetch(relpath):
+    """데이터 JSON 을 Postgres 우선, GitHub raw 폴백으로 가져온다 (60s TTL 공용 캐시).
+
+    (2026-09 PG 마이그레이션) 리포트의 1차 저장소를 git 커밋 → Postgres 로 이전.
+    DB 미스/장애 시 기존 raw 프록시 경로가 그대로 살아 있어 안전하게 강등된다.
+    relpath 는 'public/...' 프리픽스 포함(기존 _raw_fetch 캐시 키와 동일)."""
+    now = time.time()
+    with _RAW_LOCK:
+        e = _RAW_CACHE.get(relpath)
+        if e and now - e["ts"] < DATA_TTL:
+            return e["body"]
+    body = None
+    if report_db.enabled() and relpath.startswith("public/"):
+        try:
+            body = report_db.fetch(relpath[len("public/"):])
+        except Exception as ex:
+            print(f"[db] fetch {relpath}: {ex}", file=sys.stderr, flush=True)
+    if body is None:
+        return _raw_fetch(relpath)          # 자체 캐시 기록 포함 (404 도 짧게 캐시)
     with _RAW_LOCK:
         _RAW_CACHE[relpath] = {"body": body, "ts": now}
     return body
@@ -427,13 +457,71 @@ class Handler(BaseHTTPRequestHandler):
     def do_OPTIONS(self):
         self.send_response(200)
         self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "GET, OPTIONS")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.end_headers()
+
+    def do_POST(self):
+        u = urlparse(self.path)
+        if u.path == "/api/ingest":
+            return self._ingest()
+        return self._send(404, {"status": "error", "message": "not found"})
+
+    def _ingest(self):
+        """파이프라인 → Postgres 업서트 창구 (dual-write / 백필).
+
+        POST /api/ingest  (Authorization: Bearer $INGEST_TOKEN)
+        {"reports":  [{"kind": "intraday", "date": "2026-09-07", "payload": {...}}, ...],
+         "snapshots": [{"name": "intraday_report.json", "payload": {...}}, ...]}
+        업서트 성공분의 서빙 캐시를 즉시 무효화 → 대시보드 반영 지연 없음."""
+        try:
+            if not INGEST_TOKEN or \
+               self.headers.get("Authorization", "") != f"Bearer {INGEST_TOKEN}":
+                return self._send(401, {"status": "error", "message": "unauthorized"})
+            if not report_db.enabled():
+                return self._send(503, {"status": "error",
+                                        "message": "DATABASE_URL 미설정 — DB 비활성"})
+            try:
+                length = int(self.headers.get("Content-Length", "0"))
+            except ValueError:
+                length = 0
+            if length <= 0 or length > INGEST_MAX_BODY:
+                return self._send(400, {"status": "error",
+                                        "message": f"invalid content-length: {length}"})
+            data = json.loads(self.rfile.read(length).decode("utf-8"))
+
+            n_rep = n_snap = 0
+            failed, invalidate = [], []
+            for r in (data.get("reports") or []):
+                kind, date = str(r.get("kind", "")), str(r.get("date", ""))
+                if report_db.upsert_report(kind, date, r.get("payload")):
+                    n_rep += 1
+                    invalidate.extend(report_db.paths_for(kind, date))
+                else:
+                    failed.append(f"report:{kind}/{date}")
+            for s in (data.get("snapshots") or []):
+                name = str(s.get("name", ""))
+                if report_db.upsert_snapshot(name, s.get("payload")):
+                    n_snap += 1
+                    invalidate.append(name.replace("\\", "/").lstrip("/"))
+                else:
+                    failed.append(f"snapshot:{name}")
+            with _RAW_LOCK:
+                for rel in invalidate:
+                    _RAW_CACHE.pop("public/" + rel, None)
+            out = {"status": "ok" if not failed else "partial",
+                   "reports": n_rep, "snapshots": n_snap}
+            if failed:
+                out["failed"] = failed[:20]
+                out["db"] = report_db.status()
+            return self._send(200 if not failed else 207, out)
+        except Exception as ex:
+            return self._send(500, {"status": "error", "message": str(ex)[:300]})
 
     def do_GET(self):
         u = urlparse(self.path)
         if u.path == "/healthz":
-            return self._send(200, {"status": "ok", "rawProxy": _RAW_STATE})
+            return self._send(200, {"status": "ok", "rawProxy": _RAW_STATE,
+                                    "db": report_db.status()})
         if u.path == "/api/prices":
             return self._prices(u)
         if u.path == "/api/sector":
@@ -503,7 +591,7 @@ class Handler(BaseHTTPRequestHandler):
             rel = rel.rstrip("/") + "/index.html" if rel else "index.html"
 
         relpath = "public/" + rel.replace("\\", "/")
-        body = _raw_fetch(relpath) if _is_data_path(relpath) else None
+        body = _data_fetch(relpath) if _is_data_path(relpath) else None
         if body is None:
             try:
                 with open(full, "rb") as f:
@@ -662,9 +750,18 @@ def main():
         except Exception as ex:
             print(f"[research] corp map warmup skipped: {ex}", file=sys.stderr, flush=True)
 
+    def _db_init():
+        if not report_db.enabled():
+            print("[db] DATABASE_URL 미설정 — 리포트는 GitHub raw 로만 서빙", flush=True)
+            return
+        ok = report_db.init_schema()
+        print(f"[db] Postgres {'ready (스키마 확인 완료)' if ok else 'INIT FAILED — raw 폴백으로 동작'}"
+              f" {report_db.status()}", flush=True)
+
     threading.Thread(target=_warmup, daemon=True).start()
     threading.Thread(target=_scheduler, daemon=True).start()
     threading.Thread(target=_raw_probe, daemon=True).start()   # 데이터 프록시 진단 로그
+    threading.Thread(target=_db_init, daemon=True).start()     # PG 스키마 준비 (비차단)
     srv.serve_forever()
 
 

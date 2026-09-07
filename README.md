@@ -61,8 +61,10 @@ KOSPI/KOSDAQ 종목을 장전·장중으로 스크리닝하고, LLM이 장중 �
 세 가지 역할을 합니다.
 
 1. **대시보드 서빙** — `public/index.html` + 에셋은 컨테이너 로컬본, 데이터 JSON은
-   GitHub raw 프록시로 서빙. 리포트 커밋은 `[skip railway]`라 재배포 없이도 항상
-   최신 데이터가 보입니다.
+   **Railway Postgres 우선**(`report_db.py`), GitHub raw 프록시 폴백으로 서빙.
+   파이프라인이 `POST /api/ingest`(Bearer 토큰)로 리포트를 업서트하면 서빙 캐시가
+   즉시 무효화되어 커밋·CDN 지연 없이 반영됩니다. (전환기에는 git 커밋과
+   dual-write — DB 장애 시 raw 폴백으로 자동 강등)
 2. **정확한 KST 스케줄러** — GitHub cron은 지연이 커서, 이 상주 서버가 **정확한
    KST 시각에 `workflow_dispatch`로 각 워크플로를 트리거**합니다. (워크플로의
    `schedule:` 블록은 백업일 뿐 실질 트리거는 이 서버)
@@ -105,6 +107,8 @@ LLM은 폴백 체인(`llm.py`) — 기본 Google Gemini, 쿼터 소진 시 Anthr
 ```
 backtest_stock/
 ├── railway_server.py          # ★ Railway 상주 서버 (대시보드 서빙 + KST 스케줄러 + API)
+├── report_db.py               # 리포트 Postgres 저장소 (reports/snapshots 테이블)
+├── push_reports_to_db.py      # 파이프라인 → /api/ingest 업서트 (dual-write / --all 백필)
 ├── Procfile                   # web: python railway_server.py
 │
 ├── public/
@@ -190,7 +194,8 @@ python generate_intraday_briefing.py   # 장중 시황 + 국면 판정
 ## 기술 스택
 
 - **Frontend:** Vanilla JS · HTML · CSS (단일 `index.html`)
-- **Backend:** Python `http.server` 기반 상주 서버 (Railway)
+- **Backend:** Python `http.server` 기반 상주 서버 (Railway) + Railway Postgres
+  (리포트 저장소 — `report_db.py`)
 - **Data:** yfinance(미국·실시간), FinanceDataReader(KRX), 네이버 금융/뉴스,
   DART OpenAPI, 관세청(data.go.kr), edgartools(SEC), KIS 실매매 허브(수급·VI)
 - **LLM:** 폴백 체인 (`llm.py` — Google Gemini 기본, Anthropic 폴백)

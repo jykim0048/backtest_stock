@@ -7,6 +7,7 @@ appdirs
 platformdirs
 requests
 beautifulsoup4        # 네이버 종목토론방 HTML 파싱 (analysis/sources.naver_board)
+psycopg2-binary       # 리포트 Postgres 저장소 (report_db.py — Railway 서버만 사용)
 # LLM providers (see llm.py — chain configurable via LLM_CHAIN)
 google-genai          # default / primary provider (Gemini)
 anthropic             # fallback adapter (optional in the chain)

@@ -72,3 +72,10 @@ jobs:
             sleep $((RANDOM % 4 + 2))
           done
           echo "::error::push failed after 5 attempts" && exit 1
+
+      # (2026-09 PG 마이그레이션) git 커밋과 병행해 Postgres 에도 업서트(dual-write).
+      # 실패해도 워크플로는 성공 처리 — git 커밋이 살아있는 동안 raw 폴백이 커버.
+      - name: Push reports to Postgres (dual-write)
+        env:
+          INGEST_TOKEN: ${{ secrets.REPORT_INGEST_TOKEN }}
+        run: python push_reports_to_db.py || echo "::warning::DB ingest 실패 — git 커밋 폴백으로 동작"
