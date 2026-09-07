@@ -633,6 +633,7 @@ INTRADAY_WF  = "intraday_screener.yml"
 CLOSING_WF   = "closing_briefing.yml"
 FINALIZE_WF  = "finalize_netbuy.yml"     # 16:00 수급 확정 패스(마감 회차 netbuy 패치)
 WEEKLY_WF    = "weekly_briefing.yml"     # 16:10 주간 브리핑(그 주 월~당일 재합성 upsert)
+SCORING_WF   = "catalyst_scoring.yml"    # 16:05 촉매 스코어링(당일 전 회차 → 별점 회차)
 INVWARN_WF   = "investment_warning.yml"
 CORPMAP_WF   = "build_corp_map.yml"
 INDEXCON_WF  = "index_constituents.yml"
@@ -703,6 +704,12 @@ def _scheduler():
                 if now.hour == 16 and now.minute == 0:
                     key = (today, "finalize-netbuy")
                     if key not in fired and _dispatch(FINALIZE_WF):
+                        fired.add(key)
+                # 촉매 스코어링 16:05 — 수급 확정(16:00) 이후·주간 브리핑(16:10) 이전.
+                # 당일 전 회차 촉매를 5점 별점으로 평가해 '16:00 촉매 스코어' 회차 추가
+                if now.hour == 16 and now.minute == 5:
+                    key = (today, "catalyst-scoring")
+                    if key not in fired and _dispatch(SCORING_WF):
                         fired.add(key)
                 # 주간 브리핑 16:10 — 마감 시황(15:40)·수급 확정(16:00) 이후 당일
                 # 데이터 완결 시점에 그 주(월~당일)를 재합성 upsert (데일리 누적)

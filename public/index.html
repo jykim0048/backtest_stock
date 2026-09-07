@@ -3642,7 +3642,9 @@
           const r = await fetch(`reports/intraday_briefing/${date}.json?t=${Date.now()}`, { cache: "no-store" });
           if (!r.ok) { banner.style.display = "none"; return; }   // 해당 날짜 시황 없음
           const rounds = ((await r.json()) || {}).rounds || [];
-          d = rounds[rounds.length - 1];                          // 마지막 회차(마감 시황)
+          // 마지막 '시황' 회차(마감) — 16:00 촉매 스코어 회차(scoring)는 본문이 없어 제외
+          const brf = rounds.filter(x => !x.scoring);
+          d = brf[brf.length - 1] || rounds[rounds.length - 1];
         }
         if (!d || !d.asof) { banner.style.display = "none"; return; }
         if (d.asof !== _ibLastAsof) {       // 동일 회차면 리렌더 생략
@@ -3706,13 +3708,18 @@
             mkColor = (c.market === "KOSDAQ") ? "var(--kosdaq-green)" : "var(--kospi-blue)";
             mkLabel = c.market || "";
           }
-          const chg = (c.market === "US" && typeof c.changePct === "number")
-            ? ` <span style="color:${c.changePct >= 0 ? "var(--up-red)" : "var(--kospi-blue)"}; font-size:11.5px;">${c.changePct >= 0 ? "+" : ""}${c.changePct}%</span>` : "";
+          const chg = ((c.market === "US" || typeof c.score === "number") && typeof c.changePct === "number")
+            ? ` <span style="color:${c.changePct >= 0 ? "var(--up-red)" : "var(--kospi-blue)"}; font-size:11.5px;">${c.changePct >= 0 ? "+" : ""}${Math.round(c.changePct * 100) / 100}%</span>` : "";
+          // 16:00 촉매 스코어 회차(scoring) — 5점 만점 별점 + LLM 사유
+          const stars = (typeof c.score === "number")
+            ? `<div style="color:#fbbf24; font-size:12.5px; letter-spacing:1px; white-space:nowrap;">${"★".repeat(c.score)}<span style="opacity:.35">${"☆".repeat(Math.max(0, 5 - c.score))}</span></div>` : "";
+          const reason = (typeof c.score === "number" && c.reason)
+            ? `<div style="color:var(--text-muted); font-size:11.5px;">${_brEsc(c.reason)}</div>` : "";
           const link = c.url ? ` <a href="${_brEsc(c.url)}" target="_blank" rel="noopener" style="color:var(--text-muted); font-size:11px;">원문</a>` : "";
           return `<tr>`
-            + `<td style="font-weight:600; white-space:nowrap;">${icon} ${_brEsc(name)}${chg}${dirBadge(c.direction)}</td>`
+            + `<td style="font-weight:600; white-space:nowrap;">${icon} ${_brEsc(name)}${chg}${dirBadge(c.direction)}${stars}</td>`
             + `<td style="color:${mkColor}; font-size:13px; white-space:nowrap;">${mkLabel}</td>`
-            + `<td style="color:#cbd5e1;">${_brEsc(c.summary || c.title || "")}${link}</td></tr>`;
+            + `<td style="color:#cbd5e1;">${_brEsc(c.summary || c.title || "")}${link}${reason}</td></tr>`;
         }).join("");
       return rows || `<tr><td colspan="3" style="color:var(--text-muted); font-size:13px; padding:8px 2px;">해당 회차 촉매 없음</td></tr>`;
     }
@@ -3948,7 +3955,7 @@
         _ibRounds = rounds;
         sel.innerHTML = rounds.map((rd, i) => {
           const hm = ((rd.asof || "").split(" ")[1]) || `#${i + 1}`;
-          const label = rd.final ? `${hm} 마감` : `${hm} 회차`;
+          const label = rd.scoring ? `${hm} 촉매 스코어 ★` : rd.final ? `${hm} 마감` : `${hm} 회차`;
           return `<option value="${i}"${i === rounds.length - 1 ? " selected" : ""}>${label}</option>`;
         }).join("");
         sel.style.display = "";

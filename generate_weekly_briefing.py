@@ -95,7 +95,17 @@ def _day_summary(date_str):
             closing = r
             break
     if closing is None and (intraday or {}).get("rounds"):
-        closing = intraday["rounds"][-1]                # 마감 회차 결손 시 마지막 회차
+        rs = [r for r in intraday["rounds"] if not r.get("scoring")]
+        closing = rs[-1] if rs else None                # 마감 회차 결손 시 마지막 시황 회차
+    # 16:00 촉매 스코어 회차 — 5점(만점) 종목은 주간 촉매 타임라인 필수 반영 대상
+    for r in reversed((intraday or {}).get("rounds") or []):
+        if r.get("scoring"):
+            fs = [{"stock": c.get("stock"), "changePct": c.get("changePct"),
+                   "reason": (c.get("reason") or "")[:80]}
+                  for c in (r.get("catalysts") or []) if c.get("score") == 5]
+            if fs:
+                day["fiveStar"] = fs
+            break
     if closing:
         day["indices"] = closing.get("indices") or {}
         day["investors"] = closing.get("investors") or {}
@@ -352,7 +362,9 @@ _SYSTEM = (
     "\n- sectorRotation: 주도 섹터/테마의 주중 변화 2~4개 불릿 — 순환인지 지속인지"
     "\n- catalystTimeline: 날짜별 핵심 이벤트 (거래일당 1~3개). 시장 이벤트 외에, 그 날"
     " 입력의 catalysts(뉴스)·disclosures(공시)·flowTop(확정 순매수 주도주, 억원)에서"
-    " 눈에 띄는 종목이 있으면 종목명과 이유(뉴스/공시/수급)를 구체적으로 언급하라"
+    " 눈에 띄는 종목이 있으면 종목명과 이유(뉴스/공시/수급)를 구체적으로 언급하라."
+    " fiveStar(촉매 스코어 5점 만점 종목)가 있는 날은 그 종목들을 해당 날짜 타임라인에"
+    " 반드시 포함하고 '★5' 를 붙여 표기하라"
     "\n- dailyContext: 거래일마다 정확히 1개 — 전일 미국장 주요 이슈·경제지표(usReview,"
     " usCatalystsTop)가 당일 한국장에 어떻게 반영됐는지(지수·섹터·수급 반응, briefing 근거)를"
     " 잇는 1문장. 종목 나열이 아니라 '미국장 원인 → 한국장 반응' 구조로 작성"

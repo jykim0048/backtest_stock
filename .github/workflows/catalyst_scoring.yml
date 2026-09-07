@@ -1,0 +1,70 @@
+name: Catalyst Scoring
+
+on:
+  # Railway 상시 서버 스케줄러가 평일 16:05 KST 에 트리거 — 수급 확정(16:00) 이후,
+  # 주간 브리핑(16:10) 이전. 당일 전 회차 촉매를 5점 만점 별점으로 스코어링해
+  # '16:00 촉매 스코어' 회차를 아카이브에 추가한다 (score_catalysts.py).
+  workflow_dispatch:
+    inputs:
+      date:
+        description: "대상 날짜 YYYY-MM-DD (기본: 오늘 KST)"
+        required: false
+
+# 장중 회차 push 와 직렬화 (intraday_briefing 아카이브 공유)
+concurrency:
+  group: intraday-push
+  cancel-in-progress: false
+
+jobs:
+  score:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies (LLM only)
+        run: pip install google-genai anthropic
+
+      - name: Score intraday catalysts (5점 만점 별점)
+        timeout-minutes: 10
+        env:
+          GEMINI_API_KEY:    ${{ secrets.GEMINI_API_KEY }}
+          LLM_CHAIN:         ${{ vars.LLM_CHAIN }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          if [ -n "${{ inputs.date }}" ]; then
+            python score_catalysts.py --date "${{ inputs.date }}"
+          else
+            python score_catalysts.py
+          fi
+
+      - name: Commit and push scoring round
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add public/reports/intraday_briefing/
+          git diff --staged --quiet && echo "No changes to commit" && exit 0
+          git commit -m "chore: catalyst scoring $(date -u +'%Y-%m-%d %H:%MZ') [skip railway]"
+          for i in $(seq 1 5); do
+            if git push origin HEAD:main; then echo "pushed (attempt $i)"; exit 0; fi
+            echo "push attempt $i rejected; rebasing onto latest main..."
+            git fetch origin main
+            git rebase FETCH_HEAD || { git rebase --abort; echo "::error::rebase conflict"; exit 1; }
+            sleep $((RANDOM % 4 + 2))
+          done
+          echo "::error::push failed after 5 attempts" && exit 1
+
+      # (2026-09 PG 마이그레이션) git 커밋과 병행해 Postgres 에도 업서트(dual-write).
+      - name: Push reports to Postgres (dual-write)
+        env:
+          INGEST_TOKEN: ${{ secrets.REPORT_INGEST_TOKEN }}
+        run: python push_reports_to_db.py || echo "::warning::DB ingest 실패 — git 커밋 폴백으로 동작"
