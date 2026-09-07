@@ -7362,15 +7362,16 @@
           : Math.round(e.loanAmt).toLocaleString() + (e.loanChg ? " (" + (e.loanChg > 0 ? "+" : "") + Math.round(e.loanChg).toLocaleString() + ")" : "");
         return "<tr style='border-top:1px solid rgba(128,128,128,.12)'><td style='padding:2px 6px 2px 0;white-space:nowrap'>" + (i + 1) + ". " + esc(e.name) + secPill(e.code) +
           "</td><td style='text-align:right;color:" + color + ";font-weight:600'>" + eok(e.amt) +
-          "</td><td style='text-align:right'>" + eok(e.frgn) + "</td><td style='text-align:right'>" + eok(e.orgn) +
-          "</td><td style='text-align:right;opacity:.75'>" + eok(e.prsn) +
+          "</td><td style='text-align:right;color:" + INV[1][2] + "'>" + eok(e.frgn) +
+          "</td><td style='text-align:right;color:" + INV[2][2] + "'>" + eok(e.orgn) +
+          "</td><td style='text-align:right;color:" + INV[0][2] + "'>" + eok(e.prsn) +
           "</td><td style='text-align:right;opacity:.75'>" + (e.shortSum == null ? "—" : Math.round(e.shortSum).toLocaleString()) +
           "</td><td style='text-align:right;opacity:.75;white-space:nowrap'>" + loan + "</td></tr>";
       }).join("");
       return '<div style="flex:1;min-width:430px;border:1px solid rgba(128,128,128,.2);border-radius:10px;padding:8px 12px;overflow-x:auto">'
         + '<div style="font-weight:600;margin-bottom:4px;color:' + color + '">' + title + "</div>"
         + '<table style="width:100%;border-collapse:collapse;font-size:12px">'
-        + "<tr style='opacity:.6'><th style='text-align:left'>종목</th><th style='text-align:right'>합산(억)</th><th style='text-align:right'>외인</th><th style='text-align:right'>기관</th><th style='text-align:right'>개인</th><th style='text-align:right'>공매도(억)</th><th style='text-align:right'>대차잔고(증감,억)</th></tr>"
+        + "<tr style='opacity:.6'><th style='text-align:left'>종목</th><th style='text-align:right'>합산(억)</th><th style='text-align:right;color:" + INV[1][2] + "'>외인</th><th style='text-align:right;color:" + INV[2][2] + "'>기관</th><th style='text-align:right;color:" + INV[0][2] + "'>개인</th><th style='text-align:right'>공매도(억)</th><th style='text-align:right'>대차잔고(증감,억)</th></tr>"
         + rows + "</table></div>";
     }
     h += '<div style="display:flex;gap:10px;flex-wrap:wrap">'
@@ -7413,15 +7414,18 @@
     h += invCharts(d.days || []);
     // 일별 지수·주도섹터 테이블 (결정적 집계 — LLM 실패 시에도 표시)
     h += '<table style="width:100%;border-collapse:collapse;font-size:12.5px;margin-bottom:10px">';
-    h += "<tr style='opacity:.65'><th style='text-align:left'>날짜</th><th>코스피</th><th>코스닥</th><th style='text-align:left'>주도 섹터</th><th style='text-align:left'>핵심 촉매</th></tr>";
+    h += "<tr style='opacity:.65'><th style='text-align:left'>날짜</th><th>코스피</th><th>코스닥</th><th style='text-align:left'>주도 섹터</th><th style='text-align:left'>전일 미국장 → 한국장 반응</th></tr>";
+    var dcMap = {};
+    (syn.dailyContext || []).forEach(function (x) { if (x && x.date) dcMap[x.date] = x.note; });
     (d.days || []).forEach(function (day) {
       var ks = (day.indices || {}).kospi || {}, kq = (day.indices || {}).kosdaq || {};
       var sec = (day.sectorsUp || []).slice(0, 2).map(function (s) { return esc(s.name); }).join(", ");
-      var cat = (day.catalysts || [])[0];
+      var cat = (day.catalysts || [])[0];   // dailyContext 없을 때(구버전 데이터) 폴백
+      var note = dcMap[day.date] ? esc(dcMap[day.date])
+        : (cat ? esc(cat.stock) + " — " + esc(cat.summary) : "—");
       h += "<tr style='border-top:1px solid rgba(128,128,128,.15)'><td style='padding:3px 6px 3px 0;white-space:nowrap'>" + day.date.slice(5) +
         "</td><td style='text-align:center'>" + pct(ks.rate) + "</td><td style='text-align:center'>" + pct(kq.rate) +
-        "</td><td style='padding-left:8px'>" + (sec || "—") + "</td><td style='padding-left:8px;opacity:.85'>" +
-        (cat ? esc(cat.stock) + " — " + esc(cat.summary) : "—") + "</td></tr>";
+        "</td><td style='padding-left:8px'>" + (sec || "—") + "</td><td style='padding-left:8px;opacity:.85'>" + note + "</td></tr>";
     });
     h += "</table>";
     function bullets(title, arr) {

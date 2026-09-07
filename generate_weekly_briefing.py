@@ -333,6 +333,9 @@ _SCHEMA = {
         "catalystTimeline": {"type": "array", "items": {"type": "object", "properties": {
             "date": {"type": "string"}, "event": {"type": "string"}},
             "required": ["date", "event"]}},
+        "dailyContext": {"type": "array", "items": {"type": "object", "properties": {
+            "date": {"type": "string"}, "note": {"type": "string"}},
+            "required": ["date", "note"]}},
         "nextWeekPreview": {"type": "array", "items": {"type": "string"}},
     },
     "required": ["headline", "weekNarrative", "sectorRotation", "catalystTimeline"],
@@ -350,6 +353,9 @@ _SYSTEM = (
     "\n- catalystTimeline: 날짜별 핵심 이벤트 (거래일당 1~3개). 시장 이벤트 외에, 그 날"
     " 입력의 catalysts(뉴스)·disclosures(공시)·flowTop(확정 순매수 주도주, 억원)에서"
     " 눈에 띄는 종목이 있으면 종목명과 이유(뉴스/공시/수급)를 구체적으로 언급하라"
+    "\n- dailyContext: 거래일마다 정확히 1개 — 전일 미국장 주요 이슈·경제지표(usReview,"
+    " usCatalystsTop)가 당일 한국장에 어떻게 반영됐는지(지수·섹터·수급 반응, briefing 근거)를"
+    " 잇는 1문장. 종목 나열이 아니라 '미국장 원인 → 한국장 반응' 구조로 작성"
     "\n- nextWeekPreview: 다음 주 주목 포인트 2~4개 불릿 (제공된 예정 이벤트 기반, 없으면 빈 배열)"
 )
 
