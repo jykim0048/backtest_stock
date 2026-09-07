@@ -106,7 +106,38 @@ def _day_summary(date_str):
             {"stock": c.get("stock"), "direction": c.get("direction"),
              "summary": (c.get("summary") or "")[:120]}
             for c in (closing.get("catalysts") or [])[:8]]
+        day["disclosures"] = [
+            {"corp": x.get("corp"), "title": (x.get("title") or "")[:60]}
+            for x in (closing.get("disclosures") or [])[:4]]
+    ft = _day_flow_top(date_str)
+    if ft:
+        day["flowTop"] = ft
     return day
+
+
+def _day_flow_top(date_str):
+    """당일 확정 순매수 주도주(수급) — netbuy_rank 스냅샷 외인+기관 합산 상위 3."""
+    try:
+        with open(os.path.join(ROOT, "public", "reports", "netbuy_rank",
+                               f"{date_str}.json"), encoding="utf-8") as f:
+            rank = json.load(f)
+    except OSError:
+        rank = _fetch(f"reports/netbuy_rank/{date_str}.json")
+    if not rank:
+        return None
+    fin = rank.get("final") or {}
+    best, seen = [], set()
+    for rows in (rank.get("lists") or {}).values():
+        for r in rows or []:
+            c = r.get("code")
+            if not c or c in seen:
+                continue
+            seen.add(c)
+            src = fin.get(c) or r
+            best.append((float(src.get("frgn") or 0) + float(src.get("orgn") or 0),
+                         r.get("name")))
+    best.sort(reverse=True)
+    return [{"name": n, "netBuyEok": round(a / 100)} for a, n in best[:3]]
 
 
 FLOW_RANK_URL = os.environ.get(
@@ -314,7 +345,9 @@ _SYSTEM = (
     "\n- headline: 이번 주를 한 문장으로 (예: '반도체가 이끈 사상 최고치 랠리')"
     "\n- weekNarrative: 주간 시장 흐름 서사 4~6개 불릿 — 지수 흐름과 그 원인, 수급 주체 변화"
     "\n- sectorRotation: 주도 섹터/테마의 주중 변화 2~4개 불릿 — 순환인지 지속인지"
-    "\n- catalystTimeline: 날짜별 핵심 이벤트 1줄씩 (거래일당 1~2개, 가장 영향 큰 것)"
+    "\n- catalystTimeline: 날짜별 핵심 이벤트 (거래일당 1~3개). 시장 이벤트 외에, 그 날"
+    " 입력의 catalysts(뉴스)·disclosures(공시)·flowTop(확정 순매수 주도주, 억원)에서"
+    " 눈에 띄는 종목이 있으면 종목명과 이유(뉴스/공시/수급)를 구체적으로 언급하라"
     "\n- nextWeekPreview: 다음 주 주목 포인트 2~4개 불릿 (제공된 예정 이벤트 기반, 없으면 빈 배열)"
 )
 
@@ -337,6 +370,10 @@ def main():
     today_iso = datetime.datetime.now(KST).date().isoformat()
     if any(d["date"] == today_iso for d in days):
         _snapshot_netbuy_rank(today_iso)
+        ft = _day_flow_top(today_iso)      # 방금 저장한 당일 스냅샷으로 재부착
+        for d in days:
+            if d["date"] == today_iso and ft:
+                d["flowTop"] = ft
     netbuy_cum = _netbuy_cum(dates)
     print(f"[weekly] {week_start} ~ {week_end}: 거래일 {len(days)}일 수집")
 
