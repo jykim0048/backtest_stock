@@ -532,12 +532,20 @@ def main():
         if not llm.configured():
             print("[weekly] LLM 미설정 — synthesis 생략", file=sys.stderr)
         else:
+            def _eok(rows):
+                """netbuy total 행(백만원)을 억원으로 변환 — LLM 단위 오인용 방지."""
+                return [{"name": r.get("name"),
+                         "netBuyEok": round((r.get("amt") or 0) / 100),
+                         "frgnEok": round((r.get("frgn") or 0) / 100),
+                         "orgnEok": round((r.get("orgn") or 0) / 100)}
+                        for r in (rows or [])]
+            total = (netbuy_cum or {}).get("total") or {}
             user = json.dumps({
                 "days": days, "nextWeekEvents": preview,
-                # Phase 3 관찰 노트 근거 — 주간 결정적 집계 (억원)
+                # Phase 3 관찰 노트 근거 — 주간 결정적 집계 (전부 억원 단위)
                 "sectorFlowWeekly": (sector_flow or {}).get("rows"),
-                "netbuyTotalTop": ((netbuy_cum or {}).get("total") or {}).get("top"),
-                "netbuyTotalBottom": ((netbuy_cum or {}).get("total") or {}).get("bottom"),
+                "netbuyTotalTop": _eok(total.get("top")),
+                "netbuyTotalBottom": _eok(total.get("bottom")),
                 "shortLoan": short_loan,
             }, ensure_ascii=False)
             try:
