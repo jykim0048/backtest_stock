@@ -1,0 +1,61 @@
+name: Weekly Briefing
+
+on:
+  # Railway 상시 서버 스케줄러(railway_server._scheduler)가 평일 16:10 KST 에 트리거.
+  # 마감 시황(15:40)·수급 확정(16:00) 이후라 당일 데이터가 완결된 시점 — 그 주
+  # 월요일~당일을 재합성해 같은 키(월요일 날짜)에 upsert (데일리 누적 주간 브리핑).
+  workflow_dispatch: # 수동 실행 + Railway 스케줄러 트리거 진입점
+
+concurrency:
+  group: weekly-briefing
+  cancel-in-progress: false
+
+jobs:
+  weekly-briefing:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0   # full history so the push-time rebase is clean
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      # 입력은 Railway 서버 HTTP 로 읽으므로(라이브 최신) 무거운 수집 의존성 불필요
+      - name: Install dependencies (LLM only)
+        run: pip install google-genai anthropic
+
+      - name: Generate weekly briefing (모닝브리핑 + 장중 시황 주간 종합)
+        timeout-minutes: 10
+        env:
+          GEMINI_API_KEY:    ${{ secrets.GEMINI_API_KEY }}
+          LLM_CHAIN:         ${{ vars.LLM_CHAIN }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: python generate_weekly_briefing.py
+
+      - name: Commit and push weekly briefing
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add public/weekly_briefing.json public/reports/weekly_briefing/
+          git diff --staged --quiet && echo "No changes to commit" && exit 0
+          git commit -m "chore: weekly briefing $(date -u +'%Y-%m-%d %H:%MZ') [skip railway]"
+          for i in $(seq 1 5); do
+            if git push origin HEAD:main; then echo "pushed (attempt $i)"; exit 0; fi
+            echo "push attempt $i rejected; rebasing onto latest main..."
+            git fetch origin main
+            git rebase FETCH_HEAD || { git rebase --abort; echo "::error::rebase conflict"; exit 1; }
+            sleep $((RANDOM % 4 + 2))
+          done
+          echo "::error::push failed after 5 attempts" && exit 1
+
+      # (2026-09 PG 마이그레이션) git 커밋과 병행해 Postgres 에도 업서트(dual-write).
+      - name: Push reports to Postgres (dual-write)
+        env:
+          INGEST_TOKEN: ${{ secrets.REPORT_INGEST_TOKEN }}
+        run: python push_reports_to_db.py || echo "::warning::DB ingest 실패 — git 커밋 폴백으로 동작"

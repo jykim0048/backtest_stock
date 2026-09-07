@@ -1741,6 +1741,27 @@
       <div class="briefing-body" id="ib-body"></div>
     </section>
 
+    <!-- 📅 주간 브리핑: 모닝브리핑+장중 시황(마감 회차) 데일리 누적 주간 종합
+         (reports/weekly_briefing/<월요일>.json — 평일 16:10 재합성 upsert). 데이터 없으면 숨김. -->
+    <section class="briefing-banner collapsed" id="wb-banner" style="display:none;">
+      <div class="briefing-head" onclick="wbToggleBanner()">
+        <div class="briefing-head-left">
+          <span class="briefing-icon">📅</span>
+          <span class="briefing-title">주간 브리핑</span>
+          <span class="briefing-badge">WEEKLY</span>
+          <span class="briefing-date" id="wb-date"></span>
+        </div>
+        <div class="briefing-head-right">
+          <span class="briefing-stance neutral" id="wb-nav" onclick="event.stopPropagation()">
+            <a href="#" onclick="wbNav(1);return false" style="color:inherit;text-decoration:none">◀</a>
+            <a href="#" onclick="wbNav(-1);return false" style="color:inherit;text-decoration:none">▶</a>
+          </span>
+          <span class="briefing-toggle">▲</span>
+        </div>
+      </div>
+      <div class="briefing-body" id="wb-body"></div>
+    </section>
+
     <!-- Main Workspace Layout -->
     <div class="main-grid">
       
@@ -7248,5 +7269,78 @@
       <div id="sd-body"></div>
     </div>
   </div>
+<script>
+// ===== 📅 주간 브리핑 (독립 스크립트 — reports/weekly_briefing/) =====
+(function () {
+  var wbWeeks = [], wbIdx = 0;
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c];
+    });
+  }
+  function pct(v) {
+    if (v == null || isNaN(v)) return "—";
+    var cls = v > 0 ? "color:#f04452" : (v < 0 ? "color:#3182f6" : "");
+    return '<span style="' + cls + '">' + (v > 0 ? "+" : "") + Number(v).toFixed(2) + "%</span>";
+  }
+  function render(d) {
+    var el = document.getElementById("wb-body");
+    document.getElementById("wb-date").textContent = d.weekStart + " ~ " + d.weekEnd;
+    var h = "";
+    var syn = d.synthesis || {};
+    if (syn.headline) h += '<div style="font-weight:700;font-size:14.5px;margin:6px 0 10px">' + esc(syn.headline) + "</div>";
+    // 일별 지수·주도섹터 테이블 (결정적 집계 — LLM 실패 시에도 표시)
+    h += '<table style="width:100%;border-collapse:collapse;font-size:12.5px;margin-bottom:10px">';
+    h += "<tr style='opacity:.65'><th style='text-align:left'>날짜</th><th>코스피</th><th>코스닥</th><th style='text-align:left'>주도 섹터</th><th style='text-align:left'>핵심 촉매</th></tr>";
+    (d.days || []).forEach(function (day) {
+      var ks = (day.indices || {}).kospi || {}, kq = (day.indices || {}).kosdaq || {};
+      var sec = (day.sectorsUp || []).slice(0, 2).map(function (s) { return esc(s.name); }).join(", ");
+      var cat = (day.catalysts || [])[0];
+      h += "<tr style='border-top:1px solid rgba(128,128,128,.15)'><td style='padding:3px 6px 3px 0;white-space:nowrap'>" + day.date.slice(5) +
+        "</td><td style='text-align:center'>" + pct(ks.rate) + "</td><td style='text-align:center'>" + pct(kq.rate) +
+        "</td><td style='padding-left:8px'>" + (sec || "—") + "</td><td style='padding-left:8px;opacity:.85'>" +
+        (cat ? esc(cat.stock) + " — " + esc(cat.summary) : "—") + "</td></tr>";
+    });
+    h += "</table>";
+    function bullets(title, arr) {
+      if (!arr || !arr.length) return "";
+      var s = '<div style="font-weight:600;margin:8px 0 4px">' + title + "</div><ul style='margin:0 0 6px;padding-left:18px'>";
+      arr.forEach(function (b) { s += "<li style='margin:2px 0'>" + esc(b) + "</li>"; });
+      return s + "</ul>";
+    }
+    h += bullets("주간 시장 흐름", syn.weekNarrative);
+    h += bullets("섹터·테마 흐름", syn.sectorRotation);
+    if (syn.catalystTimeline && syn.catalystTimeline.length) {
+      h += '<div style="font-weight:600;margin:8px 0 4px">주간 촉매 타임라인</div><ul style="margin:0 0 6px;padding-left:18px">';
+      syn.catalystTimeline.forEach(function (t) {
+        h += "<li style='margin:2px 0'><b>" + esc((t.date || "").slice(5)) + "</b> " + esc(t.event) + "</li>";
+      });
+      h += "</ul>";
+    }
+    h += bullets("다음 주 프리뷰", syn.nextWeekPreview);
+    if (!syn.headline) h += '<div style="opacity:.6;font-size:12px">주간 종합 코멘트는 다음 갱신(평일 16:10)에 채워집니다.</div>';
+    h += '<div style="opacity:.5;font-size:11px;margin-top:6px">기준: ' + esc(d.asof || "") + "</div>";
+    el.innerHTML = h;
+  }
+  function load(i) {
+    if (!wbWeeks.length) return;
+    wbIdx = Math.max(0, Math.min(wbWeeks.length - 1, i));
+    fetch("reports/weekly_briefing/" + wbWeeks[wbIdx] + ".json?t=" + Date.now(), { cache: "no-store" })
+      .then(function (r) { if (!r.ok) throw 0; return r.json(); })
+      .then(function (d) { render(d); document.getElementById("wb-banner").style.display = ""; })
+      .catch(function () {});
+  }
+  window.wbToggleBanner = function () {
+    document.getElementById("wb-banner").classList.toggle("collapsed");
+  };
+  window.wbNav = function (dir) { load(wbIdx + dir); };   // ◀ = 이전 주(인덱스+1)
+  fetch("reports/weekly_briefing/index.json?t=" + Date.now(), { cache: "no-store" })
+    .then(function (r) { if (!r.ok) throw 0; return r.json(); })
+    .then(function (list) {
+      if (Array.isArray(list) && list.length) { wbWeeks = list; load(0); }
+    })
+    .catch(function () {});   // 데이터 없으면 배너 숨김 유지
+})();
+</script>
 </body>
 </html>

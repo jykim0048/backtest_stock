@@ -632,6 +632,7 @@ DAILY_WF     = "daily_report.yml"
 INTRADAY_WF  = "intraday_screener.yml"
 CLOSING_WF   = "closing_briefing.yml"
 FINALIZE_WF  = "finalize_netbuy.yml"     # 16:00 수급 확정 패스(마감 회차 netbuy 패치)
+WEEKLY_WF    = "weekly_briefing.yml"     # 16:10 주간 브리핑(그 주 월~당일 재합성 upsert)
 INVWARN_WF   = "investment_warning.yml"
 CORPMAP_WF   = "build_corp_map.yml"
 INDEXCON_WF  = "index_constituents.yml"
@@ -702,6 +703,12 @@ def _scheduler():
                 if now.hour == 16 and now.minute == 0:
                     key = (today, "finalize-netbuy")
                     if key not in fired and _dispatch(FINALIZE_WF):
+                        fired.add(key)
+                # 주간 브리핑 16:10 — 마감 시황(15:40)·수급 확정(16:00) 이후 당일
+                # 데이터 완결 시점에 그 주(월~당일)를 재합성 upsert (데일리 누적)
+                if now.hour == 16 and now.minute == 10:
+                    key = (today, "weekly-briefing")
+                    if key not in fired and _dispatch(WEEKLY_WF):
                         fired.add(key)
                 if now.weekday() == 0 and now.hour == 6 and now.minute == 30:   # 테마맵 주1회 월 06:30 KST
                     key = (today, "thememap")
