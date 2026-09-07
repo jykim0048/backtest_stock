@@ -7337,8 +7337,10 @@
           "</span><span style='color:" + color + ";white-space:nowrap'>" + fmtAmt(e.amt / 100) + "억</span></div>";
       }).join("");
     }
+    var nF = (nc.finalDates || []).length, nD = (nc.dates || []).length;
+    var basis = nF >= nD ? "일별 확정 순매수 합산" : (nF ? "확정 " + nF + "일 + 가집계 " + (nD - nF) + "일 합산" : "가집계 랭킹 합산");
     var h = '<div style="font-weight:600;margin:10px 0 4px">주간 누적 순매수 상위 · 하위 <span style="font-weight:400;opacity:.55;font-size:11px">(' +
-      (nc.dates || []).length + "거래일 가집계 랭킹 합산 — 상위 30 등재일 기준 근사)</span></div>";
+      nD + "거래일 " + basis + " — 상위 30 등재일 기준 근사)</span></div>";
     h += '<div style="display:flex;gap:14px;flex-wrap:wrap;font-size:12px">';
     COLS.forEach(function (c) {
       var d = nc[c[0]] || {};

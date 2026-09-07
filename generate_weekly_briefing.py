@@ -130,10 +130,11 @@ def _snapshot_netbuy_rank(today):
     except Exception as ex:
         print(f"[weekly] flow-rank 스냅샷 실패(기존 유지): {ex}", file=sys.stderr)
         return
+    snap = {"date": today, "asof": d.get("asof"), "lists": lists}
+    _enrich_final(snap)
     os.makedirs(RANK_DIR, exist_ok=True)
     with open(os.path.join(RANK_DIR, f"{today}.json"), "w", encoding="utf-8") as f:
-        json.dump({"date": today, "asof": d.get("asof"), "lists": lists},
-                  f, ensure_ascii=False, indent=1)
+        json.dump(snap, f, ensure_ascii=False, indent=1)
     idx_path = os.path.join(RANK_DIR, "index.json")
     try:
         with open(idx_path, encoding="utf-8") as f:
@@ -146,11 +147,52 @@ def _snapshot_netbuy_rank(today):
     print(f"[weekly] netbuy_rank 스냅샷 저장: {today} (asof {d.get('asof')})")
 
 
+def _enrich_final(snap):
+    """가집계 랭킹 스냅샷에 종목별 일별 '확정' 순매수를 병합 (snap['final']).
+
+    허브 /flow 의 daily(FHPTJ04160001 확정, 15:40+ 반영)를 랭킹 등재 종목마다
+    조회해 스냅샷 날짜와 일치하는 행만 채택 — 가집계와 확정의 괴리(예: 2026-09-07
+    SK하이닉스 외인 가집계 9,575억 vs 확정 1.73조)를 보정한다. 단위는 동일(백만원).
+    부분 실패는 그 종목만 가집계 유지(무해). 16:10 실행 전제(확정 반영 이후)."""
+    from concurrent.futures import ThreadPoolExecutor
+    codes = []
+    for rows in (snap.get("lists") or {}).values():
+        for r in rows or []:
+            c = r.get("code")
+            if c and c not in codes:
+                codes.append(c)
+    if not codes:
+        return
+    want = snap["date"].replace("-", "")
+    base = FLOW_RANK_URL.rsplit("/", 1)[0]
+
+    def _one(code):
+        try:
+            req = urllib.request.Request(f"{base}/flow?code={code}",
+                                         headers={"User-Agent": "weekly-briefing"})
+            with urllib.request.urlopen(req, timeout=30) as r:
+                daily = (json.loads(r.read().decode("utf-8")).get("daily") or [])
+            for row in daily:
+                if str(row.get("date")) == want:
+                    return code, {k: row.get(k) for k in ("prsn", "frgn", "orgn", "fund")}
+        except Exception:
+            pass
+        return code, None
+
+    final = {}
+    with ThreadPoolExecutor(max_workers=6) as tp:
+        for code, v in tp.map(_one, codes):
+            if v:
+                final[code] = v
+    snap["final"] = final
+    print(f"[weekly] 확정 순매수 병합: {len(final)}/{len(codes)}종목")
+
+
 def _netbuy_cum(dates):
     """그 주 일자별 netbuy_rank 아카이브를 합산 — 주체별 누적 순매수 상/하위.
     상위 30 리스트에 든 날만 반영되는 근사치(미등재일은 0 취급)임을 유의."""
     acc = {}                        # code -> {name, frgn, orgn, fund, days}
-    used = []
+    used, final_dates = [], []
     for dt in dates:
         rel = f"reports/netbuy_rank/{dt.isoformat()}.json"
         # 로컬 우선(방금 저장한 당일 스냅샷·체크아웃 이월분) → 서버 폴백
@@ -162,6 +204,9 @@ def _netbuy_cum(dates):
         if not d:
             continue
         used.append(dt.isoformat())
+        final = d.get("final") or {}    # 종목별 확정(백만원) — 있으면 가집계 대신 사용
+        if final:
+            final_dates.append(dt.isoformat())
         seen = set()                # 같은 날 여러 리스트 중복 합산 방지 (종목당 1회)
         for rows in (d.get("lists") or {}).values():
             for r in rows or []:
@@ -171,12 +216,13 @@ def _netbuy_cum(dates):
                 seen.add(code)
                 e = acc.setdefault(code, {"code": code, "name": r.get("name"),
                                           "frgn": 0.0, "orgn": 0.0, "fund": 0.0, "days": 0})
+                src = final.get(code) or r
                 for k in ("frgn", "orgn", "fund"):
-                    e[k] += float(r.get(k) or 0.0)
+                    e[k] += float(src.get(k) or 0.0)
                 e["days"] += 1
     if not acc:
         return None
-    out = {"dates": used}
+    out = {"dates": used, "finalDates": final_dates}
     for k in ("frgn", "orgn", "fund"):
         ranked = sorted(acc.values(), key=lambda e: e[k], reverse=True)
         out[k] = {
