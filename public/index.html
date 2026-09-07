@@ -7475,9 +7475,11 @@
     if (syn.headline) h += '<div style="font-weight:700;font-size:14.5px;margin:6px 0 10px">' + esc(syn.headline) + "</div>";
     h += invCharts(d.days || []);
     // US 미국 주간 컨텍스트 — 모닝브리핑(전일 미국장) 일별 등락 누적
-    // (국기 이모지는 Windows 에서 소문자 'us' 글리프로 렌더돼 텍스트 'US' 로 교체)
+    // (국기 이모지는 Windows 에서 소문자 'us' 글리프로 렌더돼 텍스트 'US' 로 교체.
+    //  제목 크기는 '투자자 합산 순매수' 헤더와 동일 스타일)
     if (d.usWeekly && Object.keys(d.usWeekly).length) {
-      h += '<div style="font-size:12.5px;margin:0 0 10px;opacity:.9"><b>US 미국 주간</b> <span style="opacity:.55;font-size:11px">(모닝브리핑 전일 기준 누적)</span> ';
+      h += '<div style="font-weight:600;margin:6px 0 4px">US 미국 주간 <span style="font-weight:400;opacity:.55;font-size:11px">(모닝브리핑 전일 기준 누적)</span></div>'
+        + '<div style="font-size:12.5px;margin:0 0 6px;opacity:.9">';
       [["나스닥", "나스닥"], ["S&P500", "S&P500"], ["다우", "다우"],
        ["필라델피아 반도체", "필라델피아 반도체"], ["VIX 변동성", "VIX"]].forEach(function (p) {
         var v = d.usWeekly[p[0]];
@@ -7485,6 +7487,25 @@
         h += '<span style="margin-right:12px;white-space:nowrap">' + esc(p[1]) + " " + pct(v) + "</span>";
       });
       h += "</div>";
+    }
+    // 전일 미국 주요 경제지표(★3 이상 — 실업률·비농업고용 등) 일별 한 줄씩
+    var econLines = "";
+    (d.days || []).forEach(function (day) {
+      var es = day.usEcon || [];
+      if (!es.length) return;
+      var parts = es.map(function (e) {
+        var val = (e.actual == null ? "—" : e.actual) + esc((e.unitScale || "") + (e.unit === "pers" ? "명" : e.unit === "hrs" ? "h" : (e.unit || "")));
+        var sp = e.surprise || {};
+        var vsLabel = sp.vs === "previous" ? "이전비" : "예상";
+        var vd = sp.verdict === "above" ? ["상회", "#f04452"]
+          : sp.verdict === "below" ? ["하회", "#3182f6"] : ["부합", "rgba(203,213,225,.6)"];
+        return "<b>" + esc(e.name) + "</b> " + val
+          + ' <span style="color:' + vd[1] + ';font-size:11px">(' + vsLabel + " " + vd[0] + ")</span>";
+      });
+      econLines += '<div style="margin:1px 0"><span style="opacity:.55">' + esc(day.date.slice(5)) + "</span> " + parts.join(' <span style="opacity:.35">·</span> ') + "</div>";
+    });
+    if (econLines) {
+      h += '<div style="font-size:12px;margin:0 0 10px;opacity:.92"><span style="opacity:.6">📊 전일 미국 주요 지표</span>' + econLines + "</div>";
     }
     // 일별 지수·주도섹터 테이블 (결정적 집계 — LLM 실패 시에도 표시)
     h += '<table style="width:100%;border-collapse:collapse;font-size:12.5px;margin-bottom:10px">';
@@ -7499,7 +7520,7 @@
         : (cat ? esc(cat.stock) + " — " + esc(cat.summary) : "—");
       h += "<tr style='border-top:1px solid rgba(128,128,128,.15)'><td style='padding:3px 6px 3px 0;white-space:nowrap'>" + day.date.slice(5) +
         "</td><td style='text-align:center'>" + pct(ks.rate) + "</td><td style='text-align:center'>" + pct(kq.rate) +
-        "</td><td style='padding-left:8px'>" + (sec || "—") + "</td><td style='padding-left:8px;opacity:.85'>" + note + "</td></tr>";
+        "</td><td style='padding-left:8px'>" + (sec || "—") + "</td><td style='padding-left:8px;color:#fff'>" + note + "</td></tr>";
     });
     h += "</table>";
     function bullets(title, arr) {
@@ -7600,9 +7621,9 @@
               return '<div style="margin:3px 0;font-size:12.5px"><b>' + esc(e.name) + "</b> <span style='color:#cbd5e1'>— " + esc(e.basis) + "</span></div>";
             }).join("") + "</div>";
       };
-      h += '<div style="font-weight:600;margin:10px 0 4px">🔍 주간 관찰 노트 <span style="font-weight:400;opacity:.55;font-size:11px">(수급·공매도 데이터 기반 자동 생성 — 투자 판단 참고용, 매매 권유 아님)</span></div>'
-        + '<div style="display:flex;gap:16px;flex-wrap:wrap">'
-        + wnCol("상방 관찰", wn.long, "#f04452") + wnCol("하방 관찰", wn.short, "#3182f6") + "</div>";
+      h += '<div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:10px">'
+        + wnCol("수급 상방 관찰", wn.long, "#f04452") + wnCol("수급 하방 관찰", wn.short, "#3182f6") + "</div>"
+        + '<div style="opacity:.45;font-size:10.5px;margin-top:2px">수급·공매도 데이터 기반 자동 생성 · 투자 판단 참고용, 매매 권유 아님</div>';
     }
     h += bullets("📈 주간 시장 흐름", syn.weekNarrative);
     h += bullets("🔁 섹터·테마 흐름", syn.sectorRotation);

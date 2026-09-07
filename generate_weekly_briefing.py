@@ -90,6 +90,14 @@ def _day_summary(date_str):
             {"stock": c.get("stock"), "direction": c.get("direction"),
              "summary": (c.get("summary") or "")[:120]}
             for c in (morning.get("usCatalysts") or [])[:5]]
+        # 전일 미국 경제지표 — 시장 영향력 큰 것(★3 이상)만 (실업률·비농업고용 등,
+        # 2026-09-08 사용자 요청). actual 없는 행(발표 전/이월 공백)은 제외.
+        day["usEcon"] = [
+            {k: e.get(k) for k in ("name", "importance", "actual", "forecast",
+                                   "previous", "unit", "unitScale", "surprise")
+             if e.get(k) is not None}
+            for e in ((morning.get("econEvents") or {}).get("usReleased") or [])
+            if (e.get("importance") or 0) >= 3 and e.get("actual") is not None]
 
     closing = None
     for r in reversed((intraday or {}).get("rounds") or []):
@@ -660,6 +668,7 @@ def main():
                   "investors": d.get("investors") or {},
                   "sectorsUp": d.get("sectorsUp") or [],
                   "sectorsDown": d.get("sectorsDown") or [],
+                  "usEcon": d.get("usEcon") or [],   # 전일 미국 주요 지표(★3+)
                   "catalysts": (d.get("catalysts") or [])[:3]} for d in days],
         "netbuyCum": netbuy_cum,        # 주체별(외인/기관/연기금) 주간 누적 순매수 상/하위
         "usWeekly": us_weekly,          # 미국 지수 주간 누적 등락(모닝브리핑 전일 기준 합산)
