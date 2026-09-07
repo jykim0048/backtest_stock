@@ -7283,12 +7283,79 @@
     var cls = v > 0 ? "color:#f04452" : (v < 0 ? "color:#3182f6" : "");
     return '<span style="' + cls + '">' + (v > 0 ? "+" : "") + Number(v).toFixed(2) + "%</span>";
   }
+  // 투자자별 주간 누적 순매수 — 장중 시황 지수 카드와 동일 양식(알약 + 누적 라인)
+  var INV = [["individual", "개인", "#9aa5b1"], ["foreign", "외인", "#3b82f6"], ["institution", "기관", "#eab308"]];
+  function fmtAmt(v) { return (v > 0 ? "+" : "") + Math.round(v).toLocaleString(); }
+  function invCharts(days) {
+    if (!days.length) return "";
+    var h = '<div style="display:flex;gap:10px;flex-wrap:wrap;margin:4px 0 12px">';
+    ["kospi", "kosdaq"].forEach(function (mk) {
+      // 일별 순매수를 누적 시계열로
+      var cum = { individual: [], foreign: [], institution: [] }, tot = { individual: 0, foreign: 0, institution: 0 }, any = false;
+      days.forEach(function (day) {
+        var iv = (day.investors || {})[mk] || {};
+        INV.forEach(function (t) {
+          tot[t[0]] += Number(iv[t[0]] || 0);
+          cum[t[0]].push(tot[t[0]]);
+          if (iv[t[0]] != null) any = true;
+        });
+      });
+      if (!any) return;
+      var W = 260, H = 64, all = [].concat(cum.individual, cum.foreign, cum.institution, [0]);
+      var mn = Math.min.apply(null, all), mx = Math.max.apply(null, all), rg = (mx - mn) || 1;
+      var n = days.length, dx = n > 1 ? W / (n - 1) : 0;
+      function line(arr, color) {
+        var pts = arr.map(function (v, i) {
+          return (n > 1 ? i * dx : W / 2).toFixed(1) + "," + (H - 6 - (v - mn) / rg * (H - 12)).toFixed(1);
+        }).join(" ");
+        return '<polyline points="' + pts + '" fill="none" stroke="' + color + '" stroke-width="1.6"/>';
+      }
+      var zeroY = (H - 6 - (0 - mn) / rg * (H - 12)).toFixed(1);
+      h += '<div style="flex:1;min-width:300px;border:1px solid rgba(128,128,128,.2);border-radius:10px;padding:8px 12px">'
+        + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">'
+        + '<span style="font-weight:700">' + mk.toUpperCase() + ' 주간 누적 수급</span><span>'
+        + INV.map(function (t) {
+            return '<span style="border:1px solid ' + t[2] + '55;border-radius:10px;padding:1px 7px;margin-left:4px;font-size:11.5px;color:' + t[2] + '">'
+              + t[1] + " " + fmtAmt(tot[t[0]]) + "</span>";
+          }).join("")
+        + "</span></div>"
+        + '<svg viewBox="0 0 ' + W + " " + H + '" style="width:100%;height:' + H + 'px;display:block">'
+        + '<line x1="0" y1="' + zeroY + '" x2="' + W + '" y2="' + zeroY + '" stroke="rgba(128,128,128,.35)" stroke-dasharray="3,3"/>'
+        + line(cum.individual, INV[0][2]) + line(cum.foreign, INV[1][2]) + line(cum.institution, INV[2][2])
+        + "</svg><div style='opacity:.5;font-size:10.5px'>일별 순매수 누적(억원) · " + days[0].date.slice(5) + "~" + days[days.length - 1].date.slice(5) + "</div></div>";
+    });
+    return h + "</div>";
+  }
+  // 주간 누적 순매수 상/하위 (외인/기관/연기금 — netbuy_rank 일별 아카이브 합산)
+  function netbuyTables(nc) {
+    if (!nc) return "";
+    var COLS = [["frgn", "외국인"], ["orgn", "기관계"], ["fund", "연기금"]];
+    function rows(arr, color) {
+      if (!arr || !arr.length) return "<div style='opacity:.5'>—</div>";
+      return arr.map(function (e, i) {
+        return "<div style='display:flex;justify-content:space-between;gap:6px'><span style='opacity:.85'>" + (i + 1) + ". " + esc(e.name) +
+          "</span><span style='color:" + color + ";white-space:nowrap'>" + fmtAmt(e.amt / 100) + "억</span></div>";
+      }).join("");
+    }
+    var h = '<div style="font-weight:600;margin:10px 0 4px">주간 누적 순매수 상위 · 하위 <span style="font-weight:400;opacity:.55;font-size:11px">(' +
+      (nc.dates || []).length + "거래일 가집계 랭킹 합산 — 상위 30 등재일 기준 근사)</span></div>";
+    h += '<div style="display:flex;gap:14px;flex-wrap:wrap;font-size:12px">';
+    COLS.forEach(function (c) {
+      var d = nc[c[0]] || {};
+      h += '<div style="flex:1;min-width:200px"><div style="font-weight:600;opacity:.8;margin-bottom:3px">' + c[1] + "</div>"
+        + rows(d.top, "#f04452")
+        + '<div style="border-top:1px dashed rgba(128,128,128,.3);margin:5px 0"></div>'
+        + rows(d.bottom, "#3182f6") + "</div>";
+    });
+    return h + "</div>";
+  }
   function render(d) {
     var el = document.getElementById("wb-body");
     document.getElementById("wb-date").textContent = d.weekStart + " ~ " + d.weekEnd;
     var h = "";
     var syn = d.synthesis || {};
     if (syn.headline) h += '<div style="font-weight:700;font-size:14.5px;margin:6px 0 10px">' + esc(syn.headline) + "</div>";
+    h += invCharts(d.days || []);
     // 일별 지수·주도섹터 테이블 (결정적 집계 — LLM 실패 시에도 표시)
     h += '<table style="width:100%;border-collapse:collapse;font-size:12.5px;margin-bottom:10px">';
     h += "<tr style='opacity:.65'><th style='text-align:left'>날짜</th><th>코스피</th><th>코스닥</th><th style='text-align:left'>주도 섹터</th><th style='text-align:left'>핵심 촉매</th></tr>";
@@ -7308,6 +7375,7 @@
       arr.forEach(function (b) { s += "<li style='margin:2px 0'>" + esc(b) + "</li>"; });
       return s + "</ul>";
     }
+    h += netbuyTables(d.netbuyCum);
     h += bullets("주간 시장 흐름", syn.weekNarrative);
     h += bullets("섹터·테마 흐름", syn.sectorRotation);
     if (syn.catalystTimeline && syn.catalystTimeline.length) {

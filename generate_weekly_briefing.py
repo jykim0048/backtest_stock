@@ -109,6 +109,85 @@ def _day_summary(date_str):
     return day
 
 
+FLOW_RANK_URL = os.environ.get(
+    "FLOW_RANK_URL",
+    "https://tradingstrategies-production-09d4.up.railway.app/flow-rank")
+RANK_DIR = os.path.join(ROOT, "public", "reports", "netbuy_rank")
+
+
+def _snapshot_netbuy_rank(today):
+    """KIS 허브 /flow-rank(외인·기관 순매수 상위, 연기금 금액 포함)를 당일 키로
+    아카이브 — 라이브 전용이던 랭킹을 일자별 DB 누적으로 전환(2026-09-07).
+    reports/netbuy_rank/<date>.json 은 classify 가 제네릭 처리하므로 dual-write 로
+    자동 업서트된다. 실패 시 기존 파일 유지(주말/휴장은 호출측에서 스킵)."""
+    try:
+        req = urllib.request.Request(FLOW_RANK_URL, headers={"User-Agent": "weekly-briefing"})
+        with urllib.request.urlopen(req, timeout=30) as r:
+            d = json.loads(r.read().decode("utf-8"))
+        lists = d.get("lists") or {}
+        if not any(lists.values()):
+            raise ValueError("빈 랭킹 응답")
+    except Exception as ex:
+        print(f"[weekly] flow-rank 스냅샷 실패(기존 유지): {ex}", file=sys.stderr)
+        return
+    os.makedirs(RANK_DIR, exist_ok=True)
+    with open(os.path.join(RANK_DIR, f"{today}.json"), "w", encoding="utf-8") as f:
+        json.dump({"date": today, "asof": d.get("asof"), "lists": lists},
+                  f, ensure_ascii=False, indent=1)
+    idx_path = os.path.join(RANK_DIR, "index.json")
+    try:
+        with open(idx_path, encoding="utf-8") as f:
+            idx = json.load(f)
+    except OSError:
+        idx = []
+    if today not in idx:
+        with open(idx_path, "w", encoding="utf-8") as f:
+            json.dump(sorted(set(idx) | {today}, reverse=True), f, indent=1)
+    print(f"[weekly] netbuy_rank 스냅샷 저장: {today} (asof {d.get('asof')})")
+
+
+def _netbuy_cum(dates):
+    """그 주 일자별 netbuy_rank 아카이브를 합산 — 주체별 누적 순매수 상/하위.
+    상위 30 리스트에 든 날만 반영되는 근사치(미등재일은 0 취급)임을 유의."""
+    acc = {}                        # code -> {name, frgn, orgn, fund, days}
+    used = []
+    for dt in dates:
+        rel = f"reports/netbuy_rank/{dt.isoformat()}.json"
+        # 로컬 우선(방금 저장한 당일 스냅샷·체크아웃 이월분) → 서버 폴백
+        try:
+            with open(os.path.join(ROOT, "public", rel), encoding="utf-8") as f:
+                d = json.load(f)
+        except OSError:
+            d = _fetch(rel)
+        if not d:
+            continue
+        used.append(dt.isoformat())
+        seen = set()                # 같은 날 여러 리스트 중복 합산 방지 (종목당 1회)
+        for rows in (d.get("lists") or {}).values():
+            for r in rows or []:
+                code = r.get("code")
+                if not code or code in seen:
+                    continue
+                seen.add(code)
+                e = acc.setdefault(code, {"code": code, "name": r.get("name"),
+                                          "frgn": 0.0, "orgn": 0.0, "fund": 0.0, "days": 0})
+                for k in ("frgn", "orgn", "fund"):
+                    e[k] += float(r.get(k) or 0.0)
+                e["days"] += 1
+    if not acc:
+        return None
+    out = {"dates": used}
+    for k in ("frgn", "orgn", "fund"):
+        ranked = sorted(acc.values(), key=lambda e: e[k], reverse=True)
+        out[k] = {
+            "top": [{"code": e["code"], "name": e["name"], "amt": round(e[k])}
+                    for e in ranked[:10] if e[k] > 0],
+            "bottom": [{"code": e["code"], "name": e["name"], "amt": round(e[k])}
+                       for e in ranked[-10:][::-1] if e[k] < 0],
+        }
+    return out
+
+
 def _next_week_preview():
     """다음 주 예정 이벤트 — 경제지표·실적 캘린더에서 결정적으로 추출."""
     out = {"econ": [], "earnings": []}
@@ -169,6 +248,12 @@ def main():
         print(f"[weekly] {week_start} 주 데이터 없음 — 생성 생략")
         return 0
     week_end = days[-1]["date"]
+
+    # 당일 순매수 랭킹 스냅샷(거래일이었을 때만) + 주간 누적 합산
+    today_iso = datetime.datetime.now(KST).date().isoformat()
+    if any(d["date"] == today_iso for d in days):
+        _snapshot_netbuy_rank(today_iso)
+    netbuy_cum = _netbuy_cum(dates)
     print(f"[weekly] {week_start} ~ {week_end}: 거래일 {len(days)}일 수집")
 
     preview = _next_week_preview()
@@ -197,6 +282,7 @@ def main():
                   "sectorsUp": d.get("sectorsUp") or [],
                   "sectorsDown": d.get("sectorsDown") or [],
                   "catalysts": (d.get("catalysts") or [])[:3]} for d in days],
+        "netbuyCum": netbuy_cum,        # 주체별(외인/기관/연기금) 주간 누적 순매수 상/하위
         "synthesis": synthesis,
     }
 
