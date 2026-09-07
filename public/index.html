@@ -7521,6 +7521,29 @@
       if ((sw.down || []).length) h += '<span style="opacity:.65;margin:0 6px 0 10px">하락 섹터</span>' + secChips(sw.down, "#3182f6");
       h += "</div>";
     }
+    // 섹터 x 수급 매트릭스 — 업종별 주간 등락 vs 투자자 순매수 (KIS 업종, 억원)
+    var sfm = d.sectorFlow;
+    if (sfm && (sfm.rows || []).length) {
+      var mrows = sfm.rows.map(function (r) {
+        var smart = r.frgn + r.orgn;                       // 외인+기관 합산
+        var diverge = (r.chgPct >= 1.5 && smart < 0) ? "over"   // 주가↑ 수급↓ = 과열 주의
+          : (r.chgPct <= -1.5 && smart > 0) ? "under" : "";     // 주가↓ 수급↑ = 저가 매집
+        var bg = diverge === "over" ? "background:rgba(251,191,36,.07)"
+          : diverge === "under" ? "background:rgba(45,212,191,.07)" : "";
+        var badge = diverge === "over" ? ' <span style="color:#fbbf24;font-size:10px">과열주의</span>'
+          : diverge === "under" ? ' <span style="color:#2dd4bf;font-size:10px">수급유입</span>' : "";
+        function amt(v) { return '<td style="text-align:right;padding:2px 0 2px 12px;color:' + (v > 0 ? "#f04452" : v < 0 ? "#3182f6" : "inherit") + '">' + fmtAmt(v) + "</td>"; }
+        return '<tr style="border-top:1px solid rgba(128,128,128,.1);' + bg + '">'
+          + '<td style="padding:2px 6px 2px 0;white-space:nowrap">' + esc(r.name) + badge + "</td>"
+          + '<td style="text-align:right">' + pct(r.chgPct) + "</td>"
+          + amt(r.frgn) + amt(r.orgn) + amt(r.fund) + amt(r.prsn) + "</tr>";
+      }).join("");
+      h += '<details class="flow-details" style="margin:0 0 6px"><summary>섹터 × 수급 매트릭스 — 주가 vs 투자자 순매수 (주간, 억원) ▾</summary>'
+        + '<div style="overflow-x:auto;margin-top:6px"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:520px">'
+        + "<tr style='opacity:.6'><th style='text-align:left'>업종</th><th style='text-align:right'>주간등락</th><th style='text-align:right'>외인</th><th style='text-align:right'>기관</th><th style='text-align:right'>연기금</th><th style='text-align:right'>개인</th></tr>"
+        + mrows + "</table><div style='opacity:.5;font-size:10.5px;margin-top:4px'>"
+        + "KIS 업종(KRX 산업분류) 일별 확정 · <span style='color:#fbbf24'>과열주의</span>=주가↑수급↓ · <span style='color:#2dd4bf'>수급유입</span>=주가↓수급↑</div></div></details>";
+    }
     h += netbuyTables(d.netbuyCum);
     // 공매도 · 대차 주간 동향 (랭킹 유니버스 한정, 억원) — 앰버 접힘
     var slw = d.shortLoan;

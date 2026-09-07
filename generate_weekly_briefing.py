@@ -477,6 +477,39 @@ def main():
             "loanDown": [{"name": e["name"], "chg": e["loanChg"], "amt": e["loanAmt"]} for e in loan_dn],
         }
 
+    # ⑤ 섹터 x 수급 매트릭스 — 허브 /sector-flow(FHPTJ04040000 업종별 일별 투자자
+    #    순매수, 백만원)에서 이번 주 날짜만 합산. 주가 vs 수급 괴리 판정은 UI 에서.
+    sector_flow = None
+    try:
+        base = FLOW_RANK_URL.rsplit("/", 1)[0]
+        req = urllib.request.Request(f"{base}/sector-flow",
+                                     headers={"User-Agent": "weekly-briefing"})
+        with urllib.request.urlopen(req, timeout=90) as r:
+            sf = json.loads(r.read().decode("utf-8"))
+        want = {dt.strftime("%Y%m%d") for dt in dates}
+        rows = []
+        for s in (sf.get("sectors") or []):
+            chg, frgn, orgn, prsn, fund, nd = 0.0, 0.0, 0.0, 0.0, 0.0, 0
+            for r0 in (s.get("daily") or []):
+                if r0.get("date") in want and any(
+                        r0.get(k) for k in ("frgn", "orgn", "prsn", "chgPct")):
+                    nd += 1
+                    chg += float(r0.get("chgPct") or 0.0)
+                    frgn += float(r0.get("frgn") or 0.0)
+                    orgn += float(r0.get("orgn") or 0.0)
+                    prsn += float(r0.get("prsn") or 0.0)
+                    fund += float(r0.get("fund") or 0.0)
+            if nd:
+                rows.append({"name": s.get("name"), "days": nd, "chgPct": round(chg, 2),
+                             "frgn": round(frgn / 100), "orgn": round(orgn / 100),
+                             "prsn": round(prsn / 100), "fund": round(fund / 100)})  # 억원
+        if rows:
+            rows.sort(key=lambda x: -x["chgPct"])
+            sector_flow = {"asof": sf.get("asof"), "rows": rows}
+            print(f"[weekly] 섹터x수급 매트릭스: {len(rows)}업종")
+    except Exception as ex:
+        print(f"[weekly] sector-flow 수집 실패(매트릭스 생략): {ex}", file=sys.stderr)
+
     # ④ 섹터 주간 지속성 — 일별 상위/하위 섹터 등장 일수 + 평균 등락률
     def _sector_week(key):
         agg = {}
@@ -524,6 +557,7 @@ def main():
         "usWeekly": us_weekly,          # 미국 지수 주간 누적 등락(모닝브리핑 전일 기준 합산)
         "shortLoan": short_loan,        # 공매도 누적·대차잔고 증감 상위 (랭킹 유니버스 한정)
         "sectorWeekly": sector_weekly,  # 섹터 주간 지속성 (등장 일수·평균 등락)
+        "sectorFlow": sector_flow,      # 섹터 x 수급 매트릭스 (업종별 주간 등락·투자자 순매수, 억)
         "synthesis": synthesis,
     }
 
