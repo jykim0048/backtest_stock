@@ -102,8 +102,8 @@ def _day_summary(date_str):
     # 16:00 촉매 스코어 회차 — 5점(만점) 종목은 주간 촉매 타임라인 필수 반영 대상
     for r in reversed((intraday or {}).get("rounds") or []):
         if r.get("scoring"):
-            fs = [{"stock": c.get("stock"), "changePct": c.get("changePct"),
-                   "reason": (c.get("reason") or "")[:80]}
+            fs = [{"stock": c.get("stock"), "market": c.get("market"),
+                   "changePct": c.get("changePct"), "reason": (c.get("reason") or "")[:80]}
                   for c in (r.get("catalysts") or []) if c.get("score") == 5]
             if fs:
                 day["fiveStar"] = fs
@@ -117,8 +117,8 @@ def _day_summary(date_str):
         day["sectorsDown"] = [{"name": s.get("name"), "changePct": s.get("changePct")}
                               for s in (closing.get("sectorsDown") or [])[:3]]
         day["catalysts"] = [
-            {"stock": c.get("stock"), "direction": c.get("direction"),
-             "summary": (c.get("summary") or "")[:120]}
+            {"stock": c.get("stock"), "market": c.get("market"),
+             "direction": c.get("direction"), "summary": (c.get("summary") or "")[:120]}
             for c in (closing.get("catalysts") or [])[:8]]
         day["disclosures"] = [
             {"corp": x.get("corp"), "title": (x.get("title") or "")[:60]}
@@ -345,6 +345,7 @@ _SCHEMA = {
         "catalystTimeline": {"type": "array", "items": {"type": "object", "properties": {
             "date": {"type": "string"},
             "stock": {"type": "string"},
+            "market": {"type": "string"},
             "event": {"type": "string"},
             "changePct": {"type": "number"},
             "star": {"type": "integer"}},
@@ -367,8 +368,8 @@ _SYSTEM = (
     "\n- weekNarrative: 주간 시장 흐름 서사 4~6개 불릿 — 지수 흐름과 그 원인, 수급 주체 변화"
     "\n- sectorRotation: 주도 섹터/테마의 주중 변화 2~4개 불릿 — 순환인지 지속인지"
     "\n- catalystTimeline: 날짜별 핵심 이벤트 행 (거래일당 2~4행). 각 행은 가능한 한"
-    " 종목 1개 단위로 분리해 stock(종목명)·event(촉매 한 문장, 종목명 반복 금지)·"
-    " changePct(입력의 당일 등락률 숫자 그대로)를 채워라. 시장 전체 이벤트(지수·환율 등)는"
+    " 종목 1개 단위로 분리해 stock(종목명)·market(KOSPI|KOSDAQ — 입력 catalysts 의 market)·"
+    " event(촉매 한 문장, 종목명 반복 금지)·changePct(입력의 당일 등락률 숫자 그대로)를 채워라. 시장 전체 이벤트(지수·환율 등)는"
     " stock 없이 event 만. fiveStar(촉매 스코어 5점) 종목이 있는 날은 그 종목 행을 반드시"
     " 포함하고 star 필드에 5 를 넣어라 (그 외 종목은 star 생략)"
     "\n- dailyContext: 거래일마다 정확히 1개 — 전일 미국장 주요 이슈·경제지표(usReview,"

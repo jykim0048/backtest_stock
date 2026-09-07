@@ -3606,7 +3606,7 @@
           + `<td style="color:${mkColor}; font-size:13px; white-space:nowrap;">${mkLabel}</td>`
           + `<td style="color:#cbd5e1;">${_brEsc(c.summary)} ${links}${relLink}${rel}</td></tr>`;
       }).join("");
-      return rows || `<tr><td colspan="3" style="color:var(--text-muted); font-size:13px; padding:8px 2px;">해당 회차 촉매 없음</td></tr>`;
+      return rows || `<tr><td colspan="5" style="color:var(--text-muted); font-size:13px; padding:8px 2px;">해당 회차 촉매 없음</td></tr>`;
     }
     async function refreshUsCatalysts() {
       if (!briefingLiveView) return;   // 과거 브리핑 열람 중 — 아카이브 표시 유지
@@ -3719,12 +3719,15 @@
           const reason = (typeof c.score === "number" && c.reason)
             ? `<div style="color:var(--text-muted); font-size:11.5px;">${_brEsc(c.reason)}</div>` : "";
           const link = c.url ? ` <a href="${_brEsc(c.url)}" target="_blank" rel="noopener" style="color:var(--text-muted); font-size:11px;">원문</a>` : "";
+          // 컬럼 순서: 종목 | 시장 | 별점 | 상승률 | 핵심 촉매 (2026-09-08 사용자 요청)
           return `<tr>`
-            + `<td style="font-weight:600; white-space:nowrap;">${icon} ${_brEsc(name)}${chg}${dirBadge(c.direction)}${stars}</td>`
+            + `<td style="font-weight:600; white-space:nowrap;">${icon} ${_brEsc(name)}${dirBadge(c.direction)}</td>`
             + `<td style="color:${mkColor}; font-size:13px; white-space:nowrap;">${mkLabel}</td>`
+            + `<td style="white-space:nowrap;">${stars || `<span style="color:var(--text-muted)">—</span>`}</td>`
+            + `<td style="white-space:nowrap; text-align:right;">${chg || ""}</td>`
             + `<td style="color:#cbd5e1;">${_brEsc(c.summary || c.title || "")}${link}${reason}</td></tr>`;
         }).join("");
-      return rows || `<tr><td colspan="3" style="color:var(--text-muted); font-size:13px; padding:8px 2px;">해당 회차 촉매 없음</td></tr>`;
+      return rows || `<tr><td colspan="5" style="color:var(--text-muted); font-size:13px; padding:8px 2px;">해당 회차 촉매 없음</td></tr>`;
     }
 
     // ── 기관 수급 세부내역(연기금·금융투자·보험·투신) — 기관 알약 클릭 토글(2026-07-29) ──
@@ -4111,7 +4114,7 @@
         + `<select id="ib-cat-round" onchange="ibCatRound(this.value)" style="display:none; margin-left:auto;`
         + ` background:rgba(255,255,255,.05); color:#cbd5e1; border:1px solid var(--border-color);`
         + ` border-radius:6px; font-size:12px; padding:2px 6px; cursor:pointer;"></select></div>`
-        + `<table><thead><tr><th>종목</th><th>시장</th><th>핵심 촉매</th></tr></thead>`
+        + `<table><thead><tr><th>종목</th><th>시장</th><th>별점</th><th style="text-align:right">상승률</th><th>핵심 촉매</th></tr></thead>`
         + `<tbody id="ib-cat-tbody">${_ibCatRows(d.catalysts)}</tbody></table></div>`;
 
       // 원자료 접기 (당일 촉매성 공시 / 특징주 뉴스)
@@ -7426,7 +7429,34 @@
     });
     return h + "</div></details>";
   }
+  // 주간 촉매 타임라인 — 시장 필터 상태 + 행 렌더 (실적발표 토글 양식)
+  var _wbTl = [], _wbTlMkt = "전체";
+  function wbTlRows() {
+    var rows = (_wbTl || []).filter(function (t) {
+      return _wbTlMkt === "전체" || !t.market || t.market === _wbTlMkt;   // 시장 무관 행은 항상
+    }).map(function (t) {
+      var mk = t.market === "KOSDAQ" ? '<span style="color:var(--kosdaq-green);white-space:nowrap">KOSDAQ</span>'
+        : t.market === "KOSPI" ? '<span style="color:var(--kospi-blue);white-space:nowrap">KOSPI</span>' : "";
+      var star = (t.star === 5)
+        ? '<span style="color:#fbbf24;font-size:12px;letter-spacing:1px;white-space:nowrap">★★★★★</span>' : "";
+      var chg = (typeof t.changePct === "number")
+        ? '<span style="color:' + (t.changePct >= 0 ? "#f04452" : "#3182f6") + ';font-weight:600;white-space:nowrap">' + (t.changePct >= 0 ? "+" : "") + (Math.round(t.changePct * 100) / 100) + "%</span>" : "";
+      return '<div style="display:flex;align-items:baseline;gap:8px;padding:5px 0;border-top:1px solid rgba(128,128,128,.12);font-size:13px">'
+        + '<span style="background:rgba(128,128,128,.15);border-radius:6px;padding:0 7px;font-size:11px;white-space:nowrap;opacity:.85">' + esc((t.date || "").slice(5)) + "</span>"
+        + (t.stock ? '<span style="font-weight:700;white-space:nowrap">' + esc(t.stock) + "</span>" : "")
+        + mk + star + chg
+        + '<span style="color:#cbd5e1;flex:1">' + esc(t.event) + "</span></div>";
+    }).join("");
+    return rows || '<div style="opacity:.5;font-size:12.5px;padding:6px 0">선택 시장 촉매 없음</div>';
+  }
+  window.wbTlMkt = function (f) {
+    _wbTlMkt = f;
+    var el = document.getElementById("wb-body");   // 토글 활성색 갱신 겸 전체 리렌더
+    if (_wbLast) render(_wbLast);
+  };
+  var _wbLast = null;
   function render(d) {
+    _wbLast = d;
     var el = document.getElementById("wb-body");
     document.getElementById("wb-date").textContent = d.weekStart + " ~ " + d.weekEnd;
     var h = "";
@@ -7460,20 +7490,15 @@
     h += bullets("📈 주간 시장 흐름", syn.weekNarrative);
     h += bullets("🔁 섹터·테마 흐름", syn.sectorRotation);
     if (syn.catalystTimeline && syn.catalystTimeline.length) {
-      // 실적발표 카드 양식 참고 — 날짜 칩 | 종목(볼드·★5 배지) | 촉매 | 우측 등락률
-      h += '<div style="font-weight:600;margin:8px 0 4px">⚡ 주간 촉매 타임라인</div>';
-      h += '<div style="border:1px solid rgba(128,128,128,.2);border-radius:10px;padding:2px 12px;margin-bottom:8px">';
-      syn.catalystTimeline.forEach(function (t) {
-        var star = (t.star === 5)
-          ? ' <span style="border:1px solid #fbbf2466;background:#fbbf2418;color:#fbbf24;border-radius:9px;padding:0 6px;font-size:10.5px;white-space:nowrap">★5</span>' : "";
-        var chg = (typeof t.changePct === "number")
-          ? '<span style="color:' + (t.changePct >= 0 ? "#f04452" : "#3182f6") + ';font-weight:600;white-space:nowrap;margin-left:10px">' + (t.changePct >= 0 ? "+" : "") + (Math.round(t.changePct * 100) / 100) + "%</span>" : "";
-        h += '<div style="display:flex;align-items:baseline;gap:8px;padding:5px 0;border-top:1px solid rgba(128,128,128,.12);font-size:13px">'
-          + '<span style="background:rgba(128,128,128,.15);border-radius:6px;padding:0 7px;font-size:11px;white-space:nowrap;opacity:.85">' + esc((t.date || "").slice(5)) + "</span>"
-          + (t.stock ? '<span style="font-weight:700;white-space:nowrap">' + esc(t.stock) + "</span>" + star : "")
-          + '<span style="color:#cbd5e1;flex:1">' + esc(t.event) + (t.stock ? "" : star) + "</span>" + chg + "</div>";
-      });
-      h += "</div>";
+      // 날짜 | 종목 | 시장 | 별점 | 상승률 | 핵심촉매 + 전체/코스피/코스닥 토글 (실적발표 양식)
+      _wbTl = syn.catalystTimeline;
+      var tab = function (f, label) {
+        return '<span onclick="wbTlMkt(\'' + f + '\')" style="cursor:pointer;padding:2px 10px;border-radius:999px;font-size:12px;' +
+          (_wbTlMkt === f ? "background:var(--kospi-blue);color:#fff;font-weight:600;" : "background:rgba(255,255,255,.06);color:var(--text-muted);") + '">' + label + "</span>";
+      };
+      h += '<div style="display:flex;align-items:center;gap:6px;margin:8px 0 4px"><span style="font-weight:600">⚡ 주간 촉매 타임라인</span>'
+        + '<span style="margin-left:auto;display:flex;gap:4px">' + tab("전체", "전체") + tab("KOSPI", "코스피") + tab("KOSDAQ", "코스닥") + "</span></div>"
+        + '<div id="wb-tl-rows">' + wbTlRows() + "</div>";
     }
     h += bullets("🔮 다음 주 프리뷰", syn.nextWeekPreview);
     if (!syn.headline) h += '<div style="opacity:.6;font-size:12px">주간 종합 코멘트는 다음 갱신(평일 16:10)에 채워집니다.</div>';
