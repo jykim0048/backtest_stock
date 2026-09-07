@@ -171,10 +171,24 @@ def _enrich_final(snap):
             req = urllib.request.Request(f"{base}/flow?code={code}",
                                          headers={"User-Agent": "weekly-briefing"})
             with urllib.request.urlopen(req, timeout=30) as r:
-                daily = (json.loads(r.read().decode("utf-8")).get("daily") or [])
-            for row in daily:
+                d = json.loads(r.read().decode("utf-8"))
+            out = None
+            for row in (d.get("daily") or []):
                 if str(row.get("date")) == want:
-                    return code, {k: row.get(k) for k in ("prsn", "frgn", "orgn", "fund")}
+                    out = {k: row.get(k) for k in ("prsn", "frgn", "orgn", "fund")}
+                    break
+            if out is not None:
+                # 같은 응답의 공매도(pbmn, 억원)·대차잔고(rmndAmt 억원/rmndChg 주) 당일분 병합
+                for row in (d.get("shorts") or []):
+                    if str(row.get("date")) == want:
+                        out["shortAmt"] = row.get("pbmn")
+                        break
+                for row in (d.get("loans") or []):
+                    if str(row.get("date")) == want:
+                        out["loanAmt"] = row.get("rmndAmt")
+                        out["loanChg"] = row.get("rmndChg")
+                        break
+                return code, out
         except Exception:
             pass
         return code, None
@@ -215,10 +229,16 @@ def _netbuy_cum(dates):
                     continue
                 seen.add(code)
                 e = acc.setdefault(code, {"code": code, "name": r.get("name"),
-                                          "frgn": 0.0, "orgn": 0.0, "fund": 0.0, "days": 0})
+                                          "frgn": 0.0, "orgn": 0.0, "fund": 0.0,
+                                          "prsn": 0.0, "shortSum": 0.0,
+                                          "loans": {}, "days": 0})
                 src = final.get(code) or r
-                for k in ("frgn", "orgn", "fund"):
-                    e[k] += float(src.get(k) or 0.0)
+                for k in ("frgn", "orgn", "fund", "prsn"):
+                    e[k] += float(src.get(k) or 0.0)   # 가집계 행엔 prsn 없음(0)
+                if src.get("shortAmt") is not None:
+                    e["shortSum"] += float(src["shortAmt"] or 0.0)
+                if src.get("loanAmt") is not None:
+                    e["loans"][dt.isoformat()] = float(src["loanAmt"])
                 e["days"] += 1
     if not acc:
         return None
@@ -231,6 +251,24 @@ def _netbuy_cum(dates):
             "bottom": [{"code": e["code"], "name": e["name"], "amt": round(e[k])}
                        for e in ranked[-10:][::-1] if e[k] < 0],
         }
+    # 투자자 합산(외인+기관계 — 연기금은 기관계 하위라 중복 합산 금지) 순위
+    # + 개인(확정분만)·주간 공매도 누적(억)·대차잔고 추이(주초→최신, 억)
+    def _row(e):
+        total = e["frgn"] + e["orgn"]
+        r = {"code": e["code"], "name": e["name"], "amt": round(total),
+             "frgn": round(e["frgn"]), "orgn": round(e["orgn"]), "prsn": round(e["prsn"])}
+        if e["shortSum"]:
+            r["shortSum"] = round(e["shortSum"], 1)
+        if e["loans"]:
+            ds = sorted(e["loans"])
+            r["loanAmt"] = round(e["loans"][ds[-1]], 1)
+            r["loanChg"] = round(e["loans"][ds[-1]] - e["loans"][ds[0]], 1)
+        return r
+    ranked = sorted(acc.values(), key=lambda e: e["frgn"] + e["orgn"], reverse=True)
+    out["total"] = {
+        "top": [_row(e) for e in ranked[:10] if e["frgn"] + e["orgn"] > 0],
+        "bottom": [_row(e) for e in ranked[-10:][::-1] if e["frgn"] + e["orgn"] < 0],
+    }
     return out
 
 

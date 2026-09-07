@@ -7326,6 +7326,31 @@
     });
     return h + "</div>";
   }
+  // 투자자 합산(외인+기관계) 순매수 순위 + 개인·공매도 누적·대차잔고 추이
+  function totalTable(t, nD, basis) {
+    var h = '<div style="font-weight:600;margin:10px 0 4px">투자자 합산 순매수 상위 · 하위 <span style="font-weight:400;opacity:.55;font-size:11px">(외인+기관계, ' +
+      nD + "거래일 " + basis + " — 상위 30 등재일 기준 근사)</span></div>";
+    if (!t || (!(t.top || []).length && !(t.bottom || []).length)) return h + "<div style='opacity:.5;font-size:12px'>—</div>";
+    function eok(v) { return v == null ? "—" : fmtAmt(v / 100); }
+    function rows(arr, color) {
+      return (arr || []).map(function (e, i) {
+        var loan = e.loanAmt == null ? "—"
+          : Math.round(e.loanAmt).toLocaleString() + (e.loanChg ? " (" + (e.loanChg > 0 ? "+" : "") + Math.round(e.loanChg).toLocaleString() + ")" : "");
+        return "<tr style='border-top:1px solid rgba(128,128,128,.12)'><td style='padding:2px 6px 2px 0;white-space:nowrap'>" + (i + 1) + ". " + esc(e.name) +
+          "</td><td style='text-align:right;color:" + color + ";font-weight:600'>" + eok(e.amt) +
+          "</td><td style='text-align:right'>" + eok(e.frgn) + "</td><td style='text-align:right'>" + eok(e.orgn) +
+          "</td><td style='text-align:right;opacity:.75'>" + eok(e.prsn) +
+          "</td><td style='text-align:right;opacity:.75'>" + (e.shortSum == null ? "—" : Math.round(e.shortSum).toLocaleString()) +
+          "</td><td style='text-align:right;opacity:.75;white-space:nowrap'>" + loan + "</td></tr>";
+      }).join("");
+    }
+    h += '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:560px">'
+      + "<tr style='opacity:.6'><th style='text-align:left'>종목</th><th style='text-align:right'>합산(억)</th><th style='text-align:right'>외인</th><th style='text-align:right'>기관</th><th style='text-align:right'>개인</th><th style='text-align:right'>공매도累(억)</th><th style='text-align:right'>대차잔고(증감,억)</th></tr>"
+      + rows(t.top, "#f04452")
+      + "<tr><td colspan='7' style='border-top:1px dashed rgba(128,128,128,.35);height:4px'></td></tr>"
+      + rows(t.bottom, "#3182f6") + "</table></div>";
+    return h;
+  }
   // 주간 누적 순매수 상/하위 (외인/기관/연기금 — netbuy_rank 일별 아카이브 합산)
   function netbuyTables(nc) {
     if (!nc) return "";
@@ -7339,8 +7364,8 @@
     }
     var nF = (nc.finalDates || []).length, nD = (nc.dates || []).length;
     var basis = nF >= nD ? "일별 확정 순매수 합산" : (nF ? "확정 " + nF + "일 + 가집계 " + (nD - nF) + "일 합산" : "가집계 랭킹 합산");
-    var h = '<div style="font-weight:600;margin:10px 0 4px">주간 누적 순매수 상위 · 하위 <span style="font-weight:400;opacity:.55;font-size:11px">(' +
-      nD + "거래일 " + basis + " — 상위 30 등재일 기준 근사)</span></div>";
+    var h = totalTable(nc.total, nD, basis);
+    h += '<div style="font-weight:600;margin:10px 0 4px">투자자별 누적 순매수 상위 · 하위</div>';
     h += '<div style="display:flex;gap:14px;flex-wrap:wrap;font-size:12px">';
     COLS.forEach(function (c) {
       var d = nc[c[0]] || {};
