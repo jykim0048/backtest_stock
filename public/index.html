@@ -7326,6 +7326,28 @@
     });
     return h + "</div>";
   }
+  // 종목 → 섹터 알약 (assets/krx_sector_map.json — 섹터명 해시 기반 고정 색상)
+  var _wbSec = {};
+  function loadSectorMap() {
+    return fetch("assets/krx_sector_map.json").then(function (r) { return r.json(); })
+      .then(function (sm) {
+        Object.keys((sm || {}).sectors || {}).forEach(function (name) {
+          var s = sm.sectors[name];
+          ([]).concat(s.stocks || [], s.kosdaqStocks || []).forEach(function (x) {
+            if (x.code && !_wbSec[String(x.code).padStart(6, "0")]) _wbSec[String(x.code).padStart(6, "0")] = name;
+          });
+        });
+      }).catch(function () {});
+  }
+  function secPill(code) {
+    var name = _wbSec[code];
+    if (!name) return "";
+    var hsh = 0;
+    for (var i = 0; i < name.length; i++) hsh = (hsh * 31 + name.charCodeAt(i)) >>> 0;
+    var hue = hsh % 360;
+    var c = "hsl(" + hue + ",65%,62%)";
+    return ' <span style="border:1px solid ' + c + '66;color:' + c + ';border-radius:9px;padding:0 6px;font-size:10.5px;white-space:nowrap">' + esc(name) + "</span>";
+  }
   // 투자자 합산(외인+기관계) 순매수 순위 + 개인·공매도 누적·대차잔고 추이
   function totalTable(t, nD, basis) {
     var h = '<div style="font-weight:600;margin:10px 0 4px">투자자 합산 순매수 상위 · 하위 <span style="font-weight:400;opacity:.55;font-size:11px">(외인+기관계, ' +
@@ -7336,7 +7358,7 @@
       return (arr || []).map(function (e, i) {
         var loan = e.loanAmt == null ? "—"
           : Math.round(e.loanAmt).toLocaleString() + (e.loanChg ? " (" + (e.loanChg > 0 ? "+" : "") + Math.round(e.loanChg).toLocaleString() + ")" : "");
-        return "<tr style='border-top:1px solid rgba(128,128,128,.12)'><td style='padding:2px 6px 2px 0;white-space:nowrap'>" + (i + 1) + ". " + esc(e.name) +
+        return "<tr style='border-top:1px solid rgba(128,128,128,.12)'><td style='padding:2px 6px 2px 0;white-space:nowrap'>" + (i + 1) + ". " + esc(e.name) + secPill(e.code) +
           "</td><td style='text-align:right;color:" + color + ";font-weight:600'>" + eok(e.amt) +
           "</td><td style='text-align:right'>" + eok(e.frgn) + "</td><td style='text-align:right'>" + eok(e.orgn) +
           "</td><td style='text-align:right;opacity:.75'>" + eok(e.prsn) +
@@ -7345,7 +7367,7 @@
       }).join("");
     }
     h += '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:560px">'
-      + "<tr style='opacity:.6'><th style='text-align:left'>종목</th><th style='text-align:right'>합산(억)</th><th style='text-align:right'>외인</th><th style='text-align:right'>기관</th><th style='text-align:right'>개인</th><th style='text-align:right'>공매도累(억)</th><th style='text-align:right'>대차잔고(증감,억)</th></tr>"
+      + "<tr style='opacity:.6'><th style='text-align:left'>종목</th><th style='text-align:right'>합산(억)</th><th style='text-align:right'>외인</th><th style='text-align:right'>기관</th><th style='text-align:right'>개인</th><th style='text-align:right'>공매도(억)</th><th style='text-align:right'>대차잔고(증감,억)</th></tr>"
       + rows(t.top, "#f04452")
       + "<tr><td colspan='7' style='border-top:1px dashed rgba(128,128,128,.35);height:4px'></td></tr>"
       + rows(t.bottom, "#3182f6") + "</table></div>";
@@ -7354,7 +7376,7 @@
   // 주간 누적 순매수 상/하위 (외인/기관/연기금 — netbuy_rank 일별 아카이브 합산)
   function netbuyTables(nc) {
     if (!nc) return "";
-    var COLS = [["frgn", "외국인"], ["orgn", "기관계"], ["fund", "연기금"]];
+    var COLS = [["frgn", "외국인"], ["orgn", "기관계"], ["fund", "연기금"], ["prsn", "개인"]];
     function rows(arr, color) {
       if (!arr || !arr.length) return "<div style='opacity:.5'>—</div>";
       return arr.map(function (e, i) {
@@ -7365,16 +7387,17 @@
     var nF = (nc.finalDates || []).length, nD = (nc.dates || []).length;
     var basis = nF >= nD ? "일별 확정 순매수 합산" : (nF ? "확정 " + nF + "일 + 가집계 " + (nD - nF) + "일 합산" : "가집계 랭킹 합산");
     var h = totalTable(nc.total, nD, basis);
-    h += '<div style="font-weight:600;margin:10px 0 4px">투자자별 누적 순매수 상위 · 하위</div>';
-    h += '<div style="display:flex;gap:14px;flex-wrap:wrap;font-size:12px">';
+    // 투자자별(외국인/기관계/연기금/개인) 표는 합산 표 오른쪽 아래 앰버 펼침으로 접어둔다
+    h += '<details class="flow-details" style="margin-top:4px"><summary style="text-align:right">투자자별 누적 순매수 상위 · 하위 ▾</summary>';
+    h += '<div style="display:flex;gap:14px;flex-wrap:wrap;font-size:12px;margin-top:6px">';
     COLS.forEach(function (c) {
       var d = nc[c[0]] || {};
-      h += '<div style="flex:1;min-width:200px"><div style="font-weight:600;opacity:.8;margin-bottom:3px">' + c[1] + "</div>"
+      h += '<div style="flex:1;min-width:170px"><div style="font-weight:600;opacity:.8;margin-bottom:3px">' + c[1] + "</div>"
         + rows(d.top, "#f04452")
         + '<div style="border-top:1px dashed rgba(128,128,128,.3);margin:5px 0"></div>'
         + rows(d.bottom, "#3182f6") + "</div>";
     });
-    return h + "</div>";
+    return h + "</div></details>";
   }
   function render(d) {
     var el = document.getElementById("wb-body");
@@ -7398,17 +7421,18 @@
     h += "</table>";
     function bullets(title, arr) {
       if (!arr || !arr.length) return "";
-      var s = '<div style="font-weight:600;margin:8px 0 4px">' + title + "</div><ul style='margin:0 0 6px;padding-left:18px'>";
-      arr.forEach(function (b) { s += "<li style='margin:2px 0'>" + esc(b) + "</li>"; });
+      // 장중 시황 불릿과 동일 서체(.briefing-usbullets — 13.5px/1.7)
+      var s = '<div style="font-weight:600;margin:8px 0 0">' + title + '</div><ul class="briefing-usbullets" style="margin:2px 0 6px">';
+      arr.forEach(function (b) { s += "<li>" + esc(b) + "</li>"; });
       return s + "</ul>";
     }
     h += netbuyTables(d.netbuyCum);
     h += bullets("주간 시장 흐름", syn.weekNarrative);
     h += bullets("섹터·테마 흐름", syn.sectorRotation);
     if (syn.catalystTimeline && syn.catalystTimeline.length) {
-      h += '<div style="font-weight:600;margin:8px 0 4px">주간 촉매 타임라인</div><ul style="margin:0 0 6px;padding-left:18px">';
+      h += '<div style="font-weight:600;margin:8px 0 0">주간 촉매 타임라인</div><ul class="briefing-usbullets" style="margin:2px 0 6px">';
       syn.catalystTimeline.forEach(function (t) {
-        h += "<li style='margin:2px 0'><b>" + esc((t.date || "").slice(5)) + "</b> " + esc(t.event) + "</li>";
+        h += "<li><b>" + esc((t.date || "").slice(5)) + "</b> " + esc(t.event) + "</li>";
       });
       h += "</ul>";
     }
@@ -7429,12 +7453,13 @@
     document.getElementById("wb-banner").classList.toggle("collapsed");
   };
   window.wbNav = function (dir) { load(wbIdx + dir); };   // ◀ = 이전 주(인덱스+1)
-  fetch("reports/weekly_briefing/index.json?t=" + Date.now(), { cache: "no-store" })
-    .then(function (r) { if (!r.ok) throw 0; return r.json(); })
-    .then(function (list) {
-      if (Array.isArray(list) && list.length) { wbWeeks = list; load(0); }
-    })
-    .catch(function () {});   // 데이터 없으면 배너 숨김 유지
+  loadSectorMap().then(function () {                       // 섹터 알약용 맵 선로딩
+    return fetch("reports/weekly_briefing/index.json?t=" + Date.now(), { cache: "no-store" })
+      .then(function (r) { if (!r.ok) throw 0; return r.json(); })
+      .then(function (list) {
+        if (Array.isArray(list) && list.length) { wbWeeks = list; load(0); }
+      });
+  }).catch(function () {});   // 데이터 없으면 배너 숨김 유지
 })();
 </script>
 </body>
