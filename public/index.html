@@ -7430,16 +7430,17 @@
     }).map(function (t) {
       var mk = t.market === "KOSDAQ" ? '<span style="color:var(--kosdaq-green)">KOSDAQ</span>'
         : t.market === "KOSPI" ? '<span style="color:var(--kospi-blue)">KOSPI</span>' : "";
-      var star = (t.star === 5)
-        ? '<span style="color:#fbbf24;font-size:12px;letter-spacing:1px">★★★★★</span>' : "";
+      var star = (typeof t.star === "number" && t.star >= 1)
+        ? '<span style="color:#fbbf24;font-size:12px;letter-spacing:1px">' + "★".repeat(t.star) + '<span style="opacity:.35">' + "☆".repeat(Math.max(0, 5 - t.star)) + "</span></span>" : "";
       var chg = (typeof t.changePct === "number")
         ? '<span style="color:' + (t.changePct >= 0 ? "#f04452" : "#3182f6") + ';font-weight:600">' + (t.changePct >= 0 ? "+" : "") + (Math.round(t.changePct * 100) / 100) + "%</span>" : "";
+      // 컬럼 폭 — 장중 주요 촉매 표와 유사한 간격
       return '<tr style="border-top:1px solid rgba(128,128,128,.12)">'
-        + '<td style="white-space:nowrap;opacity:.7;padding:5px 10px 5px 0">' + esc((t.date || "").slice(5)) + "</td>"
-        + '<td style="white-space:nowrap;font-weight:700;padding-right:10px">' + (t.stock ? esc(t.stock) : "—") + "</td>"
-        + '<td style="white-space:nowrap;padding-right:10px">' + mk + "</td>"
-        + '<td style="white-space:nowrap;padding-right:10px">' + star + "</td>"
-        + '<td style="white-space:nowrap;padding-right:18px">' + chg + "</td>"
+        + '<td style="white-space:nowrap;opacity:.7;padding:5px 0;width:56px">' + esc((t.date || "").slice(5)) + "</td>"
+        + '<td style="white-space:nowrap;font-weight:700;width:170px;padding-right:10px">' + (t.stock ? esc(t.stock) : "—") + "</td>"
+        + '<td style="white-space:nowrap;width:80px">' + mk + "</td>"
+        + '<td style="white-space:nowrap;width:110px">' + star + "</td>"
+        + '<td style="white-space:nowrap;width:80px;padding-right:18px">' + chg + "</td>"
         + '<td style="color:#cbd5e1">' + esc(t.event) + "</td></tr>";
     }).join("");
     if (!rows) return '<div style="opacity:.5;font-size:12.5px;padding:6px 0">선택 시장 촉매 없음</div>';
@@ -7493,6 +7494,7 @@
           (_wbTlMkt === f ? "background:var(--kospi-blue);color:#fff;font-weight:600;" : "background:rgba(255,255,255,.06);color:var(--text-muted);") + '">' + label + "</span>";
       };
       h += '<div style="display:flex;align-items:center;gap:6px;margin:8px 0 4px"><span style="font-weight:600">⚡ 주간 촉매 타임라인</span>'
+        + '<span style="font-weight:400;opacity:.55;font-size:11px">(코스피 ★4 이상 · 코스닥 ★5)</span>'
         + '<span style="margin-left:auto;display:flex;gap:4px">' + tab("전체", "전체") + tab("KOSPI", "코스피") + tab("KOSDAQ", "코스닥") + "</span></div>"
         + '<div id="wb-tl-rows">' + wbTlRows() + "</div>";
     }

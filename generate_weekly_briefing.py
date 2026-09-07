@@ -99,14 +99,21 @@ def _day_summary(date_str):
     if closing is None and (intraday or {}).get("rounds"):
         rs = [r for r in intraday["rounds"] if not r.get("scoring")]
         closing = rs[-1] if rs else None                # 마감 회차 결손 시 마지막 시황 회차
-    # 16:00 촉매 스코어 회차 — 5점(만점) 종목은 주간 촉매 타임라인 필수 반영 대상
+    # 16:00 촉매 스코어 회차 — 타임라인 종목 행은 결정적 선별(코스피 ★4↑ / 코스닥 ★5)
     for r in reversed((intraday or {}).get("rounds") or []):
         if r.get("scoring"):
-            fs = [{"stock": c.get("stock"), "market": c.get("market"),
-                   "changePct": c.get("changePct"), "reason": (c.get("reason") or "")[:80]}
-                  for c in (r.get("catalysts") or []) if c.get("score") == 5]
-            if fs:
-                day["fiveStar"] = fs
+            picks = []
+            for c in (r.get("catalysts") or []):
+                sc, mk = c.get("score"), c.get("market")
+                if sc is None:
+                    continue
+                if (mk == "KOSPI" and sc >= 4) or (mk == "KOSDAQ" and sc == 5):
+                    picks.append({"stock": c.get("stock"), "market": mk, "star": sc,
+                                  "changePct": c.get("changePct"),
+                                  "event": (c.get("reason") or c.get("summary") or "")[:90]})
+            if picks:
+                picks.sort(key=lambda x: (-(x["star"]), -(x.get("changePct") or 0)))
+                day["timelineStocks"] = picks
             break
     if closing:
         day["indices"] = closing.get("indices") or {}
@@ -367,11 +374,9 @@ _SYSTEM = (
     "\n- headline: 이번 주를 한 문장으로 (예: '반도체가 이끈 사상 최고치 랠리')"
     "\n- weekNarrative: 주간 시장 흐름 서사 4~6개 불릿 — 지수 흐름과 그 원인, 수급 주체 변화"
     "\n- sectorRotation: 주도 섹터/테마의 주중 변화 2~4개 불릿 — 순환인지 지속인지"
-    "\n- catalystTimeline: 날짜별 핵심 이벤트 행 (거래일당 2~4행). 각 행은 가능한 한"
-    " 종목 1개 단위로 분리해 stock(종목명)·market(KOSPI|KOSDAQ — 입력 catalysts 의 market)·"
-    " event(촉매 한 문장, 종목명 반복 금지)·changePct(입력의 당일 등락률 숫자 그대로)를 채워라. 시장 전체 이벤트(지수·환율 등)는"
-    " stock 없이 event 만. fiveStar(촉매 스코어 5점) 종목이 있는 날은 그 종목 행을 반드시"
-    " 포함하고 star 필드에 5 를 넣어라 (그 외 종목은 star 생략)"
+    "\n- catalystTimeline: 시장 전체 이벤트(지수 급등락과 원인·수급 총평·환율·매크로)만"
+    " 거래일당 1~2행, date 와 event 만 채워라. stock·market·star·changePct 는 채우지"
+    " 마라 — 종목 행은 시스템이 스코어 기준(timelineStocks)으로 별도 추가한다"
     "\n- dailyContext: 거래일마다 정확히 1개 — 전일 미국장 주요 이슈·경제지표(usReview,"
     " usCatalystsTop)가 당일 한국장에 어떻게 반영됐는지(지수·섹터·수급 반응, briefing 근거)를"
     " 잇는 1문장. 종목 나열이 아니라 '미국장 원인 → 한국장 반응' 구조로 작성."
@@ -420,6 +425,21 @@ def main():
                     _SYSTEM, user, max_tokens=4096, schema=_SCHEMA, return_model=True)
             except llm.LLMError as ex:
                 print(f"[weekly] LLM 합성 실패 — 집계만 저장: {ex}", file=sys.stderr)
+
+    # 타임라인 병합 — LLM 은 시장 이벤트 행만, 종목 행은 스코어 기준으로 결정적 추가
+    # (코스피 ★4 이상 / 코스닥 ★5 — LLM 누락·기준 이탈 방지, 2026-09-08)
+    stock_rows = [{"date": d["date"], **p}
+                  for d in days for p in (d.get("timelineStocks") or [])]
+    if stock_rows or synthesis:
+        syn = synthesis if isinstance(synthesis, dict) else {}
+        market_rows = [t for t in (syn.get("catalystTimeline") or []) if not t.get("stock")]
+        merged = []
+        for dt in sorted({r["date"] for r in stock_rows}
+                         | {t.get("date") for t in market_rows if t.get("date")}):
+            merged += [t for t in market_rows if t.get("date") == dt]
+            merged += [r for r in stock_rows if r["date"] == dt]
+        syn["catalystTimeline"] = merged
+        synthesis = syn
 
     out = {
         "weekStart": week_start,
