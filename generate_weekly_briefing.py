@@ -167,6 +167,85 @@ FLOW_RANK_URL = os.environ.get(
 RANK_DIR = os.path.join(ROOT, "public", "reports", "netbuy_rank")
 
 
+BREADTH_DIR = os.path.join(ROOT, "public", "reports", "breadth")
+
+
+def _snapshot_breadth(today):
+    """허브 /breadth(등락 종목수 + 신고가 근접)를 당일 키로 아카이브 — 주간 ADR
+    추이·신고가 섹터 그룹핑 입력(2026-09-08 Phase 2⑥). 장전(값 전부 0)이나 실패
+    시 저장하지 않는다(16:10 실행 전제 = 당일 마감 값)."""
+    base = FLOW_RANK_URL.rsplit("/", 1)[0]
+    try:
+        req = urllib.request.Request(f"{base}/breadth", headers={"User-Agent": "weekly-briefing"})
+        with urllib.request.urlopen(req, timeout=60) as r:
+            d = json.loads(r.read().decode("utf-8"))
+        counts = d.get("counts") or {}
+        ks = counts.get("kospi") or {}
+        if not (ks.get("up") or ks.get("down")):      # 장전/휴장 보호 — 0이면 스킵
+            print("[weekly] breadth 값 없음(장전/휴장?) — 스냅샷 생략", file=sys.stderr)
+            return
+    except Exception as ex:
+        print(f"[weekly] breadth 조회 실패(스냅샷 생략): {ex}", file=sys.stderr)
+        return
+    os.makedirs(BREADTH_DIR, exist_ok=True)
+    snap = {"date": today, "asof": d.get("asof"),
+            "counts": counts, "newHighs": d.get("newHighs") or []}
+    with open(os.path.join(BREADTH_DIR, f"{today}.json"), "w", encoding="utf-8") as f:
+        json.dump(snap, f, ensure_ascii=False, indent=1)
+    idx_path = os.path.join(BREADTH_DIR, "index.json")
+    try:
+        with open(idx_path, encoding="utf-8") as f:
+            idx = json.load(f)
+    except OSError:
+        idx = []
+    if today not in idx:
+        with open(idx_path, "w", encoding="utf-8") as f:
+            json.dump(sorted(set(idx) | {today}, reverse=True), f, indent=1)
+    print(f"[weekly] breadth 스냅샷 저장: {today} (신고가근접 {len(snap['newHighs'])}종목)")
+
+
+def _breadth_weekly(dates):
+    """주간 ADR 추이 + 최신일 신고가 근접 섹터 그룹핑."""
+    rows, latest = [], None
+    for dt in dates:
+        d = _fetch(f"reports/breadth/{dt.isoformat()}.json")
+        if not d:
+            continue
+        c = d.get("counts") or {}
+        rows.append({"date": dt.isoformat(),
+                     "kospi": {k: (c.get("kospi") or {}).get(k) for k in ("up", "down", "upLimit")},
+                     "kosdaq": {k: (c.get("kosdaq") or {}).get(k) for k in ("up", "down", "upLimit")}})
+        latest = d
+    if not rows:
+        return None
+    out = {"days": rows}
+    highs = (latest or {}).get("newHighs") or []
+    if highs:
+        # 섹터 그룹핑 — krx_sector_map (보통주 폴백)
+        sec = {}
+        try:
+            with open(os.path.join(ROOT, "public", "assets", "krx_sector_map.json"),
+                      encoding="utf-8") as f:
+                sm = json.load(f) or {}
+            for name, s in (sm.get("sectors") or {}).items():
+                for x in (s.get("stocks") or []) + (s.get("kosdaqStocks") or []):
+                    code = str(x.get("code") or "").zfill(6)
+                    if code and code not in sec:
+                        sec[code] = name
+        except Exception:
+            pass
+        groups = {}
+        for hgh in highs[:40]:
+            code = (hgh.get("code") or "").zfill(6)
+            nm = sec.get(code) or (sec.get(code[:5] + "0") if code and code[5] != "0" else None) or "기타"
+            groups.setdefault(nm, []).append(hgh.get("name"))
+        out["newHighs"] = {"date": rows[-1]["date"], "count": len(highs),
+                           "groups": sorted(({"sector": k, "stocks": v[:6]}
+                                             for k, v in groups.items()),
+                                            key=lambda g: -len(g["stocks"]))[:8]}
+    return out
+
+
 def _snapshot_netbuy_rank(today):
     """KIS 허브 /flow-rank(외인·기관 순매수 상위, 연기금 금액 포함)를 당일 키로
     아카이브 — 라이브 전용이던 랭킹을 일자별 DB 누적으로 전환(2026-09-07).
@@ -422,6 +501,7 @@ def main():
     today_iso = datetime.datetime.now(KST).date().isoformat()
     if any(d["date"] == today_iso for d in days):
         _snapshot_netbuy_rank(today_iso)
+        _snapshot_breadth(today_iso)
         ft = _day_flow_top(today_iso)      # 방금 저장한 당일 스냅샷으로 재부착
         for d in days:
             if d["date"] == today_iso and ft:
@@ -586,6 +666,7 @@ def main():
         "shortLoan": short_loan,        # 공매도 누적·대차잔고 증감 상위 (랭킹 유니버스 한정)
         "sectorWeekly": sector_weekly,  # 섹터 주간 지속성 (등장 일수·평균 등락)
         "sectorFlow": sector_flow,      # 섹터 x 수급 매트릭스 (업종별 주간 등락·투자자 순매수, 억)
+        "breadth": _breadth_weekly(dates),   # 주간 ADR 추이 + 신고가 근접 섹터 그룹
         "synthesis": synthesis,
     }
 

@@ -7521,6 +7521,29 @@
       if ((sw.down || []).length) h += '<span style="opacity:.65;margin:0 6px 0 10px">하락 섹터</span>' + secChips(sw.down, "#3182f6");
       h += "</div>";
     }
+    // 📐 브레드스 — 일별 상승/하락 종목수(ADR) + 신고가 근접 섹터 그룹
+    var br = d.breadth;
+    if (br && (br.days || []).length) {
+      function adr(m) {
+        if (m == null || m.up == null) return "—";
+        return '<span style="color:#f04452">' + m.up + "▲</span>/<span style='color:#3182f6'>" + m.down + "▼</span>"
+          + (m.upLimit ? '<span style="opacity:.6;font-size:10.5px"> 상한' + m.upLimit + "</span>" : "");
+      }
+      h += '<div style="font-size:12px;margin:0 0 8px"><span style="font-weight:600">📐 브레드스</span> <span style="opacity:.55;font-size:11px">(상승▲/하락▼ 종목수)</span> ';
+      br.days.forEach(function (day) {
+        h += '<span style="margin-left:10px;white-space:nowrap"><span style="opacity:.6">' + day.date.slice(5) + "</span> 코스피 " + adr(day.kospi) + " · 코스닥 " + adr(day.kosdaq) + "</span>";
+      });
+      h += "</div>";
+      var nh = br.newHighs;
+      if (nh && (nh.groups || []).length) {
+        h += '<div style="font-size:12px;margin:-2px 0 10px"><span style="opacity:.65;margin-right:6px">신고가 근접 ' + nh.count + "종목</span>";
+        nh.groups.forEach(function (g) {
+          h += '<span style="border:1px solid #fbbf2444;background:#fbbf2410;color:#fbbf24;border-radius:10px;padding:1px 8px;font-size:11.5px;white-space:nowrap;margin-right:5px">'
+            + esc(g.sector) + " " + g.stocks.map(esc).join("·") + "</span>";
+        });
+        h += "</div>";
+      }
+    }
     // 섹터 x 수급 매트릭스 — 업종별 주간 등락 vs 투자자 순매수 (KIS 업종, 억원)
     var sfm = d.sectorFlow;
     if (sfm && (sfm.rows || []).length) {
