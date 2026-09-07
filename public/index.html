@@ -7355,23 +7355,25 @@
       nD + "거래일 " + basis + " — 상위 30 등재일 기준 근사)</span></div>";
     if (!t || (!(t.top || []).length && !(t.bottom || []).length)) return h + "<div style='opacity:.5;font-size:12px'>—</div>";
     function eok(v) { return v == null ? "—" : fmtAmt(v / 100); }
-    function rows(arr, color) {
-      return (arr || []).map(function (e, i) {
+    // 상위=왼쪽 / 하위=오른쪽 카드 — 열은 합산·공매도·대차만(외인/기관/개인 세부는 아래 펼침)
+    function card(title, arr, color) {
+      var rows = (arr || []).map(function (e, i) {
         var loan = e.loanAmt == null ? "—"
           : Math.round(e.loanAmt).toLocaleString() + (e.loanChg ? " (" + (e.loanChg > 0 ? "+" : "") + Math.round(e.loanChg).toLocaleString() + ")" : "");
         return "<tr style='border-top:1px solid rgba(128,128,128,.12)'><td style='padding:2px 6px 2px 0;white-space:nowrap'>" + (i + 1) + ". " + esc(e.name) + secPill(e.code) +
           "</td><td style='text-align:right;color:" + color + ";font-weight:600'>" + eok(e.amt) +
-          "</td><td style='text-align:right'>" + eok(e.frgn) + "</td><td style='text-align:right'>" + eok(e.orgn) +
-          "</td><td style='text-align:right;opacity:.75'>" + eok(e.prsn) +
           "</td><td style='text-align:right;opacity:.75'>" + (e.shortSum == null ? "—" : Math.round(e.shortSum).toLocaleString()) +
           "</td><td style='text-align:right;opacity:.75;white-space:nowrap'>" + loan + "</td></tr>";
       }).join("");
+      return '<div style="flex:1;min-width:330px;border:1px solid rgba(128,128,128,.2);border-radius:10px;padding:8px 12px">'
+        + '<div style="font-weight:600;margin-bottom:4px;color:' + color + '">' + title + "</div>"
+        + '<table style="width:100%;border-collapse:collapse;font-size:12px">'
+        + "<tr style='opacity:.6'><th style='text-align:left'>종목</th><th style='text-align:right'>합산(억)</th><th style='text-align:right'>공매도(억)</th><th style='text-align:right'>대차잔고(증감,억)</th></tr>"
+        + rows + "</table></div>";
     }
-    h += '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:560px">'
-      + "<tr style='opacity:.6'><th style='text-align:left'>종목</th><th style='text-align:right'>합산(억)</th><th style='text-align:right'>외인</th><th style='text-align:right'>기관</th><th style='text-align:right'>개인</th><th style='text-align:right'>공매도(억)</th><th style='text-align:right'>대차잔고(증감,억)</th></tr>"
-      + rows(t.top, "#f04452")
-      + "<tr><td colspan='7' style='border-top:1px dashed rgba(128,128,128,.35);height:4px'></td></tr>"
-      + rows(t.bottom, "#3182f6") + "</table></div>";
+    h += '<div style="display:flex;gap:10px;flex-wrap:wrap">'
+      + card("순매수 상위 TOP10", t.top, "#f04452")
+      + card("순매도 상위 TOP10", t.bottom, "#3182f6") + "</div>";
     return h;
   }
   // 주간 누적 순매수 상/하위 (외인/기관/연기금 — netbuy_rank 일별 아카이브 합산)

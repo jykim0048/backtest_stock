@@ -39,12 +39,14 @@ USE_LOCAL = "--local" in sys.argv
 
 
 def _fetch(rel):
-    """서버(기본) 또는 로컬 public/ 에서 JSON. 부재/실패 시 None."""
-    if USE_LOCAL:
-        try:
-            with open(os.path.join(ROOT, "public", rel), encoding="utf-8") as f:
-                return json.load(f)
-        except OSError:
+    """로컬 public/ 우선(CI 체크아웃 = 최신 커밋, finalize 패치 반영), 서버 폴백.
+
+    서버 폴백은 로컬에 없는 과거분(컷오버 후 등)용. --local 은 서버 폴백도 끈다."""
+    try:
+        with open(os.path.join(ROOT, "public", rel), encoding="utf-8") as f:
+            return json.load(f)
+    except OSError:
+        if USE_LOCAL:
             return None
     try:
         req = urllib.request.Request(f"{BASE}/{rel}?t={int(datetime.datetime.now().timestamp())}",

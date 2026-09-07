@@ -76,6 +76,37 @@ def patch_sectors(sectors_up, sectors_down, finals):
     return changed
 
 
+def fetch_index_investors():
+    """코스피/코스닥 시장 단위 투자자별 순매수(억원) — 네이버 '오늘의 증시'.
+
+    마감 회차(15:41) 캡처값은 잠정이라 확정과 미세하게 어긋난다(2026-09-07 실측:
+    KOSPI 개인 -68,216 → 확정 -68,374). 16:00 확정 패스에서 시장 단위도 재취합해
+    마감 회차 investors 를 치환한다(주간 브리핑 누적 수급의 입력이기도 하다)."""
+    def _fnum(s):
+        try:
+            return float(str(s or "").replace(",", "").replace("+", ""))
+        except ValueError:
+            return None
+    out = {}
+    for key, sym in (("kospi", "KOSPI"), ("kosdaq", "KOSDAQ")):
+        try:
+            r = requests.get(f"https://m.stock.naver.com/api/index/{sym}/trend",
+                             headers={"User-Agent": "Mozilla/5.0"}, timeout=10)
+            r.raise_for_status()
+            d = r.json() or {}
+            row = d[0] if isinstance(d, list) and d else d
+            if str(row.get("bizdate") or "") != datetime.datetime.now(KST).strftime("%Y%m%d"):
+                continue                     # 휴장/전일 데이터 오염 방지
+            vals = {"individual": _fnum(row.get("personalValue")),
+                    "foreign": _fnum(row.get("foreignValue")),
+                    "institution": _fnum(row.get("institutionalValue"))}
+            if any(v is not None for v in vals.values()):
+                out[key] = vals
+        except Exception as e:
+            _log(f"index investors({sym}) 조회 실패: {e}")
+    return out
+
+
 def main():
     now = datetime.datetime.now(KST)
     today = now.strftime("%Y-%m-%d")
@@ -100,12 +131,24 @@ def main():
         finals = {c: nb for c, nb in zip(codes, pool.map(
             lambda c: fetch_final(c, today_c), codes)) if nb}
     _log(f"확정 조회: {len(finals)}/{len(codes)}종목")
-    if not finals:
+
+    # 시장 단위 투자자 수급(KOSPI/KOSDAQ 개인·외인·기관)도 확정으로 치환 — 마감 회차만
+    inv = fetch_index_investors() if live.get("final") else {}
+    if not finals and not inv:
         _log("확정 데이터 없음(집계 지연/허브 구버전) — 종료(기존 값 유지)")
         return
+    n_inv = 0
+    if inv:
+        live["investors"] = {**(live.get("investors") or {}), **inv}
+        n_inv = len(inv)
+        _log(f"시장 investors 확정 치환: {', '.join(inv)}")
 
     n_live = patch_sectors(live.get("sectorsUp"), live.get("sectorsDown"), finals)
     changed_any = False
+    if n_inv and not n_live:
+        with open(LIVE_PATH, "w", encoding="utf-8") as f:
+            json.dump(live, f, ensure_ascii=False, indent=1)
+        changed_any = True
     if n_live:
         with open(LIVE_PATH, "w", encoding="utf-8") as f:
             json.dump(live, f, ensure_ascii=False, indent=1)
@@ -122,6 +165,9 @@ def main():
         for rd in rounds:
             if rd.get("asof") == live.get("asof"):
                 n_arch = patch_sectors(rd.get("sectorsUp"), rd.get("sectorsDown"), finals)
+                if inv:
+                    rd["investors"] = {**(rd.get("investors") or {}), **inv}
+                    n_arch += len(inv)
                 break
         if n_arch:
             with open(arch_path, "w", encoding="utf-8") as f:
