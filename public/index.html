@@ -7373,7 +7373,7 @@
   // 투자자 합산(외인+기관계) 순매수 순위 + 개인·공매도 누적·대차잔고 추이
   function totalTable(t, nD, basis) {
     var h = '<div style="font-weight:600;margin:10px 0 4px">투자자 합산 순매수 상위 · 하위 <span style="font-weight:400;opacity:.55;font-size:11px">(외인+기관계, ' +
-      nD + "거래일 " + basis + " — 상위 30 등재일 기준 근사)</span></div>";
+      nD + "거래일 " + basis + " — KRX+NXT 합산 기준)</span></div>";
     if (!t || (!(t.top || []).length && !(t.bottom || []).length)) return h + "<div style='opacity:.5;font-size:12px'>—</div>";
     function eok(v) { return v == null ? "—" : fmtAmt(v / 100); }
     // 상위=왼쪽 / 하위=오른쪽 카드 — 열은 합산·공매도·대차만(외인/기관/개인 세부는 아래 펼침)

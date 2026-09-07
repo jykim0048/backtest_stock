@@ -79,6 +79,8 @@ def _day_summary(date_str):
     day = {"date": date_str}
 
     if morning:
+        day["stance"] = morning.get("stance")               # 모닝브리핑 스탠스(논조 기준점)
+        day["stanceReason"] = morning.get("stanceReason")
         day["usReview"] = (morning.get("usReview") or {}).get("bullets") or []
         day["krPreview"] = (morning.get("krPreview") or {}).get("narrative") or ""
         us = morning.get("usMarket") or {}
@@ -371,7 +373,10 @@ _SYSTEM = (
     " 포함하고 star 필드에 5 를 넣어라 (그 외 종목은 star 생략)"
     "\n- dailyContext: 거래일마다 정확히 1개 — 전일 미국장 주요 이슈·경제지표(usReview,"
     " usCatalystsTop)가 당일 한국장에 어떻게 반영됐는지(지수·섹터·수급 반응, briefing 근거)를"
-    " 잇는 1문장. 종목 나열이 아니라 '미국장 원인 → 한국장 반응' 구조로 작성"
+    " 잇는 1문장. 종목 나열이 아니라 '미국장 원인 → 한국장 반응' 구조로 작성."
+    " 그 날 모닝브리핑 스탠스(stance·stanceReason)의 논조를 기준점으로 삼아 방향이"
+    " 일치하게 쓰되, 실제 장 반응이 스탠스와 달랐다면 '신중 스탠스에도 불구하고 ~ 급등'"
+    " 처럼 그 괴리를 명시적으로 연결하라 (스탠스 근거를 무시한 반대 논조 금지)"
     "\n- nextWeekPreview: 다음 주 주목 포인트 2~4개 불릿 (제공된 예정 이벤트 기반, 없으면 빈 배열)"
 )
 
