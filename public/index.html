@@ -3708,10 +3708,10 @@
             mkColor = (c.market === "KOSDAQ") ? "var(--kosdaq-green)" : "var(--kospi-blue)";
             mkLabel = c.market || "";
           }
-          // 별점 — 스코어 회차 항목이면 자체 score, 다른 회차(마감 등)는 종목명 매칭으로 병기
-          const sc = (typeof c.score === "number") ? c : (_ibScoreMap[c.stock] || null);
-          const chgVal = typeof c.changePct === "number" ? c.changePct
-            : (sc && typeof sc.changePct === "number" ? sc.changePct : null);
+          // 별점 — 16:00 스코어 회차 항목(자체 score)에서만 표기 (장중 회차 병기는
+          // 장중/스코어 구분 혼동으로 원복, 2026-09-08 사용자 요청)
+          const sc = (typeof c.score === "number") ? c : null;
+          const chgVal = typeof c.changePct === "number" ? c.changePct : null;
           const chg = ((c.market === "US" || sc) && chgVal != null)
             ? ` <span style="color:${chgVal >= 0 ? "var(--up-red)" : "var(--kospi-blue)"}; font-size:11.5px;">${chgVal >= 0 ? "+" : ""}${Math.round(chgVal * 100) / 100}%</span>` : "";
           const stars = sc
@@ -3724,7 +3724,7 @@
             + `<td style="font-weight:600; white-space:nowrap;">${icon} ${_brEsc(name)}${dirBadge(c.direction)}</td>`
             + `<td style="color:${mkColor}; font-size:13px; white-space:nowrap;">${mkLabel}</td>`
             + `<td style="white-space:nowrap;">${stars || `<span style="color:var(--text-muted)">—</span>`}</td>`
-            + `<td style="white-space:nowrap; text-align:right;">${chg || ""}</td>`
+            + `<td style="white-space:nowrap; padding-right:18px;">${chg || ""}</td>`
             + `<td style="color:#cbd5e1;">${_brEsc(c.summary || c.title || "")}${link}${reason}</td></tr>`;
         }).join("");
       return rows || `<tr><td colspan="5" style="color:var(--text-muted); font-size:13px; padding:8px 2px;">해당 회차 촉매 없음</td></tr>`;
@@ -3949,7 +3949,6 @@
     }
 
     let _ibRounds = null;   // 당일 아카이브 rounds[] (회차 선택용)
-    let _ibScoreMap = {};   // 종목명 -> 스코어 회차 항목({score, reason, changePct}) — 별점 병기용
     async function _ibLoadRounds(d) {
       _ibRounds = null;
       const sel = document.getElementById("ib-cat-round");
@@ -3960,13 +3959,6 @@
         const rounds = ((await r.json()) || {}).rounds || [];
         if (rounds.length < 2) return;      // 회차가 1개면 선택 무의미 — 셀렉터 숨김 유지
         _ibRounds = rounds;
-        // 16:00 촉매 스코어 회차의 별점을 종목명 기준 맵으로 — 다른 회차 표에도 병기
-        _ibScoreMap = {};
-        rounds.forEach(rd => {
-          if (rd.scoring) (rd.catalysts || []).forEach(c => {
-            if (c.stock && typeof c.score === "number") _ibScoreMap[c.stock] = c;
-          });
-        });
         sel.innerHTML = rounds.map((rd, i) => {
           const hm = ((rd.asof || "").split(" ")[1]) || `#${i + 1}`;
           const label = rd.scoring ? `${hm} 촉매 스코어 ★` : rd.final ? `${hm} 마감` : `${hm} 회차`;
@@ -4114,7 +4106,7 @@
         + `<select id="ib-cat-round" onchange="ibCatRound(this.value)" style="display:none; margin-left:auto;`
         + ` background:rgba(255,255,255,.05); color:#cbd5e1; border:1px solid var(--border-color);`
         + ` border-radius:6px; font-size:12px; padding:2px 6px; cursor:pointer;"></select></div>`
-        + `<table><thead><tr><th>종목</th><th>시장</th><th>별점</th><th style="text-align:right">상승률</th><th>핵심 촉매</th></tr></thead>`
+        + `<table><thead><tr><th>종목</th><th>시장</th><th>별점</th><th>상승률</th><th>핵심 촉매</th></tr></thead>`
         + `<tbody id="ib-cat-tbody">${_ibCatRows(d.catalysts)}</tbody></table></div>`;
 
       // 원자료 접기 (당일 촉매성 공시 / 특징주 뉴스)
@@ -7432,22 +7424,26 @@
   // 주간 촉매 타임라인 — 시장 필터 상태 + 행 렌더 (실적발표 토글 양식)
   var _wbTl = [], _wbTlMkt = "전체";
   function wbTlRows() {
+    // 장중 주요 촉매 표와 같은 테이블 구조 — 컬럼 간격 일정 (날짜는 일반 폰트)
     var rows = (_wbTl || []).filter(function (t) {
       return _wbTlMkt === "전체" || !t.market || t.market === _wbTlMkt;   // 시장 무관 행은 항상
     }).map(function (t) {
-      var mk = t.market === "KOSDAQ" ? '<span style="color:var(--kosdaq-green);white-space:nowrap">KOSDAQ</span>'
-        : t.market === "KOSPI" ? '<span style="color:var(--kospi-blue);white-space:nowrap">KOSPI</span>' : "";
+      var mk = t.market === "KOSDAQ" ? '<span style="color:var(--kosdaq-green)">KOSDAQ</span>'
+        : t.market === "KOSPI" ? '<span style="color:var(--kospi-blue)">KOSPI</span>' : "";
       var star = (t.star === 5)
-        ? '<span style="color:#fbbf24;font-size:12px;letter-spacing:1px;white-space:nowrap">★★★★★</span>' : "";
+        ? '<span style="color:#fbbf24;font-size:12px;letter-spacing:1px">★★★★★</span>' : "";
       var chg = (typeof t.changePct === "number")
-        ? '<span style="color:' + (t.changePct >= 0 ? "#f04452" : "#3182f6") + ';font-weight:600;white-space:nowrap">' + (t.changePct >= 0 ? "+" : "") + (Math.round(t.changePct * 100) / 100) + "%</span>" : "";
-      return '<div style="display:flex;align-items:baseline;gap:8px;padding:5px 0;border-top:1px solid rgba(128,128,128,.12);font-size:13px">'
-        + '<span style="background:rgba(128,128,128,.15);border-radius:6px;padding:0 7px;font-size:11px;white-space:nowrap;opacity:.85">' + esc((t.date || "").slice(5)) + "</span>"
-        + (t.stock ? '<span style="font-weight:700;white-space:nowrap">' + esc(t.stock) + "</span>" : "")
-        + mk + star + chg
-        + '<span style="color:#cbd5e1;flex:1">' + esc(t.event) + "</span></div>";
+        ? '<span style="color:' + (t.changePct >= 0 ? "#f04452" : "#3182f6") + ';font-weight:600">' + (t.changePct >= 0 ? "+" : "") + (Math.round(t.changePct * 100) / 100) + "%</span>" : "";
+      return '<tr style="border-top:1px solid rgba(128,128,128,.12)">'
+        + '<td style="white-space:nowrap;opacity:.7;padding:5px 10px 5px 0">' + esc((t.date || "").slice(5)) + "</td>"
+        + '<td style="white-space:nowrap;font-weight:700;padding-right:10px">' + (t.stock ? esc(t.stock) : "—") + "</td>"
+        + '<td style="white-space:nowrap;padding-right:10px">' + mk + "</td>"
+        + '<td style="white-space:nowrap;padding-right:10px">' + star + "</td>"
+        + '<td style="white-space:nowrap;padding-right:18px">' + chg + "</td>"
+        + '<td style="color:#cbd5e1">' + esc(t.event) + "</td></tr>";
     }).join("");
-    return rows || '<div style="opacity:.5;font-size:12.5px;padding:6px 0">선택 시장 촉매 없음</div>';
+    if (!rows) return '<div style="opacity:.5;font-size:12.5px;padding:6px 0">선택 시장 촉매 없음</div>';
+    return '<table style="width:100%;border-collapse:collapse;font-size:13px">' + rows + "</table>";
   }
   window.wbTlMkt = function (f) {
     _wbTlMkt = f;
