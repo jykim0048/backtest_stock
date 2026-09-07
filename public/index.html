@@ -7580,6 +7580,19 @@
         + '<div id="wb-tl-rows">' + wbTlRows() + "</div>";
     }
     h += bullets("🔮 다음 주 프리뷰", syn.nextWeekPreview);
+    // 주간 관찰 노트 — 결정적 집계(섹터x수급·순매수·공매도/대차) 근거 LLM 관찰 후보
+    var wn = syn.watchNotes || {};
+    if ((wn.long || []).length || (wn.short || []).length) {
+      var wnCol = function (title, arr, color) {
+        return '<div style="flex:1;min-width:260px"><div style="font-weight:600;color:' + color + ';margin-bottom:3px">' + title + "</div>"
+          + (arr || []).map(function (e) {
+              return '<div style="margin:3px 0;font-size:12.5px"><b>' + esc(e.name) + "</b> <span style='color:#cbd5e1'>— " + esc(e.basis) + "</span></div>";
+            }).join("") + "</div>";
+      };
+      h += '<div style="font-weight:600;margin:10px 0 4px">🔍 주간 관찰 노트 <span style="font-weight:400;opacity:.55;font-size:11px">(수급·공매도 데이터 기반 자동 생성 — 투자 판단 참고용, 매매 권유 아님)</span></div>'
+        + '<div style="display:flex;gap:16px;flex-wrap:wrap">'
+        + wnCol("상방 관찰", wn.long, "#f04452") + wnCol("하방 관찰", wn.short, "#3182f6") + "</div>";
+    }
     if (!syn.headline) h += '<div style="opacity:.6;font-size:12px">주간 종합 코멘트는 다음 갱신(평일 16:10)에 채워집니다.</div>';
     h += '<div style="opacity:.5;font-size:11px;margin-top:6px">기준: ' + esc(d.asof || "") + "</div>";
     el.innerHTML = h;

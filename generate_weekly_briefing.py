@@ -361,6 +361,13 @@ _SCHEMA = {
             "date": {"type": "string"}, "note": {"type": "string"}},
             "required": ["date", "note"]}},
         "nextWeekPreview": {"type": "array", "items": {"type": "string"}},
+        "watchNotes": {"type": "object", "properties": {
+            "long": {"type": "array", "items": {"type": "object", "properties": {
+                "name": {"type": "string"}, "basis": {"type": "string"}},
+                "required": ["name", "basis"]}},
+            "short": {"type": "array", "items": {"type": "object", "properties": {
+                "name": {"type": "string"}, "basis": {"type": "string"}},
+                "required": ["name", "basis"]}}}},
     },
     "required": ["headline", "weekNarrative", "sectorRotation", "catalystTimeline"],
 }
@@ -388,6 +395,12 @@ _SYSTEM = (
     " 비테크·브레드스가 버티면 로테이션 지속, 함께 무너지면 단기 리스크오프') ② 두 시나리오를"
     " 가르는 판별 신호 1개 (어떤 지표·수급·이벤트를 보면 되는지 구체적으로) ③ 제공된 예정"
     " 이벤트(nextWeekEvents) 중 핵심 체크 항목 1~3개. 모두 이번 주 입력 데이터에 근거할 것"
+    "\n- watchNotes: 다음 주 '관찰 후보' — long(상방 관찰) 2~3개, short(하방 관찰) 1~3개."
+    " 근거는 반드시 입력의 결정적 데이터에서: sectorFlowWeekly(주가 vs 수급 괴리 — 주가"
+    " 하락에도 외인·기관 순매수면 상방 관찰, 주가 급등에 수급 이탈이면 하방 관찰),"
+    " netbuyTotalTop/Bottom(수급 집중), shortLoan(공매도 누적·대차 증가는 하방 압력,"
+    " 대차 감소는 숏커버 여지). name 은 업종명 또는 종목명, basis 는 수치를 인용한 한"
+    " 문장. 매수·매도 권유 표현 금지 — '관찰'의 근거만 서술하라"
 )
 
 
@@ -415,20 +428,6 @@ def main():
                 d["flowTop"] = ft
     netbuy_cum = _netbuy_cum(dates)
     print(f"[weekly] {week_start} ~ {week_end}: 거래일 {len(days)}일 수집")
-
-    preview = _next_week_preview()
-    synthesis, generated_by = None, None
-    if "--no-llm" not in args:
-        if not llm.configured():
-            print("[weekly] LLM 미설정 — synthesis 생략", file=sys.stderr)
-        else:
-            user = json.dumps({"days": days, "nextWeekEvents": preview},
-                              ensure_ascii=False)
-            try:
-                synthesis, generated_by = llm.generate_json(
-                    _SYSTEM, user, max_tokens=4096, schema=_SCHEMA, return_model=True)
-            except llm.LLMError as ex:
-                print(f"[weekly] LLM 합성 실패 — 집계만 저장: {ex}", file=sys.stderr)
 
     # ── Phase 1 결정적 집계 (2026-09-08 주간회의 자료 벤치마킹) ──────────────
     # ① 미국 주간 컨텍스트 — 모닝브리핑 usIndices(전일 미국장) 일별 등락 합산 근사
@@ -525,6 +524,27 @@ def main():
                for a in agg.values()]
         return sorted(out, key=lambda x: (-x["days"], -abs(x["avgChg"])))[:6]
     sector_weekly = {"up": _sector_week("sectorsUp"), "down": _sector_week("sectorsDown")}
+
+
+    preview = _next_week_preview()
+    synthesis, generated_by = None, None
+    if "--no-llm" not in args:
+        if not llm.configured():
+            print("[weekly] LLM 미설정 — synthesis 생략", file=sys.stderr)
+        else:
+            user = json.dumps({
+                "days": days, "nextWeekEvents": preview,
+                # Phase 3 관찰 노트 근거 — 주간 결정적 집계 (억원)
+                "sectorFlowWeekly": (sector_flow or {}).get("rows"),
+                "netbuyTotalTop": ((netbuy_cum or {}).get("total") or {}).get("top"),
+                "netbuyTotalBottom": ((netbuy_cum or {}).get("total") or {}).get("bottom"),
+                "shortLoan": short_loan,
+            }, ensure_ascii=False)
+            try:
+                synthesis, generated_by = llm.generate_json(
+                    _SYSTEM, user, max_tokens=4096, schema=_SCHEMA, return_model=True)
+            except llm.LLMError as ex:
+                print(f"[weekly] LLM 합성 실패 — 집계만 저장: {ex}", file=sys.stderr)
 
     # 타임라인 병합 — LLM 은 시장 이벤트 행만, 종목 행은 스코어 기준으로 결정적 추가
     # (코스피 ★4 이상 / 코스닥 ★5 — LLM 누락·기준 이탈 방지, 2026-09-08)
