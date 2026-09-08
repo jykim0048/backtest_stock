@@ -55,10 +55,14 @@ jobs:
                   public/reports/netbuy_rank/ public/reports/breadth/
           git diff --staged --quiet && echo "No changes to commit" && exit 0
           git commit -m "chore: weekly briefing $(date -u +'%Y-%m-%d %H:%MZ') [skip railway]"
+          # 커밋 대상 외 잔여 변경이 남으면 rebase 가 거부됨 — 어떤 파일인지 로그로
+          # 남기고(원인 추적), rebase 전에 stash 로 치운다(2026-09-08 실측 재발 방어).
+          git status --porcelain | head -5
           for i in $(seq 1 5); do
             if git push origin HEAD:main; then echo "pushed (attempt $i)"; exit 0; fi
             echo "push attempt $i rejected; rebasing onto latest main..."
             git fetch origin main
+            git stash --include-untracked --quiet 2>/dev/null || true
             git rebase FETCH_HEAD || { git rebase --abort; echo "::error::rebase conflict"; exit 1; }
             sleep $((RANDOM % 4 + 2))
           done
