@@ -7914,7 +7914,9 @@
     if (window.XLSX && window.XLSX.__style) return xlsxGo();
     var sc = document.createElement("script");
     // xlsx-js-style — 셀 서식(폰트·채움·정렬) 지원 SheetJS 포크
-    sc.src = "https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.full.min.js";
+    // 주의: 이 패키지 dist 엔 xlsx.full.min.js 가 없다(404 → CSV 폴백 오동작 원인,
+    // 2026-09-08 실측) — 스타일 포함 번들 파일명은 xlsx.min.js.
+    sc.src = "https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.min.js";
     sc.onload = function () { window.XLSX.__style = true; xlsxGo(); };
     sc.onerror = function () {   // CDN 차단(사내망) — UTF-8 BOM CSV 폴백(무서식)
       var csv = "\uFEFF" + rep.rows.map(function (row) {
