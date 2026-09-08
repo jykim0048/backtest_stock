@@ -365,11 +365,20 @@ def build(d):
             return f"{m['up']}▲/{m['down']}▼" + (f" 상한{m['upLimit']}" if m.get("upLimit") else "")
         note = dc.get(day.get("date"), "")
         b.cell(1, day.get("date"), "daily_cell")
-        b.cell(2, ks.get("rate"), "num_pos", num="sign")
+        # 장전 재생성(당일 장중 데이터 이전 — 지수·섹터 미확정)은 '—' 표기.
+        # 빈칸이면 04 검증(결측)에 걸려 xlsx 저장이 통째로 실패한다(2026-09-09 실측:
+        # 장전 수동 dispatch 에서 exit 1). 16:10 정규 실행이 실값으로 덮는다.
+        if ks.get("rate") is None:
+            b.cell(2, "—", "daily_cell")
+        else:
+            b.cell(2, ks.get("rate"), "num_pos", num="sign")
         b.cell(3, adr(br.get("kospi")), "daily_cell")
-        b.cell(4, kq.get("rate"), "num_pos", num="sign")
+        if kq.get("rate") is None:
+            b.cell(4, "—", "daily_cell")
+        else:
+            b.cell(4, kq.get("rate"), "num_pos", num="sign")
         b.cell(5, adr(br.get("kosdaq")), "daily_cell")
-        lead = ", ".join(s.get("name", "") for s in (day.get("sectorsUp") or [])[:2])
+        lead = ", ".join(s.get("name", "") for s in (day.get("sectorsUp") or [])[:2]) or "—"
         b.cell(6, lead, "daily_cell", wrap=True)
         b.wrap_h(lead, 6, 6)
         b.cell(7, note, "daily_comment")
