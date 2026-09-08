@@ -7864,56 +7864,279 @@
     if (!_wbLast) { alert("주간 브리핑 데이터가 아직 로드되지 않았습니다."); return; }
     var d = _wbLast, rep = _wbReport(d);
     var fname = "weekly_briefing_" + d.weekStart + "_" + (d.weekEnd || "");
-    function xlsxGo() {
-      var rows = rep.rows, tags = rep.tags;
-      var aoa = rows.map(function (r) { var c = r.slice(); while (c.length < _WB_COLS) c.push(""); return c; });
-      var ws = XLSX.utils.aoa_to_sheet(aoa);
-      // 대시보드 다크 팔레트 — 배경/카드/헤더, 상승 빨강·하락 파랑, 앰버 섹션, 티일 타이틀
-      var C = {bg: "0F172A", card: "1E293B", hdr: "334155", text: "E2E8F0",
-               mut: "94A3B8", up: "F04452", down: "5B9CF6", amber: "FBBF24", teal: "2DD4BF"};
-      function st(fill, color, bold, size, wrap, align) {
-        return {fill: {patternType: "solid", fgColor: {rgb: fill}},
-                font: {name: "맑은 고딕", sz: size || 10.5, bold: !!bold, color: {rgb: color}},
-                alignment: {vertical: "top", wrapText: !!wrap, horizontal: align || "left"}};
+    // ── 사용자 템플릿(QUANT_ANTIGRAVITY_Weekly_Briefing_Column_Layout.xlsx,
+    //    2026-09-08) 재현: 라이트 테마 리포트 시트 + '원본 데이터' 시트 ──────────
+    function styledSheet() {
+      var syn = d.synthesis || {};
+      function n0(v) { return v == null ? "" : v; }
+      function eok(v) { return v == null ? "" : Math.round(v / 100); }
+      var NAVY = "16324A", TEAL = "19B6C9", SECT = "0B7F8C", SECTBG = "EAF8FA",
+          CAP = "6B7280", BODY = "1F2937", GREEN = "159957", GREENBG = "EAF7F0",
+          RED = "D64545", REDBG = "FDEEEE", GOLD = "D99A1B", HEADBG = "F7FAFC",
+          WHITE = "FFFFFF";
+      function st(o) {
+        return {font: {name: "맑은 고딕", sz: o.sz || 10, bold: !!o.b,
+                       color: {rgb: o.c || BODY}},
+                fill: o.f ? {patternType: "solid", fgColor: {rgb: o.f}} : undefined,
+                alignment: {vertical: "center", wrapText: !!o.w,
+                            horizontal: o.a || (o.num ? "right" : "left")}};
       }
-      var SIGNED_RE = /%|합산|외인|기관|개인|등락|누적|증감|실제|예상|이전|개인|외국인/;
-      var signed = [];
-      for (var r0 = 0; r0 < aoa.length; r0++) {
-        var tag = tags[r0];
-        if (tag === "hdr") {
-          signed = [];
-          rows[r0].forEach(function (hd, i) { if (SIGNED_RE.test(String(hd))) signed.push(i); });
-        }
-        for (var c0 = 0; c0 < _WB_COLS; c0++) {
-          var addr = XLSX.utils.encode_cell({r: r0, c: c0});
-          var cell = ws[addr] || (ws[addr] = {v: "", t: "s"});
-          var isNum = typeof cell.v === "number";
-          var s;
-          if (tag === "title") s = st(C.bg, C.teal, true, c0 === 0 ? 15 : 11.5);
-          else if (tag === "meta") s = st(C.bg, c0 === 0 ? C.mut : C.text, c0 > 0, 10.5);
-          else if (tag === "sec") s = st(C.card, C.amber, true, 12);
-          else if (tag === "hdr") s = st(C.hdr, C.mut, true, 10.5);
-          else if (tag === "bullet") s = st(C.bg, c0 === 0 ? C.amber : C.text, false, 10.5, c0 === 1);
-          else {
-            var col = C.text;
-            if (tag === "data" && isNum && cell.v !== 0 && signed.indexOf(c0) >= 0)
-              col = cell.v > 0 ? C.up : C.down;
-            s = st(C.bg, col, false, 10.5,
-                   !isNum && String(cell.v || "").length > 45,
-                   isNum ? "right" : "left");
+      var ws = {}, merges = [], R = 0;
+      function put(r, c, v, s) {
+        ws[XLSX.utils.encode_cell({r: r, c: c})] =
+          {v: v, t: typeof v === "number" ? "n" : "s", s: s};
+      }
+      function mg(r, c1, c2) { merges.push({s: {r: r, c: c1}, e: {r: r, c: c2}}); }
+      function signS(v, bold) {   // 수치 부호색 — 템플릿: 양수 초록 / 음수 빨강
+        return st({c: v > 0 ? GREEN : v < 0 ? RED : BODY, b: bold !== false, num: true});
+      }
+      function chip(r, no, title, cap, capCol) {
+        put(r, 0, no, st({c: WHITE, f: NAVY, b: true, a: "center"}));
+        put(r, 1, title, st({c: SECT, f: SECTBG, b: true}));
+        if (cap) put(r, capCol == null ? 2 : capCol, cap, st({c: CAP, sz: 9}));
+      }
+      function hdr(r, c, v) { put(r, c, v, st({c: WHITE, f: TEAL, b: true, sz: 9})); }
+      function body(r, c, v, wrap) { put(r, c, v, st({w: !!wrap, num: typeof v === "number"})); }
+
+      // 헤더 바
+      put(0, 0, "WEEKLY MARKET BRIEF", st({c: WHITE, f: NAVY, b: true, sz: 14}));
+      for (var i = 1; i <= 6; i++) put(0, i, "", st({f: NAVY}));
+      mg(0, 0, 6);
+      put(0, 7, "기간", st({c: CAP, b: true, sz: 10}));
+      put(0, 8, d.weekStart + " ~ " + (d.weekEnd || ""), st({b: true}));
+      put(1, 7, "생성 기준", st({c: CAP, b: true, sz: 10}));
+      put(1, 8, d.asof || "", st({b: true}));
+      if (syn.headline) {
+        put(3, 0, "MARKET SIGNAL", st({c: WHITE, f: NAVY, b: true}));
+        mg(3, 0, 1);
+        put(3, 2, syn.headline, st({b: true, sz: 12, f: HEADBG}));
+        mg(3, 2, 9);
+      }
+      R = 5;
+
+      // 01 주간 누적 수급 + 02 US 미국 주간 (좌우 배치)
+      chip(R, "01", "주간 누적 수급", "단위: 억원", 2);
+      put(R, 4, "02", st({c: WHITE, f: NAVY, b: true, a: "center"}));
+      put(R, 5, "US 미국 주간", st({c: SECT, f: SECTBG, b: true}));
+      put(R, 6, "모닝브리핑 전일 기준 누적, %", st({c: CAP, sz: 9}));
+      R++;
+      var usKeys = Object.keys(d.usWeekly || {});
+      ["시장", "개인", "외국인", "기관"].forEach(function (h, i) { hdr(R, i, h); });
+      usKeys.slice(0, 5).forEach(function (k, i) { hdr(R, 4 + i, k); });
+      R++;
+      var acc = {kospi: {}, kosdaq: {}};
+      (d.days || []).forEach(function (day) {
+        ["kospi", "kosdaq"].forEach(function (mk) {
+          var iv = (day.investors || {})[mk] || {};
+          ["individual", "foreign", "institution"].forEach(function (k) {
+            if (iv[k] != null) acc[mk][k] = (acc[mk][k] || 0) + iv[k];
+          });
+        });
+      });
+      [["KOSPI", acc.kospi], ["KOSDAQ", acc.kosdaq]].forEach(function (p, ri) {
+        put(R, 0, p[0], st({b: true, c: NAVY}));
+        ["individual", "foreign", "institution"].forEach(function (k, i) {
+          var v = p[1][k];
+          if (v != null) put(R, 1 + i, Math.round(v), signS(v));
+        });
+        if (ri === 0) usKeys.slice(0, 5).forEach(function (k, i) {
+          var v = d.usWeekly[k];
+          if (typeof v === "number") put(R, 4 + i, v, signS(v));
+        });
+        R++;
+      });
+      R++;
+
+      // 02b 섹터 TOP3 행렬 (US/KR × 상승/하락)
+      ["구분", "1위", "2위", "3위"].forEach(function (h, i) { hdr(R, i, h); });
+      R++;
+      var usw = d.usSectorWeekly || {};
+      var sfR = ((d.sectorFlow || {}).rows) || [];
+      var krU = sfR.filter(function (r) { return r.chgPct > 0; }).slice(0, 3).map(function (r) { return {name: r.name, chg: r.chgPct}; });
+      var krD = sfR.filter(function (r) { return r.chgPct < 0; }).slice(-3).reverse().map(function (r) { return {name: r.name, chg: r.chgPct}; });
+      [["US 상승 섹터", usw.up, 1], ["US 하락 섹터", usw.down, 0],
+       ["KR 상승 섹터", krU, 1], ["KR 하락 섹터", krD, 0]].forEach(function (p) {
+        if (!(p[1] || []).length) return;
+        put(R, 0, p[0], st({b: true, c: p[2] ? GREEN : RED, f: p[2] ? GREENBG : REDBG}));
+        p[1].slice(0, 3).forEach(function (s, i) {
+          put(R, 1 + i, s.name + " " + (s.chg > 0 ? "+" : "") + s.chg + "%", st({}));
+        });
+        R++;
+      });
+      R++;
+
+      // 03 경제지표
+      var ecRows = [];
+      (d.days || []).forEach(function (day) {
+        (day.usEcon || []).concat(day.koEcon || []).forEach(function (e) {
+          ecRows.push([day.date, e]);
+        });
+      });
+      if (ecRows.length) {
+        chip(R, "03", "주간 주요 경제지표 — 시장 반영");
+        R++;
+        ["날짜", "국가", "지표", "실제", "예상", "이전", "단위", "판정"].forEach(function (h, i) { hdr(R, i, h); });
+        R++;
+        ecRows.forEach(function (p) {
+          var e = p[1], sp = e.surprise || {};
+          body(R, 0, p[0]); body(R, 1, e.nation); body(R, 2, e.name);
+          if (e.actual != null) body(R, 3, e.actual);
+          if (e.forecast != null) body(R, 4, e.forecast);
+          if (e.previous != null) body(R, 5, e.previous);
+          body(R, 6, (e.unitScale || "") + (e.unit || ""));
+          if (sp.verdict) {
+            var vc = sp.verdict === "above" ? "FF0000" : sp.verdict === "below" ? "0070C0" : BODY;
+            put(R, 7, (sp.vs === "forecast" ? "예상 " : "이전比 ")
+              + ({above: "상회", inline: "부합", below: "하회"}[sp.verdict] || ""), st({b: true, c: vc}));
           }
-          cell.s = s;
-        }
+          R++;
+        });
+        R++;
       }
-      ws["!cols"] = [{wch: 15}, {wch: 13}, {wch: 16}, {wch: 12}, {wch: 15},
-                     {wch: 24}, {wch: 95}, {wch: 11}, {wch: 11}, {wch: 11}];
+
+      // 04 일별 요약
+      chip(R, "04", "일별 요약");
+      R++;
+      ["날짜", "코스피(%)", "코스피 ▲/▼", "코스닥(%)", "코스닥 ▲/▼", "주도 섹터", "전일 미국장 → 한국장 반응"].forEach(function (h, i) { hdr(R, i, h); });
+      R++;
+      var brM = {};
+      ((d.breadth || {}).days || []).forEach(function (b) { brM[b.date] = b; });
+      var dc = {};
+      (syn.dailyContext || []).forEach(function (x) { if (x && x.date) dc[x.date] = x.note; });
+      (d.days || []).forEach(function (day) {
+        var ks = ((day.indices || {}).kospi || {}), kq = ((day.indices || {}).kosdaq || {});
+        var b = brM[day.date] || {}, bk = b.kospi || {}, bq = b.kosdaq || {};
+        function adr(m) { return m.up == null ? "" : m.up + "▲/" + m.down + "▼" + (m.upLimit ? " 상한" + m.upLimit : ""); }
+        body(R, 0, day.date);
+        if (ks.rate != null) put(R, 1, ks.rate, signS(ks.rate));
+        body(R, 2, adr(bk));
+        if (kq.rate != null) put(R, 3, kq.rate, signS(kq.rate));
+        body(R, 4, adr(bq));
+        body(R, 5, (day.sectorsUp || []).slice(0, 2).map(function (s) { return s.name; }).join(", "));
+        put(R, 6, dc[day.date] || "", st({w: true}));
+        mg(R, 6, 9);
+        R++;
+      });
+      R++;
+
+      // 05 주간 종합 코멘트 / 08 시장 흐름 / 09 섹터·테마 — 불릿 섹션 공통
+      function bulletSec(no, title, colHdr, arr) {
+        if (!(arr || []).length) return;
+        chip(R, no, title);
+        R++;
+        hdr(R, 0, "No."); hdr(R, 1, colHdr);
+        R++;
+        arr.forEach(function (b) {
+          put(R, 0, "- " + b, st({w: true}));
+          mg(R, 0, 9);
+          R++;
+        });
+        R++;
+      }
+      bulletSec("05", "주간 종합 코멘트 — 매크로·수급", "Comment", syn.weeklyComment);
+
+      // 06 합산 순매수
+      var t = ((d.netbuyCum || {}).total) || {};
+      if ((t.top || []).length || (t.bottom || []).length) {
+        chip(R, "06", "투자자 합산 순매수 상위/하위", "외인+기관계, 억원", 9);
+        R++;
+        ["구분", "순위", "종목", "합산", "외인", "기관", "개인", "공매도", "대차잔고", "대차증감"].forEach(function (h, i) { hdr(R, i, h); });
+        R++;
+        [["순매수 상위", t.top, 1], ["순매도 상위", t.bottom, 0]].forEach(function (p) {
+          (p[1] || []).forEach(function (e, i) {
+            put(R, 0, p[0], st({b: true, c: p[2] ? GREEN : RED, f: p[2] ? GREENBG : REDBG}));
+            body(R, 1, i + 1); body(R, 2, e.name);
+            var amt = eok(e.amt);
+            if (amt !== "") put(R, 3, amt, signS(amt));
+            [e.frgn, e.orgn, e.prsn].forEach(function (v, ci) {
+              if (v != null) body(R, 4 + ci, Math.round(v / 100));
+            });
+            if (e.shortSum != null) body(R, 7, e.shortSum);
+            if (e.loanAmt != null) body(R, 8, e.loanAmt);
+            if (e.loanChg != null) body(R, 9, e.loanChg);
+            R++;
+          });
+        });
+        R++;
+      }
+
+      // 07 수급 관찰
+      var wn0 = syn.watchNotes || {};
+      if ((wn0.long || []).length || (wn0.short || []).length) {
+        chip(R, "07", "수급 관찰");
+        R++;
+        hdr(R, 0, "방향"); hdr(R, 1, "종목"); hdr(R, 2, "관찰 사유");
+        R++;
+        [["상방 관찰", wn0.long, 1], ["하방 관찰", wn0.short, 0]].forEach(function (p) {
+          (p[1] || []).forEach(function (e) {
+            put(R, 0, p[0], st({b: true, c: p[2] ? GREEN : RED, f: p[2] ? GREENBG : REDBG}));
+            body(R, 1, e.name);
+            put(R, 2, e.basis, st({w: true}));
+            mg(R, 2, 9);
+            R++;
+          });
+        });
+        R++;
+      }
+
+      bulletSec("08", "주간 시장 흐름", "Market Flow", syn.weekNarrative);
+      bulletSec("09", "섹터·테마 흐름", "Sector / Theme", syn.sectorRotation);
+
+      // 10 촉매 타임라인
+      var tl = syn.catalystTimeline || [];
+      if (tl.length) {
+        chip(R, "10", "주간 촉매 타임라인", "등락률 = 주간 누적", 9);
+        R++;
+        tl.forEach(function (t0) {
+          body(R, 0, n0(t0.date));
+          body(R, 1, t0.stock || "—");
+          body(R, 2, n0(t0.market));
+          if (t0.star != null) put(R, 3, "★".repeat(t0.star), st({b: true, c: GOLD}));
+          if (t0.changePct != null) put(R, 4, t0.changePct, signS(t0.changePct));
+          put(R, 5, n0(t0.event), st({w: true}));
+          mg(R, 5, 9);
+          R++;
+        });
+        R++;
+      }
+
+      // 11 다음 주 프리뷰 — 시나리오 라벨링(상방/하방/판별/핵심)
+      var pv = syn.nextWeekPreview || [];
+      if (pv.length) {
+        chip(R, "11", "다음 주 프리뷰");
+        R++;
+        hdr(R, 0, "구분"); hdr(R, 1, "내용");
+        R++;
+        pv.forEach(function (b, i) {
+          var lab = /하락|조정|리스크|우려.*재/.test(b) && i < 2 ? ["하방 시나리오", RED, REDBG]
+            : i === 0 ? ["상방 시나리오", GREEN, GREENBG]
+            : i === 1 ? ["하방 시나리오", RED, REDBG]
+            : /판별|신호/.test(b) ? ["판별 신호", SECT, SECTBG]
+            : ["핵심 이벤트", SECT, SECTBG];
+          put(R, 0, lab[0], st({b: true, c: lab[1], f: lab[2]}));
+          put(R, 1, b, st({w: true}));
+          mg(R, 1, 9);
+          R++;
+        });
+      }
+
+      ws["!ref"] = "A1:J" + (R + 1);
+      ws["!merges"] = merges;
+      ws["!cols"] = [{wch: 12}, {wch: 14}, {wch: 13}, {wch: 12}, {wch: 13},
+                     {wch: 20}, {wch: 14}, {wch: 12}, {wch: 12}, {wch: 12}];
+      return ws;
+    }
+    function xlsxGo() {
       var wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "주간 브리핑");
+      XLSX.utils.book_append_sheet(wb, styledSheet(), "주간 브리핑");
+      var raw = XLSX.utils.aoa_to_sheet(rep.rows);   // 원본 데이터(무서식 스트림)
+      raw["!cols"] = [{wch: 30}, {wch: 90}, {wch: 40}, {wch: 12}, {wch: 12},
+                      {wch: 40}, {wch: 80}, {wch: 10}, {wch: 10}, {wch: 10}];
+      XLSX.utils.book_append_sheet(wb, raw, "원본 데이터");
       XLSX.writeFile(wb, fname + ".xlsx");
     }
     if (window.XLSX && window.XLSX.__style) return xlsxGo();
     var sc = document.createElement("script");
-    // xlsx-js-style — 셀 서식(폰트·채움·정렬) 지원 SheetJS 포크
     // 주의: 이 패키지 dist 엔 xlsx.full.min.js 가 없다(404 → CSV 폴백 오동작 원인,
     // 2026-09-08 실측) — 스타일 포함 번들 파일명은 xlsx.min.js.
     sc.src = "https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.min.js";
