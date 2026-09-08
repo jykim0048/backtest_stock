@@ -1,6 +1,6 @@
 {
  "date": "2026-09-09",
- "asof": "2026-09-09 07:46 KST",
+ "asof": "2026-09-09 08:39 KST",
  "sources": {
   "naver": true,
   "forexfactory": true
@@ -110,9 +110,7 @@
     "diff": 3.89,
     "verdict": "above"
    }
-  }
- ],
- "upcoming": [
+  },
   {
    "nation": "KOR",
    "name": "실업률(계절조정계열)",
@@ -121,13 +119,21 @@
    "period": "Aug 2026",
    "category": "EMPLOYMENT",
    "releaseAtKST": "2026-09-09 08:00",
+   "actual": 2.7,
    "previous": 2.8,
    "unit": "%",
    "unitScale": "",
    "forecast": null,
    "forecastSource": null,
-   "source": "naver"
-  },
+   "source": "naver",
+   "surprise": {
+    "vs": "previous",
+    "diff": -0.1,
+    "verdict": "below"
+   }
+  }
+ ],
+ "upcoming": [
   {
    "nation": "USA",
    "name": "MBA 구매지수",
