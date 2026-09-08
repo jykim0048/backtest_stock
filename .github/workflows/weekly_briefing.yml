@@ -51,7 +51,7 @@ jobs:
           # netbuy_rank·breadth 는 생성기가 함께 쓰는 당일 스냅샷 — add 에서 빠지면
           # unstaged 로 남아 push 경합 시 rebase 가 거부됨(2026-09-08 실측: "You have
           # unstaged changes" 5회 전패) + 스냅샷이 git 에 영속 안 돼 다음 날 누적 결손.
-          git add public/weekly_briefing.json public/reports/weekly_briefing/ \
+          git add public/weekly_briefing.json public/weekly_briefing.xlsx public/reports/weekly_briefing/ \
                   public/reports/netbuy_rank/ public/reports/breadth/
           git diff --staged --quiet && echo "No changes to commit" && exit 0
           git commit -m "chore: weekly briefing $(date -u +'%Y-%m-%d %H:%MZ') [skip railway]"
