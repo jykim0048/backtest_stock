@@ -435,6 +435,73 @@ def _netbuy_cum(dates):
     return out
 
 
+# ---------------------------------------------------------------------------
+# 촉매 타임라인 주간 누적 등락률 (2026-09-08 사용자 요청 — 당일→주간 누적 교체)
+# ---------------------------------------------------------------------------
+def _norm_listed_name(s):
+    """상장사명 정규화 — tools/build_dart_corp_map.py 규칙과 동일해야 한다."""
+    s = "".join(ch for ch in str(s or "") if ch not in " \t·ㆍ・")
+    for tok in ("(주)", "주식회사"):
+        s = s.replace(tok, "")
+    return s.upper()
+
+
+def _yf_closes(tickers):
+    """yfinance 일별 종가 배치 조회 -> {ticker: [(iso날짜, 종가), ...]}."""
+    import yfinance as yf
+    import pandas as pd
+    df = yf.download(tickers, period="1mo", progress=False, auto_adjust=True)
+    close = df["Close"] if "Close" in df else df
+    if isinstance(close, pd.Series):
+        close = close.to_frame(tickers[0])
+    out = {}
+    for t in close.columns:
+        s = close[t].dropna()
+        out[str(t)] = [(d.strftime("%Y-%m-%d"), float(v)) for d, v in s.items()]
+    return out
+
+
+def _week_cum_map(rows, week_start, fetch_closes=None):
+    """타임라인 종목별 '주간 누적' 등락률(%) — 전주 마지막 종가 대비 최신 종가.
+
+    이름은 krx_listed_names.json(정규화명→코드)으로 해석, 티커는 행의 market 으로
+    (.KS/.KQ). 미해석·데이터 결손·주초 이전 종가 없음(그 주 신규상장)은 맵에서
+    제외 — 호출측이 기존 '당일' changePct 를 유지(fail-open).
+    """
+    try:
+        with open(os.path.join(ROOT, "public", "assets", "krx_listed_names.json"),
+                  encoding="utf-8") as f:
+            names = json.load(f) or {}
+    except Exception:
+        return {}
+    tick_of = {}                                   # stock 이름 -> ticker
+    for r in rows:
+        nm = r.get("stock")
+        if not nm or nm in tick_of:
+            continue
+        code = names.get(_norm_listed_name(nm))
+        if code:
+            tick_of[nm] = code + (".KQ" if r.get("market") == "KOSDAQ" else ".KS")
+    if not tick_of:
+        return {}
+    fetch_closes = fetch_closes or _yf_closes
+    try:
+        closes = fetch_closes(sorted(set(tick_of.values())))
+    except Exception as ex:
+        print(f"[weekly] 주간 누적 등락률 조회 실패(당일 유지): {ex}", file=sys.stderr)
+        return {}
+    out = {}
+    for nm, t in tick_of.items():
+        rows_t = closes.get(t) or []
+        base = None
+        for dt, cl in rows_t:                      # 날짜 오름차순
+            if dt < week_start:
+                base = cl
+        if base and rows_t and rows_t[-1][0] >= week_start:
+            out[nm] = round((rows_t[-1][1] / base - 1.0) * 100, 2)
+    return out
+
+
 def _next_week_preview():
     """다음 주 예정 이벤트 — 경제지표·실적 캘린더에서 결정적으로 추출."""
     out = {"econ": [], "earnings": []}
@@ -511,7 +578,9 @@ _SYSTEM = (
     " 비테크·브레드스가 버티면 로테이션 지속, 함께 무너지면 단기 리스크오프') ② 두 시나리오를"
     " 가르는 판별 신호 1개 (어떤 지표·수급·이벤트를 보면 되는지 구체적으로) ③ 제공된 예정"
     " 이벤트(nextWeekEvents) 중 핵심 체크 항목 1~3개. 모두 이번 주 입력 데이터에 근거할 것"
-    "\n- watchNotes: 다음 주 '관찰 후보' — long(상방 관찰) 2~3개, short(하방 관찰) 1~3개."
+    "\n- watchNotes: 다음 주 '관찰 후보' — long(상방 관찰)·short(하방 관찰) 각각 최대"
+    " 5개. 개수를 채우려 하지 말고 아래 근거 데이터가 뚜렷한 종목·업종만 넣을 것"
+    "(근거가 약하면 1~2개만 있어도 됨)."
     " 근거는 반드시 입력의 결정적 데이터에서: sectorFlowWeekly(주가 vs 수급 괴리 — 주가"
     " 하락에도 외인·기관 순매수면 상방 관찰, 주가 급등에 수급 이탈이면 하방 관찰),"
     " netbuyTotalTop/Bottom(수급 집중), shortLoan(공매도 누적·대차 증가는 하방 압력,"
@@ -691,6 +760,16 @@ def main():
     # (코스피 ★4 이상 / 코스닥 ★5 — LLM 누락·기준 이탈 방지, 2026-09-08)
     stock_rows = [{"date": d["date"], **p}
                   for d in days for p in (d.get("timelineStocks") or [])]
+    # 종목 행 등락률을 '주간 누적'으로 교체(전주 종가 대비 최신 종가, 2026-09-08
+    # 사용자 요청). 조회 실패 종목은 스코어 시점 당일 등락률 유지(fail-open).
+    if stock_rows:
+        cum = _week_cum_map(stock_rows, week_start)
+        n_cum = 0
+        for r in stock_rows:
+            if r.get("stock") in cum:
+                r["changePct"] = cum[r["stock"]]
+                n_cum += 1
+        print(f"[weekly] 타임라인 주간 누적 등락률: {n_cum}/{len(stock_rows)}행 교체")
     if stock_rows or synthesis:
         syn = synthesis if isinstance(synthesis, dict) else {}
         market_rows = [t for t in (syn.get("catalystTimeline") or []) if not t.get("stock")]
