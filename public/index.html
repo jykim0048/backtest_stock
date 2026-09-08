@@ -7359,21 +7359,36 @@
     return h + "</div>";
   }
   // 종목 → 섹터 알약 (assets/krx_sector_map.json — 섹터명 해시 기반 고정 색상)
-  var _wbSec = {};
+  // + 전 종목 폴백 맵(krx_code_sector.json, TOP 컷 없음 — 한미사이언스·지엘팜텍처럼
+  //   지주 분류/소형주가 상위 30 컷 밖이라 알약이 빠지던 것, 2026-09-09)
+  var _wbSec = {}, _wbSecFull = {};
   function loadSectorMap() {
-    return fetch("assets/krx_sector_map.json").then(function (r) { return r.json(); })
-      .then(function (sm) {
-        Object.keys((sm || {}).sectors || {}).forEach(function (name) {
-          var s = sm.sectors[name];
-          ([]).concat(s.stocks || [], s.kosdaqStocks || []).forEach(function (x) {
-            if (x.code && !_wbSec[String(x.code).padStart(6, "0")]) _wbSec[String(x.code).padStart(6, "0")] = name;
+    return Promise.all([
+      fetch("assets/krx_sector_map.json").then(function (r) { return r.json(); })
+        .then(function (sm) {
+          Object.keys((sm || {}).sectors || {}).forEach(function (name) {
+            var s = sm.sectors[name];
+            ([]).concat(s.stocks || [], s.kosdaqStocks || []).forEach(function (x) {
+              if (x.code && !_wbSec[String(x.code).padStart(6, "0")]) _wbSec[String(x.code).padStart(6, "0")] = name;
+            });
           });
-        });
-      }).catch(function () {});
+        }).catch(function () {}),
+      fetch("assets/krx_code_sector.json").then(function (r) { return r.json(); })
+        .then(function (fm) {
+          var m = (fm || {}).map || {};
+          Object.keys(m).forEach(function (c) {   // 기존 알약과 동일 정규화(중점 등 제거)
+            _wbSecFull[c] = String(m[c]).replace(/[\s·・()]/g, "");
+          });
+        })
+        .catch(function () {})   // 맵 생성 전(구배포)엔 기존 동작 유지
+    ]);
+  }
+  function _secOf(code) {
+    return _wbSec[code] || _wbSecFull[code] || null;
   }
   function secPill(code) {
     // 우선주(끝자리≠0, 예: 005935 삼성전자우)는 보통주 코드로 폴백 — 섹터맵은 보통주만 등재
-    var name = _wbSec[code] || (code && code[5] !== "0" ? _wbSec[code.slice(0, 5) + "0"] : null);
+    var name = _secOf(code) || (code && code[5] !== "0" ? _secOf(code.slice(0, 5) + "0") : null);
     if (!name) return "";
     var hsh = 0;
     for (var i = 0; i < name.length; i++) hsh = (hsh * 31 + name.charCodeAt(i)) >>> 0;
@@ -7621,7 +7636,7 @@
             "</td><td style='text-align:right;opacity:.75'>" + (s.shortSum == null ? "—" : Math.round(s.shortSum).toLocaleString()) +
             "</td><td style='text-align:right;opacity:.75;white-space:nowrap'>" + loan +
             "</td><td style='text-align:right'>" + wcCell +
-            "</td><td style='text-align:right;opacity:.8'>" + (s.nearRate == null ? "—" : s.nearRate + "%") + "</td></tr>";
+            "</td><td style='text-align:right;opacity:.8'>" + (s.nearRate == null ? "—" : (s.nearRate ? "-" + s.nearRate : "0") + "%") + "</td></tr>";   // 신고가까지 남은 거리 = 음수 표기(2026-09-09)
         }).join("");
         nhBody = '<div style="border:1px solid rgba(128,128,128,.2);border-radius:10px;padding:8px 12px;overflow-x:auto">'
           + '<div style="font-weight:600;margin-bottom:4px;color:#fbbf24">52주 신고가 근접</div>'
@@ -7637,7 +7652,7 @@
       if (nhGroups.length || nhStocks.length) {
         h += '<details class="flow-details" style="margin:-6px 0 8px"><summary style="text-align:right">신고가 근접 ' + nhCnt + '종목 ▾</summary>'
           + '<div style="margin-top:6px">' + nhBody
-          + '<div style="opacity:.45;font-size:10.5px;margin-top:4px">최신 거래일 기준 · 52주 신고가 대비 10% 이내 (KIS 랭킹) · ETF·ETN 제외 · 수급=주간 누적 확정(억)</div></div></details>';
+          + '<div style="opacity:.45;font-size:10.5px;margin-top:4px">최신 거래일 기준 · 52주 신고가 대비 -10% 이내 (KIS 랭킹) · ETF·ETN 제외 · 수급=주간 누적 확정(억)</div></div></details>';
       }
     }
     // 주간 종합 코멘트 — 일별 반응 코멘트 표 바로 아래 (매크로=주간 경제지표,
