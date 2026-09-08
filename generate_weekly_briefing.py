@@ -384,7 +384,18 @@ def _breadth_weekly(dates):
         # 종목 상세 — UI 카드 표(순매수 상위/하위와 동일 컬럼)용, 2026-09-08.
         # 주간 누적 수급(/flow daily 합산)과 주간 등락률(yfinance)을 부착 — 실패 시
         # 해당 값만 결손(UI '—'), 카드 자체는 유지.
-        stocks = [{k: x.get(k) for k in ("code", "name", "chgPct", "nearRate")}
+        mkt = {}
+        try:
+            with open(os.path.join(ROOT, "public", "assets", "krx_companies.json"),
+                      encoding="utf-8") as f:
+                for c0 in json.load(f):
+                    code0 = str(c0.get("code") or "").zfill(6)
+                    raw = c0.get("market") or ""
+                    mkt[code0] = "KOSDAQ" if "코스닥" in raw else "KOSPI"
+        except Exception:
+            pass
+        stocks = [{**{k: x.get(k) for k in ("code", "name", "chgPct", "nearRate")},
+                   "market": mkt.get(str(x.get("code") or "").zfill(6))}
                   for x in highs[:30]]
         codes = [str(s.get("code") or "").zfill(6) for s in stocks]
         flow = _flow_week(codes, dates)
@@ -471,10 +482,13 @@ def _enrich_final(snap):
                     if str(row.get("date")) == want:
                         out["shortAmt"] = row.get("pbmn")
                         break
-                for row in (d.get("loans") or []):
+                loans = d.get("loans") or []          # 최신순 시계열
+                for i, row in enumerate(loans):
                     if str(row.get("date")) == want:
                         out["loanAmt"] = row.get("rmndAmt")
                         out["loanChg"] = row.get("rmndChg")
+                        if i + 1 < len(loans):        # 직전 영업일 잔고 — 주간 증감
+                            out["loanPrev"] = loans[i + 1].get("rmndAmt")   # 계산용(억)
                         break
                 return code, out
         except Exception:
@@ -527,6 +541,8 @@ def _netbuy_cum(dates):
                     e["shortSum"] += float(src["shortAmt"] or 0.0)
                 if src.get("loanAmt") is not None:
                     e["loans"][dt.isoformat()] = float(src["loanAmt"])
+                    if src.get("loanPrev") is not None and "loanPrev" not in e:
+                        e["loanPrev"] = float(src["loanPrev"])
                 e["days"] += 1
     if not acc:
         return None
@@ -550,7 +566,10 @@ def _netbuy_cum(dates):
         if e["loans"]:
             ds = sorted(e["loans"])
             r["loanAmt"] = round(e["loans"][ds[-1]], 1)
-            r["loanChg"] = round(e["loans"][ds[-1]] - e["loans"][ds[0]], 1)
+            base = e.get("loanPrev")
+            if base is None:
+                base = e["loans"][ds[0]]
+            r["loanChg"] = round(e["loans"][ds[-1]] - base, 1)
         return r
     ranked = sorted(acc.values(), key=lambda e: e["frgn"] + e["orgn"], reverse=True)
     out["total"] = {
@@ -791,12 +810,19 @@ def main():
                     e["shortSum"] += float(f["shortAmt"] or 0.0)
                 if f.get("loanAmt") is not None:
                     e["loans"][dt.isoformat()] = float(f["loanAmt"])
+                    if f.get("loanPrev") is not None and "loanPrev" not in e:
+                        e["loanPrev"] = float(f["loanPrev"])   # 등재 첫날의 전일 잔고
     if acc2:
         ent = list(acc2.values())
         for e in ent:
             ds = sorted(e["loans"])
-            e["loanChg"] = round(e["loans"][ds[-1]] - e["loans"][ds[0]], 1) if len(ds) >= 2 else 0.0
             e["loanAmt"] = round(e["loans"][ds[-1]], 1) if ds else None
+            # 주간 증감 — 등재 첫날 '전일' 잔고 기준(하루 등재도 계산됨, 2026-09-08).
+            # 구 스냅샷(loanPrev 없음)은 양일 등재 시 주초 대비 폴백.
+            base = e.get("loanPrev")
+            if base is None and len(ds) >= 2:
+                base = e["loans"][ds[0]]
+            e["loanChg"] = round(e["loans"][ds[-1]] - base, 1) if (ds and base is not None) else 0.0
         short_top = sorted([e for e in ent if e["shortSum"] > 0],
                            key=lambda x: -x["shortSum"])[:10]
         loan_up = sorted([e for e in ent if e["loanChg"] > 0], key=lambda x: -x["loanChg"])[:10]
