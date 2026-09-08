@@ -160,11 +160,26 @@ def main():
     by_name = _load_master()
     for name, e in merged.items():
         e["code"] = by_name.get(name)
-    with ThreadPoolExecutor(max_workers=6) as tp:
-        rates = dict(tp.map(lambda kv: (kv[0], _naver_rate(kv[1]["code"]) if kv[1]["code"] else None),
-                            merged.items()))
-    for name, e in merged.items():
-        e["changePct"] = rates.get(name)
+    # 과거일 소급 재실행(코멘트 재작성 등): _naver_rate 는 '현재' 등락률이라 그대로
+    # 쓰면 별점 입력이 재실행 시점 주가로 왜곡됨 — 기존 스코어 회차에 저장된 그 날
+    # 등락률을 재사용한다(2026-09-08). 기존 회차가 없으면 등락률 없이 재료만 평가.
+    today = datetime.datetime.now(KST).strftime("%Y-%m-%d")
+    if date != today:
+        prev_rate = {c.get("stock"): c.get("changePct")
+                     for rd in rounds if rd.get("scoring")
+                     for c in (rd.get("catalysts") or [])
+                     if c.get("changePct") is not None}
+        for name, e in merged.items():
+            e["changePct"] = prev_rate.get(name)
+        print(f"[score] 과거일({date}) 재실행 — 기존 회차 등락률 재사용 "
+              f"({sum(1 for e in merged.values() if e['changePct'] is not None)}"
+              f"/{len(merged)}종목)")
+    else:
+        with ThreadPoolExecutor(max_workers=6) as tp:
+            rates = dict(tp.map(lambda kv: (kv[0], _naver_rate(kv[1]["code"]) if kv[1]["code"] else None),
+                                merged.items()))
+        for name, e in merged.items():
+            e["changePct"] = rates.get(name)
     print(f"[score] 대상 {len(merged)}종목 (코드 매칭 {sum(1 for e in merged.values() if e['code'])}, "
           f"등락률 {sum(1 for e in merged.values() if e['changePct'] is not None)})")
 
