@@ -21,6 +21,55 @@ import openpyxl
 from openpyxl.utils import get_column_letter
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
+
+
+# ── 종목 → 업종명 (대시보드 섹터 알약과 동일 소스 — 2026-09-09) ────────────────
+# 전 종목 맵(krx_code_sector.json, 컷 없음) 우선 + krx_sector_map 보조.
+# 이름 키는 krx_companies(code→name)로 조인 — 코드 없는 표(타임라인·수급 관찰)용.
+def _load_sector_lookup():
+    code_sec, name_sec = {}, {}
+    try:
+        with open(os.path.join(ROOT, "public", "assets", "krx_code_sector.json"),
+                  encoding="utf-8") as f:
+            code_sec = dict((json.load(f) or {}).get("map") or {})
+    except Exception:
+        pass
+    try:
+        with open(os.path.join(ROOT, "public", "assets", "krx_sector_map.json"),
+                  encoding="utf-8") as f:
+            sm = json.load(f) or {}
+        for e in (sm.get("sectors") or {}).values():
+            for x in (e.get("stocks") or []) + (e.get("kosdaqStocks") or []):
+                c = str(x.get("code") or "").zfill(6)
+                if c and c not in code_sec and e.get("name"):
+                    code_sec[c] = e["name"]
+    except Exception:
+        pass
+    try:
+        with open(os.path.join(ROOT, "public", "assets", "krx_companies.json"),
+                  encoding="utf-8") as f:
+            for e in json.load(f):
+                c = str(e.get("code") or "").zfill(6)
+                nm = (e.get("name") or "").strip()
+                if nm and c in code_sec and nm not in name_sec:
+                    name_sec[nm] = code_sec[c]
+    except Exception:
+        pass
+    return code_sec, name_sec
+
+
+_CODE_SEC, _NAME_SEC = _load_sector_lookup()
+
+
+def _with_sector(name, code=None):
+    """'종목명 (업종)' 병기 — 우선주는 보통주 코드 폴백, 미해석은 이름 그대로."""
+    sec = None
+    if code:
+        c = str(code).zfill(6)
+        sec = _CODE_SEC.get(c) or (_CODE_SEC.get(c[:5] + "0") if c[5] != "0" else None)
+    if not sec:
+        sec = _NAME_SEC.get(str(name or "").strip())
+    return f"{name} ({sec})" if sec else str(name or "")
 TEMPLATE = os.path.join(ROOT, "templates", "weekly_briefing_template.xlsx")
 DATA = os.path.join(ROOT, "public", "weekly_briefing.json")
 OUT_SNAP = os.path.join(ROOT, "public", "weekly_briefing.xlsx")
@@ -352,7 +401,7 @@ def build(d):
             for i, e in enumerate(rows or []):
                 b.cell(1, label, proto)
                 b.cell(2, i + 1, "nb_cell")
-                b.cell(3, e.get("name", ""), "nb_cell")
+                b.cell(3, _with_sector(e.get("name", ""), e.get("code")), "nb_cell")
                 for c, k in ((4, "amt"), (5, "frgn"), (6, "orgn"), (7, "prsn")):
                     b.cell(c, eok(e.get(k)), "num_pos", num="sign")
                 b.cell(8, e.get("shortSum", ""), "nb_cell")
@@ -370,7 +419,7 @@ def build(d):
                                    ("하방 관찰", "watch_dn", wn.get("short"))):
             for e in rows or []:
                 b.cell(1, label, proto)
-                b.cell(2, e.get("name", ""), "nb_cell")
+                b.cell(2, _with_sector(e.get("name", "")), "nb_cell")
                 basis = e.get("basis", "")
                 b.cell(3, basis, "watch_reason")
                 for c in range(4, 11):
@@ -401,7 +450,8 @@ def build(d):
         for t in tl:
             stock = t.get("stock")
             b.cell(1, t.get("date", ""), "tl_cell")
-            b.cell(2, stock or "—", "tl_mkt_row" if not stock else "nb_cell")
+            b.cell(2, _with_sector(stock) if stock else "—",
+                   "tl_mkt_row" if not stock else "nb_cell")
             b.cell(3, t.get("market", ""), "tl_cell")
             b.cell(4, "★" * (t.get("star") or 0), "tl_star")
             b.cell(5, t.get("changePct", ""), "num_pos", num="sign")

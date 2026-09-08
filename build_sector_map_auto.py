@@ -37,6 +37,10 @@ import requests
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 OUT_PATH = os.path.join(ROOT, "public", "assets", "krx_sector_map.json")
+# 전 종목 code→업종명 맵(컷 없음) — 섹터 알약/엑셀 폴백용(2026-09-09).
+# TOP 컷 기반 krx_sector_map 은 지주 분류(한미사이언스→금융계)·소형주(지엘팜텍)가
+# 계속 새서, 자르기 전 전 종목을 별도 파일로 보존한다.
+OUT_FULL_PATH = os.path.join(ROOT, "public", "assets", "krx_code_sector.json")
 KST = datetime.timezone(datetime.timedelta(hours=9))
 TOP = 30
 # 12→30 확대(2026-09-08): 주간 브리핑 순매수 표 섹터 알약이 이 맵을 쓰는데, 업종
@@ -171,6 +175,7 @@ def main():
         if s["mid"] and s["mid"] != "0000":            # 미분류 제외
             kq_by_mid.setdefault(s["mid"], []).append(s)
     n_boot = 0
+    kq_mid_name = {}   # KOSDAQ 중분류 코드 → 업종 표시명 (전 종목 맵용)
     for mid, rows in kq_by_mid.items():
         votes = Counter(old_kq[s["code"]] for s in rows if s["code"] in old_kq)
         if not votes:
@@ -180,6 +185,7 @@ def main():
             continue
         sectors.setdefault(key, {"name": (old.get(key) or {}).get("name", key)})
         sectors[key]["kosdaqStocks"] = _top(rows)
+        kq_mid_name[mid] = sectors[key].get("name") or key
         n_boot += 1
 
     # 자동 생성이 못 채운 기존 항목·필드 보존(안전망 — 금융·제조 KOSDAQ 합성 포함)
@@ -220,6 +226,21 @@ def main():
         if total:
             print(f"  기존 맵 대비 {label} 일치율: {agree}/{total} ({agree / total * 100:.0f}%)")
 
+    # ── 전 종목 code→업종명 맵 (TOP 컷 없음 — 알약/엑셀 섹터 표기 폴백) ────────
+    # KOSPI: 세부(중분류) 업종명 우선, 미분류(0000 등)는 대분류(금융·제조)로 폴백.
+    # KOSDAQ: 부트스트랩으로 해석된 중분류만(미해석·0000 은 제외 — 표기 없음이 정직).
+    full = {}
+    for s in kospi:
+        nm = names.get(s["mid"]) if s["mid"] and s["mid"] != "0000" else None
+        nm = nm or names.get(s["big"])
+        if nm:
+            full[s["code"]] = nm
+    for s in kosdaq:
+        nm = kq_mid_name.get(s["mid"])
+        if nm:
+            full[s["code"]] = nm
+    print(f"  전 종목 업종 맵: {len(full)}종목 (KOSPI+KOSDAQ, 컷 없음)")
+
     out = {
         "asof": datetime.datetime.now(KST).strftime("%Y-%m-%d %H:%M KST"),
         "note": "KIS 마스터파일 자동 생성 — 지수업종 분류 기반(지수 정합). "
@@ -233,6 +254,11 @@ def main():
     with open(args.out, "w", encoding="utf-8") as fp:
         json.dump(out, fp, ensure_ascii=False, indent=1)
     print(f"  Updated {args.out}")
+    with open(OUT_FULL_PATH, "w", encoding="utf-8") as fp:
+        json.dump({"asof": out["asof"],
+                   "note": "전 종목 code→업종명 (TOP 컷 없음 — 알약/엑셀 폴백)",
+                   "map": full}, fp, ensure_ascii=False, indent=0)
+    print(f"  Updated {OUT_FULL_PATH}")
     print("=== Done ===")
 
 
