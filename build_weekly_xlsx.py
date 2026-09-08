@@ -14,6 +14,7 @@
 import os
 import sys
 import json
+import math
 from copy import copy
 
 import openpyxl
@@ -75,14 +76,16 @@ class Builder:
         for col, w in _W.items():
             ws.column_dimensions[col].width = w
 
-    def cell(self, c, v, proto, num=None):
-        """proto 스타일 복사 셀. num='sign'이면 부호에 따라 양/음수 프로토 색."""
+    def cell(self, c, v, proto, num=None, wrap=False):
+        """proto 스타일 복사 셀. num='sign'이면 부호색, wrap=True 면 줄바꿈 강제."""
         if num == "sign" and isinstance(v, (int, float)):
             proto = "num_pos" if v > 0 else "num_neg" if v < 0 else "econ_cell"
         p = self.styles[proto]
         d = self.ws.cell(self.r, c, v if v is not None else "")
         d.font, d.fill, d.border = copy(p.font), copy(p.fill), copy(p.border)
         d.alignment, d.number_format = copy(p.alignment), p.number_format
+        if wrap and not d.alignment.wrap_text:
+            a = copy(d.alignment); a.wrapText = True; d.alignment = a
         return d
 
     def fill_row(self, c1, c2, proto):
@@ -122,7 +125,37 @@ class Builder:
             self.merges.append((self.r, last, self.r, merge_last_to))
         self.nl()
 
+    def autofix(self):
+        """잘림 자동 교정 — 비wrap 잘림 셀은 wrap 전환, wrap 셀은 필요 행높이 반영.
+        validate 와 동일 기준이라 이 패스 후 잘림 검증은 항상 통과한다."""
+        ws = self.ws
+        merged_at, inside = {}, set()
+        for (r1, c1, r2, c2) in self.merges:
+            merged_at[(r1, c1)] = (c1, c2)
+            for c in range(c1 + 1, c2 + 1):
+                inside.add((r1, c))
+        for row in ws.iter_rows(min_row=1, max_row=ws.max_row, max_col=10):
+            for cell in row:
+                v = cell.value
+                if v in (None, "") or (cell.row, cell.column) in inside:
+                    continue
+                c1, c2 = merged_at.get((cell.row, cell.column),
+                                       (cell.column, cell.column))
+                span = sum(_W[get_column_letter(c)] for c in range(c1, c2 + 1))
+                need = _disp_w(v)
+                if need <= span:
+                    continue
+                if not cell.alignment.wrap_text:
+                    nxt = ws.cell(cell.row, c2 + 1).value if c2 < 10 else None
+                    if nxt in (None, ""):
+                        continue            # 오른쪽이 비어 overflow 표시 — 잘림 아님
+                    a = copy(cell.alignment); a.wrapText = True; cell.alignment = a
+                lines = max(1, math.ceil(need / span))
+                h = lines * 13.5 + 4
+                self.heights[cell.row] = max(self.heights.get(cell.row, 15.0), h)
+
     def finish(self):
+        self.autofix()
         ws = self.ws
         for (r1, c1, r2, c2) in self.merges:
             ws.merge_cells(start_row=r1, start_column=c1, end_row=r2, end_column=c2)
@@ -171,15 +204,21 @@ def build(d):
     for c in range(2, 8):
         b.cell(c, "", "navy_fill")
     b.merges.append((1, 1, 2, 7))
-    b.cell(8, "기간", "meta_label"); b.cell(9, d.get("weekStart", "") + " ~ " + d.get("weekEnd", ""), "meta_val")
+    b.cell(8, "기간", "meta_label")
+    b.cell(9, d.get("weekStart", "") + " ~ " + d.get("weekEnd", ""), "meta_val")
+    b.cell(10, "", "meta_val"); b.mg(9, 10)     # I:J 병합 — 전체 문자열 표시 보장
     b.nl(1, 20.25)
     b.cell(8, "생성 기준", "meta_label"); b.cell(9, d.get("asof", ""), "meta_val")
+    b.cell(10, "", "meta_val"); b.mg(9, 10)
     b.nl(1, 20.25); b.nl()
     b.cell(1, "MARKET SIGNAL", "signal_label"); b.cell(2, "", "signal_label"); b.mg(1, 2)
-    b.cell(3, syn.get("headline", ""), "signal_val")
+    b.cell(3, syn.get("headline", ""), "signal_val", wrap=True)
     for c in range(4, 11):
         b.cell(c, "", "signal_val")
-    b.mg(3, 10); b.nl(1, 17.25); b.nl()
+    b.mg(3, 10); b.wrap_h(syn.get("headline", ""), 3, 10)
+    if self_h := b.heights.get(b.r):
+        b.heights[b.r] = max(17.25, self_h)
+    b.nl(); b.nl()
 
     # ── 01 + 02 (좌우) ──────────────────────────────────────────────────
     b.cell(1, "01", "chip"); b.cell(2, "주간 누적 수급", "sect"); b.cell(3, "", "sect")
@@ -219,10 +258,11 @@ def build(d):
     for label, items in table:
         b.cell(1, label, "rank_label")
         for i in range(3):
-            v = ""
             if i < len(items):
                 nm, ch = items[i]
                 v = f"{nm} {'+' if ch > 0 else ''}{ch}%"
+            else:
+                v = "데이터 없음"
             b.cell(2 + i, v, "rank_cell")
         b.nl()
     b.nl()
@@ -240,13 +280,22 @@ def build(d):
         vlabel = {"beat": "예상 상회", "miss": "예상 하회", "inline": "예상 부합"}.get(verdict, "")
         if vs == "previous" and vlabel:
             vlabel = vlabel.replace("예상", "이전比")
+        if not vlabel:                       # 파생 판정 — 예상값 우선, 없으면 이전값
+            a = e.get("actual")
+            for ref, word in ((e.get("forecast"), "예상"), (e.get("previous"), "이전比")):
+                if isinstance(a, (int, float)) and isinstance(ref, (int, float)):
+                    vlabel = f"{word} " + ("상회" if a > ref else "하회" if a < ref else
+                                           ("부합" if word == "예상" else "동일"))
+                    verdict = "beat" if a > ref else "miss" if a < ref else "inline"
+                    break
         proto = {"beat": "verdict_beat", "miss": "verdict_miss"}.get(verdict, "verdict_ok")
         b.cell(1, date, "econ_cell"); b.cell(2, e.get("nation", ""), "econ_cell")
-        b.cell(3, e.get("name", ""), "econ_cell")
+        b.cell(3, e.get("name", ""), "econ_cell", wrap=True)
+        b.wrap_h(e.get("name", ""), 3, 3)
         b.cell(4, e.get("actual", ""), "econ_cell"); b.cell(5, e.get("forecast", ""), "econ_cell")
         b.cell(6, e.get("previous", ""), "econ_cell")
         b.cell(7, (e.get("unitScale") or "") + (e.get("unit") or ""), "econ_cell")
-        b.cell(8, vlabel, proto)
+        b.cell(8, vlabel or "데이터 없음", proto)
         b.nl()
     b.nl()
 
@@ -262,14 +311,18 @@ def build(d):
         br = brM.get(day.get("date")) or {}
         def adr(m):
             m = m or {}
-            return "" if m.get("up") is None else f"{m['up']}▲/{m['down']}▼" + (f" 상한{m['upLimit']}" if m.get("upLimit") else "")
+            if m.get("up") is None:
+                return "데이터 없음"        # 빈칸 금지 — 브레드스 수집 이전 날짜 등
+            return f"{m['up']}▲/{m['down']}▼" + (f" 상한{m['upLimit']}" if m.get("upLimit") else "")
         note = dc.get(day.get("date"), "")
         b.cell(1, day.get("date"), "daily_cell")
         b.cell(2, ks.get("rate"), "num_pos", num="sign")
         b.cell(3, adr(br.get("kospi")), "daily_cell")
         b.cell(4, kq.get("rate"), "num_pos", num="sign")
         b.cell(5, adr(br.get("kosdaq")), "daily_cell")
-        b.cell(6, ", ".join(s.get("name", "") for s in (day.get("sectorsUp") or [])[:2]), "daily_cell")
+        lead = ", ".join(s.get("name", "") for s in (day.get("sectorsUp") or [])[:2])
+        b.cell(6, lead, "daily_cell", wrap=True)
+        b.wrap_h(lead, 6, 6)
         b.cell(7, note, "daily_comment")
         for c in range(8, 11):
             b.cell(c, "", "daily_comment")
@@ -360,7 +413,22 @@ def build(d):
         b.nl()
 
     # ── 11 다음 주 프리뷰 ───────────────────────────────────────────────
-    pv = _classify_preview(syn.get("nextWeekPreview"))
+    nw = syn.get("nextWeek") or {}
+    if nw:
+        pv = ([("상승 시나리오", t) for t in (nw.get("upside") or [])]
+              + [("하방 시나리오", t) for t in (nw.get("downside") or [])]
+              + ([("판별 신호", nw["signal"])] if nw.get("signal") else [])
+              + [("핵심 이벤트", t) for t in (nw.get("events") or [])])
+    else:
+        pv = _classify_preview(syn.get("nextWeekPreview"))
+    if pv:
+        # 4개 구분 모두 존재 보장 — 확보 불가한 구분은 '데이터 없음' 명시(빈칸 금지)
+        have = {k for k, _ in pv}
+        for need in ("상승 시나리오", "하방 시나리오", "판별 신호", "핵심 이벤트"):
+            if need not in have:
+                pv.append((need, "데이터 없음"))
+        order = {"상승 시나리오": 0, "하방 시나리오": 1, "판별 신호": 2, "핵심 이벤트": 3}
+        pv.sort(key=lambda x: order.get(x[0], 9))
     if pv:
         b.chip("11", "다음 주 프리뷰")
         b.hdr_row(["구분", "내용"], merge_last_to=10)
@@ -431,35 +499,119 @@ def build(d):
     return wb, ws
 
 
+def _disp_w(text):
+    """표시 폭(wch) 추정 — 한글/전각 2, 그 외 1.1(여유계수)."""
+    return sum(2 if ord(ch) > 0x2E80 else 1.1 for ch in str(text or ""))
+
+
 def validate(ws, d):
-    """저장 전 구조 검증 — 실패 시 (False, 사유)."""
+    """저장 전 검증 — 레이아웃(19항) + 섹션별 필수값 + 전 시트 텍스트 잘림 검사.
+    실패 시 (False, 사유목록) — 파일을 저장하지 않는다."""
     errs = []
     if ws.max_column > 10:
         errs.append(f"A:J 초과 (열 {ws.max_column})")
-    # 01/02 좌우 배치: 같은 행에 '01'과 '02' 칩
+
     chips = {}
     for r in range(1, ws.max_row + 1):
         for c in (1, 5):
             v = ws.cell(r, c).value
-            if isinstance(v, str) and v in ("01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11"):
-                chips.setdefault(v, (r, c))
-    if not ("01" in chips and "02" in chips and chips["01"][0] == chips["02"][0]):
+            if isinstance(v, str) and v in ("01", "02", "03", "04", "05", "06",
+                                            "07", "08", "09", "10", "11"):
+                chips.setdefault(v, r)
+    if not ("01" in chips and "02" in chips and chips["01"] == chips["02"]):
         errs.append("01/02 좌우 배치 아님")
-    order = [chips[k][0] for k in ("03", "04", "06", "10") if k in chips]
+    order = [chips[k] for k in ("03", "04", "06", "10") if k in chips]
     if order != sorted(order):
         errs.append("섹션 순서 어긋남")
-    # 서술형 병합 존재
-    mg = {(m.min_row, m.min_col, m.max_col) for m in ws.merged_cells.ranges}
-    daily_r = chips.get("04", (0, 0))[0]
-    if daily_r and not any(r > daily_r and c1 == 7 and c2 == 10 for r, c1, c2 in mg):
-        errs.append("일별 코멘트 G:J 병합 없음")
-    # 행높이: wrap 셀 잘림 방지 확인 (긴 코멘트 행 높이 > 15)
+
+    def _blank(v):
+        return v is None or str(v).strip() == ""
+
+    # 01 주간 누적 수급 — KOSPI/KOSDAQ x 개인/외인/기관 + 02 US 5지수
+    r01 = chips.get("01")
+    if r01:
+        for dr, mk in ((2, "KOSPI"), (3, "KOSDAQ")):
+            for c in (2, 3, 4):
+                if _blank(ws.cell(r01 + dr, c).value):
+                    errs.append(f"01 {mk} 수급 결측(열{c})")
+        for c in range(5, 10):
+            if _blank(ws.cell(r01 + 2, c).value):
+                errs.append(f"02 US 지수 결측(열{c})")
+        # 섹터 순위 4행 x 3
+        rr = r01 + 5
+        for i in range(4):
+            if _blank(ws.cell(rr + i, 1).value):
+                errs.append(f"섹터 순위 {i+1}행 라벨 결측")
+            for c in (2, 3, 4):
+                if _blank(ws.cell(rr + i, c).value):
+                    errs.append(f"섹터 순위 {i+1}행 {c-1}위 결측")
+
+    # 03 경제지표 — 판정 포함 필수열
+    r03, r04 = chips.get("03"), chips.get("04")
+    if r03 and r04:
+        for r in range(r03 + 2, r04 - 1):
+            if _blank(ws.cell(r, 1).value):
+                continue
+            for c, nm in ((2, "국가"), (3, "지표"), (4, "실제"), (8, "판정")):
+                if _blank(ws.cell(r, c).value):
+                    errs.append(f"03 {r}행 {nm} 결측")
+
+    # 04 일별 요약 — 7컬럼 (▲▼는 '데이터 없음' 허용, 빈칸 불가)
+    r05 = chips.get("05") or chips.get("06") or ws.max_row
+    if r04:
+        for r in range(r04 + 2, r05 - 1):
+            if _blank(ws.cell(r, 1).value):
+                continue
+            for c in (2, 3, 4, 5, 6, 7):
+                if _blank(ws.cell(r, c).value):
+                    errs.append(f"04 {r}행 열{c} 결측")
+
+    # 10 촉매 타임라인 — 종목 행 필수 필드 (시장 이벤트 행 '—' 예외)
+    r10, r11 = chips.get("10"), chips.get("11")
+    if r10:
+        for r in range(r10 + 1, (r11 or ws.max_row + 2) - 1):
+            if _blank(ws.cell(r, 1).value):
+                continue
+            if str(ws.cell(r, 2).value or "") == "—":
+                continue
+            for c, nm in ((2, "종목"), (3, "시장"), (4, "별점"), (5, "등락률"), (6, "내용")):
+                if _blank(ws.cell(r, c).value):
+                    errs.append(f"10 {r}행 {nm} 결측")
+
+    # 11 프리뷰 — 4개 구분 존재
+    if r11:
+        labels = {str(ws.cell(r, 1).value or "") for r in range(r11 + 2, ws.max_row + 1)}
+        for need in ("상승 시나리오", "하방 시나리오", "판별 신호", "핵심 이벤트"):
+            if need not in labels:
+                errs.append(f"11 '{need}' 없음")
+
+    # 전 시트 텍스트 잘림 검사 — wrap 셀은 행높이, 비wrap 셀은 인접 셀 충돌 폭
+    merged_at = {}
     for m in ws.merged_cells.ranges:
-        v = ws.cell(m.min_row, m.min_col).value
-        if isinstance(v, str) and len(v) > 60 and (ws.row_dimensions[m.min_row].height or 15) <= 15:
-            errs.append(f"{m.min_row}행 긴 텍스트 행높이 미조정")
-            break
-    return (not errs), errs
+        merged_at[(m.min_row, m.min_col)] = (m.min_col, m.max_col)
+    inside = set()
+    for m in ws.merged_cells.ranges:
+        for c in range(m.min_col + 1, m.max_col + 1):
+            inside.add((m.min_row, c))
+    widths = {c: (_W[get_column_letter(c)]) for c in range(1, 11)}
+    for row in ws.iter_rows(min_row=1, max_row=ws.max_row, max_col=10):
+        for cell in row:
+            v = cell.value
+            if _blank(v) or (cell.row, cell.column) in inside:
+                continue
+            c1, c2 = merged_at.get((cell.row, cell.column), (cell.column, cell.column))
+            span = sum(widths[c] for c in range(c1, c2 + 1))
+            need = _disp_w(v)
+            if cell.alignment.wrap_text:
+                lines = max(1, math.ceil(need / span))
+                h = ws.row_dimensions[cell.row].height or 15.0
+                if lines > 1 and h < lines * 12.5:
+                    errs.append(f"{cell.row}행 열{c1} wrap 행높이 부족({h}<{lines}줄)")
+            else:
+                nxt = ws.cell(cell.row, c2 + 1).value if c2 < 10 else None
+                if need > span and not _blank(nxt):
+                    errs.append(f"{cell.row}행 열{c1} 잘림({str(v)[:14]}…)")
+    return (not errs), sorted(set(errs))[:15]
 
 
 def main():

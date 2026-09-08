@@ -665,6 +665,12 @@ _SCHEMA = {
             "required": ["date", "note"]}},
         "weeklyComment": {"type": "array", "items": {"type": "string"}},
         "nextWeekPreview": {"type": "array", "items": {"type": "string"}},
+        "nextWeek": {"type": "object", "properties": {
+            "upside": {"type": "array", "items": {"type": "string"}},
+            "downside": {"type": "array", "items": {"type": "string"}},
+            "signal": {"type": "string"},
+            "events": {"type": "array", "items": {"type": "string"}}},
+            "required": ["upside", "downside", "signal", "events"]},
         "watchNotes": {"type": "object", "properties": {
             "long": {"type": "array", "items": {"type": "object", "properties": {
                 "name": {"type": "string"}, "basis": {"type": "string"}},
@@ -703,6 +709,9 @@ _SYSTEM = (
     " 비테크·브레드스가 버티면 로테이션 지속, 함께 무너지면 단기 리스크오프') ② 두 시나리오를"
     " 가르는 판별 신호 1개 (어떤 지표·수급·이벤트를 보면 되는지 구체적으로) ③ 제공된 예정"
     " 이벤트(nextWeekEvents) 중 핵심 체크 항목 1~3개. 모두 이번 주 입력 데이터에 근거할 것"
+    "\n- nextWeek: 위 프리뷰를 구조화한 필수 객체 — upside(상승 시나리오 1~2개,"
+    " '~하면 ~' 조건부), downside(하방 시나리오 1~2개), signal(두 시나리오를 가르는"
+    " 판별 신호 1문장), events(핵심 이벤트 1~3개). 넷 다 반드시 채워라"
     "\n- watchNotes: 다음 주 '관찰 후보' — long(상방 관찰)·short(하방 관찰) 각각 최대"
     " 5개. 개수를 채우려 하지 말고 아래 근거 데이터가 뚜렷한 종목·업종만 넣을 것"
     "(근거가 약하면 1~2개만 있어도 됨)."
