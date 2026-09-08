@@ -7476,33 +7476,52 @@
     var syn = d.synthesis || {};
     if (syn.headline) h += '<div style="font-weight:700;font-size:14.5px;margin:6px 0 10px">' + esc(syn.headline) + "</div>";
     h += invCharts(d.days || []);
-    // US 미국 주간 컨텍스트 — 모닝브리핑(전일 미국장) 일별 등락 누적
-    // (국기 이모지는 Windows 에서 소문자 'us' 글리프로 렌더돼 텍스트 'US' 로 교체.
-    //  제목 크기는 '투자자 합산 순매수' 헤더와 동일 스타일)
+    // US 미국 주간 — 지수 카드 섹션 + US/KR 섹터 TOP3 매트릭스 (2026-09-08 양식 개편)
     if (d.usWeekly && Object.keys(d.usWeekly).length) {
-      h += '<div style="font-weight:600;margin:6px 0 4px">US 미국 주간 <span style="font-weight:400;opacity:.55;font-size:11px">(모닝브리핑 전일 기준 누적)</span></div>'
-        + '<div style="font-size:12.5px;margin:0 0 6px;opacity:.9">';
+      h += '<div style="font-weight:600;margin:6px 0 6px">US 미국 주간 <span style="font-weight:400;opacity:.55;font-size:11px">(모닝브리핑 전일 기준 누적)</span></div>'
+        + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin:0 0 10px">';
       [["나스닥", "나스닥"], ["S&P500", "S&P500"], ["다우", "다우"],
-       ["필라델피아 반도체", "필라델피아 반도체"], ["VIX 변동성", "VIX"]].forEach(function (p) {
+       ["필라델피아 반도체", "필라델피아"], ["VIX 변동성", "VIX"]].forEach(function (p) {
         var v = d.usWeekly[p[0]];
         if (typeof v !== "number") return;
-        h += '<span style="margin-right:12px;white-space:nowrap">' + esc(p[1]) + " " + pct(v) + "</span>";
+        h += '<div style="flex:1;min-width:110px;border:1px solid rgba(128,128,128,.22);border-radius:10px;padding:7px 10px;text-align:center;background:rgba(255,255,255,.02)">'
+          + '<div style="opacity:.65;font-size:11.5px;margin-bottom:2px;white-space:nowrap">' + esc(p[1]) + "</div>"
+          + '<div style="font-size:14.5px;font-weight:700">' + pct(v) + "</div></div>";
       });
       h += "</div>";
     }
-    // 미국 섹터 ETF 주간 누적 상위/하위 3 (SMH·XLK 등 — 일별 등락 합산)
+    // US/KR 주간 섹터 TOP3 매트릭스 — US=섹터 ETF 누적, KR=KIS 업종 누적(sectorFlow)
     var usw = d.usSectorWeekly || {};
     function usChips(arr, color) {
       return (arr || []).map(function (s) {
         return '<span style="border:1px solid ' + color + '44;background:' + color + '12;color:' + color + ';border-radius:10px;padding:1px 8px;font-size:11.5px;white-space:nowrap;margin-right:5px">'
           + esc(s.name) + " " + (s.chg > 0 ? "+" : "") + s.chg + "%</span>";
-      }).join("");
+      }).join("") || '<span style="opacity:.4">—</span>';
     }
-    if ((usw.up || []).length || (usw.down || []).length) {
-      h += '<div style="font-size:12px;margin:0 0 8px">';
-      if ((usw.up || []).length) h += '<span style="opacity:.65;margin-right:6px">US 주간 상승 섹터</span>' + usChips(usw.up, "#f04452");
-      if ((usw.down || []).length) h += '<span style="opacity:.65;margin:0 6px 0 10px">하락 섹터</span>' + usChips(usw.down, "#3182f6");
-      h += ' <span style="opacity:.45;font-size:10.5px">(섹터 ETF 주간 누적)</span></div>';
+    var sfRows = ((d.sectorFlow || {}).rows) || [];   // 주간등락 내림차순 정렬 상태
+    var krUp = sfRows.filter(function (r) { return r.chgPct > 0; }).slice(0, 3)
+      .map(function (r) { return {name: r.name, chg: r.chgPct}; });
+    var krDn = sfRows.filter(function (r) { return r.chgPct < 0; }).slice(-3).reverse()
+      .map(function (r) { return {name: r.name, chg: r.chgPct}; });
+    if (!sfRows.length) {   // 매트릭스 결손 시 지속성 집계로 폴백(평균 등락, 수익률순)
+      var sw0 = d.sectorWeekly || {};
+      krUp = (sw0.up || []).slice().sort(function (a, b) { return b.avgChg - a.avgChg; })
+        .slice(0, 3).map(function (s) { return {name: s.name, chg: s.avgChg}; });
+      krDn = (sw0.down || []).slice().sort(function (a, b) { return a.avgChg - b.avgChg; })
+        .slice(0, 3).map(function (s) { return {name: s.name, chg: s.avgChg}; });
+    }
+    if ((usw.up || []).length || (usw.down || []).length || krUp.length || krDn.length) {
+      function secRow(label, up, dn) {
+        return '<tr style="border-top:1px solid rgba(128,128,128,.12)">'
+          + '<td style="padding:5px 10px 5px 0;font-weight:600;opacity:.75;white-space:nowrap">' + label + "</td>"
+          + '<td style="padding:5px 14px 5px 0">' + usChips(up, "#f04452") + "</td>"
+          + '<td style="padding:5px 0">' + usChips(dn, "#3182f6") + "</td></tr>";
+      }
+      h += '<table style="border-collapse:collapse;font-size:12px;margin:0 0 10px">'
+        + "<tr style='opacity:.55;font-size:11.5px'><th></th><th style='text-align:left;padding-right:14px'>상승 TOP3</th><th style='text-align:left'>하락 TOP3</th></tr>"
+        + secRow("US", usw.up, usw.down)
+        + secRow("KR", krUp, krDn)
+        + '</table><div style="opacity:.45;font-size:10.5px;margin:-6px 0 10px">(섹터 주간 누적 수익률 — US=섹터 ETF, KR=KIS 업종)</div>';
     }
     // 주간 주요 경제지표(US/KOR) — '시장에 반영된' 지표만(US=모닝 리뷰 언급, KOR=★3+)
     var econLines = "";
@@ -7554,20 +7573,7 @@
       arr.forEach(function (b) { s += "<li>" + esc(b) + "</li>"; });
       return s + "</ul>";
     }
-    // 섹터 주간 지속성 — 등장 일수 기준 (2일 이상 = 주도 지속, 1일 = 순환)
-    var sw = d.sectorWeekly || {};
-    function secChips(arr, color) {
-      return (arr || []).map(function (s) {
-        return '<span style="border:1px solid ' + color + '44;background:' + color + '12;color:' + color + ';border-radius:10px;padding:1px 8px;font-size:11.5px;white-space:nowrap;margin-right:5px">'
-          + esc(s.name) + " " + s.days + "일 " + (s.avgChg > 0 ? "+" : "") + s.avgChg + "%</span>";
-      }).join("");
-    }
-    if ((sw.up || []).length || (sw.down || []).length) {
-      h += '<div style="font-size:12px;margin:-4px 0 10px">';
-      if ((sw.up || []).length) h += '<span style="opacity:.65;margin-right:6px">주간 상승 섹터</span>' + secChips(sw.up, "#f04452");
-      if ((sw.down || []).length) h += '<span style="opacity:.65;margin:0 6px 0 10px">하락 섹터</span>' + secChips(sw.down, "#3182f6");
-      h += "</div>";
-    }
+    // (구 '주간 상승/하락 섹터' 지속성 칩 라인은 상단 US/KR 매트릭스로 대체 — 2026-09-08)
     // 📐 브레드스 — 일별 상승/하락 종목수(ADR) + 신고가 근접 섹터 그룹
     var br = d.breadth;
     if (br && (br.days || []).length) {
