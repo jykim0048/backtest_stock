@@ -7594,14 +7594,47 @@
         return {sector: g.sector, stocks: (g.stocks || []).filter(function (n) { return !_etfRe.test(n); })};
       }).filter(function (g) { return g.stocks.length; });
       var nhCnt = nhGroups.reduce(function (a, g) { return a + g.stocks.length; }, 0);
-      if (nhGroups.length) {
-        var nhChips = nhGroups.map(function (g) {
+      // 순매수 상위/하위 카드와 동일 양식(카드+번호행+섹터필) — 2026-09-08 사용자 요청.
+      // 종목 상세(stocks)는 16:10 재생성부터 — 없으면(구데이터) 섹터 칩 폴백.
+      var nhStocks = (nh.stocks || []).filter(function (s) { return !_etfRe.test(s.name || ""); });
+      var nhBody;
+      if (nhStocks.length) {
+        nhCnt = nhStocks.length;
+        // 투자자 합산 순매수 카드와 동일 컬럼(합산·외인·기관·개인·공매도·대차) +
+        // 등락률(주간 누적)·신고가 대비 — 수급은 /flow daily 주간 합산(백만원→억)
+        function nhEok(v) { return v == null ? "—" : fmtAmt(v / 100); }
+        var nhRows = nhStocks.map(function (s, i) {
+          var total = (s.frgn != null || s.orgn != null) ? (s.frgn || 0) + (s.orgn || 0) : null;
+          var loan = s.loanAmt == null ? "—"
+            : Math.round(s.loanAmt).toLocaleString() + (s.loanChg ? " (" + (s.loanChg > 0 ? "+" : "") + Math.round(s.loanChg).toLocaleString() + ")" : "");
+          var wc = s.weekChgPct != null ? s.weekChgPct : s.chgPct;
+          var wcCell = wc == null ? "—"
+            : '<span style="color:' + (wc > 0 ? "#f04452" : wc < 0 ? "#3182f6" : "inherit") + ';font-weight:600">' + (wc > 0 ? "+" : "") + wc + "%</span>";
+          return "<tr style='border-top:1px solid rgba(128,128,128,.12)'><td style='padding:2px 6px 2px 0;white-space:nowrap'>" + (i + 1) + ". " + esc(s.name) + secPill(String(s.code || "").padStart(6, "0")) +
+            "</td><td style='text-align:right;color:" + ((total || 0) >= 0 ? "#f04452" : "#3182f6") + ";font-weight:600'>" + nhEok(total) +
+            "</td><td style='text-align:right;color:" + INV[1][2] + "'>" + nhEok(s.frgn) +
+            "</td><td style='text-align:right;color:" + INV[2][2] + "'>" + nhEok(s.orgn) +
+            "</td><td style='text-align:right;color:" + INV[0][2] + "'>" + nhEok(s.prsn) +
+            "</td><td style='text-align:right;opacity:.75'>" + (s.shortSum == null ? "—" : Math.round(s.shortSum).toLocaleString()) +
+            "</td><td style='text-align:right;opacity:.75;white-space:nowrap'>" + loan +
+            "</td><td style='text-align:right'>" + wcCell +
+            "</td><td style='text-align:right;opacity:.8'>" + (s.nearRate == null ? "—" : s.nearRate + "%") + "</td></tr>";
+        }).join("");
+        nhBody = '<div style="border:1px solid rgba(128,128,128,.2);border-radius:10px;padding:8px 12px;overflow-x:auto">'
+          + '<div style="font-weight:600;margin-bottom:4px;color:#fbbf24">52주 신고가 근접</div>'
+          + '<table style="width:100%;border-collapse:collapse;font-size:12px;min-width:760px">'
+          + "<tr style='opacity:.6'><th style='text-align:left'>종목</th><th style='text-align:right'>합산(억)</th><th style='text-align:right;color:" + INV[1][2] + "'>외인</th><th style='text-align:right;color:" + INV[2][2] + "'>기관</th><th style='text-align:right;color:" + INV[0][2] + "'>개인</th><th style='text-align:right'>공매도(억)</th><th style='text-align:right'>대차잔고(증감,억)</th><th style='text-align:right'>등락률(주간)</th><th style='text-align:right'>신고가 대비</th></tr>"
+          + nhRows + "</table></div>";
+      } else {
+        nhBody = '<div style="font-size:12px">' + nhGroups.map(function (g) {
           return '<span style="border:1px solid #fbbf2444;background:#fbbf2410;color:#fbbf24;border-radius:10px;padding:1px 8px;font-size:11.5px;white-space:nowrap;margin:2px 5px 2px 0;display:inline-block">'
             + esc(g.sector) + " " + g.stocks.map(esc).join("·") + "</span>";
-        }).join("");
-        h += '<details class="flow-details" style="margin:-6px 0 8px"><summary style="text-align:right">신고가 근접 ' + nhCnt + '종목 (ETF 제외) ▾</summary>'
-          + '<div style="margin-top:6px;font-size:12px">' + nhChips
-          + '<div style="opacity:.45;font-size:10.5px;margin-top:2px">최신 거래일 기준 · 52주 신고가 대비 1% 이내 (KIS 랭킹)</div></div></details>';
+        }).join("") + "</div>";
+      }
+      if (nhGroups.length || nhStocks.length) {
+        h += '<details class="flow-details" style="margin:-6px 0 8px"><summary style="text-align:right">신고가 근접 ' + nhCnt + '종목 ▾</summary>'
+          + '<div style="margin-top:6px">' + nhBody
+          + '<div style="opacity:.45;font-size:10.5px;margin-top:4px">최신 거래일 기준 · 52주 신고가 대비 1% 이내 (KIS 랭킹) · ETF·ETN 제외 · 수급=주간 누적 확정(억)</div></div></details>';
       }
     }
     // 주간 종합 코멘트 — 일별 반응 코멘트 표 바로 아래 (매크로=주간 경제지표,

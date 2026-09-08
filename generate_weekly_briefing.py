@@ -250,6 +250,95 @@ def _snapshot_breadth(today):
     print(f"[weekly] breadth 스냅샷 저장: {today} (신고가근접 {len(snap['newHighs'])}종목)")
 
 
+def _ticker_of_codes(codes):
+    """krx_companies.json 에서 code→yfinance 티커. 미등재 코드는 제외."""
+    out = {}
+    try:
+        with open(os.path.join(ROOT, "public", "assets", "krx_companies.json"),
+                  encoding="utf-8") as f:
+            for e in json.load(f):
+                c = str(e.get("code", "")).zfill(6)
+                if c in codes and e.get("ticker"):
+                    out[c] = e["ticker"]
+    except Exception as ex:
+        print(f"[weekly] krx_companies 로드 실패: {ex}", file=sys.stderr)
+    return out
+
+
+def _week_cum_codes(codes, week_start, fetch_closes=None):
+    """코드별 '주간 누적' 등락률(%) — 전주 마지막 종가 대비 최신 종가.
+    _week_cum_map(이름 기반)과 동일 산식, 신고가 카드용 코드 직접 해석. fail-open."""
+    tick_of = _ticker_of_codes(set(codes))
+    if not tick_of:
+        return {}
+    fetch_closes = fetch_closes or _yf_closes
+    try:
+        closes = fetch_closes(sorted(set(tick_of.values())))
+    except Exception as ex:
+        print(f"[weekly] 신고가 주간 등락률 조회 실패: {ex}", file=sys.stderr)
+        return {}
+    out = {}
+    for code, t in tick_of.items():
+        rows_t = closes.get(t) or []
+        base = None
+        for dt, cl in rows_t:
+            if dt < week_start:
+                base = cl
+        if base and rows_t and rows_t[-1][0] >= week_start:
+            out[code] = round((rows_t[-1][1] / base - 1.0) * 100, 2)
+    return out
+
+
+def _flow_week(codes, dates, fetch=None):
+    """코드별 '주간 누적' 확정 수급 — 허브 /flow daily(FHPTJ04160001)에서 이번 주
+    날짜 행을 합산. 반환 {code: {frgn,orgn,prsn(백만원), shortSum(억),
+    loanAmt,loanChg(억)}}. 실패 종목은 제외(fail-open — UI 는 '—' 표시)."""
+    from concurrent.futures import ThreadPoolExecutor
+    want = {dt.strftime("%Y%m%d") for dt in dates}
+    base = FLOW_RANK_URL.rsplit("/", 1)[0]
+
+    def _default_fetch(code):
+        req = urllib.request.Request(f"{base}/flow?code={code}",
+                                     headers={"User-Agent": "weekly-briefing"})
+        with urllib.request.urlopen(req, timeout=30) as r:
+            return json.loads(r.read().decode("utf-8"))
+
+    fetch = fetch or _default_fetch
+
+    def _one(code):
+        try:
+            d = fetch(code)
+            acc, got = {"frgn": 0.0, "orgn": 0.0, "prsn": 0.0}, False
+            for row in (d.get("daily") or []):
+                if str(row.get("date")) in want:
+                    got = True
+                    for k in acc:
+                        acc[k] += float(row.get(k) or 0.0)
+            if not got:
+                return code, None
+            short = sum(float(r0.get("pbmn") or 0.0) for r0 in (d.get("shorts") or [])
+                        if str(r0.get("date")) in want)
+            loans = sorted((str(r0.get("date")), r0) for r0 in (d.get("loans") or [])
+                           if str(r0.get("date")) in want)
+            out = {k: round(v) for k, v in acc.items()}
+            if short:
+                out["shortSum"] = round(short, 1)
+            if loans:
+                out["loanAmt"] = round(float(loans[-1][1].get("rmndAmt") or 0.0), 1)
+                out["loanChg"] = round(float(loans[-1][1].get("rmndAmt") or 0.0)
+                                       - float(loans[0][1].get("rmndAmt") or 0.0), 1)
+            return code, out
+        except Exception:
+            return code, None
+
+    out = {}
+    with ThreadPoolExecutor(max_workers=6) as tp:
+        for code, v in tp.map(_one, codes):
+            if v:
+                out[code] = v
+    return out
+
+
 def _breadth_weekly(dates):
     """주간 ADR 추이 + 최신일 신고가 근접 섹터 그룹핑."""
     rows, latest = [], None
@@ -287,7 +376,22 @@ def _breadth_weekly(dates):
             code = (hgh.get("code") or "").zfill(6)
             nm = sec.get(code) or (sec.get(code[:5] + "0") if code and code[5] != "0" else None) or "기타"
             groups.setdefault(nm, []).append(hgh.get("name"))
+        # 종목 상세 — UI 카드 표(순매수 상위/하위와 동일 컬럼)용, 2026-09-08.
+        # 주간 누적 수급(/flow daily 합산)과 주간 등락률(yfinance)을 부착 — 실패 시
+        # 해당 값만 결손(UI '—'), 카드 자체는 유지.
+        stocks = [{k: x.get(k) for k in ("code", "name", "chgPct", "nearRate")}
+                  for x in highs[:30]]
+        codes = [str(s.get("code") or "").zfill(6) for s in stocks]
+        flow = _flow_week(codes, dates)
+        cum = _week_cum_codes(codes, dates[0].isoformat())
+        for s, code in zip(stocks, codes):
+            s.update(flow.get(code) or {})
+            if code in cum:
+                s["weekChgPct"] = cum[code]
+        print(f"[weekly] 신고가 카드 보강: 수급 {len(flow)}/{len(codes)} · "
+              f"주간등락 {len(cum)}/{len(codes)}종목")
         out["newHighs"] = {"date": rows[-1]["date"], "count": len(highs),
+                           "stocks": stocks,
                            "groups": sorted(({"sector": k, "stocks": v[:6]}
                                              for k, v in groups.items()),
                                             key=lambda g: -len(g["stocks"]))[:8]}
