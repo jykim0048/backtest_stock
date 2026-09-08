@@ -38,7 +38,10 @@ import requests
 ROOT = os.path.dirname(os.path.abspath(__file__))
 OUT_PATH = os.path.join(ROOT, "public", "assets", "krx_sector_map.json")
 KST = datetime.timezone(datetime.timedelta(hours=9))
-TOP = 12
+TOP = 30
+# 12→30 확대(2026-09-08): 주간 브리핑 순매수 표 섹터 알약이 이 맵을 쓰는데, 업종
+# 상위 12 컷 밖 종목(예: OCI홀딩스 — 금융 소속 시총 4조)이 알약 미표기되던 것.
+# 소비자들은 전부 상위 K개만 사용(가집계 표시 4~5개 등)이라 확대 무해.
 MST_URL = "https://new.real.download.dws.co.kr/common/master/{name}.mst.zip"
 HUB_STATUS = os.environ.get(
     "KIS_HUB_URL", "https://tradingstrategies-production-09d4.up.railway.app") + "/status"
