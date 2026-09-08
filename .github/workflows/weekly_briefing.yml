@@ -29,7 +29,7 @@ jobs:
       # 입력은 Railway 서버 HTTP 로 읽음(라이브 최신). yfinance 는 촉매 타임라인
       # 종목의 '주간 누적' 등락률 계산용(전주 종가 대비 — 2026-09-08).
       - name: Install dependencies
-        run: pip install google-genai anthropic yfinance
+        run: pip install google-genai anthropic yfinance openpyxl
 
       - name: Generate weekly briefing (모닝브리핑 + 장중 시황 주간 종합)
         timeout-minutes: 10
@@ -38,6 +38,11 @@ jobs:
           LLM_CHAIN:         ${{ vars.LLM_CHAIN }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: python generate_weekly_briefing.py
+
+      # 기준 템플릿(templates/weekly_briefing_template.xlsx — 사용자 확정 양식) 재현
+      # 엑셀 생성. 검증 실패 시 커밋 안 되게 실패를 그대로 전파.
+      - name: Build weekly briefing xlsx (template replication)
+        run: python build_weekly_xlsx.py
 
       - name: Commit and push weekly briefing
         run: |

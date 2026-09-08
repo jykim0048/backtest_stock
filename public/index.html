@@ -7860,7 +7860,25 @@
     if ((syn.nextWeekPreview || []).length) { sec("11. 다음 주 프리뷰"); bullets(syn.nextWeekPreview); }
     return {rows: R, tags: T};
   }
+  // 엑셀 다운로드 — 1순위: 서버(CI) 생성본. 기준 템플릿(templates/weekly_briefing_
+  // template.xlsx)을 openpyxl 로 재현한 결과라 사용자 확정 양식과 동일(2026-09-08).
+  // 서버본이 아직 없거나(주말 등) 실패하면 기존 브라우저 생성(_wbExportJs) 폴백.
   window.wbExport = function () {
+    var wk = (_wbLast && _wbLast.weekStart) || "";
+    var url = "https://raw.githubusercontent.com/jykim0048/backtest_stock/main/public/weekly_briefing.xlsx?t=" + Date.now();
+    fetch(url).then(function (r) {
+      // 서버본의 주차가 현재 보는 주와 다르면(과거 주 열람 중) 브라우저 생성 사용
+      if (!r.ok) throw 0;
+      return r.blob();
+    }).then(function (blob) {
+      if (wk && _wbLast !== null && wbWeeks && wbWeeks[0] && wk !== wbWeeks[0]) return _wbExportJs();
+      var a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "weekly_briefing_" + wk + "_" + ((_wbLast && _wbLast.weekEnd) || "") + ".xlsx";
+      document.body.appendChild(a); a.click(); a.remove();
+    }).catch(function () { _wbExportJs(); });
+  };
+  window._wbExportJs = function () {
     if (!_wbLast) { alert("주간 브리핑 데이터가 아직 로드되지 않았습니다."); return; }
     var d = _wbLast, rep = _wbReport(d);
     var fname = "weekly_briefing_" + d.weekStart + "_" + (d.weekEnd || "");
