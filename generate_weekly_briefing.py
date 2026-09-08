@@ -286,6 +286,11 @@ def _week_cum_codes(codes, week_start, fetch_closes=None):
                 base = cl
         if base and rows_t and rows_t[-1][0] >= week_start:
             out[code] = round((rows_t[-1][1] / base - 1.0) * 100, 2)
+    # 진단(2026-09-08): 신고가 종목 주간등락이 전부 0.0 — 원본 종가 샘플을 남겨
+    # yfinance 데이터 문제(정지 종목/스테일)인지 산식 문제인지 판별한다.
+    for code, t in list(tick_of.items())[:3]:
+        print(f"[weekly] cum 샘플 {code}({t}): {(closes.get(t) or [])[-4:]} -> {out.get(code)}",
+              file=sys.stderr)
     return out
 
 

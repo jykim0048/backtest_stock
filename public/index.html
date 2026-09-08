@@ -1752,6 +1752,8 @@
           <span class="briefing-date" id="wb-date"></span>
         </div>
         <div class="briefing-head-right">
+          <span class="briefing-stance neutral" onclick="wbExport();event.stopPropagation()"
+                style="cursor:pointer" title="주간 브리핑 전체를 엑셀(xlsx)로 다운로드">📥 엑셀</span>
           <span class="briefing-stance neutral" id="wb-nav" onclick="event.stopPropagation()">
             <a href="#" onclick="wbNav(1);return false" style="color:inherit;text-decoration:none">◀</a>
             <a href="#" onclick="wbNav(-1);return false" style="color:inherit;text-decoration:none">▶</a>
@@ -7736,6 +7738,106 @@
   }
   window.wbToggleBanner = function () {
     document.getElementById("wb-banner").classList.toggle("collapsed");
+  };
+  // ── 주간 브리핑 엑셀 다운로드 (2026-09-08) ──────────────────────────────────
+  // SheetJS(cdnjs) 동적 로드 → 다중 시트 xlsx. CDN 차단(사내망 등) 시 UTF-8 BOM
+  // CSV 폴백(섹션 구분 스택형 — 엑셀에서 열림). 데이터는 렌더에 쓴 _wbLast 그대로.
+  function _wbSheets(d) {
+    var syn = d.synthesis || {};
+    function n0(v) { return v == null ? "" : v; }
+    function eok(v) { return v == null ? "" : Math.round(v / 100); }
+    var S = {};
+    var brM = {};
+    ((d.breadth || {}).days || []).forEach(function (b) { brM[b.date] = b; });
+    var dc = {};
+    (syn.dailyContext || []).forEach(function (x) { if (x && x.date) dc[x.date] = x.note; });
+    S["일별 요약"] = [["날짜", "코스피(%)", "KP상승", "KP하락", "코스닥(%)", "KQ상승", "KQ하락", "상한", "주도 섹터", "전일 미국장→한국장 반응"]]
+      .concat((d.days || []).map(function (day) {
+        var ks = ((day.indices || {}).kospi || {}), kq = ((day.indices || {}).kosdaq || {});
+        var b = brM[day.date] || {}, bk = b.kospi || {}, bq = b.kosdaq || {};
+        return [day.date, n0(ks.rate), n0(bk.up), n0(bk.down), n0(kq.rate), n0(bq.up), n0(bq.down), n0(bq.upLimit),
+                (day.sectorsUp || []).slice(0, 2).map(function (s) { return s.name; }).join(", "), dc[day.date] || ""];
+      }));
+    var us = [["구분", "항목", "주간 누적(%)"]];
+    Object.keys(d.usWeekly || {}).forEach(function (k) { us.push(["지수", k, d.usWeekly[k]]); });
+    (((d.usSectorWeekly || {}).up) || []).forEach(function (s) { us.push(["상승 섹터", s.name, s.chg]); });
+    (((d.usSectorWeekly || {}).down) || []).forEach(function (s) { us.push(["하락 섹터", s.name, s.chg]); });
+    if (us.length > 1) S["미국 주간"] = us;
+    var ec = [["날짜", "국가", "중요도(1~4)", "지표", "실제", "예상", "이전", "단위", "판정"]];
+    (d.days || []).forEach(function (day) {
+      (day.usEcon || []).concat(day.koEcon || []).forEach(function (e) {
+        var sp = e.surprise || {};
+        ec.push([day.date, e.nation, n0(e.importance), e.name, n0(e.actual), n0(e.forecast), n0(e.previous),
+                 (e.unitScale || "") + (e.unit || ""),
+                 sp.verdict ? ((sp.vs === "forecast" ? "예상 " : "이전比 ") + ({above: "상회", inline: "부합", below: "하회"}[sp.verdict] || "")) : ""]);
+      });
+    });
+    if (ec.length > 1) S["경제지표"] = ec;
+    var t = ((d.netbuyCum || {}).total) || {};
+    function nbRows(arr, label) {
+      return (arr || []).map(function (e, i) {
+        return [label, i + 1, e.name, e.code, eok(e.amt), eok(e.frgn), eok(e.orgn), eok(e.prsn),
+                n0(e.shortSum), n0(e.loanAmt), n0(e.loanChg)];
+      });
+    }
+    var nb = [["구분", "순위", "종목", "코드", "합산(억)", "외인(억)", "기관(억)", "개인(억)", "공매도(억)", "대차잔고(억)", "대차증감(억)"]]
+      .concat(nbRows(t.top, "순매수 상위"), nbRows(t.bottom, "순매도 상위"));
+    if (nb.length > 1) S["합산 순매수"] = nb;
+    var sf = ((d.sectorFlow || {}).rows) || [];
+    if (sf.length) S["섹터x수급"] = [["업종", "주간등락(%)", "외인(억)", "기관(억)", "연기금(억)", "개인(억)"]]
+      .concat(sf.map(function (r) { return [r.name, r.chgPct, r.frgn, r.orgn, r.fund, r.prsn]; }));
+    var tl = syn.catalystTimeline || [];
+    if (tl.length) S["촉매 타임라인"] = [["날짜", "종목", "시장", "별점", "등락률(주간,%)", "내용"]]
+      .concat(tl.map(function (t0) { return [n0(t0.date), n0(t0.stock), n0(t0.market), n0(t0.star), n0(t0.changePct), n0(t0.event)]; }));
+    var nhS = (((d.breadth || {}).newHighs) || {}).stocks || [];
+    if (nhS.length) S["신고가 근접"] = [["종목", "코드", "합산(억)", "외인(억)", "기관(억)", "개인(억)", "공매도(억)", "대차잔고(억)", "증감(억)", "등락률(주간,%)", "신고가대비(%)"]]
+      .concat(nhS.map(function (s) {
+        return [s.name, s.code, (s.frgn != null || s.orgn != null) ? eok((s.frgn || 0) + (s.orgn || 0)) : "",
+                eok(s.frgn), eok(s.orgn), eok(s.prsn), n0(s.shortSum), n0(s.loanAmt), n0(s.loanChg),
+                s.weekChgPct != null ? s.weekChgPct : n0(s.chgPct), n0(s.nearRate)];
+      }));
+    var cm = [["섹션", "내용"]];
+    if (syn.headline) cm.push(["헤드라인", syn.headline]);
+    [["주간 종합(매크로·수급)", "weeklyComment"], ["주간 시장 흐름", "weekNarrative"],
+     ["섹터·테마", "sectorRotation"], ["다음 주 프리뷰", "nextWeekPreview"]].forEach(function (p) {
+      (syn[p[1]] || []).forEach(function (b) { cm.push([p[0], b]); });
+    });
+    ((syn.watchNotes || {}).long || []).forEach(function (e) { cm.push(["수급 상방 관찰", e.name + " — " + e.basis]); });
+    ((syn.watchNotes || {}).short || []).forEach(function (e) { cm.push(["수급 하방 관찰", e.name + " — " + e.basis]); });
+    if (cm.length > 1) S["코멘트"] = cm;
+    return S;
+  }
+  window.wbExport = function () {
+    if (!_wbLast) { alert("주간 브리핑 데이터가 아직 로드되지 않았습니다."); return; }
+    var d = _wbLast, sheets = _wbSheets(d);
+    var fname = "weekly_briefing_" + d.weekStart + "_" + (d.weekEnd || "");
+    function xlsxGo() {
+      var wb = XLSX.utils.book_new();
+      Object.keys(sheets).forEach(function (nm) {
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(sheets[nm]), nm);
+      });
+      XLSX.writeFile(wb, fname + ".xlsx");
+    }
+    if (window.XLSX) return xlsxGo();
+    var sc = document.createElement("script");
+    sc.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
+    sc.onload = xlsxGo;
+    sc.onerror = function () {
+      var csv = "\uFEFF" + Object.keys(sheets).map(function (nm) {   // BOM — 엑셀 한글 인코딩
+        return "[" + nm + "]\n" + sheets[nm].map(function (row) {
+          return row.map(function (c) {
+            c = String(c == null ? "" : c);
+            return /[",\n]/.test(c) ? '"' + c.replace(/"/g, '""') + '"' : c;
+          }).join(",");
+        }).join("\n");
+      }).join("\n\n");
+      var a = document.createElement("a");
+      a.href = URL.createObjectURL(new Blob([csv], {type: "text/csv;charset=utf-8"}));
+      a.download = fname + ".csv";
+      a.click();
+      URL.revokeObjectURL(a.href);
+    };
+    document.head.appendChild(sc);
   };
   window.wbNav = function (dir) { load(wbIdx + dir); };   // ◀ = 이전 주(인덱스+1)
   loadSectorMap().then(function () {                       // 섹터 알약용 맵 선로딩
