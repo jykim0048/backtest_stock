@@ -7511,39 +7511,48 @@
         .slice(0, 3).map(function (s) { return {name: s.name, chg: s.avgChg}; });
     }
     if ((usw.up || []).length || (usw.down || []).length || krUp.length || krDn.length) {
-      function secRow(label, up, dn) {
-        return '<tr style="border-top:1px solid rgba(128,128,128,.12)">'
-          + '<td style="padding:5px 10px 5px 0;font-weight:600;opacity:.75;white-space:nowrap">' + label + "</td>"
-          + '<td style="padding:5px 14px 5px 0">' + usChips(up, "#f04452") + "</td>"
-          + '<td style="padding:5px 0">' + usChips(dn, "#3182f6") + "</td></tr>";
+      // 지수 카드와 동일한 카드 섹션 양식 (2026-09-08 사용자 요청)
+      function secCard(title, arr, color) {
+        var rows = (arr || []).map(function (s) {
+          return "<div style='display:flex;justify-content:space-between;gap:10px'><span style='opacity:.85'>" + esc(s.name)
+            + "</span><span style='color:" + color + ";font-weight:600;white-space:nowrap'>" + (s.chg > 0 ? "+" : "") + s.chg + "%</span></div>";
+        }).join("") || "<div style='opacity:.4'>—</div>";
+        return '<div style="flex:1;min-width:170px;border:1px solid rgba(128,128,128,.22);border-radius:10px;padding:8px 12px;background:rgba(255,255,255,.02)">'
+          + '<div style="font-weight:600;color:' + color + ';font-size:12px;margin-bottom:4px">' + title + "</div>"
+          + '<div style="font-size:12px;line-height:1.7">' + rows + "</div></div>";
       }
-      h += '<table style="border-collapse:collapse;font-size:12px;margin:0 0 10px">'
-        + "<tr style='opacity:.55;font-size:11.5px'><th></th><th style='text-align:left;padding-right:14px'>상승 TOP3</th><th style='text-align:left'>하락 TOP3</th></tr>"
-        + secRow("US", usw.up, usw.down)
-        + secRow("KR", krUp, krDn)
-        + '</table><div style="opacity:.45;font-size:10.5px;margin:-6px 0 10px">(섹터 주간 누적 수익률 — US=섹터 ETF, KR=KIS 업종)</div>';
+      h += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin:0 0 4px">'
+        + secCard("US 상승 섹터 TOP3", usw.up, "#f04452") + secCard("US 하락 섹터 TOP3", usw.down, "#3182f6")
+        + secCard("KR 상승 섹터 TOP3", krUp, "#f04452") + secCard("KR 하락 섹터 TOP3", krDn, "#3182f6")
+        + '</div><div style="opacity:.45;font-size:10.5px;margin:0 0 10px">(섹터 주간 누적 수익률 — US=섹터 ETF, KR=KIS 업종)</div>';
     }
-    // 주간 주요 경제지표(US/KOR) — '시장에 반영된' 지표만(US=모닝 리뷰 언급, KOR=★3+)
-    var econLines = "";
+    // 주간 주요 경제지표(US/KOR) — 모닝브리핑/장중 시황 경제지표 카드와 동일 양식
+    // (날짜 | 국가배지 | ★ | 지표 | 실제/예상·이전 | 서프라이즈 배지 — CSS 클래스 재사용)
+    var econRows = "";
     (d.days || []).forEach(function (day) {
-      var es = (day.usEcon || []).concat(day.koEcon || []);
-      if (!es.length) return;
-      var parts = es.map(function (e) {
-        var flag = e.nation === "KOR"
-          ? '<span style="color:#60a5fa;font-size:10px;border:1px solid #60a5fa55;border-radius:4px;padding:0 3px">KOR</span> '
-          : '<span style="color:#2dd4bf;font-size:10px;border:1px solid #2dd4bf55;border-radius:4px;padding:0 3px">USA</span> ';
-        var val = (e.actual == null ? "—" : e.actual) + esc((e.unitScale || "") + (e.unit === "pers" ? "명" : e.unit === "hrs" ? "h" : (e.unit || "")));
+      (day.usEcon || []).concat(day.koEcon || []).forEach(function (e) {
+        var imp = Math.max(1, Math.min(4, e.importance || 1)), on = imp - 1;
+        var sfx = (e.unit === "%") ? "%" : ((e.unitScale || "") + (e.unit === "USD" ? "$" : (e.unit || "")));
+        function val(v) { return v == null ? "—" : v + esc(sfx); }
+        var sub = (e.forecast != null)
+          ? ' / 예상 ' + val(e.forecast) + ' · 이전 ' + val(e.previous)
+          : ' / 이전 ' + val(e.previous);
         var sp = e.surprise || {};
-        var vsLabel = sp.vs === "previous" ? "이전비" : "예상";
-        var vd = sp.verdict === "above" ? ["상회", "#f04452"]
-          : sp.verdict === "below" ? ["하회", "#3182f6"] : ["부합", "rgba(203,213,225,.6)"];
-        return flag + "<b>" + esc(e.name) + "</b> " + val
-          + ' <span style="color:' + vd[1] + ';font-size:11px">(' + vsLabel + " " + vd[0] + ")</span>";
+        var badge = sp.verdict
+          ? '<span class="econ-badge ' + sp.verdict + '">' + (sp.vs === "forecast" ? "예상" : "이전比")
+            + " " + ({above: "상회", inline: "부합", below: "하회"}[sp.verdict] || "") + "</span>" : "";
+        econRows += '<tr><td class="econ-time">' + esc(day.date.slice(5)) + "</td>"
+          + '<td><span class="econ-nation ' + (e.nation === "KOR" ? "kor" : "usa") + '">' + (e.nation === "KOR" ? "KOR" : "USA") + "</span></td>"
+          + '<td><span class="econ-imp">' + "★".repeat(on) + '<span class="imp-off">' + "★".repeat(3 - on) + "</span></span></td>"
+          + "<td>" + esc(e.name) + "</td>"
+          + '<td class="econ-vals"><b>' + val(e.actual) + '</b><span class="ev-sub">' + sub + "</span></td>"
+          + '<td style="text-align:right">' + badge + "</td></tr>";
       });
-      econLines += '<div style="margin:1px 0"><span style="opacity:.55">' + esc(day.date.slice(5)) + "</span> " + parts.join(' <span style="opacity:.35">·</span> ') + "</div>";
     });
-    if (econLines) {
-      h += '<div style="font-size:12px;margin:0 0 10px;opacity:.92"><span style="opacity:.6">📊 주간 주요 경제지표 — 시장 반영 지표</span>' + econLines + "</div>";
+    if (econRows) {
+      h += '<div class="briefing-wl" style="margin:0 0 10px"><div class="wl-h"><span style="font-size:15.5px">📊 주간 주요 경제지표 — 시장 반영</span></div>'
+        + "<table><tbody>" + econRows + "</tbody></table>"
+        + '<div style="font-size:10.5px;color:var(--text-muted);margin-top:6px">US=모닝브리핑 미국장 리뷰에 언급된 지표 · KR=시장 영향력 상위 발표분 · ★=시장 영향력</div></div>';
     }
     // 일별 지수·주도섹터 테이블 (결정적 집계 — LLM 실패 시에도 표시)
     h += '<table style="width:100%;border-collapse:collapse;font-size:12.5px;margin-bottom:10px">';
