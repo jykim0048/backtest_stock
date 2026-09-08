@@ -7883,14 +7883,14 @@
       }
       var ws = {}, merges = [], R = 0;
       var rowLines = {};   // r -> 필요 줄 수 (wrapText 긴 문장 → 행높이 자동 조정)
-      function put(r, c, v, s) {
+      function put(r, c, v, s, cpl) {
         ws[XLSX.utils.encode_cell({r: r, c: c})] =
           {v: v, t: typeof v === "number" ? "n" : "s", s: s};
         // 줄바꿈 셀의 표시 폭을 추정해 행높이 계산 입력으로 축적 — 한글은 열폭(wch)
         // 2칸을 차지하므로 시트 가용폭(~122wch, 코멘트류는 대부분 우측 끝까지 병합)
         // 기준 한 줄 약 55자로 근사. 잘림보다 여유가 낫다(약간 크게).
-        if (s && s.alignment && s.alignment.wrapText && typeof v === "string" && v.length > 45) {
-          var lines = Math.ceil(v.length / 55);
+        if (s && s.alignment && s.alignment.wrapText && typeof v === "string" && v.length > 20) {
+          var lines = Math.ceil(v.length / (cpl || 55));
           if (lines > (rowLines[r] || 1)) rowLines[r] = lines;
         }
       }
@@ -8006,6 +8006,7 @@
       chip(R, "04", "일별 요약");
       R++;
       ["날짜", "코스피(%)", "코스피 ▲/▼", "코스닥(%)", "코스닥 ▲/▼", "주도 섹터", "전일 미국장 → 한국장 반응"].forEach(function (h, i) { hdr(R, i, h); });
+      mg(R, 6, 9);                      // 헤더도 코멘트 폭만큼 병합(왼쪽 정렬 기본)
       R++;
       var brM = {};
       ((d.breadth || {}).days || []).forEach(function (b) { brM[b.date] = b; });
@@ -8021,7 +8022,7 @@
         if (kq.rate != null) put(R, 3, kq.rate, signS(kq.rate));
         body(R, 4, adr(bq));
         body(R, 5, (day.sectorsUp || []).slice(0, 2).map(function (s) { return s.name; }).join(", "));
-        put(R, 6, dc[day.date] || "", st({w: true}));
+        put(R, 6, dc[day.date] || "", st({w: true}), 25);
         mg(R, 6, 9);
         R++;
       });
@@ -8035,7 +8036,7 @@
         hdr(R, 0, "No."); hdr(R, 1, colHdr);
         R++;
         arr.forEach(function (b) {
-          put(R, 0, "- " + b, st({w: true}));
+          put(R, 0, "- " + b, st({w: true}), 58);
           mg(R, 0, 9);
           R++;
         });
@@ -8079,7 +8080,7 @@
           (p[1] || []).forEach(function (e) {
             put(R, 0, p[0], st({b: true, c: p[2] ? GREEN : RED, f: p[2] ? GREENBG : REDBG}));
             body(R, 1, e.name);
-            put(R, 2, e.basis, st({w: true}));
+            put(R, 2, e.basis, st({w: true}), 50);
             mg(R, 2, 9);
             R++;
           });
@@ -8101,7 +8102,7 @@
           body(R, 2, n0(t0.market));
           if (t0.star != null) put(R, 3, "★".repeat(t0.star), st({b: true, c: GOLD}));
           if (t0.changePct != null) put(R, 4, t0.changePct, signS(t0.changePct));
-          put(R, 5, n0(t0.event), st({w: true}));
+          put(R, 5, n0(t0.event), st({w: true}), 35);
           mg(R, 5, 9);
           R++;
         });
@@ -8122,7 +8123,7 @@
             : /판별|신호/.test(b) ? ["판별 신호", SECT, SECTBG]
             : ["핵심 이벤트", SECT, SECTBG];
           put(R, 0, lab[0], st({b: true, c: lab[1], f: lab[2]}));
-          put(R, 1, b, st({w: true}));
+          put(R, 1, b, st({w: true}), 56);
           mg(R, 1, 9);
           R++;
         });
