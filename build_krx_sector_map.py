@@ -21,7 +21,9 @@ import argparse
 import openpyxl
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
-TOP_PER_SECTOR = 12   # 섹터당 시총 상위 N개 보관(파이프라인이 4개 사용, 여유분 확보)
+TOP_PER_SECTOR = 30   # 섹터당 시총 상위 N개 보관(파이프라인이 4개 사용, 여유분 확보)
+# 12→30 확대(2026-09-08): 주간 브리핑 순매수 표의 섹터 알약이 이 맵을 쓰는데,
+# 업종 상위 12 컷 밖 종목(예: OCI홀딩스 — '금융' 소속 시총 4조)이 알약 미표기되던 것.
 
 
 def norm_sector(name):
