@@ -798,9 +798,9 @@ def main():
             e["loanChg"] = round(e["loans"][ds[-1]] - e["loans"][ds[0]], 1) if len(ds) >= 2 else 0.0
             e["loanAmt"] = round(e["loans"][ds[-1]], 1) if ds else None
         short_top = sorted([e for e in ent if e["shortSum"] > 0],
-                           key=lambda x: -x["shortSum"])[:5]
-        loan_up = sorted([e for e in ent if e["loanChg"] > 0], key=lambda x: -x["loanChg"])[:5]
-        loan_dn = sorted([e for e in ent if e["loanChg"] < 0], key=lambda x: x["loanChg"])[:5]
+                           key=lambda x: -x["shortSum"])[:10]
+        loan_up = sorted([e for e in ent if e["loanChg"] > 0], key=lambda x: -x["loanChg"])[:10]
+        loan_dn = sorted([e for e in ent if e["loanChg"] < 0], key=lambda x: x["loanChg"])[:10]
         short_loan = {
             "shortTop": [{"name": e["name"], "amt": round(e["shortSum"])} for e in short_top],
             "loanUp": [{"name": e["name"], "chg": e["loanChg"], "amt": e["loanAmt"]} for e in loan_up],
