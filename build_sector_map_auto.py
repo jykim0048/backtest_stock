@@ -235,10 +235,24 @@ def main():
         nm = nm or names.get(s["big"])
         if nm:
             full[s["code"]] = nm
+    # KOSDAQ 미해석 중분류 폴백: 번호 체계 가설 '1xxx ↔ KOSPI 0xxx'(예: 1009→0009
+    # 제약). 부트스트랩 해석분과 겹치는 구간에서 일치율을 로그로 남겨 가설을 상시
+    # 검증한다 — 일치율이 낮게 나오면 이 폴백을 제거할 것(2026-09-09, 지엘팜텍 등
+    # 표본 부족 중분류가 맵에서 빠지던 것).
+    n_both = n_agree = 0
     for s in kosdaq:
         nm = kq_mid_name.get(s["mid"])
+        pat = names.get("0" + s["mid"][1:]) if s["mid"].startswith("1") else None
+        if nm and pat:
+            n_both += 1
+            if _norm(nm) == _norm(pat):
+                n_agree += 1
+        nm = nm or pat
         if nm:
             full[s["code"]] = nm
+    if n_both:
+        print(f"  KOSDAQ 1xxx↔0xxx 패턴 일치율: {n_agree}/{n_both} "
+              f"({n_agree / n_both * 100:.0f}%) — 낮으면 패턴 폴백 제거 필요")
     print(f"  전 종목 업종 맵: {len(full)}종목 (KOSPI+KOSDAQ, 컷 없음)")
 
     out = {
