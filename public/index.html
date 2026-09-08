@@ -7740,97 +7740,154 @@
     document.getElementById("wb-banner").classList.toggle("collapsed");
   };
   // ── 주간 브리핑 엑셀 다운로드 (2026-09-08) ──────────────────────────────────
-  // SheetJS(cdnjs) 동적 로드 → 다중 시트 xlsx. CDN 차단(사내망 등) 시 UTF-8 BOM
-  // CSV 폴백(섹션 구분 스택형 — 엑셀에서 열림). 데이터는 렌더에 쓴 _wbLast 그대로.
-  function _wbSheets(d) {
+  // 단일 시트 '보고서 양식'(제목→섹션 순서 = 화면 배치) — 접힘(토글) 섹션(투자자별·
+  // 공매도대차·섹터x수급·신고가)은 생략(사용자 요청). SheetJS(cdnjs) 동적 로드,
+  // CDN 차단 시 UTF-8 BOM CSV 폴백. 데이터는 렌더에 쓴 _wbLast 그대로.
+  function _wbReport(d) {
     var syn = d.synthesis || {};
     function n0(v) { return v == null ? "" : v; }
     function eok(v) { return v == null ? "" : Math.round(v / 100); }
-    var S = {};
+    var R = [];
+    function sec(title) { R.push([]); R.push([title]); }
+    function bullets(arr) { (arr || []).forEach(function (b) { R.push(["·", b]); }); }
+
+    R.push(["QUANT ANTIGRAVITY 주간 브리핑", d.weekStart + " ~ " + (d.weekEnd || "")]);
+    R.push(["생성 기준", d.asof || ""]);
+    if (syn.headline) R.push(["헤드라인", syn.headline]);
+
+    // 1. 주간 누적 수급(억) — 배너 상단 차트 라벨과 동일(일별 마감 수급 합산)
+    var acc = {kospi: {}, kosdaq: {}};
+    (d.days || []).forEach(function (day) {
+      ["kospi", "kosdaq"].forEach(function (mk) {
+        var iv = (day.investors || {})[mk] || {};
+        ["individual", "foreign", "institution"].forEach(function (k) {
+          if (iv[k] != null) acc[mk][k] = (acc[mk][k] || 0) + iv[k];
+        });
+      });
+    });
+    sec("1. 주간 누적 수급 (억원)");
+    R.push(["시장", "개인", "외국인", "기관"]);
+    ["kospi", "kosdaq"].forEach(function (mk) {
+      var a = acc[mk];
+      R.push([mk === "kospi" ? "KOSPI" : "KOSDAQ",
+              a.individual != null ? Math.round(a.individual) : "",
+              a.foreign != null ? Math.round(a.foreign) : "",
+              a.institution != null ? Math.round(a.institution) : ""]);
+    });
+
+    // 2. US 미국 주간 + US/KR 섹터 TOP3 (카드 섹션)
+    sec("2. US 미국 주간 (모닝브리핑 전일 기준 누적, %)");
+    var usKeys = Object.keys(d.usWeekly || {});
+    if (usKeys.length) { R.push(usKeys); R.push(usKeys.map(function (k) { return d.usWeekly[k]; })); }
+    var usw = d.usSectorWeekly || {};
+    function secLine(label, arr) {
+      if (!(arr || []).length) return;
+      R.push([label].concat(arr.map(function (s) { return s.name + " " + (s.chg > 0 ? "+" : "") + s.chg + "%"; })));
+    }
+    secLine("US 상승 섹터 TOP3", usw.up); secLine("US 하락 섹터 TOP3", usw.down);
+    var sfR = ((d.sectorFlow || {}).rows) || [];
+    var krU = sfR.filter(function (r) { return r.chgPct > 0; }).slice(0, 3).map(function (r) { return {name: r.name, chg: r.chgPct}; });
+    var krD = sfR.filter(function (r) { return r.chgPct < 0; }).slice(-3).reverse().map(function (r) { return {name: r.name, chg: r.chgPct}; });
+    secLine("KR 상승 섹터 TOP3", krU); secLine("KR 하락 섹터 TOP3", krD);
+
+    // 3. 주간 주요 경제지표
+    var ecRows = [];
+    (d.days || []).forEach(function (day) {
+      (day.usEcon || []).concat(day.koEcon || []).forEach(function (e) {
+        var sp = e.surprise || {};
+        ecRows.push([day.date, e.nation, e.name, n0(e.actual), n0(e.forecast), n0(e.previous),
+                     (e.unitScale || "") + (e.unit || ""),
+                     sp.verdict ? ((sp.vs === "forecast" ? "예상 " : "이전比 ") + ({above: "상회", inline: "부합", below: "하회"}[sp.verdict] || "")) : ""]);
+      });
+    });
+    if (ecRows.length) {
+      sec("3. 주간 주요 경제지표 — 시장 반영");
+      R.push(["날짜", "국가", "지표", "실제", "예상", "이전", "단위", "판정"]);
+      ecRows.forEach(function (r) { R.push(r); });
+    }
+
+    // 4. 일별 요약 (지수·브레드스·주도 섹터·반응 코멘트)
     var brM = {};
     ((d.breadth || {}).days || []).forEach(function (b) { brM[b.date] = b; });
     var dc = {};
     (syn.dailyContext || []).forEach(function (x) { if (x && x.date) dc[x.date] = x.note; });
-    S["일별 요약"] = [["날짜", "코스피(%)", "KP상승", "KP하락", "코스닥(%)", "KQ상승", "KQ하락", "상한", "주도 섹터", "전일 미국장→한국장 반응"]]
-      .concat((d.days || []).map(function (day) {
-        var ks = ((day.indices || {}).kospi || {}), kq = ((day.indices || {}).kosdaq || {});
-        var b = brM[day.date] || {}, bk = b.kospi || {}, bq = b.kosdaq || {};
-        return [day.date, n0(ks.rate), n0(bk.up), n0(bk.down), n0(kq.rate), n0(bq.up), n0(bq.down), n0(bq.upLimit),
-                (day.sectorsUp || []).slice(0, 2).map(function (s) { return s.name; }).join(", "), dc[day.date] || ""];
-      }));
-    var us = [["구분", "항목", "주간 누적(%)"]];
-    Object.keys(d.usWeekly || {}).forEach(function (k) { us.push(["지수", k, d.usWeekly[k]]); });
-    (((d.usSectorWeekly || {}).up) || []).forEach(function (s) { us.push(["상승 섹터", s.name, s.chg]); });
-    (((d.usSectorWeekly || {}).down) || []).forEach(function (s) { us.push(["하락 섹터", s.name, s.chg]); });
-    if (us.length > 1) S["미국 주간"] = us;
-    var ec = [["날짜", "국가", "중요도(1~4)", "지표", "실제", "예상", "이전", "단위", "판정"]];
+    sec("4. 일별 요약");
+    R.push(["날짜", "코스피(%)", "코스피 ▲/▼", "코스닥(%)", "코스닥 ▲/▼", "주도 섹터", "전일 미국장 → 한국장 반응"]);
     (d.days || []).forEach(function (day) {
-      (day.usEcon || []).concat(day.koEcon || []).forEach(function (e) {
-        var sp = e.surprise || {};
-        ec.push([day.date, e.nation, n0(e.importance), e.name, n0(e.actual), n0(e.forecast), n0(e.previous),
-                 (e.unitScale || "") + (e.unit || ""),
-                 sp.verdict ? ((sp.vs === "forecast" ? "예상 " : "이전比 ") + ({above: "상회", inline: "부합", below: "하회"}[sp.verdict] || "")) : ""]);
-      });
+      var ks = ((day.indices || {}).kospi || {}), kq = ((day.indices || {}).kosdaq || {});
+      var b = brM[day.date] || {}, bk = b.kospi || {}, bq = b.kosdaq || {};
+      function adr(m) { return m.up == null ? "" : m.up + "▲/" + m.down + "▼" + (m.upLimit ? " 상한" + m.upLimit : ""); }
+      R.push([day.date, n0(ks.rate), adr(bk), n0(kq.rate), adr(bq),
+              (day.sectorsUp || []).slice(0, 2).map(function (s) { return s.name; }).join(", "),
+              dc[day.date] || ""]);
     });
-    if (ec.length > 1) S["경제지표"] = ec;
+
+    // 5. 주간 종합 코멘트
+    if ((syn.weeklyComment || []).length) { sec("5. 주간 종합 코멘트 — 매크로·수급"); bullets(syn.weeklyComment); }
+
+    // 6. 투자자 합산 순매수 상위/하위 (카드 표 — 화면 노출분)
     var t = ((d.netbuyCum || {}).total) || {};
-    function nbRows(arr, label) {
-      return (arr || []).map(function (e, i) {
-        return [label, i + 1, e.name, e.code, eok(e.amt), eok(e.frgn), eok(e.orgn), eok(e.prsn),
-                n0(e.shortSum), n0(e.loanAmt), n0(e.loanChg)];
+    if ((t.top || []).length || (t.bottom || []).length) {
+      sec("6. 투자자 합산 순매수 상위/하위 (외인+기관계, 억원)");
+      R.push(["구분", "순위", "종목", "합산", "외인", "기관", "개인", "공매도", "대차잔고", "대차증감"]);
+      [["순매수 상위", t.top], ["순매도 상위", t.bottom]].forEach(function (p) {
+        (p[1] || []).forEach(function (e, i) {
+          R.push([p[0], i + 1, e.name, eok(e.amt), eok(e.frgn), eok(e.orgn), eok(e.prsn),
+                  n0(e.shortSum), n0(e.loanAmt), n0(e.loanChg)]);
+        });
       });
     }
-    var nb = [["구분", "순위", "종목", "코드", "합산(억)", "외인(억)", "기관(억)", "개인(억)", "공매도(억)", "대차잔고(억)", "대차증감(억)"]]
-      .concat(nbRows(t.top, "순매수 상위"), nbRows(t.bottom, "순매도 상위"));
-    if (nb.length > 1) S["합산 순매수"] = nb;
-    var sf = ((d.sectorFlow || {}).rows) || [];
-    if (sf.length) S["섹터x수급"] = [["업종", "주간등락(%)", "외인(억)", "기관(억)", "연기금(억)", "개인(억)"]]
-      .concat(sf.map(function (r) { return [r.name, r.chgPct, r.frgn, r.orgn, r.fund, r.prsn]; }));
+
+    // 7. 수급 상방/하방 관찰
+    var wn0 = syn.watchNotes || {};
+    if ((wn0.long || []).length || (wn0.short || []).length) {
+      sec("7. 수급 관찰");
+      (wn0.long || []).forEach(function (e) { R.push(["상방 관찰", e.name, e.basis]); });
+      (wn0.short || []).forEach(function (e) { R.push(["하방 관찰", e.name, e.basis]); });
+    }
+
+    // 8~9. 주간 흐름·섹터 테마
+    if ((syn.weekNarrative || []).length) { sec("8. 주간 시장 흐름"); bullets(syn.weekNarrative); }
+    if ((syn.sectorRotation || []).length) { sec("9. 섹터·테마 흐름"); bullets(syn.sectorRotation); }
+
+    // 10. 주간 촉매 타임라인
     var tl = syn.catalystTimeline || [];
-    if (tl.length) S["촉매 타임라인"] = [["날짜", "종목", "시장", "별점", "등락률(주간,%)", "내용"]]
-      .concat(tl.map(function (t0) { return [n0(t0.date), n0(t0.stock), n0(t0.market), n0(t0.star), n0(t0.changePct), n0(t0.event)]; }));
-    var nhS = (((d.breadth || {}).newHighs) || {}).stocks || [];
-    if (nhS.length) S["신고가 근접"] = [["종목", "코드", "합산(억)", "외인(억)", "기관(억)", "개인(억)", "공매도(억)", "대차잔고(억)", "증감(억)", "등락률(주간,%)", "신고가대비(%)"]]
-      .concat(nhS.map(function (s) {
-        return [s.name, s.code, (s.frgn != null || s.orgn != null) ? eok((s.frgn || 0) + (s.orgn || 0)) : "",
-                eok(s.frgn), eok(s.orgn), eok(s.prsn), n0(s.shortSum), n0(s.loanAmt), n0(s.loanChg),
-                s.weekChgPct != null ? s.weekChgPct : n0(s.chgPct), n0(s.nearRate)];
-      }));
-    var cm = [["섹션", "내용"]];
-    if (syn.headline) cm.push(["헤드라인", syn.headline]);
-    [["주간 종합(매크로·수급)", "weeklyComment"], ["주간 시장 흐름", "weekNarrative"],
-     ["섹터·테마", "sectorRotation"], ["다음 주 프리뷰", "nextWeekPreview"]].forEach(function (p) {
-      (syn[p[1]] || []).forEach(function (b) { cm.push([p[0], b]); });
-    });
-    ((syn.watchNotes || {}).long || []).forEach(function (e) { cm.push(["수급 상방 관찰", e.name + " — " + e.basis]); });
-    ((syn.watchNotes || {}).short || []).forEach(function (e) { cm.push(["수급 하방 관찰", e.name + " — " + e.basis]); });
-    if (cm.length > 1) S["코멘트"] = cm;
-    return S;
+    if (tl.length) {
+      sec("10. 주간 촉매 타임라인 (등락률=주간 누적)");
+      R.push(["날짜", "종목", "시장", "별점", "등락률(%)", "내용"]);
+      tl.forEach(function (t0) {
+        R.push([n0(t0.date), t0.stock || "—", n0(t0.market),
+                t0.star != null ? "★".repeat(t0.star) : "", n0(t0.changePct), n0(t0.event)]);
+      });
+    }
+
+    // 11. 다음 주 프리뷰
+    if ((syn.nextWeekPreview || []).length) { sec("11. 다음 주 프리뷰"); bullets(syn.nextWeekPreview); }
+    return R;
   }
   window.wbExport = function () {
     if (!_wbLast) { alert("주간 브리핑 데이터가 아직 로드되지 않았습니다."); return; }
-    var d = _wbLast, sheets = _wbSheets(d);
+    var d = _wbLast, rows = _wbReport(d);
     var fname = "weekly_briefing_" + d.weekStart + "_" + (d.weekEnd || "");
     function xlsxGo() {
+      var ws = XLSX.utils.aoa_to_sheet(rows);
+      ws["!cols"] = [{wch: 16}, {wch: 14}, {wch: 14}, {wch: 12}, {wch: 14},
+                     {wch: 24}, {wch: 90}, {wch: 12}, {wch: 12}, {wch: 12}];
       var wb = XLSX.utils.book_new();
-      Object.keys(sheets).forEach(function (nm) {
-        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(sheets[nm]), nm);
-      });
+      XLSX.utils.book_append_sheet(wb, ws, "주간 브리핑");
       XLSX.writeFile(wb, fname + ".xlsx");
     }
     if (window.XLSX) return xlsxGo();
     var sc = document.createElement("script");
     sc.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
     sc.onload = xlsxGo;
-    sc.onerror = function () {
-      var csv = "\uFEFF" + Object.keys(sheets).map(function (nm) {   // BOM — 엑셀 한글 인코딩
-        return "[" + nm + "]\n" + sheets[nm].map(function (row) {
-          return row.map(function (c) {
-            c = String(c == null ? "" : c);
-            return /[",\n]/.test(c) ? '"' + c.replace(/"/g, '""') + '"' : c;
-          }).join(",");
-        }).join("\n");
-      }).join("\n\n");
+    sc.onerror = function () {   // CDN 차단(사내망) — UTF-8 BOM CSV 폴백(엑셀 호환)
+      var csv = "\uFEFF" + rows.map(function (row) {
+        return row.map(function (c) {
+          c = String(c == null ? "" : c);
+          return /[",\n]/.test(c) ? '"' + c.replace(/"/g, '""') + '"' : c;
+        }).join(",");
+      }).join("\n");
       var a = document.createElement("a");
       a.href = URL.createObjectURL(new Blob([csv], {type: "text/csv;charset=utf-8"}));
       a.download = fname + ".csv";
