@@ -7882,9 +7882,17 @@
                             horizontal: o.a || (o.num ? "right" : "left")}};
       }
       var ws = {}, merges = [], R = 0;
+      var rowLines = {};   // r -> 필요 줄 수 (wrapText 긴 문장 → 행높이 자동 조정)
       function put(r, c, v, s) {
         ws[XLSX.utils.encode_cell({r: r, c: c})] =
           {v: v, t: typeof v === "number" ? "n" : "s", s: s};
+        // 줄바꿈 셀의 표시 폭을 추정해 행높이 계산 입력으로 축적 — 한글은 열폭(wch)
+        // 2칸을 차지하므로 시트 가용폭(~122wch, 코멘트류는 대부분 우측 끝까지 병합)
+        // 기준 한 줄 약 55자로 근사. 잘림보다 여유가 낫다(약간 크게).
+        if (s && s.alignment && s.alignment.wrapText && typeof v === "string" && v.length > 45) {
+          var lines = Math.ceil(v.length / 55);
+          if (lines > (rowLines[r] || 1)) rowLines[r] = lines;
+        }
       }
       function mg(r, c1, c2) { merges.push({s: {r: r, c: c1}, e: {r: r, c: c2}}); }
       function signS(v, bold) {   // 수치 부호색 — 템플릿: 양수 초록 / 음수 빨강
@@ -8124,6 +8132,12 @@
       ws["!merges"] = merges;
       ws["!cols"] = [{wch: 12}, {wch: 14}, {wch: 13}, {wch: 12}, {wch: 13},
                      {wch: 20}, {wch: 14}, {wch: 12}, {wch: 12}, {wch: 12}];
+      // 긴 코멘트 행높이 자동 조정 — 기본 높이에 잘리던 문제(2026-09-08 사용자 리포트)
+      var rowsArr = [];
+      Object.keys(rowLines).forEach(function (r) {
+        rowsArr[Number(r)] = {hpt: rowLines[r] * 14 + 6};
+      });
+      if (rowsArr.length) ws["!rows"] = rowsArr;
       return ws;
     }
     function xlsxGo() {
