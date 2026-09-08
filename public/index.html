@@ -7555,8 +7555,22 @@
         + '<div style="font-size:10.5px;color:var(--text-muted);margin-top:6px">US=모닝브리핑 미국장 리뷰에 언급된 지표 · KR=시장 영향력 상위 발표분 · ★=시장 영향력</div></div>';
     }
     // 일별 지수·주도섹터 테이블 (결정적 집계 — LLM 실패 시에도 표시)
+    // 브레드스(일별 상승/하락 종목수)는 일 단위 지표라 별도 라인 대신 이 표의 컬럼으로
+    // (2026-09-08 사용자 요청 — 반응 코멘트 옆).
+    var brMap = {};
+    ((d.breadth || {}).days || []).forEach(function (b) { brMap[b.date] = b; });
+    function adrCell(b) {
+      if (!b) return "—";
+      function one(m) {
+        if (!m || m.up == null) return "—";
+        return '<span style="color:#f04452">' + m.up + "▲</span>/<span style='color:#3182f6'>" + m.down + "▼</span>"
+          + (m.upLimit ? '<span style="opacity:.6;font-size:10px"> 상한' + m.upLimit + "</span>" : "");
+      }
+      return '<div style="font-size:11px;white-space:nowrap"><span style="opacity:.55">KP</span> ' + one(b.kospi)
+        + '</div><div style="font-size:11px;white-space:nowrap"><span style="opacity:.55">KQ</span> ' + one(b.kosdaq) + "</div>";
+    }
     h += '<table style="width:100%;border-collapse:collapse;font-size:12.5px;margin-bottom:10px">';
-    h += "<tr style='opacity:.65'><th style='text-align:left'>날짜</th><th>코스피</th><th>코스닥</th><th style='text-align:left'>주도 섹터</th><th style='text-align:left'>전일 미국장 → 한국장 반응</th></tr>";
+    h += "<tr style='opacity:.65'><th style='text-align:left'>날짜</th><th>코스피</th><th>코스닥</th><th style='text-align:left'>주도 섹터</th><th style='text-align:left'>브레드스<span style='font-weight:400;font-size:10.5px;opacity:.7'> (일별 ▲/▼종목수)</span></th><th style='text-align:left'>전일 미국장 → 한국장 반응</th></tr>";
     var dcMap = {};
     (syn.dailyContext || []).forEach(function (x) { if (x && x.date) dcMap[x.date] = x.note; });
     (d.days || []).forEach(function (day) {
@@ -7567,7 +7581,8 @@
         : (cat ? esc(cat.stock) + " — " + esc(cat.summary) : "—");
       h += "<tr style='border-top:1px solid rgba(128,128,128,.15)'><td style='padding:3px 6px 3px 0;white-space:nowrap'>" + day.date.slice(5) +
         "</td><td style='text-align:center'>" + pct(ks.rate) + "</td><td style='text-align:center'>" + pct(kq.rate) +
-        "</td><td style='padding-left:8px'>" + (sec || "—") + "</td><td style='padding-left:8px;color:#fff'>" + note + "</td></tr>";
+        "</td><td style='padding-left:8px'>" + (sec || "—") + "</td><td style='padding-left:8px'>" + adrCell(brMap[day.date]) +
+        "</td><td style='padding-left:8px;color:#fff'>" + note + "</td></tr>";
     });
     h += "</table>";
     // 주간 종합 코멘트 — 일별 반응 코멘트 표 바로 아래 (매크로=주간 경제지표,
@@ -7583,19 +7598,9 @@
       return s + "</ul>";
     }
     // (구 '주간 상승/하락 섹터' 지속성 칩 라인은 상단 US/KR 매트릭스로 대체 — 2026-09-08)
-    // 📐 브레드스 — 일별 상승/하락 종목수(ADR) + 신고가 근접 섹터 그룹
+    // 신고가 근접 섹터 그룹 (일별 브레드스 수치는 위 일별 표 컬럼으로 이동 — 2026-09-08)
     var br = d.breadth;
     if (br && (br.days || []).length) {
-      function adr(m) {
-        if (m == null || m.up == null) return "—";
-        return '<span style="color:#f04452">' + m.up + "▲</span>/<span style='color:#3182f6'>" + m.down + "▼</span>"
-          + (m.upLimit ? '<span style="opacity:.6;font-size:10.5px"> 상한' + m.upLimit + "</span>" : "");
-      }
-      h += '<div style="font-size:12px;margin:0 0 8px"><span style="font-weight:600">📐 브레드스</span> <span style="opacity:.55;font-size:11px">(상승▲/하락▼ 종목수)</span> ';
-      br.days.forEach(function (day) {
-        h += '<span style="margin-left:10px;white-space:nowrap"><span style="opacity:.6">' + day.date.slice(5) + "</span> 코스피 " + adr(day.kospi) + " · 코스닥 " + adr(day.kosdaq) + "</span>";
-      });
-      h += "</div>";
       var nh = br.newHighs;
       if (nh && (nh.groups || []).length) {
         h += '<div style="font-size:12px;margin:-2px 0 10px"><span style="opacity:.65;margin-right:6px">신고가 근접 ' + nh.count + "종목</span>";
