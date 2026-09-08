@@ -7740,22 +7740,23 @@
     document.getElementById("wb-banner").classList.toggle("collapsed");
   };
   // ── 주간 브리핑 엑셀 다운로드 (2026-09-08) ──────────────────────────────────
-  // 단일 시트 '보고서 양식'(제목→섹션 순서 = 화면 배치) — 접힘(토글) 섹션(투자자별·
-  // 공매도대차·섹터x수급·신고가)은 생략(사용자 요청). SheetJS(cdnjs) 동적 로드,
-  // CDN 차단 시 UTF-8 BOM CSV 폴백. 데이터는 렌더에 쓴 _wbLast 그대로.
+  // 단일 시트 '보고서 양식' + 대시보드 다크 테마 셀 서식(xlsx-js-style — 셀 스타일
+  // 지원 SheetJS 포크). 접힘(토글) 섹션(투자자별·공매도대차·섹터x수급·신고가) 생략.
+  // CDN 차단(사내망) 시 UTF-8 BOM CSV 폴백(무서식). 데이터는 렌더에 쓴 _wbLast.
+  var _WB_COLS = 10;   // 보고서 폭 — 빈 칸까지 다크 배경을 채우는 기준
   function _wbReport(d) {
     var syn = d.synthesis || {};
     function n0(v) { return v == null ? "" : v; }
     function eok(v) { return v == null ? "" : Math.round(v / 100); }
-    var R = [];
-    function sec(title) { R.push([]); R.push([title]); }
-    function bullets(arr) { (arr || []).forEach(function (b) { R.push(["·", b]); }); }
+    var R = [], T = [];
+    function row(tag, arr) { R.push(arr); T.push(tag); }
+    function sec(title) { row("blank", []); row("sec", [title]); }
+    function bullets(arr) { (arr || []).forEach(function (b) { row("bullet", ["·", b]); }); }
 
-    R.push(["QUANT ANTIGRAVITY 주간 브리핑", d.weekStart + " ~ " + (d.weekEnd || "")]);
-    R.push(["생성 기준", d.asof || ""]);
-    if (syn.headline) R.push(["헤드라인", syn.headline]);
+    row("title", ["QUANT ANTIGRAVITY 주간 브리핑", d.weekStart + " ~ " + (d.weekEnd || "")]);
+    row("meta", ["생성 기준", d.asof || ""]);
+    if (syn.headline) row("meta", ["헤드라인", syn.headline]);
 
-    // 1. 주간 누적 수급(억) — 배너 상단 차트 라벨과 동일(일별 마감 수급 합산)
     var acc = {kospi: {}, kosdaq: {}};
     (d.days || []).forEach(function (day) {
       ["kospi", "kosdaq"].forEach(function (mk) {
@@ -7766,23 +7767,25 @@
       });
     });
     sec("1. 주간 누적 수급 (억원)");
-    R.push(["시장", "개인", "외국인", "기관"]);
+    row("hdr", ["시장", "개인", "외국인", "기관"]);
     ["kospi", "kosdaq"].forEach(function (mk) {
       var a = acc[mk];
-      R.push([mk === "kospi" ? "KOSPI" : "KOSDAQ",
-              a.individual != null ? Math.round(a.individual) : "",
-              a.foreign != null ? Math.round(a.foreign) : "",
-              a.institution != null ? Math.round(a.institution) : ""]);
+      row("data", [mk === "kospi" ? "KOSPI" : "KOSDAQ",
+                   a.individual != null ? Math.round(a.individual) : "",
+                   a.foreign != null ? Math.round(a.foreign) : "",
+                   a.institution != null ? Math.round(a.institution) : ""]);
     });
 
-    // 2. US 미국 주간 + US/KR 섹터 TOP3 (카드 섹션)
     sec("2. US 미국 주간 (모닝브리핑 전일 기준 누적, %)");
     var usKeys = Object.keys(d.usWeekly || {});
-    if (usKeys.length) { R.push(usKeys); R.push(usKeys.map(function (k) { return d.usWeekly[k]; })); }
+    if (usKeys.length) {
+      row("hdr", usKeys);
+      row("data", usKeys.map(function (k) { return d.usWeekly[k]; }));
+    }
     var usw = d.usSectorWeekly || {};
     function secLine(label, arr) {
       if (!(arr || []).length) return;
-      R.push([label].concat(arr.map(function (s) { return s.name + " " + (s.chg > 0 ? "+" : "") + s.chg + "%"; })));
+      row("data", [label].concat(arr.map(function (s) { return s.name + " " + (s.chg > 0 ? "+" : "") + s.chg + "%"; })));
     }
     secLine("US 상승 섹터 TOP3", usw.up); secLine("US 하락 섹터 TOP3", usw.down);
     var sfR = ((d.sectorFlow || {}).rows) || [];
@@ -7790,7 +7793,6 @@
     var krD = sfR.filter(function (r) { return r.chgPct < 0; }).slice(-3).reverse().map(function (r) { return {name: r.name, chg: r.chgPct}; });
     secLine("KR 상승 섹터 TOP3", krU); secLine("KR 하락 섹터 TOP3", krD);
 
-    // 3. 주간 주요 경제지표
     var ecRows = [];
     (d.days || []).forEach(function (day) {
       (day.usEcon || []).concat(day.koEcon || []).forEach(function (e) {
@@ -7802,87 +7804,120 @@
     });
     if (ecRows.length) {
       sec("3. 주간 주요 경제지표 — 시장 반영");
-      R.push(["날짜", "국가", "지표", "실제", "예상", "이전", "단위", "판정"]);
-      ecRows.forEach(function (r) { R.push(r); });
+      row("hdr", ["날짜", "국가", "지표", "실제", "예상", "이전", "단위", "판정"]);
+      ecRows.forEach(function (r) { row("data", r); });
     }
 
-    // 4. 일별 요약 (지수·브레드스·주도 섹터·반응 코멘트)
     var brM = {};
     ((d.breadth || {}).days || []).forEach(function (b) { brM[b.date] = b; });
     var dc = {};
     (syn.dailyContext || []).forEach(function (x) { if (x && x.date) dc[x.date] = x.note; });
     sec("4. 일별 요약");
-    R.push(["날짜", "코스피(%)", "코스피 ▲/▼", "코스닥(%)", "코스닥 ▲/▼", "주도 섹터", "전일 미국장 → 한국장 반응"]);
+    row("hdr", ["날짜", "코스피(%)", "코스피 ▲/▼", "코스닥(%)", "코스닥 ▲/▼", "주도 섹터", "전일 미국장 → 한국장 반응"]);
     (d.days || []).forEach(function (day) {
       var ks = ((day.indices || {}).kospi || {}), kq = ((day.indices || {}).kosdaq || {});
       var b = brM[day.date] || {}, bk = b.kospi || {}, bq = b.kosdaq || {};
       function adr(m) { return m.up == null ? "" : m.up + "▲/" + m.down + "▼" + (m.upLimit ? " 상한" + m.upLimit : ""); }
-      R.push([day.date, n0(ks.rate), adr(bk), n0(kq.rate), adr(bq),
-              (day.sectorsUp || []).slice(0, 2).map(function (s) { return s.name; }).join(", "),
-              dc[day.date] || ""]);
+      row("data", [day.date, n0(ks.rate), adr(bk), n0(kq.rate), adr(bq),
+                   (day.sectorsUp || []).slice(0, 2).map(function (s) { return s.name; }).join(", "),
+                   dc[day.date] || ""]);
     });
 
-    // 5. 주간 종합 코멘트
     if ((syn.weeklyComment || []).length) { sec("5. 주간 종합 코멘트 — 매크로·수급"); bullets(syn.weeklyComment); }
 
-    // 6. 투자자 합산 순매수 상위/하위 (카드 표 — 화면 노출분)
     var t = ((d.netbuyCum || {}).total) || {};
     if ((t.top || []).length || (t.bottom || []).length) {
       sec("6. 투자자 합산 순매수 상위/하위 (외인+기관계, 억원)");
-      R.push(["구분", "순위", "종목", "합산", "외인", "기관", "개인", "공매도", "대차잔고", "대차증감"]);
+      row("hdr", ["구분", "순위", "종목", "합산", "외인", "기관", "개인", "공매도", "대차잔고", "대차증감"]);
       [["순매수 상위", t.top], ["순매도 상위", t.bottom]].forEach(function (p) {
         (p[1] || []).forEach(function (e, i) {
-          R.push([p[0], i + 1, e.name, eok(e.amt), eok(e.frgn), eok(e.orgn), eok(e.prsn),
-                  n0(e.shortSum), n0(e.loanAmt), n0(e.loanChg)]);
+          row("data", [p[0], i + 1, e.name, eok(e.amt), eok(e.frgn), eok(e.orgn), eok(e.prsn),
+                       n0(e.shortSum), n0(e.loanAmt), n0(e.loanChg)]);
         });
       });
     }
 
-    // 7. 수급 상방/하방 관찰
     var wn0 = syn.watchNotes || {};
     if ((wn0.long || []).length || (wn0.short || []).length) {
       sec("7. 수급 관찰");
-      (wn0.long || []).forEach(function (e) { R.push(["상방 관찰", e.name, e.basis]); });
-      (wn0.short || []).forEach(function (e) { R.push(["하방 관찰", e.name, e.basis]); });
+      (wn0.long || []).forEach(function (e) { row("data", ["상방 관찰", e.name, e.basis]); });
+      (wn0.short || []).forEach(function (e) { row("data", ["하방 관찰", e.name, e.basis]); });
     }
 
-    // 8~9. 주간 흐름·섹터 테마
     if ((syn.weekNarrative || []).length) { sec("8. 주간 시장 흐름"); bullets(syn.weekNarrative); }
     if ((syn.sectorRotation || []).length) { sec("9. 섹터·테마 흐름"); bullets(syn.sectorRotation); }
 
-    // 10. 주간 촉매 타임라인
     var tl = syn.catalystTimeline || [];
     if (tl.length) {
       sec("10. 주간 촉매 타임라인 (등락률=주간 누적)");
-      R.push(["날짜", "종목", "시장", "별점", "등락률(%)", "내용"]);
+      row("hdr", ["날짜", "종목", "시장", "별점", "등락률(%)", "내용"]);
       tl.forEach(function (t0) {
-        R.push([n0(t0.date), t0.stock || "—", n0(t0.market),
-                t0.star != null ? "★".repeat(t0.star) : "", n0(t0.changePct), n0(t0.event)]);
+        row("data", [n0(t0.date), t0.stock || "—", n0(t0.market),
+                     t0.star != null ? "★".repeat(t0.star) : "", n0(t0.changePct), n0(t0.event)]);
       });
     }
 
-    // 11. 다음 주 프리뷰
     if ((syn.nextWeekPreview || []).length) { sec("11. 다음 주 프리뷰"); bullets(syn.nextWeekPreview); }
-    return R;
+    return {rows: R, tags: T};
   }
   window.wbExport = function () {
     if (!_wbLast) { alert("주간 브리핑 데이터가 아직 로드되지 않았습니다."); return; }
-    var d = _wbLast, rows = _wbReport(d);
+    var d = _wbLast, rep = _wbReport(d);
     var fname = "weekly_briefing_" + d.weekStart + "_" + (d.weekEnd || "");
     function xlsxGo() {
-      var ws = XLSX.utils.aoa_to_sheet(rows);
-      ws["!cols"] = [{wch: 16}, {wch: 14}, {wch: 14}, {wch: 12}, {wch: 14},
-                     {wch: 24}, {wch: 90}, {wch: 12}, {wch: 12}, {wch: 12}];
+      var rows = rep.rows, tags = rep.tags;
+      var aoa = rows.map(function (r) { var c = r.slice(); while (c.length < _WB_COLS) c.push(""); return c; });
+      var ws = XLSX.utils.aoa_to_sheet(aoa);
+      // 대시보드 다크 팔레트 — 배경/카드/헤더, 상승 빨강·하락 파랑, 앰버 섹션, 티일 타이틀
+      var C = {bg: "0F172A", card: "1E293B", hdr: "334155", text: "E2E8F0",
+               mut: "94A3B8", up: "F04452", down: "5B9CF6", amber: "FBBF24", teal: "2DD4BF"};
+      function st(fill, color, bold, size, wrap, align) {
+        return {fill: {patternType: "solid", fgColor: {rgb: fill}},
+                font: {name: "맑은 고딕", sz: size || 10.5, bold: !!bold, color: {rgb: color}},
+                alignment: {vertical: "top", wrapText: !!wrap, horizontal: align || "left"}};
+      }
+      var SIGNED_RE = /%|합산|외인|기관|개인|등락|누적|증감|실제|예상|이전|개인|외국인/;
+      var signed = [];
+      for (var r0 = 0; r0 < aoa.length; r0++) {
+        var tag = tags[r0];
+        if (tag === "hdr") {
+          signed = [];
+          rows[r0].forEach(function (hd, i) { if (SIGNED_RE.test(String(hd))) signed.push(i); });
+        }
+        for (var c0 = 0; c0 < _WB_COLS; c0++) {
+          var addr = XLSX.utils.encode_cell({r: r0, c: c0});
+          var cell = ws[addr] || (ws[addr] = {v: "", t: "s"});
+          var isNum = typeof cell.v === "number";
+          var s;
+          if (tag === "title") s = st(C.bg, C.teal, true, c0 === 0 ? 15 : 11.5);
+          else if (tag === "meta") s = st(C.bg, c0 === 0 ? C.mut : C.text, c0 > 0, 10.5);
+          else if (tag === "sec") s = st(C.card, C.amber, true, 12);
+          else if (tag === "hdr") s = st(C.hdr, C.mut, true, 10.5);
+          else if (tag === "bullet") s = st(C.bg, c0 === 0 ? C.amber : C.text, false, 10.5, c0 === 1);
+          else {
+            var col = C.text;
+            if (tag === "data" && isNum && cell.v !== 0 && signed.indexOf(c0) >= 0)
+              col = cell.v > 0 ? C.up : C.down;
+            s = st(C.bg, col, false, 10.5,
+                   !isNum && String(cell.v || "").length > 45,
+                   isNum ? "right" : "left");
+          }
+          cell.s = s;
+        }
+      }
+      ws["!cols"] = [{wch: 15}, {wch: 13}, {wch: 16}, {wch: 12}, {wch: 15},
+                     {wch: 24}, {wch: 95}, {wch: 11}, {wch: 11}, {wch: 11}];
       var wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "주간 브리핑");
       XLSX.writeFile(wb, fname + ".xlsx");
     }
-    if (window.XLSX) return xlsxGo();
+    if (window.XLSX && window.XLSX.__style) return xlsxGo();
     var sc = document.createElement("script");
-    sc.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
-    sc.onload = xlsxGo;
-    sc.onerror = function () {   // CDN 차단(사내망) — UTF-8 BOM CSV 폴백(엑셀 호환)
-      var csv = "\uFEFF" + rows.map(function (row) {
+    // xlsx-js-style — 셀 서식(폰트·채움·정렬) 지원 SheetJS 포크
+    sc.src = "https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.full.min.js";
+    sc.onload = function () { window.XLSX.__style = true; xlsxGo(); };
+    sc.onerror = function () {   // CDN 차단(사내망) — UTF-8 BOM CSV 폴백(무서식)
+      var csv = "\uFEFF" + rep.rows.map(function (row) {
         return row.map(function (c) {
           c = String(c == null ? "" : c);
           return /[",\n]/.test(c) ? '"' + c.replace(/"/g, '""') + '"' : c;
