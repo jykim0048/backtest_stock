@@ -7585,6 +7585,25 @@
         "</td><td style='padding-left:8px;color:#fff'>" + note + "</td></tr>";
     });
     h += "</table>";
+    // 신고가 근접 — 일별 표 우측 하단 앰버 접힘(2026-09-08 사용자 요청). ETF/ETN 은
+    // 제외 — 생성기에서도 거르지만 필터 도입 전 산출물(9/8 오전분) 방어용 동일 필터.
+    var _etfRe = /^(KODEX|TIGER|SOL|KBSTAR|RISE|ACE|PLUS|HANARO|KOSEF|ARIRANG|KIWOOM|UNICORN)\b|액티브|레버리지|인버스|ETN/i;
+    var nh = (d.breadth || {}).newHighs;
+    if (nh && (nh.groups || []).length) {
+      var nhGroups = nh.groups.map(function (g) {
+        return {sector: g.sector, stocks: (g.stocks || []).filter(function (n) { return !_etfRe.test(n); })};
+      }).filter(function (g) { return g.stocks.length; });
+      var nhCnt = nhGroups.reduce(function (a, g) { return a + g.stocks.length; }, 0);
+      if (nhGroups.length) {
+        var nhChips = nhGroups.map(function (g) {
+          return '<span style="border:1px solid #fbbf2444;background:#fbbf2410;color:#fbbf24;border-radius:10px;padding:1px 8px;font-size:11.5px;white-space:nowrap;margin:2px 5px 2px 0;display:inline-block">'
+            + esc(g.sector) + " " + g.stocks.map(esc).join("·") + "</span>";
+        }).join("");
+        h += '<details class="flow-details" style="margin:-6px 0 8px"><summary style="text-align:right">신고가 근접 ' + nhCnt + '종목 (ETF 제외) ▾</summary>'
+          + '<div style="margin-top:6px;font-size:12px">' + nhChips
+          + '<div style="opacity:.45;font-size:10.5px;margin-top:2px">최신 거래일 기준 · 52주 신고가 대비 1% 이내 (KIS 랭킹)</div></div></details>';
+      }
+    }
     // 주간 종합 코멘트 — 일별 반응 코멘트 표 바로 아래 (매크로=주간 경제지표,
     // 수급=섹터×수급 매트릭스 근거 — 2026-09-08 사용자 요청)
     if ((syn.weeklyComment || []).length) {
@@ -7598,19 +7617,7 @@
       return s + "</ul>";
     }
     // (구 '주간 상승/하락 섹터' 지속성 칩 라인은 상단 US/KR 매트릭스로 대체 — 2026-09-08)
-    // 신고가 근접 섹터 그룹 (일별 브레드스 수치는 위 일별 표 컬럼으로 이동 — 2026-09-08)
-    var br = d.breadth;
-    if (br && (br.days || []).length) {
-      var nh = br.newHighs;
-      if (nh && (nh.groups || []).length) {
-        h += '<div style="font-size:12px;margin:-2px 0 10px"><span style="opacity:.65;margin-right:6px">신고가 근접 ' + nh.count + "종목</span>";
-        nh.groups.forEach(function (g) {
-          h += '<span style="border:1px solid #fbbf2444;background:#fbbf2410;color:#fbbf24;border-radius:10px;padding:1px 8px;font-size:11.5px;white-space:nowrap;margin-right:5px">'
-            + esc(g.sector) + " " + g.stocks.map(esc).join("·") + "</span>";
-        });
-        h += "</div>";
-      }
-    }
+    // (신고가 근접은 일별 표 아래 앰버 접힘으로 이동 — 2026-09-08)
     // 섹터 x 수급 매트릭스 — 업종별 주간 등락 vs 투자자 순매수 (KIS 업종, 억원)
     var sfm = d.sectorFlow;
     if (sfm && (sfm.rows || []).length) {

@@ -21,6 +21,7 @@
   --local  서버 대신 로컬 public/ 파일에서 읽기
 """
 import os
+import re
 import sys
 import json
 import datetime
@@ -201,6 +202,17 @@ RANK_DIR = os.path.join(ROOT, "public", "reports", "netbuy_rank")
 
 BREADTH_DIR = os.path.join(ROOT, "public", "reports", "breadth")
 
+# 신고가 근접에서 ETF/ETN 제외(2026-09-08 사용자 요청) — KIS near-new-highlow 는
+# 상장 전체 대상이라 브랜드 접두(KODEX 등)·액티브/레버리지류 상품이 섞여 나온다.
+_ETF_RE = re.compile(
+    r"^(KODEX|TIGER|SOL|KBSTAR|RISE|ACE|PLUS|HANARO|KOSEF|ARIRANG|KIWOOM|UNICORN|"
+    r"마이다스|에셋플러스|TIMEFOLIO|KoAct|WON|BNK|HK|DAISHIN343)\b"
+    r"|액티브|레버리지|인버스|ETN", re.IGNORECASE)
+
+
+def _is_etf_name(name):
+    return bool(_ETF_RE.search(str(name or "")))
+
 
 def _snapshot_breadth(today):
     """허브 /breadth(등락 종목수 + 신고가 근접)를 당일 키로 아카이브 — 주간 ADR
@@ -221,7 +233,9 @@ def _snapshot_breadth(today):
         return
     os.makedirs(BREADTH_DIR, exist_ok=True)
     snap = {"date": today, "asof": d.get("asof"),
-            "counts": counts, "newHighs": d.get("newHighs") or []}
+            "counts": counts,
+            "newHighs": [x for x in (d.get("newHighs") or [])
+                         if not _is_etf_name(x.get("name"))]}
     with open(os.path.join(BREADTH_DIR, f"{today}.json"), "w", encoding="utf-8") as f:
         json.dump(snap, f, ensure_ascii=False, indent=1)
     idx_path = os.path.join(BREADTH_DIR, "index.json")
@@ -251,7 +265,9 @@ def _breadth_weekly(dates):
     if not rows:
         return None
     out = {"days": rows}
-    highs = (latest or {}).get("newHighs") or []
+    # ETF 제외 — 스냅샷 단계에서도 거르지만, 필터 도입 전 저장분(9/8 등) 방어
+    highs = [x for x in ((latest or {}).get("newHighs") or [])
+             if not _is_etf_name(x.get("name"))]
     if highs:
         # 섹터 그룹핑 — krx_sector_map (보통주 폴백)
         sec = {}
