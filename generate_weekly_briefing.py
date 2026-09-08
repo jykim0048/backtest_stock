@@ -70,6 +70,15 @@ def _week_dates(base_date):
 # ---------------------------------------------------------------------------
 # 일별 압축 추출 — LLM 프롬프트에 넣을 2~3KB 요약 (regime/모의투자 제외)
 # ---------------------------------------------------------------------------
+def _econ_row(e, nation):
+    """경제지표 행 축약 — 주간 브리핑 표기/LLM 입력 공용."""
+    r = {k: e.get(k) for k in ("name", "importance", "actual", "forecast",
+                               "previous", "unit", "unitScale", "surprise")
+         if e.get(k) is not None}
+    r["nation"] = nation
+    return r
+
+
 def _day_summary(date_str):
     morning = _fetch(f"briefing/{date_str}.json")
     intraday = _fetch(f"reports/intraday_briefing/{date_str}.json")
@@ -86,18 +95,25 @@ def _day_summary(date_str):
         us = morning.get("usMarket") or {}
         day["usIndices"] = [{"name": i.get("name"), "changePct": i.get("changePct")}
                             for i in (us.get("indices") or [])[:5]]
+        # 미국 섹터 히트(섹터 ETF 일별 등락) — 주간 누적 상위/하위 섹터 집계 입력
+        day["usSectors"] = [{"name": s.get("name"), "changePct": s.get("changePct")}
+                            for s in (us.get("sectors") or [])
+                            if s.get("name") and isinstance(s.get("changePct"), (int, float))]
         day["usCatalystsTop"] = [
             {"stock": c.get("stock"), "direction": c.get("direction"),
              "summary": (c.get("summary") or "")[:120]}
             for c in (morning.get("usCatalysts") or [])[:5]]
-        # 전일 미국 경제지표 — 시장 영향력 큰 것(★3 이상)만 (실업률·비농업고용 등,
-        # 2026-09-08 사용자 요청). actual 없는 행(발표 전/이월 공백)은 제외.
-        day["usEcon"] = [
-            {k: e.get(k) for k in ("name", "importance", "actual", "forecast",
-                                   "previous", "unit", "unitScale", "surprise")
-             if e.get(k) is not None}
-            for e in ((morning.get("econEvents") or {}).get("usReleased") or [])
-            if (e.get("importance") or 0) >= 3 and e.get("actual") is not None]
+        # 전일 미국 경제지표 — '시장에 의미있게 반영된' 지표만: 모닝브리핑 usReview
+        # 불릿에 지표명이 언급된 것(별점 무관 — 2026-09-08 사용자 요청 개편, 예: 9/7
+        # 실업률·비농업고용). 언급 매칭 실패 시 별점(★3+) 폴백. actual 없는 행 제외.
+        rev_txt = "".join(day["usReview"]).replace(" ", "")
+        released = [e for e in ((morning.get("econEvents") or {}).get("usReleased") or [])
+                    if e.get("actual") is not None]
+        picked = [e for e in released
+                  if (e.get("name") or "").replace(" ", "") in rev_txt]
+        if not picked:
+            picked = [e for e in released if (e.get("importance") or 0) >= 3]
+        day["usEcon"] = [_econ_row(e, "USA") for e in picked]
 
     closing = None
     for r in reversed((intraday or {}).get("rounds") or []):
@@ -138,6 +154,14 @@ def _day_summary(date_str):
         day["disclosures"] = [
             {"corp": x.get("corp"), "title": (x.get("title") or "")[:60]}
             for x in (closing.get("disclosures") or [])[:4]]
+    # 당일 발표 한국 경제지표 — 장중 회차 econEvents.korReleasedToday(값 확정분)에서
+    # ★3 이상만 (한국은 시황 불릿 언급이 드물어 별점 기준 유지). 뒤 회차부터 탐색.
+    for r in reversed((intraday or {}).get("rounds") or []):
+        kr = [e for e in ((r.get("econEvents") or {}).get("korReleasedToday") or [])
+              if (e.get("importance") or 0) >= 3 and e.get("actual") is not None]
+        if kr:
+            day["koEcon"] = [_econ_row(e, "KOR") for e in kr]
+            break
     ft = _day_flow_top(date_str)
     if ft:
         day["flowTop"] = ft
@@ -447,6 +471,7 @@ _SCHEMA = {
         "dailyContext": {"type": "array", "items": {"type": "object", "properties": {
             "date": {"type": "string"}, "note": {"type": "string"}},
             "required": ["date", "note"]}},
+        "weeklyComment": {"type": "array", "items": {"type": "string"}},
         "nextWeekPreview": {"type": "array", "items": {"type": "string"}},
         "watchNotes": {"type": "object", "properties": {
             "long": {"type": "array", "items": {"type": "object", "properties": {
@@ -477,6 +502,10 @@ _SYSTEM = (
     " 그 날 모닝브리핑 스탠스(stance·stanceReason)의 논조를 기준점으로 삼아 방향이"
     " 일치하게 쓰되, 실제 장 반응이 스탠스와 달랐다면 '신중 스탠스에도 불구하고 ~ 급등'"
     " 처럼 그 괴리를 명시적으로 연결하라 (스탠스 근거를 무시한 반대 논조 금지)"
+    "\n- weeklyComment: 주간 종합 코멘트 2~4개 불릿 — ① econWeekly(이번 주 발표된"
+    " 미국·한국 경제지표의 실제치와 서프라이즈)로 매크로 환경을, ② sectorFlowWeekly"
+    "(섹터×수급 매트릭스 — 업종별 주간 등락·투자자 순매수, 억원)로 수급 구도를 짚고"
+    " 둘을 잇는 종합 관점으로 마무리. 매크로와 수급 위주로, 숫자는 입력값 그대로 인용"
     "\n- nextWeekPreview: 시나리오형 대응 관점 4~6개 불릿 —"
     " ① 다음 주 전개 시나리오 2개를 '~하면 ~ 전개' 조건부 구조로 (예: '반도체 조정에도"
     " 비테크·브레드스가 버티면 로테이션 지속, 함께 무너지면 단기 리스크오프') ② 두 시나리오를"
@@ -525,6 +554,17 @@ def main():
             nm, ch = i.get("name"), i.get("changePct")
             if nm and isinstance(ch, (int, float)):
                 us_weekly[nm] = round(us_weekly.get(nm, 0.0) + ch, 2)
+    # ①b 미국 섹터 ETF 주간 누적(일별 등락 단순 합산) 상위/하위 3
+    us_sec = {}
+    for d in days:
+        for s in (d.get("usSectors") or []):
+            us_sec[s["name"]] = round(us_sec.get(s["name"], 0.0) + s["changePct"], 2)
+    us_sector_weekly = None
+    if us_sec:
+        ranked = sorted(us_sec.items(), key=lambda x: -x[1])
+        us_sector_weekly = {
+            "up": [{"name": n, "chg": v} for n, v in ranked[:3] if v > 0],
+            "down": [{"name": n, "chg": v} for n, v in ranked[-3:][::-1] if v < 0]}
 
     # ② 공매도·대차 주간 동향 — netbuy_rank 유니버스 한정 (억원)
     short_loan = None
@@ -628,6 +668,10 @@ def main():
                          "orgnEok": round((r.get("orgn") or 0) / 100)}
                         for r in (rows or [])]
             total = (netbuy_cum or {}).get("total") or {}
+            # 주간 발표 경제지표(US/KOR) — weeklyComment 매크로 근거
+            econ_weekly = [{"date": d["date"], **e}
+                           for d in days
+                           for e in (d.get("usEcon") or []) + (d.get("koEcon") or [])]
             user = json.dumps({
                 "days": days, "nextWeekEvents": preview,
                 # Phase 3 관찰 노트 근거 — 주간 결정적 집계 (전부 억원 단위)
@@ -635,6 +679,7 @@ def main():
                 "netbuyTotalTop": _eok(total.get("top")),
                 "netbuyTotalBottom": _eok(total.get("bottom")),
                 "shortLoan": short_loan,
+                "econWeekly": econ_weekly,
             }, ensure_ascii=False)
             try:
                 synthesis, generated_by = llm.generate_json(
@@ -668,10 +713,12 @@ def main():
                   "investors": d.get("investors") or {},
                   "sectorsUp": d.get("sectorsUp") or [],
                   "sectorsDown": d.get("sectorsDown") or [],
-                  "usEcon": d.get("usEcon") or [],   # 전일 미국 주요 지표(★3+)
+                  "usEcon": d.get("usEcon") or [],   # 전일 미국 지표(usReview 언급 기반)
+                  "koEcon": d.get("koEcon") or [],   # 당일 한국 지표(★3+)
                   "catalysts": (d.get("catalysts") or [])[:3]} for d in days],
         "netbuyCum": netbuy_cum,        # 주체별(외인/기관/연기금) 주간 누적 순매수 상/하위
         "usWeekly": us_weekly,          # 미국 지수 주간 누적 등락(모닝브리핑 전일 기준 합산)
+        "usSectorWeekly": us_sector_weekly,  # 미국 섹터 ETF 주간 누적 상위/하위 3
         "shortLoan": short_loan,        # 공매도 누적·대차잔고 증감 상위 (랭킹 유니버스 한정)
         "sectorWeekly": sector_weekly,  # 섹터 주간 지속성 (등장 일수·평균 등락)
         "sectorFlow": sector_flow,      # 섹터 x 수급 매트릭스 (업종별 주간 등락·투자자 순매수, 억)
