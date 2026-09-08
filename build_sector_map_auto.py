@@ -101,6 +101,25 @@ def _parse_mst(name, verify=True):
         except ValueError:
             cap = 0.0
         out.append({"code": code, "name": kname, "big": big, "mid": mid, "cap": cap})
+    # 진단 프로브(2026-09-09): SECTOR_PROBE=코드,코드 — 원시 필드/고정부 덤프.
+    # (지엘팜텍 204840 이 HTS 상 '유통'인데 전 종목 맵에서 빠짐 — 미분류인지
+    #  파싱 오프셋 문제인지 클라우드 로그로 판별)
+    probes = set(os.environ.get("SECTOR_PROBE", "").replace(" ", "").split(","))
+    if probes:
+        for s in out:
+            if s["code"] in probes:
+                print(f"  [probe {name}] {s['code']} {s['name']} big={s['big']!r} "
+                      f"mid={s['mid']!r} cap={s['cap']}", file=sys.stderr)
+        hit = {s["code"] for s in out}
+        for p in probes:
+            if p and p not in hit:
+                for row in rows:
+                    if row[:9].strip() == p:
+                        print(f"  [probe {name}] {p} 파싱 제외됨 — p2 앞부분: "
+                              f"{row[-tail:][:30]!r}", file=sys.stderr)
+                        break
+                else:
+                    print(f"  [probe {name}] {p} 마스터에 행 없음", file=sys.stderr)
     return out
 
 
