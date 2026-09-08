@@ -805,8 +805,22 @@ def main():
         base = FLOW_RANK_URL.rsplit("/", 1)[0]
         req = urllib.request.Request(f"{base}/sector-flow",
                                      headers={"User-Agent": "weekly-briefing"})
-        with urllib.request.urlopen(req, timeout=90) as r:
-            sf = json.loads(r.read().decode("utf-8"))
+        # 마감 직후 콜드 캐시는 26업종 KIS 콜로 느릴 수 있다(2026-09-08 16:13 타임아웃
+        # 실측). 허브는 클라이언트가 끊겨도 수집을 마쳐 10분 캐시에 저장하므로,
+        # 타임아웃을 넉넉히 + 실패 시 1회 재시도(캐시 히트)로 복구한다.
+        sf = None
+        for attempt in (1, 2):
+            try:
+                with urllib.request.urlopen(req, timeout=150) as r:
+                    sf = json.loads(r.read().decode("utf-8"))
+                break
+            except Exception as ex:
+                if attempt == 2:
+                    raise
+                print(f"[weekly] sector-flow 1차 실패({ex}) — 45초 후 재시도(허브 캐시)",
+                      file=sys.stderr)
+                import time as _t
+                _t.sleep(45)
         want = {dt.strftime("%Y%m%d") for dt in dates}
         rows = []
         for s in (sf.get("sectors") or []):
