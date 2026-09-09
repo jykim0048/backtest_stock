@@ -19,6 +19,8 @@ from copy import copy
 
 import openpyxl
 from openpyxl.utils import get_column_letter
+from openpyxl.styles import Color, PatternFill
+from openpyxl.formatting.rule import DataBarRule
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 
@@ -117,22 +119,31 @@ class Builder:
         for k, (r, c) in P.items():
             self.styles[k] = self.t.cell(r, c)
 
-    def start(self, ws):
+    def start(self, ws, widths=None):
+        """widths: 시트별 역할 기반 열너비(dict, 미지정 시 본 시트 _W).
+        열 수(maxc)도 widths 로 정해진다 — 상세 탭의 A:K 등 가변 폭 지원."""
         self.ws = ws
         self.r = 1
         self.merges = []
         self.heights = {}
-        for col, w in _W.items():
+        self.w = dict(widths or _W)
+        self.maxc = len(self.w)
+        for col, w in self.w.items():
             ws.column_dimensions[col].width = w
 
-    def cell(self, c, v, proto, num=None, wrap=False):
-        """proto 스타일 복사 셀. num='sign'이면 부호색, wrap=True 면 줄바꿈 강제."""
+    def cell(self, c, v, proto, num=None, wrap=False, fmt=None, align=None):
+        """proto 스타일 복사 셀. num='sign'이면 부호색, wrap=True 면 줄바꿈 강제.
+        fmt=숫자서식 오버라이드(값은 숫자 그대로 유지), align=수평정렬 오버라이드."""
         if num == "sign" and isinstance(v, (int, float)):
             proto = "num_pos" if v > 0 else "num_neg" if v < 0 else "econ_cell"
         p = self.styles[proto]
         d = self.ws.cell(self.r, c, v if v is not None else "")
         d.font, d.fill, d.border = copy(p.font), copy(p.fill), copy(p.border)
         d.alignment, d.number_format = copy(p.alignment), p.number_format
+        if fmt:
+            d.number_format = fmt
+        if align:
+            a = copy(d.alignment); a.horizontal = align; d.alignment = a
         if wrap and not d.alignment.wrap_text:
             a = copy(d.alignment); a.wrapText = True; d.alignment = a
         return d
@@ -145,7 +156,8 @@ class Builder:
         self.merges.append((self.r, c1, self.r, c2))
 
     def wrap_h(self, text, c1, c2):
-        h = _hpt(text, _cpl(c1, c2))
+        total = sum(self.w[get_column_letter(c)] for c in range(c1, c2 + 1))
+        h = _hpt(text, max(8, int(total / 2 * 0.95)))
         self.heights[self.r] = max(self.heights.get(self.r, 15.0), h)
 
     def nl(self, n=1, height=None):
@@ -156,16 +168,16 @@ class Builder:
     def chip(self, no, title, cap="", cap_col=None, cap_right=False):
         self.cell(1, no, "chip")
         self.cell(2, title, "sect")
-        for c in range(3, 11):
+        for c in range(3, self.maxc + 1):
             self.cell(c, "", "sect")
         if cap:
-            col = cap_col or (10 if cap_right else 4)
+            col = cap_col or (self.maxc if cap_right else 4)
             self.cell(col, cap, "cap")
         self.nl()
 
-    def hdr_row(self, labels, merge_last_to=None):
+    def hdr_row(self, labels, merge_last_to=None, align=None):
         for i, h in enumerate(labels):
-            self.cell(i + 1, h, "hdr")
+            self.cell(i + 1, h, "hdr", align=align)
         last = len(labels)
         end = merge_last_to or last
         for c in range(last + 1, end + 1):
@@ -183,19 +195,19 @@ class Builder:
             merged_at[(r1, c1)] = (c1, c2)
             for c in range(c1 + 1, c2 + 1):
                 inside.add((r1, c))
-        for row in ws.iter_rows(min_row=1, max_row=ws.max_row, max_col=10):
+        for row in ws.iter_rows(min_row=1, max_row=ws.max_row, max_col=self.maxc):
             for cell in row:
                 v = cell.value
                 if v in (None, "") or (cell.row, cell.column) in inside:
                     continue
                 c1, c2 = merged_at.get((cell.row, cell.column),
                                        (cell.column, cell.column))
-                span = sum(_W[get_column_letter(c)] for c in range(c1, c2 + 1))
+                span = sum(self.w[get_column_letter(c)] for c in range(c1, c2 + 1))
                 need = _disp_w(v)
                 if need <= span:
                     continue
                 if not cell.alignment.wrap_text:
-                    nxt = ws.cell(cell.row, c2 + 1).value if c2 < 10 else None
+                    nxt = ws.cell(cell.row, c2 + 1).value if c2 < self.maxc else None
                     if nxt in (None, ""):
                         continue            # 오른쪽이 비어 overflow 표시 — 잘림 아님
                     a = copy(cell.alignment); a.wrapText = True; cell.alignment = a
@@ -563,132 +575,214 @@ def build(d):
 
 
 def add_detail_sheets(wb, b, d):
-    """대시보드에서 토글로 접힌 섹션들을 별도 탭으로 — 본 시트와 동일 프로토 양식.
-    (2026-09-09 사용자 요청: 신고가 근접·투자자별 누적 순매수·공매도/대차·섹터x수급)
-    데이터가 없는 섹션의 탭은 만들지 않는다. Builder.start 가 시트별 상태를 초기화."""
-    syn = d.get("synthesis") or {}
+    """대시보드에서 토글로 접힌 섹션들을 별도 탭으로 — 본 시트 디자인 시스템 준수.
+    (2026-09-09 사용자 스펙: 시트별 역할 기반 열너비·#,##0 숫자서식·정렬 규칙·
+    틀 고정·자동 필터·조건부 강조(근접도 단계/동반 수급/대차 방향/신호). 값은
+    숫자 그대로(문자열 변환·단위 변환 금지), 데이터 없는 섹션의 탭은 만들지 않음."""
+    F_EOK = "+#,##0;-#,##0;0"            # 부호 있는 억원 정수 (순매수 흐름)
+    F_INT = "#,##0"                      # 무부호 정수 (공매도 누적·대차잔고)
+    F_PCT = "+0.0;-0.0;0.0"              # 부호 있는 % (저장값 그대로, 표시만)
+    F_EOK1 = "#,##0.0"                   # 억원 소수 1자리
+    F_EOK1S = "+#,##0.0;-#,##0.0;0.0"
+    TEAL, TEAL_BG = "FF0B7F8C", "FFEAF8FA"   # 본 시트 섹션 강조색과 동일 계열
+
+    # 역할 기반 열너비 — 종목명 최광, 시장/순위/신호 좁게, 숫자 중간, H~J는
+    # 기간(23자·46wch/2) 표시 폭 확보 겸용. len(dict)=시트 열 수(maxc).
+    W_NH = {"A": 30.0, "B": 9.0, "C": 10.5, "D": 10.5, "E": 10.5, "F": 10.5,
+            "G": 10.5, "H": 11.5, "I": 11.5, "J": 13.0, "K": 13.5}
+    W_INV = {"A": 12.9, "B": 6.5, "C": 30.0, "D": 13.0, "E": 10.0, "F": 10.0,
+             "G": 10.0, "H": 12.9, "I": 13.0, "J": 13.0}
+    W_SL = {"A": 6.5, "B": 30.0, "C": 14.0, "D": 13.0, "E": 10.0, "F": 10.0,
+            "G": 10.0, "H": 12.9, "I": 13.0, "J": 13.0}
+    W_SEC = {"A": 20.5, "B": 12.0, "C": 10.5, "D": 10.5, "E": 10.5, "F": 10.5,
+             "G": 12.0, "H": 12.9, "I": 13.0, "J": 13.0}
 
     def eok(v):
         return "" if v is None else round(v / 100)
 
-    def new_sheet(name):
+    def bold(cell, color=None):
+        f = copy(cell.font)
+        f.bold = True
+        if color:
+            f.color = Color(rgb=color)
+        cell.font = f
+
+    period = d.get("weekStart", "") + " ~ " + d.get("weekEnd", "")
+
+    def new_sheet(name, widths):
         idx = wb.sheetnames.index(RAW_SHEET)   # 원본 데이터 앞에 순서대로 삽입
         ws2 = wb.create_sheet(name, idx)
-        b.start(ws2)
-        # 공통 헤더 바 — 본 시트와 동일한 네이비 타이틀 + 우측 기간
+        b.start(ws2, widths)
+        mc = b.maxc
+        # 공통 헤더 바 — 시트명 좌측 + 기간 우측(마지막 2열 병합, 잘림 금지)
         b.cell(1, name, "title")
-        for c in range(2, 8):
+        for c in range(2, mc - 2):
             b.cell(c, "", "navy_fill")
-        b.merges.append((1, 1, 1, 7))
-        b.cell(8, "기간", "meta_label")
-        b.cell(9, d.get("weekStart", "") + " ~ " + d.get("weekEnd", ""), "meta_val")
-        b.cell(10, "", "meta_val"); b.mg(9, 10)
+        b.merges.append((1, 1, 1, mc - 3))
+        b.cell(mc - 2, "기간", "meta_label")
+        b.cell(mc - 1, period, "meta_val")
+        b.cell(mc, "", "meta_val"); b.mg(mc - 1, mc)
         b.nl(1, 20.25); b.nl()
         return ws2
 
     def note(text):
         b.cell(1, text, "cap")
-        for c in range(2, 11):
+        for c in range(2, b.maxc + 1):
             b.cell(c, "", "cap")
-        b.mg(1, 10); b.nl()
+        b.mg(1, b.maxc); b.nl()
 
-    # ── 탭 1: 52주 신고가 근접 (대시보드 카드와 동일 컬럼) ──────────────────
+    # ── 탭 1: 52주 신고가 근접 — 랭킹/스크리너 표 (A:K) ─────────────────────
     nh = ((d.get("breadth") or {}).get("newHighs") or {}).get("stocks") or []
     if nh:
-        new_sheet("신고가 근접")
-        b.chip("D1", "52주 신고가 근접", cap="수급=주간 누적(억)", cap_col=9)
-        b.hdr_row(["종목", "시장", "합산", "외인", "기관", "개인", "공매도(억)",
-                   "대차잔고(증감,억)", "등락률(주간,%)", "신고가 대비(%)"])
-        for s in nh:
-            total = ((s.get("frgn") or 0) + (s.get("orgn") or 0)
-                     if (s.get("frgn") is not None or s.get("orgn") is not None) else None)
-            loan = "" if s.get("loanAmt") is None else (
-                f"{round(s['loanAmt']):,}" + (f" ({s['loanChg']:+,.0f})" if s.get("loanChg") else ""))
-            b.cell(1, _with_sector(s.get("name", ""), s.get("code")), "nb_cell")
-            b.cell(2, s.get("market") or "", "nb_cell")
-            b.cell(3, eok(total) if total is not None else "", "num_pos", num="sign")
-            b.cell(4, eok(s.get("frgn")), "nb_cell")
-            b.cell(5, eok(s.get("orgn")), "nb_cell")
-            b.cell(6, eok(s.get("prsn")), "nb_cell")
-            b.cell(7, s.get("shortSum", ""), "nb_cell")
-            b.cell(8, loan, "nb_cell")
-            b.cell(9, s.get("weekChgPct", ""), "num_pos", num="sign")
-            b.cell(10, -s["nearRate"] if s.get("nearRate") else (0 if s.get("nearRate") == 0 else ""), "econ_cell")
-            b.nl()
+        ws2 = new_sheet("신고가 근접", W_NH)
+        b.chip("D1", "52주 신고가 근접", cap="단위: 억원, %", cap_col=9)
+        # 컬럼 그룹 헤더 — 종목 정보 / 수급 / 신고가 정보 (네이비 밴드로 구분)
+        for c1, c2, t in ((1, 2, "종목 정보"), (3, 9, "수급 (주간 누적, 억원)"),
+                          (10, 11, "신고가 정보")):
+            b.cell(c1, t, "chip")
+            for c in range(c1 + 1, c2 + 1):
+                b.cell(c, "", "chip")
+            b.mg(c1, c2)
         b.nl()
-        note("최신 거래일 기준 · 52주 신고가 대비 -10% 이내 (KIS 랭킹) · ETF·ETN 제외 · 수급=주간 누적 확정(억원)")
+        b.hdr_row(["종목", "시장", "합산", "외인", "기관", "개인", "공매도",
+                   "대차잔고", "대차증감", "주간등락(%)", "신고가대비(%)"], align="center")
+        for s in nh:
+            frgn, orgn = s.get("frgn"), s.get("orgn")
+            total = ((frgn or 0) + (orgn or 0)
+                     if (frgn is not None or orgn is not None) else None)
+            near = s.get("nearRate")
+            name_c = b.cell(1, _with_sector(s.get("name", ""), s.get("code")), "nb_cell")
+            b.cell(2, s.get("market") or "", "econ_cell", align="center")
+            tot_c = b.cell(3, eok(total) if total is not None else "",
+                           "econ_cell", num="sign", fmt=F_EOK)
+            b.cell(4, eok(frgn), "econ_cell", num="sign", fmt=F_EOK)
+            b.cell(5, eok(orgn), "econ_cell", num="sign", fmt=F_EOK)
+            b.cell(6, eok(s.get("prsn")), "econ_cell", num="sign", fmt=F_EOK)
+            b.cell(7, s.get("shortSum") if s.get("shortSum") is not None else "",
+                   "econ_cell", fmt=F_INT, align="right")
+            b.cell(8, s.get("loanAmt") if s.get("loanAmt") is not None else "",
+                   "econ_cell", fmt=F_INT, align="right")
+            b.cell(9, s.get("loanChg") if s.get("loanChg") is not None else "",
+                   "econ_cell", num="sign", fmt=F_EOK1S)
+            b.cell(10, s.get("weekChgPct") if s.get("weekChgPct") is not None else "",
+                   "econ_cell", num="sign", fmt=F_PCT)
+            near_c = b.cell(11, -near if near else (0 if near == 0 else ""),
+                            "econ_cell", fmt=F_PCT, align="right")
+            # 근접도 단계 강조 (nearRate=신고가까지 남은 %): 0~2% 최강, 2~5% 중간
+            if isinstance(near, (int, float)):
+                if near <= 2:
+                    bold(near_c, TEAL)
+                    near_c.fill = PatternFill("solid", fgColor=TEAL_BG)
+                    bold(name_c)
+                elif near <= 5:
+                    bold(near_c)
+            # 외인·기관 동반 순매수/순매도 — 합산 굵게 (부호색은 num='sign')
+            if isinstance(frgn, (int, float)) and isinstance(orgn, (int, float)) \
+                    and (frgn > 0) == (orgn > 0) and frgn != 0 and orgn != 0:
+                bold(tot_c)
+            b.nl()
+        data_end = b.r - 1
+        b.nl()
+        note("최신 거래일 기준 · 52주 신고가 대비 -10% 이내 (KIS 랭킹) · ETF·ETN 제외 · "
+             "수급=주간 누적 확정(억원) · 동반 순매수(외인·기관 동일 방향)=합산 굵게")
         b.finish()
+        ws2.freeze_panes = "A6"                       # 표 헤더(5행)까지 고정
+        ws2.auto_filter.ref = f"A5:K{data_end}"
 
-    # ── 탭 2: 투자자별 누적 순매수 상위/하위 (외국인·기관계·연기금·개인) ─────
+    # ── 탭 2: 투자자별 누적 순매수 상위/하위 — 자금 흐름 스캐너 ─────────────
     nc = d.get("netbuyCum") or {}
     inv_secs = [("F1", "외국인", nc.get("frgn")), ("F2", "기관계", nc.get("orgn")),
                 ("F3", "연기금", nc.get("fund")), ("F4", "개인", nc.get("prsn"))]
     if any(v and ((v.get("top") or v.get("bottom"))) for _, _, v in inv_secs):
-        new_sheet("투자자별 순매수")
+        ws2 = new_sheet("투자자별 순매수", W_INV)
+        # 외인·기관 동반 매수/매도 = 두 리스트 동시 등재 (실데이터 교집합만)
+        def keyset(v, side):
+            return {(e.get("code") or e.get("name"))
+                    for e in ((v or {}).get(side) or [])}
+        both_buy = keyset(nc.get("frgn"), "top") & keyset(nc.get("orgn"), "top")
+        both_sell = keyset(nc.get("frgn"), "bottom") & keyset(nc.get("orgn"), "bottom")
         for no, label, v in inv_secs:
             if not v or not (v.get("top") or v.get("bottom")):
                 continue
             b.chip(no, f"{label} 누적 순매수 상위/하위", cap="주간 누적, 억원", cap_col=9)
-            b.hdr_row(["구분", "순위", "종목", "금액(억)"], merge_last_to=10)
+            b.hdr_row(["구분", "순위", "종목", "금액(억)"], align="center")
             for grp, proto, rows_ in (("순매수 상위", "nb_buy_label", v.get("top")),
                                       ("순매도 상위", "nb_sell_label", v.get("bottom"))):
                 for i, e in enumerate(rows_ or []):
                     b.cell(1, grp, proto)
-                    b.cell(2, i + 1, "nb_cell")
-                    b.cell(3, _with_sector(e.get("name", ""), e.get("code")), "nb_cell")
-                    b.cell(4, eok(e.get("amt")), "num_pos", num="sign")
+                    b.cell(2, i + 1, "econ_cell", align="center")
+                    name_c = b.cell(3, _with_sector(e.get("name", ""), e.get("code")),
+                                    "nb_cell")
+                    b.cell(4, eok(e.get("amt")), "econ_cell", num="sign", fmt=F_EOK)
+                    if no in ("F1", "F2") and \
+                            (e.get("code") or e.get("name")) in (both_buy | both_sell):
+                        bold(name_c)
                     b.nl()
             b.nl()
-        note("netbuy_rank 일별 아카이브 합산 — 상위 30 리스트 등재일만 반영되는 근사치")
+        note("외인·기관 동시 등재 종목=종목명 굵게(동반 매수/매도) · "
+             "netbuy_rank 일별 아카이브 합산 — 상위 30 리스트 등재일만 반영되는 근사치")
         b.finish()
+        ws2.freeze_panes = "A3"                       # 다중 표 — 타이틀 바만 고정
 
-    # ── 탭 3: 공매도·대차 주간 동향 ─────────────────────────────────────────
+    # ── 탭 3: 공매도·대차 주간 동향 — 리스크/포지셔닝 모니터 ────────────────
     slw = d.get("shortLoan") or {}
     if (slw.get("shortTop") or slw.get("loanUp") or slw.get("loanDown")):
-        new_sheet("공매도·대차")
+        ws2 = new_sheet("공매도·대차", W_SL)
         secs = [("S1", "공매도 누적 상위", slw.get("shortTop"),
-                 ["순위", "종목", "공매도 누적(억)"], lambda e: [round(e.get("amt") or 0)]),
+                 ["순위", "종목", "공매도 누적(억)"],
+                 lambda e: [(e.get("amt"), F_EOK1, False)]),
                 ("S2", "대차잔고 증가 상위", slw.get("loanUp"),
                  ["순위", "종목", "증감(억)", "잔고(억)"],
-                 lambda e: [e.get("chg"), e.get("amt")]),
+                 lambda e: [(e.get("chg"), F_EOK1S, True), (e.get("amt"), F_EOK1, False)]),
                 ("S3", "대차잔고 감소 상위 (숏커버 추정)", slw.get("loanDown"),
                  ["순위", "종목", "증감(억)", "잔고(억)"],
-                 lambda e: [e.get("chg"), e.get("amt")])]
+                 lambda e: [(e.get("chg"), F_EOK1S, True), (e.get("amt"), F_EOK1, False)])]
         for no, title, rows_, hdr, vals in secs:
             if not rows_:
                 continue
             b.chip(no, title, cap="주간 누적, 억원", cap_col=9)
-            b.hdr_row(hdr, merge_last_to=10)
+            b.hdr_row(hdr, align="center")
             for i, e in enumerate(rows_):
-                b.cell(1, i + 1, "nb_cell")
+                b.cell(1, i + 1, "econ_cell", align="center")
                 b.cell(2, _with_sector(e.get("name", "")), "nb_cell")
-                for j, v in enumerate(vals(e)):
-                    b.cell(3 + j, v if v is not None else "", "num_pos", num="sign")
+                for j, (v, fm, signed) in enumerate(vals(e)):
+                    # 증감만 부호+색(방향), 잔고·누적은 중립 우측 정렬
+                    b.cell(3 + j, v if v is not None else "", "econ_cell",
+                           num="sign" if signed else None, fmt=fm, align="right")
                 b.nl()
             b.nl()
         note("랭킹 유니버스(순매수 상위 30 등재 종목) 한정 · 대차 증감=주초 대비 최신 잔고")
         b.finish()
+        ws2.freeze_panes = "A3"                       # 다중 표 — 타이틀 바만 고정
 
-    # ── 탭 4: 섹터 x 수급 매트릭스 ──────────────────────────────────────────
+    # ── 탭 4: 섹터 x 수급 매트릭스 — 등락률 정렬 유지, 신호 최강조 ──────────
     sf = ((d.get("sectorFlow") or {}).get("rows")) or []
     if sf:
-        new_sheet("섹터x수급")
-        b.chip("M1", "섹터 x 수급 매트릭스", cap="주간 등락 vs 투자자 순매수(억)", cap_col=9)
+        ws2 = new_sheet("섹터x수급", W_SEC)
+        b.chip("M1", "섹터 x 수급 매트릭스", cap="주간 등락 vs 투자자 순매수(억)", cap_col=8)
         b.hdr_row(["업종", "주간등락(%)", "외인", "기관", "연기금", "개인", "신호"],
-                  merge_last_to=10)
+                  align="center")
         for r0 in sf:
             smart = (r0.get("frgn") or 0) + (r0.get("orgn") or 0)
             sig = ("과열주의" if (r0.get("chgPct") or 0) >= 1.5 and smart < 0
                    else "수급유입" if (r0.get("chgPct") or 0) <= -1.5 and smart > 0 else "")
             b.cell(1, r0.get("name", ""), "nb_cell")
-            b.cell(2, r0.get("chgPct", ""), "num_pos", num="sign")
+            b.cell(2, r0.get("chgPct", ""), "econ_cell", num="sign", fmt=F_PCT)
             for j, k in enumerate(("frgn", "orgn", "fund", "prsn")):
-                b.cell(3 + j, r0.get(k, ""), "num_pos", num="sign")
-            b.cell(7, sig, "watch_up" if sig == "수급유입" else "watch_dn" if sig else "nb_cell")
+                b.cell(3 + j, r0.get(k, ""), "econ_cell", num="sign", fmt=F_EOK)
+            b.cell(7, sig, "watch_up" if sig == "수급유입" else "watch_dn" if sig
+                   else "econ_cell", align="center")
             b.nl()
+        data_end = b.r - 1
         b.nl()
         note("KIS 업종(KRX 산업분류) 일별 확정 합산 · 과열주의=주가 상승+수급 이탈 · 수급유입=주가 하락+수급 유입")
         b.finish()
+        ws2.freeze_panes = "A5"                       # 표 헤더(4행)까지 고정
+        ws2.auto_filter.ref = f"A4:G{data_end}"
+        # 주간등락 데이터 막대 — 값 표시는 유지, 본 시트 하늘색 계열
+        ws2.conditional_formatting.add(
+            f"B5:B{data_end}",
+            DataBarRule(start_type="min", end_type="max", color="19B6C9", showValue=True))
 
 
 def _disp_w(text):
