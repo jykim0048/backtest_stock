@@ -404,8 +404,31 @@ def _breadth_weekly(dates):
             s.update(flow.get(code) or {})
             if code in cum:
                 s["weekChgPct"] = cum[code]
+        # 장중 재실행 보호(2026-09-09 실측): /flow daily(FHPTJ04160001)는 15:40 이전
+        # 차단이라 장중 dispatch 는 수급이 통째로 비고, 그대로 저장하면 직전(마감 후)
+        # 산출물의 값을 '지운다'. 결손 종목은 기존 스냅샷 값을 이월 — 마감 후 정규
+        # 실행이 최신값으로 자연 갱신한다.
+        try:
+            with open(SNAP, encoding="utf-8") as f:
+                prev = {str(p.get("code") or "").zfill(6): p
+                        for p in (((json.load(f).get("breadth") or {})
+                                   .get("newHighs") or {}).get("stocks") or [])}
+        except Exception:
+            prev = {}
+        n_carry = 0
+        for s, code in zip(stocks, codes):
+            p = prev.get(code)
+            if not p:
+                continue
+            carried = False
+            for k in ("frgn", "orgn", "prsn", "shortSum", "loanAmt", "loanChg",
+                      "weekChgPct"):
+                if s.get(k) is None and p.get(k) is not None:
+                    s[k] = p[k]
+                    carried = True
+            n_carry += 1 if carried else 0
         print(f"[weekly] 신고가 카드 보강: 수급 {len(flow)}/{len(codes)} · "
-              f"주간등락 {len(cum)}/{len(codes)}종목")
+              f"주간등락 {len(cum)}/{len(codes)} · 이월 {n_carry}종목")
         out["newHighs"] = {"date": rows[-1]["date"], "count": len(highs),
                            "stocks": stocks,
                            "groups": sorted(({"sector": k, "stocks": v[:6]}
