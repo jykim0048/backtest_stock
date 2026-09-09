@@ -592,6 +592,9 @@ def build(d):
             stock = t.get("stock")
             sec = t.get("sector") or _sector_name(stock, t.get("code")) or "—"
             b.cell(1, t.get("date", ""), "tl_cell")
+            # 재등장 병합(2026-09-09): 종목명에 (n회), 촉매 셀에 이전 촉매 병기
+            if (t.get("appearCount") or 1) > 1 and stock:
+                stock = f"{stock} ({t['appearCount']}회)"
             b.cell(2, stock if stock else "—",
                    "tl_mkt_row" if not stock else "nb_cell")
             b.cell(3, t.get("market", ""), "tl_cell")
@@ -600,6 +603,8 @@ def build(d):
             b.cell(5, "★" * (t.get("star") or 0), "tl_star")
             b.cell(6, t.get("changePct", ""), "num_pos", num="sign")
             ev = t.get("event", "")
+            for hrow in (t.get("history") or []):
+                ev += f"\n({str(hrow.get('date', ''))[5:]}) {hrow.get('event', '')}"
             b.cell(7, ev, "tl_event")
             for c in range(8, 12):
                 b.cell(c, "", "tl_event")

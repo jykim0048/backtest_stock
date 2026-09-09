@@ -1329,6 +1329,35 @@ def main():
                 r["changePct"] = cum[r["stock"]]
                 n_cum += 1
         print(f"[weekly] 타임라인 주간 누적 등락률: {n_cum}/{len(stock_rows)}행 교체")
+    # 재등장 종목 병합(2026-09-09 사용자 요청): 같은 종목이 여러 날 스코어되면
+    # 최신 등장일 1행으로 접는다 — 별점 max·촉매 최신, firstDate/appearCount 로
+    # 반복(촉매 지속) 신호를 보존하고 달라진 이전 촉매는 history 에 남긴다.
+    # 웹/엑셀은 저장값만 렌더하므로 여기서 한 번 접으면 양쪽 자동 반영.
+    if stock_rows:
+        n_before = len(stock_rows)
+        folded = {}
+        for r in stock_rows:                     # days 순회 순서 = 날짜 오름차순
+            k = (r.get("stock"), r.get("market"))
+            prev = folded.get(k)
+            if prev is None:
+                r["firstDate"] = r["date"]
+                r["appearCount"] = 1
+                folded[k] = r
+                continue
+            if r.get("event") and r["event"] != prev.get("event"):
+                prev.setdefault("history", []).append(
+                    {"date": prev["date"], "event": prev.get("event")})
+            prev["date"] = r["date"]
+            prev["event"] = r.get("event") or prev.get("event")
+            prev["star"] = max(prev.get("star") or 0, r.get("star") or 0)
+            if r.get("changePct") is not None:
+                prev["changePct"] = r["changePct"]
+            prev["appearCount"] += 1
+        stock_rows = sorted(folded.values(),
+                            key=lambda x: (x["date"], -(x.get("star") or 0),
+                                           -(x.get("changePct") or 0)))
+        if len(stock_rows) != n_before:
+            print(f"[weekly] 타임라인 재등장 병합: {n_before}→{len(stock_rows)}행")
     if stock_rows or synthesis:
         syn = synthesis if isinstance(synthesis, dict) else {}
         market_rows = [t for t in (syn.get("catalystTimeline") or []) if not t.get("stock")]

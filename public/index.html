@@ -7502,10 +7502,19 @@
         ? '<span style="color:#fbbf24;font-size:12px;letter-spacing:1px">' + "★".repeat(t.star) + '<span style="opacity:.35">' + "☆".repeat(Math.max(0, 5 - t.star)) + "</span></span>" : "";
       var chg = (typeof t.changePct === "number")
         ? '<span style="color:' + (t.changePct >= 0 ? "#f04452" : "#3182f6") + ';font-weight:600">' + (t.changePct >= 0 ? "+" : "") + (Math.round(t.changePct * 100) / 100) + "%</span>" : "";
+      // 재등장 병합 뱃지(2026-09-09) — 생성기가 접은 행(appearCount>1)에
+      // "MM-DD~ n회" 표시, 툴팁에 달라진 이전 촉매(history) 노출
+      var rep = "";
+      if ((t.appearCount || 1) > 1) {
+        var tip = esc((t.firstDate || "").slice(5)) + " 첫 등장 · " + t.appearCount + "회 스코어"
+          + (t.history || []).map(function (hh) { return "\n" + (hh.date || "").slice(5) + " " + (hh.event || ""); }).join("");
+        rep = '<span title="' + tip.replace(/"/g, "&quot;") + '" style="margin-left:6px;font-size:10px;font-weight:400;color:#fbbf24;border:1px solid rgba(251,191,36,.35);border-radius:8px;padding:0 5px;vertical-align:1px;white-space:nowrap;cursor:default">'
+          + (t.firstDate ? esc(t.firstDate.slice(5)) + "~ " : "") + t.appearCount + "회</span>";
+      }
       // 컬럼 폭 — 장중 주요 촉매 표와 유사한 간격
       return '<tr style="border-top:1px solid rgba(128,128,128,.12)">'
         + '<td style="white-space:nowrap;opacity:.7;padding:5px 0;width:56px">' + esc((t.date || "").slice(5)) + "</td>"
-        + '<td style="white-space:nowrap;font-weight:700;width:170px;padding-right:10px">' + (t.stock ? esc(t.stock) : "—") + "</td>"
+        + '<td style="white-space:nowrap;font-weight:700;width:170px;padding-right:10px">' + (t.stock ? esc(t.stock) : "—") + rep + "</td>"
         + '<td style="white-space:nowrap;width:80px">' + mk + "</td>"
         + (hasSec ? '<td style="white-space:nowrap;width:110px;padding-right:8px">' + (t.sector ? secPillName(t.sector) : "<span style='opacity:.35'>—</span>") + "</td>" : "")
         + '<td style="white-space:nowrap;width:110px">' + star + "</td>"
@@ -7848,7 +7857,7 @@
           (_wbTlMkt === f ? "background:var(--kospi-blue);color:#fff;font-weight:600;" : "background:rgba(255,255,255,.06);color:var(--text-muted);") + '">' + label + "</span>";
       };
       h += '<div style="display:flex;align-items:center;gap:6px;margin:8px 0 4px"><span style="font-weight:600">⚡ 주간 촉매 타임라인</span>'
-        + '<span style="font-weight:400;opacity:.55;font-size:11px">(코스피 ★4 이상 · 코스닥 ★5 · 등락률=주간 누적)</span>'
+        + '<span style="font-weight:400;opacity:.55;font-size:11px">(코스피 ★4 이상 · 코스닥 ★5 · 등락률=주간 누적 · 재등장 종목은 최신 행에 병합)</span>'
         + '<span style="margin-left:auto;display:flex;gap:4px">' + tab("전체", "전체") + tab("KOSPI", "코스피") + tab("KOSDAQ", "코스닥") + "</span></div>"
         + '<div id="wb-tl-rows">' + wbTlRows() + "</div>";
     }
