@@ -257,13 +257,33 @@ def main():
     # (2026-09-09) '1xxx↔KOSPI 0xxx' 패턴 가설은 일치율 0/964 실측으로 기각 — 폴백
     # 금지. 미해석 중분류는 아래 진단 로그(코호트 예시)로 실제 업종을 파악해
     # 필요 시 고정 테이블로 추가한다.
+    # KOSDAQ 대분류(big) 부트스트랩 — mid=0000(중분류 미분류) 종목의 폴백.
+    # 실측: 지엘팜텍 big='1011' mid='0000'(HTS 업종 '유통') — mid만 쓰면 누락된다.
+    # big 코드명도 기존 맵 멤버십 다수결로 해석(표본 3+), mid 우선/big 폴백.
+    kq_by_big = {}
+    for s in kosdaq:
+        if s["big"] and s["big"] != "0000":
+            kq_by_big.setdefault(s["big"], []).append(s)
+    kq_big_name = {}
+    for bigc, rows_b in kq_by_big.items():
+        votes = Counter(old_kq[s["code"]] for s in rows_b if s["code"] in old_kq)
+        if votes:
+            key, cnt = votes.most_common(1)[0]
+            if cnt >= 3:
+                kq_big_name[bigc] = ((sectors.get(key) or {}).get("name")
+                                     or (old.get(key) or {}).get("name") or key)
+    n_bigfill = 0
     unresolved = {}
     for s in kosdaq:
         nm = kq_mid_name.get(s["mid"])
+        if not nm and kq_big_name.get(s["big"]):
+            nm = kq_big_name[s["big"]]
+            n_bigfill += 1
         if nm:
             full[s["code"]] = nm
         elif s["mid"] and s["mid"] != "0000":
             unresolved.setdefault(s["mid"], []).append(s["name"])
+    print(f"  KOSDAQ 대분류 폴백: {len(kq_big_name)}개 big 해석, {n_bigfill}종목 충전")
     for mid, ns in sorted(unresolved.items(), key=lambda x: -len(x[1]))[:15]:
         print(f"  [미해석 KOSDAQ mid {mid}] {len(ns)}종목 예: {', '.join(ns[:4])}")
     print(f"  전 종목 업종 맵: {len(full)}종목 (KOSPI+KOSDAQ, 컷 없음, "
