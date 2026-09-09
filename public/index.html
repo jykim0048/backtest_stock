@@ -7677,7 +7677,8 @@
             : '<span style="color:' + (wc > 0 ? "#f04452" : wc < 0 ? "#3182f6" : "inherit") + ';font-weight:600">' + (wc > 0 ? "+" : "") + wc + "%</span>";
           var mkTag = s.market === "KOSDAQ" ? ' <span style="color:var(--kosdaq-green);font-size:10.5px">KOSDAQ</span>'
             : s.market === "KOSPI" ? ' <span style="color:var(--kospi-blue);font-size:10.5px">KOSPI</span>' : "";
-          return "<tr style='border-top:1px solid rgba(128,128,128,.12)'><td style='padding:2px 6px 2px 0;white-space:nowrap'>" + (i + 1) + ". " + esc(s.name) + mkTag +
+          return "<tr style='border-top:1px solid rgba(128,128,128,.12)'><td style='padding:2px 6px 2px 0;white-space:nowrap'>" + (i + 1) + ". " + esc(s.name) +
+            "</td><td style='white-space:nowrap;padding-right:8px'>" + (mkTag ? mkTag.trim() : "<span style='opacity:.35'>—</span>") +   // 시장 별도 컬럼(2026-09-10, 타임라인과 동일 순서)
             "</td><td style='white-space:nowrap;padding-right:8px'>" + secPill(String(s.code || "").padStart(6, "0")) +   // 섹터 필 별도 컬럼(2026-09-09, 합산 카드와 동일)
             "</td><td style='text-align:right;color:" + ((total || 0) >= 0 ? "#f04452" : "#3182f6") + ";font-weight:600'>" + nhEok(total) +
             "</td><td style='text-align:right;color:" + INV[1][2] + "'>" + nhEok(s.frgn) +
@@ -7690,8 +7691,8 @@
         }).join("");
         nhBody = '<div style="border:1px solid rgba(128,128,128,.2);border-radius:10px;padding:8px 12px;overflow-x:auto">'
           + '<div style="font-weight:600;margin-bottom:4px;color:#fbbf24">52주 신고가 근접</div>'
-          + '<table style="width:100%;border-collapse:collapse;font-size:12px;min-width:830px">'
-          + "<tr style='opacity:.6'><th style='text-align:left'>종목</th><th style='text-align:left'>섹터</th><th style='text-align:right'>합산(억)</th><th style='text-align:right;color:" + INV[1][2] + "'>외인</th><th style='text-align:right;color:" + INV[2][2] + "'>기관</th><th style='text-align:right;color:" + INV[0][2] + "'>개인</th><th style='text-align:right'>공매도(억)</th><th style='text-align:right'>대차잔고(증감,억)</th><th style='text-align:right'>등락률(주간)</th><th style='text-align:right'>신고가 대비</th></tr>"
+          + '<table style="width:100%;border-collapse:collapse;font-size:12px;min-width:880px">'
+          + "<tr style='opacity:.6'><th style='text-align:left'>종목</th><th style='text-align:left'>시장</th><th style='text-align:left'>섹터</th><th style='text-align:right'>합산(억)</th><th style='text-align:right;color:" + INV[1][2] + "'>외인</th><th style='text-align:right;color:" + INV[2][2] + "'>기관</th><th style='text-align:right;color:" + INV[0][2] + "'>개인</th><th style='text-align:right'>공매도(억)</th><th style='text-align:right'>대차잔고(증감,억)</th><th style='text-align:right'>등락률(주간)</th><th style='text-align:right'>신고가 대비</th></tr>"
           + nhRows + "</table></div>";
       } else {
         nhBody = '<div style="font-size:12px">' + nhGroups.map(function (g) {
