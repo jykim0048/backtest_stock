@@ -777,14 +777,10 @@ def _enrich_final(snap):
     if not codes:
         return
     want = snap["date"].replace("-", "")
-    base = FLOW_RANK_URL.rsplit("/", 1)[0]
 
     def _one(code):
         try:
-            req = urllib.request.Request(f"{base}/flow?code={code}",
-                                         headers={"User-Agent": "weekly-briefing"})
-            with urllib.request.urlopen(req, timeout=30) as r:
-                d = json.loads(r.read().decode("utf-8"))
+            d = _flow_raw(code)         # 메모이즈 공유 — 백필·주간 단계가 재사용
             out = None
             for row in (d.get("daily") or []):
                 if str(row.get("date")) == want:
