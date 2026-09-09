@@ -632,6 +632,23 @@ class Handler(BaseHTTPRequestHandler):
 GH_REPO  = os.environ.get("GH_REPO", "jykim0048/backtest_stock")
 GH_REF   = os.environ.get("GH_REF", "main")
 GH_TOKEN = os.environ.get("GH_DISPATCH_TOKEN", "")
+# KIS 허브(모니터 서비스) — 16:05 sector-flow 캐시 워밍용 (주간 브리핑 런타임 단축)
+HUB_BASE = os.environ.get("HUB_BASE",
+                          "https://tradingstrategies-production-09d4.up.railway.app")
+
+
+def _warm_sector_flow():
+    """16:05 hub /sector-flow 를 미리 호출해 10분 캐시를 데운다 — 16:10 주간
+    브리핑 런이 콜드 캐시(26업종 x KIS 다수 콜, 1~2분)를 기다리지 않게.
+    데몬 스레드로 실행(스케줄러 루프 비차단), 실패는 로그만(브리핑이 자체 재시도)."""
+    try:
+        req = urllib.request.Request(f"{HUB_BASE}/sector-flow",
+                                     headers={"User-Agent": "railway-warm"})
+        with urllib.request.urlopen(req, timeout=170) as r:
+            n = len((json.loads(r.read().decode("utf-8")) or {}).get("sectors") or [])
+        print(f"[sched] sector-flow 워밍 완료: {n}업종", flush=True)
+    except Exception as e:
+        print(f"[sched] sector-flow 워밍 실패(무해): {e}", file=sys.stderr, flush=True)
 
 DAILY_WF     = "daily_report.yml"
 INTRADAY_WF  = "intraday_screener.yml"
@@ -716,6 +733,10 @@ def _scheduler():
                     key = (today, "catalyst-scoring")
                     if key not in fired and _dispatch(SCORING_WF):
                         fired.add(key)
+                    key = (today, "warm-sector-flow")   # 16:10 주간 런 대비 캐시 워밍
+                    if key not in fired:
+                        fired.add(key)
+                        threading.Thread(target=_warm_sector_flow, daemon=True).start()
                 # 주간 브리핑 16:10 — 마감 시황(15:40)·수급 확정(16:00) 이후 당일
                 # 데이터 완결 시점에 그 주(월~당일)를 재합성 upsert (데일리 누적)
                 if now.hour == 16 and now.minute == 10:

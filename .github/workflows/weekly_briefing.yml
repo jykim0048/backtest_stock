@@ -25,11 +25,13 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: '3.11'
+          cache: 'pip'   # requirements-weekly.txt 키 — Install 단계 단축(2026-09-09)
+          cache-dependency-path: .github/workflows/requirements-weekly.txt
 
       # 입력은 Railway 서버 HTTP 로 읽음(라이브 최신). yfinance 는 촉매 타임라인
-      # 종목의 '주간 누적' 등락률 계산용(전주 종가 대비 — 2026-09-08).
+      # 종목 '주간 누적' 등락률의 KIS 결손 폴백용(2026-09-09 KIS 우선 전환).
       - name: Install dependencies
-        run: pip install google-genai anthropic yfinance openpyxl
+        run: pip install -r .github/workflows/requirements-weekly.txt
 
       - name: Generate weekly briefing (모닝브리핑 + 장중 시황 주간 종합)
         timeout-minutes: 10

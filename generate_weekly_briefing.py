@@ -507,6 +507,36 @@ def _week_cum_codes(codes, week_start, fetch_closes=None):
     return out
 
 
+_FLOW_RAW: dict = {}      # code -> /flow 응답 — 1런 1회 왕복(메모이즈, 2026-09-09)
+
+
+def _flow_raw(code):
+    """허브 /flow 응답 프로세스 메모이즈 — 백필·공매도대차·신고가·타임라인이
+    같은 종목을 중복 왕복하지 않게 한다(마감 후 단일 런이라 스테일 없음).
+    실패는 캐시하지 않고 예외 전파(호출측 fail-open 유지)."""
+    if code in _FLOW_RAW:
+        return _FLOW_RAW[code]
+    base = FLOW_RANK_URL.rsplit("/", 1)[0]
+    req = urllib.request.Request(f"{base}/flow?code={code}",
+                                 headers={"User-Agent": "weekly-briefing"})
+    with urllib.request.urlopen(req, timeout=30) as r:
+        d = json.loads(r.read().decode("utf-8"))
+    _FLOW_RAW[code] = d
+    return d
+
+
+_TMARK = {}               # 구간 타이머 상태
+
+
+def _tmark(label=None):
+    """런타임 구간 계측 — 직전 구간 경과를 [weekly][t] 로 출력하고 새 구간 시작."""
+    import time as _time
+    now = _time.monotonic()
+    if _TMARK.get("label") is not None:
+        print(f"[weekly][t] {_TMARK['label']}: {now - _TMARK['t']:.1f}s", flush=True)
+    _TMARK.update(t=now, label=label)
+
+
 def _flow_week(codes, dates, fetch=None):
     """코드별 '주간 누적' 확정 수급 — 허브 /flow daily(FHPTJ04160001)에서 이번 주
     날짜 행을 합산. 반환 {code: {frgn,orgn,prsn(백만원), shortSum(억),
@@ -515,15 +545,7 @@ def _flow_week(codes, dates, fetch=None):
     2026-09-09 KIS 전환). 실패 종목은 제외(fail-open — UI 는 '—' 표시)."""
     from concurrent.futures import ThreadPoolExecutor
     want = {dt.strftime("%Y%m%d") for dt in dates}
-    base = FLOW_RANK_URL.rsplit("/", 1)[0]
-
-    def _default_fetch(code):
-        req = urllib.request.Request(f"{base}/flow?code={code}",
-                                     headers={"User-Agent": "weekly-briefing"})
-        with urllib.request.urlopen(req, timeout=30) as r:
-            return json.loads(r.read().decode("utf-8"))
-
-    fetch = fetch or _default_fetch
+    fetch = fetch or _flow_raw          # 메모이즈 공유(중복 왕복 제거, 2026-09-09)
 
     def _one(code):
         try:
@@ -828,14 +850,10 @@ def _backfill_netbuy_detail(dates):
                 pending.setdefault(c, set()).add(di)
     if not pending:
         return
-    base = FLOW_RANK_URL.rsplit("/", 1)[0]
 
     def _one(code):
         try:
-            req = urllib.request.Request(f"{base}/flow?code={code}",
-                                         headers={"User-Agent": "weekly-briefing"})
-            with urllib.request.urlopen(req, timeout=30) as r:
-                d = json.loads(r.read().decode("utf-8"))
+            d = _flow_raw(code)         # 메모이즈 공유 — 이후 단계 재사용
             return code, {str(row.get("date")): row for row in (d.get("daily") or [])}
         except Exception:
             return code, None
@@ -1131,6 +1149,7 @@ def main():
     dates = _week_dates(base)
     week_start = dates[0].isoformat()
 
+    _tmark("일별 수집")
     days = [d for d in (_day_summary(dt.isoformat()) for dt in dates) if d]
     if not days:
         print(f"[weekly] {week_start} 주 데이터 없음 — 생성 생략")
@@ -1138,6 +1157,7 @@ def main():
     week_end = days[-1]["date"]
 
     # 당일 순매수 랭킹 스냅샷(거래일이었을 때만) + 주간 누적 합산
+    _tmark("스냅샷·백필·누적")
     today_iso = datetime.datetime.now(KST).date().isoformat()
     if any(d["date"] == today_iso for d in days):
         _snapshot_netbuy_rank(today_iso)
@@ -1173,11 +1193,13 @@ def main():
     # ② 공매도·대차 주간 동향 — 유니버스는 netbuy_rank 등재 종목(현행), 값은
     #    /flow shorts·loans 주간 직접 계산(_flow_week 재사용, 2026-09-09) —
     #    구 방식(등재일 값만 누적)의 미등재일 공매도 누락·잔고 스테일 근사 제거
+    _tmark("공매도·대차(flow)")
     short_loan = _short_loan_weekly(dates)
 
     # ⑤ 섹터 x 수급 매트릭스 — 허브 /sector-flow(FHPTJ04040000 업종별 일별 투자자
     #    순매수, 백만원)에서 이번 주 날짜만 합산. V1(2026-09-09): 신호는 여기서
     #    확정 저장 — 웹·엑셀은 저장값만 렌더해 판정 불일치를 원천 차단.
+    _tmark("섹터플로(허브)")
     sector_flow = None
     try:
         base = FLOW_RANK_URL.rsplit("/", 1)[0]
@@ -1262,6 +1284,7 @@ def main():
     sector_weekly = {"up": _sector_week("sectorsUp"), "down": _sector_week("sectorsDown")}
 
 
+    _tmark("프리뷰·LLM 합성")
     preview = _next_week_preview()
     synthesis, generated_by = None, None
     if "--no-llm" not in args:
@@ -1301,6 +1324,7 @@ def main():
                   for d in days for p in (d.get("timelineStocks") or [])]
     # 종목 행 등락률을 '주간 누적'으로 교체(전주 종가 대비 최신 종가, 2026-09-08
     # 사용자 요청). 조회 실패 종목은 스코어 시점 당일 등락률 유지(fail-open).
+    _tmark("타임라인 주간등락")
     if stock_rows:
         cum = _week_cum_map(stock_rows, week_start, dates)
         n_cum = 0
@@ -1332,6 +1356,7 @@ def main():
     print(f"[weekly] 섹터 시그널 스크리닝: 유니버스 {len(sector_screen['debug'])}종목 → "
           f"선정 {n_pick} ({', '.join(k + ' ' + str(len(v)) for k, v in sector_screen['matrix'].items())})")
 
+    _tmark("breadth·신고가·출력 조립")
     out = {
         "weekStart": week_start,
         "weekEnd": week_end,
@@ -1373,6 +1398,7 @@ def main():
         idx = sorted(set(idx) | {week_start}, reverse=True)
         with open(idx_path, "w", encoding="utf-8") as f:
             json.dump(idx, f, indent=1)
+    _tmark(None)                        # 마지막 구간 경과 출력
     print(f"[weekly] 저장: {path} (synthesis={'ok' if synthesis else '생략'})")
     return 0
 
