@@ -504,6 +504,7 @@ def build(d):
             b.mg(2, 10); b.wrap_h(text, 2, 10); b.nl()
 
     b.finish()
+    add_detail_sheets(wb, b, d)     # 접힘(토글) 섹션 상세 — 별도 탭 4종(2026-09-09)
     del wb["_tpl"]
 
     # ── 원본 데이터 시트 재작성 (보존용 평탄화 스트림) ───────────────────
@@ -559,6 +560,135 @@ def build(d):
     for label, text in pv:
         row(label, text)
     return wb, ws
+
+
+def add_detail_sheets(wb, b, d):
+    """대시보드에서 토글로 접힌 섹션들을 별도 탭으로 — 본 시트와 동일 프로토 양식.
+    (2026-09-09 사용자 요청: 신고가 근접·투자자별 누적 순매수·공매도/대차·섹터x수급)
+    데이터가 없는 섹션의 탭은 만들지 않는다. Builder.start 가 시트별 상태를 초기화."""
+    syn = d.get("synthesis") or {}
+
+    def eok(v):
+        return "" if v is None else round(v / 100)
+
+    def new_sheet(name):
+        idx = wb.sheetnames.index(RAW_SHEET)   # 원본 데이터 앞에 순서대로 삽입
+        ws2 = wb.create_sheet(name, idx)
+        b.start(ws2)
+        # 공통 헤더 바 — 본 시트와 동일한 네이비 타이틀 + 우측 기간
+        b.cell(1, name, "title")
+        for c in range(2, 8):
+            b.cell(c, "", "navy_fill")
+        b.merges.append((1, 1, 1, 7))
+        b.cell(8, "기간", "meta_label")
+        b.cell(9, d.get("weekStart", "") + " ~ " + d.get("weekEnd", ""), "meta_val")
+        b.cell(10, "", "meta_val"); b.mg(9, 10)
+        b.nl(1, 20.25); b.nl()
+        return ws2
+
+    def note(text):
+        b.cell(1, text, "cap")
+        for c in range(2, 11):
+            b.cell(c, "", "cap")
+        b.mg(1, 10); b.nl()
+
+    # ── 탭 1: 52주 신고가 근접 (대시보드 카드와 동일 컬럼) ──────────────────
+    nh = ((d.get("breadth") or {}).get("newHighs") or {}).get("stocks") or []
+    if nh:
+        new_sheet("신고가 근접")
+        b.chip("D1", "52주 신고가 근접", cap="수급=주간 누적(억)", cap_col=9)
+        b.hdr_row(["종목", "시장", "합산", "외인", "기관", "개인", "공매도(억)",
+                   "대차잔고(증감,억)", "등락률(주간,%)", "신고가 대비(%)"])
+        for s in nh:
+            total = ((s.get("frgn") or 0) + (s.get("orgn") or 0)
+                     if (s.get("frgn") is not None or s.get("orgn") is not None) else None)
+            loan = "" if s.get("loanAmt") is None else (
+                f"{round(s['loanAmt']):,}" + (f" ({s['loanChg']:+,.0f})" if s.get("loanChg") else ""))
+            b.cell(1, _with_sector(s.get("name", ""), s.get("code")), "nb_cell")
+            b.cell(2, s.get("market") or "", "nb_cell")
+            b.cell(3, eok(total) if total is not None else "", "num_pos", num="sign")
+            b.cell(4, eok(s.get("frgn")), "nb_cell")
+            b.cell(5, eok(s.get("orgn")), "nb_cell")
+            b.cell(6, eok(s.get("prsn")), "nb_cell")
+            b.cell(7, s.get("shortSum", ""), "nb_cell")
+            b.cell(8, loan, "nb_cell")
+            b.cell(9, s.get("weekChgPct", ""), "num_pos", num="sign")
+            b.cell(10, -s["nearRate"] if s.get("nearRate") else (0 if s.get("nearRate") == 0 else ""), "econ_cell")
+            b.nl()
+        b.nl()
+        note("최신 거래일 기준 · 52주 신고가 대비 -10% 이내 (KIS 랭킹) · ETF·ETN 제외 · 수급=주간 누적 확정(억원)")
+        b.finish()
+
+    # ── 탭 2: 투자자별 누적 순매수 상위/하위 (외국인·기관계·연기금·개인) ─────
+    nc = d.get("netbuyCum") or {}
+    inv_secs = [("F1", "외국인", nc.get("frgn")), ("F2", "기관계", nc.get("orgn")),
+                ("F3", "연기금", nc.get("fund")), ("F4", "개인", nc.get("prsn"))]
+    if any(v and ((v.get("top") or v.get("bottom"))) for _, _, v in inv_secs):
+        new_sheet("투자자별 순매수")
+        for no, label, v in inv_secs:
+            if not v or not (v.get("top") or v.get("bottom")):
+                continue
+            b.chip(no, f"{label} 누적 순매수 상위/하위", cap="주간 누적, 억원", cap_col=9)
+            b.hdr_row(["구분", "순위", "종목", "금액(억)"], merge_last_to=10)
+            for grp, proto, rows_ in (("순매수 상위", "nb_buy_label", v.get("top")),
+                                      ("순매도 상위", "nb_sell_label", v.get("bottom"))):
+                for i, e in enumerate(rows_ or []):
+                    b.cell(1, grp, proto)
+                    b.cell(2, i + 1, "nb_cell")
+                    b.cell(3, _with_sector(e.get("name", ""), e.get("code")), "nb_cell")
+                    b.cell(4, eok(e.get("amt")), "num_pos", num="sign")
+                    b.nl()
+            b.nl()
+        note("netbuy_rank 일별 아카이브 합산 — 상위 30 리스트 등재일만 반영되는 근사치")
+        b.finish()
+
+    # ── 탭 3: 공매도·대차 주간 동향 ─────────────────────────────────────────
+    slw = d.get("shortLoan") or {}
+    if (slw.get("shortTop") or slw.get("loanUp") or slw.get("loanDown")):
+        new_sheet("공매도·대차")
+        secs = [("S1", "공매도 누적 상위", slw.get("shortTop"),
+                 ["순위", "종목", "공매도 누적(억)"], lambda e: [round(e.get("amt") or 0)]),
+                ("S2", "대차잔고 증가 상위", slw.get("loanUp"),
+                 ["순위", "종목", "증감(억)", "잔고(억)"],
+                 lambda e: [e.get("chg"), e.get("amt")]),
+                ("S3", "대차잔고 감소 상위 (숏커버 추정)", slw.get("loanDown"),
+                 ["순위", "종목", "증감(억)", "잔고(억)"],
+                 lambda e: [e.get("chg"), e.get("amt")])]
+        for no, title, rows_, hdr, vals in secs:
+            if not rows_:
+                continue
+            b.chip(no, title, cap="주간 누적, 억원", cap_col=9)
+            b.hdr_row(hdr, merge_last_to=10)
+            for i, e in enumerate(rows_):
+                b.cell(1, i + 1, "nb_cell")
+                b.cell(2, _with_sector(e.get("name", "")), "nb_cell")
+                for j, v in enumerate(vals(e)):
+                    b.cell(3 + j, v if v is not None else "", "num_pos", num="sign")
+                b.nl()
+            b.nl()
+        note("랭킹 유니버스(순매수 상위 30 등재 종목) 한정 · 대차 증감=주초 대비 최신 잔고")
+        b.finish()
+
+    # ── 탭 4: 섹터 x 수급 매트릭스 ──────────────────────────────────────────
+    sf = ((d.get("sectorFlow") or {}).get("rows")) or []
+    if sf:
+        new_sheet("섹터x수급")
+        b.chip("M1", "섹터 x 수급 매트릭스", cap="주간 등락 vs 투자자 순매수(억)", cap_col=9)
+        b.hdr_row(["업종", "주간등락(%)", "외인", "기관", "연기금", "개인", "신호"],
+                  merge_last_to=10)
+        for r0 in sf:
+            smart = (r0.get("frgn") or 0) + (r0.get("orgn") or 0)
+            sig = ("과열주의" if (r0.get("chgPct") or 0) >= 1.5 and smart < 0
+                   else "수급유입" if (r0.get("chgPct") or 0) <= -1.5 and smart > 0 else "")
+            b.cell(1, r0.get("name", ""), "nb_cell")
+            b.cell(2, r0.get("chgPct", ""), "num_pos", num="sign")
+            for j, k in enumerate(("frgn", "orgn", "fund", "prsn")):
+                b.cell(3 + j, r0.get(k, ""), "num_pos", num="sign")
+            b.cell(7, sig, "watch_up" if sig == "수급유입" else "watch_dn" if sig else "nb_cell")
+            b.nl()
+        b.nl()
+        note("KIS 업종(KRX 산업분류) 일별 확정 합산 · 과열주의=주가 상승+수급 이탈 · 수급유입=주가 하락+수급 유입")
+        b.finish()
 
 
 def _disp_w(text):
