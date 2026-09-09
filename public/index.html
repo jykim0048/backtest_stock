@@ -7457,9 +7457,12 @@
   // 주간 촉매 타임라인 — 시장 필터 상태 + 행 렌더 (실적발표 토글 양식)
   var _wbTl = [], _wbTlMkt = "전체";
   function wbTlRows() {
-    // 장중 주요 촉매 표와 같은 테이블 구조 — 컬럼 간격 일정 (날짜는 일반 폰트)
+    // 장중 주요 촉매 표와 같은 테이블 구조 — 컬럼 간격 일정 (날짜는 일반 폰트).
+    // 시장 이벤트 행(종목 없음 '—')은 일별 표 반응 코멘트와 중복이라 제외하고
+    // 종목 행만 표시 + 첫 행 컬럼명 (2026-09-09 사용자 요청).
     var rows = (_wbTl || []).filter(function (t) {
-      return _wbTlMkt === "전체" || !t.market || t.market === _wbTlMkt;   // 시장 무관 행은 항상
+      if (!t.stock) return false;                                        // 시장 이벤트 행 제외
+      return _wbTlMkt === "전체" || !t.market || t.market === _wbTlMkt;
     }).map(function (t) {
       var mk = t.market === "KOSDAQ" ? '<span style="color:var(--kosdaq-green)">KOSDAQ</span>'
         : t.market === "KOSPI" ? '<span style="color:var(--kospi-blue)">KOSPI</span>' : "";
@@ -7477,7 +7480,8 @@
         + '<td style="color:#cbd5e1">' + esc(t.event) + "</td></tr>";
     }).join("");
     if (!rows) return '<div style="opacity:.5;font-size:12.5px;padding:6px 0">선택 시장 촉매 없음</div>';
-    return '<table style="width:100%;border-collapse:collapse;font-size:13px">' + rows + "</table>";
+    var hdr = "<tr style='opacity:.6;font-size:12px'><th style='text-align:left'>날짜</th><th style='text-align:left'>종목</th><th style='text-align:left'>시장</th><th style='text-align:left'>별점</th><th style='text-align:left'>등락률(주간)</th><th style='text-align:left'>핵심 촉매</th></tr>";
+    return '<table style="width:100%;border-collapse:collapse;font-size:13px">' + hdr + rows + "</table>";
   }
   window.wbTlMkt = function (f) {
     _wbTlMkt = f;

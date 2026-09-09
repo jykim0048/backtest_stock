@@ -453,9 +453,12 @@ def build(d):
         b.nl()
 
     # ── 10 촉매 타임라인 ────────────────────────────────────────────────
-    tl = syn.get("catalystTimeline") or []
+    # 시장 이벤트 행(종목 없음)은 04 일별 표 반응 코멘트와 중복 — 종목 행만 +
+    # 첫 행 컬럼명 (2026-09-09 사용자 요청)
+    tl = [t for t in (syn.get("catalystTimeline") or []) if t.get("stock")]
     if tl:
         b.chip("10", "주간 촉매 타임라인", cap="등락률 = 주간 누적", cap_col=10)
+        b.hdr_row(["날짜", "종목", "시장", "별점", "등락률(%)", "핵심 촉매"], merge_last_to=10)
         for t in tl:
             stock = t.get("stock")
             b.cell(1, t.get("date", ""), "tl_cell")

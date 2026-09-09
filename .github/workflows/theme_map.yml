@@ -34,8 +34,6 @@ jobs:
 
       - name: Build sector map from KIS master files (지수업종 분류 자동)
         continue-on-error: true   # 실패 시 기존 섹터맵 유지(스크립트 자체도 부족 시 중단)
-        env:
-          SECTOR_PROBE: "204840"   # 지엘팜텍 미분류/파싱 진단(2026-09-09) — 해소 후 제거
         run: python build_sector_map_auto.py
 
       - name: Commit and push maps
