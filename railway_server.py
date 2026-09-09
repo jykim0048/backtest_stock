@@ -279,9 +279,14 @@ def _data_fetch(relpath):
 
 def _is_data_path(relpath):
     """항상 최신이어야 하는 데이터 파일 여부. assets/ 는 준정적(월/반기 갱신)이라
-    로컬본으로 충분 — 리포트·브리핑 등 .json 만 raw 프록시 대상."""
+    로컬본으로 충분 — 리포트·브리핑 등 .json 만 raw 프록시 대상.
+    주간 엑셀(.xlsx)도 포함(2026-09-09) — 브라우저가 raw.githubusercontent 를 직접
+    fetch 하면 사내망 차단/CORS 로 조용히 실패해 클라이언트 폴백(구양식)으로 떨어지던
+    것 → same-origin 다운로드를 서버가 raw 프록시로 중계(매 커밋 최신)."""
     if relpath.startswith("public/assets/"):
         return False
+    if relpath.endswith(".xlsx") and "weekly_briefing" in relpath:
+        return True
     return relpath.endswith(".json")
 
 
