@@ -7386,15 +7386,42 @@
   function _secOf(code) {
     return _wbSec[code] || _wbSecFull[code] || null;
   }
+  // 섹터 색: 전 업종을 정렬해 골든앵글(137.5°)로 색상환에 배분 + 명도 3단 —
+  // 해시 우연 충돌로 음식료담배/제약/운송장비부품이 비슷해지던 문제 해결
+  // (2026-09-09). 업종 집합이 같으면 세션 간 색도 동일(결정적).
+  var _secHueMap = null;
+  function _secColorOf(name) {
+    var key = String(name || "").replace(/[\s·・()]/g, "");
+    if (!_secHueMap) {
+      var set = {};
+      Object.keys(_wbSecFull).forEach(function (c) { set[_wbSecFull[c]] = 1; });
+      Object.keys(_wbSec).forEach(function (c) { set[String(_wbSec[c]).replace(/[\s·・()]/g, "")] = 1; });
+      var names = Object.keys(set).sort();
+      if (!names.length) return null;                  // 맵 로드 전 — 해시 폴백
+      _secHueMap = {};
+      names.forEach(function (n, i) {
+        _secHueMap[n] = { h: Math.round(i * 137.508) % 360, l: [62, 55, 70][i % 3], s: [65, 75, 58][i % 3] };
+      });
+    }
+    return _secHueMap[key] || null;
+  }
+  function secPillName(name) {
+    // 섹터명 → 고정색 알약 (이름을 이미 아는 경우 — 타임라인 저장 섹터 등)
+    if (!name) return "";
+    var col = _secColorOf(name);
+    if (!col) {                                        // 미등재 업종 — 기존 해시 폴백
+      var hsh = 0;
+      for (var i = 0; i < name.length; i++) hsh = (hsh * 31 + name.charCodeAt(i)) >>> 0;
+      col = { h: hsh % 360, l: 62, s: 65 };
+    }
+    var c = col.h + "," + col.s + "%," + col.l + "%";
+    // hsl 문자열에 hex 알파를 붙이던 버그(무효 색 → 테두리 미표시) — hsla 로 교정
+    return ' <span style="border:1px solid hsla(' + c + ',.5);background:hsla(' + c + ',.12);color:hsl(' + c + ');border-radius:9px;padding:0 6px;font-size:10.5px;white-space:nowrap">' + esc(name) + "</span>";
+  }
   function secPill(code) {
     // 우선주(끝자리≠0, 예: 005935 삼성전자우)는 보통주 코드로 폴백 — 섹터맵은 보통주만 등재
     var name = _secOf(code) || (code && code[5] !== "0" ? _secOf(code.slice(0, 5) + "0") : null);
-    if (!name) return "";
-    var hsh = 0;
-    for (var i = 0; i < name.length; i++) hsh = (hsh * 31 + name.charCodeAt(i)) >>> 0;
-    var hue = hsh % 360;
-    // hsl 문자열에 hex 알파를 붙이던 버그(무효 색 → 테두리 미표시) — hsla 로 교정
-    return ' <span style="border:1px solid hsla(' + hue + ',65%,62%,.5);background:hsla(' + hue + ',65%,62%,.12);color:hsl(' + hue + ',65%,62%);border-radius:9px;padding:0 6px;font-size:10.5px;white-space:nowrap">' + esc(name) + "</span>";
+    return secPillName(name);
   }
   // 투자자 합산(외인+기관계) 순매수 순위 + 개인·공매도 누적·대차잔고 추이
   function totalTable(t, nD, basis) {
@@ -7404,10 +7431,12 @@
     function eok(v) { return v == null ? "—" : fmtAmt(v / 100); }
     // 상위=왼쪽 / 하위=오른쪽 카드 — 열은 합산·공매도·대차만(외인/기관/개인 세부는 아래 펼침)
     function card(title, arr, color) {
+      // 섹터는 종목 옆 별도 컬럼으로 분리(2026-09-09 사용자 요청 — 필 이동)
       var rows = (arr || []).map(function (e, i) {
         var loan = e.loanAmt == null ? "—"
           : Math.round(e.loanAmt).toLocaleString() + (e.loanChg ? " (" + (e.loanChg > 0 ? "+" : "") + Math.round(e.loanChg).toLocaleString() + ")" : "");
-        return "<tr style='border-top:1px solid rgba(128,128,128,.12)'><td style='padding:2px 6px 2px 0;white-space:nowrap'>" + (i + 1) + ". " + esc(e.name) + secPill(e.code) +
+        return "<tr style='border-top:1px solid rgba(128,128,128,.12)'><td style='padding:2px 6px 2px 0;white-space:nowrap'>" + (i + 1) + ". " + esc(e.name) +
+          "</td><td style='white-space:nowrap;padding-right:4px'>" + (secPill(e.code) || "<span style='opacity:.3'>—</span>") +
           "</td><td style='text-align:right;color:" + color + ";font-weight:600'>" + eok(e.amt) +
           "</td><td style='text-align:right;color:" + INV[1][2] + "'>" + eok(e.frgn) +
           "</td><td style='text-align:right;color:" + INV[2][2] + "'>" + eok(e.orgn) +
@@ -7415,10 +7444,10 @@
           "</td><td style='text-align:right;opacity:.75'>" + (e.shortSum == null ? "—" : Math.round(e.shortSum).toLocaleString()) +
           "</td><td style='text-align:right;opacity:.75;white-space:nowrap'>" + loan + "</td></tr>";
       }).join("");
-      return '<div style="flex:1;min-width:430px;border:1px solid rgba(128,128,128,.2);border-radius:10px;padding:8px 12px;overflow-x:auto">'
+      return '<div style="flex:1;min-width:470px;border:1px solid rgba(128,128,128,.2);border-radius:10px;padding:8px 12px;overflow-x:auto">'
         + '<div style="font-weight:600;margin-bottom:4px;color:' + color + '">' + title + "</div>"
         + '<table style="width:100%;border-collapse:collapse;font-size:12px">'
-        + "<tr style='opacity:.6'><th style='text-align:left'>종목</th><th style='text-align:right'>합산(억)</th><th style='text-align:right;color:" + INV[1][2] + "'>외인</th><th style='text-align:right;color:" + INV[2][2] + "'>기관</th><th style='text-align:right;color:" + INV[0][2] + "'>개인</th><th style='text-align:right'>공매도(억)</th><th style='text-align:right'>대차잔고(증감,억)</th></tr>"
+        + "<tr style='opacity:.6'><th style='text-align:left'>종목</th><th style='text-align:left'>섹터</th><th style='text-align:right'>합산(억)</th><th style='text-align:right;color:" + INV[1][2] + "'>외인</th><th style='text-align:right;color:" + INV[2][2] + "'>기관</th><th style='text-align:right;color:" + INV[0][2] + "'>개인</th><th style='text-align:right'>공매도(억)</th><th style='text-align:right'>대차잔고(증감,억)</th></tr>"
         + rows + "</table></div>";
     }
     h += '<div style="display:flex;gap:10px;flex-wrap:wrap">'
@@ -7460,10 +7489,13 @@
     // 장중 주요 촉매 표와 같은 테이블 구조 — 컬럼 간격 일정 (날짜는 일반 폰트).
     // 시장 이벤트 행(종목 없음 '—')은 일별 표 반응 코멘트와 중복이라 제외하고
     // 종목 행만 표시 + 첫 행 컬럼명 (2026-09-09 사용자 요청).
-    var rows = (_wbTl || []).filter(function (t) {
+    var list = (_wbTl || []).filter(function (t) {
       if (!t.stock) return false;                                        // 시장 이벤트 행 제외
       return _wbTlMkt === "전체" || !t.market || t.market === _wbTlMkt;
-    }).map(function (t) {
+    });
+    // 섹터 컬럼(2026-09-09) — 생성기 저장값(t.sector). 구 아카이브(키 없음)는 미표시
+    var hasSec = list.some(function (t) { return t.sector; });
+    var rows = list.map(function (t) {
       var mk = t.market === "KOSDAQ" ? '<span style="color:var(--kosdaq-green)">KOSDAQ</span>'
         : t.market === "KOSPI" ? '<span style="color:var(--kospi-blue)">KOSPI</span>' : "";
       var star = (typeof t.star === "number" && t.star >= 1)
@@ -7475,12 +7507,16 @@
         + '<td style="white-space:nowrap;opacity:.7;padding:5px 0;width:56px">' + esc((t.date || "").slice(5)) + "</td>"
         + '<td style="white-space:nowrap;font-weight:700;width:170px;padding-right:10px">' + (t.stock ? esc(t.stock) : "—") + "</td>"
         + '<td style="white-space:nowrap;width:80px">' + mk + "</td>"
+        + (hasSec ? '<td style="white-space:nowrap;width:110px;padding-right:8px">' + (t.sector ? secPillName(t.sector) : "<span style='opacity:.35'>—</span>") + "</td>" : "")
         + '<td style="white-space:nowrap;width:110px">' + star + "</td>"
         + '<td style="white-space:nowrap;width:80px;padding-right:18px">' + chg + "</td>"
         + '<td style="color:#cbd5e1">' + esc(t.event) + "</td></tr>";
     }).join("");
     if (!rows) return '<div style="opacity:.5;font-size:12.5px;padding:6px 0">선택 시장 촉매 없음</div>';
-    var hdr = "<tr style='opacity:.6;font-size:12px'><th style='text-align:left'>날짜</th><th style='text-align:left'>종목</th><th style='text-align:left'>시장</th><th style='text-align:left'>별점</th><th style='text-align:left'>등락률(주간)</th><th style='text-align:left'>핵심 촉매</th></tr>";
+    var hdr = "<tr style='opacity:.6;font-size:12px'><th style='text-align:left'>날짜</th><th style='text-align:left'>종목</th>"
+      + "<th style='text-align:left'>시장</th>"
+      + (hasSec ? "<th style='text-align:left'>섹터</th>" : "")
+      + "<th style='text-align:left'>별점</th><th style='text-align:left'>등락률(주간)</th><th style='text-align:left'>핵심 촉매</th></tr>";
     return '<table style="width:100%;border-collapse:collapse;font-size:13px">' + hdr + rows + "</table>";
   }
   window.wbTlMkt = function (f) {
@@ -7627,12 +7663,13 @@
           var total = (s.frgn != null || s.orgn != null) ? (s.frgn || 0) + (s.orgn || 0) : null;
           var loan = s.loanAmt == null ? "—"
             : Math.round(s.loanAmt).toLocaleString() + (s.loanChg ? " (" + (s.loanChg > 0 ? "+" : "") + Math.round(s.loanChg).toLocaleString() + ")" : "");
-          var wc = s.weekChgPct != null ? s.weekChgPct : s.chgPct;
+          var wc = s.weekChgPct;   // 주간 누적만 표기 — 당일(chgPct) 폴백 제거(2026-09-09, 라벨 불일치 방지)
           var wcCell = wc == null ? "—"
             : '<span style="color:' + (wc > 0 ? "#f04452" : wc < 0 ? "#3182f6" : "inherit") + ';font-weight:600">' + (wc > 0 ? "+" : "") + wc + "%</span>";
           var mkTag = s.market === "KOSDAQ" ? ' <span style="color:var(--kosdaq-green);font-size:10.5px">KOSDAQ</span>'
             : s.market === "KOSPI" ? ' <span style="color:var(--kospi-blue);font-size:10.5px">KOSPI</span>' : "";
-          return "<tr style='border-top:1px solid rgba(128,128,128,.12)'><td style='padding:2px 6px 2px 0;white-space:nowrap'>" + (i + 1) + ". " + esc(s.name) + mkTag + secPill(String(s.code || "").padStart(6, "0")) +
+          return "<tr style='border-top:1px solid rgba(128,128,128,.12)'><td style='padding:2px 6px 2px 0;white-space:nowrap'>" + (i + 1) + ". " + esc(s.name) + mkTag +
+            "</td><td style='white-space:nowrap;padding-right:8px'>" + secPill(String(s.code || "").padStart(6, "0")) +   // 섹터 필 별도 컬럼(2026-09-09, 합산 카드와 동일)
             "</td><td style='text-align:right;color:" + ((total || 0) >= 0 ? "#f04452" : "#3182f6") + ";font-weight:600'>" + nhEok(total) +
             "</td><td style='text-align:right;color:" + INV[1][2] + "'>" + nhEok(s.frgn) +
             "</td><td style='text-align:right;color:" + INV[2][2] + "'>" + nhEok(s.orgn) +
@@ -7644,8 +7681,8 @@
         }).join("");
         nhBody = '<div style="border:1px solid rgba(128,128,128,.2);border-radius:10px;padding:8px 12px;overflow-x:auto">'
           + '<div style="font-weight:600;margin-bottom:4px;color:#fbbf24">52주 신고가 근접</div>'
-          + '<table style="width:100%;border-collapse:collapse;font-size:12px;min-width:760px">'
-          + "<tr style='opacity:.6'><th style='text-align:left'>종목</th><th style='text-align:right'>합산(억)</th><th style='text-align:right;color:" + INV[1][2] + "'>외인</th><th style='text-align:right;color:" + INV[2][2] + "'>기관</th><th style='text-align:right;color:" + INV[0][2] + "'>개인</th><th style='text-align:right'>공매도(억)</th><th style='text-align:right'>대차잔고(증감,억)</th><th style='text-align:right'>등락률(주간)</th><th style='text-align:right'>신고가 대비</th></tr>"
+          + '<table style="width:100%;border-collapse:collapse;font-size:12px;min-width:830px">'
+          + "<tr style='opacity:.6'><th style='text-align:left'>종목</th><th style='text-align:left'>섹터</th><th style='text-align:right'>합산(억)</th><th style='text-align:right;color:" + INV[1][2] + "'>외인</th><th style='text-align:right;color:" + INV[2][2] + "'>기관</th><th style='text-align:right;color:" + INV[0][2] + "'>개인</th><th style='text-align:right'>공매도(억)</th><th style='text-align:right'>대차잔고(증감,억)</th><th style='text-align:right'>등락률(주간)</th><th style='text-align:right'>신고가 대비</th></tr>"
           + nhRows + "</table></div>";
       } else {
         nhBody = '<div style="font-size:12px">' + nhGroups.map(function (g) {
@@ -7676,38 +7713,109 @@
     // 섹터 x 수급 매트릭스 — 업종별 주간 등락 vs 투자자 순매수 (KIS 업종, 억원)
     var sfm = d.sectorFlow;
     if (sfm && (sfm.rows || []).length) {
+      // 기관 세분 + V1 신호(2026-09-09): 신호는 생성기 저장값(r.signal)만 렌더 —
+      // 다기간(YTD/3M/1M/1W) 가격 추세 x 외인+기관 수급의 '상태 진단'(예측 아님).
+      // 구 아카이브(신호/세분 키 없음)는 폴백 렌더.
+      var sfDet = sfm.rows.some(function (r) { return r.finInv != null; });
+      var sfV1 = sfm.rows.some(function (r) { return r.signal != null; });
+      var SIG_C = { "동반강세": "#f04452", "수급이탈": "#fbbf24", "수급유입": "#2dd4bf",
+                    "동반약세": "#3182f6", "데이터부족": "#64748b" };
+      function fp(v) {                                     // 가격 수익률 셀 (부호+1자리, %는 헤더)
+        if (v == null || v === "") return "<td style='text-align:right;padding:2px 0 2px 10px;opacity:.4'>—</td>";
+        return "<td style='text-align:right;padding:2px 0 2px 10px;color:" + (v > 0 ? "#f04452" : v < 0 ? "#3182f6" : "inherit") + "'>"
+          + (v > 0 ? "+" : "") + (Math.round(v * 10) / 10) + "</td>";
+      }
       var mrows = sfm.rows.map(function (r) {
-        var smart = r.frgn + r.orgn;                       // 외인+기관 합산
-        var diverge = (r.chgPct >= 1.5 && smart < 0) ? "over"   // 주가↑ 수급↓ = 과열 주의
-          : (r.chgPct <= -1.5 && smart > 0) ? "under" : "";     // 주가↓ 수급↑ = 저가 매집
-        var bg = diverge === "over" ? "background:rgba(251,191,36,.07)"
-          : diverge === "under" ? "background:rgba(45,212,191,.07)" : "";
-        var badge = diverge === "over" ? ' <span style="color:#fbbf24;font-size:10px">과열주의</span>'
-          : diverge === "under" ? ' <span style="color:#2dd4bf;font-size:10px">수급유입</span>' : "";
         function amt(v) { return '<td style="text-align:right;padding:2px 0 2px 12px;color:' + (v > 0 ? "#f04452" : v < 0 ? "#3182f6" : "inherit") + '">' + fmtAmt(v) + "</td>"; }
-        return '<tr style="border-top:1px solid rgba(128,128,128,.1);' + bg + '">'
-          + '<td style="padding:2px 6px 2px 0;white-space:nowrap">' + esc(r.name) + badge + "</td>"
+        if (sfV1) {
+          var sg = r.signal === "혼조" ? "" : (r.signal || "");   // 혼조는 저장만, 표기 생략
+          var badge = sg ? '<span title="핵심수급(외인+기관) ' + fmtAmt(r.coreFlow) + '억 · 가격추세=YTD/3M/1M/1W 3개 이상 동일 방향" style="color:'
+            + (SIG_C[sg] || "#94a3b8") + ';font-weight:600;font-size:11px">' + sg + "</span>" : "";
+          return '<tr style="border-top:1px solid rgba(128,128,128,.1)">'
+            + '<td style="padding:2px 6px 2px 0;white-space:nowrap">' + esc(r.name) + "</td>"
+            + fp(r.ytd) + fp(r.m3) + fp(r.m1) + fp(r.chgPct)
+            + amt(r.frgn) + amt(r.orgn) + amt(r.fund)
+            + (sfDet ? amt(r.finInv) + amt(r.insur) + amt(r.trust) : "")
+            + amt(r.prsn)
+            + '<td style="text-align:right;padding:2px 0 2px 10px;white-space:nowrap">' + badge + "</td></tr>";
+        }
+        // ── 폴백(구 아카이브, 1W 기반 근사) — '과열주의' 용어 폐기 → 수급이탈
+        var smart = r.frgn + r.orgn;
+        var diverge = (r.chgPct >= 1.5 && smart < 0) ? "over"
+          : (r.chgPct <= -1.5 && smart > 0) ? "under" : "";
+        var badge2 = diverge === "over" ? ' <span style="color:#fbbf24;font-size:10px">수급이탈</span>'
+          : diverge === "under" ? ' <span style="color:#2dd4bf;font-size:10px">수급유입</span>' : "";
+        return '<tr style="border-top:1px solid rgba(128,128,128,.1)">'
+          + '<td style="padding:2px 6px 2px 0;white-space:nowrap">' + esc(r.name) + badge2 + "</td>"
           + '<td style="text-align:right">' + pct(r.chgPct) + "</td>"
-          + amt(r.frgn) + amt(r.orgn) + amt(r.fund) + amt(r.prsn) + "</tr>";
+          + amt(r.frgn) + amt(r.orgn) + amt(r.fund)
+          + (sfDet ? amt(r.finInv) + amt(r.insur) + amt(r.trust) : "")
+          + amt(r.prsn) + "</tr>";
       }).join("");
-      h += '<details class="flow-details" style="margin:0 0 6px"><summary>섹터 × 수급 매트릭스 — 주가 vs 투자자 순매수 (주간, 억원) ▾</summary>'
-        + '<div style="overflow-x:auto;margin-top:6px"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:520px">'
-        + "<tr style='opacity:.6'><th style='text-align:left'>업종</th><th style='text-align:right'>주간등락</th><th style='text-align:right'>외인</th><th style='text-align:right'>기관</th><th style='text-align:right'>연기금</th><th style='text-align:right'>개인</th></tr>"
+      var sfTh = function (t) { return "<th style='text-align:right'>" + t + "</th>"; };
+      var sfW = sfV1 ? (sfDet ? 1030 : 880) : (sfDet ? 780 : 520);
+      var sfFoot = sfV1
+        ? ("가격추세 = YTD·3M·1M·1W(%) 중 3개 이상 동일 방향 · 핵심수급 = 외인+기관 주간 누적 · KIS 업종(KRX 산업분류)<br>"
+          + '<span style="color:#f04452">동반강세</span>=가격강세+수급유입 · <span style="color:#fbbf24">수급이탈</span>=가격강세+수급이탈 · '
+          + '<span style="color:#2dd4bf">수급유입</span>=가격약세+수급유입 · <span style="color:#3182f6">동반약세</span>=가격약세+수급이탈 · '
+          + '공란=혼조(가격방향 불명확) · 데이터부족=일부 기간 결측')
+        : "KIS 업종(KRX 산업분류) 일별 확정 · <span style='color:#fbbf24'>수급이탈</span>=주가↑수급↓ · <span style='color:#2dd4bf'>수급유입</span>=주가↓수급↑";
+      h += '<details class="flow-details" style="margin:0 0 6px"><summary>섹터 × 수급 매트릭스 — 가격 추세(%) vs 투자자 순매수 (주간, 억원) ▾</summary>'
+        + '<div style="overflow-x:auto;margin-top:6px"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:' + sfW + 'px">'
+        + "<tr style='opacity:.6'><th style='text-align:left'>업종</th>"
+        + (sfV1 ? sfTh("YTD") + sfTh("3M") + sfTh("1M") + sfTh("1W") : sfTh("주간등락"))
+        + sfTh("외인") + sfTh(sfDet ? "기관(합)" : "기관") + sfTh("연기금")
+        + (sfDet ? sfTh("금융투자") + sfTh("보험") + sfTh("투신(사모)") : "")
+        + sfTh("개인") + (sfV1 ? sfTh("신호") : "") + "</tr>"
         + mrows + "</table><div style='opacity:.5;font-size:10.5px;margin-top:4px'>"
-        + "KIS 업종(KRX 산업분류) 일별 확정 · <span style='color:#fbbf24'>과열주의</span>=주가↑수급↓ · <span style='color:#2dd4bf'>수급유입</span>=주가↓수급↑</div></div></details>";
+        + sfFoot + "</div></div></details>";
     }
-    // 수급 상방/하방 관찰 — 합산 순매수 카드 바로 아래, 펼침(투자자별·공매도)은 그 밑
-    var wn = syn.watchNotes || {}, wnHtml = "";
-    if ((wn.long || []).length || (wn.short || []).length) {
-      var wnCol = function (title, arr, color) {
-        return '<div style="flex:1;min-width:260px"><div style="font-weight:600;color:' + color + ';margin-bottom:3px">' + title + "</div>"
-          + (arr || []).map(function (e) {
-              return '<div style="margin:3px 0;font-size:12.5px"><b>' + esc(e.name) + "</b> <span style='color:#cbd5e1'>— " + esc(e.basis) + "</span></div>";
-            }).join("") + "</div>";
+    // 섹터 시그널 종목 관찰 4-Matrix(2026-09-09) — 생성기 sectorScreen 저장값만
+    // 렌더(웹/엑셀 공용 §28). 구 아카이브(sectorScreen 없음)는 기존 수급 상방/
+    // 하방 관찰 폴백.
+    var ss = d.sectorScreen, wnHtml = "";
+    if (ss && ss.matrix) {
+      var SS_C = { "동반강세": "#f04452", "수급유입": "#2dd4bf", "수급이탈": "#fbbf24", "동반약세": "#3182f6" };
+      var ssCard = function (sig) {
+        var arr = (ss.matrix[sig] || []);
+        var body = arr.length ? arr.map(function (e) {
+          var ev = e.evidence || {};
+          var tip = "섹터: " + (e.sector || "-") + " · " + sig
+            + "\n외국인 " + (ev.frgn != null ? ev.frgn + "억" : "-") + " · 기관 " + (ev.orgn != null ? ev.orgn + "억" : "-")
+            + (ev.fund != null ? "\n연기금 " + ev.fund + "억" : "")
+            + (ev.loanChg != null ? "\n대차증감 " + ev.loanChg + "억" : "")
+            + (ev.shortSum != null ? "\n공매도 누적 " + ev.shortSum + "억" : "")
+            + (ev.catText ? "\n촉매(★" + (ev.catStar || 0) + ") " + ev.catText : "")
+            + "\nStock Score: " + (e.score > 0 ? "+" : "") + e.score;
+          return '<div style="margin:5px 0;font-size:12.5px" title="' + esc(tip) + '"><b>' + esc(e.name) + "</b>"
+            + '<span style="opacity:.55;font-size:11px"> · ' + esc(e.sector || "") + "</span>"
+            + '<span style="float:right;font-weight:700;color:' + SS_C[sig] + '">' + (e.score > 0 ? "+" : "") + e.score + "</span>"
+            + '<div style="color:#cbd5e1;font-size:11.5px;margin-top:1px">' + esc(e.reason || "") + "</div></div>";
+        }).join("") : "<div style='opacity:.45;font-size:12px'>해당 섹터·조건 충족 종목 없음</div>";
+        return '<div style="flex:1;min-width:290px;border:1px solid rgba(128,128,128,.18);border-radius:8px;padding:8px 10px">'
+          + '<div style="font-weight:700;color:' + SS_C[sig] + '">● ' + sig
+          + ' <span style="font-weight:400;opacity:.6;font-size:11px">' + ((ss.sub || {})[sig] || "") + "</span></div>" + body + "</div>";
       };
-      wnHtml = '<div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:10px">'
-        + wnCol("수급 상방 관찰", wn.long, "#f04452") + wnCol("수급 하방 관찰", wn.short, "#3182f6") + "</div>"
-        + '<div style="opacity:.45;font-size:10.5px;margin:2px 0 4px">수급·공매도 데이터 기반 자동 생성 · 투자 판단 참고용, 매매 권유 아님</div>';
+      wnHtml = '<div style="font-weight:600;margin:12px 0 2px">섹터 시그널 종목 관찰 '
+        + '<span style="font-weight:400;opacity:.55;font-size:11px">(섹터 상태 × 투자자 수급 × 공매도·대차 × 주간 촉매)</span></div>'
+        + '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:6px">' + ssCard("동반강세") + ssCard("수급유입") + "</div>"
+        + '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px">' + ssCard("수급이탈") + ssCard("동반약세") + "</div>"
+        + '<div style="opacity:.45;font-size:10.5px;margin:4px 0 4px">' + esc(ss.universeNote || "")
+        + " · 상태 진단·관찰 우선순위이며 매매 권유 아님</div>";
+    } else {
+      // ── 폴백(구 아카이브): 기존 수급 상방/하방 관찰
+      var wn = syn.watchNotes || {};
+      if ((wn.long || []).length || (wn.short || []).length) {
+        var wnCol = function (title, arr, color) {
+          return '<div style="flex:1;min-width:260px"><div style="font-weight:600;color:' + color + ';margin-bottom:3px">' + title + "</div>"
+            + (arr || []).map(function (e) {
+                return '<div style="margin:3px 0;font-size:12.5px"><b>' + esc(e.name) + "</b> <span style='color:#cbd5e1'>— " + esc(e.basis) + "</span></div>";
+              }).join("") + "</div>";
+        };
+        wnHtml = '<div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:10px">'
+          + wnCol("수급 상방 관찰", wn.long, "#f04452") + wnCol("수급 하방 관찰", wn.short, "#3182f6") + "</div>"
+          + '<div style="opacity:.45;font-size:10.5px;margin:2px 0 4px">수급·공매도 데이터 기반 자동 생성 · 투자 판단 참고용, 매매 권유 아님</div>';
+      }
     }
     h += netbuyTables(d.netbuyCum, wnHtml);
     // 공매도 · 대차 주간 동향 (랭킹 유니버스 한정, 억원) — 앰버 접힘

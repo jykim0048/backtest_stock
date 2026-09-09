@@ -214,6 +214,219 @@ def _is_etf_name(name):
     return bool(_ETF_RE.search(str(name or "")))
 
 
+_SEC_LOOKUP = None
+
+
+def _sector_of_name(name, code=None):
+    """종목명(→krx_companies 코드) → 업종(krx_code_sector 전 종목 맵). 우선주는
+    보통주 코드 폴백. 촉매 타임라인 섹터 컬럼용(2026-09-09) — 미해석은 None."""
+    global _SEC_LOOKUP
+    if _SEC_LOOKUP is None:
+        code_sec, name_code = {}, {}
+        try:
+            with open(os.path.join(ROOT, "public", "assets", "krx_code_sector.json"),
+                      encoding="utf-8") as f:
+                code_sec = dict((json.load(f) or {}).get("map") or {})
+        except Exception:
+            pass
+        try:
+            with open(os.path.join(ROOT, "public", "assets", "krx_companies.json"),
+                      encoding="utf-8") as f:
+                for e in json.load(f):
+                    nm = (e.get("name") or "").strip()
+                    c = str(e.get("code") or "").zfill(6)
+                    if nm and c != "000000" and nm not in name_code:
+                        name_code[nm] = c
+        except Exception:
+            pass
+        _SEC_LOOKUP = (code_sec, name_code)
+    code_sec, name_code = _SEC_LOOKUP
+    c = str(code).zfill(6) if code else name_code.get(str(name or "").strip())
+    if not c:
+        return None
+    return code_sec.get(c) or (code_sec.get(c[:5] + "0") if c[5] != "0" else None)
+
+
+def _code_of_name(name):
+    """종목명 → 코드 (krx_companies) — 스크리닝 Join Key(§5). 미등재는 None."""
+    _sector_of_name("__init__")            # 룩업 캐시 초기화 겸용
+    return _SEC_LOOKUP[1].get(str(name or "").strip())
+
+
+def _norm_sec(s):
+    """섹터명 정규화 — sectorFlow(KIS 업종지수명)와 krx_code_sector 값 매칭용."""
+    return re.sub(r"[\s·・()]", "", str(s or ""))
+
+
+# ── 섹터 시그널 종목 관찰 4-Matrix (2026-09-09 V1) ────────────────────────────
+# Top-down: ①섹터x수급 신호(동반강세/수급유입/수급이탈/동반약세) → ②소속 종목
+# → ③수급·공매도·대차·촉매 Evidence 결합 → ④동방향 종목 Top3. 결과는 JSON 에
+# 저장해 웹/엑셀이 동일 결과를 렌더(§28). 예측 아님 — 관찰 우선순위 산정.
+_MATRIX_SUB = {"동반강세": "추세 지속형 상방 관찰", "수급유입": "초기 유입형 상방 관찰",
+               "수급이탈": "상승 후 약화 관찰", "동반약세": "약세 지속형 하방 관찰"}
+
+
+def build_sector_screen(sector_rows, netbuy_cum, short_loan, stock_rows):
+    """스크리닝 결과 {matrix, debug, universeNote}. 규칙(V1):
+    - Evidence 축: 외인/기관(핵심), 대차 증감, 공매도 상위 등재(약한 부정).
+      연기금은 기관계에 포함되어 점수 미가산(§7 중복 방지) — 표시·디버그만.
+      촉매는 방향 분류 데이터가 없어 Neutral(§10) — 표시·디버그만.
+    - 결측은 축 자체를 건너뜀(0 취급 금지 §32), Main 후보는 서로 다른 축
+      2개 이상 동방향(§33), Matrix 방향과 역행 종목은 debug 에 보존(§14)."""
+    states = {}
+    for r in sector_rows or []:
+        if r.get("signal") in _MATRIX_SUB:
+            states[_norm_sec(r.get("name"))] = (r.get("name"), r.get("signal"))
+
+    stocks = {}
+
+    def feat(name, code=None):
+        code = (str(code).zfill(6) if code else None) or _code_of_name(name)
+        key = code or f"n:{name}"
+        e = stocks.setdefault(key, {"code": code, "name": name})
+        return e
+
+    nc = netbuy_cum or {}
+    for grp in ("top", "bottom"):
+        for x in ((nc.get("total") or {}).get(grp) or []):
+            e = feat(x.get("name"), x.get("code"))
+            for src, dst, div in (("frgn", "frgn", 100), ("orgn", "orgn", 100),
+                                  ("prsn", "prsn", 100), ("shortSum", "shortSum", 1),
+                                  ("loanAmt", "loanAmt", 1), ("loanChg", "loanChg", 1)):
+                v = x.get(src)
+                if v is not None and dst not in e:
+                    e[dst] = round(v / div, 1)          # 수급 백만원→억
+        for inv, key in (("frgn", "frgn"), ("orgn", "orgn"), ("fund", "fund"),
+                         ("prsn", "prsn")):
+            for x in ((nc.get(inv) or {}).get(grp) or []):
+                e = feat(x.get("name"), x.get("code"))
+                if x.get("amt") is not None and key not in e:
+                    e[key] = round(x["amt"] / 100, 1)
+    sl = short_loan or {}
+    for x in (sl.get("shortTop") or []):
+        e = feat(x.get("name"))
+        e["shortListed"] = True
+        if x.get("amt") is not None and "shortSum" not in e:
+            e["shortSum"] = round(x["amt"], 1)
+    for lst in ("loanUp", "loanDown"):
+        for x in (sl.get(lst) or []):
+            e = feat(x.get("name"))
+            if x.get("chg") is not None and "loanChg" not in e:
+                e["loanChg"] = round(x["chg"], 1)
+            if x.get("amt") is not None and "loanAmt" not in e:
+                e["loanAmt"] = round(x["amt"], 1)
+    for t in stock_rows or []:                          # 촉매 — 종목당 1회(§30)
+        if not t.get("stock"):
+            continue
+        e = feat(t["stock"])
+        if (t.get("star") or 0) >= (e.get("catStar") or 0):
+            e["catStar"] = t.get("star") or 0
+            e["catText"] = t.get("event") or ""
+
+    def fmt_eok(v):
+        return f"{'+' if v > 0 else ''}{round(v):,}억"
+
+    matrix = {k: [] for k in _MATRIX_SUB}
+    debug = []
+    for key, e in stocks.items():
+        sec = _sector_of_name(e.get("name"), e.get("code"))
+        e["sector"] = sec
+        st = states.get(_norm_sec(sec)) if sec else None
+        sig = st[1] if st else None
+        pos, neg = [], []                               # (축, 문구)
+        if isinstance(e.get("frgn"), (int, float)) and e["frgn"]:
+            (pos if e["frgn"] > 0 else neg).append(
+                ("frgn", f"외국인 {fmt_eok(e['frgn'])} {'순매수' if e['frgn'] > 0 else '순매도'}"))
+        if isinstance(e.get("orgn"), (int, float)) and e["orgn"]:
+            (pos if e["orgn"] > 0 else neg).append(
+                ("orgn", f"기관 {fmt_eok(e['orgn'])} {'순매수' if e['orgn'] > 0 else '순매도'}"))
+        if isinstance(e.get("loanChg"), (int, float)) and e["loanChg"]:
+            (pos if e["loanChg"] < 0 else neg).append(
+                ("loan", f"대차잔고 {fmt_eok(e['loanChg'])} {'감소' if e['loanChg'] < 0 else '증가'}"))
+        if e.get("shortListed"):
+            neg.append(("short", "공매도 누적 상위 등재"))
+        score = len(pos) - len(neg)
+        e.update({"score": score, "posAxes": [a for a, _ in pos],
+                  "negAxes": [a for a, _ in neg]})
+        picked, reason = False, ""
+        if sig in ("동반강세", "수급유입") and score > 0 and len(pos) >= 2:
+            picked = True
+        elif sig in ("수급이탈", "동반약세") and score < 0 and len(neg) >= 2:
+            picked = True
+        if picked:
+            ev = pos if score > 0 else neg
+            reason = (", ".join(p for _, p in ev[:4])
+                      + f" — {st[0]}({sig}) 섹터 {_MATRIX_SUB[sig]}")
+            matrix[sig].append({
+                "code": e.get("code"), "name": e["name"], "sector": st[0],
+                "sectorSignal": sig, "score": score, "reason": reason,
+                "evidence": {k: e.get(k) for k in
+                             ("frgn", "orgn", "fund", "prsn", "shortSum",
+                              "loanAmt", "loanChg", "catStar", "catText")}})
+        debug.append({"code": e.get("code"), "name": e["name"], "sector": sec,
+                      "sectorSignal": sig,
+                      "frgn": e.get("frgn"), "orgn": e.get("orgn"),
+                      "fund": e.get("fund"), "prsn": e.get("prsn"),
+                      "shortSum": e.get("shortSum"), "loanAmt": e.get("loanAmt"),
+                      "loanChg": e.get("loanChg"),
+                      "catStar": e.get("catStar"), "catText": e.get("catText"),
+                      "catDirection": None,             # V1: 방향 데이터 없음(§10)
+                      "posEvidence": len(pos), "negEvidence": len(neg),
+                      "score": score, "matrix": sig,
+                      "picked": picked, "reason": reason})
+    # 정렬·Top3: 상방=점수(수급유입은 축 수 우선) 내림, 하방=점수 오름(§13, §15)
+    matrix["동반강세"].sort(key=lambda x: -x["score"])
+    matrix["수급유입"].sort(key=lambda x: -x["score"])   # 점수=동방향 축 수와 동치(V1)
+    matrix["수급이탈"].sort(key=lambda x: x["score"])
+    matrix["동반약세"].sort(key=lambda x: x["score"])
+    for k in matrix:
+        matrix[k] = matrix[k][:3]
+    return {"matrix": matrix, "debug": debug,
+            "sub": _MATRIX_SUB,
+            "universeNote": "현재 확보된 주간 브리핑 데이터 유니버스(순매수 상위 30 등재 · "
+                            "공매도/대차 랭킹 · 주간 촉매) 기준 — 전 시장 스크리닝 아님"}
+
+
+# ── 섹터 x 수급 매트릭스 V1 신호 (2026-09-09) ─────────────────────────────────
+# 미래 예측이 아닌 '가격 추세 x 외인·기관 수급'의 상태 진단. 매수/매도/예상 등
+# 예측성 표현 금지, 기존 1W 단독 '과열주의' 로직 폐기. 신호는 생성기에서 한 번만
+# 계산해 JSON 에 저장 — 웹/엑셀은 저장값을 그대로 렌더(판정 불일치 방지).
+def classify_price_trend(ytd, r3m, r1m, r1w):
+    """4개 기간(YTD/3M/1M/1W) 부호 중 3개 이상 동일 방향 → STRONG/WEAK, 그 외
+    MIXED. 결측(None)이 하나라도 있으면 None(임의로 0 취급 금지 — V1 §18)."""
+    vals = [ytd, r3m, r1m, r1w]
+    if any(not isinstance(v, (int, float)) for v in vals):
+        return None
+    pos = sum(1 for v in vals if v > 0)
+    neg = sum(1 for v in vals if v < 0)
+    if pos >= 3:
+        return "PRICE_STRONG"
+    if neg >= 3:
+        return "PRICE_WEAK"
+    return "PRICE_MIXED"
+
+
+def calculate_core_flow(frgn, orgn):
+    """핵심 수급 = 외인+기관 주간 순매수 합 (연기금·개인은 표시만, 판정 제외)."""
+    if not (isinstance(frgn, (int, float)) and isinstance(orgn, (int, float))):
+        return None
+    return frgn + orgn
+
+
+def classify_sector_signal(ytd, r3m, r1m, r1w, frgn, orgn):
+    """최종 신호: 동반강세/수급이탈/수급유입/동반약세 + 혼조 + 데이터부족.
+    수급 0(FLOW_NEUTRAL)은 강제 분류하지 않고 혼조로 표기(실데이터상 희박)."""
+    trend = classify_price_trend(ytd, r3m, r1m, r1w)
+    core = calculate_core_flow(frgn, orgn)
+    if trend is None or core is None:
+        return "데이터부족"
+    if trend == "PRICE_MIXED" or core == 0:
+        return "혼조"
+    if trend == "PRICE_STRONG":
+        return "동반강세" if core > 0 else "수급이탈"
+    return "수급유입" if core > 0 else "동반약세"
+
+
 def _snapshot_breadth(today):
     """허브 /breadth(등락 종목수 + 신고가 근접)를 당일 키로 아카이브 — 주간 ADR
     추이·신고가 섹터 그룹핑 입력(2026-09-08 Phase 2⑥). 장전(값 전부 0)이나 실패
@@ -297,7 +510,9 @@ def _week_cum_codes(codes, week_start, fetch_closes=None):
 def _flow_week(codes, dates, fetch=None):
     """코드별 '주간 누적' 확정 수급 — 허브 /flow daily(FHPTJ04160001)에서 이번 주
     날짜 행을 합산. 반환 {code: {frgn,orgn,prsn(백만원), shortSum(억),
-    loanAmt,loanChg(억)}}. 실패 종목은 제외(fail-open — UI 는 '—' 표시)."""
+    loanAmt,loanChg(억), weekChgPct(%)}}. weekChgPct 는 같은 응답의 일자별
+    종가로 계산(전주 마지막 종가 대비 — yfinance _week_cum_codes 와 동일 산식,
+    2026-09-09 KIS 전환). 실패 종목은 제외(fail-open — UI 는 '—' 표시)."""
     from concurrent.futures import ThreadPoolExecutor
     want = {dt.strftime("%Y%m%d") for dt in dates}
     base = FLOW_RANK_URL.rsplit("/", 1)[0]
@@ -321,17 +536,31 @@ def _flow_week(codes, dates, fetch=None):
                         acc[k] += float(row.get(k) or 0.0)
             if not got:
                 return code, None
+            wk_start = min(want)
             short = sum(float(r0.get("pbmn") or 0.0) for r0 in (d.get("shorts") or [])
                         if str(r0.get("date")) in want)
-            loans = sorted((str(r0.get("date")), r0) for r0 in (d.get("loans") or [])
-                           if str(r0.get("date")) in want)
+            loans_all = sorted((str(r0.get("date")), r0) for r0 in (d.get("loans") or []))
+            loans = [x for x in loans_all if x[0] in want]
+            prior = [x for x in loans_all if x[0] < wk_start]
             out = {k: round(v) for k, v in acc.items()}
             if short:
                 out["shortSum"] = round(short, 1)
             if loans:
-                out["loanAmt"] = round(float(loans[-1][1].get("rmndAmt") or 0.0), 1)
-                out["loanChg"] = round(float(loans[-1][1].get("rmndAmt") or 0.0)
-                                       - float(loans[0][1].get("rmndAmt") or 0.0), 1)
+                last = float(loans[-1][1].get("rmndAmt") or 0.0)
+                out["loanAmt"] = round(last, 1)
+                # 증감 기준 = 전주 마지막 잔고(2026-09-09, 월요일 단일 행도 증감
+                # 산출) — 시계열(~20거래일)에 전주 행이 없으면 주중 첫 행 폴백
+                base0 = (float(prior[-1][1].get("rmndAmt") or 0.0) if prior
+                         else float(loans[0][1].get("rmndAmt") or 0.0))
+                out["loanChg"] = round(last - base0, 1)
+            # 주간 등락률 — 주중 최신 종가 / 전주 마지막 종가 (기준 종가가 daily
+            # 범위(~20거래일) 밖이거나 0(신규상장 등)이면 결손 유지)
+            closes = sorted((str(r0.get("date")), float(r0.get("close") or 0.0))
+                            for r0 in (d.get("daily") or []))
+            in_wk = [c for dd, c in closes if dd in want and c > 0]
+            base = [c for dd, c in closes if dd < wk_start and c > 0]
+            if in_wk and base:
+                out["weekChgPct"] = round((in_wk[-1] / base[-1] - 1) * 100, 2)
             return code, out
         except Exception:
             return code, None
@@ -399,10 +628,13 @@ def _breadth_weekly(dates):
                   for x in highs[:30]]
         codes = [str(s.get("code") or "").zfill(6) for s in stocks]
         flow = _flow_week(codes, dates)
-        cum = _week_cum_codes(codes, dates[0].isoformat())
         for s, code in zip(stocks, codes):
             s.update(flow.get(code) or {})
-            if code in cum:
+        # 주간 등락률은 KIS(/flow 종가) 우선(2026-09-09) — 결손 종목만 yfinance 폴백
+        need_cum = [c for s, c in zip(stocks, codes) if s.get("weekChgPct") is None]
+        cum = _week_cum_codes(need_cum, dates[0].isoformat()) if need_cum else {}
+        for s, code in zip(stocks, codes):
+            if s.get("weekChgPct") is None and code in cum:
                 s["weekChgPct"] = cum[code]
         # 장중 재실행 보호(2026-09-09 실측): /flow daily(FHPTJ04160001)는 15:40 이전
         # 차단이라 장중 dispatch 는 수급이 통째로 비고, 그대로 저장하면 직전(마감 후)
@@ -427,14 +659,51 @@ def _breadth_weekly(dates):
                     s[k] = p[k]
                     carried = True
             n_carry += 1 if carried else 0
+        n_wc = sum(1 for s in stocks if s.get("weekChgPct") is not None)
         print(f"[weekly] 신고가 카드 보강: 수급 {len(flow)}/{len(codes)} · "
-              f"주간등락 {len(cum)}/{len(codes)} · 이월 {n_carry}종목")
+              f"주간등락 {n_wc}/{len(codes)} (yf 폴백 {len(cum)}) · 이월 {n_carry}종목")
         out["newHighs"] = {"date": rows[-1]["date"], "count": len(highs),
                            "stocks": stocks,
                            "groups": sorted(({"sector": k, "stocks": v[:6]}
                                              for k, v in groups.items()),
                                             key=lambda g: -len(g["stocks"]))[:8]}
     return out
+
+
+def _short_loan_weekly(dates, flow=None):
+    """공매도 주간 누적·대차잔고 주간 증감 상/하위 — 유니버스는 그 주 netbuy_rank
+    등재 종목 전체, 값은 /flow shorts·loans 시계열 주간 직접 계산(_flow_week
+    재사용, 2026-09-09). 등재일 값만 누적하던 구 방식의 미등재일 공매도 누락·
+    잔고 스테일을 제거. 반환 구조 {shortTop, loanUp, loanDown}는 기존과 동일.
+    같은 런의 백필·신고가 카드와 겹치는 종목은 허브 10분 캐시로 무료."""
+    uni = {}
+    for dt in dates:
+        d2 = _fetch(f"reports/netbuy_rank/{dt.isoformat()}.json")
+        if not d2:
+            continue
+        for rows in (d2.get("lists") or {}).values():
+            for r in rows or []:
+                if r.get("code"):
+                    uni.setdefault(r["code"], r.get("name"))
+    if not uni:
+        return None
+    fw = flow if flow is not None else _flow_week(sorted(uni), dates)
+    ent = [{"name": uni[c], **v} for c, v in fw.items() if c in uni]
+    if not ent:
+        return None
+    short_top = sorted([e for e in ent if e.get("shortSum", 0) > 0],
+                       key=lambda x: -x["shortSum"])[:10]
+    loan_up = sorted([e for e in ent if (e.get("loanChg") or 0) > 0],
+                     key=lambda x: -x["loanChg"])[:10]
+    loan_dn = sorted([e for e in ent if (e.get("loanChg") or 0) < 0],
+                     key=lambda x: x["loanChg"])[:10]
+    print(f"[weekly] 공매도·대차 주간(flow): 유니버스 {len(uni)} · 수급응답 {len(ent)} · "
+          f"공매도 {len(short_top)} · 대차증가 {len(loan_up)} · 대차감소 {len(loan_dn)}")
+    return {
+        "shortTop": [{"name": e["name"], "amt": round(e["shortSum"])} for e in short_top],
+        "loanUp": [{"name": e["name"], "chg": e["loanChg"], "amt": e.get("loanAmt")} for e in loan_up],
+        "loanDown": [{"name": e["name"], "chg": e["loanChg"], "amt": e.get("loanAmt")} for e in loan_dn],
+    }
 
 
 def _snapshot_netbuy_rank(today):
@@ -497,7 +766,8 @@ def _enrich_final(snap):
             out = None
             for row in (d.get("daily") or []):
                 if str(row.get("date")) == want:
-                    out = {k: row.get(k) for k in ("prsn", "frgn", "orgn", "fund")}
+                    out = {k: row.get(k) for k in ("prsn", "frgn", "orgn", "fund",
+                                                   "scrt", "insu", "ivtr", "pe")}
                     break
             if out is not None:
                 # 같은 응답의 공매도(pbmn, 억원)·대차잔고(rmndAmt 억원/rmndChg 주) 당일분 병합
@@ -525,6 +795,70 @@ def _enrich_final(snap):
                 final[code] = v
     snap["final"] = final
     print(f"[weekly] 확정 순매수 병합: {len(final)}/{len(codes)}종목")
+
+
+def _backfill_netbuy_detail(dates):
+    """이번 주 netbuy_rank 아카이브 final 에 기관 세분(scrt/insu/ivtr/pe) 소급 기입.
+
+    FHPTJ04160001 은 한 콜에 종목당 ~20거래일 시계열을 반환하므로(허브 /flow
+    daily), 세분 값이 없는 (날짜, 종목)만 모아 종목당 /flow 1콜로 그 주 전 일자를
+    한 번에 채운다(2026-09-09). 확정 병합이 통째로 빠졌던 날의 final 도 이때 함께
+    생성된다(개인 포함 보정). 세분 도입 전 아카이브만 대상이라 정착 후엔 콜 0건.
+    15:40 이후 실행 전제(_snapshot_netbuy_rank 와 동일). 실패 종목은 건너뜀."""
+    from concurrent.futures import ThreadPoolExecutor
+    KEYS = ("prsn", "frgn", "orgn", "fund", "scrt", "insu", "ivtr", "pe")
+    snaps, pending = {}, {}             # date_iso -> snap dict / code -> {date_iso,...}
+    for dt in dates:
+        di = dt.isoformat()
+        try:
+            with open(os.path.join(RANK_DIR, f"{di}.json"), encoding="utf-8") as f:
+                d = json.load(f)
+        except OSError:
+            continue
+        final = d.setdefault("final", {})
+        codes = set()
+        for rows in (d.get("lists") or {}).values():
+            for r in rows or []:
+                if r.get("code"):
+                    codes.add(r["code"])
+        need = {c for c in codes if (final.get(c) or {}).get("scrt") is None}
+        if need:
+            snaps[di] = d
+            for c in need:
+                pending.setdefault(c, set()).add(di)
+    if not pending:
+        return
+    base = FLOW_RANK_URL.rsplit("/", 1)[0]
+
+    def _one(code):
+        try:
+            req = urllib.request.Request(f"{base}/flow?code={code}",
+                                         headers={"User-Agent": "weekly-briefing"})
+            with urllib.request.urlopen(req, timeout=30) as r:
+                d = json.loads(r.read().decode("utf-8"))
+            return code, {str(row.get("date")): row for row in (d.get("daily") or [])}
+        except Exception:
+            return code, None
+
+    patched = 0
+    with ThreadPoolExecutor(max_workers=6) as tp:
+        for code, daily in tp.map(_one, pending):
+            if not daily or next(iter(daily.values())).get("scrt") is None:
+                continue                # 허브 미조회/구버전(세분 미탑재)이면 스킵
+            for di in pending[code]:
+                row = daily.get(di.replace("-", ""))
+                if not row:
+                    continue
+                e = snaps[di]["final"].setdefault(code, {})
+                for k in KEYS:          # 기존 shortAmt/loanAmt 등은 보존
+                    e[k] = row.get(k)
+                patched += 1
+    if patched:
+        for di, d in snaps.items():
+            with open(os.path.join(RANK_DIR, f"{di}.json"), "w", encoding="utf-8") as f:
+                json.dump(d, f, ensure_ascii=False, indent=1)
+        print(f"[weekly] netbuy 세분 백필: {patched}건 "
+              f"(종목 {len(pending)} x 날짜, 파일 {len(snaps)}개)")
 
 
 def _netbuy_cum(dates):
@@ -556,9 +890,13 @@ def _netbuy_cum(dates):
                 e = acc.setdefault(code, {"code": code, "name": r.get("name"),
                                           "frgn": 0.0, "orgn": 0.0, "fund": 0.0,
                                           "prsn": 0.0, "shortSum": 0.0,
+                                          "scrt": 0.0, "insu": 0.0,
+                                          "ivtr": 0.0, "pe": 0.0,
                                           "loans": {}, "days": 0})
                 src = final.get(code) or r
-                for k in ("frgn", "orgn", "fund", "prsn"):
+                # 세분(scrt/insu/ivtr/pe)은 prsn 처럼 확정 병합·백필분만 반영
+                for k in ("frgn", "orgn", "fund", "prsn",
+                          "scrt", "insu", "ivtr", "pe"):
                     e[k] += float(src.get(k) or 0.0)   # 가집계 행엔 prsn 없음(0)
                 if src.get("shortAmt") is not None:
                     e["shortSum"] += float(src["shortAmt"] or 0.0)
@@ -583,7 +921,11 @@ def _netbuy_cum(dates):
     def _row(e):
         total = e["frgn"] + e["orgn"]
         r = {"code": e["code"], "name": e["name"], "amt": round(total),
-             "frgn": round(e["frgn"]), "orgn": round(e["orgn"]), "prsn": round(e["prsn"])}
+             "frgn": round(e["frgn"]), "orgn": round(e["orgn"]), "prsn": round(e["prsn"]),
+             # 기관 세분 누적(섹터x수급과 동일 명명: 금융투자/보험/투신(사모)) —
+             # 저장만(2026-09-09), 렌더는 미정. 연기금(fund)은 기존 per-주체 랭킹에 존재
+             "finInv": round(e["scrt"]), "insur": round(e["insu"]),
+             "trust": round(e["ivtr"] + e["pe"])}
         if e["shortSum"]:
             r["shortSum"] = round(e["shortSum"], 1)
         if e["loans"]:
@@ -628,12 +970,14 @@ def _yf_closes(tickers):
     return out
 
 
-def _week_cum_map(rows, week_start, fetch_closes=None):
+def _week_cum_map(rows, week_start, dates=None, fetch_closes=None, flow=None):
     """타임라인 종목별 '주간 누적' 등락률(%) — 전주 마지막 종가 대비 최신 종가.
 
-    이름은 krx_listed_names.json(정규화명→코드)으로 해석, 티커는 행의 market 으로
-    (.KS/.KQ). 미해석·데이터 결손·주초 이전 종가 없음(그 주 신규상장)은 맵에서
-    제외 — 호출측이 기존 '당일' changePct 를 유지(fail-open).
+    KIS 우선(2026-09-09): 이름을 krx_listed_names.json(정규화명→코드)으로
+    해석해 /flow daily 종가(_flow_week weekChgPct, 동일 산식)로 계산하고,
+    결손 종목만 yfinance 폴백(티커는 행의 market 으로 .KS/.KQ). 미해석·
+    데이터 결손·주초 이전 종가 없음(그 주 신규상장)은 맵에서 제외 —
+    호출측이 기존 '당일' changePct 를 유지(fail-open).
     """
     try:
         with open(os.path.join(ROOT, "public", "assets", "krx_listed_names.json"),
@@ -641,31 +985,45 @@ def _week_cum_map(rows, week_start, fetch_closes=None):
             names = json.load(f) or {}
     except Exception:
         return {}
-    tick_of = {}                                   # stock 이름 -> ticker
+    code_of, mkt_of = {}, {}                       # stock 이름 -> 코드 / market
     for r in rows:
         nm = r.get("stock")
-        if not nm or nm in tick_of:
+        if not nm or nm in code_of:
             continue
         code = names.get(_norm_listed_name(nm))
         if code:
-            tick_of[nm] = code + (".KQ" if r.get("market") == "KOSDAQ" else ".KS")
-    if not tick_of:
-        return {}
-    fetch_closes = fetch_closes or _yf_closes
-    try:
-        closes = fetch_closes(sorted(set(tick_of.values())))
-    except Exception as ex:
-        print(f"[weekly] 주간 누적 등락률 조회 실패(당일 유지): {ex}", file=sys.stderr)
+            code_of[nm] = code
+            mkt_of[nm] = r.get("market")
+    if not code_of:
         return {}
     out = {}
-    for nm, t in tick_of.items():
-        rows_t = closes.get(t) or []
-        base = None
-        for dt, cl in rows_t:                      # 날짜 오름차순
-            if dt < week_start:
-                base = cl
-        if base and rows_t and rows_t[-1][0] >= week_start:
-            out[nm] = round((rows_t[-1][1] / base - 1.0) * 100, 2)
+    if dates:
+        fw = flow if flow is not None else _flow_week(sorted(set(code_of.values())), dates)
+        for nm, c in code_of.items():
+            wc = (fw.get(c) or {}).get("weekChgPct")
+            if wc is not None:
+                out[nm] = wc
+    n_kis = len(out)
+    # yfinance 폴백 — KIS 결손 종목만
+    tick_of = {nm: c + (".KQ" if mkt_of.get(nm) == "KOSDAQ" else ".KS")
+               for nm, c in code_of.items() if nm not in out}
+    if tick_of:
+        fetch_closes = fetch_closes or _yf_closes
+        try:
+            closes = fetch_closes(sorted(set(tick_of.values())))
+        except Exception as ex:
+            print(f"[weekly] 주간 누적 등락률 yf 폴백 실패(당일 유지): {ex}", file=sys.stderr)
+            closes = {}
+        for nm, t in tick_of.items():
+            rows_t = closes.get(t) or []
+            base = None
+            for dt, cl in rows_t:                  # 날짜 오름차순
+                if dt < week_start:
+                    base = cl
+            if base and rows_t and rows_t[-1][0] >= week_start:
+                out[nm] = round((rows_t[-1][1] / base - 1.0) * 100, 2)
+    print(f"[weekly] 타임라인 주간등락 소스: KIS {n_kis} · yf 폴백 {len(out) - n_kis} · "
+          f"결손 {len(code_of) - len(out)}")
     return out
 
 
@@ -788,6 +1146,7 @@ def main():
         for d in days:
             if d["date"] == today_iso and ft:
                 d["flowTop"] = ft
+    _backfill_netbuy_detail(dates)     # 기관 세분 소급(도입 주 한정, 정착 후 no-op)
     netbuy_cum = _netbuy_cum(dates)
     print(f"[weekly] {week_start} ~ {week_end}: 거래일 {len(days)}일 수집")
 
@@ -811,53 +1170,14 @@ def main():
             "up": [{"name": n, "chg": v} for n, v in ranked[:3] if v > 0],
             "down": [{"name": n, "chg": v} for n, v in ranked[-3:][::-1] if v < 0]}
 
-    # ② 공매도·대차 주간 동향 — netbuy_rank 유니버스 한정 (억원)
-    short_loan = None
-    acc2 = {}
-    for dt in dates:
-        rel = f"reports/netbuy_rank/{dt.isoformat()}.json"
-        d2 = _fetch(rel)
-        if not d2:
-            continue
-        fin = d2.get("final") or {}
-        seen = set()
-        for rows in (d2.get("lists") or {}).values():
-            for r in rows or []:
-                code = r.get("code")
-                if not code or code in seen:
-                    continue
-                seen.add(code)
-                f = fin.get(code) or {}
-                e = acc2.setdefault(code, {"name": r.get("name"), "shortSum": 0.0, "loans": {}})
-                if f.get("shortAmt") is not None:
-                    e["shortSum"] += float(f["shortAmt"] or 0.0)
-                if f.get("loanAmt") is not None:
-                    e["loans"][dt.isoformat()] = float(f["loanAmt"])
-                    if f.get("loanPrev") is not None and "loanPrev" not in e:
-                        e["loanPrev"] = float(f["loanPrev"])   # 등재 첫날의 전일 잔고
-    if acc2:
-        ent = list(acc2.values())
-        for e in ent:
-            ds = sorted(e["loans"])
-            e["loanAmt"] = round(e["loans"][ds[-1]], 1) if ds else None
-            # 주간 증감 — 등재 첫날 '전일' 잔고 기준(하루 등재도 계산됨, 2026-09-08).
-            # 구 스냅샷(loanPrev 없음)은 양일 등재 시 주초 대비 폴백.
-            base = e.get("loanPrev")
-            if base is None and len(ds) >= 2:
-                base = e["loans"][ds[0]]
-            e["loanChg"] = round(e["loans"][ds[-1]] - base, 1) if (ds and base is not None) else 0.0
-        short_top = sorted([e for e in ent if e["shortSum"] > 0],
-                           key=lambda x: -x["shortSum"])[:10]
-        loan_up = sorted([e for e in ent if e["loanChg"] > 0], key=lambda x: -x["loanChg"])[:10]
-        loan_dn = sorted([e for e in ent if e["loanChg"] < 0], key=lambda x: x["loanChg"])[:10]
-        short_loan = {
-            "shortTop": [{"name": e["name"], "amt": round(e["shortSum"])} for e in short_top],
-            "loanUp": [{"name": e["name"], "chg": e["loanChg"], "amt": e["loanAmt"]} for e in loan_up],
-            "loanDown": [{"name": e["name"], "chg": e["loanChg"], "amt": e["loanAmt"]} for e in loan_dn],
-        }
+    # ② 공매도·대차 주간 동향 — 유니버스는 netbuy_rank 등재 종목(현행), 값은
+    #    /flow shorts·loans 주간 직접 계산(_flow_week 재사용, 2026-09-09) —
+    #    구 방식(등재일 값만 누적)의 미등재일 공매도 누락·잔고 스테일 근사 제거
+    short_loan = _short_loan_weekly(dates)
 
     # ⑤ 섹터 x 수급 매트릭스 — 허브 /sector-flow(FHPTJ04040000 업종별 일별 투자자
-    #    순매수, 백만원)에서 이번 주 날짜만 합산. 주가 vs 수급 괴리 판정은 UI 에서.
+    #    순매수, 백만원)에서 이번 주 날짜만 합산. V1(2026-09-09): 신호는 여기서
+    #    확정 저장 — 웹·엑셀은 저장값만 렌더해 판정 불일치를 원천 차단.
     sector_flow = None
     try:
         base = FLOW_RANK_URL.rsplit("/", 1)[0]
@@ -883,6 +1203,10 @@ def main():
         rows = []
         for s in (sf.get("sectors") or []):
             chg, frgn, orgn, prsn, fund, nd = 0.0, 0.0, 0.0, 0.0, 0.0, 0
+            # 기관계 세분(2026-09-09): 금융투자(scrt)·보험(insu)·투신(사모)(ivtr+pe).
+            # 허브 구버전 응답엔 키가 없으므로 존재 확인 후에만 세분 필드를 붙인다
+            # (0 채움 금지 — 값 조작으로 보임).
+            fin, ins, tru, has_det = 0.0, 0.0, 0.0, False
             for r0 in (s.get("daily") or []):
                 if r0.get("date") in want and any(
                         r0.get(k) for k in ("frgn", "orgn", "prsn", "chgPct")):
@@ -892,10 +1216,28 @@ def main():
                     orgn += float(r0.get("orgn") or 0.0)
                     prsn += float(r0.get("prsn") or 0.0)
                     fund += float(r0.get("fund") or 0.0)
+                    if any(k in r0 for k in ("scrt", "insu", "ivtr", "pe")):
+                        has_det = True
+                        fin += float(r0.get("scrt") or 0.0)
+                        ins += float(r0.get("insu") or 0.0)
+                        tru += float(r0.get("ivtr") or 0.0) + float(r0.get("pe") or 0.0)
             if nd:
-                rows.append({"name": s.get("name"), "days": nd, "chgPct": round(chg, 2),
-                             "frgn": round(frgn / 100), "orgn": round(orgn / 100),
-                             "prsn": round(prsn / 100), "fund": round(fund / 100)})  # 억원
+                row = {"name": s.get("name"), "days": nd, "chgPct": round(chg, 2),
+                       "frgn": round(frgn / 100), "orgn": round(orgn / 100),
+                       "prsn": round(prsn / 100), "fund": round(fund / 100)}  # 억원
+                if has_det:                     # 장중시황과 동일 세분 표기 키
+                    row.update({"finInv": round(fin / 100), "insur": round(ins / 100),
+                                "trust": round(tru / 100)})
+                # V1: 다기간 수익률(허브 캔들 기준, 결측은 None 유지) + 상태 신호.
+                # 1W 는 기존 주간등락 정의(일별 chgPct 합) 그대로(§2).
+                rets = s.get("returns") or {}
+                ytd, m3, m1 = rets.get("ytd"), rets.get("m3"), rets.get("m1")
+                row.update({"ytd": ytd, "m3": m3, "m1": m1,
+                            "coreFlow": round((frgn + orgn) / 100),
+                            "signal": classify_sector_signal(
+                                ytd, m3, m1, row["chgPct"],
+                                row["frgn"], row["orgn"])})
+                rows.append(row)
         if rows:
             rows.sort(key=lambda x: -x["chgPct"])
             sector_flow = {"asof": sf.get("asof"), "rows": rows}
@@ -960,7 +1302,7 @@ def main():
     # 종목 행 등락률을 '주간 누적'으로 교체(전주 종가 대비 최신 종가, 2026-09-08
     # 사용자 요청). 조회 실패 종목은 스코어 시점 당일 등락률 유지(fail-open).
     if stock_rows:
-        cum = _week_cum_map(stock_rows, week_start)
+        cum = _week_cum_map(stock_rows, week_start, dates)
         n_cum = 0
         for r in stock_rows:
             if r.get("stock") in cum:
@@ -975,8 +1317,20 @@ def main():
                          | {t.get("date") for t in market_rows if t.get("date")}):
             merged += [t for t in market_rows if t.get("date") == dt]
             merged += [r for r in stock_rows if r["date"] == dt]
+        # 섹터 컬럼(2026-09-09): 종목 행에 업종 부착 — 웹/엑셀은 저장값만 렌더
+        for t in merged:
+            if t.get("stock"):
+                t["sector"] = _sector_of_name(t["stock"], t.get("code"))
         syn["catalystTimeline"] = merged
         synthesis = syn
+
+    # 섹터 시그널 종목 관찰 4-Matrix — 웹/엑셀 공용 스크리닝 결과(§28), 주차별
+    # JSON 아카이브로 저장되어 사후 성과검증(H1~H4)에 붙일 수 있음(§35-36)
+    sector_screen = build_sector_screen(
+        (sector_flow or {}).get("rows"), netbuy_cum, short_loan, stock_rows)
+    n_pick = sum(len(v) for v in sector_screen["matrix"].values())
+    print(f"[weekly] 섹터 시그널 스크리닝: 유니버스 {len(sector_screen['debug'])}종목 → "
+          f"선정 {n_pick} ({', '.join(k + ' ' + str(len(v)) for k, v in sector_screen['matrix'].items())})")
 
     out = {
         "weekStart": week_start,
@@ -998,6 +1352,7 @@ def main():
         "shortLoan": short_loan,        # 공매도 누적·대차잔고 증감 상위 (랭킹 유니버스 한정)
         "sectorWeekly": sector_weekly,  # 섹터 주간 지속성 (등장 일수·평균 등락)
         "sectorFlow": sector_flow,      # 섹터 x 수급 매트릭스 (업종별 주간 등락·투자자 순매수, 억)
+        "sectorScreen": sector_screen,  # 섹터 시그널 종목 관찰 4-Matrix (웹/엑셀 공용, §28)
         "breadth": _breadth_weekly(dates),   # 주간 ADR 추이 + 신고가 근접 섹터 그룹
         "synthesis": synthesis,
     }
