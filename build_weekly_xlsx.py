@@ -629,67 +629,10 @@ def build(d):
     add_detail_sheets(wb, b, d)     # 접힘(토글) 섹션 상세 — 별도 탭 4종(2026-09-09)
     del wb["_tpl"]
 
-    # ── 원본 데이터 시트 재작성 (보존용 평탄화 스트림) ───────────────────
-    raw = wb[RAW_SHEET]
-    raw.delete_rows(1, raw.max_row)
-    def row(*vals):
-        raw.append(list(vals))
-    row("QUANT ANTIGRAVITY 주간 브리핑", d.get("weekStart", "") + " ~ " + d.get("weekEnd", ""))
-    row("생성 기준", d.get("asof", ""))
-    row("헤드라인", syn.get("headline", ""))
-    row()
-    row("1. 주간 누적 수급 (억원)")
-    row("시장", "개인", "외국인", "기관")
-    for mk in ("kospi", "kosdaq"):
-        m = inv[mk]
-        row(mk.upper(), round(m.get("individual", 0)), round(m.get("foreign", 0)), round(m.get("institution", 0)))
-    row()
-    row("2. US 미국 주간 (%)")
-    for k, v in us.items():
-        row(k, v)
-    row()
-    row("3. 경제지표")
-    for date, e in econ:
-        row(date, e.get("nation"), e.get("name"), e.get("actual"), e.get("forecast"), e.get("previous"))
-    row()
-    row("4. 일별 요약")
-    for day in d.get("days") or []:
-        ks = (day.get("indices") or {}).get("kospi") or {}
-        row(day.get("date"), ks.get("rate"), dc.get(day.get("date"), ""))
-    row()
-    row("5. 주간 종합 코멘트")
-    for cm in syn.get("weeklyComment") or []:
-        row("-", cm)
-    row("6. 투자자 합산 순매수 (억원)")
-    for label, rows_ in (("순매수 상위", total.get("top")), ("순매도 상위", total.get("bottom"))):
-        for i, e in enumerate(rows_ or []):
-            row(label, i + 1, e.get("name"), eok(e.get("amt")), eok(e.get("frgn")), eok(e.get("orgn")),
-                eok(e.get("prsn")), e.get("shortSum"), e.get("loanAmt"), e.get("loanChg"))
-    if ssm is not None:
-        row("7. 섹터 시그널 종목 관찰")
-        for sig, arr in ssm.items():
-            for e in arr or []:
-                row(sig, e.get("name"), e.get("sector"), e.get("score"), e.get("reason"))
-    else:
-        row("7. 수급 관찰")
-        wn_raw = syn.get("watchNotes") or {}
-        for lab, rows_ in (("상방 관찰", wn_raw.get("long")), ("하방 관찰", wn_raw.get("short"))):
-            for e in rows_ or []:
-                row(lab, e.get("name"), e.get("basis"))
-    row("8. 주간 시장 흐름")
-    for t in syn.get("weekNarrative") or []:
-        row("-", t)
-    row("9. 섹터·테마 흐름")
-    for t in syn.get("sectorRotation") or []:
-        row("-", t)
-    row("10. 촉매 타임라인")
-    for t in tl:
-        row(t.get("date"), t.get("stock") or "—", t.get("market"),
-            t.get("sector") or _sector_name(t.get("stock")) or "—",
-            t.get("star"), t.get("changePct"), t.get("event"))
-    row("11. 다음 주 프리뷰")
-    for text in pv:
-        row("-", text)
+    # 원본 데이터(평탄화 스트림) 탭 삭제 — 2026-09-09 사용자 요청. 상세 탭
+    # 삽입 위치 계산(add_detail_sheets 의 RAW_SHEET index)이 끝난 뒤 제거한다.
+    if RAW_SHEET in wb.sheetnames:
+        del wb[RAW_SHEET]
     return wb, ws
 
 
