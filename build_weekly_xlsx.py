@@ -1169,7 +1169,7 @@ def validate(ws, d):
 # 을 덧붙인다. 규칙 본체·색은 그대로라 구형 뷰어는 종전 막대로 폴백.
 _X14 = "http://schemas.microsoft.com/office/spreadsheetml/2009/9/main"
 _XM = "http://schemas.microsoft.com/office/excel/2006/main"
-NEG_BAR_COLOR = "FFBDD5F2"          # 음수 막대 채움 = 연한 청(파란 숫자 가독성, 2026-09-10)
+NEG_BAR_COLOR = "FFA9CBF0"          # 음수 막대 채움 = 중간 톤 청(막대 존재감 + 숫자 가독성, 2026-09-10)
 NEG_BAR_BORDER = "FF3182F6"         # 음수 막대 윤곽 = 대시보드 하락 청
 POS_BAR_BORDER = "FF19B6C9"         # 양수 막대 윤곽 = 틸(채움과 동일)
 BAR_AXIS_COLOR = "FF9CA3AF"
