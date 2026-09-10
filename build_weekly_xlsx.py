@@ -989,9 +989,12 @@ def add_detail_sheets(wb, b, d):
             b.finish()
             ws2.freeze_panes = "A5"
             ws2.auto_filter.ref = f"A4:N{data_end}"
-            ws2.conditional_formatting.add(          # 1W 데이터 막대(값 표시 유지)
-                f"E5:E{data_end}",
-                DataBarRule(start_type="min", end_type="max", color="19B6C9", showValue=True))
+            # 수익률 4컬럼(YTD/3M/1M/1W) 데이터 막대 — 열별 min~max 스케일, 값 표시 유지
+            # (2026-09-10: 1W 만 있던 막대를 YTD~1M 에도 동일 적용)
+            for col in ("B", "C", "D", "E"):
+                ws2.conditional_formatting.add(
+                    f"{col}5:{col}{data_end}",
+                    DataBarRule(start_type="min", end_type="max", color="19B6C9", showValue=True))
         else:
             # ── 폴백(구 아카이브, 1W 기반 근사) — '과열주의' 용어 폐기 → 수급이탈
             ws2 = new_sheet("섹터x수급", W_SEC10 if has_det else W_SEC)
