@@ -7741,10 +7741,10 @@
       var sfV1 = sfm.rows.some(function (r) { return r.signal != null; });
       var SIG_C = { "동반강세": "#f04452", "수급이탈": "#fbbf24", "수급유입": "#2dd4bf",
                     "동반약세": "#3182f6", "데이터부족": "#64748b" };
-      function fp(v) {                                     // 가격 수익률 셀 (부호+1자리, %는 헤더)
+      function fp(v) {                                     // 가격 수익률 셀 (부호+2자리, %는 헤더 — 2026-09-10)
         if (v == null || v === "") return "<td style='text-align:right;padding:2px 0 2px 10px;opacity:.4'>—</td>";
         return "<td style='text-align:right;padding:2px 0 2px 10px;color:" + (v > 0 ? "#f04452" : v < 0 ? "#3182f6" : "inherit") + "'>"
-          + (v > 0 ? "+" : "") + (Math.round(v * 10) / 10) + "</td>";
+          + (v > 0 ? "+" : "") + Number(v).toFixed(2) + "</td>";
       }
       var mrows = sfm.rows.map(function (r) {
         function amt(v) { return '<td style="text-align:right;padding:2px 0 2px 12px;color:' + (v > 0 ? "#f04452" : v < 0 ? "#3182f6" : "inherit") + '">' + fmtAmt(v) + "</td>"; }

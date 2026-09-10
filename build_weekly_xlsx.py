@@ -649,6 +649,7 @@ def add_detail_sheets(wb, b, d):
     F_EOK = "+#,##0;-#,##0;0"            # 부호 있는 억원 정수 (순매수 흐름)
     F_INT = "#,##0"                      # 무부호 정수 (공매도 누적·대차잔고)
     F_PCT = "+0.0;-0.0;0.0"              # 부호 있는 % (저장값 그대로, 표시만)
+    F_PCT2 = "+0.00;-0.00;0.00"          # 섹터x수급 YTD~1W 수익률 — 소수 2자리(2026-09-10)
     F_EOK1 = "#,##0.0"                   # 억원 소수 1자리
     F_EOK1S = "+#,##0.0;-#,##0.0;0.0"
     TEAL, TEAL_BG = "FF0B7F8C", "FFEAF8FA"   # 본 시트 섹션 강조색과 동일 계열
@@ -960,7 +961,7 @@ def add_detail_sheets(wb, b, d):
                 for j, k in enumerate(("ytd", "m3", "m1", "chgPct")):
                     v = r0.get(k)
                     cc = b.cell(2 + j, v if v is not None else "", "econ_cell",
-                                fmt=F_PCT, align="right")
+                                fmt=F_PCT2, align="right")
                     if isinstance(v, (int, float)) and v:
                         fstyle(cc, rgb=BUY_RED if v > 0 else SELL_BLUE)
                 for j, k in enumerate(("frgn", "orgn", "coreFlow",
@@ -1009,7 +1010,7 @@ def add_detail_sheets(wb, b, d):
                 sig = ("수급이탈" if (r0.get("chgPct") or 0) >= 1.5 and smart < 0
                        else "수급유입" if (r0.get("chgPct") or 0) <= -1.5 and smart > 0 else "")
                 b.cell(1, r0.get("name", ""), "nb_cell")
-                b.cell(2, r0.get("chgPct", ""), "econ_cell", num="sign", fmt=F_PCT)
+                b.cell(2, r0.get("chgPct", ""), "econ_cell", num="sign", fmt=F_PCT2)
                 for j, k in enumerate(keys):
                     b.cell(3 + j, r0.get(k, ""), "econ_cell", num="sign", fmt=F_EOK)
                 b.cell(sig_c, sig, "watch_up" if sig == "수급유입" else "watch_dn" if sig
