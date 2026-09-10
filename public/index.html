@@ -7460,6 +7460,9 @@
   function netbuyTables(nc, wnHtml) {
     if (!nc) return wnHtml || "";
     var COLS = [["frgn", "외국인"], ["orgn", "기관계"], ["fund", "연기금"], ["prsn", "개인"]];
+    // 2행(2026-09-10): 기관 세분(금융투자/보험/투신(사모)) + 외인+기관(=total, 합산 카드와 동일 데이터).
+    // 구 아카이브(세분 랭킹 없음)는 1행만 렌더.
+    var COLS2 = [["finInv", "금융투자"], ["insur", "보험"], ["trust", "투신(사모)"], ["total", "외인+기관"]];
     function rows(arr, color) {
       if (!arr || !arr.length) return "<div style='opacity:.5'>—</div>";
       return arr.map(function (e, i) {
@@ -7473,15 +7476,20 @@
     if (wnHtml) h += wnHtml;
     // 투자자별(외국인/기관계/연기금/개인) 표는 합산 표 오른쪽 아래 앰버 펼침으로 접어둔다
     h += '<details class="flow-details" style="margin-top:4px"><summary style="text-align:right">투자자별 누적 순매수 상위 · 하위 ▾</summary>';
-    h += '<div style="display:flex;gap:14px;flex-wrap:wrap;font-size:12px;margin-top:6px">';
-    COLS.forEach(function (c) {
-      var d = nc[c[0]] || {};
-      h += '<div style="flex:1;min-width:170px"><div style="font-weight:600;opacity:.8;margin-bottom:3px">' + c[1] + "</div>"
-        + rows(d.top, "#f04452")
-        + '<div style="border-top:1px dashed rgba(128,128,128,.3);margin:5px 0"></div>'
-        + rows(d.bottom, "#3182f6") + "</div>";
-    });
-    return h + "</div></details>";
+    function invRow(cols) {
+      var s = '<div style="display:flex;gap:14px;flex-wrap:wrap;font-size:12px;margin-top:6px">';
+      cols.forEach(function (c) {
+        var d = nc[c[0]] || {};
+        s += '<div style="flex:1;min-width:170px"><div style="font-weight:600;opacity:.8;margin-bottom:3px">' + c[1] + "</div>"
+          + rows(d.top, "#f04452")
+          + '<div style="border-top:1px dashed rgba(128,128,128,.3);margin:5px 0"></div>'
+          + rows(d.bottom, "#3182f6") + "</div>";
+      });
+      return s + "</div>";
+    }
+    h += invRow(COLS);
+    if (nc.finInv) h += '<div style="border-top:1px solid rgba(128,128,128,.15);margin-top:8px"></div>' + invRow(COLS2);
+    return h + "</details>";
   }
   // 주간 촉매 타임라인 — 시장 필터 상태 + 행 렌더 (실적발표 토글 양식)
   var _wbTl = [], _wbTlMkt = "전체";

@@ -922,7 +922,11 @@ def _netbuy_cum(dates):
     if not acc:
         return None
     out = {"dates": used, "finalDates": final_dates}
-    for k in ("frgn", "orgn", "fund", "prsn"):   # prsn 은 확정 병합일만 반영(가집계 랭킹엔 없음)
+    # 기관 세분 랭킹 키(2026-09-10): 금융투자=scrt, 보험=insu, 투신(사모)=ivtr+pe —
+    # 섹터x수급과 동일 명명. prsn 처럼 확정 병합·백필분만 반영
+    for e in acc.values():
+        e["finInv"], e["insur"], e["trust"] = e["scrt"], e["insu"], e["ivtr"] + e["pe"]
+    for k in ("frgn", "orgn", "fund", "prsn", "finInv", "insur", "trust"):
         ranked = sorted(acc.values(), key=lambda e: e[k], reverse=True)
         out[k] = {
             "top": [{"code": e["code"], "name": e["name"], "amt": round(e[k])}
