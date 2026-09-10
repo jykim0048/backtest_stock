@@ -556,15 +556,15 @@ def _flow_week(codes, dates, fetch=None):
                     got = True
                     for k in acc:
                         acc[k] += float(row.get(k) or 0.0)
-            if not got:
-                return code, None
+            # 장중(FHPTJ04160001 15:40 전 차단)엔 daily 가 비어도 공매도·대차(별도 TR,
+            # T+1 공개)는 응답하므로 부분 결과를 낸다(2026-09-10 장중 실행 공백 해소)
             wk_start = min(want)
             short = sum(float(r0.get("pbmn") or 0.0) for r0 in (d.get("shorts") or [])
                         if str(r0.get("date")) in want)
             loans_all = sorted((str(r0.get("date")), r0) for r0 in (d.get("loans") or []))
             loans = [x for x in loans_all if x[0] in want]
             prior = [x for x in loans_all if x[0] < wk_start]
-            out = {k: round(v) for k, v in acc.items()}
+            out = {k: round(v) for k, v in acc.items()} if got else {}
             if short:
                 out["shortSum"] = round(short, 1)
             if loans:
@@ -583,6 +583,8 @@ def _flow_week(codes, dates, fetch=None):
             base = [c for dd, c in closes if dd < wk_start and c > 0]
             if in_wk and base:
                 out["weekChgPct"] = round((in_wk[-1] / base[-1] - 1) * 100, 2)
+            if not out:
+                return code, None
             return code, out
         except Exception:
             return code, None
@@ -650,8 +652,18 @@ def _breadth_weekly(dates):
                   for x in highs[:30]]
         codes = [str(s.get("code") or "").zfill(6) for s in stocks]
         flow = _flow_week(codes, dates)
+        # 폴백(2026-09-10): /flow 결손 키(장중 daily 차단 → 순매수 3종 등)는 아카이브
+        # 누적(등재 종목만)으로 채우고, 그래도 없으면 아래 이월 로직으로
+        acc_fb = None
         for s, code in zip(stocks, codes):
             s.update(flow.get(code) or {})
+            if s.get("frgn") is None or s.get("shortSum") is None:
+                if acc_fb is None:
+                    acc_fb = _archive_acc(dates)[0]
+                if code in acc_fb:
+                    for k, v in _archive_flow_row(acc_fb[code]).items():
+                        if s.get(k) is None:
+                            s[k] = v
         # 주간 등락률은 KIS(/flow 종가) 우선(2026-09-09) — 결손 종목만 yfinance 폴백
         need_cum = [c for s, c in zip(stocks, codes) if s.get("weekChgPct") is None]
         cum = _week_cum_codes(need_cum, dates[0].isoformat()) if need_cum else {}
@@ -709,7 +721,18 @@ def _short_loan_weekly(dates, flow=None):
                     uni.setdefault(r["code"], r.get("name"))
     if not uni:
         return None
-    fw = flow if flow is not None else _flow_week(sorted(uni), dates)
+    fw = dict(flow) if flow is not None else _flow_week(sorted(uni), dates)
+    # 폴백(2026-09-10): /flow 결손 종목은 아카이브 누적(등재일 근사)으로 — 장중 daily
+    # 차단은 _flow_week 가 공매도·대차만 부분 반환해 대부분 커버, 허브 장애 시 전량
+    acc, n_fb = None, 0
+    for c in uni:
+        if c in fw:
+            continue
+        if acc is None:
+            acc = _archive_acc(dates)[0]
+        if c in acc:
+            fw[c] = _archive_flow_row(acc[c])
+            n_fb += 1
     ent = [{"name": uni[c], **v} for c, v in fw.items() if c in uni]
     if not ent:
         return None
@@ -719,9 +742,11 @@ def _short_loan_weekly(dates, flow=None):
                      key=lambda x: -x["loanChg"])[:10]
     loan_dn = sorted([e for e in ent if (e.get("loanChg") or 0) < 0],
                      key=lambda x: x["loanChg"])[:10]
-    print(f"[weekly] 공매도·대차 주간(flow): 유니버스 {len(uni)} · 수급응답 {len(ent)} · "
-          f"공매도 {len(short_top)} · 대차증가 {len(loan_up)} · 대차감소 {len(loan_dn)}")
+    print(f"[weekly] 공매도·대차 주간(flow): 유니버스 {len(uni)} · 수급응답 {len(ent)}"
+          f"(아카이브 폴백 {n_fb}) · 공매도 {len(short_top)} · 대차증가 {len(loan_up)} · "
+          f"대차감소 {len(loan_dn)}")
     return {
+        "basis": "archive" if n_fb and n_fb >= len(ent) else ("mixed" if n_fb else "flow"),
         "shortTop": [{"name": e["name"], "amt": round(e["shortSum"])} for e in short_top],
         "loanUp": [{"name": e["name"], "chg": e["loanChg"], "amt": e.get("loanAmt")} for e in loan_up],
         "loanDown": [{"name": e["name"], "chg": e["loanChg"], "amt": e.get("loanAmt")} for e in loan_dn],
@@ -821,10 +846,14 @@ def _backfill_netbuy_detail(dates):
     FHPTJ04160001 은 한 콜에 종목당 ~20거래일 시계열을 반환하므로(허브 /flow
     daily), 세분 값이 없는 (날짜, 종목)만 모아 종목당 /flow 1콜로 그 주 전 일자를
     한 번에 채운다(2026-09-09). 확정 병합이 통째로 빠졌던 날의 final 도 이때 함께
-    생성된다(개인 포함 보정). 세분 도입 전 아카이브만 대상이라 정착 후엔 콜 0건.
-    15:40 이후 실행 전제(_snapshot_netbuy_rank 와 동일). 실패 종목은 건너뜀."""
+    생성된다(개인 포함 보정). 2026-09-10 확장: shortAmt 결손과 T+1 공개인 대차
+    (직전 거래일 파일만)도 같은 /flow 응답으로 보정 → 아카이브 폴백 품질 확보.
+    정착 후엔 직전 거래일 대차 보정 정도만 남는다. 실패 종목은 건너뜀."""
     from concurrent.futures import ThreadPoolExecutor
     KEYS = ("prsn", "frgn", "orgn", "fund", "scrt", "insu", "ivtr", "pe")
+    today = datetime.datetime.now(KST).date()
+    # 대차는 T+1 공개 — '오늘 이전 가장 최근 거래일' 파일만 대차 결손 대상(무한 재조회 방지)
+    loan_day = max((dt for dt in dates if dt < today), default=None)
     snaps, pending = {}, {}             # date_iso -> snap dict / code -> {date_iso,...}
     for dt in dates:
         di = dt.isoformat()
@@ -839,7 +868,12 @@ def _backfill_netbuy_detail(dates):
             for r in rows or []:
                 if r.get("code"):
                     codes.add(r["code"])
-        need = {c for c in codes if (final.get(c) or {}).get("scrt") is None}
+        need = set()
+        for c in codes:
+            e = final.get(c) or {}
+            if e.get("scrt") is None or e.get("shortAmt") is None \
+                    or (dt == loan_day and e.get("loanAmt") is None):
+                need.add(c)
         if need:
             snaps[di] = d
             for c in need:
@@ -849,35 +883,54 @@ def _backfill_netbuy_detail(dates):
 
     def _one(code):
         try:
-            d = _flow_raw(code)         # 메모이즈 공유 — 이후 단계 재사용
-            return code, {str(row.get("date")): row for row in (d.get("daily") or [])}
+            return code, _flow_raw(code)    # 메모이즈 공유 — 이후 단계 재사용
         except Exception:
             return code, None
 
     patched = 0
     with ThreadPoolExecutor(max_workers=6) as tp:
-        for code, daily in tp.map(_one, pending):
-            if not daily or next(iter(daily.values())).get("scrt") is None:
-                continue                # 허브 미조회/구버전(세분 미탑재)이면 스킵
+        for code, d in tp.map(_one, pending):
+            if not d:
+                continue
+            daily = {str(r0.get("date")): r0 for r0 in (d.get("daily") or [])}
+            shorts = {str(r0.get("date")): r0 for r0 in (d.get("shorts") or [])}
+            loans = d.get("loans") or []              # 최신순
             for di in pending[code]:
-                row = daily.get(di.replace("-", ""))
-                if not row:
-                    continue
-                e = snaps[di]["final"].setdefault(code, {})
-                for k in KEYS:          # 기존 shortAmt/loanAmt 등은 보존
-                    e[k] = row.get(k)
-                patched += 1
+                want = di.replace("-", "")
+                e = dict(snaps[di]["final"].get(code) or {})
+                n0 = len(e)
+                row = daily.get(want)
+                if row and row.get("scrt") is not None and e.get("scrt") is None:
+                    for k in KEYS:          # 기존 shortAmt/loanAmt 등은 보존
+                        e[k] = row.get(k)
+                sh = shorts.get(want)
+                if sh and e.get("shortAmt") is None:
+                    e["shortAmt"] = sh.get("pbmn")
+                if e.get("loanAmt") is None:
+                    for i, lr in enumerate(loans):
+                        if str(lr.get("date")) == want:
+                            e["loanAmt"] = lr.get("rmndAmt")
+                            e["loanChg"] = lr.get("rmndChg")
+                            if i + 1 < len(loans):
+                                e["loanPrev"] = loans[i + 1].get("rmndAmt")
+                            break
+                if len(e) > n0:
+                    snaps[di]["final"][code] = e
+                    patched += 1
     if patched:
         for di, d in snaps.items():
             with open(os.path.join(RANK_DIR, f"{di}.json"), "w", encoding="utf-8") as f:
                 json.dump(d, f, ensure_ascii=False, indent=1)
-        print(f"[weekly] netbuy 세분 백필: {patched}건 "
+        print(f"[weekly] netbuy 백필(세분·공매도·T+1 대차): {patched}건 "
               f"(종목 {len(pending)} x 날짜, 파일 {len(snaps)}개)")
 
 
-def _netbuy_cum(dates):
-    """그 주 일자별 netbuy_rank 아카이브를 합산 — 주체별 누적 순매수 상/하위.
-    상위 30 리스트에 든 날만 반영되는 근사치(미등재일은 0 취급)임을 유의."""
+def _archive_acc(dates):
+    """그 주 netbuy_rank 아카이브 누적(등재일 근사) → (acc, used, final_dates).
+    acc = {code: {name, frgn, orgn, fund, prsn, scrt, insu, ivtr, pe, shortSum,
+    loans{date: 잔고}, loanPrev, days}}. _netbuy_cum 의 누적부를 분리(2026-09-10) —
+    장중(/flow daily 차단)·허브 장애 시 공매도·대차 랭킹/신고가 수급의 폴백 소스로
+    공용. 상위 30 리스트에 든 날만 반영되는 근사치(미등재일 0)."""
     acc = {}                        # code -> {name, frgn, orgn, fund, days}
     used, final_dates = [], []
     for dt in dates:
@@ -919,6 +972,30 @@ def _netbuy_cum(dates):
                     if src.get("loanPrev") is not None and "loanPrev" not in e:
                         e["loanPrev"] = float(src["loanPrev"])
                 e["days"] += 1
+    return acc, used, final_dates
+
+
+def _archive_flow_row(e):
+    """_archive_acc 항목 → _flow_week 결과와 같은 키(frgn/orgn/prsn 백만원,
+    shortSum·loanAmt·loanChg 억) — 폴백 시 호출측 코드를 그대로 재사용."""
+    r = {"frgn": round(e["frgn"]), "orgn": round(e["orgn"]), "prsn": round(e["prsn"])}
+    if e["shortSum"]:
+        r["shortSum"] = round(e["shortSum"], 1)
+    if e["loans"]:
+        ds = sorted(e["loans"])
+        last = e["loans"][ds[-1]]
+        base = e.get("loanPrev")
+        if base is None:
+            base = e["loans"][ds[0]]
+        r["loanAmt"] = round(last, 1)
+        r["loanChg"] = round(last - base, 1)
+    return r
+
+
+def _netbuy_cum(dates):
+    """그 주 일자별 netbuy_rank 아카이브를 합산 — 주체별 누적 순매수 상/하위.
+    상위 30 리스트에 든 날만 반영되는 근사치(미등재일은 0 취급)임을 유의."""
+    acc, used, final_dates = _archive_acc(dates)
     if not acc:
         return None
     out = {"dates": used, "finalDates": final_dates}
