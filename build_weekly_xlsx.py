@@ -655,7 +655,7 @@ def add_detail_sheets(wb, b, d):
 
     # 역할 기반 열너비 — 종목명/섹터명 분리(3차 스펙), 숫자 중간, 마지막 열들은
     # 기간(23자) 표시 폭 확보 겸용. len(dict)=시트 열 수(maxc).
-    W_NH = {"A": 16.5, "B": 14.0, "C": 9.0, "D": 10.5, "E": 10.5, "F": 10.5,
+    W_NH = {"A": 18.5, "B": 9.0, "C": 14.0, "D": 10.5, "E": 10.5, "F": 10.5,
             "G": 10.5, "H": 10.5, "I": 11.5, "J": 11.5, "K": 13.0, "L": 13.5}
     # 카드 그리드(2026-09-09 2차 스펙): 투자자별=2x2 카드(BUY|SELL 좌우),
     # 공매도·대차=3카드 가로 — 대시보드 토글 실화면(4카드 1행/3카드 1행) 기반,
@@ -732,8 +732,8 @@ def add_detail_sheets(wb, b, d):
                 b.cell(c, "", "chip")
             b.mg(c1, c2)
         b.nl()
-        # 종목명/섹터명 분리(3차 스펙 §13)
-        b.hdr_row(["종목명", "섹터명", "시장", "합산", "외인", "기관", "개인", "공매도",
+        # 종목명/시장/섹터명 분리 — 순서는 대시보드와 동일(2026-09-10)
+        b.hdr_row(["종목명", "시장", "섹터명", "합산", "외인", "기관", "개인", "공매도",
                    "대차잔고", "대차증감", "주간등락(%)", "신고가대비(%)"], align="center")
         for s in nh:
             frgn, orgn = s.get("frgn"), s.get("orgn")
@@ -741,9 +741,9 @@ def add_detail_sheets(wb, b, d):
                      if (frgn is not None or orgn is not None) else None)
             near = s.get("nearRate")
             name_c = b.cell(1, s.get("name", ""), "nb_cell")
-            sec_c = b.cell(2, _sector_name(s.get("name"), s.get("code")) or "", "nb_cell")
+            b.cell(2, s.get("market") or "", "econ_cell", align="center")
+            sec_c = b.cell(3, _sector_name(s.get("name"), s.get("code")) or "", "nb_cell")
             fstyle(sec_c, rgb=GRAY)
-            b.cell(3, s.get("market") or "", "econ_cell", align="center")
             tot_c = b.cell(4, eok(total) if total is not None else "",
                            "econ_cell", num="sign", fmt=F_EOK)
             b.cell(5, eok(frgn), "econ_cell", num="sign", fmt=F_EOK)
