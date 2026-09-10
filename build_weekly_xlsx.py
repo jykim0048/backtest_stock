@@ -669,8 +669,8 @@ def add_detail_sheets(wb, b, d):
             "M": 16.0, "N": 12.5, "O": 10.5, "P": 10.0}
     W_SEC = {"A": 20.5, "B": 12.0, "C": 10.5, "D": 10.5, "E": 10.5, "F": 10.5,
              "G": 12.0, "H": 12.9, "I": 13.0, "J": 13.0}
-    W_SEC10 = {"A": 20.5, "B": 11.5, "C": 9.5, "D": 9.5, "E": 9.5, "F": 9.5,
-               "G": 9.5, "H": 10.5, "I": 13.0, "J": 13.0}   # 기관 세분 10컬럼
+    W_SEC10 = {"A": 20.5, "B": 11.5, "C": 9.5, "D": 9.5, "E": 9.5, "F": 10.5,
+               "G": 9.5, "H": 9.5, "I": 13.0, "J": 13.0}   # 기관 세분 10컬럼(F=투신(사모))
 
     def eok(v):
         return "" if v is None else round(v / 100)
@@ -941,12 +941,13 @@ def add_detail_sheets(wb, b, d):
         has_det = any(r0.get("finInv") is not None for r0 in sf)
         if has_v1:
             W = {"A": 20.5, "B": 8.2, "C": 8.2, "D": 8.2, "E": 8.2, "F": 9.5,
-                 "G": 9.5, "H": 10.0, "I": 9.5, "J": 9.5, "K": 9.5, "L": 10.5,
+                 "G": 9.5, "H": 10.0, "I": 9.5, "J": 10.5, "K": 9.5, "L": 9.5,
                  "M": 9.5, "N": 11.5}
             ws2 = new_sheet("섹터x수급", W, meta=(11, 12))
             b.chip("M1", "섹터 x 수급 매트릭스", cap="가격 %, 수급 억원", cap_col=12)
+            # 세분 순서 = 투자자별 2행(금융투자·투신(사모)·연기금·보험, 2026-09-10)
             hdr = ["업종", "YTD", "3M", "1M", "1W", "외인", "기관(합)", "외인+기관",
-                   "연기금", "금융투자", "보험", "투신(사모)", "개인", "신호"]
+                   "금융투자", "투신(사모)", "연기금", "보험", "개인", "신호"]
             b.hdr_row(hdr, align="center")
             # 신호별 강조(배지 셀만, 행 전체 채색 금지 §13)
             SIG_ST = {"동반강세": ("FFD64545", "FFFDEEEE"),
@@ -962,8 +963,8 @@ def add_detail_sheets(wb, b, d):
                                 fmt=F_PCT, align="right")
                     if isinstance(v, (int, float)) and v:
                         fstyle(cc, rgb=BUY_RED if v > 0 else SELL_BLUE)
-                for j, k in enumerate(("frgn", "orgn", "coreFlow", "fund",
-                                       "finInv", "insur", "trust", "prsn")):
+                for j, k in enumerate(("frgn", "orgn", "coreFlow",
+                                       "finInv", "trust", "fund", "insur", "prsn")):
                     v = r0.get(k)
                     cc = b.cell(6 + j, v if v is not None else "", "econ_cell",
                                 fmt=F_EOK, align="right")
@@ -995,9 +996,9 @@ def add_detail_sheets(wb, b, d):
             ws2 = new_sheet("섹터x수급", W_SEC10 if has_det else W_SEC)
             b.chip("M1", "섹터 x 수급 매트릭스", cap="주간 등락 vs 투자자 순매수(억)", cap_col=8)
             if has_det:
-                hdr = ["업종", "주간등락(%)", "외인", "기관(합)", "연기금", "금융투자",
-                       "보험", "투신(사모)", "개인", "신호"]
-                keys = ("frgn", "orgn", "fund", "finInv", "insur", "trust", "prsn")
+                hdr = ["업종", "주간등락(%)", "외인", "기관(합)", "금융투자", "투신(사모)",
+                       "연기금", "보험", "개인", "신호"]
+                keys = ("frgn", "orgn", "finInv", "trust", "fund", "insur", "prsn")
             else:
                 hdr = ["업종", "주간등락(%)", "외인", "기관", "연기금", "개인", "신호"]
                 keys = ("frgn", "orgn", "fund", "prsn")
