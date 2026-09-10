@@ -7459,10 +7459,13 @@
   // wnHtml(수급 상방/하방 관찰)은 합산 카드와 투자자별 펼침 사이에 끼운다 (2026-09-08)
   function netbuyTables(nc, wnHtml) {
     if (!nc) return wnHtml || "";
-    var COLS = [["frgn", "외국인"], ["orgn", "기관계"], ["fund", "연기금"], ["prsn", "개인"]];
-    // 2행(2026-09-10): 기관 세분(금융투자/보험/투신(사모)) + 외인+기관(=total, 합산 카드와 동일 데이터).
-    // 구 아카이브(세분 랭킹 없음)는 1행만 렌더.
-    var COLS2 = [["finInv", "금융투자"], ["insur", "보험"], ["trust", "투신(사모)"], ["total", "외인+기관"]];
+    // 2행 구성(2026-09-10): 1행 외국인·기관계·외인+기관(=total, 합산 카드와 동일 데이터)·개인 /
+    // 2행 금융투자·투신(사모)·연기금·보험. 구 아카이브(세분 랭킹 없음)는 종전 4종 1행.
+    var hasDet = !!nc.finInv;
+    var COLS = hasDet
+      ? [["frgn", "외국인"], ["orgn", "기관계"], ["total", "외인+기관"], ["prsn", "개인"]]
+      : [["frgn", "외국인"], ["orgn", "기관계"], ["fund", "연기금"], ["prsn", "개인"]];
+    var COLS2 = [["finInv", "금융투자"], ["trust", "투신(사모)"], ["fund", "연기금"], ["insur", "보험"]];
     function rows(arr, color) {
       if (!arr || !arr.length) return "<div style='opacity:.5'>—</div>";
       return arr.map(function (e, i) {
@@ -7488,7 +7491,7 @@
       return s + "</div>";
     }
     h += invRow(COLS);
-    if (nc.finInv) h += '<div style="border-top:1px solid rgba(128,128,128,.15);margin-top:8px"></div>' + invRow(COLS2);
+    if (hasDet) h += '<div style="border-top:1px solid rgba(128,128,128,.15);margin-top:8px"></div>' + invRow(COLS2);
     return h + "</details>";
   }
   // 주간 촉매 타임라인 — 시장 필터 상태 + 행 렌더 (실적발표 토글 양식)

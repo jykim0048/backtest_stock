@@ -784,12 +784,17 @@ def add_detail_sheets(wb, b, d):
     # 대시보드 토글 실화면: 투자자 4카드 1행 · 카드=순매수(적)/순매도(청) 목록.
     # 엑셀 폭 제약으로 2x2(2차 스펙 §4 예시), BUY/SELL 은 좌우 배치(§3).
     nc = d.get("netbuyCum") or {}
-    inv_secs = [("F1", "외국인", nc.get("frgn")), ("F2", "기관계", nc.get("orgn")),
-                ("F3", "연기금", nc.get("fund")), ("F4", "개인", nc.get("prsn"))]
-    # 3·4행(2026-09-10): 기관 세분 + 외인+기관(total — 합산 카드와 동일 데이터).
-    # 구 아카이브(세분 랭킹 없음)는 2x2 유지.
-    inv_secs2 = [("F5", "금융투자", nc.get("finInv")), ("F6", "보험", nc.get("insur")),
-                 ("F7", "투신(사모)", nc.get("trust")), ("F8", "외인+기관", nc.get("total"))]
+    # 2x4(2026-09-10): 1·2행 외국인·기관계 / 외인+기관(total, 합산 카드와 동일)·개인,
+    # 3·4행 금융투자·투신(사모) / 연기금·보험. 구 아카이브(세분 없음)는 종전 2x2.
+    has_det = bool(nc.get("finInv") or nc.get("insur") or nc.get("trust"))
+    if has_det:
+        inv_secs = [("F1", "외국인", nc.get("frgn")), ("F2", "기관계", nc.get("orgn")),
+                    ("F3", "외인+기관", nc.get("total")), ("F4", "개인", nc.get("prsn"))]
+    else:
+        inv_secs = [("F1", "외국인", nc.get("frgn")), ("F2", "기관계", nc.get("orgn")),
+                    ("F3", "연기금", nc.get("fund")), ("F4", "개인", nc.get("prsn"))]
+    inv_secs2 = [("F5", "금융투자", nc.get("finInv")), ("F6", "투신(사모)", nc.get("trust")),
+                 ("F7", "연기금", nc.get("fund")), ("F8", "보험", nc.get("insur"))]
     if any(v and ((v.get("top") or v.get("bottom"))) for _, _, v in inv_secs):
         ws2 = new_sheet("투자자별 순매수", W_INV, meta=(14, 15))
         # 외인·기관 동반 매수/매도 = 두 리스트 동시 등재 (실데이터 교집합만)
@@ -862,7 +867,6 @@ def add_detail_sheets(wb, b, d):
         b.nl()
         inv_cards(inv_secs[2:4])
         b.nl()
-        has_det = any(v for _, _, v in inv_secs2[:3])
         if has_det:
             inv_cards(inv_secs2[0:2])
             b.nl()
