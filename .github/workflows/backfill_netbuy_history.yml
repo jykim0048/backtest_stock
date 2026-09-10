@@ -1,0 +1,77 @@
+name: Backfill Netbuy History
+
+# netbuy_rank 과거 아카이브 재구성(허브 /flow 20거래일 시계열) — 수동 실행 전용.
+# 반드시 장 마감 후(15:40 KST 이후) 실행: 그 전엔 FHPTJ04160001 시간제한으로 중단된다.
+# 유니버스 ~520종목 x /flow 1콜(허브 내부 KIS TR 4개) ≈ 15~20분.
+on:
+  workflow_dispatch:
+    inputs:
+      from:
+        description: "시작일 YYYY-MM-DD (기본: 종료일-30일)"
+        required: false
+      to:
+        description: "종료일 YYYY-MM-DD (기본: 직전 거래일)"
+        required: false
+      dry_run:
+        description: "true 면 파일 생성·커밋 없이 로그만"
+        required: false
+        default: "false"
+
+concurrency:
+  group: weekly-briefing          # 주간 브리핑과 netbuy_rank 를 함께 만지므로 직렬화
+  cancel-in-progress: false
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: .github/workflows/requirements-weekly.txt
+
+      - name: Install dependencies
+        run: pip install -r .github/workflows/requirements-weekly.txt
+
+      - name: Backfill netbuy_rank history (hub /flow)
+        timeout-minutes: 40
+        env:
+          BACKFILL_FROM: ${{ inputs.from }}
+          BACKFILL_TO: ${{ inputs.to }}
+        run: |
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            python backfill_netbuy_history.py --dry-run
+          else
+            python backfill_netbuy_history.py
+          fi
+
+      - name: Commit and push archives
+        if: ${{ inputs.dry_run != 'true' }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add public/reports/netbuy_rank/
+          git diff --staged --quiet && echo "No changes to commit" && exit 0
+          git commit -m "chore: netbuy_rank 과거 재구성 백필 $(date -u +'%Y-%m-%d %H:%MZ') [skip railway]"
+          for i in $(seq 1 5); do
+            if git push origin HEAD:main; then echo "pushed (attempt $i)"; exit 0; fi
+            echo "push attempt $i rejected; rebasing onto latest main..."
+            git fetch origin main
+            git stash --include-untracked --quiet 2>/dev/null || true
+            git rebase FETCH_HEAD || { git rebase --abort; echo "::error::rebase conflict"; exit 1; }
+            sleep $((RANDOM % 4 + 2))
+          done
+          echo "::error::push failed after 5 attempts" && exit 1
+
+      - name: Push reports to Postgres (dual-write)
+        if: ${{ inputs.dry_run != 'true' }}
+        env:
+          INGEST_TOKEN: ${{ secrets.REPORT_INGEST_TOKEN }}
+        run: python push_reports_to_db.py || echo "::warning::DB ingest 실패 — git 커밋 폴백으로 동작"
