@@ -31,6 +31,9 @@ import generate_weekly_briefing as g          # _flow_raw 메모이즈·RANK_DIR
 
 KEYS = ("prsn", "frgn", "orgn", "fund", "scrt", "insu", "ivtr", "pe")
 MIN_CODES = 50          # 이 미만이면 휴장/미확정(장중)으로 보고 파일 생성 안 함
+# daily 거래일 수 — 허브 /flow 기본 5행이라 과거 복원엔 반드시 확장 요청해야 한다
+# (2026-09-10 P1 실측: flow_payload rows=5 고정이었음). KIS 실제 상한은 허브 로그로 확인.
+FLOW_ROWS = int(os.environ.get("BACKFILL_FLOW_ROWS", "30") or 30)
 TOP_N = 30
 LIST_KEYS = (("frgn_buy", "frgn", 1), ("frgn_sell", "frgn", -1),
              ("orgn_buy", "orgn", 1), ("orgn_sell", "orgn", -1))
@@ -92,7 +95,7 @@ def fetch_all(codes, workers=6):
     """유니버스 전체 /flow 조회(메모이즈, 실패 종목 제외)."""
     def _one(code):
         try:
-            return code, g._flow_raw(code)
+            return code, g._flow_raw(code, rows=FLOW_ROWS)
         except Exception:
             return code, None
     out = {}

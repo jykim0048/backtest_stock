@@ -507,21 +507,27 @@ def _week_cum_codes(codes, week_start, fetch_closes=None):
     return out
 
 
-_FLOW_RAW: dict = {}      # code -> /flow 응답 — 1런 1회 왕복(메모이즈, 2026-09-09)
+_FLOW_RAW: dict = {}      # "code:rows" -> /flow 응답 — 1런 1회 왕복(메모이즈, 2026-09-09)
+# daily 거래일 수 — 허브 flow_payload 기본 5. 주간은 5로 충분, 월간·과거 백필은
+# 환경변수로 확장(FLOW_ROWS=30 등, 2026-09-10 P1). 공매도·대차는 허브가 max(rows,20).
+FLOW_ROWS = int(os.environ.get("FLOW_ROWS", "5") or 5)
 
 
-def _flow_raw(code):
+def _flow_raw(code, rows=None):
     """허브 /flow 응답 프로세스 메모이즈 — 백필·공매도대차·신고가·타임라인이
     같은 종목을 중복 왕복하지 않게 한다(마감 후 단일 런이라 스테일 없음).
+    rows = daily 거래일 수(허브 기본 5, 월간·과거 백필은 25~45 — 2026-09-10 P1).
     실패는 캐시하지 않고 예외 전파(호출측 fail-open 유지)."""
-    if code in _FLOW_RAW:
-        return _FLOW_RAW[code]
+    rows = rows or FLOW_ROWS
+    key = f"{code}:{rows}"
+    if key in _FLOW_RAW:
+        return _FLOW_RAW[key]
     base = FLOW_RANK_URL.rsplit("/", 1)[0]
-    req = urllib.request.Request(f"{base}/flow?code={code}",
+    req = urllib.request.Request(f"{base}/flow?code={code}&rows={rows}",
                                  headers={"User-Agent": "weekly-briefing"})
     with urllib.request.urlopen(req, timeout=30) as r:
         d = json.loads(r.read().decode("utf-8"))
-    _FLOW_RAW[code] = d
+    _FLOW_RAW[key] = d
     return d
 
 
