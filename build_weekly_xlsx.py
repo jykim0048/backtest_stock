@@ -12,9 +12,12 @@
 사용: python build_weekly_xlsx.py  (weekly json 생성 직후, CI 16:10)
 """
 import os
+import re
 import sys
 import json
 import math
+import uuid
+import zipfile
 from copy import copy
 
 import openpyxl
@@ -1159,6 +1162,71 @@ def validate(ws, d):
     return (not errs), sorted(set(errs))[:15]
 
 
+# ── 데이터 막대 음수 표기(Excel 2010 x14 확장) — 저장 후 XML 후처리 ────────────
+# openpyxl DataBarRule 은 2007식(최솟값 기준 — 음수도 오른쪽 짧은 막대)만 쓴다. 사용자
+# 요청(2026-09-10)으로 0 축 기준 음수=왼쪽(청)·양수=오른쪽(틸) 막대가 되도록, 저장된
+# xlsx 의 시트 XML 에서 모든 dataBar cfRule 에 x14 확장(autoMin/autoMax·axis·negativeFill)
+# 을 덧붙인다. 규칙 본체·색은 그대로라 구형 뷰어는 종전 막대로 폴백.
+_X14 = "http://schemas.microsoft.com/office/spreadsheetml/2009/9/main"
+_XM = "http://schemas.microsoft.com/office/excel/2006/main"
+NEG_BAR_COLOR = "FFBDD5F2"          # 음수 막대 채움 = 연한 청(파란 숫자 가독성, 2026-09-10)
+NEG_BAR_BORDER = "FF3182F6"         # 음수 막대 윤곽 = 대시보드 하락 청
+POS_BAR_BORDER = "FF19B6C9"         # 양수 막대 윤곽 = 틸(채움과 동일)
+BAR_AXIS_COLOR = "FF9CA3AF"
+
+
+def _negative_databars_xml(xml):
+    """시트 XML 문자열 → dataBar cfRule 마다 x14:id 확장 + 시트 말미 x14 규칙 블록.
+    dataBar 규칙이 없으면 원문 그대로 반환."""
+    pat = re.compile(r'<conditionalFormatting sqref="([^"]+)"><cfRule type="dataBar"'
+                     r'([^>]*)>(.*?)</cfRule></conditionalFormatting>', re.S)
+    exts = []
+
+    def _sub(m):
+        sqref, attrs, inner = m.groups()
+        inner = inner.replace('<color rgb="00', '<color rgb="FF')   # openpyxl 알파 00 → FF
+        gid = "{" + str(uuid.uuid4()).upper() + "}"
+        exts.append((gid, sqref))
+        ext = (f'<extLst><ext uri="{{B025F937-C7B1-47D3-B67F-A62EFF666E3E}}" xmlns:x14="{_X14}">'
+               f'<x14:id>{gid}</x14:id></ext></extLst>')
+        return (f'<conditionalFormatting sqref="{sqref}"><cfRule type="dataBar"{attrs}>'
+                f'{inner}{ext}</cfRule></conditionalFormatting>')
+
+    xml2 = pat.sub(_sub, xml)
+    if not exts:
+        return xml
+    cfs = "".join(
+        f'<x14:conditionalFormatting xmlns:xm="{_XM}"><x14:cfRule type="dataBar" id="{gid}">'
+        f'<x14:dataBar minLength="0" maxLength="100" border="1" axisPosition="automatic" '
+        f'negativeBarColorSameAsPositive="0" negativeBarBorderColorSameAsPositive="0">'
+        f'<x14:cfvo type="autoMin"/><x14:cfvo type="autoMax"/>'
+        f'<x14:borderColor rgb="{POS_BAR_BORDER}"/>'
+        f'<x14:negativeFillColor rgb="{NEG_BAR_COLOR}"/><x14:negativeBorderColor rgb="{NEG_BAR_BORDER}"/>'
+        f'<x14:axisColor rgb="{BAR_AXIS_COLOR}"/>'
+        f'</x14:dataBar></x14:cfRule><xm:sqref>{sqref}</xm:sqref></x14:conditionalFormatting>'
+        for gid, sqref in exts)
+    ext_block = (f'<ext uri="{{78C0D931-6437-407d-A8EE-F0AAD7539E65}}" xmlns:x14="{_X14}">'
+                 f'<x14:conditionalFormattings>{cfs}</x14:conditionalFormattings></ext>')
+    tail = xml2.rstrip()
+    if tail.endswith("</extLst></worksheet>"):        # 기존 extLst 가 있으면 그 안에
+        return tail[:-len("</extLst></worksheet>")] + ext_block + "</extLst></worksheet>"
+    return tail.replace("</worksheet>", "<extLst>" + ext_block + "</extLst></worksheet>")
+
+
+def save_with_negative_bars(wb, path):
+    """wb.save 후 모든 시트의 dataBar 에 음수 막대 확장을 적용해 다시 압축."""
+    wb.save(path)
+    tmp = path + ".tmp"
+    with zipfile.ZipFile(path) as zin, \
+            zipfile.ZipFile(tmp, "w", zipfile.ZIP_DEFLATED) as zout:
+        for item in zin.infolist():
+            data = zin.read(item.filename)
+            if item.filename.startswith("xl/worksheets/sheet") and item.filename.endswith(".xml"):
+                data = _negative_databars_xml(data.decode("utf-8")).encode("utf-8")
+            zout.writestr(item, data)
+    os.replace(tmp, path)
+
+
 def main():
     with open(DATA, encoding="utf-8") as f:
         d = json.load(f)
@@ -1167,10 +1235,10 @@ def main():
     if not ok:
         print(f"[xlsx] 검증 실패 — 저장 안 함: {errs}", file=sys.stderr)
         return 1
-    wb.save(OUT_SNAP)
+    save_with_negative_bars(wb, OUT_SNAP)
     week_path = os.path.join(ROOT, "public", "reports", "weekly_briefing",
                              f"{d.get('weekStart')}.xlsx")
-    wb.save(week_path)
+    save_with_negative_bars(wb, week_path)
     print(f"[xlsx] 저장: {OUT_SNAP} (+{os.path.basename(week_path)}) — 검증 통과")
     return 0
 
