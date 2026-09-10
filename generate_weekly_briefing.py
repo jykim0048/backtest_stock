@@ -71,6 +71,73 @@ def _week_dates(base_date):
 # ---------------------------------------------------------------------------
 # 일별 압축 추출 — LLM 프롬프트에 넣을 2~3KB 요약 (regime/모의투자 제외)
 # ---------------------------------------------------------------------------
+def _period_dates(base_date, period="week"):
+    """기간 거래일 후보 — week: 그 주 월~기준일(_week_dates), month: 그 달 1일~기준일의
+    평일(주말이면 직전 금요일까지). 휴장일은 하위 단계가 데이터 부재로 자연 스킵."""
+    if period != "month":
+        return _week_dates(base_date)
+    if base_date.weekday() >= 5:
+        base_date -= datetime.timedelta(days=base_date.weekday() - 4)
+    first = base_date.replace(day=1)
+    return [first + datetime.timedelta(days=i)
+            for i in range((base_date - first).days + 1)
+            if (first + datetime.timedelta(days=i)).weekday() < 5]
+
+
+def _compound(pcts):
+    """일별 등락률(%) 리스트 → 기간 복리 누적(%). 월간은 단순 합산 오차가 커 복리."""
+    acc = 1.0
+    for p in pcts:
+        acc *= 1.0 + float(p) / 100.0
+    return round((acc - 1.0) * 100.0, 2)
+
+
+def _us_period_returns(days):
+    """미국 지수 기간 수익률(%) — 레벨 기반: 첫 관측의 전일 종가(price/(1+chg))를
+    기준가로, 마지막 관측 레벨과 비교. 레벨 결측 지수는 일별 등락 복리 폴백."""
+    obs = {}
+    for d in days:
+        for i in (d.get("usIndices") or []):
+            nm = i.get("name")
+            if nm and isinstance(i.get("changePct"), (int, float)):
+                obs.setdefault(nm, []).append(i)
+    out = {}
+    for nm, xs in obs.items():
+        p0, c0, pl = xs[0].get("price"), xs[0].get("changePct"), xs[-1].get("price")
+        if all(isinstance(v, (int, float)) for v in (p0, c0, pl)) and p0 and c0 > -100:
+            base = p0 / (1.0 + c0 / 100.0)
+            out[nm] = round((pl / base - 1.0) * 100.0, 2)
+        else:
+            out[nm] = _compound(x["changePct"] for x in xs)
+    return out
+
+
+def _compact_day(d):
+    """월간 LLM 입력용 일별 축약 — 22거래일 원문(일 3~5KB)은 과대하므로 수치·핵심
+    시황 3줄·경제지표만. 서사는 그 달 주간 합성 아카이브(_period_syntheses)가 담당."""
+    return {"date": d["date"], "stance": d.get("stance"),
+            "indices": d.get("indices") or {}, "investors": d.get("investors") or {},
+            "sectorsUp": d.get("sectorsUp") or [], "sectorsDown": d.get("sectorsDown") or [],
+            "briefing": (d.get("briefing") or [])[:3],
+            "usEcon": d.get("usEcon") or [], "koEcon": d.get("koEcon") or []}
+
+
+def _period_syntheses(dates):
+    """기간 안 각 주의 주간 브리핑 synthesis 요약(월간 서사 입력) — 주차 월요일 키."""
+    mondays = sorted({(dt - datetime.timedelta(days=dt.weekday())).isoformat() for dt in dates})
+    out = []
+    for mk in mondays:
+        w = _fetch(f"reports/weekly_briefing/{mk}.json") or {}
+        syn = w.get("synthesis") or {}
+        if syn:
+            out.append({"weekStart": w.get("weekStart") or mk, "weekEnd": w.get("weekEnd"),
+                        "headline": syn.get("headline"),
+                        "weekNarrative": syn.get("weekNarrative") or [],
+                        "sectorRotation": syn.get("sectorRotation") or [],
+                        "weeklyComment": syn.get("weeklyComment") or []})
+    return out
+
+
 def _econ_row(e, nation):
     """경제지표 행 축약 — 주간 브리핑 표기/LLM 입력 공용."""
     r = {k: e.get(k) for k in ("name", "importance", "actual", "forecast",
@@ -94,7 +161,8 @@ def _day_summary(date_str):
         day["usReview"] = (morning.get("usReview") or {}).get("bullets") or []
         day["krPreview"] = (morning.get("krPreview") or {}).get("narrative") or ""
         us = morning.get("usMarket") or {}
-        day["usIndices"] = [{"name": i.get("name"), "changePct": i.get("changePct")}
+        day["usIndices"] = [{"name": i.get("name"), "changePct": i.get("changePct"),
+                             "price": i.get("price")}          # 월간 레벨 기반 수익률용
                             for i in (us.get("indices") or [])[:5]]
         # 미국 섹터 히트(섹터 ETF 일별 등락) — 주간 누적 상위/하위 섹터 집계 입력
         day["usSectors"] = [{"name": s.get("name"), "changePct": s.get("changePct")}
@@ -1128,22 +1196,23 @@ def _week_cum_map(rows, week_start, dates=None, fetch_closes=None, flow=None):
     return out
 
 
-def _next_week_preview():
-    """다음 주 예정 이벤트 — 경제지표·실적 캘린더에서 결정적으로 추출."""
+def _next_week_preview(econ_n=25, earn_n=40):
+    """다음 기간 예정 이벤트 — 경제지표·실적 캘린더에서 결정적으로 추출.
+    월간은 개수 확대(econ 40·실적 60)."""
     out = {"econ": [], "earnings": []}
     econ = _fetch("econ_calendar.json") or {}
-    for e in (econ.get("upcoming") or [])[:60]:
+    for e in (econ.get("upcoming") or [])[:max(60, econ_n * 2)]:
         if isinstance(e, dict) and (e.get("importance") or 0) >= 2:
             out["econ"].append({k: e.get(k) for k in
                                 ("releaseAtKST", "nation", "name", "importance", "consensus")
                                 if e.get(k) is not None})
     earn = _fetch("earnings_calendar.json") or {}
-    for e in (earn.get("upcoming") or [])[:40]:
+    for e in (earn.get("upcoming") or [])[:earn_n]:
         if isinstance(e, dict):
             out["earnings"].append({k: e.get(k) for k in
                                     ("date", "when", "name", "market")
                                     if e.get(k) is not None})
-    out["econ"] = out["econ"][:25]
+    out["econ"] = out["econ"][:econ_n]
     return out
 
 
@@ -1224,13 +1293,46 @@ _SYSTEM = (
 )
 
 
+# 월간 리뷰 프롬프트(2026-09-10 P2) — 스키마·키는 주간과 동일(렌더러·엑셀 공용).
+# 입력: days=축약 일별(_compact_day), weeklySyntheses=그 달 주간 합성 요약.
+_SYSTEM_MONTH = (
+    "당신은 한국 주식시장 데일리·주간 브리핑을 월간 단위로 종합하는 애널리스트입니다. "
+    "입력은 그 달의 거래일 축약 요약(days: 지수·투자자 수급·섹터·핵심 시황 3줄·경제지표)과"
+    " 그 달 각 주의 주간 브리핑 요약(weeklySyntheses)입니다. 한국어로, 반드시 입력에 있는"
+    " 사실만 사용하세요. 숫자는 입력값을 그대로 인용하고 새로 계산하지 마세요."
+    " 모의투자·자동매매·매수추천 언급은 금지. 키 이름에 'week'가 들어가도 모두 '월간'"
+    " 의미로 작성하라(스키마 공용)."
+    "\n- headline: 이번 달을 한 문장으로"
+    "\n- weekNarrative: 월간 시장 흐름 5~7개 불릿 — 주차별 흐름의 전환점과 원인, 수급 주체 변화"
+    "\n- sectorRotation: 월중 주도 섹터/테마 변화 3~5개 불릿 — 순환인지 지속인지"
+    "\n- catalystTimeline: 시장 전체 이벤트만 주차당 1~2행(월 최대 8행), date·event 만."
+    " stock·market·star·changePct 는 채우지 마라(종목 행은 시스템이 별도 추가)"
+    "\n- dailyContext: 거래일마다 정확히 1개, 각 1문장(30자 내외) — 그 날 지수·수급 반응의"
+    " 핵심 원인. 입력 days 의 모든 date 를 빠짐없이"
+    "\n- weeklyComment: 월간 종합 코멘트 3~4개 불릿 — econWeekly(그 달 발표 경제지표)로"
+    " 매크로를, sectorFlowWeekly(업종별 월간 등락·순매수, 억원)로 수급 구도를 짚고 종합"
+    "\n- nextWeekPreview: '다음 달' 시나리오형 4~6개 불릿 — 조건부 시나리오 2개, 판별 신호 1개,"
+    " 예정 이벤트(nextWeekEvents) 중 핵심 1~3개"
+    "\n- nextWeek: 위 프리뷰 구조화 — upside·downside(각 1~2), signal 1문장, events 1~3. 필수"
+    "\n- watchNotes: 다음 달 관찰 후보 long·short 각 최대 5개 — sectorFlowWeekly·"
+    "netbuyTotalTop/Bottom·shortLoan 근거가 뚜렷한 것만, basis 는 수치 인용 1문장, 권유 금지"
+)
+
+
 def main():
     args = sys.argv[1:]
     base = datetime.datetime.now(KST).date()
     if "--date" in args:
         base = datetime.date.fromisoformat(args[args.index("--date") + 1])
-    dates = _week_dates(base)
+    # 기간(2026-09-10 P2): week(기본) | month — 월간은 같은 파이프라인을 그 달 1일~
+    # 기준일로 돌리고 출력만 reports/monthly_review/<YYYY-MM>.json 에 분리 저장.
+    period = args[args.index("--period") + 1] if "--period" in args else "week"
+    is_month = period == "month"
+    dates = _period_dates(base, period)
     week_start = dates[0].isoformat()
+    if is_month:
+        print(f"[weekly] period=month {dates[0]} ~ {dates[-1]} (평일 {len(dates)}일, "
+              f"FLOW_ROWS={FLOW_ROWS})")
 
     _tmark("일별 수집")
     days = [d for d in (_day_summary(dt.isoformat()) for dt in dates) if d]
@@ -1242,7 +1344,7 @@ def main():
     # 당일 순매수 랭킹 스냅샷(거래일이었을 때만) + 주간 누적 합산
     _tmark("스냅샷·백필·누적")
     today_iso = datetime.datetime.now(KST).date().isoformat()
-    if any(d["date"] == today_iso for d in days):
+    if not is_month and any(d["date"] == today_iso for d in days):
         _snapshot_netbuy_rank(today_iso)
         _snapshot_breadth(today_iso)
         ft = _day_flow_top(today_iso)      # 방금 저장한 당일 스냅샷으로 재부착
@@ -1256,16 +1358,26 @@ def main():
     # ── Phase 1 결정적 집계 (2026-09-08 주간회의 자료 벤치마킹) ──────────────
     # ① 미국 주간 컨텍스트 — 모닝브리핑 usIndices(전일 미국장) 일별 등락 합산 근사
     us_weekly = {}
-    for d in days:
-        for i in (d.get("usIndices") or []):
-            nm, ch = i.get("name"), i.get("changePct")
-            if nm and isinstance(ch, (int, float)):
-                us_weekly[nm] = round(us_weekly.get(nm, 0.0) + ch, 2)
-    # ①b 미국 섹터 ETF 주간 누적(일별 등락 단순 합산) 상위/하위 3
+    if is_month:                     # 월간: 레벨 기반(결측 시 복리) — 합산 오차 제거
+        us_weekly = _us_period_returns(days)
+    else:
+        for d in days:
+            for i in (d.get("usIndices") or []):
+                nm, ch = i.get("name"), i.get("changePct")
+                if nm and isinstance(ch, (int, float)):
+                    us_weekly[nm] = round(us_weekly.get(nm, 0.0) + ch, 2)
+    # ①b 미국 섹터 ETF 기간 누적 상위/하위 3 — 주간 단순 합산 / 월간 복리
     us_sec = {}
-    for d in days:
-        for s in (d.get("usSectors") or []):
-            us_sec[s["name"]] = round(us_sec.get(s["name"], 0.0) + s["changePct"], 2)
+    if is_month:
+        seq = {}
+        for d in days:
+            for s in (d.get("usSectors") or []):
+                seq.setdefault(s["name"], []).append(s["changePct"])
+        us_sec = {n: _compound(v) for n, v in seq.items()}
+    else:
+        for d in days:
+            for s in (d.get("usSectors") or []):
+                us_sec[s["name"]] = round(us_sec.get(s["name"], 0.0) + s["changePct"], 2)
     us_sector_weekly = None
     if us_sec:
         ranked = sorted(us_sec.items(), key=lambda x: -x[1])
@@ -1286,7 +1398,8 @@ def main():
     sector_flow = None
     try:
         base = FLOW_RANK_URL.rsplit("/", 1)[0]
-        req = urllib.request.Request(f"{base}/sector-flow",
+        sf_q = f"?days={len(dates) + 2}" if is_month else ""     # 월간: 기간 거래일 전부
+        req = urllib.request.Request(f"{base}/sector-flow{sf_q}",
                                      headers={"User-Agent": "weekly-briefing"})
         # 마감 직후 콜드 캐시는 26업종 KIS 콜로 느릴 수 있다(2026-09-08 16:13 타임아웃
         # 실측). 허브는 클라이언트가 끊겨도 수집을 마쳐 10분 캐시에 저장하므로,
@@ -1312,11 +1425,13 @@ def main():
             # 허브 구버전 응답엔 키가 없으므로 존재 확인 후에만 세분 필드를 붙인다
             # (0 채움 금지 — 값 조작으로 보임).
             fin, ins, tru, has_det = 0.0, 0.0, 0.0, False
+            chg_seq = []                    # 월간 복리용 일별 등락
             for r0 in (s.get("daily") or []):
                 if r0.get("date") in want and any(
                         r0.get(k) for k in ("frgn", "orgn", "prsn", "chgPct")):
                     nd += 1
                     chg += float(r0.get("chgPct") or 0.0)
+                    chg_seq.append(float(r0.get("chgPct") or 0.0))
                     frgn += float(r0.get("frgn") or 0.0)
                     orgn += float(r0.get("orgn") or 0.0)
                     prsn += float(r0.get("prsn") or 0.0)
@@ -1327,7 +1442,9 @@ def main():
                         ins += float(r0.get("insu") or 0.0)
                         tru += float(r0.get("ivtr") or 0.0) + float(r0.get("pe") or 0.0)
             if nd:
-                row = {"name": s.get("name"), "days": nd, "chgPct": round(chg, 2),
+                # 기간 등락: 주간=일별 합(종전 정의 §2) / 월간=복리(22일 합산 오차 제거)
+                chg_p = _compound(chg_seq) if is_month else round(chg, 2)
+                row = {"name": s.get("name"), "days": nd, "chgPct": chg_p,
                        "frgn": round(frgn / 100), "orgn": round(orgn / 100),
                        "prsn": round(prsn / 100), "fund": round(fund / 100)}  # 억원
                 if has_det:                     # 장중시황과 동일 세분 표기 키
@@ -1336,12 +1453,15 @@ def main():
                 # V1: 다기간 수익률(허브 캔들 기준, 결측은 None 유지) + 상태 신호.
                 # 1W 는 기존 주간등락 정의(일별 chgPct 합) 그대로(§2).
                 rets = s.get("returns") or {}
-                ytd, m3, m1 = rets.get("ytd"), rets.get("m3"), rets.get("m1")
-                row.update({"ytd": ytd, "m3": m3, "m1": m1,
+                ytd, m6 = rets.get("ytd"), rets.get("m6")
+                m3, m1 = rets.get("m3"), rets.get("m1")
+                # 가격 축(3/4 동일 방향 규칙 공용): 주간 YTD/3M/1M/1W(=기간) ·
+                # 월간 YTD/6M/3M/1M(=기간, 월초~기준일) — 4번째 축은 항상 '이번 기간'
+                axes = (ytd, m6, m3, row["chgPct"]) if is_month else (ytd, m3, m1, row["chgPct"])
+                row.update({"ytd": ytd, "m6": m6, "m3": m3, "m1": m1,
                             "coreFlow": round((frgn + orgn) / 100),
                             "signal": classify_sector_signal(
-                                ytd, m3, m1, row["chgPct"],
-                                row["frgn"], row["orgn"])})
+                                *axes, row["frgn"], row["orgn"])})
                 rows.append(row)
         if rows:
             rows.sort(key=lambda x: -x["chgPct"])
@@ -1368,7 +1488,7 @@ def main():
 
 
     _tmark("프리뷰·LLM 합성")
-    preview = _next_week_preview()
+    preview = _next_week_preview(40, 60) if is_month else _next_week_preview()
     synthesis, generated_by = None, None
     if "--no-llm" not in args:
         if not llm.configured():
@@ -1387,7 +1507,9 @@ def main():
                            for d in days
                            for e in (d.get("usEcon") or []) + (d.get("koEcon") or [])]
             user = json.dumps({
-                "days": days, "nextWeekEvents": preview,
+                "days": [_compact_day(d) for d in days] if is_month else days,
+                "nextWeekEvents": preview,
+                **({"weeklySyntheses": _period_syntheses(dates)} if is_month else {}),
                 # Phase 3 관찰 노트 근거 — 주간 결정적 집계 (전부 억원 단위)
                 "sectorFlowWeekly": (sector_flow or {}).get("rows"),
                 "netbuyTotalTop": _eok(total.get("top")),
@@ -1397,7 +1519,9 @@ def main():
             }, ensure_ascii=False)
             try:
                 synthesis, generated_by = llm.generate_json(
-                    _SYSTEM, user, max_tokens=4096, schema=_SCHEMA, return_model=True)
+                    _SYSTEM_MONTH if is_month else _SYSTEM, user,
+                    max_tokens=8192 if is_month else 4096, schema=_SCHEMA,
+                    return_model=True)
             except llm.LLMError as ex:
                 print(f"[weekly] LLM 합성 실패 — 집계만 저장: {ex}", file=sys.stderr)
 
@@ -1445,6 +1569,21 @@ def main():
                                            -(x.get("changePct") or 0)))
         if len(stock_rows) != n_before:
             print(f"[weekly] 타임라인 재등장 병합: {n_before}→{len(stock_rows)}행")
+        if is_month:
+            # 월간 컷(P2): ★5 만, 주차별 상위 8(별점·기간 등락 순), 총 40행 상한
+            byw = {}
+            for r in stock_rows:
+                if (r.get("star") or 0) < 5:
+                    continue
+                dt = datetime.date.fromisoformat(r["date"])
+                byw.setdefault(dt - datetime.timedelta(days=dt.weekday()), []).append(r)
+            kept = []
+            for wk in sorted(byw):
+                kept += sorted(byw[wk], key=lambda x: (-(x.get("star") or 0),
+                                                       -(x.get("changePct") or 0)))[:8]
+            kept = sorted(kept, key=lambda x: (x["date"], -(x.get("changePct") or 0)))[:40]
+            print(f"[weekly] 월간 타임라인 컷: {len(stock_rows)}→{len(kept)}행 (★5·주차 상위 8)")
+            stock_rows = kept
     if stock_rows or synthesis:
         syn = synthesis if isinstance(synthesis, dict) else {}
         market_rows = [t for t in (syn.get("catalystTimeline") or []) if not t.get("stock")]
@@ -1470,6 +1609,11 @@ def main():
 
     _tmark("breadth·신고가·출력 조립")
     out = {
+        # 기간 키(2026-09-10 P2). weekStart/weekEnd 는 렌더러·엑셀 빌더 호환 미러 —
+        # 월간이면 periodStart/periodEnd 와 같은 값(라벨은 period 로 분기).
+        "period": period,
+        "periodStart": week_start,
+        "periodEnd": week_end,
         "weekStart": week_start,
         "weekEnd": week_end,
         "asof": datetime.datetime.now(KST).strftime("%Y-%m-%d %H:%M KST"),
@@ -1494,20 +1638,26 @@ def main():
         "synthesis": synthesis,
     }
 
-    os.makedirs(OUT_DIR, exist_ok=True)
-    path = os.path.join(OUT_DIR, f"{week_start}.json")
-    for p in (path, SNAP):
+    out_dir, snap = OUT_DIR, SNAP
+    key = week_start
+    if is_month:
+        out_dir = os.path.join(ROOT, "public", "reports", "monthly_review")
+        snap = os.path.join(ROOT, "public", "monthly_review.json")
+        key = week_start[:7]                                  # YYYY-MM
+    os.makedirs(out_dir, exist_ok=True)
+    path = os.path.join(out_dir, f"{key}.json")
+    for p in (path, snap):
         with open(p, "w", encoding="utf-8") as f:
             json.dump(out, f, ensure_ascii=False, indent=1)
     # index.json — git 폴백용 (DB 서빙은 쿼리로 대체하지만 raw 폴백 경로 대칭 유지)
-    idx_path = os.path.join(OUT_DIR, "index.json")
+    idx_path = os.path.join(out_dir, "index.json")
     try:
         with open(idx_path, encoding="utf-8") as f:
             idx = json.load(f)
     except OSError:
         idx = []
-    if week_start not in idx:
-        idx = sorted(set(idx) | {week_start}, reverse=True)
+    if key not in idx:
+        idx = sorted(set(idx) | {key}, reverse=True)
         with open(idx_path, "w", encoding="utf-8") as f:
             json.dump(idx, f, indent=1)
     _tmark(None)                        # 마지막 구간 경과 출력
