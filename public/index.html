@@ -1747,12 +1747,15 @@
       <div class="briefing-head" onclick="wbToggleBanner()">
         <div class="briefing-head-left">
           <span class="briefing-icon">📅</span>
-          <span class="briefing-title">주간 브리핑</span>
-          <span class="briefing-badge">WEEKLY</span>
+          <span class="briefing-title" id="wb-title">주간 브리핑</span>
+          <span class="briefing-badge" id="wb-badge">WEEKLY</span>
           <span class="briefing-date" id="wb-date"></span>
         </div>
         <div class="briefing-head-right">
-          <span class="briefing-stance neutral" onclick="wbExport();event.stopPropagation()"
+          <!-- 주간/월간 토글(2026-09-11 P4) — 월간 목록이 있을 때만 표시(wbModeUI) -->
+          <span id="wb-mode" onclick="event.stopPropagation()"
+                style="display:none;gap:4px;margin-right:6px;align-items:center"></span>
+          <span class="briefing-stance neutral" id="wb-xlsx" onclick="wbExport();event.stopPropagation()"
                 style="cursor:pointer" title="주간 브리핑 전체를 엑셀(xlsx)로 다운로드">📥 엑셀</span>
           <span class="briefing-stance neutral" id="wb-nav" onclick="event.stopPropagation()">
             <a href="#" onclick="wbNav(1);return false" style="color:inherit;text-decoration:none">◀</a>
@@ -7305,6 +7308,25 @@
 // ===== 📅 주간 브리핑 (독립 스크립트 — reports/weekly_briefing/) =====
 (function () {
   var wbWeeks = [], wbIdx = 0;
+  // 월간 리뷰(2026-09-11 P4) — 같은 패널에서 주간/월간 토글. 렌더러는 공용이고 라벨·
+  // 데이터 소스·◀▶ 목록만 모드별로 바뀐다. 라벨은 WB_L 한 곳에서만 꺼낸다(웹 목업
+  // 발견 2 — 흩어진 '주간' 문구 잔존 방지). 월간 목록이 비면 토글 자체를 숨긴다.
+  var wbMonths = [], wbMIdx = 0, wbMode = "week";
+  try { if (localStorage.getItem("wbMode") === "month") wbMode = "month"; } catch (_) {}
+  var WB_L = {
+    week: {title: "주간 브리핑", badge: "WEEKLY", per: "주간", next: "다음 주",
+           usCap: "모닝브리핑 전일 기준 누적", axes: ["YTD", "3M", "1M", "1W"],
+           axisKeys: ["ytd", "m3", "m1", "chgPct"],
+           tlCap: "코스피 ★4 이상 · 코스닥 ★5 · 등락률=주간 누적 · 재등장 종목은 최신 행에 병합",
+           empty: "주간 종합 코멘트는 다음 갱신(평일 16:10)에 채워집니다."},
+    // 4번째 가격 축은 항상 '이번 기간'(월간=월초~기준일 복리), 6M 이 3M 앞
+    month: {title: "월간 리뷰", badge: "MONTHLY", per: "월간", next: "다음 달",
+            usCap: "모닝브리핑 지수 레벨 기준", axes: ["YTD", "6M", "3M", "1M"],
+            axisKeys: ["ytd", "m6", "m3", "chgPct"],
+            tlCap: "★5 · 주차별 상위 8 · 등락률=월간 누적 · 재등장 종목은 최신 행에 병합",
+            empty: "월간 종합 코멘트는 다음 갱신(평일 16:20)에 채워집니다."}
+  };
+  var WBP = WB_L.week;          // 지금 렌더 중인 산출물의 라벨 — render 가 d.period 로 설정
   function esc(s) {
     return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) {
       return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c];
@@ -7345,7 +7367,7 @@
       var zeroY = (H - 6 - (0 - mn) / rg * (H - 12)).toFixed(1);
       h += '<div style="flex:1;min-width:300px;border:1px solid rgba(128,128,128,.2);border-radius:10px;padding:8px 12px">'
         + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">'
-        + '<span style="font-weight:700">' + mk.toUpperCase() + ' 주간 누적 수급</span><span>'
+        + '<span style="font-weight:700">' + mk.toUpperCase() + ' ' + WBP.per + ' 누적 수급</span><span>'
         + INV.map(function (t) {
             return '<span style="border:1px solid ' + t[2] + '55;border-radius:10px;padding:1px 7px;margin-left:4px;font-size:11.5px;color:' + t[2] + '">'
               + t[1] + " " + fmtAmt(tot[t[0]]) + "</span>";
@@ -7536,7 +7558,7 @@
     var hdr = "<tr style='opacity:.6;font-size:12px'><th style='text-align:left'>날짜</th><th style='text-align:left'>종목</th>"
       + "<th style='text-align:left'>시장</th>"
       + (hasSec ? "<th style='text-align:left'>섹터</th>" : "")
-      + "<th style='text-align:left'>별점</th><th style='text-align:left'>등락률(주간)</th><th style='text-align:left'>핵심 촉매</th></tr>";
+      + "<th style='text-align:left'>별점</th><th style='text-align:left'>등락률(" + WBP.per + ")</th><th style='text-align:left'>핵심 촉매</th></tr>";
     return '<table style="width:100%;border-collapse:collapse;font-size:13px">' + hdr + rows + "</table>";
   }
   window.wbTlMkt = function (f) {
@@ -7547,6 +7569,11 @@
   var _wbLast = null;
   function render(d) {
     _wbLast = d;
+    WBP = WB_L[d.period === "month" ? "month" : "week"];
+    var tEl = document.getElementById("wb-title"); if (tEl) tEl.textContent = WBP.title;
+    var bEl = document.getElementById("wb-badge"); if (bEl) bEl.textContent = WBP.badge;
+    var xEl = document.getElementById("wb-xlsx"); if (xEl) xEl.title = WBP.title + " 전체를 엑셀(xlsx)로 다운로드";
+    wbModeUI();
     var el = document.getElementById("wb-body");
     document.getElementById("wb-date").textContent = d.weekStart + " ~ " + d.weekEnd;
     var h = "";
@@ -7555,7 +7582,7 @@
     h += invCharts(d.days || []);
     // US 미국 주간 — 지수 카드 섹션 + US/KR 섹터 TOP3 매트릭스 (2026-09-08 양식 개편)
     if (d.usWeekly && Object.keys(d.usWeekly).length) {
-      h += '<div style="font-weight:600;margin:6px 0 6px">US 미국 주간 <span style="font-weight:400;opacity:.55;font-size:11px">(모닝브리핑 전일 기준 누적)</span></div>'
+      h += '<div style="font-weight:600;margin:6px 0 6px">US 미국 ' + WBP.per + ' <span style="font-weight:400;opacity:.55;font-size:11px">(' + WBP.usCap + ')</span></div>'
         + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin:0 0 10px">';
       [["나스닥", "나스닥"], ["S&P500", "S&P500"], ["다우", "다우"],
        ["필라델피아 반도체", "필라델피아"], ["VIX 변동성", "VIX"]].forEach(function (p) {
@@ -7601,7 +7628,7 @@
       h += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin:0 0 4px">'
         + secCard("US 상승 섹터 TOP3", usw.up, "#f04452") + secCard("US 하락 섹터 TOP3", usw.down, "#3182f6")
         + secCard("KR 상승 섹터 TOP3", krUp, "#f04452") + secCard("KR 하락 섹터 TOP3", krDn, "#3182f6")
-        + '</div><div style="opacity:.45;font-size:10.5px;margin:0 0 10px">(섹터 주간 누적 수익률 — US=섹터 ETF, KR=KIS 업종)</div>';
+        + '</div><div style="opacity:.45;font-size:10.5px;margin:0 0 10px">(섹터 ' + WBP.per + ' 누적 수익률 — US=섹터 ETF, KR=KIS 업종)</div>';
     }
     // 주간 주요 경제지표(US/KOR) — 모닝브리핑/장중 시황 경제지표 카드와 동일 양식
     // (날짜 | 국가배지 | ★ | 지표 | 실제/예상·이전 | 서프라이즈 배지 — CSS 클래스 재사용)
@@ -7627,7 +7654,7 @@
       });
     });
     if (econRows) {
-      h += '<div class="briefing-wl" style="margin:0 0 10px"><div class="wl-h"><span style="font-size:15.5px">📊 주간 주요 경제지표 — 시장 반영</span></div>'
+      h += '<div class="briefing-wl" style="margin:0 0 10px"><div class="wl-h"><span style="font-size:15.5px">📊 ' + WBP.per + ' 주요 경제지표 — 시장 반영</span></div>'
         + "<table><tbody>" + econRows + "</tbody></table>"
         + '<div style="font-size:10.5px;color:var(--text-muted);margin-top:6px">US=모닝브리핑 미국장 리뷰에 언급된 지표 · KR=시장 영향력 상위 발표분 · ★=시장 영향력</div></div>';
     }
@@ -7703,7 +7730,7 @@
         nhBody = '<div style="border:1px solid rgba(128,128,128,.2);border-radius:10px;padding:8px 12px;overflow-x:auto">'
           + '<div style="font-weight:600;margin-bottom:4px;color:#fbbf24">52주 신고가 근접</div>'
           + '<table style="width:100%;border-collapse:collapse;font-size:12px;min-width:880px">'
-          + "<tr style='opacity:.6'><th style='text-align:left'>종목</th><th style='text-align:left'>시장</th><th style='text-align:left'>섹터</th><th style='text-align:right'>합산(억)</th><th style='text-align:right;color:" + INV[1][2] + "'>외인</th><th style='text-align:right;color:" + INV[2][2] + "'>기관</th><th style='text-align:right;color:" + INV[0][2] + "'>개인</th><th style='text-align:right'>공매도(억)</th><th style='text-align:right'>대차잔고(증감,억)</th><th style='text-align:right'>등락률(주간)</th><th style='text-align:right'>신고가 대비</th></tr>"
+          + "<tr style='opacity:.6'><th style='text-align:left'>종목</th><th style='text-align:left'>시장</th><th style='text-align:left'>섹터</th><th style='text-align:right'>합산(억)</th><th style='text-align:right;color:" + INV[1][2] + "'>외인</th><th style='text-align:right;color:" + INV[2][2] + "'>기관</th><th style='text-align:right;color:" + INV[0][2] + "'>개인</th><th style='text-align:right'>공매도(억)</th><th style='text-align:right'>대차잔고(증감,억)</th><th style='text-align:right'>등락률(" + WBP.per + ")</th><th style='text-align:right'>신고가 대비</th></tr>"
           + nhRows + "</table></div>";
       } else {
         nhBody = '<div style="font-size:12px">' + nhGroups.map(function (g) {
@@ -7714,13 +7741,13 @@
       if (nhGroups.length || nhStocks.length) {
         h += '<details class="flow-details" style="margin:-6px 0 8px"><summary style="text-align:right">신고가 근접 ' + nhCnt + '종목 ▾</summary>'
           + '<div style="margin-top:6px">' + nhBody
-          + '<div style="opacity:.45;font-size:10.5px;margin-top:4px">최신 거래일 기준 · 52주 신고가 대비 -10% 이내 (KIS 랭킹) · ETF·ETN 제외 · 수급=주간 누적 확정(억)</div></div></details>';
+          + '<div style="opacity:.45;font-size:10.5px;margin-top:4px">최신 거래일 기준 · 52주 신고가 대비 -10% 이내 (KIS 랭킹) · ETF·ETN 제외 · 수급=' + WBP.per + ' 누적 확정(억)</div></div></details>';
       }
     }
     // 주간 종합 코멘트 — 일별 반응 코멘트 표 바로 아래 (매크로=주간 경제지표,
     // 수급=섹터×수급 매트릭스 근거 — 2026-09-08 사용자 요청)
     if ((syn.weeklyComment || []).length) {
-      h += bullets("🧭 주간 종합 코멘트 — 매크로·수급", syn.weeklyComment);
+      h += bullets("🧭 " + WBP.per + " 종합 코멘트 — 매크로·수급", syn.weeklyComment);
     }
     function bullets(title, arr) {
       if (!arr || !arr.length) return "";
@@ -7750,11 +7777,11 @@
         function amt(v) { return '<td style="text-align:right;padding:2px 0 2px 12px;color:' + (v > 0 ? "#f04452" : v < 0 ? "#3182f6" : "inherit") + '">' + fmtAmt(v) + "</td>"; }
         if (sfV1) {
           var sg = r.signal === "혼조" ? "" : (r.signal || "");   // 혼조는 저장만, 표기 생략
-          var badge = sg ? '<span title="핵심수급(외인+기관) ' + fmtAmt(r.coreFlow) + '억 · 가격추세=YTD/3M/1M/1W 3개 이상 동일 방향" style="color:'
+          var badge = sg ? '<span title="핵심수급(외인+기관) ' + fmtAmt(r.coreFlow) + '억 · 가격추세=' + WBP.axes.join("/") + ' 3개 이상 동일 방향" style="color:'
             + (SIG_C[sg] || "#94a3b8") + ';font-weight:600;font-size:11px">' + sg + "</span>" : "";
           return '<tr style="border-top:1px solid rgba(128,128,128,.1)">'
             + '<td style="padding:2px 6px 2px 0;white-space:nowrap">' + esc(r.name) + "</td>"
-            + fp(r.ytd) + fp(r.m3) + fp(r.m1) + fp(r.chgPct)
+            + WBP.axisKeys.map(function (k) { return fp(r[k]); }).join("")   // 월간 YTD/6M/3M/1M
             + amt(r.frgn) + amt(r.orgn)                        // 세분 순서 = 투자자별 2행(금융투자·투신·연기금·보험, 2026-09-10)
             + (sfDet ? amt(r.finInv) + amt(r.trust) : "") + amt(r.fund) + (sfDet ? amt(r.insur) : "")
             + amt(r.prsn)
@@ -7776,15 +7803,15 @@
       var sfTh = function (t) { return "<th style='text-align:right'>" + t + "</th>"; };
       var sfW = sfV1 ? (sfDet ? 1030 : 880) : (sfDet ? 780 : 520);
       var sfFoot = sfV1
-        ? ("가격추세 = YTD·3M·1M·1W(%) 중 3개 이상 동일 방향 · 핵심수급 = 외인+기관 주간 누적 · KIS 업종(KRX 산업분류)<br>"
+        ? ("가격추세 = " + WBP.axes.join("·") + "(%) 중 3개 이상 동일 방향 · 핵심수급 = 외인+기관 " + WBP.per + " 누적 · KIS 업종(KRX 산업분류)<br>"
           + '<span style="color:#f04452">동반강세</span>=가격강세+수급유입 · <span style="color:#fbbf24">수급이탈</span>=가격강세+수급이탈 · '
           + '<span style="color:#2dd4bf">수급유입</span>=가격약세+수급유입 · <span style="color:#3182f6">동반약세</span>=가격약세+수급이탈 · '
           + '공란=혼조(가격방향 불명확) · 데이터부족=일부 기간 결측')
         : "KIS 업종(KRX 산업분류) 일별 확정 · <span style='color:#fbbf24'>수급이탈</span>=주가↑수급↓ · <span style='color:#2dd4bf'>수급유입</span>=주가↓수급↑";
-      h += '<details class="flow-details" style="margin:0 0 6px"><summary>섹터 × 수급 매트릭스 — 가격 추세(%) vs 투자자 순매수 (주간, 억원) ▾</summary>'
+      h += '<details class="flow-details" style="margin:0 0 6px"><summary>섹터 × 수급 매트릭스 — 가격 추세(%) vs 투자자 순매수 (' + WBP.per + ', 억원) ▾</summary>'
         + '<div style="overflow-x:auto;margin-top:6px"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:' + sfW + 'px">'
         + "<tr style='opacity:.6'><th style='text-align:left'>업종</th>"
-        + (sfV1 ? sfTh("YTD") + sfTh("3M") + sfTh("1M") + sfTh("1W") : sfTh("주간등락"))
+        + (sfV1 ? WBP.axes.map(function (t) { return sfTh(t); }).join("") : sfTh(WBP.per + "등락"))
         + sfTh("외인") + sfTh(sfDet ? "기관(합)" : "기관")
         + (sfDet ? sfTh("금융투자") + sfTh("투신(사모)") : "") + sfTh("연기금") + (sfDet ? sfTh("보험") : "")
         + sfTh("개인") + (sfV1 ? sfTh("신호") : "") + "</tr>"
@@ -7818,7 +7845,7 @@
           + ' <span style="font-weight:400;opacity:.6;font-size:11px">' + ((ss.sub || {})[sig] || "") + "</span></div>" + body + "</div>";
       };
       wnHtml = '<div style="font-weight:600;margin:12px 0 2px">섹터 시그널 종목 관찰 '
-        + '<span style="font-weight:400;opacity:.55;font-size:11px">(섹터 상태 × 투자자 수급 × 공매도·대차 × 주간 촉매)</span></div>'
+        + '<span style="font-weight:400;opacity:.55;font-size:11px">(섹터 상태 × 투자자 수급 × 공매도·대차 × ' + WBP.per + ' 촉매)</span></div>'
         + '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:6px">' + ssCard("동반강세") + ssCard("수급유입") + "</div>"
         + '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px">' + ssCard("수급이탈") + ssCard("동반약세") + "</div>"
         + '<div style="opacity:.45;font-size:10.5px;margin:4px 0 4px">' + esc(ss.universeNote || "")
@@ -7846,7 +7873,7 @@
         return '<div style="flex:1;min-width:190px"><div style="font-weight:600;opacity:.8;margin-bottom:3px">' + title + "</div>"
           + ((arr || []).map(fmt).join("") || "<div style='opacity:.5'>— (2일차부터 집계)</div>") + "</div>";
       };
-      h += '<details class="flow-details" style="margin-top:2px"><summary style="text-align:right">공매도 · 대차 주간 동향 ▾</summary>'
+      h += '<details class="flow-details" style="margin-top:2px"><summary style="text-align:right">공매도 · 대차 ' + WBP.per + ' 동향 ▾</summary>'
         + '<div style="display:flex;gap:14px;flex-wrap:wrap;font-size:12px;margin-top:6px">'
         + slCol("공매도 누적 상위(억)", slw.shortTop, function (e) {
             return "<div style='display:flex;justify-content:space-between'><span style='opacity:.85'>" + esc(e.name) + "</span><span>" + Math.round(e.amt).toLocaleString() + "</span></div>";
@@ -7859,7 +7886,7 @@
           })
         + "</div></details>";
     }
-    h += bullets("📈 주간 시장 흐름", syn.weekNarrative);
+    h += bullets("📈 " + WBP.per + " 시장 흐름", syn.weekNarrative);
     h += bullets("🔁 섹터·테마 흐름", syn.sectorRotation);
     if (syn.catalystTimeline && syn.catalystTimeline.length) {
       // 날짜 | 종목 | 시장 | 별점 | 상승률 | 핵심촉매 + 전체/코스피/코스닥 토글 (실적발표 양식)
@@ -7868,24 +7895,48 @@
         return '<span onclick="wbTlMkt(\'' + f + '\')" style="cursor:pointer;padding:2px 10px;border-radius:999px;font-size:12px;' +
           (_wbTlMkt === f ? "background:var(--kospi-blue);color:#fff;font-weight:600;" : "background:rgba(255,255,255,.06);color:var(--text-muted);") + '">' + label + "</span>";
       };
-      h += '<div style="display:flex;align-items:center;gap:6px;margin:8px 0 4px"><span style="font-weight:600">⚡ 주간 촉매 타임라인</span>'
-        + '<span style="font-weight:400;opacity:.55;font-size:11px">(코스피 ★4 이상 · 코스닥 ★5 · 등락률=주간 누적 · 재등장 종목은 최신 행에 병합)</span>'
+      h += '<div style="display:flex;align-items:center;gap:6px;margin:8px 0 4px"><span style="font-weight:600">⚡ ' + WBP.per + ' 촉매 타임라인</span>'
+        + '<span style="font-weight:400;opacity:.55;font-size:11px">(' + WBP.tlCap + ')</span>'
         + '<span style="margin-left:auto;display:flex;gap:4px">' + tab("전체", "전체") + tab("KOSPI", "코스피") + tab("KOSDAQ", "코스닥") + "</span></div>"
         + '<div id="wb-tl-rows">' + wbTlRows() + "</div>";
     }
-    h += bullets("🔮 다음 주 프리뷰", syn.nextWeekPreview);
-    if (!syn.headline) h += '<div style="opacity:.6;font-size:12px">주간 종합 코멘트는 다음 갱신(평일 16:10)에 채워집니다.</div>';
+    h += bullets("🔮 " + WBP.next + " 프리뷰", syn.nextWeekPreview);
+    if (!syn.headline) h += '<div style="opacity:.6;font-size:12px">' + WBP.empty + '</div>';
     h += '<div style="opacity:.5;font-size:11px;margin-top:6px">기준: ' + esc(d.asof || "") + "</div>";
     el.innerHTML = h;
   }
   function load(i) {
-    if (!wbWeeks.length) return;
-    wbIdx = Math.max(0, Math.min(wbWeeks.length - 1, i));
-    fetch("reports/weekly_briefing/" + wbWeeks[wbIdx] + ".json?t=" + Date.now(), { cache: "no-store" })
+    var month = wbMode === "month" && wbMonths.length > 0;
+    var list = month ? wbMonths : wbWeeks;
+    if (!list.length) return;
+    var idx = Math.max(0, Math.min(list.length - 1, i));
+    if (month) wbMIdx = idx; else wbIdx = idx;
+    var base = month ? "reports/monthly_review/" : "reports/weekly_briefing/";
+    fetch(base + list[idx] + ".json?t=" + Date.now(), { cache: "no-store" })
       .then(function (r) { if (!r.ok) throw 0; return r.json(); })
       .then(function (d) { render(d); document.getElementById("wb-banner").style.display = ""; })
       .catch(function () {});
   }
+  // 주간/월간 토글(2026-09-11 P4) — 월간 목록이 있을 때만 노출, 선택은 브라우저에 기억
+  function wbModeUI() {
+    var el = document.getElementById("wb-mode");
+    if (!el) return;
+    if (!wbMonths.length) { el.style.display = "none"; return; }
+    el.style.display = "inline-flex";
+    var cur = (_wbLast && _wbLast.period === "month") ? "month" : "week";
+    function pill(m, t) {
+      return '<span onclick="wbSetMode(\'' + m + '\')" style="cursor:pointer;padding:2px 12px;border-radius:999px;font-size:12px;'
+        + (cur === m ? "background:var(--kospi-blue);color:#fff;font-weight:600;" : "background:rgba(255,255,255,.06);color:var(--text-muted);")
+        + '">' + t + "</span>";
+    }
+    el.innerHTML = pill("week", "주간") + pill("month", "월간");
+  }
+  window.wbSetMode = function (m) {
+    if (m === "month" && !wbMonths.length) return;
+    wbMode = m === "month" ? "month" : "week";
+    try { localStorage.setItem("wbMode", wbMode); } catch (_) {}
+    load(0);
+  };
   window.wbToggleBanner = function () {
     document.getElementById("wb-banner").classList.toggle("collapsed");
   };
@@ -8356,13 +8407,22 @@
     };
     document.head.appendChild(sc);
   };
-  window.wbNav = function (dir) { load(wbIdx + dir); };   // ◀ = 이전 주(인덱스+1)
+  window.wbNav = function (dir) {                          // ◀ = 이전 주·월(인덱스+1)
+    load((wbMode === "month" && wbMonths.length ? wbMIdx : wbIdx) + dir);
+  };
+  function idxOf(path) {                                   // index.json → [] (실패·부재 포함)
+    return fetch(path + "?t=" + Date.now(), { cache: "no-store" })
+      .then(function (r) { return r.ok ? r.json() : []; })
+      .then(function (l) { return Array.isArray(l) ? l : []; })
+      .catch(function () { return []; });
+  }
   loadSectorMap().then(function () {                       // 섹터 알약용 맵 선로딩
-    return fetch("reports/weekly_briefing/index.json?t=" + Date.now(), { cache: "no-store" })
-      .then(function (r) { if (!r.ok) throw 0; return r.json(); })
-      .then(function (list) {
-        if (Array.isArray(list) && list.length) { wbWeeks = list; load(0); }
-      });
+    return Promise.all([idxOf("reports/weekly_briefing/index.json"),
+                        idxOf("reports/monthly_review/index.json")]);
+  }).then(function (res) {
+    wbWeeks = res[0]; wbMonths = res[1];
+    if (wbMode === "month" && !wbMonths.length) wbMode = "week";   // 월간 산출 전엔 주간
+    if (wbWeeks.length || wbMonths.length) load(0);
   }).catch(function () {});   // 데이터 없으면 배너 숨김 유지
 })();
 </script>
