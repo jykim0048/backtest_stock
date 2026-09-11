@@ -1,0 +1,90 @@
+name: Monthly Review
+
+# 월간 리뷰(2026-09-10 P5 선행) — 주간 브리핑 생성기를 --period month 로 실행해 그 달
+# 1일~기준일을 재합성, reports/monthly_review/<YYYY-MM>.json 에 upsert.
+# 현재는 수동 실행 전용(P3 엑셀·P4 웹 개발용 실데이터 확보). 스케줄(평일 16:20)과
+# 엑셀 생성 단계는 P3/P5 에서 추가한다.
+# 권장 실행 시점: 장 마감 후 16:10 주간 브리핑 이후 — 당일 수급 스냅샷·섹터 캐시 재사용.
+#
+# 서빙: 보관본 YYYY-MM 은 report_db 날짜 키가 아니라 DB 비대상 → raw 폴백으로 서빙,
+# index.json 은 DB 무결과 시 raw 폴백, 최신본 monthly_review.json 은 snapshots 업서트.
+on:
+  workflow_dispatch:
+    inputs:
+      date:
+        description: "기준일 YYYY-MM-DD (기본: 오늘 — 그 달 1일~기준일)"
+        required: false
+      no_llm:
+        description: "true 면 LLM 합성 생략(결정적 집계만)"
+        required: false
+        default: "false"
+
+concurrency:
+  group: weekly-briefing          # netbuy_rank 백필·커밋 경합 방지(주간·과거 백필과 직렬화)
+  cancel-in-progress: false
+
+jobs:
+  monthly-review:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: .github/workflows/requirements-weekly.txt
+
+      - name: Install dependencies
+        run: pip install -r .github/workflows/requirements-weekly.txt
+
+      - name: Generate monthly review (주간 생성기 --period month)
+        timeout-minutes: 15
+        env:
+          GEMINI_API_KEY:    ${{ secrets.GEMINI_API_KEY }}
+          LLM_CHAIN:         ${{ vars.LLM_CHAIN }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          FLOW_ROWS: "30"                 # /flow daily 창 — 월간(≤23거래일+기준일), KIS 상한 30
+          IN_DATE: ${{ inputs.date }}
+          IN_NO_LLM: ${{ inputs.no_llm }}
+        run: |
+          ARGS="--period month"
+          if [ -n "$IN_DATE" ]; then
+            if ! echo "$IN_DATE" | grep -Eq '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'; then
+              echo "::error::date 형식 오류(YYYY-MM-DD): $IN_DATE"; exit 1
+            fi
+            ARGS="$ARGS --date $IN_DATE"
+          fi
+          if [ "$IN_NO_LLM" = "true" ]; then ARGS="$ARGS --no-llm"; fi
+          echo "python generate_weekly_briefing.py $ARGS"
+          python generate_weekly_briefing.py $ARGS
+
+      - name: Commit and push monthly review
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          # netbuy_rank: 월간 런의 세분·공매도·T+1 대차 백필이 아카이브를 보정할 수 있음
+          git add public/monthly_review.json public/reports/monthly_review/ public/reports/netbuy_rank/
+          git diff --staged --quiet && echo "No changes to commit" && exit 0
+          git commit -m "chore: monthly review $(date -u +'%Y-%m-%d %H:%MZ') [skip railway]"
+          git status --porcelain | head -5
+          for i in $(seq 1 5); do
+            if git push origin HEAD:main; then echo "pushed (attempt $i)"; exit 0; fi
+            echo "push attempt $i rejected; rebasing onto latest main..."
+            git fetch origin main
+            git stash --include-untracked --quiet 2>/dev/null || true
+            git rebase FETCH_HEAD || { git rebase --abort; echo "::error::rebase conflict"; exit 1; }
+            sleep $((RANDOM % 4 + 2))
+          done
+          echo "::error::push failed after 5 attempts" && exit 1
+
+      - name: Push reports to Postgres (dual-write)
+        env:
+          INGEST_TOKEN: ${{ secrets.REPORT_INGEST_TOKEN }}
+        run: python push_reports_to_db.py || echo "::warning::DB ingest 실패 — git 커밋 폴백으로 동작"
