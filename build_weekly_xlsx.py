@@ -114,7 +114,7 @@ _LABELS = {
         "s04c": "그날 지수·수급 반응 요인",
         # 4번째 축은 항상 '이번 기간' — 월간은 월초~기준일(복리), 6M 이 3M 앞에 온다
         "axes": ("YTD", "6M", "3M", "1M"), "axis_keys": ("ytd", "m6", "m3", "chgPct"),
-        "sfnote": "가격추세=YTD·6M·3M·1M(%) 중 3개 이상 동일 방향 · 1M=월초~기준일(복리)"
+        "sfnote": "가격추세=YTD·6M·3M·1M(%) 중 3개 이상 동일 방향 · 1M=월초~기준일"
                   " · 핵심수급(외인+기관)=월간 누적 · KIS 업종(KRX 산업분류)",
         "sfcap_old": "월간 등락 vs 투자자 순매수(억)",
     },
@@ -1023,9 +1023,16 @@ def add_detail_sheets(wb, b, d):
                 b.nl()
             data_end = b.r - 1
             b.nl()
-            note(PL["sfnote"])
+            # 2026-09-11: 기간 등락 종가 비교 · 수급 중립 구간(구 아카이브는 종전 문구)
+            sfm_ = d.get("sectorFlow") or {}
+            basis = (f" · {PL['axes'][-1]}={'전월말' if d.get('period') == 'month' else '전주말'}"
+                     " 종가 대비") if sfm_.get("chgBasis") else ""
+            nr = sfm_.get("neutralRatio")
+            weak = (f" 또는 수급 미미(|외인+기관| < 섹터 평소 규모의 {round(nr * 100)}%)"
+                    if nr else "")
+            note(PL["sfnote"] + basis)
             note("동반강세=가격강세+수급유입 · 수급이탈=가격강세+수급이탈 · 수급유입=가격약세+수급유입 · "
-                 "동반약세=가격약세+수급이탈 · 공란=혼조(가격방향 불명확) · 데이터부족=일부 기간 결측")
+                 f"동반약세=가격약세+수급이탈 · 공란=혼조(가격방향 불명확{weak}) · 데이터부족=일부 기간 결측")
             b.finish()
             ws2.freeze_panes = "A5"
             ws2.auto_filter.ref = f"A4:N{data_end}"

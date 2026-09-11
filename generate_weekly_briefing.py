@@ -328,30 +328,63 @@ def _norm_sec(s):
 
 # ── 섹터 시그널 종목 관찰 4-Matrix (2026-09-09 V1) ────────────────────────────
 # Top-down: ①섹터x수급 신호(동반강세/수급유입/수급이탈/동반약세) → ②소속 종목
-# → ③수급·공매도·대차·촉매 Evidence 결합 → ④동방향 종목 Top3. 결과는 JSON 에
+# → ③수급·공매도·대차·촉매 Evidence 결합 → ④동방향 종목 Top5. 결과는 JSON 에
 # 저장해 웹/엑셀이 동일 결과를 렌더(§28). 예측 아님 — 관찰 우선순위 산정.
 _MATRIX_SUB = {"동반강세": "추세 지속형 상방 관찰", "수급유입": "초기 유입형 상방 관찰",
                "수급이탈": "상승 후 약화 관찰", "동반약세": "약세 지속형 하방 관찰"}
+# 신호 섹터 시총 상위 보강 수(2026-09-11) — 0 이면 보강 끔(구 유니버스)
+SCREEN_SECTOR_TOPN = int(os.environ.get("SCREEN_SECTOR_TOPN", "10") or 0)
+# 칸(신호)별 최대 표시 종목 수 — 3→5(2026-09-11 사용자 요청). 웹/엑셀은 저장값 전부 렌더
+SCREEN_MATRIX_TOPK = int(os.environ.get("SCREEN_MATRIX_TOPK", "5") or 5)
+_SEC_TOP = None
 
 
-def build_sector_screen(sector_rows, netbuy_cum, short_loan, stock_rows):
+def _sector_top_caps():
+    """정규화 업종명 -> [(code, name)] 시총 내림차순(KOSPI+KOSDAQ 합산, krx_sector_map)."""
+    global _SEC_TOP
+    if _SEC_TOP is None:
+        _SEC_TOP = {}
+        try:
+            with open(os.path.join(ROOT, "public", "assets", "krx_sector_map.json"),
+                      encoding="utf-8") as f:
+                sm = json.load(f) or {}
+            for key, s in (sm.get("sectors") or {}).items():
+                xs = [x for x in (s.get("stocks") or []) + (s.get("kosdaqStocks") or [])
+                      if x.get("code")]
+                xs.sort(key=lambda x: -(x.get("cap") or 0))
+                _SEC_TOP[_norm_sec(s.get("name") or key)] = [
+                    (str(x["code"]).zfill(6), x.get("name")) for x in xs]
+        except Exception as ex:
+            print(f"[weekly] krx_sector_map 로드 실패(섹터 보강 생략): {ex}", file=sys.stderr)
+    return _SEC_TOP
+
+
+def build_sector_screen(sector_rows, netbuy_cum, short_loan, stock_rows, flow_fill=None):
     """스크리닝 결과 {matrix, debug, universeNote}. 규칙(V1):
     - Evidence 축: 외인/기관(핵심), 대차 증감, 공매도 상위 등재(약한 부정).
       연기금은 기관계에 포함되어 점수 미가산(§7 중복 방지) — 표시·디버그만.
       촉매는 방향 분류 데이터가 없어 Neutral(§10) — 표시·디버그만.
     - 결측은 축 자체를 건너뜀(0 취급 금지 §32), Main 후보는 서로 다른 축
-      2개 이상 동방향(§33), Matrix 방향과 역행 종목은 debug 에 보존(§14)."""
+      2개 이상 동방향(§33), Matrix 방향과 역행 종목은 debug 에 보존(§14).
+    - 유니버스 보강(2026-09-11): A) 신호 섹터마다 시총 상위 SCREEN_SECTOR_TOPN
+      편입, B) 신호 섹터 종목의 결손 축(외인·기관·대차)을 flow_fill(codes) —
+      _flow_week 주간 누적 — 으로 채움. 기존 값은 보존(순매수 카드 수치 일치)."""
     states = {}
     for r in sector_rows or []:
         if r.get("signal") in _MATRIX_SUB:
             states[_norm_sec(r.get("name"))] = (r.get("name"), r.get("signal"))
 
     stocks = {}
+    by_name = {}            # 이름 → 코드 (공매도·대차 랭킹은 이름만 옴 — '현대차'처럼
+                            # _code_of_name 미해석 시 별도 행으로 쪼개지던 문제, 2026-09-11)
 
     def feat(name, code=None):
-        code = (str(code).zfill(6) if code else None) or _code_of_name(name)
+        code = ((str(code).zfill(6) if code else None) or _code_of_name(name)
+                or by_name.get(name))
         key = code or f"n:{name}"
         e = stocks.setdefault(key, {"code": code, "name": name})
+        if code:
+            by_name.setdefault(name, code)
         return e
 
     nc = netbuy_cum or {}
@@ -391,14 +424,61 @@ def build_sector_screen(sector_rows, netbuy_cum, short_loan, stock_rows):
             e["catStar"] = t.get("star") or 0
             e["catText"] = t.get("event") or ""
 
+    # A. 신호 섹터 시총 상위 편입 — 순매수 상위 30 등재 중심 유니버스는 대형 반도체주
+    # 쏠림(9/10: 68종목 중 전기·전자 25)이라 수급 규모가 작은 섹터(전기·가스·부동산
+    # 등)는 0종목 → 수급유입/수급이탈 칸이 구조적으로 비었다.
+    for e in stocks.values():
+        e.setdefault("src", "list")
+    n_added = 0
+    if SCREEN_SECTOR_TOPN > 0 and states:
+        tops = _sector_top_caps()
+        have = {e.get("name") for e in stocks.values()}
+        for nsec, (sname, _sig) in states.items():
+            for code, name in (tops.get(nsec) or [])[:SCREEN_SECTOR_TOPN]:
+                if code in stocks or name in have:
+                    continue
+                e = feat(name, code)
+                e.update({"src": "sector", "secHint": sname})
+                have.add(name)
+                n_added += 1
+    for e in stocks.values():
+        e["sector"] = _sector_of_name(e.get("name"), e.get("code")) or e.get("secHint")
+
+    # B. 결손 축 채우기 — 투자자별 목록·공매도·촉매로만 들어온 종목은 외인/기관 중
+    # 한 축뿐이라(9/10: 유니버스 60%가 축 ≤1) '동방향 2축' 판정이 원천 불가였다.
+    # 신호 섹터 종목만 /flow 주간 누적으로 빈 축을 채운다(기존 값 보존).
+    n_fill = 0
+    need = [e["code"] for e in stocks.values()
+            if e.get("code") and e.get("sector") and _norm_sec(e["sector"]) in states
+            and any(not isinstance(e.get(k), (int, float)) for k in ("frgn", "orgn", "loanChg"))]
+    if flow_fill and need:
+        try:
+            fl = flow_fill(need) or {}
+        except Exception as ex:
+            print(f"[weekly] 스크리닝 결손 축 채우기 실패(기존 유니버스로 진행): {ex}",
+                  file=sys.stderr)
+            fl = {}
+        for e in stocks.values():
+            f = fl.get(e.get("code"))
+            if not f:
+                continue
+            got = False
+            for k, div in (("frgn", 100), ("orgn", 100), ("prsn", 100),      # 백만원→억
+                           ("shortSum", 1), ("loanAmt", 1), ("loanChg", 1)):
+                if not isinstance(e.get(k), (int, float)) and isinstance(f.get(k), (int, float)):
+                    e[k] = round(f[k] / div, 1)
+                    got = True
+            if got:
+                e["filled"] = True
+                n_fill += 1
+
     def fmt_eok(v):
         return f"{'+' if v > 0 else ''}{round(v):,}억"
 
     matrix = {k: [] for k in _MATRIX_SUB}
     debug = []
     for key, e in stocks.items():
-        sec = _sector_of_name(e.get("name"), e.get("code"))
-        e["sector"] = sec
+        sec = e.get("sector")
         st = states.get(_norm_sec(sec)) if sec else None
         sig = st[1] if st else None
         pos, neg = [], []                               # (축, 문구)
@@ -441,18 +521,26 @@ def build_sector_screen(sector_rows, netbuy_cum, short_loan, stock_rows):
                       "catDirection": None,             # V1: 방향 데이터 없음(§10)
                       "posEvidence": len(pos), "negEvidence": len(neg),
                       "score": score, "matrix": sig,
-                      "picked": picked, "reason": reason})
-    # 정렬·Top3: 상방=점수(수급유입은 축 수 우선) 내림, 하방=점수 오름(§13, §15)
-    matrix["동반강세"].sort(key=lambda x: -x["score"])
-    matrix["수급유입"].sort(key=lambda x: -x["score"])   # 점수=동방향 축 수와 동치(V1)
-    matrix["수급이탈"].sort(key=lambda x: x["score"])
-    matrix["동반약세"].sort(key=lambda x: x["score"])
+                      "picked": picked, "reason": reason,
+                      "src": e.get("src"), "filled": bool(e.get("filled"))})
+
+    def mag(x):                                         # 동점 시 외인+기관 규모 큰 순
+        ev = x["evidence"]
+        return abs((ev.get("frgn") or 0) + (ev.get("orgn") or 0))
+    # 정렬·Top N: 상방=점수(수급유입은 축 수 우선) 내림, 하방=점수 오름(§13, §15)
+    matrix["동반강세"].sort(key=lambda x: (-x["score"], -mag(x)))
+    matrix["수급유입"].sort(key=lambda x: (-x["score"], -mag(x)))   # 점수=동방향 축 수(V1)
+    matrix["수급이탈"].sort(key=lambda x: (x["score"], -mag(x)))
+    matrix["동반약세"].sort(key=lambda x: (x["score"], -mag(x)))
     for k in matrix:
-        matrix[k] = matrix[k][:3]
+        matrix[k] = matrix[k][:SCREEN_MATRIX_TOPK]
     return {"matrix": matrix, "debug": debug,
             "sub": _MATRIX_SUB,
+            "coverage": {"added": n_added, "filled": n_fill, "topN": SCREEN_SECTOR_TOPN},
             "universeNote": "현재 확보된 주간 브리핑 데이터 유니버스(순매수 상위 30 등재 · "
-                            "공매도/대차 랭킹 · 주간 촉매) 기준 — 전 시장 스크리닝 아님"}
+                            "공매도/대차 랭킹 · 주간 촉매 · 신호 섹터 시총 상위"
+                            f"{' ' + str(SCREEN_SECTOR_TOPN) if SCREEN_SECTOR_TOPN else ''}) "
+                            "기준 — 전 시장 스크리닝 아님"}
 
 
 # ── 섹터 x 수급 매트릭스 V1 신호 (2026-09-09) ─────────────────────────────────
@@ -474,6 +562,50 @@ def classify_price_trend(ytd, r3m, r1m, r1w):
     return "PRICE_MIXED"
 
 
+# 섹터 신호 수급 중립 구간(2026-09-11 사용자 요청 — 상대 기준): 섹터마다 기간 직전
+# 최근 N주(달력 주)의 외인+기관 주간 합 절대값을 거래일 수로 나눈 1일 평균 = 평소
+# 규모. 이번 기간 |외인+기관| < RATIO x 평소 1일 규모 x 기간 거래일 수 → 혼조.
+# 섹터 규모 차(전기·전자 수만억 vs 종이·목재 수억)를 절대 금액 기준 없이 흡수.
+SECTOR_NEUTRAL_RATIO = float(os.environ.get("SECTOR_FLOW_NEUTRAL_RATIO", "0.3") or 0)
+SECTOR_NEUTRAL_WEEKS = 8            # 기준선 주 수(허브 daily 최대 40거래일 창 안)
+SECTOR_NEUTRAL_MIN_WEEKS = 3        # 이보다 적으면 기준선 없음 → 부호만(구 동작)
+SECTOR_FLOW_DAYS = 40               # /sector-flow 요청 창(허브 상한) — 기준선·1W 기준 종가
+
+
+def _flow_baseline(daily, period_start):
+    """평소 수급 규모(억/거래일) — period_start(YYYYMMDD) 이전 행을 달력 주로 묶어
+    주간 |외인+기관| / 그 주 거래일 수의 평균(최근 SECTOR_NEUTRAL_WEEKS 주).
+    주 수 < SECTOR_NEUTRAL_MIN_WEEKS 면 None."""
+    wk = {}
+    for r in daily or []:
+        dd = str(r.get("date") or "")
+        if len(dd) != 8 or dd >= period_start:
+            continue
+        if not any(r.get(k) for k in ("frgn", "orgn", "prsn", "chgPct")):
+            continue                        # 빈 행(휴장·미확정)
+        key = datetime.date(int(dd[:4]), int(dd[4:6]), int(dd[6:])).isocalendar()[:2]
+        a = wk.setdefault(key, [0.0, 0])
+        a[0] += float(r.get("frgn") or 0.0) + float(r.get("orgn") or 0.0)
+        a[1] += 1
+    keys = sorted(wk)[-SECTOR_NEUTRAL_WEEKS:]
+    if len(keys) < SECTOR_NEUTRAL_MIN_WEEKS:
+        return None
+    return sum(abs(wk[k][0]) / wk[k][1] for k in keys) / len(keys) / 100   # 백만원→억
+
+
+def _period_close_return(daily, want):
+    """기간 등락 시점 대 시점(2026-09-11) — (기간 내 마지막 종가 / 기간 직전 마지막
+    종가 − 1) x 100. 종가 결측(허브 구버전·필드 부재=0)·기준 행이 창 밖이면 None."""
+    rows = sorted((str(r.get("date") or ""), float(r.get("close") or 0.0))
+                  for r in daily or [])
+    start = min(want)
+    cur = [c for dd, c in rows if dd in want and c > 0]
+    base = [c for dd, c in rows if dd < start and c > 0]
+    if not cur or not base:
+        return None
+    return round((cur[-1] / base[-1] - 1) * 100, 2)
+
+
 def calculate_core_flow(frgn, orgn):
     """핵심 수급 = 외인+기관 주간 순매수 합 (연기금·개인은 표시만, 판정 제외)."""
     if not (isinstance(frgn, (int, float)) and isinstance(orgn, (int, float))):
@@ -481,14 +613,16 @@ def calculate_core_flow(frgn, orgn):
     return frgn + orgn
 
 
-def classify_sector_signal(ytd, r3m, r1m, r1w, frgn, orgn):
+def classify_sector_signal(ytd, r3m, r1m, r1w, frgn, orgn, neutral=None):
     """최종 신호: 동반강세/수급이탈/수급유입/동반약세 + 혼조 + 데이터부족.
-    수급 0(FLOW_NEUTRAL)은 강제 분류하지 않고 혼조로 표기(실데이터상 희박)."""
+    수급 0(FLOW_NEUTRAL)은 강제 분류하지 않고 혼조로 표기(실데이터상 희박).
+    neutral(억, 2026-09-11): |외인+기관| 이 이 값 미만이면 '수급 미미'로 혼조 —
+    섹터별 평소 수급 규모 대비 상대 기준(_flow_baseline). None 이면 부호만."""
     trend = classify_price_trend(ytd, r3m, r1m, r1w)
     core = calculate_core_flow(frgn, orgn)
     if trend is None or core is None:
         return "데이터부족"
-    if trend == "PRICE_MIXED" or core == 0:
+    if trend == "PRICE_MIXED" or core == 0 or (neutral and abs(core) < neutral):
         return "혼조"
     if trend == "PRICE_STRONG":
         return "동반강세" if core > 0 else "수급이탈"
@@ -517,6 +651,8 @@ def _snapshot_breadth(today):
             "counts": counts,
             "newHighs": [x for x in (d.get("newHighs") or [])
                          if not _is_etf_name(x.get("name"))]}
+    if d.get("nearDiag"):       # 허브 구간 분할 조회 진단(2026-09-11) — 30건 잘림 사후 확인용
+        snap["nearDiag"] = d["nearDiag"]
     with open(os.path.join(BREADTH_DIR, f"{today}.json"), "w", encoding="utf-8") as f:
         json.dump(snap, f, ensure_ascii=False, indent=1)
     idx_path = os.path.join(BREADTH_DIR, "index.json")
@@ -1398,7 +1534,9 @@ def main():
     sector_flow = None
     try:
         base = FLOW_RANK_URL.rsplit("/", 1)[0]
-        sf_q = f"?days={len(dates) + 2}" if is_month else ""     # 월간: 기간 거래일 전부
+        # 창 40(허브 상한, 슬라이스만이라 추가 비용 없음) — 기간 거래일 + 1W 기준 종가
+        # (직전 거래일) + 수급 중립 기준선(직전 최대 8주)을 한 응답으로(2026-09-11)
+        sf_q = f"?days={max(SECTOR_FLOW_DAYS, len(dates) + 2)}"
         req = urllib.request.Request(f"{base}/sector-flow{sf_q}",
                                      headers={"User-Agent": "weekly-briefing"})
         # 마감 직후 콜드 캐시는 26업종 KIS 콜로 느릴 수 있다(2026-09-08 16:13 타임아웃
@@ -1418,7 +1556,7 @@ def main():
                 import time as _t
                 _t.sleep(45)
         want = {dt.strftime("%Y%m%d") for dt in dates}
-        rows = []
+        rows, n_close, n_band = [], 0, 0
         for s in (sf.get("sectors") or []):
             chg, frgn, orgn, prsn, fund, nd = 0.0, 0.0, 0.0, 0.0, 0.0, 0
             # 기관계 세분(2026-09-09): 금융투자(scrt)·보험(insu)·투신(사모)(ivtr+pe).
@@ -1442,8 +1580,15 @@ def main():
                         ins += float(r0.get("insu") or 0.0)
                         tru += float(r0.get("ivtr") or 0.0) + float(r0.get("pe") or 0.0)
             if nd:
-                # 기간 등락: 주간=일별 합(종전 정의 §2) / 월간=복리(22일 합산 오차 제거)
-                chg_p = _compound(chg_seq) if is_month else round(chg, 2)
+                # 기간 등락 = 시점 대 시점(2026-09-11 사용자 요청): 기간 마지막 종가 /
+                # 직전 기간 마지막 종가 − 1 — YTD·3M·1M 과 같은 종가 비교. 종가 결측이면
+                # 일별 등락 복리(수학적으로 동일, 반올림 오차만). 종전 주간=일별 단순
+                # 합(§2)은 폐기 — 합산은 0 근처에서 부호가 뒤집혀 3/4 판정을 흔들었다.
+                chg_p = _period_close_return(s.get("daily"), want)
+                if chg_p is None:
+                    chg_p = _compound(chg_seq)
+                else:
+                    n_close += 1
                 row = {"name": s.get("name"), "days": nd, "chgPct": chg_p,
                        "frgn": round(frgn / 100), "orgn": round(orgn / 100),
                        "prsn": round(prsn / 100), "fund": round(fund / 100)}  # 억원
@@ -1458,15 +1603,31 @@ def main():
                 # 가격 축(3/4 동일 방향 규칙 공용): 주간 YTD/3M/1M/1W(=기간) ·
                 # 월간 YTD/6M/3M/1M(=기간, 월초~기준일) — 4번째 축은 항상 '이번 기간'
                 axes = (ytd, m6, m3, row["chgPct"]) if is_month else (ytd, m3, m1, row["chgPct"])
+                # 수급 중립 구간(상대 기준) — 평소 1일 규모 x 이번 기간 거래일 수
+                per_day = _flow_baseline(s.get("daily"), min(want))
+                band = None
+                if per_day is not None and SECTOR_NEUTRAL_RATIO > 0:
+                    row["flowBase"] = round(per_day * nd)            # 평소 기간 규모(억)
+                    band = round(SECTOR_NEUTRAL_RATIO * per_day * nd, 1)
+                    row["neutralBand"] = band
+                    n_band += 1
                 row.update({"ytd": ytd, "m6": m6, "m3": m3, "m1": m1,
                             "coreFlow": round((frgn + orgn) / 100),
                             "signal": classify_sector_signal(
-                                *axes, row["frgn"], row["orgn"])})
+                                *axes, row["frgn"], row["orgn"], neutral=band)})
+                if band and row["signal"] == "혼조" \
+                        and classify_sector_signal(*axes, row["frgn"], row["orgn"]) != "혼조":
+                    row["flowWeak"] = True                          # 중립 구간으로 혼조 전환
                 rows.append(row)
         if rows:
             rows.sort(key=lambda x: -x["chgPct"])
-            sector_flow = {"asof": sf.get("asof"), "rows": rows}
-            print(f"[weekly] 섹터x수급 매트릭스: {len(rows)}업종")
+            sector_flow = {"asof": sf.get("asof"), "rows": rows,
+                           "chgBasis": "close" if n_close == len(rows) else
+                                       ("mixed" if n_close else "compound"),
+                           "neutralRatio": SECTOR_NEUTRAL_RATIO if n_band else None}
+            print(f"[weekly] 섹터x수급 매트릭스: {len(rows)}업종 · 기간등락 종가비교 "
+                  f"{n_close}/{len(rows)} · 중립구간 {n_band}/{len(rows)} "
+                  f"(수급미미→혼조 {sum(1 for r in rows if r.get('flowWeak'))})")
     except Exception as ex:
         print(f"[weekly] sector-flow 수집 실패(매트릭스 생략): {ex}", file=sys.stderr)
 
@@ -1602,12 +1763,15 @@ def main():
     # 섹터 시그널 종목 관찰 4-Matrix — 웹/엑셀 공용 스크리닝 결과(§28), 주차별
     # JSON 아카이브로 저장되어 사후 성과검증(H1~H4)에 붙일 수 있음(§35-36)
     sector_screen = build_sector_screen(
-        (sector_flow or {}).get("rows"), netbuy_cum, short_loan, stock_rows)
+        (sector_flow or {}).get("rows"), netbuy_cum, short_loan, stock_rows,
+        flow_fill=lambda codes: _flow_week(codes, dates))
     if is_month:                        # 각주 기간 문구(웹·엑셀이 저장값을 그대로 렌더)
         sector_screen["universeNote"] = (sector_screen.get("universeNote") or "") \
             .replace("주간 브리핑", "월간 리뷰").replace("주간 촉매", "월간 촉매")
     n_pick = sum(len(v) for v in sector_screen["matrix"].values())
-    print(f"[weekly] 섹터 시그널 스크리닝: 유니버스 {len(sector_screen['debug'])}종목 → "
+    cov = sector_screen.get("coverage") or {}
+    print(f"[weekly] 섹터 시그널 스크리닝: 유니버스 {len(sector_screen['debug'])}종목"
+          f"(섹터 보강 +{cov.get('added')} · 결손 축 채움 {cov.get('filled')}) → "
           f"선정 {n_pick} ({', '.join(k + ' ' + str(len(v)) for k, v in sector_screen['matrix'].items())})")
 
     _tmark("breadth·신고가·출력 조립")

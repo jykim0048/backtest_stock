@@ -7804,11 +7804,14 @@
       }).join("");
       var sfTh = function (t) { return "<th style='text-align:right'>" + t + "</th>"; };
       var sfW = sfV1 ? (sfDet ? 1030 : 880) : (sfDet ? 780 : 520);
+      // 2026-09-11: 기간 등락 종가 비교(chgBasis) · 수급 중립 구간(neutralRatio) — 구 아카이브는 종전 문구
+      var sfBasis = sfm.chgBasis ? " · " + WBP.axes[WBP.axes.length - 1] + "=" + (WBP.per === "월간" ? "전월말" : "전주말") + " 종가 대비" : "";
+      var sfWeak = sfm.neutralRatio ? " 또는 수급 미미(|외인+기관| &lt; 섹터 평소 규모의 " + Math.round(sfm.neutralRatio * 100) + "%)" : "";
       var sfFoot = sfV1
-        ? ("가격추세 = " + WBP.axes.join("·") + "(%) 중 3개 이상 동일 방향 · 핵심수급 = 외인+기관 " + WBP.per + " 누적 · KIS 업종(KRX 산업분류)<br>"
+        ? ("가격추세 = " + WBP.axes.join("·") + "(%) 중 3개 이상 동일 방향" + sfBasis + " · 핵심수급 = 외인+기관 " + WBP.per + " 누적 · KIS 업종(KRX 산업분류)<br>"
           + '<span style="color:#f04452">동반강세</span>=가격강세+수급유입 · <span style="color:#fbbf24">수급이탈</span>=가격강세+수급이탈 · '
           + '<span style="color:#2dd4bf">수급유입</span>=가격약세+수급유입 · <span style="color:#3182f6">동반약세</span>=가격약세+수급이탈 · '
-          + '공란=혼조(가격방향 불명확) · 데이터부족=일부 기간 결측')
+          + '공란=혼조(가격방향 불명확' + sfWeak + ') · 데이터부족=일부 기간 결측')
         : "KIS 업종(KRX 산업분류) 일별 확정 · <span style='color:#fbbf24'>수급이탈</span>=주가↑수급↓ · <span style='color:#2dd4bf'>수급유입</span>=주가↓수급↑";
       h += '<details class="flow-details" style="margin:0 0 6px"><summary>섹터 × 수급 매트릭스 — 가격 추세(%) vs 투자자 순매수 (' + WBP.per + ', 억원) ▾</summary>'
         + '<div style="overflow-x:auto;margin-top:6px"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:' + sfW + 'px">'
