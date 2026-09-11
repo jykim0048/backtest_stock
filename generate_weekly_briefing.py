@@ -1603,6 +1603,9 @@ def main():
     # JSON 아카이브로 저장되어 사후 성과검증(H1~H4)에 붙일 수 있음(§35-36)
     sector_screen = build_sector_screen(
         (sector_flow or {}).get("rows"), netbuy_cum, short_loan, stock_rows)
+    if is_month:                        # 각주 기간 문구(웹·엑셀이 저장값을 그대로 렌더)
+        sector_screen["universeNote"] = (sector_screen.get("universeNote") or "") \
+            .replace("주간 브리핑", "월간 리뷰").replace("주간 촉매", "월간 촉매")
     n_pick = sum(len(v) for v in sector_screen["matrix"].values())
     print(f"[weekly] 섹터 시그널 스크리닝: 유니버스 {len(sector_screen['debug'])}종목 → "
           f"선정 {n_pick} ({', '.join(k + ' ' + str(len(v)) for k, v in sector_screen['matrix'].items())})")

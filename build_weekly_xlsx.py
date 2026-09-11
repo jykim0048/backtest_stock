@@ -9,7 +9,8 @@
 자동 계산한다(잘림 금지). 저장 전 구조 검증(19항)을 통과해야 파일을 쓴다.
 
 출력: public/weekly_briefing.xlsx + public/reports/weekly_briefing/<weekStart>.xlsx
-사용: python build_weekly_xlsx.py  (weekly json 생성 직후, CI 16:10)
+사용: python build_weekly_xlsx.py [--period month]  (주간: weekly json 생성 직후 CI 16:10 /
+      월간: monthly_review.json → monthly_review.xlsx + reports/monthly_review/<YYYY-MM>.xlsx)
 """
 import os
 import re
@@ -83,8 +84,42 @@ TEMPLATE = os.path.join(ROOT, "templates", "weekly_briefing_template.xlsx")
 DATA = os.path.join(ROOT, "public", "weekly_briefing.json")
 OUT_SNAP = os.path.join(ROOT, "public", "weekly_briefing.xlsx")
 
-SHEET = "주간 브리핑"
+SHEET = "주간 브리핑"          # 템플릿의 스타일 소스 시트 이름(기간 무관)
 RAW_SHEET = "원본 데이터"
+
+# 기간 라벨(2026-09-11 월간 리뷰 P3) — 같은 빌더로 주간/월간 엑셀을 만든다. JSON 의
+# period 키로 선택(build 시작 시 PL 설정). 라벨은 반드시 이 표에서만 꺼내 쓴다 —
+# 흩어진 '주간' 문구가 월간 산출물에 남는 것을 막기 위함(웹 목업 발견 2).
+_LABELS = {
+    "week": {
+        "title": "WEEKLY MARKET BRIEF", "sheet": "주간 브리핑",
+        "s01": "주간 누적 수급", "s02": "US 미국 주간", "s02cap": "모닝브리핑 전일 기준 누적, %",
+        "s03": "주간 주요 경제지표 — 시장 반영", "s05": "주간 종합 코멘트 — 매크로·수급",
+        "s08": "주간 시장 흐름", "s10": "주간 촉매 타임라인", "s10cap": "등락률 = 주간 누적",
+        "s11": "다음 주 프리뷰", "cum": "주간 누적", "chg": "주간등락(%)",
+        "s04c": "전일 미국장 → 한국장 반응",
+        "loan": "대차 증감=전주말 대비 최신 잔고",
+        "axes": ("YTD", "3M", "1M", "1W"), "axis_keys": ("ytd", "m3", "m1", "chgPct"),
+        "sfnote": "가격추세=YTD·3M·1M·1W(%) 중 3개 이상 동일 방향 · 핵심수급(외인+기관)=주간 누적"
+                  " · KIS 업종(KRX 산업분류)",
+        "sfcap_old": "주간 등락 vs 투자자 순매수(억)",
+    },
+    "month": {
+        "title": "MONTHLY MARKET REVIEW", "sheet": "월간 리뷰",
+        "s01": "월간 누적 수급", "s02": "US 미국 월간", "s02cap": "모닝브리핑 지수 레벨 기준 월간, %",
+        "s03": "월간 주요 경제지표 — 시장 반영", "s05": "월간 종합 코멘트 — 매크로·수급",
+        "s08": "월간 시장 흐름", "s10": "월간 촉매 타임라인",
+        "s10cap": "등락률 = 월간 누적 · ★5 주차 상위", "s11": "다음 달 프리뷰",
+        "cum": "월간 누적", "chg": "월간등락(%)", "loan": "대차 증감=전월말 대비 최신 잔고",
+        "s04c": "그날 지수·수급 반응 요인",
+        # 4번째 축은 항상 '이번 기간' — 월간은 월초~기준일(복리), 6M 이 3M 앞에 온다
+        "axes": ("YTD", "6M", "3M", "1M"), "axis_keys": ("ytd", "m6", "m3", "chgPct"),
+        "sfnote": "가격추세=YTD·6M·3M·1M(%) 중 3개 이상 동일 방향 · 1M=월초~기준일(복리)"
+                  " · 핵심수급(외인+기관)=월간 누적 · KIS 업종(KRX 산업분류)",
+        "sfcap_old": "월간 등락 vs 투자자 순매수(억)",
+    },
+}
+PL = _LABELS["week"]
 
 # 템플릿 실측 좌표 — 각 스타일 프로토타입 셀 (행, 열). 템플릿이 바뀌면 여기만 갱신.
 P = {
@@ -290,13 +325,15 @@ def _classify_preview(items):
 
 
 def build(d):
+    global PL
+    PL = _LABELS["month" if d.get("period") == "month" else "week"]
     wb = openpyxl.load_workbook(TEMPLATE)
     tpl = wb[SHEET]
     b = Builder(tpl)
-    # 템플릿 시트는 스타일 소스로만 쓰고, 동일 이름 새 시트에 재작성
+    # 템플릿 시트는 스타일 소스로만 쓰고, 기간별 이름의 새 시트에 재작성
     idx = wb.sheetnames.index(SHEET)
     tpl.title = "_tpl"
-    ws = wb.create_sheet(SHEET, idx)
+    ws = wb.create_sheet(PL["sheet"], idx)
     b.start(ws, W_MAIN)      # 종목명/섹터명 분리로 A:K 11열(3차 스펙 §9)
     syn = d.get("synthesis") or {}
 
@@ -304,7 +341,7 @@ def build(d):
         return "" if v is None else round(v / 100)
 
     # ── Header ──────────────────────────────────────────────────────────
-    b.cell(1, "WEEKLY MARKET BRIEF", "title")
+    b.cell(1, PL["title"], "title")
     for c in range(2, 8):
         b.cell(c, "", "navy_fill")
     b.merges.append((1, 1, 2, 7))
@@ -325,10 +362,10 @@ def build(d):
     b.nl(); b.nl()
 
     # ── 01 + 02 (좌우) ──────────────────────────────────────────────────
-    b.cell(1, "01", "chip"); b.cell(2, "주간 누적 수급", "sect"); b.cell(3, "", "sect")
+    b.cell(1, "01", "chip"); b.cell(2, PL["s01"], "sect"); b.cell(3, "", "sect")
     b.cell(4, "단위: 억원", "cap")
-    b.cell(5, "02", "chip"); b.cell(6, "US 미국 주간", "sect"); b.cell(7, "", "sect")
-    b.cell(8, "모닝브리핑 전일 기준 누적, %", "cap"); b.cell(9, "", "cap"); b.cell(10, "", "cap")
+    b.cell(5, "02", "chip"); b.cell(6, PL["s02"], "sect"); b.cell(7, "", "sect")
+    b.cell(8, PL["s02cap"], "cap"); b.cell(9, "", "cap"); b.cell(10, "", "cap")
     b.nl()
     us = d.get("usWeekly") or {}
     b.hdr_row(["시장", "개인", "외국인", "기관", "S&P500", "다우", "나스닥", "VIX 변동성", "필라델피아 반도체", ""])
@@ -379,7 +416,7 @@ def build(d):
     b.nl()
 
     # ── 03 경제지표 ─────────────────────────────────────────────────────
-    b.chip("03", "주간 주요 경제지표 — 시장 반영")
+    b.chip("03", PL["s03"])
     b.hdr_row(["날짜", "국가", "지표", "실제", "예상", "이전", "단위", "판정"])
     econ = []
     for day in d.get("days") or []:
@@ -413,14 +450,14 @@ def build(d):
     # ── 04 일별 요약 ────────────────────────────────────────────────────
     b.chip("04", "일별 요약")
     b.hdr_row(["날짜", "코스피(%)", "코스피 ▲/▼", "코스닥(%)", "코스닥 ▲/▼", "주도 섹터",
-               "전일 미국장 → 한국장 반응"], merge_last_to=11)
+               PL["s04c"]], merge_last_to=11)
     brM = {x.get("date"): x for x in ((d.get("breadth") or {}).get("days") or [])}
     dc = {x.get("date"): x.get("note") for x in (syn.get("dailyContext") or []) if x}
     for day in d.get("days") or []:
         ks = (day.get("indices") or {}).get("kospi") or {}
         kq = (day.get("indices") or {}).get("kosdaq") or {}
         br = brM.get(day.get("date")) or {}
-        note = dc.get(day.get("date"), "")
+        note = dc.get(day.get("date")) or "—"   # LLM 누락 시 '—'(빈칸이면 저장 실패)
         b.cell(1, day.get("date"), "daily_cell")
         # 장전 재생성(당일 장중 데이터 이전 — 지수·섹터 미확정)은 '—' 표기.
         # 빈칸이면 04 검증(결측)에 걸려 xlsx 저장이 통째로 실패한다(2026-09-09 실측:
@@ -448,7 +485,7 @@ def build(d):
 
     # ── 05 주간 종합 코멘트 ─────────────────────────────────────────────
     if syn.get("weeklyComment"):
-        b.chip("05", "주간 종합 코멘트 — 매크로·수급")
+        b.chip("05", PL["s05"])
         b.hdr_row(["No.", "Comment"], merge_last_to=11)
         for cm in syn["weeklyComment"]:
             t = "- " + str(cm)
@@ -567,7 +604,7 @@ def build(d):
             b.nl()
 
     # ── 08 / 09 서술형 흐름 ─────────────────────────────────────────────
-    for no, title, hdr2, items in (("08", "주간 시장 흐름", "Market Flow", syn.get("weekNarrative")),
+    for no, title, hdr2, items in (("08", PL["s08"], "Market Flow", syn.get("weekNarrative")),
                                    ("09", "섹터·테마 흐름", "", syn.get("sectorRotation"))):
         if not items:
             continue
@@ -587,7 +624,7 @@ def build(d):
     # 첫 행 컬럼명 (2026-09-09 사용자 요청)
     tl = [t for t in (syn.get("catalystTimeline") or []) if t.get("stock")]
     if tl:
-        b.chip("10", "주간 촉매 타임라인", cap="등락률 = 주간 누적", cap_col=10)
+        b.chip("10", PL["s10"], cap=PL["s10cap"], cap_col=10)
         # 섹터 컬럼(2026-09-09): 생성기 저장값(t.sector) 우선, 구 데이터는 로컬 룩업
         b.hdr_row(["날짜", "종목명", "시장", "섹터명", "별점", "등락률(%)", "핵심 촉매"],
                   merge_last_to=11)
@@ -625,7 +662,7 @@ def build(d):
         pv = [t for _, t in _classify_preview(syn.get("nextWeekPreview"))]
     pv = [t for t in pv if str(t).strip()]
     if pv:
-        b.chip("11", "다음 주 프리뷰")
+        b.chip("11", PL["s11"])
         for t in pv:
             t = "- " + str(t)
             b.cell(1, t, "flow_row")
@@ -729,7 +766,7 @@ def add_detail_sheets(wb, b, d):
         ws2 = new_sheet("신고가 근접", W_NH)
         b.chip("D1", "52주 신고가 근접", cap="단위: 억원, %", cap_col=10)
         # 컬럼 그룹 헤더 — 종목 정보 / 수급 / 신고가 정보 (네이비 밴드로 구분)
-        for c1, c2, t in ((1, 3, "종목 정보"), (4, 10, "수급 (주간 누적, 억원)"),
+        for c1, c2, t in ((1, 3, "종목 정보"), (4, 10, f"수급 ({PL['cum']}, 억원)"),
                           (11, 12, "신고가 정보")):
             b.cell(c1, t, "chip")
             for c in range(c1 + 1, c2 + 1):
@@ -738,7 +775,7 @@ def add_detail_sheets(wb, b, d):
         b.nl()
         # 종목명/시장/섹터명 분리 — 순서는 대시보드와 동일(2026-09-10)
         b.hdr_row(["종목명", "시장", "섹터명", "합산", "외인", "기관", "개인", "공매도",
-                   "대차잔고", "대차증감", "주간등락(%)", "신고가대비(%)"], align="center")
+                   "대차잔고", "대차증감", PL["chg"], "신고가대비(%)"], align="center")
         for s in nh:
             frgn, orgn = s.get("frgn"), s.get("orgn")
             total = ((frgn or 0) + (orgn or 0)
@@ -779,7 +816,7 @@ def add_detail_sheets(wb, b, d):
         data_end = b.r - 1
         b.nl()
         note("최신 거래일 기준 · 52주 신고가 대비 -10% 이내 (KIS 랭킹) · ETF·ETN 제외 · "
-             "수급=주간 누적 확정(억원) · 동반 순매수(외인·기관 동일 방향)=합산 굵게")
+             f"수급={PL['cum']} 확정(억원) · 동반 순매수(외인·기관 동일 방향)=합산 굵게")
         b.finish()
         ws2.freeze_panes = "A6"                       # 표 헤더(5행)까지 고정
         ws2.auto_filter.ref = f"A5:L{data_end}"
@@ -818,7 +855,7 @@ def add_detail_sheets(wb, b, d):
                 for c in range(c0 + 1, c0 + 4):
                     b.cell(c, "", "meta_label")
                 b.mg(c0, c0 + 3)
-                cap_c = b.cell(c0 + 4, "주간 누적 · 억원", "meta_val", align="right")
+                cap_c = b.cell(c0 + 4, f"{PL['cum']} · 억원", "meta_val", align="right")
                 fstyle(cap_c, size=8)
                 for c in range(c0 + 5, c0 + 8):
                     b.cell(c, "", "meta_val")
@@ -932,7 +969,7 @@ def add_detail_sheets(wb, b, d):
                         fstyle(cc, rgb=GRAY)
             b.nl()
         b.nl()
-        footnote("랭킹 유니버스(순매수 상위 30 등재 종목) 한정 · 대차 증감=주초 대비 최신 잔고")
+        footnote("랭킹 유니버스(순매수 상위 30 등재 종목) 한정 · " + PL["loan"])
         b.finish()
         ws2.freeze_panes = "A3"                       # 타이틀 바(기간) 고정
 
@@ -950,7 +987,7 @@ def add_detail_sheets(wb, b, d):
             ws2 = new_sheet("섹터x수급", W, meta=(11, 12))
             b.chip("M1", "섹터 x 수급 매트릭스", cap="가격 %, 수급 억원", cap_col=12)
             # 세분 순서 = 투자자별 2행(금융투자·투신(사모)·연기금·보험, 2026-09-10)
-            hdr = ["업종", "YTD", "3M", "1M", "1W", "외인", "기관(합)", "외인+기관",
+            hdr = ["업종", *PL["axes"], "외인", "기관(합)", "외인+기관",
                    "금융투자", "투신(사모)", "연기금", "보험", "개인", "신호"]
             b.hdr_row(hdr, align="center")
             # 신호별 강조(배지 셀만, 행 전체 채색 금지 §13)
@@ -961,7 +998,7 @@ def add_detail_sheets(wb, b, d):
                       "데이터부족": ("FF6B7280", None)}
             for r0 in sf:
                 b.cell(1, r0.get("name", ""), "nb_cell")
-                for j, k in enumerate(("ytd", "m3", "m1", "chgPct")):
+                for j, k in enumerate(PL["axis_keys"]):
                     v = r0.get(k)
                     cc = b.cell(2 + j, v if v is not None else "", "econ_cell",
                                 fmt=F_PCT2, align="right")
@@ -986,7 +1023,7 @@ def add_detail_sheets(wb, b, d):
                 b.nl()
             data_end = b.r - 1
             b.nl()
-            note("가격추세=YTD·3M·1M·1W(%) 중 3개 이상 동일 방향 · 핵심수급(외인+기관)=주간 누적 · KIS 업종(KRX 산업분류)")
+            note(PL["sfnote"])
             note("동반강세=가격강세+수급유입 · 수급이탈=가격강세+수급이탈 · 수급유입=가격약세+수급유입 · "
                  "동반약세=가격약세+수급이탈 · 공란=혼조(가격방향 불명확) · 데이터부족=일부 기간 결측")
             b.finish()
@@ -1001,13 +1038,13 @@ def add_detail_sheets(wb, b, d):
         else:
             # ── 폴백(구 아카이브, 1W 기반 근사) — '과열주의' 용어 폐기 → 수급이탈
             ws2 = new_sheet("섹터x수급", W_SEC10 if has_det else W_SEC)
-            b.chip("M1", "섹터 x 수급 매트릭스", cap="주간 등락 vs 투자자 순매수(억)", cap_col=8)
+            b.chip("M1", "섹터 x 수급 매트릭스", cap=PL["sfcap_old"], cap_col=8)
             if has_det:
-                hdr = ["업종", "주간등락(%)", "외인", "기관(합)", "금융투자", "투신(사모)",
+                hdr = ["업종", PL["chg"], "외인", "기관(합)", "금융투자", "투신(사모)",
                        "연기금", "보험", "개인", "신호"]
                 keys = ("frgn", "orgn", "finInv", "trust", "fund", "insur", "prsn")
             else:
-                hdr = ["업종", "주간등락(%)", "외인", "기관", "연기금", "개인", "신호"]
+                hdr = ["업종", PL["chg"], "외인", "기관", "연기금", "개인", "신호"]
                 keys = ("frgn", "orgn", "fund", "prsn")
             sig_c = len(hdr)
             b.hdr_row(hdr, align="center")
@@ -1228,18 +1265,33 @@ def save_with_negative_bars(wb, path):
 
 
 def main():
-    with open(DATA, encoding="utf-8") as f:
+    # --period month(2026-09-11 P3): 입력 monthly_review.json → 출력 monthly_review.xlsx
+    # + reports/monthly_review/<YYYY-MM>.xlsx. 기본은 주간(종전 경로 그대로).
+    month = "--period" in sys.argv and sys.argv[sys.argv.index("--period") + 1] == "month"
+    data = os.path.join(ROOT, "public", "monthly_review.json") if month else DATA
+    with open(data, encoding="utf-8") as f:
         d = json.load(f)
+    if month and d.get("period") != "month":
+        print(f"[xlsx] {data} 가 월간 산출물이 아님(period={d.get('period')}) — 중단",
+              file=sys.stderr)
+        return 1
     wb, ws = build(d)
     ok, errs = validate(ws, d)
     if not ok:
         print(f"[xlsx] 검증 실패 — 저장 안 함: {errs}", file=sys.stderr)
         return 1
-    save_with_negative_bars(wb, OUT_SNAP)
-    week_path = os.path.join(ROOT, "public", "reports", "weekly_briefing",
-                             f"{d.get('weekStart')}.xlsx")
-    save_with_negative_bars(wb, week_path)
-    print(f"[xlsx] 저장: {OUT_SNAP} (+{os.path.basename(week_path)}) — 검증 통과")
+    if month:
+        snap = os.path.join(ROOT, "public", "monthly_review.xlsx")
+        arch = os.path.join(ROOT, "public", "reports", "monthly_review",
+                            f"{(d.get('periodStart') or d.get('weekStart') or '')[:7]}.xlsx")
+    else:
+        snap = OUT_SNAP
+        arch = os.path.join(ROOT, "public", "reports", "weekly_briefing",
+                            f"{d.get('weekStart')}.xlsx")
+    os.makedirs(os.path.dirname(arch), exist_ok=True)
+    save_with_negative_bars(wb, snap)
+    save_with_negative_bars(wb, arch)
+    print(f"[xlsx] 저장: {snap} (+{os.path.basename(arch)}) — 검증 통과")
     return 0
 
 

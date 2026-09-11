@@ -285,7 +285,8 @@ def _is_data_path(relpath):
     것 → same-origin 다운로드를 서버가 raw 프록시로 중계(매 커밋 최신)."""
     if relpath.startswith("public/assets/"):
         return False
-    if relpath.endswith(".xlsx") and "weekly_briefing" in relpath:
+    if relpath.endswith(".xlsx") and ("weekly_briefing" in relpath
+                                      or "monthly_review" in relpath):   # 월간(2026-09-11)
         return True
     return relpath.endswith(".json")
 

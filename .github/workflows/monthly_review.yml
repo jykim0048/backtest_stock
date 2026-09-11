@@ -2,8 +2,8 @@ name: Monthly Review
 
 # 월간 리뷰(2026-09-10 P5 선행) — 주간 브리핑 생성기를 --period month 로 실행해 그 달
 # 1일~기준일을 재합성, reports/monthly_review/<YYYY-MM>.json 에 upsert.
-# 현재는 수동 실행 전용(P3 엑셀·P4 웹 개발용 실데이터 확보). 스케줄(평일 16:20)과
-# 엑셀 생성 단계는 P3/P5 에서 추가한다.
+# 현재는 수동 실행 전용 — 스케줄(평일 16:20)은 P5 에서 추가.
+# 엑셀: build_weekly_xlsx.py --period month (P3, 2026-09-11) — 검증 실패 시 커밋 안 됨.
 # 권장 실행 시점: 장 마감 후 16:10 주간 브리핑 이후 — 당일 수급 스냅샷·섹터 캐시 재사용.
 #
 # 서빙: 보관본 YYYY-MM 은 report_db 날짜 키가 아니라 DB 비대상 → raw 폴백으로 서빙,
@@ -65,12 +65,16 @@ jobs:
           echo "python generate_weekly_briefing.py $ARGS"
           python generate_weekly_briefing.py $ARGS
 
+      - name: Build monthly review xlsx (주간 템플릿 재현, 월간 라벨)
+        run: python build_weekly_xlsx.py --period month
+
       - name: Commit and push monthly review
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           # netbuy_rank: 월간 런의 세분·공매도·T+1 대차 백필이 아카이브를 보정할 수 있음
-          git add public/monthly_review.json public/reports/monthly_review/ public/reports/netbuy_rank/
+          git add public/monthly_review.json public/monthly_review.xlsx \
+                  public/reports/monthly_review/ public/reports/netbuy_rank/
           git diff --staged --quiet && echo "No changes to commit" && exit 0
           git commit -m "chore: monthly review $(date -u +'%Y-%m-%d %H:%MZ') [skip railway]"
           git status --porcelain | head -5

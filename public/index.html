@@ -8022,20 +8022,33 @@
     var isCur = !(wk && wbWeeks && wbWeeks[0] && wk !== wbWeeks[0]);
     var url = (isCur ? "weekly_briefing.xlsx" : "reports/weekly_briefing/" + wk + ".xlsx")
       + "?t=" + Date.now();
+    var fname = "weekly_briefing_" + wk + "_" + ((_wbLast && _wbLast.weekEnd) || "") + ".xlsx";
+    // 월간 리뷰(2026-09-11 P3): 화면에 월간 산출물이 떠 있으면 월간 파일 — 최신본 vs
+    // 월별 보관본. 월 목록(wbMonths)은 P4 토글이 채움, 없으면 최신본으로 간주.
+    if (_wbLast && _wbLast.period === "month") {
+      var mk = String(_wbLast.periodStart || wk).slice(0, 7);
+      var ml = (typeof wbMonths !== "undefined" && wbMonths) || [];
+      var isCurM = !(mk && ml[0] && mk !== ml[0]);
+      url = (isCurM ? "monthly_review.xlsx" : "reports/monthly_review/" + mk + ".xlsx")
+        + "?t=" + Date.now();
+      fname = "monthly_review_" + mk + ".xlsx";
+    }
     fetch(url).then(function (r) {
       if (!r.ok) throw 0;
       return r.blob();
     }).then(function (blob) {
       var a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
-      a.download = "weekly_briefing_" + wk + "_" + ((_wbLast && _wbLast.weekEnd) || "") + ".xlsx";
+      a.download = fname;
       document.body.appendChild(a); a.click(); a.remove();
     }).catch(function () { _wbExportJs(); });   // 최후 폴백 — 브라우저 생성(구양식)
   };
   window._wbExportJs = function () {
     if (!_wbLast) { alert("주간 브리핑 데이터가 아직 로드되지 않았습니다."); return; }
     var d = _wbLast, rep = _wbReport(d);
-    var fname = "weekly_briefing_" + d.weekStart + "_" + (d.weekEnd || "");
+    var isM = d.period === "month";                     // 월간 리뷰(2026-09-11 P3)
+    var fname = isM ? "monthly_review_" + String(d.periodStart || d.weekStart).slice(0, 7)
+      : "weekly_briefing_" + d.weekStart + "_" + (d.weekEnd || "");
     // ── 사용자 템플릿(QUANT_ANTIGRAVITY_Weekly_Briefing_Column_Layout.xlsx,
     //    2026-09-08) 재현: 라이트 테마 리포트 시트 + '원본 데이터' 시트 ──────────
     function styledSheet() {
@@ -8079,7 +8092,7 @@
       function body(r, c, v, wrap) { put(r, c, v, st({w: !!wrap, num: typeof v === "number"})); }
 
       // 헤더 바
-      put(0, 0, "WEEKLY MARKET BRIEF", st({c: WHITE, f: NAVY, b: true, sz: 14}));
+      put(0, 0, isM ? "MONTHLY MARKET REVIEW" : "WEEKLY MARKET BRIEF", st({c: WHITE, f: NAVY, b: true, sz: 14}));
       for (var i = 1; i <= 6; i++) put(0, i, "", st({f: NAVY}));
       mg(0, 0, 6);
       put(0, 7, "기간", st({c: CAP, b: true, sz: 10}));
@@ -8315,7 +8328,7 @@
     }
     function xlsxGo() {
       var wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, styledSheet(), "주간 브리핑");
+      XLSX.utils.book_append_sheet(wb, styledSheet(), isM ? "월간 리뷰" : "주간 브리핑");
       var raw = XLSX.utils.aoa_to_sheet(rep.rows);   // 원본 데이터(무서식 스트림)
       raw["!cols"] = [{wch: 30}, {wch: 90}, {wch: 40}, {wch: 12}, {wch: 12},
                       {wch: 40}, {wch: 80}, {wch: 10}, {wch: 10}, {wch: 10}];
