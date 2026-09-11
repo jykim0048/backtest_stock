@@ -1,0 +1,46 @@
+name: Aftermarket Probe
+
+# 애프터마켓(2026-09-14 시행) 실측 프로브 — probe_aftermarket.py 설명 참고.
+# railway 스케줄러가 평일 16:12·20:35 에 기간 한정(2026-09-11~09-18) dispatch.
+# 9/11 = 도입 전 기준선, 9/14~ = 도입 후. 수동 실행도 가능.
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: aftermarket-probe       # 주간·월간 브리핑 그룹과 분리(서로 대기시키지 않음)
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Probe hub flow/breadth (표준 라이브러리만)
+        timeout-minutes: 8
+        run: python probe_aftermarket.py
+
+      - name: Commit and push probe snapshot
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add public/reports/aftermarket_probe/
+          git diff --staged --quiet && echo "No changes to commit" && exit 0
+          git commit -m "chore: aftermarket probe $(date -u +'%Y-%m-%d %H:%MZ') [skip railway]"
+          for i in $(seq 1 5); do
+            if git push origin HEAD:main; then echo "pushed (attempt $i)"; exit 0; fi
+            echo "push attempt $i rejected; rebasing onto latest main..."
+            git fetch origin main
+            git stash --include-untracked --quiet 2>/dev/null || true
+            git rebase FETCH_HEAD || { git rebase --abort; echo "::error::rebase conflict"; exit 1; }
+            sleep $((RANDOM % 4 + 2))
+          done
+          echo "::error::push failed after 5 attempts" && exit 1

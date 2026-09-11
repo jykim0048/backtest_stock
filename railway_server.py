@@ -424,8 +424,12 @@ def _build_prices(codes_param):
             print(f"[prices] parse {ticker}: {ex}", file=sys.stderr, flush=True)
 
     now = datetime.datetime.now(KST)
-    market_state = ("REGULAR" if now.weekday() < 5
-                    and 900 <= now.hour * 100 + now.minute <= 1530 else "CLOSED")
+    hm = now.hour * 100 + now.minute
+    # AFTER = KRX 애프터마켓(2026-09-14~ 16:00~20:00 접속매매). 공식 종가·다음날 기준가는
+    # 정규장 종가 그대로(애프터 체결 미반영) — 대시보드 자동매매는 REGULAR 만 대상.
+    market_state = ("REGULAR" if now.weekday() < 5 and 900 <= hm <= 1530
+                    else "AFTER" if now.weekday() < 5 and 1600 <= hm < 2000
+                    else "CLOSED")
 
     for key, tk in idx_map.items():          # 네이버 실패 시 yfinance 폴백만 채운다
         try:
@@ -657,6 +661,8 @@ CLOSING_WF   = "closing_briefing.yml"
 FINALIZE_WF  = "finalize_netbuy.yml"     # 16:00 수급 확정 패스(마감 회차 netbuy 패치)
 WEEKLY_WF    = "weekly_briefing.yml"     # 16:10 주간 브리핑(그 주 월~당일 재합성 upsert)
 MONTHLY_WF   = "monthly_review.yml"      # 16:20 월간 리뷰(그 달 1일~당일 재합성 upsert, P5)
+PROBE_WF     = "aftermarket_probe.yml"   # 애프터마켓 실측 프로브(16:12·20:35, 기간 한정)
+PROBE_UNTIL  = "2026-09-18"              # 이 날짜까지만(도입 전 기준선 9/11 + 첫 주)
 SCORING_WF   = "catalyst_scoring.yml"    # 16:05 촉매 스코어링(당일 전 회차 → 별점 회차)
 INVWARN_WF   = "investment_warning.yml"
 CORPMAP_WF   = "build_corp_map.yml"
@@ -744,6 +750,12 @@ def _scheduler():
                 if now.hour == 16 and now.minute == 10:
                     key = (today, "weekly-briefing")
                     if key not in fired and _dispatch(WEEKLY_WF):
+                        fired.add(key)
+                # 애프터마켓 실측 프로브 16:12·20:35 (2026-09-11~PROBE_UNTIL) — 같은 종목의
+                # 당일 확정 수급·지수 등락수가 애프터마켓(16~20시) 동안 바뀌는지 판정용
+                if today <= PROBE_UNTIL and (now.hour, now.minute) in ((16, 12), (20, 35)):
+                    key = (today, f"probe-{now.hour:02d}{now.minute:02d}")
+                    if key not in fired and _dispatch(PROBE_WF):
                         fired.add(key)
                 # 월간 리뷰 16:20 (2026-09-11 P5) — 주간(16:10, ~4분) 직후라 당일 수급 스냅샷·
                 # netbuy_rank 가 확정돼 있고, 16:05 워밍한 허브 sector-flow 캐시(마감 후 TTL 3h)를

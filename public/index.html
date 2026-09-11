@@ -2665,7 +2665,9 @@
       if (logsBox) logsBox.scrollTop = logsBox.scrollHeight;
     }
 
-    // Check KST Market Opening Hours
+    // Check KST Market Opening Hours — 정규장(09:00~15:30)만. KRX 애프터마켓(2026-09-14~,
+    // 16:00~20:00 접속매매)은 모의투자 대상 아님(의도적 미참여): 공식 종가·익일 기준가가
+    // 정규장 종가라 EOD 청산(15:15)·소급 정산 기준과 일관.
     function isMarketOpen() {
       // If Demo Mode toggle is checked, bypass KST market hours for simulation testing
       const demoToggle = document.getElementById("demo-mode-toggle");

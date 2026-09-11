@@ -114,6 +114,8 @@ class handler(BaseHTTPRequestHandler):
             time_val = now.hour * 100 + now.minute
             if now.weekday() < 5 and 900 <= time_val <= 1530:
                 market_state = "REGULAR"
+            elif now.weekday() < 5 and 1600 <= time_val < 2000:
+                market_state = "AFTER"      # KRX 애프터마켓(2026-09-14~ 16:00~20:00)
 
             # Market indices (KOSPI ^KS11 / KOSDAQ ^KQ11) via Yahoo Finance — 위에서
             # 종목 시세와 함께 이미 받아온 df 를 재사용한다(별도 다운로드 없음).
