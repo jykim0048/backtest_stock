@@ -2,7 +2,8 @@ name: Monthly Review
 
 # 월간 리뷰(2026-09-10 P5 선행) — 주간 브리핑 생성기를 --period month 로 실행해 그 달
 # 1일~기준일을 재합성, reports/monthly_review/<YYYY-MM>.json 에 upsert.
-# 현재는 수동 실행 전용 — 스케줄(평일 16:20)은 P5 에서 추가.
+# 트리거: Railway 상시 서버 스케줄러(railway_server._scheduler)가 평일 16:20 KST 에
+# workflow_dispatch(P5, 2026-09-11) — 주간 브리핑(16:10) 직후. 수동 실행도 가능.
 # 엑셀: build_weekly_xlsx.py --period month (P3, 2026-09-11) — 검증 실패 시 커밋 안 됨.
 # 권장 실행 시점: 장 마감 후 16:10 주간 브리핑 이후 — 당일 수급 스냅샷·섹터 캐시 재사용.
 #

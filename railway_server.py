@@ -656,6 +656,7 @@ INTRADAY_WF  = "intraday_screener.yml"
 CLOSING_WF   = "closing_briefing.yml"
 FINALIZE_WF  = "finalize_netbuy.yml"     # 16:00 수급 확정 패스(마감 회차 netbuy 패치)
 WEEKLY_WF    = "weekly_briefing.yml"     # 16:10 주간 브리핑(그 주 월~당일 재합성 upsert)
+MONTHLY_WF   = "monthly_review.yml"      # 16:20 월간 리뷰(그 달 1일~당일 재합성 upsert, P5)
 SCORING_WF   = "catalyst_scoring.yml"    # 16:05 촉매 스코어링(당일 전 회차 → 별점 회차)
 INVWARN_WF   = "investment_warning.yml"
 CORPMAP_WF   = "build_corp_map.yml"
@@ -743,6 +744,13 @@ def _scheduler():
                 if now.hour == 16 and now.minute == 10:
                     key = (today, "weekly-briefing")
                     if key not in fired and _dispatch(WEEKLY_WF):
+                        fired.add(key)
+                # 월간 리뷰 16:20 (2026-09-11 P5) — 주간(16:10, ~4분) 직후라 당일 수급 스냅샷·
+                # netbuy_rank 가 확정돼 있고, 16:05 워밍한 허브 sector-flow 캐시(마감 후 TTL 3h)를
+                # 그대로 쓴다. concurrency 그룹(weekly-briefing) 공유라 겹치면 직렬 대기.
+                if now.hour == 16 and now.minute == 20:
+                    key = (today, "monthly-review")
+                    if key not in fired and _dispatch(MONTHLY_WF):
                         fired.add(key)
                 if now.weekday() == 0 and now.hour == 6 and now.minute == 30:   # 테마맵 주1회 월 06:30 KST
                     key = (today, "thememap")
