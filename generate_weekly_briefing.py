@@ -1581,6 +1581,7 @@ def main():
             # 허브 구버전 응답엔 키가 없으므로 존재 확인 후에만 세분 필드를 붙인다
             # (0 채움 금지 — 값 조작으로 보임).
             fin, ins, tru, has_det = 0.0, 0.0, 0.0, False
+            etc, has_etc = 0.0, False       # 기타법인(2026-09-14) — 허브 구버전엔 키 없음
             chg_seq = []                    # 월간 복리용 일별 등락
             for r0 in (s.get("daily") or []):
                 if r0.get("date") in want and any(
@@ -1597,6 +1598,9 @@ def main():
                         fin += float(r0.get("scrt") or 0.0)
                         ins += float(r0.get("insu") or 0.0)
                         tru += float(r0.get("ivtr") or 0.0) + float(r0.get("pe") or 0.0)
+                    if "etc" in r0:
+                        has_etc = True
+                        etc += float(r0.get("etc") or 0.0)
             if nd:
                 # 기간 등락 = 시점 대 시점(2026-09-11 사용자 요청): 기간 마지막 종가 /
                 # 직전 기간 마지막 종가 − 1 — YTD·3M·1M 과 같은 종가 비교. 종가 결측이면
@@ -1613,6 +1617,8 @@ def main():
                 if has_det:                     # 장중시황과 동일 세분 표기 키
                     row.update({"finInv": round(fin / 100), "insur": round(ins / 100),
                                 "trust": round(tru / 100)})
+                if has_etc:
+                    row["etcCorp"] = round(etc / 100)
                 # V1: 다기간 수익률(허브 캔들 기준, 결측은 None 유지) + 상태 신호.
                 # 1W 는 기존 주간등락 정의(일별 chgPct 합) 그대로(§2).
                 rets = s.get("returns") or {}

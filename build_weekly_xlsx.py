@@ -984,12 +984,12 @@ def add_detail_sheets(wb, b, d):
         if has_v1:
             W = {"A": 20.5, "B": 8.2, "C": 8.2, "D": 8.2, "E": 8.2, "F": 9.5,
                  "G": 9.5, "H": 10.0, "I": 9.5, "J": 10.5, "K": 9.5, "L": 9.5,
-                 "M": 9.5, "N": 11.5}
+                 "M": 9.5, "N": 9.5, "O": 11.5}
             ws2 = new_sheet("섹터x수급", W, meta=(11, 12))
             b.chip("M1", "섹터 x 수급 매트릭스", cap="가격 %, 수급 억원", cap_col=12)
             # 세분 순서 = 투자자별 2행(금융투자·투신(사모)·연기금·보험, 2026-09-10)
             hdr = ["업종", *PL["axes"], "외인", "기관(합)", "외인+기관",
-                   "금융투자", "투신(사모)", "연기금", "보험", "개인", "신호"]
+                   "금융투자", "투신(사모)", "연기금", "기타법인", "보험", "개인", "신호"]
             b.hdr_row(hdr, align="center")
             # 신호별 강조(배지 셀만, 행 전체 채색 금지 §13)
             SIG_ST = {"동반강세": ("FFD64545", "FFFDEEEE"),
@@ -1006,7 +1006,7 @@ def add_detail_sheets(wb, b, d):
                     if isinstance(v, (int, float)) and v:
                         fstyle(cc, rgb=BUY_RED if v > 0 else SELL_BLUE)
                 for j, k in enumerate(("frgn", "orgn", "coreFlow",
-                                       "finInv", "trust", "fund", "insur", "prsn")):
+                                       "finInv", "trust", "fund", "etcCorp", "insur", "prsn")):
                     v = r0.get(k)
                     cc = b.cell(6 + j, v if v is not None else "", "econ_cell",
                                 fmt=F_EOK, align="right")
@@ -1015,7 +1015,7 @@ def add_detail_sheets(wb, b, d):
                 sig = r0.get("signal") or ""
                 if sig == "혼조":                 # 혼조는 저장만, 표기 생략
                     sig = ""
-                sc = b.cell(14, sig, "econ_cell", align="center")
+                sc = b.cell(15, sig, "econ_cell", align="center")
                 if sig in SIG_ST:
                     rgb, fill = SIG_ST[sig]
                     fstyle(sc, rgb=rgb, bold_=True)
@@ -1036,7 +1036,7 @@ def add_detail_sheets(wb, b, d):
                  f"동반약세=가격약세+수급이탈 · 공란=혼조(가격방향 불명확{weak}) · 데이터부족=일부 기간 결측")
             b.finish()
             ws2.freeze_panes = "A5"
-            ws2.auto_filter.ref = f"A4:N{data_end}"
+            ws2.auto_filter.ref = f"A4:O{data_end}"
             # 수익률 4컬럼(YTD/3M/1M/1W) 데이터 막대 — 열별 min~max 스케일, 값 표시 유지
             # (2026-09-10: 1W 만 있던 막대를 YTD~1M 에도 동일 적용)
             for col in ("B", "C", "D", "E"):

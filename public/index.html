@@ -7769,6 +7769,7 @@
       // 다기간(YTD/3M/1M/1W) 가격 추세 x 외인+기관 수급의 '상태 진단'(예측 아님).
       // 구 아카이브(신호/세분 키 없음)는 폴백 렌더.
       var sfDet = sfm.rows.some(function (r) { return r.finInv != null; });
+      var sfEtc = sfm.rows.some(function (r) { return r.etcCorp != null; });   // 기타법인(2026-09-14)
       var sfV1 = sfm.rows.some(function (r) { return r.signal != null; });
       var SIG_C = { "동반강세": "#f04452", "수급이탈": "#fbbf24", "수급유입": "#2dd4bf",
                     "동반약세": "#3182f6", "데이터부족": "#64748b" };
@@ -7787,7 +7788,7 @@
             + '<td style="padding:2px 6px 2px 0;white-space:nowrap">' + esc(r.name) + "</td>"
             + WBP.axisKeys.map(function (k) { return fp(r[k]); }).join("")   // 월간 YTD/6M/3M/1M
             + amt(r.frgn) + amt(r.orgn)                        // 세분 순서 = 투자자별 2행(금융투자·투신·연기금·보험, 2026-09-10)
-            + (sfDet ? amt(r.finInv) + amt(r.trust) : "") + amt(r.fund) + (sfDet ? amt(r.insur) : "")
+            + (sfDet ? amt(r.finInv) + amt(r.trust) : "") + amt(r.fund) + (sfEtc ? amt(r.etcCorp) : "") + (sfDet ? amt(r.insur) : "")
             + amt(r.prsn)
             + '<td style="text-align:right;padding:2px 0 2px 10px;white-space:nowrap">' + badge + "</td></tr>";
         }
@@ -7801,11 +7802,11 @@
           + '<td style="padding:2px 6px 2px 0;white-space:nowrap">' + esc(r.name) + badge2 + "</td>"
           + '<td style="text-align:right">' + pct(r.chgPct) + "</td>"
           + amt(r.frgn) + amt(r.orgn)
-          + (sfDet ? amt(r.finInv) + amt(r.trust) : "") + amt(r.fund) + (sfDet ? amt(r.insur) : "")
+          + (sfDet ? amt(r.finInv) + amt(r.trust) : "") + amt(r.fund) + (sfEtc ? amt(r.etcCorp) : "") + (sfDet ? amt(r.insur) : "")
           + amt(r.prsn) + "</tr>";
       }).join("");
       var sfTh = function (t) { return "<th style='text-align:right'>" + t + "</th>"; };
-      var sfW = sfV1 ? (sfDet ? 1030 : 880) : (sfDet ? 780 : 520);
+      var sfW = (sfV1 ? (sfDet ? 1030 : 880) : (sfDet ? 780 : 520)) + (sfEtc ? 80 : 0);
       // 2026-09-11: 기간 등락 종가 비교(chgBasis) · 수급 중립 구간(neutralRatio) — 구 아카이브는 종전 문구
       var sfBasis = sfm.chgBasis ? " · " + WBP.axes[WBP.axes.length - 1] + "=" + (WBP.per === "월간" ? "전월말" : "전주말") + " 종가 대비" : "";
       var sfWeak = sfm.neutralRatio ? " 또는 수급 미미(|외인+기관| &lt; 섹터 평소 규모의 " + Math.round(sfm.neutralRatio * 100) + "%)" : "";
@@ -7820,7 +7821,7 @@
         + "<tr style='opacity:.6'><th style='text-align:left'>업종</th>"
         + (sfV1 ? WBP.axes.map(function (t) { return sfTh(t); }).join("") : sfTh(WBP.per + "등락"))
         + sfTh("외인") + sfTh(sfDet ? "기관(합)" : "기관")
-        + (sfDet ? sfTh("금융투자") + sfTh("투신(사모)") : "") + sfTh("연기금") + (sfDet ? sfTh("보험") : "")
+        + (sfDet ? sfTh("금융투자") + sfTh("투신(사모)") : "") + sfTh("연기금") + (sfEtc ? sfTh("기타법인") : "") + (sfDet ? sfTh("보험") : "")
         + sfTh("개인") + (sfV1 ? sfTh("신호") : "") + "</tr>"
         + mrows + "</table><div style='opacity:.5;font-size:10.5px;margin-top:4px'>"
         + sfFoot + "</div></div></details>";
