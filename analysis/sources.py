@@ -931,6 +931,8 @@ def naver_investor_timeline(market="KOSPI", pages=6):
                 row["insur"] = _n(nums[4])      # 보험
                 row["trust"] = _n(nums[5])      # 투신(사모)
                 row["pension"] = _n(nums[8])    # 연기금등
+            if len(nums) >= 10:
+                row["etc"] = _n(nums[9])        # 기타법인(2026-09-14) — 마지막 열
             out[tm] = row
             new += 1
         if not rows or not new:

@@ -211,6 +211,15 @@ def _day_summary(date_str):
     if closing:
         day["indices"] = closing.get("indices") or {}
         day["investors"] = closing.get("investors") or {}
+        # 기관 세분·기타법인(2026-09-14) — 마감 회차 1분 시계열의 마지막 세부 행(당일 누적)
+        det = {}
+        for mk in ("kospi", "kosdaq"):
+            for r0 in reversed(((closing.get("investorSeries") or {}).get(mk) or [])):
+                if r0 and r0.get("pension") is not None:
+                    det[mk] = {k: r0.get(k) for k in ("pension", "finInv", "insur", "trust", "etc")}
+                    break
+        if det:
+            day["investorDetail"] = det
         day["briefing"] = (closing.get("briefing") or [])[:8]
         day["sectorsUp"] = [{"name": s.get("name"), "changePct": s.get("changePct")}
                             for s in (closing.get("sectorsUp") or [])[:3]]
@@ -1813,6 +1822,7 @@ def main():
         "days": [{"date": d["date"],
                   "indices": d.get("indices") or {},
                   "investors": d.get("investors") or {},
+                  "investorDetail": d.get("investorDetail") or {},
                   "sectorsUp": d.get("sectorsUp") or [],
                   "sectorsDown": d.get("sectorsDown") or [],
                   "usEcon": d.get("usEcon") or [],   # 전일 미국 지표(usReview 언급 기반)

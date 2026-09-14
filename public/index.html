@@ -3763,7 +3763,7 @@
         `<span style="margin-right:9px; white-space:nowrap;">${lb} <b style="color:${v >= 0 ? "var(--up-red)" : "var(--kospi-blue)"};">${v >= 0 ? "+" : ""}${Math.round(v).toLocaleString()}</b></span>`;
       return `<div id="ib-orgnd-${k}" style="display:none; font-size:11.5px; color:#cbd5e1; padding:4px 2px 0; text-align:right;">`
         + item("연기금", det.pension) + item("금융투자", det.finInv)
-        + item("보험", det.insur) + item("투신(사모)", det.trust)
+        + item("보험", det.insur) + item("투신(사모)", det.trust) + item("기타법인", det.etc)
         + `<span style="color:var(--text-muted); font-size:10px;">억원</span></div>`;
     }
     function ibOrgnToggle(k) {
@@ -7357,6 +7357,18 @@
         });
       });
       if (!any) return;
+      // 기관 세분·기타법인 주간 누적(2026-09-14) — 장중 시황 기관 알약 세부내역과 동일 양식
+      var DET = [["pension", "연기금"], ["finInv", "금융투자"], ["insur", "보험"], ["trust", "투신(사모)"], ["etc", "기타법인"]];
+      var dsum = {};
+      days.forEach(function (day) {
+        var dd = ((day.investorDetail || {})[mk]) || {};
+        DET.forEach(function (t) { if (dd[t[0]] != null) dsum[t[0]] = (dsum[t[0]] || 0) + Number(dd[t[0]]); });
+      });
+      var detKeys = DET.filter(function (t) { return dsum[t[0]] != null; });
+      var detLine = detKeys.length
+        ? '<div style="font-size:11px;color:#cbd5e1;text-align:right;margin:-2px 0 4px">' + detKeys.map(function (t) {
+            return '<span style="margin-left:8px;white-space:nowrap">' + t[1] + ' <b style="color:' + (dsum[t[0]] >= 0 ? "#f04452" : "#3182f6") + '">' + fmtAmt(dsum[t[0]]) + "</b></span>";
+          }).join("") + ' <span style="opacity:.5;font-size:10px">억원</span></div>' : "";
       var W = 260, H = 64, all = [].concat(cum.individual, cum.foreign, cum.institution, [0]);
       var mn = Math.min.apply(null, all), mx = Math.max.apply(null, all), rg = (mx - mn) || 1;
       var n = days.length, dx = n > 1 ? W / (n - 1) : 0;
@@ -7374,7 +7386,7 @@
             return '<span style="border:1px solid ' + t[2] + '55;border-radius:10px;padding:1px 7px;margin-left:4px;font-size:11.5px;color:' + t[2] + '">'
               + t[1] + " " + fmtAmt(tot[t[0]]) + "</span>";
           }).join("")
-        + "</span></div>"
+        + "</span></div>" + detLine
         + '<svg viewBox="0 0 ' + W + " " + H + '" style="width:100%;height:' + H + 'px;display:block">'
         + '<line x1="0" y1="' + zeroY + '" x2="' + W + '" y2="' + zeroY + '" stroke="rgba(128,128,128,.35)" stroke-dasharray="3,3"/>'
         + line(cum.individual, INV[0][2]) + line(cum.foreign, INV[1][2]) + line(cum.institution, INV[2][2])
