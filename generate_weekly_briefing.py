@@ -667,16 +667,27 @@ def _snapshot_breadth(today):
     print(f"[weekly] breadth 스냅샷 저장: {today} (신고가근접 {len(snap['newHighs'])}종목)")
 
 
+def _common_code(code):
+    """우선주 코드 → 보통주 코드(끝자리 0). 보통주면 None (krx_companies 는 보통주만 등재)."""
+    code = str(code or "").zfill(6)
+    return code[:5] + "0" if code[5] != "0" else None
+
+
 def _ticker_of_codes(codes):
-    """krx_companies.json 에서 code→yfinance 티커. 미등재 코드는 제외."""
+    """krx_companies.json 에서 code→yfinance 티커. 미등재 우선주는 보통주 티커의
+    시장 접미사(.KS/.KQ)로 자기 코드 티커를 만든다(2026-09-14, S-Oil우 010955 결손).
+    보통주 티커를 그대로 쓰면 가격이 달라 틀린 등락률이 되므로 코드는 우선주 것 유지."""
     out = {}
     try:
         with open(os.path.join(ROOT, "public", "assets", "krx_companies.json"),
                   encoding="utf-8") as f:
-            for e in json.load(f):
-                c = str(e.get("code", "")).zfill(6)
-                if c in codes and e.get("ticker"):
-                    out[c] = e["ticker"]
+            tick = {str(e.get("code", "")).zfill(6): e["ticker"]
+                    for e in json.load(f) if e.get("ticker")}
+        for c in codes:
+            if c in tick:
+                out[c] = tick[c]
+            elif _common_code(c) in tick:
+                out[c] = c + "." + tick[_common_code(c)].rsplit(".", 1)[-1]
     except Exception as ex:
         print(f"[weekly] krx_companies 로드 실패: {ex}", file=sys.stderr)
     return out
@@ -712,8 +723,9 @@ def _week_cum_codes(codes, week_start, fetch_closes=None):
 
 
 _FLOW_RAW: dict = {}      # "code:rows" -> /flow 응답 — 1런 1회 왕복(메모이즈, 2026-09-09)
-# daily 거래일 수 — 허브 flow_payload 기본 5. 주간은 5로 충분, 월간·과거 백필은
-# 환경변수로 확장(FLOW_ROWS=30 등, 2026-09-10 P1). 공매도·대차는 허브가 max(rows,20).
+# daily 거래일 수 — 허브 flow_payload 기본 5. 주간 워크플로는 10(금요일에도 전주
+# 종가 행 확보 — weekChgPct 산출, 2026-09-14), 월간·과거 백필은 환경변수로 확장
+# (FLOW_ROWS=30 등, 2026-09-10 P1). 공매도·대차는 허브가 max(rows,20).
 FLOW_ROWS = int(os.environ.get("FLOW_ROWS", "5") or 5)
 
 
@@ -857,8 +869,10 @@ def _breadth_weekly(dates):
                     mkt[code0] = "KOSDAQ" if "코스닥" in raw else "KOSPI"
         except Exception:
             pass
+        # 우선주는 krx_companies 미등재 → 보통주 시장으로 폴백(2026-09-14, 섹터와 동일)
         stocks = [{**{k: x.get(k) for k in ("code", "name", "chgPct", "nearRate")},
-                   "market": mkt.get(str(x.get("code") or "").zfill(6))}
+                   "market": mkt.get(str(x.get("code") or "").zfill(6))
+                             or mkt.get(_common_code(x.get("code")))}
                   for x in highs[:30]]
         codes = [str(s.get("code") or "").zfill(6) for s in stocks]
         flow = _flow_week(codes, dates)

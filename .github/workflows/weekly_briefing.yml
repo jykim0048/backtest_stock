@@ -39,6 +39,9 @@ jobs:
           GEMINI_API_KEY:    ${{ secrets.GEMINI_API_KEY }}
           LLM_CHAIN:         ${{ vars.LLM_CHAIN }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          # /flow daily 창 — 기본 5면 금요일(주 5거래일)에 전주 종가 행이 없어 KIS
+          # 주간 등락률이 전 종목 결손 → yfinance 폴백 의존(2026-09-14). 10 = 전주 포함.
+          FLOW_ROWS:         "10"
         run: python generate_weekly_briefing.py
 
       # 기준 템플릿(templates/weekly_briefing_template.xlsx — 사용자 확정 양식) 재현
