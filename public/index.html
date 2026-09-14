@@ -7489,7 +7489,8 @@
     var COLS = hasDet
       ? [["frgn", "외국인"], ["orgn", "기관계"], ["total", "외인+기관"], ["prsn", "개인"]]
       : [["frgn", "외국인"], ["orgn", "기관계"], ["fund", "연기금"], ["prsn", "개인"]];
-    var COLS2 = [["finInv", "금융투자"], ["trust", "투신(사모)"], ["fund", "연기금"], ["insur", "보험"]];
+    // 2행 5칸(2026-09-14): 연기금 옆 기타법인(etcCorp) — 랭킹 없는 구 아카이브는 그 칸만 '—'
+    var COLS2 = [["finInv", "금융투자"], ["trust", "투신(사모)"], ["fund", "연기금"], ["etcCorp", "기타법인"], ["insur", "보험"]];
     function rows(arr, color) {
       if (!arr || !arr.length) return "<div style='opacity:.5'>—</div>";
       return arr.map(function (e, i) {
@@ -7505,9 +7506,10 @@
     h += '<details class="flow-details" style="margin-top:4px"><summary style="text-align:right">투자자별 누적 순매수 상위 · 하위 ▾</summary>';
     function invRow(cols) {
       var s = '<div style="display:flex;gap:14px;flex-wrap:wrap;font-size:12px;margin-top:6px">';
+      var mw = cols.length > 4 ? 150 : 170;          // 5칸 행은 폭을 조금 줄여 한 줄 유지
       cols.forEach(function (c) {
         var d = nc[c[0]] || {};
-        s += '<div style="flex:1;min-width:170px"><div style="font-weight:600;opacity:.8;margin-bottom:3px">' + c[1] + "</div>"
+        s += '<div style="flex:1;min-width:' + mw + 'px"><div style="font-weight:600;opacity:.8;margin-bottom:3px">' + c[1] + "</div>"
           + rows(d.top, "#f04452")
           + '<div style="border-top:1px dashed rgba(128,128,128,.3);margin:5px 0"></div>'
           + rows(d.bottom, "#3182f6") + "</div>";
@@ -7714,7 +7716,7 @@
             : Math.round(s.loanAmt).toLocaleString() + (s.loanChg ? " (" + (s.loanChg > 0 ? "+" : "") + Math.round(s.loanChg).toLocaleString() + ")" : "");
           var wc = s.weekChgPct;   // 주간 누적만 표기 — 당일(chgPct) 폴백 제거(2026-09-09, 라벨 불일치 방지)
           var wcCell = wc == null ? "—"
-            : '<span style="color:' + (wc > 0 ? "#f04452" : wc < 0 ? "#3182f6" : "inherit") + ';font-weight:600">' + (wc > 0 ? "+" : "") + wc + "%</span>";
+            : '<span style="color:' + (wc > 0 ? "#f04452" : wc < 0 ? "#3182f6" : "inherit") + ';font-weight:600">' + (wc > 0 ? "+" : "") + (wc ? Number(wc).toFixed(2) : "0") + "%</span>";   // 소수 2자리 고정(8.8→8.80), 0 은 '0%' 유지(2026-09-14)
           var mkTag = s.market === "KOSDAQ" ? ' <span style="color:var(--kosdaq-green);font-size:10.5px">KOSDAQ</span>'
             : s.market === "KOSPI" ? ' <span style="color:var(--kospi-blue);font-size:10.5px">KOSPI</span>' : "";
           return "<tr style='border-top:1px solid rgba(128,128,128,.12)'><td style='padding:2px 6px 2px 0;white-space:nowrap'>" + (i + 1) + ". " + esc(s.name) +
@@ -7727,7 +7729,7 @@
             "</td><td style='text-align:right;opacity:.75'>" + (s.shortSum == null ? "—" : Math.round(s.shortSum).toLocaleString()) +
             "</td><td style='text-align:right;opacity:.75;white-space:nowrap'>" + loan +
             "</td><td style='text-align:right'>" + wcCell +
-            "</td><td style='text-align:right;opacity:.8'>" + (s.nearRate == null ? "—" : (s.nearRate ? "-" + s.nearRate : "0") + "%") + "</td></tr>";   // 신고가까지 남은 거리 = 음수 표기(2026-09-09)
+            "</td><td style='text-align:right;opacity:.8'>" + (s.nearRate == null ? "—" : (s.nearRate ? "-" + Number(s.nearRate).toFixed(2) : "0") + "%") + "</td></tr>";   // 신고가까지 남은 거리 = 음수 표기(2026-09-09), 소수 2자리 고정·0 은 '0%'(2026-09-14)
         }).join("");
         nhBody = '<div style="border:1px solid rgba(128,128,128,.2);border-radius:10px;padding:8px 12px;overflow-x:auto">'
           + '<div style="font-weight:600;margin-bottom:4px;color:#fbbf24">52주 신고가 근접</div>'

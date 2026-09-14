@@ -29,7 +29,7 @@ ROOT = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, ROOT)
 import generate_weekly_briefing as g          # _flow_raw 메모이즈·RANK_DIR·KST 재사용
 
-KEYS = ("prsn", "frgn", "orgn", "fund", "scrt", "insu", "ivtr", "pe")
+KEYS = ("prsn", "frgn", "orgn", "fund", "scrt", "insu", "ivtr", "pe", "etc")   # etc=기타법인(2026-09-14)
 MIN_CODES = 50          # 이 미만이면 휴장/미확정(장중)으로 보고 파일 생성 안 함
 # daily 거래일 수 — 허브 /flow 기본 5행이라 과거 복원엔 반드시 확장 요청해야 한다
 # (2026-09-10 P1 실측: flow_payload rows=5 고정이었음). KIS 실제 상한은 허브 로그로 확인.

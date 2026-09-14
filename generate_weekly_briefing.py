@@ -1034,7 +1034,7 @@ def _enrich_final(snap):
             for row in (d.get("daily") or []):
                 if str(row.get("date")) == want:
                     out = {k: row.get(k) for k in ("prsn", "frgn", "orgn", "fund",
-                                                   "scrt", "insu", "ivtr", "pe")}
+                                                   "scrt", "insu", "ivtr", "pe", "etc")}
                     break
             if out is not None:
                 # 같은 응답의 공매도(pbmn, 억원)·대차잔고(rmndAmt 억원/rmndChg 주) 당일분 병합
@@ -1074,7 +1074,7 @@ def _backfill_netbuy_detail(dates):
     (직전 거래일 파일만)도 같은 /flow 응답으로 보정 → 아카이브 폴백 품질 확보.
     정착 후엔 직전 거래일 대차 보정 정도만 남는다. 실패 종목은 건너뜀."""
     from concurrent.futures import ThreadPoolExecutor
-    KEYS = ("prsn", "frgn", "orgn", "fund", "scrt", "insu", "ivtr", "pe")
+    KEYS = ("prsn", "frgn", "orgn", "fund", "scrt", "insu", "ivtr", "pe", "etc")
     today = datetime.datetime.now(KST).date()
     # 대차는 T+1 공개 — '오늘 이전 가장 최근 거래일' 파일만 대차 결손 대상(무한 재조회 방지)
     loan_day = max((dt for dt in dates if dt < today), default=None)
@@ -1095,7 +1095,8 @@ def _backfill_netbuy_detail(dates):
         need = set()
         for c in codes:
             e = final.get(c) or {}
-            if e.get("scrt") is None or e.get("shortAmt") is None \
+            # etc(기타법인, 2026-09-14) 결손도 소급 대상 — 도입 전 파일을 이번 주분만 채움
+            if e.get("scrt") is None or e.get("etc") is None or e.get("shortAmt") is None \
                     or (dt == loan_day and e.get("loanAmt") is None):
                 need.add(c)
         if need:
@@ -1127,6 +1128,8 @@ def _backfill_netbuy_detail(dates):
                 if row and row.get("scrt") is not None and e.get("scrt") is None:
                     for k in KEYS:          # 기존 shortAmt/loanAmt 등은 보존
                         e[k] = row.get(k)
+                elif row and e.get("etc") is None and "etc" in row:
+                    e["etc"] = row.get("etc")   # 세분은 있고 기타법인만 없는 파일(도입 전)
                 sh = shorts.get(want)
                 if sh and e.get("shortAmt") is None:
                     e["shortAmt"] = sh.get("pbmn")
@@ -1182,12 +1185,12 @@ def _archive_acc(dates):
                                           "frgn": 0.0, "orgn": 0.0, "fund": 0.0,
                                           "prsn": 0.0, "shortSum": 0.0,
                                           "scrt": 0.0, "insu": 0.0,
-                                          "ivtr": 0.0, "pe": 0.0,
+                                          "ivtr": 0.0, "pe": 0.0, "etc": 0.0,
                                           "loans": {}, "days": 0})
                 src = final.get(code) or r
-                # 세분(scrt/insu/ivtr/pe)은 prsn 처럼 확정 병합·백필분만 반영
+                # 세분(scrt/insu/ivtr/pe)·기타법인(etc)은 prsn 처럼 확정 병합·백필분만 반영
                 for k in ("frgn", "orgn", "fund", "prsn",
-                          "scrt", "insu", "ivtr", "pe"):
+                          "scrt", "insu", "ivtr", "pe", "etc"):
                     e[k] += float(src.get(k) or 0.0)   # 가집계 행엔 prsn 없음(0)
                 if src.get("shortAmt") is not None:
                     e["shortSum"] += float(src["shortAmt"] or 0.0)
@@ -1227,7 +1230,8 @@ def _netbuy_cum(dates):
     # 섹터x수급과 동일 명명. prsn 처럼 확정 병합·백필분만 반영
     for e in acc.values():
         e["finInv"], e["insur"], e["trust"] = e["scrt"], e["insu"], e["ivtr"] + e["pe"]
-    for k in ("frgn", "orgn", "fund", "prsn", "finInv", "insur", "trust"):
+        e["etcCorp"] = e["etc"]         # 기타법인(2026-09-14) — 자사주 매입 등
+    for k in ("frgn", "orgn", "fund", "prsn", "finInv", "insur", "trust", "etcCorp"):
         ranked = sorted(acc.values(), key=lambda e: e[k], reverse=True)
         out[k] = {
             "top": [{"code": e["code"], "name": e["name"], "amt": round(e[k])}
@@ -1244,7 +1248,7 @@ def _netbuy_cum(dates):
              # 기관 세분 누적(섹터x수급과 동일 명명: 금융투자/보험/투신(사모)) —
              # 저장만(2026-09-09), 렌더는 미정. 연기금(fund)은 기존 per-주체 랭킹에 존재
              "finInv": round(e["scrt"]), "insur": round(e["insu"]),
-             "trust": round(e["ivtr"] + e["pe"])}
+             "trust": round(e["ivtr"] + e["pe"]), "etcCorp": round(e["etc"])}
         if e["shortSum"]:
             r["shortSum"] = round(e["shortSum"], 1)
         if e["loans"]:

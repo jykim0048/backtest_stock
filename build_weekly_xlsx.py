@@ -688,7 +688,7 @@ def add_detail_sheets(wb, b, d):
     숫자 그대로(문자열 변환·단위 변환 금지), 데이터 없는 섹션의 탭은 만들지 않음."""
     F_EOK = "+#,##0;-#,##0;0"            # 부호 있는 억원 정수 (순매수 흐름)
     F_INT = "#,##0"                      # 무부호 정수 (공매도 누적·대차잔고)
-    F_PCT = "+0.0;-0.0;0.0"              # 부호 있는 % (저장값 그대로, 표시만)
+    F_PCT = "+0.00;-0.00;0"              # 부호 있는 % — 신고가 등락률·신고가대비, 소수 2자리·0 은 '0'(웹 동일, 2026-09-14)
     F_PCT2 = "+0.00;-0.00;0.00"          # 섹터x수급 YTD~1W 수익률 — 소수 2자리(2026-09-10)
     F_EOK1 = "#,##0.0"                   # 억원 소수 1자리
     F_EOK1S = "+#,##0.0;-#,##0.0;0.0"
@@ -834,8 +834,10 @@ def add_detail_sheets(wb, b, d):
     else:
         inv_secs = [("F1", "외국인", nc.get("frgn")), ("F2", "기관계", nc.get("orgn")),
                     ("F3", "연기금", nc.get("fund")), ("F4", "개인", nc.get("prsn"))]
+    # 5·6행(2026-09-14): 연기금·기타법인(etcCorp) / 보험 단독 — 웹 2행 순서와 동일
     inv_secs2 = [("F5", "금융투자", nc.get("finInv")), ("F6", "투신(사모)", nc.get("trust")),
-                 ("F7", "연기금", nc.get("fund")), ("F8", "보험", nc.get("insur"))]
+                 ("F7", "연기금", nc.get("fund")), ("F8", "기타법인", nc.get("etcCorp")),
+                 ("F9", "보험", nc.get("insur"))]
     if any(v and ((v.get("top") or v.get("bottom"))) for _, _, v in inv_secs):
         ws2 = new_sheet("투자자별 순매수", W_INV, meta=(14, 15))
         # 외인·기관 동반 매수/매도 = 두 리스트 동시 등재 (실데이터 교집합만)
@@ -909,14 +911,13 @@ def add_detail_sheets(wb, b, d):
         inv_cards(inv_secs[2:4])
         b.nl()
         if has_det:
-            inv_cards(inv_secs2[0:2])
-            b.nl()
-            inv_cards(inv_secs2[2:4])
-            b.nl()
+            for i in range(0, len(inv_secs2), 2):
+                inv_cards(inv_secs2[i:i + 2])     # 마지막 행은 좌측 1카드만
+                b.nl()
         footnote("외인·기관 동시 등재 종목=종목명 굵게(동반 매수/매도) · "
                  "netbuy_rank 일별 아카이브 합산 — 상위 30 리스트 등재일만 반영되는 근사치"
-                 + (" · 금융투자=증권, 투신(사모)=투자신탁+사모펀드 (확정 병합분) · "
-                    "외인+기관=합산 카드와 동일" if has_det else ""))
+                 + (" · 금융투자=증권, 투신(사모)=투자신탁+사모펀드, 기타법인=일반법인"
+                    "(자사주 매입 등) (확정 병합분) · 외인+기관=합산 카드와 동일" if has_det else ""))
         b.finish()
         ws2.freeze_panes = "A3"                       # 타이틀 바(기간) 고정
 
