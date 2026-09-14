@@ -1359,6 +1359,35 @@ def _week_cum_map(rows, week_start, dates=None, fetch_closes=None, flow=None):
     return out
 
 
+def _fill_detail_from_markets(days, markets):
+    """마감 회차 시계열(네이버, 당일 전용)에 없는 날의 기관 세분·기타법인을 허브
+    /sector-flow markets(KIS FHPTJ04040000 시장 종합 확정, 백만원)로 보완(2026-09-14).
+    이미 있는 키는 덮지 않는다(네이버 값 우선). 반환: 채운 칸 수."""
+    n_fill = 0
+    for d0 in days or []:
+        want0 = str(d0.get("date", "")).replace("-", "")
+        det = d0.setdefault("investorDetail", {})
+        for mk in ("kospi", "kosdaq"):
+            r0 = next((r for r in ((markets or {}).get(mk) or []) if r.get("date") == want0), None)
+            if not r0:
+                continue
+            cur = det.setdefault(mk, {})
+            tru = None
+            if r0.get("ivtr") is not None or r0.get("pe") is not None:
+                tru = (r0.get("ivtr") or 0.0) + (r0.get("pe") or 0.0)
+            fills = {"pension": r0.get("fund"), "finInv": r0.get("scrt"),
+                     "insur": r0.get("insu"), "trust": tru, "etc": r0.get("etc")}
+            for k, v in fills.items():
+                if cur.get(k) is None and v is not None:
+                    cur[k] = round(v / 100)          # 백만원 → 억원(네이버 단위와 통일)
+                    n_fill += 1
+            if not cur:
+                det.pop(mk, None)
+        if not det:
+            d0.pop("investorDetail", None)
+    return n_fill
+
+
 def _next_week_preview(econ_n=25, earn_n=40):
     """다음 기간 예정 이벤트 — 경제지표·실적 캘린더에서 결정적으로 추출.
     월간은 개수 확대(econ 40·실적 60)."""
@@ -1661,6 +1690,9 @@ def main():
             print(f"[weekly] 섹터x수급 매트릭스: {len(rows)}업종 · 기간등락 종가비교 "
                   f"{n_close}/{len(rows)} · 중립구간 {n_band}/{len(rows)} "
                   f"(수급미미→혼조 {sum(1 for r in rows if r.get('flowWeak'))})")
+        nf = _fill_detail_from_markets(days, sf.get("markets"))
+        if nf:
+            print(f"[weekly] 기관 세분·기타법인 보완(시장 종합 KIS 확정): {nf}칸")
     except Exception as ex:
         print(f"[weekly] sector-flow 수집 실패(매트릭스 생략): {ex}", file=sys.stderr)
 
