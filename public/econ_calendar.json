@@ -1,53 +1,11 @@
 {
- "date": "2026-09-15",
- "asof": "2026-09-15 15:40 KST",
+ "date": "2026-09-16",
+ "asof": "2026-09-16 07:46 KST",
  "sources": {
   "naver": true,
   "forexfactory": true
  },
  "released": [
-  {
-   "nation": "USA",
-   "name": "클리블랜드 소비자물가지수(CPI) 전월대비",
-   "reutersCode": "USCCPI=ECIX",
-   "importance": 1,
-   "period": "Aug 2026",
-   "category": "PRICE",
-   "releaseAtKST": "2026-09-12 00:00",
-   "actual": 0.2,
-   "previous": 0.3,
-   "unit": "%",
-   "unitScale": "",
-   "forecast": null,
-   "forecastSource": null,
-   "source": "naver",
-   "surprise": {
-    "vs": "previous",
-    "diff": -0.1,
-    "verdict": "below"
-   }
-  },
-  {
-   "nation": "USA",
-   "name": "연방재정수지",
-   "reutersCode": "USGDEF=ECIX",
-   "importance": 1,
-   "period": "Aug 2026",
-   "category": "PUBLIC_FINANCE",
-   "releaseAtKST": "2026-09-12 03:00",
-   "actual": -167,
-   "previous": -432,
-   "unit": "USD",
-   "unitScale": "B",
-   "forecast": null,
-   "forecastSource": null,
-   "source": "naver",
-   "surprise": {
-    "vs": "previous",
-    "diff": 265.0,
-    "verdict": "above"
-   }
-  },
   {
    "nation": "KOR",
    "name": "수입물가지수 전년대비",
@@ -173,9 +131,7 @@
     "diff": -1.4,
     "verdict": "below"
    }
-  }
- ],
- "upcoming": [
+  },
   {
    "nation": "USA",
    "name": "뉴욕 연준 제조업지수",
@@ -184,12 +140,18 @@
    "period": "Sep 2026",
    "category": "EMPLOYMENT",
    "releaseAtKST": "2026-09-15 21:30",
+   "actual": 7.6,
    "previous": 20.6,
    "unit": "",
    "unitScale": "",
    "forecast": null,
    "forecastSource": null,
-   "source": "naver"
+   "source": "naver",
+   "surprise": {
+    "vs": "previous",
+    "diff": -13.0,
+    "verdict": "below"
+   }
   },
   {
    "nation": "USA",
@@ -199,13 +161,21 @@
    "period": "12 Sep2026",
    "category": "BSI_CSI",
    "releaseAtKST": "2026-09-15 21:55",
+   "actual": 8.5,
    "previous": 8.3,
    "unit": "%",
    "unitScale": "",
    "forecast": null,
    "forecastSource": null,
-   "source": "naver"
-  },
+   "source": "naver",
+   "surprise": {
+    "vs": "previous",
+    "diff": 0.2,
+    "verdict": "above"
+   }
+  }
+ ],
+ "upcoming": [
   {
    "nation": "USA",
    "name": "MBA 구매지수",
@@ -603,7 +573,7 @@
    "name": "중앙은행 기준금리",
    "reutersCode": "USFOMC=ECIX",
    "importance": 4,
-   "period": "16 Sep2026",
+   "period": "17 Sep2026",
    "category": "CENTRAL_BANKS",
    "releaseAtKST": "2026-09-17 03:00",
    "previous": 3.75,
@@ -1061,6 +1031,21 @@
    "category": "BSI_CSI",
    "releaseAtKST": "2026-09-22 23:00",
    "previous": 4,
+   "unit": "",
+   "unitScale": "",
+   "forecast": null,
+   "forecastSource": null,
+   "source": "naver"
+  },
+  {
+   "nation": "KOR",
+   "name": "소비자심리지수",
+   "reutersCode": "KRCONS=ECIX",
+   "importance": 4,
+   "period": "Sep 2026",
+   "category": "BSI_CSI",
+   "releaseAtKST": "2026-09-23 06:00",
+   "previous": 104.5,
    "unit": "",
    "unitScale": "",
    "forecast": null,
