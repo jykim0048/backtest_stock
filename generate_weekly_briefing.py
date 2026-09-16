@@ -1388,23 +1388,60 @@ def _fill_detail_from_markets(days, markets):
     return n_fill
 
 
-def _next_week_preview(econ_n=25, earn_n=40):
-    """다음 기간 예정 이벤트 — 경제지표·실적 캘린더에서 결정적으로 추출.
+def _preview_windows(base, period="week"):
+    """프리뷰 구간 경계 — (이번 기간 마지막 날, 다음 기간 마지막 날).
+    주간: 기준일이 속한 주의 일요일 / 그다음 일요일. 월간: 그 달 말일 / 다음 달 말일."""
+    if period == "month":
+        nxt = (base.replace(day=28) + datetime.timedelta(days=4)).replace(day=1)
+        rest_end = nxt - datetime.timedelta(days=1)
+        after = (nxt.replace(day=28) + datetime.timedelta(days=4)).replace(day=1)
+        return rest_end, after - datetime.timedelta(days=1)
+    rest_end = base + datetime.timedelta(days=6 - base.weekday())   # 그 주 일요일
+    return rest_end, rest_end + datetime.timedelta(days=7)
+
+
+def _next_week_preview(econ_n=25, earn_n=40, base=None, period="week"):
+    """예정 이벤트 — 경제지표·실적 캘린더에서 결정적으로 추출, **기간 구간별로 분리**.
+
+    반환 {"thisRest": {econ, earnings}, "next": {...}} — thisRest = 기준일이 속한
+    주(월간은 달)의 남은 일정(오늘 밤 미국 지표 포함), next = 다음 주/다음 달.
+    2026-09-16 이전엔 구간 구분 없이 '다음 주 일정'으로 넘겨, 주중 회차에서 당일 밤
+    FOMC 가 '다음 주 예정'으로 서술되는 문제가 있었다. 그 뒤 일정은 버린다.
     월간은 개수 확대(econ 40·실적 60)."""
-    out = {"econ": [], "earnings": []}
+    base = base or datetime.datetime.now(KST).date()
+    rest_end, next_end = _preview_windows(base, period)
+
+    def _bucket(day):
+        """이벤트 날짜(date) → 'thisRest' | 'next' | None(기준일 이전·먼 미래)"""
+        if day is None or day < base:
+            return None
+        return "thisRest" if day <= rest_end else ("next" if day <= next_end else None)
+
+    def _day(s, n=10):
+        try:
+            return datetime.date.fromisoformat(str(s)[:n])
+        except Exception:
+            return None
+
+    out = {"thisRest": {"econ": [], "earnings": []}, "next": {"econ": [], "earnings": []}}
     econ = _fetch("econ_calendar.json") or {}
-    for e in (econ.get("upcoming") or [])[:max(60, econ_n * 2)]:
-        if isinstance(e, dict) and (e.get("importance") or 0) >= 2:
-            out["econ"].append({k: e.get(k) for k in
-                                ("releaseAtKST", "nation", "name", "importance", "consensus")
-                                if e.get(k) is not None})
+    for e in (econ.get("upcoming") or [])[:max(120, econ_n * 4)]:
+        if not isinstance(e, dict) or (e.get("importance") or 0) < 2:
+            continue
+        b = _bucket(_day(e.get("releaseAtKST")))
+        if b and len(out[b]["econ"]) < econ_n:
+            out[b]["econ"].append({k: e.get(k) for k in
+                                   ("releaseAtKST", "nation", "name", "importance", "consensus")
+                                   if e.get(k) is not None})
     earn = _fetch("earnings_calendar.json") or {}
-    for e in (earn.get("upcoming") or [])[:earn_n]:
-        if isinstance(e, dict):
-            out["earnings"].append({k: e.get(k) for k in
-                                    ("date", "when", "name", "market")
-                                    if e.get(k) is not None})
-    out["econ"] = out["econ"][:econ_n]
+    for e in (earn.get("upcoming") or [])[:max(earn_n * 2, 80)]:
+        if not isinstance(e, dict):
+            continue
+        b = _bucket(_day(e.get("date")))
+        if b and len(out[b]["earnings"]) < earn_n:
+            out[b]["earnings"].append({k: e.get(k) for k in
+                                       ("date", "when", "name", "market")
+                                       if e.get(k) is not None})
     return out
 
 
@@ -1470,7 +1507,12 @@ _SYSTEM = (
     " ① 다음 주 전개 시나리오 2개를 '~하면 ~ 전개' 조건부 구조로 (예: '반도체 조정에도"
     " 비테크·브레드스가 버티면 로테이션 지속, 함께 무너지면 단기 리스크오프') ② 두 시나리오를"
     " 가르는 판별 신호 1개 (어떤 지표·수급·이벤트를 보면 되는지 구체적으로) ③ 제공된 예정"
-    " 이벤트(nextWeekEvents) 중 핵심 체크 항목 1~3개. 모두 이번 주 입력 데이터에 근거할 것"
+    " 이벤트 중 핵심 체크 항목 1~3개. 모두 이번 주 입력 데이터에 근거할 것"
+    "\n- 예정 이벤트 시점 규칙(2026-09-16): upcomingEvents 는 두 구간이다 —"
+    " thisRest = **이번 주 잔여 일정**(오늘 밤 발표되는 미국 지표 포함), next = **다음 주**."
+    " thisRest 항목을 '다음 주'라고 쓰지 마라. 시점 표현은 각 이벤트의 releaseAtKST(KST)"
+    " 날짜를 그대로 따르고(예: 오늘 밤·내일 새벽·이번 주 목요일·다음 주 화요일), 중요도 4"
+    " 이벤트는 '(9/17 03:00 KST)' 처럼 시각을 함께 적어라"
     "\n- nextWeek: 위 프리뷰를 구조화한 필수 객체 — upside(상승 시나리오 1~2개,"
     " '~하면 ~' 조건부), downside(하방 시나리오 1~2개), signal(두 시나리오를 가르는"
     " 판별 신호 1문장), events(핵심 이벤트 1~3개). 넷 다 반드시 채워라"
@@ -1504,7 +1546,10 @@ _SYSTEM_MONTH = (
     "\n- weeklyComment: 월간 종합 코멘트 3~4개 불릿 — econWeekly(그 달 발표 경제지표)로"
     " 매크로를, sectorFlowWeekly(업종별 월간 등락·순매수, 억원)로 수급 구도를 짚고 종합"
     "\n- nextWeekPreview: '다음 달' 시나리오형 4~6개 불릿 — 조건부 시나리오 2개, 판별 신호 1개,"
-    " 예정 이벤트(nextWeekEvents) 중 핵심 1~3개"
+    " 예정 이벤트 중 핵심 1~3개"
+    "\n- 예정 이벤트 시점 규칙(2026-09-16): upcomingEvents 는 thisRest = **이번 달 잔여**"
+    "(오늘 밤 포함) · next = **다음 달** 두 구간이다. thisRest 항목을 '다음 달'이라고 쓰지"
+    " 말고, 시점 표현은 releaseAtKST(KST) 날짜를 따르며 중요도 4 는 시각을 함께 적어라"
     "\n- nextWeek: 위 프리뷰 구조화 — upside·downside(각 1~2), signal 1문장, events 1~3. 필수"
     "\n- watchNotes: 다음 달 관찰 후보 long·short 각 최대 5개 — sectorFlowWeekly·"
     "netbuyTotalTop/Bottom·shortLoan 근거가 뚜렷한 것만, basis 는 수치 인용 1문장, 권유 금지"
@@ -1714,7 +1759,11 @@ def main():
 
 
     _tmark("프리뷰·LLM 합성")
-    preview = _next_week_preview(40, 60) if is_month else _next_week_preview()
+    preview = (_next_week_preview(40, 60, base=base, period="month") if is_month
+               else _next_week_preview(base=base))
+    print(f"[weekly] 예정 이벤트: 이번 {'달' if is_month else '주'} 잔여 "
+          f"{len(preview['thisRest']['econ'])}건 · 다음 {'달' if is_month else '주'} "
+          f"{len(preview['next']['econ'])}건 (중요도 2+)")
     synthesis, generated_by = None, None
     if "--no-llm" not in args:
         if not llm.configured():
@@ -1734,7 +1783,7 @@ def main():
                            for e in (d.get("usEcon") or []) + (d.get("koEcon") or [])]
             user = json.dumps({
                 "days": [_compact_day(d) for d in days] if is_month else days,
-                "nextWeekEvents": preview,
+                "upcomingEvents": preview,   # thisRest=이번 기간 잔여 · next=다음 기간
                 **({"weeklySyntheses": _period_syntheses(dates)} if is_month else {}),
                 # Phase 3 관찰 노트 근거 — 주간 결정적 집계 (전부 억원 단위)
                 "sectorFlowWeekly": (sector_flow or {}).get("rows"),
