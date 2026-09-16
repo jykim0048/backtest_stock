@@ -488,6 +488,7 @@
     .ib-flowpill-prsn { background: rgba(148,163,184,.15); color: #cbd5e1; border-color: rgba(148,163,184,.32); }
     .ib-flowpill-frgn { background: rgba(96,165,250,.15); color: #93c5fd; border-color: rgba(96,165,250,.32); }
     .ib-flowpill-orgn { background: rgba(251,191,36,.14); color: #fcd34d; border-color: rgba(251,191,36,.34); }
+    .ib-flowpill-etc  { background: rgba(167,139,250,.14); color: #c4b5fd; border-color: rgba(167,139,250,.34); }   /* 기타법인(2026-09-16) */
     .ib-flowchart { display: block; margin-top: 6px; }   /* 크기는 드로잉 시 DPR 반영해 JS 가 지정 */
     @media (max-width: 560px) { .ib-idxrow { grid-template-columns: 1fr; } }
     /* 환율 브리핑 */
@@ -3761,10 +3762,17 @@
       if (!det) return "";
       const item = (lb, v) => (v == null) ? "" :
         `<span style="margin-right:9px; white-space:nowrap;">${lb} <b style="color:${v >= 0 ? "var(--up-red)" : "var(--kospi-blue)"};">${v >= 0 ? "+" : ""}${Math.round(v).toLocaleString()}</b></span>`;
+      // 기타법인은 기관계 분해가 아니므로 토글이 아니라 기관 옆 알약으로 표기(2026-09-16)
       return `<div id="ib-orgnd-${k}" style="display:none; font-size:11.5px; color:#cbd5e1; padding:4px 2px 0; text-align:right;">`
         + item("연기금", det.pension) + item("금융투자", det.finInv)
-        + item("보험", det.insur) + item("투신(사모)", det.trust) + item("기타법인", det.etc)
+        + item("보험", det.insur) + item("투신(사모)", det.trust)
         + `<span style="color:var(--text-muted); font-size:10px;">억원</span></div>`;
+    }
+    function _ibEtcLatest(series) {          // 기타법인 최신 값(2026-09-16) — 세분 행과 별개로 탐색
+      for (let i = (series || []).length - 1; i >= 0; i--) {
+        if (series[i] && series[i].etc != null) return series[i].etc;
+      }
+      return null;
     }
     function ibOrgnToggle(k) {
       const el = document.getElementById(`ib-orgnd-${k}`);
@@ -4045,6 +4053,7 @@
             + invPill("외인", iv.foreign, "ib-flowpill-frgn")
             + invPill("기관", iv.institution, "ib-flowpill-orgn",
                       det ? ` onclick="ibOrgnToggle('${k}')" style="cursor:pointer;" title="클릭: 기관 세부(연기금·금융투자·보험·투신)"` : "")
+            + invPill("기타법인", _ibEtcLatest(series), "ib-flowpill-etc")   // 기관 세분이 아닌 별도 주체(2026-09-16)
             + `</div>`
           : "";
         const chart = series.length > 5
@@ -7357,12 +7366,14 @@
         });
       });
       if (!any) return;
-      // 기관 세분·기타법인 주간 누적(2026-09-14) — 장중 시황 기관 알약 세부내역과 동일 양식
-      var DET = [["pension", "연기금"], ["finInv", "금융투자"], ["insur", "보험"], ["trust", "투신(사모)"], ["etc", "기타법인"]];
-      var dsum = {};
+      // 기관 세분 주간 누적(2026-09-14) — 장중 시황 기관 알약 세부내역과 동일 양식.
+      // 기타법인(etc)은 기관계 분해가 아니므로 이 줄이 아니라 알약으로(2026-09-16).
+      var DET = [["pension", "연기금"], ["finInv", "금융투자"], ["insur", "보험"], ["trust", "투신(사모)"]];
+      var dsum = {}, etcSum = null;
       days.forEach(function (day) {
         var dd = ((day.investorDetail || {})[mk]) || {};
         DET.forEach(function (t) { if (dd[t[0]] != null) dsum[t[0]] = (dsum[t[0]] || 0) + Number(dd[t[0]]); });
+        if (dd.etc != null) etcSum = (etcSum || 0) + Number(dd.etc);
       });
       var detKeys = DET.filter(function (t) { return dsum[t[0]] != null; });
       var detLine = detKeys.length
@@ -7382,9 +7393,10 @@
       h += '<div style="flex:1;min-width:300px;border:1px solid rgba(128,128,128,.2);border-radius:10px;padding:8px 12px">'
         + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">'
         + '<span style="font-weight:700">' + mk.toUpperCase() + ' ' + WBP.per + ' 누적 수급</span><span>'
-        + INV.map(function (t) {
+        + INV.concat(etcSum == null ? [] : [["etc", "기타법인", "#a78bfa"]])   // 기관 옆 별도 알약(2026-09-16)
+            .map(function (t) {
             return '<span style="border:1px solid ' + t[2] + '55;border-radius:10px;padding:1px 7px;margin-left:4px;font-size:11.5px;color:' + t[2] + '">'
-              + t[1] + " " + fmtAmt(tot[t[0]]) + "</span>";
+              + t[1] + " " + fmtAmt(t[0] === "etc" ? etcSum : tot[t[0]]) + "</span>";
           }).join("")
         + "</span></div>" + detLine
         + '<svg viewBox="0 0 ' + W + " " + H + '" style="width:100%;height:' + H + 'px;display:block">'
@@ -7501,8 +7513,9 @@
     var COLS = hasDet
       ? [["frgn", "외국인"], ["orgn", "기관계"], ["total", "외인+기관"], ["prsn", "개인"]]
       : [["frgn", "외국인"], ["orgn", "기관계"], ["fund", "연기금"], ["prsn", "개인"]];
-    // 2행 5칸(2026-09-14): 연기금 옆 기타법인(etcCorp) — 랭킹 없는 구 아카이브는 그 칸만 '—'
-    var COLS2 = [["finInv", "금융투자"], ["trust", "투신(사모)"], ["fund", "연기금"], ["etcCorp", "기타법인"], ["insur", "보험"]];
+    // 2행 5칸(2026-09-14): 보험 오른쪽 기타법인(etcCorp, 2026-09-16 순서 변경) —
+    // 랭킹 없는 구 아카이브는 그 칸만 '—'
+    var COLS2 = [["finInv", "금융투자"], ["trust", "투신(사모)"], ["fund", "연기금"], ["insur", "보험"], ["etcCorp", "기타법인"]];
     function rows(arr, color) {
       if (!arr || !arr.length) return "<div style='opacity:.5'>—</div>";
       return arr.map(function (e, i) {
@@ -7800,8 +7813,8 @@
             + '<td style="padding:2px 6px 2px 0;white-space:nowrap">' + esc(r.name) + "</td>"
             + WBP.axisKeys.map(function (k) { return fp(r[k]); }).join("")   // 월간 YTD/6M/3M/1M
             + amt(r.frgn) + amt(r.orgn)                        // 세분 순서 = 투자자별 2행(금융투자·투신·연기금·보험, 2026-09-10)
-            + (sfDet ? amt(r.finInv) + amt(r.trust) : "") + amt(r.fund) + (sfEtc ? amt(r.etcCorp) : "") + (sfDet ? amt(r.insur) : "")
-            + amt(r.prsn)
+            + (sfDet ? amt(r.finInv) + amt(r.trust) : "") + amt(r.fund) + (sfDet ? amt(r.insur) : "")
+            + amt(r.prsn) + (sfEtc ? amt(r.etcCorp) : "")      // 기타법인은 개인 오른쪽(2026-09-16)
             + '<td style="text-align:right;padding:2px 0 2px 10px;white-space:nowrap">' + badge + "</td></tr>";
         }
         // ── 폴백(구 아카이브, 1W 기반 근사) — '과열주의' 용어 폐기 → 수급이탈
@@ -7814,8 +7827,8 @@
           + '<td style="padding:2px 6px 2px 0;white-space:nowrap">' + esc(r.name) + badge2 + "</td>"
           + '<td style="text-align:right">' + pct(r.chgPct) + "</td>"
           + amt(r.frgn) + amt(r.orgn)
-          + (sfDet ? amt(r.finInv) + amt(r.trust) : "") + amt(r.fund) + (sfEtc ? amt(r.etcCorp) : "") + (sfDet ? amt(r.insur) : "")
-          + amt(r.prsn) + "</tr>";
+          + (sfDet ? amt(r.finInv) + amt(r.trust) : "") + amt(r.fund) + (sfDet ? amt(r.insur) : "")
+          + amt(r.prsn) + (sfEtc ? amt(r.etcCorp) : "") + "</tr>";
       }).join("");
       var sfTh = function (t) { return "<th style='text-align:right'>" + t + "</th>"; };
       var sfW = (sfV1 ? (sfDet ? 1030 : 880) : (sfDet ? 780 : 520)) + (sfEtc ? 80 : 0);
@@ -7833,8 +7846,8 @@
         + "<tr style='opacity:.6'><th style='text-align:left'>업종</th>"
         + (sfV1 ? WBP.axes.map(function (t) { return sfTh(t); }).join("") : sfTh(WBP.per + "등락"))
         + sfTh("외인") + sfTh(sfDet ? "기관(합)" : "기관")
-        + (sfDet ? sfTh("금융투자") + sfTh("투신(사모)") : "") + sfTh("연기금") + (sfEtc ? sfTh("기타법인") : "") + (sfDet ? sfTh("보험") : "")
-        + sfTh("개인") + (sfV1 ? sfTh("신호") : "") + "</tr>"
+        + (sfDet ? sfTh("금융투자") + sfTh("투신(사모)") : "") + sfTh("연기금") + (sfDet ? sfTh("보험") : "")
+        + sfTh("개인") + (sfEtc ? sfTh("기타법인") : "") + (sfV1 ? sfTh("신호") : "") + "</tr>"
         + mrows + "</table><div style='opacity:.5;font-size:10.5px;margin-top:4px'>"
         + sfFoot + "</div></div></details>";
     }

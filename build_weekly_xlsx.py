@@ -834,10 +834,11 @@ def add_detail_sheets(wb, b, d):
     else:
         inv_secs = [("F1", "외국인", nc.get("frgn")), ("F2", "기관계", nc.get("orgn")),
                     ("F3", "연기금", nc.get("fund")), ("F4", "개인", nc.get("prsn"))]
-    # 5·6행(2026-09-14): 연기금·기타법인(etcCorp) / 보험 단독 — 웹 2행 순서와 동일
+    # 5·6행: 금융투자·투신(사모)/연기금·보험 + 기타법인 단독 — 웹 2행 순서와 동일
+    # (2026-09-16 사용자 요청: 기타법인을 보험 오른쪽으로)
     inv_secs2 = [("F5", "금융투자", nc.get("finInv")), ("F6", "투신(사모)", nc.get("trust")),
-                 ("F7", "연기금", nc.get("fund")), ("F8", "기타법인", nc.get("etcCorp")),
-                 ("F9", "보험", nc.get("insur"))]
+                 ("F7", "연기금", nc.get("fund")), ("F8", "보험", nc.get("insur")),
+                 ("F9", "기타법인", nc.get("etcCorp"))]
     if any(v and ((v.get("top") or v.get("bottom"))) for _, _, v in inv_secs):
         ws2 = new_sheet("투자자별 순매수", W_INV, meta=(14, 15))
         # 외인·기관 동반 매수/매도 = 두 리스트 동시 등재 (실데이터 교집합만)
@@ -987,9 +988,10 @@ def add_detail_sheets(wb, b, d):
                  "M": 9.5, "N": 9.5, "O": 11.5}
             ws2 = new_sheet("섹터x수급", W, meta=(11, 12))
             b.chip("M1", "섹터 x 수급 매트릭스", cap="가격 %, 수급 억원", cap_col=12)
-            # 세분 순서 = 투자자별 2행(금융투자·투신(사모)·연기금·보험, 2026-09-10)
+            # 세분 순서 = 투자자별 2행(금융투자·투신(사모)·연기금·보험, 2026-09-10) ·
+            # 기타법인은 개인 오른쪽(기관 세분이 아니므로, 2026-09-16 사용자 요청)
             hdr = ["업종", *PL["axes"], "외인", "기관(합)", "외인+기관",
-                   "금융투자", "투신(사모)", "연기금", "기타법인", "보험", "개인", "신호"]
+                   "금융투자", "투신(사모)", "연기금", "보험", "개인", "기타법인", "신호"]
             b.hdr_row(hdr, align="center")
             # 신호별 강조(배지 셀만, 행 전체 채색 금지 §13)
             SIG_ST = {"동반강세": ("FFD64545", "FFFDEEEE"),
@@ -1006,7 +1008,7 @@ def add_detail_sheets(wb, b, d):
                     if isinstance(v, (int, float)) and v:
                         fstyle(cc, rgb=BUY_RED if v > 0 else SELL_BLUE)
                 for j, k in enumerate(("frgn", "orgn", "coreFlow",
-                                       "finInv", "trust", "fund", "etcCorp", "insur", "prsn")):
+                                       "finInv", "trust", "fund", "insur", "prsn", "etcCorp")):
                     v = r0.get(k)
                     cc = b.cell(6 + j, v if v is not None else "", "econ_cell",
                                 fmt=F_EOK, align="right")
