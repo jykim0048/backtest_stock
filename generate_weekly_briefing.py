@@ -1634,11 +1634,13 @@ def main():
     _tmark("섹터플로(허브)")
     sector_flow = None
     try:
-        base = FLOW_RANK_URL.rsplit("/", 1)[0]
+        # hub_base: main() 의 기준일 변수 base 와 이름 분리 — 덮어쓰면 뒤의 프리뷰 구간
+        # 계산이 URL 문자열을 받아 크래시(2026-09-16 주간·월간 런 실패)
+        hub_base = FLOW_RANK_URL.rsplit("/", 1)[0]
         # 창 40(허브 상한, 슬라이스만이라 추가 비용 없음) — 기간 거래일 + 1W 기준 종가
         # (직전 거래일) + 수급 중립 기준선(직전 최대 8주)을 한 응답으로(2026-09-11)
         sf_q = f"?days={max(SECTOR_FLOW_DAYS, len(dates) + 2)}"
-        req = urllib.request.Request(f"{base}/sector-flow{sf_q}",
+        req = urllib.request.Request(f"{hub_base}/sector-flow{sf_q}",
                                      headers={"User-Agent": "weekly-briefing"})
         # 마감 직후 콜드 캐시는 26업종 KIS 콜로 느릴 수 있다(2026-09-08 16:13 타임아웃
         # 실측). 허브는 클라이언트가 끊겨도 수집을 마쳐 10분 캐시에 저장하므로,
