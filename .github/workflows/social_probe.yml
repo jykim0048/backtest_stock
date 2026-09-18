@@ -1,0 +1,42 @@
+# 해외 peer 소셜 여론 소스(Reddit RSS · StockTwits) Actions IP 접근성 프로브 —
+# 이 파일(또는 프로브 스크립트)이 푸시되면 1회 자동 실행되고, 이후엔 workflow_dispatch
+# 수동 진단용으로 남는다. 결과는 .github/social_probe_result.json 으로 커밋된다([skip railway]).
+# 배경: 딥리서치 peers.reddit 이 Tavily 월 한도 소진 + reddit search.json 403 으로 비어
+# 있어 TradingAgents 의 RSS-first Reddit + StockTwits 스트림 이식을 검토(P0, 2026-09-18).
+name: Social Probe
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/social_probe.yml"
+      - ".github/social_probe.py"
+permissions:
+  contents: write
+concurrency:
+  group: report-push
+  cancel-in-progress: false
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - run: pip install requests
+      - name: Probe Reddit RSS / StockTwits from Actions IP
+        run: python .github/social_probe.py
+      - name: Commit result
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .github/social_probe_result.json
+          git commit -m "chore: Reddit RSS/StockTwits Actions IP 프로브 결과 [skip railway]" || echo "no changes"
+          for i in $(seq 1 5); do
+            if git push origin HEAD:main; then echo "pushed (attempt $i)"; exit 0; fi
+            git fetch origin main
+            git rebase FETCH_HEAD || { git rebase --abort; echo "::error::rebase conflict"; exit 1; }
+            sleep $((RANDOM % 4 + 2))
+          done
+          echo "::error::push failed after 5 attempts" && exit 1
