@@ -52,6 +52,13 @@ KST = datetime.timezone(datetime.timedelta(hours=9))
 # 개인 이메일 하드코딩 금지(public 레포) — 실 연락처는 Actions vars.SEC_IDENTITY 로.
 SEC_IDENTITY = (os.environ.get("SEC_IDENTITY")
                 or "QuantAntigravity jykim0048@users.noreply.github.com")
+# SEC 는 users.noreply.github.com 이 든 UA 를 403 으로 거부한다(2026-09-18 실측 — 7/24 이후
+# SEC 레그가 매 회차 CIK 맵에서 죽은 원인). 기본값으로 떨어졌다는 건 워크플로가
+# secrets.SEC_IDENTITY 를 못 읽었다는 뜻이므로 로그에서 바로 보이게 경고한다.
+if "noreply" in SEC_IDENTITY:
+    print(f"[us-catalysts] 경고: SEC_IDENTITY 가 noreply 주소({SEC_IDENTITY}) — SEC 가 403 으로 "
+          "거부한다. Actions secrets.SEC_IDENTITY 에 실제 연락처('이름 이메일')를 설정할 것.",
+          file=sys.stderr)
 FORMS = ("8-K", "6-K")      # 6-K: TSMC·ASML 등 외국계 미국상장(peer 다수)의 주요 공시
 MAX_TOKENS = 2048
 

@@ -72,9 +72,13 @@ jobs:
 
       - name: Collect US SEC catalysts
         env:
-          # vars 미설정이면 빈 문자열이 넘어가므로 워크플로 차원에서도 기본값 보장.
-          # 개인 이메일은 코드에 두지 않는다(public 레포) — 실 연락처는 vars 로 설정.
-          SEC_IDENTITY:      ${{ vars.SEC_IDENTITY || 'QuantAntigravity jykim0048@users.noreply.github.com' }}
+          # 실 연락처는 secrets.SEC_IDENTITY(2026-07-23 등록)에 있다 — 종전엔 vars 만 읽어
+          # 항상 빈 값 → 아래 noreply 기본값으로 떨어졌고, SEC 는 users.noreply.github.com
+          # 이 든 UA 를 403 으로 거부해 7/24 이후 SEC 레그가 매 회차 CIK 맵에서 죽었다
+          # (2026-09-18 실측: noreply 403 / 실제 메일 200). secrets → vars → 기본값 순.
+          # 개인 이메일은 코드에 두지 않는다(public 레포). 기본값은 SEC 가 거부하므로
+          # 사실상 '미설정 경고용'이다(generate_us_catalysts.py 가 경고 로그).
+          SEC_IDENTITY:      ${{ secrets.SEC_IDENTITY || vars.SEC_IDENTITY || 'QuantAntigravity jykim0048@users.noreply.github.com' }}
           GEMINI_API_KEY:    ${{ secrets.GEMINI_API_KEY }}
           LLM_CHAIN:         ${{ vars.LLM_CHAIN }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
