@@ -195,89 +195,102 @@ def naver_board(code, pages=1, limit=15):
 
 
 # ----------------------------------------------------------------------------
-# 2c) Naver Finance 증권사 종목분석 리포트 (HTML scrape — 공식 API 없음)
-#     목록: research/company_list.naver?searchType=itemCode&itemCode=<code>
-#     상세: research/company_read.naver?nid=<nid> (목표주가·투자의견·요약 본문)
+# 2c/2d) Naver 증권사 리서치 (종목분석·산업분석) — m.stock.naver.com 모바일 JSON API
+#     (2026-09-18) finance.naver.com/research/*.naver HTML 페이지가 stock.naver.com
+#     SPA 로 302 리다이렉트돼 옛 셀렉터(a[href*="_read.naver"], td.view_cnt)가 항상
+#     0건 매칭 — requests 는 리다이렉트를 따라가 200 을 받으므로 예외·경고 없이
+#     빈 리스트만 돌아왔다(모닝브리핑 industryReports 가 2026-06 이후 전일 []).
+#     같은 데이터를 주는 모바일 JSON API 로 전환(naver_investor_trend 와 같은 호스트 —
+#     Actions 해외 IP 접근성 검증 완료, .github/naver_flow_probe_result.json):
+#       종목 목록: /api/research/stock/<code>?page&pageSize      (previewContent 포함)
+#       종목 상세: /api/research/company/<researchId>             (opinion·goalPrice·content·attachUrl)
+#       산업 목록: /api/research/industry?page&pageSize           (category = 옛 업종명 표기와 동일)
+#       산업 상세: /api/research/industry/<researchId>            (content·attachUrl)
+#     url 은 데스크톱 상세(stock.naver.com/research/<kind>/<id>)로 두고, pdfUrl 은
+#     상세(attachUrl)를 조회한 건에만 채운다(목록 API 에는 첨부가 없음).
 # ----------------------------------------------------------------------------
+_MSTOCK_RESEARCH = "https://m.stock.naver.com/api/research"
+_RESEARCH_PAGE   = 200          # 산업 목록 페이지 크기(≈2주치) — 서버 상한 300 이상 확인
+
+
+def _research_id(url):
+    """리서치 URL → researchId 문자열. 신형(.../industry/46132, .../company/96231)과
+    구형(finance.naver.com/...?nid=46132 — 아카이브에 남은 URL, nid == researchId) 모두 수용."""
+    m = re.search(r"(?:nid=|/(?:industry|company)/)(\d+)", str(url or ""))
+    return m.group(1) if m else ""
+
+
+def _research_text(html_body, max_chars):
+    """리서치 본문 HTML(content) → 태그 제거·공백 정규화 텍스트 (max_chars 로 절단)."""
+    import html as _html
+    text = re.sub(r"<br\s*/?>|</p>|</div>|</li>", " ", str(html_body or ""), flags=re.I)
+    text = re.sub(r"<[^>]+>", " ", text)
+    return " ".join(_html.unescape(text).split())[:max_chars]
+
+
+def _research_json(path, params=None, timeout=15):
+    r = requests.get(f"{_MSTOCK_RESEARCH}/{path}", params=params, headers=UA, timeout=timeout)
+    r.raise_for_status()
+    return r.json()
+
+
+def _research_row(it):
+    """목록 API 공통 필드 → (date, title, broker, researchId). 날짜 형식이 아니면 date=""."""
+    d = str(it.get("writeDate") or "").strip()
+    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", d):
+        d = ""
+    return (d, (it.get("title") or "").strip(), (it.get("brokerName") or "").strip(),
+            str(it.get("researchId") or "").strip())
+
+
 def naver_research(code, days=30, limit=6, detail_top=3):
-    """증권사 종목분석 리포트 목록(+상위 detail_top 건 상세)을 파싱한다.
+    """증권사 종목분석 리포트 목록(+상위 detail_top 건 상세)을 수집한다.
 
     Returns list of {title, broker, date, url, pdfUrl, targetPrice, opinion,
-    summary} (최신순, days 일 이내). targetPrice/opinion/summary 는 상세를
-    조회한 상위 건에만 채워진다. 실패 시 [] (배치 중단 방지).
+    summary} (최신순, days 일 이내). targetPrice/opinion/pdfUrl 은 상세를 조회한
+    상위 건에만 채워진다(summary 는 목록의 previewContent 로 전 건 채우고, 상세
+    조회 건은 본문으로 교체). 실패 시 [] (배치 중단 방지).
     """
+    kst = datetime.timezone(datetime.timedelta(hours=9))
+    cutoff = (datetime.datetime.now(kst).date() - datetime.timedelta(days=days)).isoformat()
     try:
-        from bs4 import BeautifulSoup
-    except Exception:
-        _warn("beautifulsoup4 not installed — naver_research skipped")
-        return []
-
-    try:
-        r = requests.get(
-            "https://finance.naver.com/research/company_list.naver",
-            params={"searchType": "itemCode", "itemCode": code},
-            headers={**UA, "Referer": "https://finance.naver.com/research/"},
-            timeout=15,
-        )
-        r.encoding = "euc-kr"
-        r.raise_for_status()
+        rows = _research_json(f"stock/{code}", {"page": 1, "pageSize": max(limit, 20)})
     except Exception as e:
         _warn(f"naver_research({code}) list failed: {e}")
         return []
 
-    kst = datetime.timezone(datetime.timedelta(hours=9))
-    cutoff = datetime.datetime.now(kst).date() - datetime.timedelta(days=days)
     out = []
-    for a in BeautifulSoup(r.text, "html.parser").select('a[href*="company_read.naver"]'):
-        tr = a.find_parent("tr")
-        if tr is None:
-            continue
-        tds = tr.find_all("td")      # 종목명 | 제목 | 증권사 | 첨부 | 날짜 | 조회수
-        if len(tds) < 5:
-            continue
-        raw_date = tds[4].get_text(strip=True)     # "26.07.03"
-        try:
-            d = datetime.datetime.strptime(raw_date, "%y.%m.%d").date()
-        except ValueError:
-            continue
-        if d < cutoff:
-            continue                 # 목록은 최신순 — 계속 훑어도 무방하나 어차피 걸러짐
-        pdf_a = tds[3].select_one("a[href]") if len(tds) > 3 else None
-        href = a.get("href", "")
+    for it in (rows if isinstance(rows, list) else []):
+        d, title, broker, rid = _research_row(it)
+        if not d or not rid or d < cutoff:
+            continue                 # 목록은 최신순이지만 안전하게 전 건 필터
         out.append({
-            "title": a.get_text(strip=True),
-            "broker": tds[2].get_text(strip=True),
-            "date": d.strftime("%Y-%m-%d"),
-            "url": "https://finance.naver.com/research/" + href if not href.startswith("http") else href,
-            "pdfUrl": pdf_a.get("href") if pdf_a else "",
-            "targetPrice": None, "opinion": "", "summary": "",
+            "title": title,
+            "broker": broker,
+            "date": d,
+            "url": f"https://stock.naver.com/research/company/{rid}",
+            "pdfUrl": "",
+            "targetPrice": None, "opinion": "",
+            "summary": " ".join(str(it.get("previewContent") or "").split())[:500],
         })
         if len(out) >= limit:
             break
 
-    # 상위 detail_top 건만 상세 조회(요청 수 절약): 목표주가·투자의견·요약 본문.
+    # 상위 detail_top 건만 상세 조회(요청 수 절약): 목표주가·투자의견·본문·PDF.
     # 상세는 서로 독립이라 병렬 수집(2026-07-22 온디맨드 속도 개선 — 순차 15s×3 제거).
     def _detail(rpt):
         try:
-            rd = requests.get(rpt["url"], headers={**UA, "Referer":
-                              "https://finance.naver.com/research/company_list.naver"},
-                              timeout=15)
-            rd.encoding = "euc-kr"
-            rd.raise_for_status()
-            soup = BeautifulSoup(rd.text, "html.parser")
-            money = soup.select_one("em.money")
-            if money:
-                try:
-                    rpt["targetPrice"] = int(money.get_text(strip=True).replace(",", ""))
-                except ValueError:
-                    pass
-            coment = soup.select_one("em.coment")
-            if coment:
-                rpt["opinion"] = coment.get_text(strip=True)
-            body = soup.select_one("td.view_cnt")
+            rc = (_research_json(f"company/{_research_id(rpt['url'])}") or {}).get("researchContent") or {}
+            goal = str(rc.get("goalPrice") or "").replace(",", "").strip()
+            if goal.isdigit() and int(goal) > 0:
+                rpt["targetPrice"] = int(goal)
+            if (rc.get("opinion") or "").strip():
+                rpt["opinion"] = rc["opinion"].strip()
+            if rc.get("attachUrl"):
+                rpt["pdfUrl"] = rc["attachUrl"]
+            body = _research_text(rc.get("content"), 500)
             if body:
-                text = " ".join(body.get_text(" ", strip=True).split())
-                rpt["summary"] = text[:500]
+                rpt["summary"] = body
         except Exception as e:
             _warn(f"naver_research detail({rpt.get('url','')}) failed: {e}")
 
@@ -290,81 +303,54 @@ def naver_research(code, days=30, limit=6, detail_top=3):
     return out
 
 
-# ----------------------------------------------------------------------------
-# 2d) Naver Finance 증권사 산업분석 리포트 (HTML scrape)
-#     목록: research/industry_list.naver (업종명 | 제목 | 증권사 | PDF | 날짜)
-#     상세: research/industry_read.naver?nid=<nid> (요약 본문 — 목표주가 없음)
-# ----------------------------------------------------------------------------
 def naver_industry_research(days=30, max_pages=3):
-    """산업분석 리포트 최근 목록을 파싱한다 (업종 필터 없이 전체 → 호출측에서 매칭).
+    """산업분석 리포트 최근 목록을 수집한다 (업종 필터 없이 전체 → 호출측에서 매칭).
 
     Returns list of {category, title, broker, date, url, pdfUrl} (최신순,
-    days 일 이내). 실패 시 [] (배치 중단 방지). 상세 본문은 요청 수 절약을
+    days 일 이내). 실패 시 [] (배치 중단 방지). 상세 본문·PDF 는 요청 수 절약을
     위해 별도 함수(naver_industry_detail)로 필요한 건만 조회한다.
     """
-    try:
-        from bs4 import BeautifulSoup
-    except Exception:
-        _warn("beautifulsoup4 not installed — naver_industry_research skipped")
-        return []
-
     kst = datetime.timezone(datetime.timedelta(hours=9))
-    cutoff = datetime.datetime.now(kst).date() - datetime.timedelta(days=days)
-    out, stop = [], False
+    cutoff = (datetime.datetime.now(kst).date() - datetime.timedelta(days=days)).isoformat()
+    out = []
     for page in range(1, max_pages + 1):
         try:
-            r = requests.get(
-                "https://finance.naver.com/research/industry_list.naver",
-                params={"page": page},
-                headers={**UA, "Referer": "https://finance.naver.com/research/"},
-                timeout=15,
-            )
-            r.encoding = "euc-kr"
-            r.raise_for_status()
+            rows = _research_json("industry", {"page": page, "pageSize": _RESEARCH_PAGE})
         except Exception as e:
             _warn(f"naver_industry_research(p{page}) failed: {e}")
             break
-        for a in BeautifulSoup(r.text, "html.parser").select('a[href*="industry_read.naver"]'):
-            tr = a.find_parent("tr")
-            if tr is None:
-                continue
-            tds = tr.find_all("td")      # 업종명 | 제목 | 증권사 | 첨부 | 날짜 | 조회수
-            if len(tds) < 5:
-                continue
-            try:
-                d = datetime.datetime.strptime(tds[4].get_text(strip=True), "%y.%m.%d").date()
-            except ValueError:
+        if not isinstance(rows, list) or not rows:
+            break
+        stop = False
+        for it in rows:
+            d, title, broker, rid = _research_row(it)
+            if not d or not rid:
                 continue
             if d < cutoff:
                 stop = True              # 목록은 최신순 — 컷오프 지나면 다음 페이지 불필요
                 break
-            pdf_a = tds[3].select_one("a[href]") if len(tds) > 3 else None
-            href = a.get("href", "")
             out.append({
-                "category": tds[0].get_text(strip=True),
-                "title": a.get_text(strip=True),
-                "broker": tds[2].get_text(strip=True),
-                "date": d.strftime("%Y-%m-%d"),
-                "url": "https://finance.naver.com/research/" + href if not href.startswith("http") else href,
-                "pdfUrl": pdf_a.get("href") if pdf_a else "",
+                "category": (it.get("category") or "").strip(),
+                "title": title,
+                "broker": broker,
+                "date": d,
+                "url": f"https://stock.naver.com/research/industry/{rid}",
+                "pdfUrl": "",
             })
-        if stop:
+        if stop or len(rows) < _RESEARCH_PAGE:
             break
     return out
 
 
 def naver_industry_detail(url, max_chars=400):
-    """산업분석 리포트 상세페이지의 요약 본문 텍스트. 실패 시 ""."""
+    """산업분석 리포트 상세의 요약 본문 텍스트. 실패 시 ""."""
+    rid = _research_id(url)
+    if not rid:
+        _warn(f"naver_industry_detail({url}): researchId 추출 실패")
+        return ""
     try:
-        from bs4 import BeautifulSoup
-        r = requests.get(url, headers={**UA, "Referer":
-                         "https://finance.naver.com/research/industry_list.naver"},
-                         timeout=15)
-        r.encoding = "euc-kr"
-        r.raise_for_status()
-        body = BeautifulSoup(r.text, "html.parser").select_one("td.view_cnt")
-        if body:
-            return " ".join(body.get_text(" ", strip=True).split())[:max_chars]
+        rc = (_research_json(f"industry/{rid}") or {}).get("researchContent") or {}
+        return _research_text(rc.get("content"), max_chars)
     except Exception as e:
         _warn(f"naver_industry_detail({url}) failed: {e}")
     return ""
