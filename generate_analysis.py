@@ -30,6 +30,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import llm                           # provider-agnostic LLM with fallback chain
 
 from analysis import sources       # imports yfinance + redirects its cache to /tmp on CI
+from analysis import social        # peer 여론: StockTwits 스트림(주) + Reddit RSS 예산제(보조)
 import yfinance as yf
 
 ROOT          = os.path.dirname(os.path.abspath(__file__))
@@ -96,8 +97,8 @@ FLOW_API_BASE = os.environ.get(
     "FLOW_API_BASE", "https://tradingstrategies-production-09d4.up.railway.app")
 
 SYSTEM = """\
-너는 한국 주식 투자 리서치 애널리스트다. 주어진 RAW 데이터(해외 peer 시세, peer 그룹 Reddit
-여론, 국내외 뉴스, 국내 커뮤니티 글, DART 공시/재무, 증권사 종목분석 리포트, 투자자 수급)를
+너는 한국 주식 투자 리서치 애널리스트다. 주어진 RAW 데이터(해외 peer 시세, peer 그룹 Reddit·
+StockTwits 여론, 국내외 뉴스, 국내 커뮤니티 글, DART 공시/재무, 증권사 종목분석 리포트, 투자자 수급)를
 분석해 대시보드용 `analysis` JSON 한 개를 생성한다.
 
 규칙:
@@ -112,7 +113,8 @@ SYSTEM = """\
   "catalyst": "오늘 이 종목의 주가를 움직일 핵심 촉매 2-3문장",
   "direction": "bullish|neutral|bearish",
   "flowComment": "수급(투자자별 순매수·공매도·대차잔고) 해석 2-3문장",
-  "peers": { "summary": "2-3문장", "reddit": [ {"title","url","subreddit","sentiment","summary"} ] },
+  "peers": { "summary": "2-3문장", "reddit": [ {"title","url","subreddit","sentiment","summary"} ],
+             "stocktwits": [ {"ticker","summary"} ] },
   "news": { "summary": "3-4문장", "items": [ {"title","source","date","sentiment","url","insight"} ] },
   "community": { "summary": "3-4문장", "sentimentLabel": "", "naver": [ {"title","url","sentiment","summary"} ] },
   "dart": { "summary": "3-4문장", "highlights": [ {"label","value","note"} ] },
@@ -143,9 +145,22 @@ SYSTEM = """\
   하방 재료(악재·기대감 소멸·규제·실적 쇼크 등)가 지배적이면 "bearish", 혼재/불분명하면 "neutral".
   bearish 로 판정하면 자동매매가 이 종목의 신규 매수를 건너뛴다 — catalyst 서술과 방향이
   일치해야 한다.
-- peers.reddit: 입력 peers_reddit(해외 peer/섹터에 대한 영어권 Reddit 글)을 바탕으로 3-5개.
-  해외 peer 그룹에 대한 여론·논점을 요약한다. title/url/subreddit은 원문, summary는 한국어 한 줄.
-  한국 종목이 직접 언급되지 않으면 peer/섹터 맥락으로 해석하고 summary에 그 점을 밝힌다.
+- peers.reddit: 입력 peers_reddit(해외 peer/섹터에 대한 영어권 Reddit 글)을 바탕으로 3-5개
+  (입력이 그보다 적으면 있는 만큼만). 해외 peer 그룹에 대한 여론·논점을 요약한다.
+  title/url/subreddit은 원문, summary는 한국어 한 줄. 한국 종목이 직접 언급되지 않으면
+  peer/섹터 맥락으로 해석하고 summary에 그 점을 밝힌다. score/num_comments 가 있으면 참여도가
+  큰 글(수백 업보트·댓글)을 우선하고, null 이면(RSS 수집) 참여도 불명이니 제목·본문으로만 판단한다.
+- peers.stocktwits: 입력 peers_stocktwits(미국 상장 peer 의 StockTwits 최근 메시지 — 사용자
+  라벨 Bullish/Bearish/None 집계 bullish/bearish/unlabeled/total 과 라벨 기준 bullPct 는 코드가
+  이미 계산한 값)를 바탕으로 **티커별 summary 한 줄(한국어)**만 쓴다. 수치는 출력하지 않는다
+  (코드가 채운다). 해석 규칙: 라벨 기준 70/30 은 완만한 강세, 90/10 이상은 과열·역발상 경계,
+  50/50 은 불확실. labeled 가 5건 미만이면 '표본 부족'을 summary 에 명시하고 방향을 단정하지
+  않는다. 메시지는 의견이지 사건이 아니다 — 뉴스(사실)와 구분해 가중한다. 반복되는 논점(실적·
+  가이던스·규제·특정 이벤트)이 있으면 그것을 summary 의 핵심으로 쓴다.
+- peers_social_status(입력): reddit/stocktwits 각각 ok|empty|unavailable|skipped. **unavailable
+  (수집 실패)을 '언급 없음'으로 쓰지 말 것** — 관측하지 않은 침묵은 신호가 아니다. 그 경우
+  peers.summary 에 "여론 데이터 수집 실패"라고 명시하고 reddit/stocktwits 배열은 비운다.
+  empty(창 안 글 없음)는 "최근 언급 없음"으로 구분해 쓴다.
 - community: 네이버 카페(naver_cafe)와 종목토론방(naver_board) 글로 '국내 개인투자자' 여론만
   담는다(Reddit 제외). naver 3-5개에는 종목토론방 글을 우선 담고, 공감/비공감(agree/disagree)
   수로 여론의 강도·쏠림을 가늠해 summary와 sentimentLabel에 반영한다.
@@ -157,7 +172,8 @@ SYSTEM = """\
   **목표주가·의견·증권사·날짜를 items 에 쓰지 마라** — 코드가 원문 값을 결정적으로 채운다.
   research_reports 가 비어 있으면 summary 에 "최근 60일 발간 리포트 없음"을 명시하고 items 는 빈 배열.
 - 개수 가이드: news 5-7 (국내+해외 혼합), dart highlights 4-6.
-- peers.items 는 출력하지 마라 — 코드가 입력 시세를 결정적으로 채운다. peers 는 summary/reddit 만 작성한다."""
+- peers.items 는 출력하지 마라 — 코드가 입력 시세를 결정적으로 채운다. peers 는 summary/reddit/
+  stocktwits(티커별 summary) 만 작성한다."""
 
 
 # JSON Schema for the analysis call (strict structured output). peers.items and
@@ -182,6 +198,8 @@ ANALYSIS_SCHEMA = _obj({
         "summary": _STR,
         "reddit": _arr({"title": _STR, "url": _STR, "subreddit": _STR,
                         "sentiment": _STR, "summary": _STR}),
+        # 수치(bullish/bearish/…)는 코드가 채운다 — LLM 은 티커별 한 줄 해석만(_merge_stocktwits)
+        "stocktwits": _arr({"ticker": _STR, "summary": _STR}),
     }),
     "news": _obj({
         "summary": _STR,
@@ -258,30 +276,89 @@ def fetch_peer_reddit(peer_list):
     Korean mid-caps barely appear on Reddit, but their global peers (e.g. Eli Lilly,
     GE Vernova, NGK) are widely discussed.
 
-    Reddit's public search.json 403s from datacenter/CI IPs, so Tavily (reddit.com
-    domain) is the PRIMARY source here; the direct Reddit endpoint — which only
-    works from residential IPs — is a best-effort fallback when Tavily is empty.
+    수집 순서(2026-09-18 P2 — Tavily 월 한도 소진(432) 시 전부 비던 문제):
+      ① Reddit RSS 검색(analysis.social, 미국 peer 티커, 실행당 예산 2콜·429 회로차단)
+      ② Tavily→Brave 웹검색(reddit.com 도메인) — 한도가 살아 있을 때만 보강
+      ③ 공개 search.json — 데이터센터 IP 는 403, 거주지 IP(로컬) 전용 폴백
+    Returns {"posts": [...], "status": "ok"|"empty"|"unavailable", "queried": [...]}.
+    status 는 '수집 실패'와 '글 없음'을 구분해 LLM/대시보드가 침묵을 신호로 오독하지 않게 한다.
     """
     if not peer_list:
-        return []
-    posts = []
+        return {"posts": [], "status": "empty", "queried": []}
     tops = peer_list[:2]                         # top 2 peers (bellwethers)
-    # 두 peer 검색은 독립 — 병렬 수집(2026-07-22 온디맨드 속도 개선)
+    posts, queried, any_ok = [], [], False
+
+    # ① RSS (예산 내) — 항목을 웹검색 결과와 같은 모양으로 맞춘다
+    rss = social.reddit_for_peers(tops, subs=("stocks",), limit=5, fresh_days=30)
+    queried += rss.get("queried") or []
+    if rss.get("status") in ("ok", "empty"):
+        any_ok = True
+    for x in rss.get("posts") or []:
+        posts.append({"title": x["title"], "url": x["url"], "subreddit": x["subreddit"],
+                      "date": x.get("date", ""), "content": x.get("content", ""),
+                      "score": x.get("score"), "num_comments": x.get("num_comments"),
+                      "source": "rss"})
+
+    # ② 웹검색(Tavily→Brave) — 두 peer 검색은 독립이라 병렬(2026-07-22)
     with ThreadPoolExecutor(max_workers=2) as ex:
         for res in ex.map(lambda p: sources.web_search(
                 f"{p['name']} stock discussion", max_results=3,
                 include_domains=["reddit.com"]), tops):
-            posts += res
-    if not posts:                                # residential-only fallback
+            if res:
+                any_ok = True
+            for x in res:
+                posts.append({**x, "source": x.get("source") or "web"})
+    queried += [f"web:{p['name']}" for p in tops]
+
+    # ③ 거주지 IP 전용 폴백(로컬 실행) — 아무것도 못 얻었을 때만
+    if not posts:
         for p in tops:
-            posts += sources.reddit_search(f"{p['name']} stock", max_results=3)
+            res = sources.reddit_search(f"{p['name']} stock", max_results=3)
+            if res:
+                any_ok = True
+            posts += res
+
     seen, uniq = set(), []
-    for x in posts:                              # dedupe by url, cap at 5
+    for x in posts:                              # dedupe by url, cap at 6
         u = x.get("url")
         if u and u not in seen:
             seen.add(u)
             uniq.append(x)
-    return uniq[:5]
+    status = "ok" if uniq else ("empty" if any_ok else "unavailable")
+    return {"posts": uniq[:6], "status": status, "queried": queried}
+
+
+def _stocktwits_llm_view(st_results, top_msgs=6):
+    """LLM 입력용 경량 뷰 — 수치는 이미 집계돼 있으니 메시지 본문만 상위 N건."""
+    out = []
+    for r in st_results or []:
+        out.append({k: r.get(k) for k in ("ticker", "name", "status", "bullish", "bearish",
+                                          "unlabeled", "total", "labeled", "bullPct",
+                                          "windowDays", "newest", "oldest")}
+                   | {"messages": [{k: m.get(k) for k in ("createdAt", "user", "sentiment", "body")}
+                                   for m in (r.get("messages") or [])[:top_msgs]]})
+    return out
+
+
+def _merge_stocktwits(llm_list, st_results, samples=3):
+    """peers.stocktwits 최종본 — 수치·상태는 코드(st_results)가, summary 만 LLM(티커 매칭)이.
+
+    LLM 이 티커를 빠뜨리거나 지어내도 결과는 st_results 기준(환각 수치 차단). 상태별 UI 표기:
+    ok(집계 표시) / empty(창 안 글 없음) / unavailable(수집 실패) / skipped(미국 미상장)."""
+    notes = {}
+    for it in llm_list or []:
+        if isinstance(it, dict) and it.get("ticker"):
+            notes[str(it["ticker"]).upper()] = (it.get("summary") or "").strip()
+    out = []
+    for r in st_results or []:
+        out.append({
+            **{k: r.get(k) for k in ("ticker", "name", "status", "bullish", "bearish", "unlabeled",
+                                     "total", "labeled", "bullPct", "windowDays", "newest", "oldest")},
+            "samples": [{k: m.get(k) for k in ("createdAt", "user", "sentiment", "body")}
+                        for m in (r.get("messages") or [])[:samples]],
+            "summary": notes.get(str(r.get("ticker") or "").upper(), ""),
+        })
+    return out
 
 
 PEER_SYSTEM = """\
@@ -617,12 +694,22 @@ def analyze_stock(stock, peer_cfg):
         peer_list = _res(f_peers, "peers", [])
         f_quotes = sub("peer_quotes", sources.get_peer_quotes, peer_list)
         f_reddit = sub("peer_reddit", fetch_peer_reddit, peer_list)
+        # StockTwits 는 미국 상장 peer 상위 2개(티커별 프로세스 캐시·7일 창) — P2 2026-09-18
+        f_st = sub("peer_stocktwits", social.stocktwits_for_peers, peer_list, top=2, fresh_days=7)
 
         peers = _res(f_quotes, "peer_quotes", [])
+        reddit_res = _res(f_reddit, "peer_reddit", {"posts": [], "status": "unavailable", "queried": []})
+        st_results = _res(f_st, "peer_stocktwits", [])
         raw = {
             "stock": {"code": code, "name": name, "market": stock["market"]},
             "peers_items": peers,                                   # deterministic, reused verbatim
-            "peers_reddit": _res(f_reddit, "peer_reddit", []),      # Reddit on the peer group
+            "peers_reddit": reddit_res.get("posts") or [],          # Reddit on the peer group
+            "peers_stocktwits": _stocktwits_llm_view(st_results),   # 라벨 집계(코드) + 메시지 상위
+            "peers_social_status": {                                # 수집 실패 ≠ 여론 부재
+                "reddit": reddit_res.get("status", "unavailable"),
+                "stocktwits": [{"ticker": r.get("ticker"), "status": r.get("status")}
+                               for r in st_results],
+            },
             "naver_news": _res(f_news, "naver_news", []),
             "overseas_news": _res(f_osn, "overseas_news", []),
             "naver_cafe": _res(f_cafe, "naver_cafe", []),           # 국내 community
@@ -715,8 +802,17 @@ def analyze_stock(stock, peer_cfg):
           f"llm={llm1_s:.1f}s({model_used}){fu_note} "
           f"total={time.perf_counter() - t0:.1f}s", file=sys.stderr)
 
-    # Force deterministic peer items (LLM only authored peers.summary/peers.reddit).
+    # Force deterministic peer items (LLM only authored peers.summary/peers.reddit/stocktwits summary).
     analysis.setdefault("peers", {})["items"] = peers
+    # StockTwits: 라벨 집계·상태·샘플은 코드가, 티커별 summary 만 LLM 이(티커 매칭 병합).
+    analysis["peers"]["stocktwits"] = _merge_stocktwits(
+        (analysis.get("peers") or {}).get("stocktwits"), st_results)
+    # 소셜 수집 상태 — 대시보드가 '수집 실패'(unavailable)와 '언급 없음'(empty)을 구분 표기.
+    analysis["peers"]["socialStatus"] = {
+        "reddit": reddit_res.get("status", "unavailable"),
+        "redditQueried": reddit_res.get("queried") or [],
+        "stocktwits": {r.get("ticker"): r.get("status") for r in st_results},
+    }
 
     # 수급 원본(최근 20거래일 + 가집계 랭킹)은 LLM 을 거치지 않고 그대로 싣는다 — 수치 환각 방지.
     if flow:

@@ -39,11 +39,21 @@ REDDIT_RSS = "https://www.reddit.com/r/{sub}/search.rss"
 _ATOM = {"atom": "http://www.w3.org/2005/Atom"}
 
 # ── Reddit 실행당 예산 + 회로차단(프로세스 전역, 스레드 안전) ──────────────────
-REDDIT_BUDGET = int(os.environ.get("REDDIT_BUDGET", "2"))     # 실행당 RSS 호출 상한
+REDDIT_BUDGET = int(os.environ.get("REDDIT_BUDGET", "2"))     # 창당 RSS 호출 상한
 REDDIT_GAP_S = float(os.environ.get("REDDIT_GAP_S", "1.5"))   # 호출 간 최소 간격
+# 예산 창(초). 창이 지나면 calls/blocked 를 자동 리셋 — 배치는 실행이 수 분이라 사실상
+# '실행당', 온디맨드(Railway 상주 프로세스)는 10분마다 예산이 되살아난다.
+REDDIT_WINDOW_S = float(os.environ.get("REDDIT_WINDOW_S", "600"))
 DEFAULT_SUBREDDITS = ("stocks", "investing", "wallstreetbets")
 _reddit_lock = threading.Lock()
-_reddit_state = {"calls": 0, "blocked": False, "last": 0.0, "reason": ""}
+_reddit_state = {"calls": 0, "blocked": False, "last": 0.0, "reason": "", "windowStart": 0.0}
+
+
+def _reddit_maybe_reset_locked():
+    """(락 보유 상태) 예산 창이 지났으면 상태 초기화."""
+    now = time.time()
+    if _reddit_state["windowStart"] and now - _reddit_state["windowStart"] > REDDIT_WINDOW_S:
+        _reddit_state.update(calls=0, blocked=False, reason="", windowStart=0.0)
 
 # ── StockTwits 티커별 프로세스 캐시(같은 실행에서 여러 종목이 같은 peer 공유) ────
 _st_cache = {}
@@ -64,11 +74,12 @@ def is_us_ticker(ticker):
 def reset_reddit_budget():
     """테스트·온디맨드 서버가 실행 단위를 새로 시작할 때 호출."""
     with _reddit_lock:
-        _reddit_state.update(calls=0, blocked=False, last=0.0, reason="")
+        _reddit_state.update(calls=0, blocked=False, last=0.0, reason="", windowStart=0.0)
 
 
 def reddit_status():
     with _reddit_lock:
+        _reddit_maybe_reset_locked()
         return dict(_reddit_state)
 
 
@@ -193,13 +204,16 @@ def _iso_epoch(s):
 def _reddit_take_slot():
     """예산·회로차단 검사 후 슬롯 확보(간격 대기 포함). 실패 사유 문자열 또는 None."""
     with _reddit_lock:
+        _reddit_maybe_reset_locked()
         if _reddit_state["blocked"]:
             return f"blocked: {_reddit_state['reason']}"
         if _reddit_state["calls"] >= REDDIT_BUDGET:
-            return f"budget exhausted ({REDDIT_BUDGET} calls/run)"
+            return f"budget exhausted ({REDDIT_BUDGET} calls/{int(REDDIT_WINDOW_S)}s)"
         wait = REDDIT_GAP_S - (time.time() - _reddit_state["last"])
         if wait > 0:
             time.sleep(wait)
+        if not _reddit_state["windowStart"]:
+            _reddit_state["windowStart"] = time.time()
         _reddit_state["calls"] += 1
         _reddit_state["last"] = time.time()
         return None
