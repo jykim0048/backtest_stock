@@ -295,7 +295,13 @@ THEME_REPORTS_MAX = 3
 
 def _attach_industry_reports(up_themes, down_themes):
     """테마별 industryReports[] 부착 (최근 30일, 최신순 최대 3건).
-    각 테마의 최신 1건은 상세 요약(summary)까지 조회해 LLM rationale 근거로 쓴다."""
+    각 테마의 최신 1건은 상세 요약(summary)까지 조회해 LLM rationale 근거로 쓴다.
+
+    같은 리포트는 한 테마에만 붙인다(URL 기준) — 바이오/헬스케어(제약·바이오),
+    에너지/소재(석유화학), 기술/임의소비재(게임)처럼 업종 후보가 겹치는 테마 쌍이
+    동일 3건을 중복 수신해 LLM 입력이 중복되던 문제(2026-09-18). 히트맵 순서
+    (급등 테마 → 급락 테마)대로 먼저 매칭된 테마가 가져가고, 뒤 테마는 그다음
+    최신 건을 받는다."""
     themes = up_themes + down_themes
     for t in themes:
         t["industryReports"] = []
@@ -307,17 +313,19 @@ def _attach_industry_reports(up_themes, down_themes):
         return
     if not reports:
         return
-    fetched_detail = set()
+    used = set()                     # 이미 다른 테마에 부착된 리포트 URL
     for t in themes:
         cats = _SECTOR_UPJONG.get(t.get("usTheme"), [])
         matched = [r for r in reports
-                   if any(c in r.get("category", "") or r.get("category", "") in c
-                          for c in cats)]
-        t["industryReports"] = matched[:THEME_REPORTS_MAX]
-        # 테마당 최신 1건 요약 본문 (중복 URL 은 1회만 조회)
-        if matched and matched[0]["url"] not in fetched_detail:
-            fetched_detail.add(matched[0]["url"])
-            matched[0]["summary"] = sources.naver_industry_detail(matched[0]["url"])
+                   if r.get("url") not in used
+                   and any(c in r.get("category", "") or r.get("category", "") in c
+                           for c in cats)]
+        picked = matched[:THEME_REPORTS_MAX]
+        t["industryReports"] = picked
+        used.update(r.get("url") for r in picked)
+        # 테마당 최신 1건 요약 본문 (테마 간 중복이 없으므로 URL 당 정확히 1회 조회)
+        if picked:
+            picked[0]["summary"] = sources.naver_industry_detail(picked[0]["url"])
     print(f"  Industry rpts  : {len(reports)}건(30일) → 테마별 부착 "
           f"{[len(t['industryReports']) for t in themes]}")
 
