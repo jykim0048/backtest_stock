@@ -399,6 +399,13 @@ def summarize(filings):
 # ----------------------------------------------------------------------------
 NEWS_MAX_PICKS = 3        # 회차당 신규 뉴스 촉매 상한(30분마다 돌므로 세션 누적은 충분)
 NEWS_FRESH_HOURS = 13     # 이 시간보다 오래된 기사 제외(전일 세션 리캡 유입 방지)
+# KIS 허브 /us-news — 한국투자증권 해외뉴스종합(HHPSTH60100C1)·해외속보(FHKST01011801)
+# 제목을 허브(trading_bot_HUB_KIS, Redis 토큰 공유)가 프록시. 헤드라인 제목·출처만 있고
+# 기사 URL 은 없다(원문 링크 없이 key 로만 dedup). Tavily 월 한도 소진(432) 이후 영문
+# 속보 보강 소스가 비어 있던 자리를 대체(2026-09-18, 사용자 요청 — Brave 대신 KIS).
+HUB_BASE = os.environ.get("HUB_BASE",
+                          "https://tradingstrategies-production-09d4.up.railway.app")
+KIS_NEWS_MAX = int(os.environ.get("KIS_NEWS_MAX", "40"))   # 회차당 허브에서 가져올 상한
 
 NEWS_SYSTEM = """\
 너는 한국 데이 트레이딩 데스크의 미국 담당 애널리스트다. 밤사이(미국 세션) 뉴스
@@ -494,15 +501,56 @@ def _fresh_epoch(now):
     return (now - datetime.timedelta(hours=NEWS_FRESH_HOURS)).timestamp()
 
 
-def gather_headlines(now):
-    """네이버 뉴스 + yfinance(SPY/QQQ) + Tavily 헤드라인 — [{title, url, src}]."""
-    heads, seen_urls = [], set()
+def _kis_us_news(now):
+    """KIS 허브 /us-news → [{title, key, src, url:""}] (NEWS_FRESH_HOURS 이내만).
 
-    def _add(title, url, src):
+    허브가 실패/토큰 부재면 {"status":"error"} 를 주므로 빈 리스트(다른 소스는 진행).
+    key 는 허브가 만든 안정 키(kis:<news_key> / kis-flash:<srno>) — 기사 URL 이 없는
+    소스라 seen/accession dedup 에 이 키를 쓴다."""
+    try:
+        r = requests.get(f"{HUB_BASE}/us-news", timeout=15)
+        r.raise_for_status()
+        d = r.json() or {}
+        if d.get("status") != "success":
+            _log(f"KIS 해외뉴스 허브 응답 비정상(생략): {d.get('error') or d.get('status')}")
+            return []
+    except Exception as e:
+        _log(f"KIS 해외뉴스 허브 조회 실패(생략): {e}")
+        return []
+    floor = _fresh_epoch(now)
+    out = []
+    for it in (d.get("items") or [])[:KIS_NEWS_MAX]:
+        title, key = (it.get("title") or "").strip(), (it.get("key") or "").strip()
+        if not title or not key:
+            continue
+        try:      # 허브가 KST 'YYYY-MM-DD' + 'HH:MM:SS' 로 정규화해 준다 — 실패 시 포함
+            ts = datetime.datetime.strptime(
+                f"{it.get('date')} {it.get('time')}", "%Y-%m-%d %H:%M:%S"
+            ).replace(tzinfo=KST).timestamp()
+            if ts < floor:
+                continue
+        except Exception:
+            pass
+        src = "kis" if it.get("kind") != "flash" else "kis-flash"
+        # 종목명이 붙어 오면 제목 앞에 달아 LLM 이 주체를 특정하기 쉽게 한다
+        names = [n for n in (it.get("names") or []) if n][:2]
+        if names and not any(n in title for n in names):
+            title = f"[{'/'.join(names)}] {title}"
+        out.append({"title": title, "key": key, "src": src, "url": ""})
+    return out
+
+
+def gather_headlines(now):
+    """네이버 뉴스 + yfinance(SPY/QQQ) + KIS 해외뉴스(허브) + Tavily 헤드라인
+    — [{title, key, src, url}]. key 는 dedup 키(URL 이 있으면 URL, KIS 는 허브 키)."""
+    heads, seen_keys = [], set()
+
+    def _add(title, url, src, key=None):
         title, url = (title or "").strip(), (url or "").strip()
-        if title and url and url not in seen_urls:
-            seen_urls.add(url)
-            heads.append({"title": title, "url": url, "src": src})
+        key = (key or url).strip()
+        if title and key and key not in seen_keys:
+            seen_keys.add(key)
+            heads.append({"title": title, "url": url, "key": key, "src": src})
 
     # 1) 네이버 뉴스 — 한국어 야간 미국시장 보도(연합인포맥스 등이 실시간 커버)
     floor = _fresh_epoch(now)
@@ -532,7 +580,12 @@ def gather_headlines(now):
     except Exception as e:
         _log(f"yfinance 뉴스 실패(생략): {e}")
 
-    # 3) Tavily 웹검색(→Brave 폴백) — 영문권 속보 보강, 회차당 1쿼리로 절제
+    # 3) KIS 해외뉴스종합·해외속보 제목(허브 프록시) — 한국어 실시간 해외 속보.
+    #    기사 URL 이 없어 key 로 dedup, 촉매 url 은 빈 값(대시보드 '원문' 링크 생략).
+    for it in _kis_us_news(now):
+        _add(it["title"], "", it["src"], key=it["key"])
+
+    # 4) Tavily 웹검색(→Brave 폴백) — 영문권 속보 보강, 회차당 1쿼리로 절제
     for it in sources.web_search("US stock market moving news today", max_results=5):
         _add(it.get("title"), it.get("url"), "web")
 
@@ -542,7 +595,7 @@ def gather_headlines(now):
 def collect_news(state, now):
     """미확인 헤드라인 → LLM 선별 → kind='news' 촉매 목록. 실패 시 []."""
     seen = set(state.get("seen") or [])
-    fresh = [h for h in gather_headlines(now) if h["url"] not in seen]
+    fresh = [h for h in gather_headlines(now) if h["key"] not in seen]
     if not fresh:
         _log("신규 헤드라인 0건 — 뉴스 레그 종료")
         return []
@@ -567,7 +620,7 @@ def collect_news(state, now):
         return []
 
     # 선별 여부와 무관하게 이번 회차 헤드라인은 전부 seen 처리(재평가 방지)
-    state["seen"] = sorted(seen | {h["url"] for h in fresh})
+    state["seen"] = sorted(seen | {h["key"] for h in fresh})
 
     out = []
     for p in (data or {}).get("picks", [])[:NEWS_MAX_PICKS]:
@@ -608,10 +661,11 @@ def collect_news(state, now):
             "form": "",
             "direction": direction,
             "summary": summary,
-            "url": h["url"],                # 원문 = 사건 기사 그대로
+            "url": h.get("url") or "",     # 원문 = 사건 기사 그대로(KIS 헤드라인은 URL 없음 → "")
+            "source": h.get("src", ""),     # naver|yahoo|kis|kis-flash|web
             "filedAt": now.strftime("%Y-%m-%d"),
             "changePct": None,
-            "accession": h["url"],          # 뉴스는 URL 이 dedup 키
+            "accession": h["key"],          # 뉴스는 URL(또는 KIS 키)이 dedup 키
         })
     return out
 
