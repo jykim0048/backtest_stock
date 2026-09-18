@@ -38,6 +38,7 @@ KOSPI/KOSDAQ 종목을 장전·장중으로 스크리닝하고, LLM이 장중 �
 
 ### 딥리서치
 - 선정 종목별 해외 peer 시세·뉴스·커뮤니티·DART 공시를 수집해 LLM이 요약.
+  해외 peer 여론은 StockTwits(라벨 집계, 주)와 Reddit(RSS 예산제, 보조)로 본다.
   peer는 큐레이션이 없으면 LLM 제안 + yfinance 티커 검증으로 동적 해결.
 - 수집 ~20콜을 futures 그래프로 병렬화(온디맨드 ~30s). 방향성 신호가 상충하는
   종목은 조건부 후속 라운드(화이트리스트 도구 질의)로 심화.
@@ -147,7 +148,7 @@ backtest_stock/
 │   ├── build_theme_map.py     # 섹터↔테마 매칭 맵
 │   └── build_krx_sector_map.py / build_sector_map_auto.py
 │
-├── analysis/                  # 딥리서치 RAW 수집기 (sources.py, peers.json)
+├── analysis/                  # 딥리서치 RAW 수집기 (sources.py, social.py, peers.json)
 ├── llm.py                     # LLM 폴백 체인 (Gemini → Anthropic)
 ├── ticker_utils.py            # 종목코드 → Yahoo 티커 변환
 ├── tests/                     # 파서·게이트 회귀 테스트 (픽스처 기반, 오프라인)
