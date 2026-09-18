@@ -1510,6 +1510,17 @@
       margin: 12px 0 4px;
     }
     .analysis-empty { color: var(--text-muted); font-style: italic; font-size: 12px; }
+    /* 해외 Peer 탭 — StockTwits 여론(2026-09-18 P3): 라벨 비율 막대·건수·샘플 메시지 */
+    .st-bar { display: flex; height: 8px; border-radius: 4px; overflow: hidden;
+              background: rgba(148, 163, 184, 0.2); margin: 6px 0 4px; }
+    .st-bar-bull { background: #10b981; }
+    .st-bar-bear { background: #ef4444; }
+    .st-counts { font-size: 11px; color: var(--text-muted); white-space: nowrap; }
+    .st-counts .bull { color: #34d399; }
+    .st-counts .bear { color: #f87171; }
+    .st-msg { font-size: 12px; color: #cbd5e1; padding: 4px 0 4px 10px; margin-top: 6px;
+              border-left: 2px solid rgba(255, 255, 255, 0.12); word-break: break-word; }
+    .analysis-subhead .subhead-meta { text-transform: none; letter-spacing: 0; font-weight: 400; margin-left: 6px; }
     .analysis-subhead-lg { font-size: 13px; }   /* 수급 탭 공매도·대차 제목 (+2px) */
     .analysis-subhead-md { font-size: 12px; }   /* 대차 제목의 괄호 설명 — 길어서 -1px */
     .flow-meta-lg { font-size: 12px; }          /* 수급 탭 누적 요약 우측 주석 (+1px) */
@@ -6252,6 +6263,52 @@
       return `<span class="sentiment-badge ${cls}">${escapeHtml(s || "중립")}</span>`;
     }
 
+    // StockTwits peer 1건 — 수치(bullish/bearish/unlabeled/bullPct)는 파이프라인 코드가 집계한
+    // 값이고 summary 만 LLM 작성(generate_analysis._merge_stocktwits). 상태별 표기:
+    // ok=막대+건수+요약+샘플 / empty=최근 메시지 없음 / unavailable=수집 실패 / skipped=대상 아님.
+    function stocktwitsItemHTML(t) {
+      const name = t.name && t.name !== t.ticker ? ` <span class="analysis-item-meta">${escapeHtml(t.name)}</span>` : "";
+      const title = `<span class="analysis-item-title">$${escapeHtml(t.ticker || "")}${name}</span>`;
+      if (t.status !== "ok") {
+        const label = { empty: "최근 메시지 없음", unavailable: "수집 실패", skipped: "대상 아님" }[t.status] || "데이터 없음";
+        const note = { empty: `최근 ${t.windowDays || 7}일 안에 올라온 메시지가 없습니다.`,
+                       unavailable: "StockTwits 스트림 조회 실패 — 언급 없음이 아닙니다.",
+                       skipped: "미국 미상장 peer — StockTwits 스트림 없음" }[t.status] || "";
+        return `<div class="analysis-item">
+            <div class="analysis-item-head">${title}<span class="sentiment-badge neu">${label}</span></div>
+            <div class="analysis-item-note">${note}</div>
+          </div>`;
+      }
+      const total = t.total || 0, labeled = t.labeled || 0;
+      const pct = n => total ? Math.round((n || 0) / total * 100) : 0;
+      // 방향 배지: 라벨 5건 미만은 표본 부족(방향 단정 금지), 90%+ 는 과열 경계
+      let badge = `<span class="sentiment-badge neu">표본 부족</span>`;
+      if (labeled >= 5 && t.bullPct != null) {
+        badge = t.bullPct >= 90 ? `<span class="sentiment-badge pos">강세 과열 경계</span>`
+              : t.bullPct >= 60 ? `<span class="sentiment-badge pos">강세 우위</span>`
+              : t.bullPct <= 40 ? `<span class="sentiment-badge neg">약세 우위</span>`
+              : `<span class="sentiment-badge neu">혼조</span>`;
+      }
+      const ratio = labeled
+        ? `라벨 기준 강세 ${t.bullPct}% (${t.bullish}/${labeled})${labeled < 5 ? " · 표본 적음" : ""}`
+        : "라벨 달린 메시지 없음";
+      const stBadge = s => s === "Bullish" ? `<span class="sentiment-badge pos">Bullish</span>`
+                         : s === "Bearish" ? `<span class="sentiment-badge neg">Bearish</span>`
+                         : `<span class="sentiment-badge neu">no-label</span>`;
+      const samples = (t.samples || []).map(m => `<div class="st-msg">
+          <span class="analysis-item-meta">${escapeHtml(m.createdAt || "")} · @${escapeHtml(m.user || "?")} · </span>${stBadge(m.sentiment)}
+          ${escapeHtml(m.body || "")}</div>`).join("");
+      return `<div class="analysis-item">
+          <div class="analysis-item-head">${title}
+            <span class="st-counts"><span class="bull">Bullish ${t.bullish || 0}</span> · <span class="bear">Bearish ${t.bearish || 0}</span> · 무라벨 ${t.unlabeled || 0} · 총 ${total}</span>
+          </div>
+          <div class="st-bar"><div class="st-bar-bull" style="width:${pct(t.bullish)}%"></div><div class="st-bar-bear" style="width:${pct(t.bearish)}%"></div></div>
+          <div class="analysis-item-note">${ratio} · ${badge}${t.newest ? ` <span class="analysis-item-meta">· ${escapeHtml(t.newest)} 기준</span>` : ""}</div>
+          ${t.summary ? `<div class="analysis-item-note" style="color:#cbd5e1; margin-top:4px;">${escapeHtml(t.summary)}</div>` : ""}
+          ${samples}
+        </div>`;
+    }
+
     function linkTitle(title, url) {
       const t = escapeHtml(title);
       return url ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener">${t}</a>` : t;
@@ -6296,6 +6353,10 @@
             <div class="analysis-item-note">${escapeHtml(it.note)}</div>
           </div>`;
         }).join("");
+        // 소셜 수집 상태(socialStatus, 2026-09-18 P2~): unavailable=수집 실패 / empty=언급 없음 을
+        // 구분 표기한다 — 관측하지 않은 침묵을 '여론 없음'으로 보여주지 않는다. 구버전 분석
+        // (socialStatus 없음)은 종전처럼 reddit 이 있을 때만 렌더.
+        const ss = sec.socialStatus || null;
         if (sec.reddit && sec.reddit.length) {
           html += `<div class="analysis-subhead">🔴 해외 Peer Reddit 여론</div>`;
           html += sec.reddit.map(it => `<div class="analysis-item">
@@ -6306,6 +6367,22 @@
               ${it.subreddit ? `<div class="analysis-item-meta">${escapeHtml(it.subreddit)}</div>` : ""}
               <div class="analysis-item-note">${escapeHtml(it.summary)}</div>
             </div>`).join("");
+        } else if (ss && (ss.reddit === "unavailable" || ss.reddit === "empty")) {
+          const failed = ss.reddit === "unavailable";
+          html += `<div class="analysis-subhead">🔴 해외 Peer Reddit 여론</div>
+            <div class="analysis-item">
+              <div class="analysis-item-head">
+                <span class="analysis-item-note">${failed
+                  ? "Reddit 속도 제한·차단으로 이번 회차 미수집 — 언급 없음이 아닙니다."
+                  : "최근 30일 peer 관련 글이 검색되지 않았습니다."}</span>
+                <span class="sentiment-badge neu">${failed ? "수집 실패" : "언급 없음"}</span>
+              </div>
+            </div>`;
+        }
+        if (sec.stocktwits && sec.stocktwits.length) {
+          const days = (sec.stocktwits.find(t => t.windowDays) || {}).windowDays || 7;
+          html += `<div class="analysis-subhead">💬 해외 Peer StockTwits 여론<span class="subhead-meta">최근 ${days}일 · 미국 상장 peer · 사용자 라벨 집계</span></div>`;
+          html += sec.stocktwits.map(stocktwitsItemHTML).join("");
         }
       } else if (tab === "news") {
         html += (sec.items || []).map(it => `<div class="analysis-item">
