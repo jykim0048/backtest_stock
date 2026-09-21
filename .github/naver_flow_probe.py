@@ -204,17 +204,8 @@ def main():
         except Exception as e:
             res[key] = {"error": str(e), "hasData": False}
 
-    # ② frgn HTML 페이지 — 폴백 후보
-    for code in CODES:
-        key = f"frgnHtml:{code}"
-        try:
-            r = requests.get(
-                "https://finance.naver.com/item/frgn.naver",
-                params={"code": code}, headers=UA, timeout=20)
-            res[key] = {"status": r.status_code, "size": len(r.text),
-                        "hasData": "순매매량" in r.text}
-        except Exception as e:
-            res[key] = {"error": str(e), "hasData": False}
+    # ② (삭제 2026-09-21) frgn.naver HTML 폴백 점검 — 신규 웹 개편으로 데이터 표 소멸,
+    #    폴백 후보에서 폐기. 모바일 trend API(①)만 사용.
 
     # ③ 장중 1분 투자자 시계열(2026-09-21) — 현재 호출 그대로 + 변형 + 대체 후보
     bizdate = datetime.datetime.now(
@@ -390,8 +381,48 @@ def main():
         import traceback
         res["liveCheck"] = {"error": traceback.format_exc()[-800:]}
 
+    # ⑫ 8차(2026-09-21) — 남은 구형 HTML 2종 점검 + 모바일 대체 후보
+    #    board.naver(종목토론방, naver_board: table.type2 > td.title a)
+    #    main.naver(밸류에이션, naver_valuation: #_per #_eps #_cns_per #_pbr #_dvr ·
+    #    '동일업종 PER 정보'·'투자의견 정보' 표)
+    legacy = {}
+    for code in CODES:
+        for kind, url, needles in (
+                ("board", "https://finance.naver.com/item/board.naver",
+                 ('class="type2"', 'class="title"')),
+                ("main", "https://finance.naver.com/item/main.naver",
+                 ('id="_per"', 'id="_pbr"', 'id="_cns_per"', "동일업종 PER 정보",
+                  "투자의견 정보"))):
+            try:
+                r = requests.get(url, params={"code": code},
+                                 headers=dict(UA, Referer="https://finance.naver.com/"),
+                                 timeout=20)
+                r.encoding = r.apparent_encoding or "utf-8"
+                t = r.text
+                legacy[f"{kind}:{code}"] = {
+                    "status": r.status_code, "finalUrl": r.url, "size": len(t),
+                    "needles": {n: (n in t) for n in needles},
+                    "titleLinks": t.count('<td class="title">') if kind == "board" else None}
+            except Exception as e:
+                legacy[f"{kind}:{code}"] = {"error": str(e)}
+    res["legacyHtml"] = legacy
+    # 대체 후보 — 신규 웹 종목 화면 번들에서 토론·밸류 관련 API 주소 수집 + 모바일 샘플
+    global API_KEYWORDS
+    API_KEYWORDS = API_KEYWORDS + ("discussion", "community", "board", "post", "consensus",
+                                   "integration", "finance", "valuation")
+    _discover_mobile_apis(res, ["/domestic/stock/005930/total",
+                                "/domestic/stock/005930/discussion"],
+                          base=NEW_WEB, tag="stockweb", max_js=80)
+    _json_sample("sample:stockIntegration", MOBILE + "/api/stock/005930/integration", {}, res)
+    _json_sample("sample:stockFinanceAnnual", MOBILE + "/api/stock/005930/finance/annual",
+                 {}, res)
+    _json_sample("sample:discussionByItem",
+                 MOBILE + "/api/community/discussion/posts/by-item",
+                 {"discussionType": "domesticStock", "itemCode": "005930",
+                  "pageSize": 5, "isHolderOnly": "false", "excludesItemNews": "false",
+                  "isBest": "false"}, res)
+
     res["trendApiOk"] = all(res[f"trendApi:{c}"].get("hasData") for c in CODES)
-    res["frgnHtmlOk"] = all(res[f"frgnHtml:{c}"].get("hasData") for c in CODES)
     # 판정: 410=폐지(Gone) / 그 외 4xx·예외=차단·오류 / 200·행 0=구조 변경
     def _verdict(c):
         st = c.get("status") or 0

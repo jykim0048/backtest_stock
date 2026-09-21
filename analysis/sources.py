@@ -666,7 +666,8 @@ def combined_research(code, days=60, limit=8):
 # 2i) 네이버 투자자별 매매동향 (Q점수 Flow 팩터 — 외국인·기관 순매수)
 #     m.stock.naver.com 모바일 JSON API. Actions 해외 IP 접근성은
 #     .github/naver_flow_probe_result.json 으로 검증됨(2026-07-08, KRX 와 달리
-#     차단 없음). 폴백 후보: finance.naver.com/item/frgn.naver HTML.
+#     차단 없음). (구 폴백 후보 finance.naver.com/item/frgn.naver 는 2026-09 신규 웹
+#     개편으로 데이터 표가 사라져 폐기 — 2026-09-21 프로브 실측)
 # ----------------------------------------------------------------------------
 def naver_investor_trend(code, days=20):
     """일별 투자자 순매수(주) 목록 — 최신순 [{date, foreigner, organ}].
