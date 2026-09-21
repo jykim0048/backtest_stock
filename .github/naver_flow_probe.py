@@ -422,6 +422,32 @@ def main():
                   "pageSize": 5, "isHolderOnly": "false", "excludesItemNews": "false",
                   "isBest": "false"}, res)
 
+    # ⑬ 9차(2026-09-21) — 대체 규약 확정. ① integration.totalInfos 전 항목(code·key·value)
+    #    — PER/EPS/추정/PBR/BPS/배당/52주 코드명 ② 토론방 API 호스트·파라미터(번들 문맥 +
+    #    stock.naver.com 호스트 직접 호출)
+    for code in CODES:
+        try:
+            d = requests.get(f"{MOBILE}/api/stock/{code}/integration", headers=UA,
+                             timeout=20).json()
+            res[f"totalInfos:{code}"] = [{k: x.get(k) for k in ("code", "key", "value")}
+                                         for x in (d.get("totalInfos") or [])]
+            res[f"consensus:{code}"] = d.get("consensusInfo")
+            res[f"integrationKeys:{code}"] = sorted(d.keys())
+        except Exception as e:
+            res[f"totalInfos:{code}"] = {"error": str(e)}
+    _bundle_context(res, "/domestic/stock/005930/discussion",
+                    ["discussion/posts/by-item?", "discussion/posts?itemCode="], width=900)
+    res["ctxBoard"] = res.pop("ctx", None)
+    ref_d = NEW_WEB + "/domestic/stock/005930/discussion"
+    for i, (path, params) in enumerate((
+            ("/api/community/discussion/posts/by-item", {"itemCode": "005930"}),
+            ("/api/community/discussion/posts/by-item",
+             {"discussionType": "domesticStock", "itemCode": "005930", "pageSize": 5}),
+            ("/api/community/discussion/posts", {"itemCode": "005930"}),
+            ("/api/community/discussion/posts", {"itemCode": "005930", "pageSize": 5}))):
+        _json_sample(f"board:{i}:{path.rsplit('/', 1)[1]}?{'&'.join(params)}",
+                     NEW_WEB + path, params, res, referer=ref_d)
+
     res["trendApiOk"] = all(res[f"trendApi:{c}"].get("hasData") for c in CODES)
     # 판정: 410=폐지(Gone) / 그 외 4xx·예외=차단·오류 / 200·행 0=구조 변경
     def _verdict(c):
