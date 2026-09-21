@@ -1,5 +1,5 @@
 {
-  "asof": "2026-09-21T01:20:52.985899+00:00",
+  "asof": "2026-09-21T05:08:27.463122+00:00",
   "trendApi:005930": {
     "status": 200,
     "rows": 25,
@@ -85,9 +85,181 @@
       "message",
       "path"
     ],
-    "head": "{\"timestamp\":\"2026-09-21T01:21:03.362+0000\",\"status\":404,\"error\":\"Not Found\",\"message\":\"No message available\",\"path\":\"/index/KOSPI/investor\"}"
+    "head": "{\"timestamp\":\"2026-09-21T05:08:35.901+0000\",\"status\":404,\"error\":\"Not Found\",\"message\":\"No message available\",\"path\":\"/index/KOSPI/investor\"}"
+  },
+  "theme:ranking": {
+    "status": 200,
+    "finalUrl": "https://stock.naver.com/market/stock/kr/theme/1",
+    "size": 136705,
+    "rows": 0,
+    "needle": null,
+    "head": "<!DOCTYPE html><html lang=\"ko\" class=\"\" data-theme=\"light\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=1366, initial-scale=1.0, user-scala"
+  },
+  "theme:detail": {
+    "status": 200,
+    "finalUrl": "https://stock.naver.com/market/stock/kr/theme/586",
+    "size": 136711,
+    "rows": null,
+    "needle": false,
+    "head": "<!DOCTYPE html><html lang=\"ko\" class=\"\" data-theme=\"light\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=1366, initial-scale=1.0, user-scala"
+  },
+  "upjong:ranking": {
+    "status": 200,
+    "finalUrl": "https://stock.naver.com/market/stock/kr/industry/1",
+    "size": 136634,
+    "rows": null,
+    "needle": false,
+    "head": "<!DOCTYPE html><html lang=\"ko\" class=\"\" data-theme=\"light\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=1366, initial-scale=1.0, user-scala"
+  },
+  "discover:pages": {
+    "/": {
+      "status": 200,
+      "scripts": 37
+    },
+    "/domestic/index/KOSPI/total": {
+      "status": 200,
+      "scripts": 41
+    },
+    "/domestic/index/KOSPI/investor": {
+      "status": 200,
+      "scripts": 41
+    },
+    "/domestic/theme": {
+      "status": 200,
+      "scripts": 30
+    },
+    "/marketindex": {
+      "status": 200,
+      "scripts": 24
+    }
+  },
+  "discover:bundles": 59,
+  "discover:apis": [
+    "/api/realtime/coin/price",
+    "/api/realtime/domestic/NXT/stock/{codes}",
+    "/api/realtime/domestic/index/{codes}",
+    "/api/realtime/domestic/stock/{codes}",
+    "/api/realtime/marketindex/agricultural/{codes}",
+    "/api/realtime/marketindex/energy/{codes}",
+    "/api/realtime/marketindex/exchange/.DXY",
+    "/api/realtime/marketindex/exchangeWorld/{codes}",
+    "/api/realtime/marketindex/metals/{codes}",
+    "/api/realtime/marketindex/transport/{codes}",
+    "/api/realtime/worldstock/futures/{codes}",
+    "/api/realtime/worldstock/index/{codes}",
+    "/api/realtime/worldstock/stock/{codes}"
+  ],
+  "m:indexTrend": {
+    "status": 200,
+    "isJson": true,
+    "type": "dict",
+    "n": 4,
+    "keys": [
+      "bizdate",
+      "personalValue",
+      "foreignValue",
+      "institutionalValue"
+    ],
+    "head": "{\"bizdate\":\"20260921\",\"personalValue\":\"-27,479\",\"foreignValue\":\"+408\",\"institutionalValue\":\"+12,854\"}"
+  },
+  "m:indexInvestor": {
+    "status": 404,
+    "isJson": false,
+    "type": null,
+    "n": null,
+    "keys": null,
+    "head": "<!doctype html> <html lang=\"ko\"> <head>     <meta charset=\"utf-8\">     <meta name=\"viewport\" content=\"width=device-width,initial-scale=1.0,maximum-scale=1.0,minimum-scale=1.0,user-scalable=no\">     <title>Npay 증권</title>     <link rel=\"shortcut icon\" href=\"https://ssl.pstatic.net/imgstock/favicon.ic"
+  },
+  "m:indexIntegration": {
+    "status": 200,
+    "isJson": true,
+    "type": "dict",
+    "n": 11,
+    "keys": [
+      "stockEndType",
+      "itemCode",
+      "reutersCode",
+      "stockName",
+      "totalInfos",
+      "description",
+      "dealTrendInfo",
+      "programTrendInfo"
+    ],
+    "head": "{\"stockEndType\":\"index\",\"itemCode\":\"KOSPI\",\"reutersCode\":\"KOSPI\",\"stockName\":\"코스피\",\"totalInfos\":[{\"code\":\"lastClosePrice\",\"key\":\"전일\",\"value\":\"6,894.23\"},{\"code\":\"openPrice\",\"key\":\"시가\",\"value\":\"6,938.34\",\"compareToPreviousPrice\":{\"code\":\"2\",\"text\":\"상승\",\"name\":\"RISING\"}},{\"code\":\"highPrice\",\"key\":\"고가\""
+  },
+  "m:indexInvestorTime": {
+    "status": 404,
+    "isJson": false,
+    "type": null,
+    "n": null,
+    "keys": null,
+    "head": "<!doctype html> <html lang=\"ko\"> <head>     <meta charset=\"utf-8\">     <meta name=\"viewport\" content=\"width=device-width,initial-scale=1.0,maximum-scale=1.0,minimum-scale=1.0,user-scalable=no\">     <title>Npay 증권</title>     <link rel=\"shortcut icon\" href=\"https://ssl.pstatic.net/imgstock/favicon.ic"
+  },
+  "m:frontIndexInvestor": {
+    "status": 404,
+    "isJson": true,
+    "type": "dict",
+    "n": 3,
+    "keys": [
+      "message",
+      "error",
+      "statusCode"
+    ],
+    "head": "{\"message\":\"Route GET:/front-api/index/investorTrend?indexCode=KOSPI not found\",\"error\":\"Not Found\",\"statusCode\":404}"
+  },
+  "m:themeList": {
+    "status": 200,
+    "isJson": true,
+    "type": "dict",
+    "n": 7,
+    "keys": [
+      "stockListSortType",
+      "groups",
+      "totalCount",
+      "page",
+      "pageSize",
+      "localOpenTimeDesc",
+      "marketStatus"
+    ],
+    "head": "{\"stockListSortType\":\"THEME\",\"groups\":[{\"no\":615,\"name\":\"2026 하반기 신규상장\",\"totalCount\":13,\"changeRate\":\"20.51\",\"riseCount\":10,\"fallCount\":2,\"steadyCount\":1},{\"no\":543,\"name\":\"의료AI\",\"totalCount\":29,\"changeRate\":\"4.20\",\"riseCount\":16,\"fallCount\":11,\"steadyCount\":2},{\"no\":614,\"name\":\"S7(삼성전자/SK하이닉스 등)\",\""
+  },
+  "m:themeDetail": {
+    "status": 200,
+    "isJson": true,
+    "type": "dict",
+    "n": 10,
+    "keys": [
+      "stockListSortType",
+      "stocks",
+      "groupInfo",
+      "themeDescription",
+      "themeItemInfoMap",
+      "totalCount",
+      "page",
+      "pageSize"
+    ],
+    "head": "{\"stockListSortType\":\"THEME\",\"stocks\":[{\"stockType\":\"domestic\",\"stockEndType\":\"stock\",\"itemCode\":\"388790\",\"reutersCode\":\"388790\",\"stockName\":\"라이콤\",\"sosok\":\"1\",\"closePrice\":\"5,360\",\"compareToPreviousClosePrice\":\"290\",\"compareToPreviousPrice\":{\"code\":\"2\",\"text\":\"상승\",\"name\":\"RISING\"},\"fluctuationsRatio"
+  },
+  "m:upjongList": {
+    "status": 404,
+    "isJson": false,
+    "type": null,
+    "n": null,
+    "keys": null,
+    "head": ""
   },
   "trendApiOk": true,
   "frgnHtmlOk": false,
-  "timelineVerdict": "요청실패(차단·오류 의심)"
+  "timelineVerdict": "폐지(410 Gone)",
+  "themeVerdict": {
+    "theme:ranking": "구조변경 의심(200·데이터 없음)",
+    "theme:detail": "구조변경 의심(200·데이터 없음)",
+    "upjong:ranking": "구조변경 의심(200·데이터 없음)"
+  },
+  "mobileOk": [
+    "m:indexTrend",
+    "m:indexIntegration",
+    "m:themeList",
+    "m:themeDetail"
+  ]
 }
