@@ -49,6 +49,63 @@ def _timeline_case(name, params, headers, res):
         res[name] = {"error": str(e), "rows": 0}
 
 
+# sources._THEME_ROW_RE 와 동일 — 테마 랭킹 행
+THEME_ROW_RE = re.compile(
+    r'col_type1"><a href="/sise/sise_group_detail\.naver\?type=theme&no=(\d+)">([^<]+)</a>'
+    r'.*?col_type2">\s*<span[^>]*>\s*([+\-]?[\d.]+)%(.*?)</tr>', re.S)
+MOBILE = "https://m.stock.naver.com"
+# 모바일 번들에서 API 주소 문자열 추출 — 상대(/api/…, /front-api/…) + 절대(*.stock.naver.com)
+API_STR_RE = re.compile(
+    r'["\'`]((?:https?://[a-z.]*stock\.naver\.com)?/(?:api|front-api)/[^"\'`\s]{2,140}'
+    r'|https?://(?:api|polling)[a-z.]*\.naver\.com/[^"\'`\s]{2,140})')
+API_KEYWORDS = ("invest", "trend", "deal", "theme", "group", "upjong", "sise", "time")
+
+
+def _html_case(name, url, params, res, row_re=None, needle=None):
+    """구형 HTML 페이지 1콜 — 폐지(410)·구조 변경 판별."""
+    try:
+        r = requests.get(url, params=params, headers=UA, timeout=20)
+        html = r.content.decode("euc-kr", errors="replace")
+        res[name] = {"status": r.status_code, "finalUrl": r.url, "size": len(html),
+                     "rows": len(row_re.findall(html)) if row_re else None,
+                     "needle": (needle in html) if needle else None,
+                     "head": html[:160].replace("\n", " ")}
+    except Exception as e:
+        res[name] = {"error": str(e)}
+
+
+def _discover_mobile_apis(res, pages):
+    """모바일 웹 페이지 → script 번들 → API 주소 문자열 수집(키워드 필터).
+
+    Next.js 류 SPA 라 실제 데이터 호출 주소는 번들 JS 안에만 있다. 페이지별로 번들을
+    받아 문자열을 긁고, 키워드(invest/trend/theme…) 포함 것만 남긴다."""
+    seen_js, found = set(), set()
+    info = {}
+    for path in pages:
+        try:
+            r = requests.get(MOBILE + path, headers=UA, timeout=20)
+            srcs = re.findall(r'<script[^>]+src="([^"]+\.js)"', r.text)
+            info[path] = {"status": r.status_code, "scripts": len(srcs)}
+        except Exception as e:
+            info[path] = {"error": str(e)}
+            continue
+        for s in srcs:
+            u = s if s.startswith("http") else MOBILE + s
+            if u in seen_js or len(seen_js) >= 60:
+                continue
+            seen_js.add(u)
+            try:
+                js = requests.get(u, headers=UA, timeout=20).text
+            except Exception:
+                continue
+            for m in API_STR_RE.findall(js):
+                if any(k in m.lower() for k in API_KEYWORDS):
+                    found.add(m)
+    res["discover:pages"] = info
+    res["discover:bundles"] = len(seen_js)
+    res["discover:apis"] = sorted(found)[:250]
+
+
 def _json_case(name, url, params, res):
     """대체 후보(모바일·API JSON) — 응답 형태만 확인."""
     try:
@@ -114,14 +171,48 @@ def main():
                "https://api.stock.naver.com/index/KOSPI/investor",
                {"pageSize": 10, "page": 1}, res)
 
+    # ④ 테마맵 구형 페이지(2026-09-21) — theme_map.yml 이 9/14·9/21 연속 실패
+    #    (build_theme_map: 랭킹 < 50 이면 exit 1). 랭킹·상세 둘 다 확인
+    _html_case("theme:ranking", "https://finance.naver.com/sise/theme.naver",
+               {"page": 1}, res, row_re=THEME_ROW_RE)
+    _html_case("theme:detail", "https://finance.naver.com/sise/sise_group_detail.naver",
+               {"type": "theme", "no": "586"}, res, needle="<tr onMouseOver")
+    _html_case("upjong:ranking", "https://finance.naver.com/sise/sise_group.naver",
+               {"type": "upjong"}, res, needle="sise_group_detail")
+
+    # ⑤ 모바일(Npay 증권) API 탐색 — 번들 문자열 + 유력 후보 직접 호출
+    _discover_mobile_apis(res, ["/", "/domestic/index/KOSPI/total",
+                                "/domestic/index/KOSPI/investor",
+                                "/domestic/theme", "/marketindex"])
+    for name, path, params in (
+            ("m:indexTrend", "/api/index/KOSPI/trend", {"pageSize": 10, "page": 1}),
+            ("m:indexInvestor", "/api/index/KOSPI/investor", {}),
+            ("m:indexIntegration", "/api/index/KOSPI/integration", {}),
+            ("m:indexInvestorTime", "/api/index/KOSPI/investorTrend/time", {}),
+            ("m:frontIndexInvestor", "/front-api/index/investorTrend",
+             {"indexCode": "KOSPI"}),
+            ("m:themeList", "/api/stocks/theme", {"page": 1, "pageSize": 20}),
+            ("m:themeDetail", "/api/stocks/theme/586", {"page": 1, "pageSize": 20}),
+            ("m:upjongList", "/api/stocks/upjong", {"page": 1, "pageSize": 20})):
+        _json_case(name, MOBILE + path, params, res)
+
     res["trendApiOk"] = all(res[f"trendApi:{c}"].get("hasData") for c in CODES)
     res["frgnHtmlOk"] = all(res[f"frgnHtml:{c}"].get("hasData") for c in CODES)
-    # 판정: 요청은 되는데 행이 0 → 구조 변경 / 요청 실패·리다이렉트 → 차단 의심
-    tl = res["timeline:asis"]
-    res["timelineVerdict"] = (
-        "요청실패(차단·오류 의심)" if tl.get("error") or (tl.get("status") or 0) >= 400
-        else "정상(행 수집됨)" if tl.get("rows")
-        else "구조변경 의심(200·행 0)")
+    # 판정: 410=폐지(Gone) / 그 외 4xx·예외=차단·오류 / 200·행 0=구조 변경
+    def _verdict(c):
+        st = c.get("status") or 0
+        if c.get("error"):
+            return "요청실패(오류)"
+        if st == 410:
+            return "폐지(410 Gone)"
+        if st >= 400:
+            return f"요청실패({st})"
+        return "정상" if (c.get("rows") or c.get("needle")) else "구조변경 의심(200·데이터 없음)"
+    res["timelineVerdict"] = _verdict(res["timeline:asis"])
+    res["themeVerdict"] = {k: _verdict(res[k]) for k in
+                           ("theme:ranking", "theme:detail", "upjong:ranking")}
+    res["mobileOk"] = [k for k in res if k.startswith("m:")
+                       and res[k].get("status") == 200 and res[k].get("isJson")]
     print(json.dumps(res, indent=2, ensure_ascii=False))
     with open(".github/naver_flow_probe_result.json", "w", encoding="utf-8") as f:
         json.dump(res, f, indent=2, ensure_ascii=False)
