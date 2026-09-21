@@ -1,139 +1,11 @@
 {
- "date": "2026-09-21",
- "asof": "2026-09-21 15:40 KST",
+ "date": "2026-09-22",
+ "asof": "2026-09-22 07:46 KST",
  "sources": {
   "naver": true,
   "forexfactory": true
  },
  "released": [
-  {
-   "nation": "KOR",
-   "name": "생산자물가지수 전월대비",
-   "reutersCode": "KRPPI=ECIX",
-   "importance": 4,
-   "period": "Aug 2026",
-   "category": "PRICE",
-   "releaseAtKST": "2026-09-18 06:00",
-   "actual": 0.2,
-   "previous": -0.4,
-   "unit": "%",
-   "unitScale": "",
-   "forecast": null,
-   "forecastSource": null,
-   "source": "naver",
-   "surprise": {
-    "vs": "previous",
-    "diff": 0.6,
-    "verdict": "above"
-   }
-  },
-  {
-   "nation": "KOR",
-   "name": "생산자물가지수 전년대비",
-   "reutersCode": "KRPPIY=ECIX",
-   "importance": 1,
-   "period": "Aug 2026",
-   "category": "PRICE",
-   "releaseAtKST": "2026-09-18 06:00",
-   "actual": 7.9,
-   "previous": 7.7,
-   "unit": "%",
-   "unitScale": "",
-   "forecast": null,
-   "forecastSource": null,
-   "source": "naver",
-   "surprise": {
-    "vs": "previous",
-    "diff": 0.2,
-    "verdict": "above"
-   }
-  },
-  {
-   "nation": "USA",
-   "name": "산업생산 전월대비",
-   "reutersCode": "USIP=ECIX",
-   "importance": 3,
-   "period": "Aug 2026",
-   "category": "EMPLOYMENT",
-   "releaseAtKST": "2026-09-18 22:15",
-   "actual": 0,
-   "previous": 0.2,
-   "unit": "%",
-   "unitScale": "",
-   "forecast": null,
-   "forecastSource": null,
-   "source": "naver",
-   "surprise": {
-    "vs": "previous",
-    "diff": -0.2,
-    "verdict": "below"
-   }
-  },
-  {
-   "nation": "USA",
-   "name": "생산능력 이용률",
-   "reutersCode": "USCAPU=ECIX",
-   "importance": 2,
-   "period": "Aug 2026",
-   "category": "EMPLOYMENT",
-   "releaseAtKST": "2026-09-18 22:15",
-   "actual": 76.3,
-   "previous": 76.3,
-   "unit": "%",
-   "unitScale": "",
-   "forecast": null,
-   "forecastSource": null,
-   "source": "naver",
-   "surprise": {
-    "vs": "previous",
-    "diff": 0.0,
-    "verdict": "inline"
-   }
-  },
-  {
-   "nation": "USA",
-   "name": "산업 생산 전년대비",
-   "reutersCode": "USIPY=ECIX",
-   "importance": 1,
-   "period": "Aug 2026",
-   "category": "EMPLOYMENT",
-   "releaseAtKST": "2026-09-18 22:15",
-   "actual": 1.42,
-   "previous": 1.08,
-   "unit": "%",
-   "unitScale": "",
-   "forecast": null,
-   "forecastSource": null,
-   "source": "naver",
-   "surprise": {
-    "vs": "previous",
-    "diff": 0.34,
-    "verdict": "above"
-   }
-  },
-  {
-   "nation": "USA",
-   "name": "제조업 생산 전월대비",
-   "reutersCode": "USFOUT=ECIX",
-   "importance": 1,
-   "period": "Aug 2026",
-   "category": "EMPLOYMENT",
-   "releaseAtKST": "2026-09-18 22:15",
-   "actual": -0.3,
-   "previous": 0.2,
-   "unit": "%",
-   "unitScale": "",
-   "forecast": null,
-   "forecastSource": null,
-   "source": "naver",
-   "surprise": {
-    "vs": "previous",
-    "diff": -0.5,
-    "verdict": "below"
-   }
-  }
- ],
- "upcoming": [
   {
    "nation": "USA",
    "name": "시카고 연준 국가활동지수",
@@ -142,13 +14,21 @@
    "period": "Aug 2026",
    "category": "EMPLOYMENT",
    "releaseAtKST": "2026-09-21 21:30",
+   "actual": -0.04,
    "previous": -0.08,
    "unit": "",
    "unitScale": "",
    "forecast": null,
    "forecastSource": null,
-   "source": "naver"
-  },
+   "source": "naver",
+   "surprise": {
+    "vs": "previous",
+    "diff": 0.04,
+    "verdict": "above"
+   }
+  }
+ ],
+ "upcoming": [
   {
    "nation": "USA",
    "name": "레드북 소매판매지수 전년대비",
@@ -642,10 +522,10 @@
    "previous": 0.4,
    "unit": "%",
    "unitScale": "",
-   "forecast": 0.5,
+   "forecast": 0.6,
    "forecastSource": "forexfactory",
    "source": "naver",
-   "forecastText": "0.5"
+   "forecastText": "0.6"
   },
   {
    "nation": "USA",
@@ -701,6 +581,171 @@
    "category": "EMPLOYMENT",
    "releaseAtKST": "2026-09-28 23:30",
    "previous": 11.6,
+   "unit": "",
+   "unitScale": "",
+   "forecast": null,
+   "forecastSource": null,
+   "source": "naver"
+  },
+  {
+   "nation": "KOR",
+   "name": "기업심리지수",
+   "reutersCode": "KRCBSI=ECIX",
+   "importance": 4,
+   "period": "Sep 2026",
+   "category": "BSI_CSI",
+   "releaseAtKST": "2026-09-29 06:00",
+   "previous": 99.6,
+   "unit": "",
+   "unitScale": "",
+   "forecast": null,
+   "forecastSource": null,
+   "source": "naver"
+  },
+  {
+   "nation": "USA",
+   "name": "S&P/CS 20대 도시 주택가격지수 전년대비",
+   "reutersCode": "USSHPQ=ECIX",
+   "importance": 2,
+   "period": "Jul 2026",
+   "category": "EMPLOYMENT",
+   "releaseAtKST": "2026-09-29 22:00",
+   "previous": 2.1,
+   "unit": "%",
+   "unitScale": "",
+   "forecast": null,
+   "forecastSource": null,
+   "source": "naver"
+  },
+  {
+   "nation": "USA",
+   "name": "S&P/CS 20대 도시 주택가격지수 전월대비",
+   "reutersCode": "USSHPN=ECIX",
+   "importance": 2,
+   "period": "Jul 2026",
+   "category": "EMPLOYMENT",
+   "releaseAtKST": "2026-09-29 22:00",
+   "previous": 0.2,
+   "unit": "%",
+   "unitScale": "",
+   "forecast": null,
+   "forecastSource": null,
+   "source": "naver"
+  },
+  {
+   "nation": "USA",
+   "name": "S&P/CS 20대 도시 주택가격지수 전월대비  계절 미조정",
+   "reutersCode": "USSHP=ECIX",
+   "importance": 1,
+   "period": "Jul 2026",
+   "category": "EMPLOYMENT",
+   "releaseAtKST": "2026-09-29 22:00",
+   "previous": 0.4,
+   "unit": "%",
+   "unitScale": "",
+   "forecast": null,
+   "forecastSource": null,
+   "source": "naver"
+  },
+  {
+   "nation": "USA",
+   "name": "주택가격지수",
+   "reutersCode": "USHPID=ECIX",
+   "importance": 1,
+   "period": "Jul 2026",
+   "category": "EMPLOYMENT",
+   "releaseAtKST": "2026-09-29 22:00",
+   "previous": 442.5,
+   "unit": "",
+   "unitScale": "",
+   "forecast": null,
+   "forecastSource": null,
+   "source": "naver"
+  },
+  {
+   "nation": "USA",
+   "name": "주택가격지수 전년대비",
+   "reutersCode": "USHPIY=ECIX",
+   "importance": 1,
+   "period": "Jul 2026",
+   "category": "EMPLOYMENT",
+   "releaseAtKST": "2026-09-29 22:00",
+   "previous": 2.3,
+   "unit": "%",
+   "unitScale": "",
+   "forecast": null,
+   "forecastSource": null,
+   "source": "naver"
+  },
+  {
+   "nation": "USA",
+   "name": "주택가격지수 전월대비",
+   "reutersCode": "USHPIM=ECIX",
+   "importance": 1,
+   "period": "Jul 2026",
+   "category": "EMPLOYMENT",
+   "releaseAtKST": "2026-09-29 22:00",
+   "previous": 0,
+   "unit": "%",
+   "unitScale": "",
+   "forecast": null,
+   "forecastSource": null,
+   "source": "naver"
+  },
+  {
+   "nation": "USA",
+   "name": "CB 소비자신뢰지수",
+   "reutersCode": "USCONC=ECIX",
+   "importance": 3,
+   "period": "Sep 2026",
+   "category": "BSI_CSI",
+   "releaseAtKST": "2026-09-29 23:00",
+   "previous": 89.4,
+   "unit": "",
+   "unitScale": "",
+   "forecast": null,
+   "forecastSource": null,
+   "source": "naver"
+  },
+  {
+   "nation": "USA",
+   "name": "노동부 채용 및 노동 회전률 조사 (JOLT) 빈 일자리 수",
+   "reutersCode": "USJOLT=ECIX",
+   "importance": 2,
+   "period": "Aug 2026",
+   "category": "EMPLOYMENT",
+   "releaseAtKST": "2026-09-29 23:00",
+   "previous": 7.271,
+   "unit": "pers",
+   "unitScale": "M",
+   "forecast": null,
+   "forecastSource": null,
+   "source": "naver"
+  },
+  {
+   "nation": "USA",
+   "name": "달라스 연준 서비스 매출",
+   "reutersCode": "USTXR=ECIX",
+   "importance": 1,
+   "period": "Sep 2026",
+   "category": "BSI_CSI",
+   "releaseAtKST": "2026-09-29 23:30",
+   "previous": 6.6,
+   "unit": "",
+   "unitScale": "",
+   "forecast": null,
+   "forecastSource": null,
+   "source": "naver"
+  },
+  {
+   "nation": "USA",
+   "name": "텍사스 서비스분야 전망",
+   "reutersCode": "USTXS=ECIX",
+   "importance": 1,
+   "period": "Sep 2026",
+   "category": "EMPLOYMENT",
+   "releaseAtKST": "2026-09-29 23:30",
+   "previous": 4.2,
    "unit": "",
    "unitScale": "",
    "forecast": null,
@@ -799,6 +844,6 @@
     }
    ]
   },
-  "asof": "2026-09-21 15:08 KST"
+  "asof": "2026-09-22 07:46 KST"
  }
 }
