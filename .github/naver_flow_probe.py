@@ -502,6 +502,46 @@ def main():
         import traceback
         res["liveCheck2"] = {"error": traceback.format_exc()[-800:]}
 
+    # ⑮ 11차(2026-09-21) — 사용자 지적: 동일업종 등락률·PER, 토론 조회수 모두 화면에 있음.
+    #    ① 가격 화면 HTML(SSR) 안에 값/문구가 있는지 ② 번들에서 '동일업종'(UTF-8 원문·
+    #    \\uXXXX 이스케이프)·조회수 필드 후보(viewCount/readCount/hitCount/views) 주변 문맥
+    #    ③ 글 ID 묶음 API(reactions·comment-counts) 실제 호출
+    ctx11 = {}
+    try:
+        html = requests.get(NEW_WEB + "/domestic/stock/005930/price",
+                            headers=dict(UA, Referer=NEW_WEB + "/"), timeout=20).text
+        for n in ("동일업종", "industryPer", "sameIndustry", "upjongPer", "9.12"):
+            i = html.find(n)
+            ctx11[f"html:{n}"] = html[max(0, i - 500):i + 500] if i >= 0 else None
+    except Exception as e:
+        ctx11["html:error"] = str(e)
+    res["ctx11html"] = ctx11
+    esc = "동일업종".encode("unicode_escape").decode()        # \\ub3d9\\uc77c\\uc5c5\\uc885
+    _bundle_context(res, "/domestic/stock/005930/price",
+                    ["동일업종", esc, "industryPer", "IndustryPer", "sameIndustry"], width=700)
+    res["ctx11price"] = res.pop("ctx", None)
+    _bundle_context(res, "/domestic/stock/005930/discussion",
+                    ["viewCount", "readCount", "hitCount", "posts/reactions?postIds=",
+                     "posts/comment-counts?"], width=500)
+    res["ctx11board"] = res.pop("ctx", None)
+    try:
+        posts = requests.get(NEW_WEB + "/api/community/discussion/posts",
+                             params={"itemCode": "005930", "discussionType": "domesticStock",
+                                     "isHolderOnly": "false", "excludesItemNews": "false",
+                                     "isItemNewsOnly": "false", "pageSize": 3},
+                             headers=UA, timeout=20).json().get("posts") or []
+        ids = ",".join(str(p.get("id")) for p in posts)
+        for name, path in (("reactions", "/api/community/discussion/posts/reactions"),
+                           ("commentCounts", "/api/community/discussion/posts/comment-counts"),
+                           ("viewCounts", "/api/community/discussion/posts/view-counts")):
+            _json_sample(f"batch:{name}", NEW_WEB + path, {"postIds": ids}, res,
+                         referer=NEW_WEB + "/domestic/stock/005930/discussion")
+        if posts:
+            _json_sample("single:post", NEW_WEB + f"/api/community/discussion/posts/{posts[0]['id']}",
+                         {"viewerProfileId": ""}, res)
+    except Exception as e:
+        res["batch:error"] = str(e)
+
     res["trendApiOk"] = all(res[f"trendApi:{c}"].get("hasData") for c in CODES)
     # 판정: 410=폐지(Gone) / 그 외 4xx·예외=차단·오류 / 200·행 0=구조 변경
     def _verdict(c):
