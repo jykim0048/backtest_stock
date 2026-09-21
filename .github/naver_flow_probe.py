@@ -448,6 +448,60 @@ def main():
         _json_sample(f"board:{i}:{path.rsplit('/', 1)[1]}?{'&'.join(params)}",
                      NEW_WEB + path, params, res, referer=ref_d)
 
+    # ⑭ 10차(2026-09-21) — 동일업종 PER·등락률 출처 API 찾기. 사용자 제공 화면
+    #    stock.naver.com/domestic/stock/005930/price 에 '동일업종 등락률 +3.10%·PER 9.12배'
+    #    표시 — integration 엔 없음. 번들 발견 후보를 호출해 응답에 업종 관련 키가 있는지
+    #    (industry/upjong/sector/same…) 재귀 탐색 + 상위 구조 샘플
+    def _find_keys(o, pat, path="", out=None, depth=0):
+        out = [] if out is None else out
+        if depth > 6 or len(out) > 40:
+            return out
+        if isinstance(o, dict):
+            for k, v in o.items():
+                p = f"{path}.{k}"
+                if re.search(pat, k, re.I):
+                    out.append({"path": p, "value": _trim(v, 3)})
+                _find_keys(v, pat, p, out, depth + 1)
+        elif isinstance(o, list):
+            for i, v in enumerate(o[:3]):
+                _find_keys(v, pat, f"{path}[{i}]", out, depth + 1)
+        return out
+    ref_p = NEW_WEB + "/domestic/stock/005930/price"
+    ind = {}
+    for path in ("/api/domestic/detail/005930/price", "/api/domestic/detail/005930/listing",
+                 "/api/domestic/detail/005930/traderInfo",
+                 "/api/domestic/detail/005930/integration",
+                 "/api/domestic/detail/005930/investInfo",
+                 "/api/securityService/integration/indicators?itemCode=005930",
+                 "/api/securityService/integration/v1/indicators?itemCode=005930",
+                 "/api/securityService/integration/price?itemCode=005930"):
+        try:
+            r = requests.get(NEW_WEB + path, headers=dict(UA, Referer=ref_p), timeout=20)
+            try:
+                d = r.json()
+            except Exception:
+                d = None
+            ind[path] = {"status": r.status_code,
+                         "topKeys": list(d)[:25] if isinstance(d, dict) else type(d).__name__,
+                         "industryKeys": _find_keys(d, r"industr|upjong|sector|same|peer"),
+                         "has912": "9.12" in r.text, "has310": "3.10" in r.text}
+        except Exception as e:
+            ind[path] = {"error": str(e)}
+    res["industryPer"] = ind
+    API_KEYWORDS = API_KEYWORDS + ("detail", "industry", "compare", "upjong")
+    _discover_mobile_apis(res, ["/domestic/stock/005930/price"], base=NEW_WEB,
+                          tag="pricepage", max_js=90)
+    # 교체한 naver_valuation·naver_board 실동작(⑪ 과 같은 방식 — 파이프라인 코드 import)
+    try:
+        from analysis import sources as S2
+        res["liveCheck2"] = {
+            "valuation": {c: S2.naver_valuation(c) for c in CODES},
+            "board": {c: (lambda b: {"n": len(b), "otherItem": 0, "top": b[:2]})(
+                S2.naver_board(c, pages=5)) for c in CODES}}
+    except Exception:
+        import traceback
+        res["liveCheck2"] = {"error": traceback.format_exc()[-800:]}
+
     res["trendApiOk"] = all(res[f"trendApi:{c}"].get("hasData") for c in CODES)
     # 판정: 410=폐지(Gone) / 그 외 4xx·예외=차단·오류 / 200·행 0=구조 변경
     def _verdict(c):

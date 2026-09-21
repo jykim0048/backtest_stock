@@ -126,69 +126,55 @@ def _strip_tags(s):
 #     Encoding is auto-detected (now UTF-8; was EUC-KR historically). Datacenter/CI
 #     IPs may be blocked, so this degrades to [] (cafearticle search is the fallback).
 # ----------------------------------------------------------------------------
-def naver_board(code, pages=1, limit=15):
-    """종목토론방(finance.naver.com/item/board) 글을 파싱한다.
+_BOARD_API = "https://stock.naver.com/api/community/discussion/posts"
+_BOARD_PAGE = 20           # 구형 게시판 1페이지 = 20글 — pages 인자와 같은 분량을 1콜로
 
-    Returns list of {title, url, date, views, agree, disagree}, 공감수 내림차순
-    (노이즈/낚시 글을 가라앉히기 위함). 실패 시 [] 반환(배치 중단 방지).
-    """
+
+def naver_board(code, pages=1, limit=15):
+    """종목토론방 글 → [{title, url, date, views, agree, disagree, comments}], 공감수
+    내림차순(노이즈/낚시 글을 가라앉히기 위함). 실패 시 [] 반환(배치 중단 방지).
+
+    2026-09-21 신규 웹 JSON 으로 전환 — 구형 finance.naver.com/item/board.naver 가
+    stock.naver.com/domestic/stock/<code>/discussion SPA 로 리다이렉트되어 HTML 파서가
+    항상 0건(딥리서치 board_deep 결손). 번들 규약: itemCode·discussionType·isHolderOnly·
+    excludesItemNews·isItemNewsOnly·pageSize **전부 필요** — 빠지면 전 종목 글이 섞여
+    온다(프로브 실측). 조회수는 새 API 에 없어 views=0(호환 키 유지)."""
     try:
-        from bs4 import BeautifulSoup
-    except Exception:
-        _warn("beautifulsoup4 not installed — naver_board skipped")
+        r = requests.get(_BOARD_API,
+                         params={"itemCode": code, "discussionType": "domesticStock",
+                                 "isHolderOnly": "false", "excludesItemNews": "false",
+                                 "isItemNewsOnly": "false",
+                                 "pageSize": min(100, _BOARD_PAGE * max(1, pages))},
+                         headers={**UA, "Referer":
+                                  f"https://stock.naver.com/domestic/stock/{code}/discussion"},
+                         timeout=15)
+        r.raise_for_status()
+        posts = (r.json() or {}).get("posts") or []
+    except Exception as e:
+        _warn(f"naver_board({code}) failed: {e}")
         return []
 
-    def _fetch_page(page):
+    def _i(v):
         try:
-            r = requests.get(
-                "https://finance.naver.com/item/board.naver",
-                params={"code": code, "page": page},
-                headers={**UA, "Referer":
-                         f"https://finance.naver.com/item/main.naver?code={code}"},
-                timeout=15,
-            )
-            r.encoding = r.apparent_encoding or "utf-8"   # 자동 감지 (UTF-8/EUC-KR 모두 대응)
-            r.raise_for_status()
-            return r.text
-        except Exception as e:
-            _warn(f"naver_board({code}, p{page}) failed: {e}")
-            return None
-
-    # 페이지 병렬 수집(2026-07-22 온디맨드 속도 개선) — 결과는 공감순 정렬이라 순서 무관
-    if pages > 1:
-        with ThreadPoolExecutor(max_workers=pages) as ex:
-            texts = list(ex.map(_fetch_page, range(1, pages + 1)))
-    else:
-        texts = [_fetch_page(1)]
+            return int(v or 0)
+        except (TypeError, ValueError):
+            return 0
 
     out = []
-    for text in texts:
-        if not text:
+    for p in posts:
+        # 방어: 파라미터 규약이 바뀌어 다른 종목 글이 섞이면 버린다(프로브 실측 사례)
+        if str(p.get("itemCode") or code) != code or p.get("replyDepth"):
             continue
-        table = BeautifulSoup(text, "html.parser").select_one("table.type2")
-        if table is None:
-            continue
-        for tr in table.select("tr"):
-            a = tr.select_one("td.title a")
-            if not a:
-                continue
-            tds = tr.find_all("td")           # 날짜 | 제목 | 글쓴이 | 조회 | 공감 | 비공감
-
-            def _num(i):
-                try:
-                    return int(tds[i].get_text(strip=True).replace(",", ""))
-                except Exception:
-                    return 0
-
-            href = a.get("href", "")
-            out.append({
-                "title": (a.get("title") or a.get_text(strip=True)).strip(),
-                "url": "https://finance.naver.com" + href if href.startswith("/") else href,
-                "date": tds[0].get_text(strip=True) if tds else "",
-                "views": _num(3),
-                "agree": _num(4),
-                "disagree": _num(5),
-            })
+        pid = str(p.get("id") or "")
+        out.append({
+            "title": str(p.get("title") or "").strip(),
+            "url": f"https://stock.naver.com/domestic/stock/{code}/discussion/{pid}" if pid else "",
+            "date": str(p.get("writtenAt") or "").replace("T", " ")[:16],
+            "views": 0,
+            "agree": _i(p.get("recommendCount")),
+            "disagree": _i(p.get("notRecommendCount")),
+            "comments": _i(p.get("commentCount")),
+        })
 
     out.sort(key=lambda x: x.get("agree", 0), reverse=True)
     return out[:limit]
@@ -357,99 +343,78 @@ def naver_industry_detail(url, max_chars=400):
 
 
 # ----------------------------------------------------------------------------
-# 2f) Naver Finance 종목 밸류에이션 (item/main 우측 '투자정보' 패널 HTML scrape)
+# 2f) Naver 종목 밸류에이션 — m.stock.naver.com 모바일 JSON(integration)
 #     Yahoo Finance 가 KRX 종목의 trailing EPS 를 제공하지 않아 PER/PBR 이 항상
-#     결측 — 네이버가 정본. 고정 id(_per/_pbr/...)는 id 로, 나머지는 테이블
-#     summary 속성 기준으로 파싱해 마크업 개편에 최대한 견고하게 둔다.
+#     결측 — 네이버가 정본. 2026-09-21 전환: 구형 finance.naver.com/item/main.naver 가
+#     stock.naver.com/domestic/stock/<code>/price SPA 로 리다이렉트되어 #_per 등
+#     셀렉터가 전부 사라졌다(값이 모두 None 인 dict 를 돌려줘 '조회 실패' 경고도 안 뜨고
+#     추정PER·배당·목표가 폴백이 조용히 결측). integration 은 totalInfos[{code,key,
+#     value}]·consensusInfo{recommMean, priceTargetMean} 를 준다(프로브 실측).
+#     동일업종 PER·등락률은 새 API 에 없어 None — 업종 PER 은 FnGuide 3순위가 보완.
 # ----------------------------------------------------------------------------
+_INTEGRATION_API = "https://m.stock.naver.com/api/stock/{code}/integration"
+
+
+def _vnum(s):
+    """'12.25배' / '22,292원' / '0.61%' / '-3.2배' / 'N/A' → float|None"""
+    t = re.sub(r"[^\d.\-]", "", str(s or ""))
+    try:
+        return float(t) if t not in ("", "-", ".") else None
+    except ValueError:
+        return None
+
+
+def _opinion_label(score):
+    """네이버 투자의견 점수(1~5, 증권사 평균) → 라벨. 새 API 엔 라벨 텍스트가 없어
+    점수 구간으로 복원 — 표기는 신규 웹 컨센서스 막대(적극매도·매도·중립·매수·
+    적극매수, 2026-09-21 사용자 제공 화면: 4.00=매수)와 동일."""
+    if score is None:
+        return None
+    return ("적극매수" if score >= 4.5 else "매수" if score >= 3.5 else
+            "중립" if score >= 2.5 else "매도" if score >= 1.5 else "적극매도")
+
+
 def naver_valuation(code):
-    """finance.naver.com/item/main 의 밸류에이션 지표를 파싱한다.
+    """네이버 종목 밸류에이션 지표.
 
     Returns {per, eps, estPer, estEps, pbr, bps, dividendYield, industryPer,
     industryChangePct, opinionScore, opinionLabel, targetPrice, high52w, low52w}
-    — 값이 없거나 N/A(적자 등)면 None. 요청/파싱 실패 시 {} (배치 중단 방지).
-    per·eps 는 최근 4분기 실적 기준(trailing), estPer·estEps 는 증권사 추정
-    평균(컨센서스, 추정 3개사 미만이면 N/A)."""
+    — 값이 없거나 N/A(적자 등)면 None. 요청 실패·응답 비정상 시 {} (배치 중단 방지 +
+    호출부 '조회 실패' 경고가 뜨도록). per·eps 는 trailing, estPer·estEps 는 증권사
+    추정 평균(컨센서스). 52주 고저는 수정주가(…Adjusted) 우선."""
     try:
-        from bs4 import BeautifulSoup
-    except Exception:
-        _warn("beautifulsoup4 not installed — naver_valuation skipped")
-        return {}
-
-    try:
-        r = requests.get(
-            "https://finance.naver.com/item/main.naver",
-            params={"code": code},
-            headers={**UA, "Referer": "https://finance.naver.com/sise/"},
-            timeout=15,
-        )
-        r.encoding = r.apparent_encoding or "utf-8"   # 자동 감지 (현재 UTF-8, 과거 EUC-KR)
+        r = requests.get(_INTEGRATION_API.format(code=code), headers=UA, timeout=15)
         r.raise_for_status()
+        d = r.json() or {}
     except Exception as e:
         _warn(f"naver_valuation({code}) failed: {e}")
         return {}
+    info = {str(x.get("code")): x.get("value") for x in (d.get("totalInfos") or [])
+            if isinstance(x, dict)}
+    if not info:
+        _warn(f"naver_valuation({code}): totalInfos 없음")
+        return {}
+    cns = d.get("consensusInfo") or {}
+    score = _vnum(cns.get("recommMean"))
 
-    soup = BeautifulSoup(r.text, "html.parser")
+    def pick(*keys):
+        for k in keys:
+            v = _vnum(info.get(k))
+            if v is not None:
+                return v
+        return None
 
-    def _num(el):
-        """<em>25.02</em> / <em>12,372</em> / <em>N/A</em> -> float|None"""
-        if el is None:
-            return None
-        t = el.get_text(strip=True).replace(",", "").replace("%", "")
-        try:
-            return float(t)
-        except ValueError:
-            return None
-
-    out = {
-        "per": _num(soup.select_one("#_per")),
-        "eps": _num(soup.select_one("#_eps")),
-        "estPer": _num(soup.select_one("#_cns_per")),
-        "estEps": _num(soup.select_one("#_cns_eps")),
-        "pbr": _num(soup.select_one("#_pbr")),
-        "bps": None,
-        "dividendYield": _num(soup.select_one("#_dvr")),
+    return {
+        "per": pick("per"), "eps": pick("eps"),
+        "estPer": pick("cnsPer"), "estEps": pick("cnsEps"),
+        "pbr": pick("pbr"), "bps": pick("bps"),
+        "dividendYield": pick("dividendYieldRatio"),
         "industryPer": None, "industryChangePct": None,
-        "opinionScore": None, "opinionLabel": None, "targetPrice": None,
-        "high52w": None, "low52w": None,
+        "opinionScore": score, "opinionLabel": _opinion_label(score),
+        "targetPrice": _vnum(cns.get("priceTargetMean")),
+        "high52w": pick("highPriceOf52WeeksAdjusted", "highPriceOf52Weeks"),
+        "low52w": pick("lowPriceOf52WeeksAdjusted", "lowPriceOf52Weeks"),
     }
-
-    # BPS 는 id 가 없음 — _pbr 과 같은 <td> 의 마지막 <em> ("4.30배 l 71,907원")
-    pbr_el = soup.select_one("#_pbr")
-    td = pbr_el.find_parent("td") if pbr_el else None
-    if td:
-        ems = td.find_all("em")
-        if len(ems) >= 2:
-            out["bps"] = _num(ems[-1])
-
-    # 동일업종 PER / 등락률
-    tbl = soup.select_one('table[summary="동일업종 PER 정보"]')
-    if tbl:
-        ems = tbl.find_all("em")
-        if ems:
-            out["industryPer"] = _num(ems[0])
-        if len(ems) > 1:
-            out["industryChangePct"] = _num(ems[1])
-
-    # 투자의견(점수+라벨) | 목표주가, 52주최고 | 최저
-    tbl = soup.select_one('table[summary="투자의견 정보"]')
-    for tr in (tbl.find_all("tr") if tbl else []):
-        th, ems = tr.find("th"), tr.find_all("em")
-        label = th.get_text(strip=True) if th else ""
-        if "투자의견" in label:
-            # <span class="f_up"><em>4.04</em>매수</span> <span class="bar">l</span> <em>505,625</em>
-            out["opinionScore"] = _num(ems[0]) if ems else None
-            if len(ems) >= 2:
-                out["targetPrice"] = _num(ems[-1])
-            span = ems[0].find_parent("span") if ems else None
-            if span:
-                lbl = re.sub(r"[\d.,\s]", "", span.get_text(strip=True))
-                out["opinionLabel"] = lbl or None
-        elif "52주" in label and len(ems) >= 2:
-            out["high52w"] = _num(ems[0])
-            out["low52w"] = _num(ems[1])
-
-    return out
 
 
 # ----------------------------------------------------------------------------
