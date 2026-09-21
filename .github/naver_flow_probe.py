@@ -303,6 +303,29 @@ def main():
     except Exception as e:
         res["themeDetailExtra"] = {"error": str(e)}
 
+    # ⑨ 5차(2026-09-21) — 규약 확정: 번들 H(): tradeType=KRX|NXT·marketType·bizdate·
+    #    startIdx·pageSize. 투자자 코드표(W={8e3:개인,9e3:외국인,9999:기관계,1e3:…})와
+    #    marketType 값 목록을 넓은 문맥으로, 실응답은 축약 없이 앞·뒤 행 원문 저장
+    _bundle_context(res, TRADER_PAGE, ['9e3:{group:"foreign"', 'marketType:"',
+                                       '"KOSDAQ"'], width=1600)
+    res["ctx5"] = res.pop("ctx", None)
+    for mt in ("KOSPI", "KOSDAQ", "KSP", "KSQ", "0", "1", "STOCK_KOSPI"):
+        key = f"trend5:{mt}"
+        try:
+            r = requests.get(NEW_WEB + "/api/domestic/market/trend/time",
+                             params={"tradeType": "KRX", "marketType": mt, "bizdate": bizdate,
+                                     "startIdx": 0, "pageSize": 300},
+                             headers=dict(UA, Referer=NEW_WEB + TRADER_PAGE), timeout=20)
+            d = r.json()
+            rows = d.get("content") or []
+            res[key] = {"status": r.status_code, "totalElements": d.get("totalElements"),
+                        "n": len(rows), "first": rows[0] if rows else None,
+                        "last": rows[-1] if rows else None,
+                        "times": [x.get("time") for x in rows[:5]] + ["…"]
+                                 + [x.get("time") for x in rows[-3:]]}
+        except Exception as e:
+            res[key] = {"error": str(e)}
+
     res["trendApiOk"] = all(res[f"trendApi:{c}"].get("hasData") for c in CODES)
     res["frgnHtmlOk"] = all(res[f"frgnHtml:{c}"].get("hasData") for c in CODES)
     # 판정: 410=폐지(Gone) / 그 외 4xx·예외=차단·오류 / 200·행 0=구조 변경
