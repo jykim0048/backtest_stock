@@ -326,6 +326,37 @@ def main():
         except Exception as e:
             res[key] = {"error": str(e)}
 
+    # ⑩ 6차(2026-09-21) — 5차 pageSize=300 전부 400. 페이징 규약(startIdx=행 오프셋?
+    #    페이지 번호?)·pageSize 상한·누적 여부 확정. 400 이면 본문(오류 사유) 저장
+    for mt, si, ps in (("KOSPI", 0, 20), ("KOSPI", 1, 20), ("KOSPI", 20, 20),
+                       ("KOSPI", 0, 50), ("KOSPI", 0, 100), ("KOSPI", 0, 200),
+                       ("KOSDAQ", 0, 20)):
+        key = f"trend6:{mt}:si{si}:ps{ps}"
+        try:
+            r = requests.get(NEW_WEB + "/api/domestic/market/trend/time",
+                             params={"tradeType": "KRX", "marketType": mt, "bizdate": bizdate,
+                                     "startIdx": si, "pageSize": ps},
+                             headers=dict(UA, Referer=NEW_WEB + TRADER_PAGE), timeout=20)
+            try:
+                d = r.json()
+            except Exception:
+                d = {}
+            rows = d.get("content") or [] if isinstance(d, dict) else []
+            res[key] = {"status": r.status_code,
+                        "body": None if r.ok else r.text[:300],
+                        "number": d.get("number") if isinstance(d, dict) else None,
+                        "offset": ((d.get("pageable") or {}).get("offset")
+                                   if isinstance(d, dict) else None),
+                        "totalElements": d.get("totalElements") if isinstance(d, dict) else None,
+                        "n": len(rows),
+                        "times": [x.get("time") for x in rows[:3]]
+                                 + ([x.get("time") for x in rows[-2:]] if len(rows) > 3 else []),
+                        # 누적 판정용 — 첫 행(최신)·끝 행 원문(12 투자자 전부)
+                        "first": rows[0] if rows and si == 0 else None,
+                        "last": rows[-1] if rows and si == 0 and ps >= 100 else None}
+        except Exception as e:
+            res[key] = {"error": str(e)}
+
     res["trendApiOk"] = all(res[f"trendApi:{c}"].get("hasData") for c in CODES)
     res["frgnHtmlOk"] = all(res[f"frgnHtml:{c}"].get("hasData") for c in CODES)
     # 판정: 410=폐지(Gone) / 그 외 4xx·예외=차단·오류 / 200·행 0=구조 변경
