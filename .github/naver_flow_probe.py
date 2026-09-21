@@ -115,6 +115,29 @@ def _discover_mobile_apis(res, pages, base=MOBILE, tag="discover", max_js=60):
     res[f"{tag}:apis"] = sorted(found)[:300]
 
 
+def _bundle_context(res, page, needles, base=NEW_WEB, width=400, max_js=90):
+    """페이지 번들에서 needle(API 경로) 주변 문맥 추출 — 쿼리 파라미터명 확인용."""
+    out = {n: [] for n in needles}
+    try:
+        html = requests.get(base + page, headers=dict(UA, Referer=base + "/"), timeout=20).text
+        srcs = re.findall(r'<script[^>]+src="([^"]+\.js)"', html)[:max_js]
+    except Exception as e:
+        res["ctx:error"] = str(e)
+        return
+    for s in srcs:
+        u = s if s.startswith("http") else base + s
+        try:
+            js = requests.get(u, headers=UA, timeout=20).text
+        except Exception:
+            continue
+        for n in needles:
+            for mt in re.finditer(re.escape(n), js):
+                if len(out[n]) < 4:
+                    a = max(0, mt.start() - width)
+                    out[n].append(js[a:mt.end() + width])
+    res["ctx"] = out
+
+
 def _trim(o, depth=0):
     """JSON 샘플 축약 — 리스트는 앞 2개, 깊이 4, 문자열 80자."""
     if depth > 4:
@@ -251,6 +274,34 @@ def main():
     _json_sample("sample:indexTrend", MOBILE + "/api/index/KOSPI/trend",
                  {"pageSize": 3, "page": 1}, res)
     _json_sample("sample:indexIntegration", MOBILE + "/api/index/KOSPI/integration", {}, res)
+
+    # ⑧ 4차(2026-09-21) — 시간별 API 쿼리 파라미터 확정: 번들 문맥 + 후보 조합 직접 호출
+    _bundle_context(res, TRADER_PAGE, ["market/trend/time", "market/trend/chart/time",
+                                       "market/trend/daily"])
+    ref_tr = NEW_WEB + TRADER_PAGE
+    for i, (path, params) in enumerate((
+            ("/api/domestic/market/trend/time", {}),
+            ("/api/domestic/market/trend/time", {"marketType": "KOSPI"}),
+            ("/api/domestic/market/trend/time", {"market": "KOSPI"}),
+            ("/api/domestic/market/trend/time", {"koreaIndexType": "KOSPI"}),
+            ("/api/domestic/market/trend/time", {"sosok": "01"}),
+            ("/api/domestic/market/trend/time", {"marketType": "KOSPI", "bizdate": bizdate}),
+            ("/api/domestic/market/trend/time", {"koreaIndexType": "KOSPI", "bizdate": bizdate,
+                                                 "page": 1, "pageSize": 10}),
+            ("/api/domestic/market/trend/chart/time", {"koreaIndexType": "KOSPI"}),
+            ("/api/domestic/market/trend/chart/time", {"marketType": "KOSPI"}),
+            ("/api/domestic/market/trend/daily", {"koreaIndexType": "KOSPI"}))):
+        _json_sample(f"try:{i}:{path.rsplit('/api/', 1)[1]}?{'&'.join(params)}",
+                     NEW_WEB + path, params, res, referer=ref_tr)
+    # 테마 상세의 편입 사유 필드(themeItemInfoMap) 전체 구조
+    try:
+        d = requests.get(MOBILE + "/api/stocks/theme/586", params={"page": 1, "pageSize": 2},
+                         headers=UA, timeout=20).json()
+        res["themeDetailExtra"] = {k: _trim(d.get(k)) for k in
+                                   ("groupInfo", "themeDescription", "themeItemInfoMap",
+                                    "totalCount")}
+    except Exception as e:
+        res["themeDetailExtra"] = {"error": str(e)}
 
     res["trendApiOk"] = all(res[f"trendApi:{c}"].get("hasData") for c in CODES)
     res["frgnHtmlOk"] = all(res[f"frgnHtml:{c}"].get("hasData") for c in CODES)
