@@ -138,7 +138,9 @@ def naver_board(code, pages=1, limit=15):
     stock.naver.com/domestic/stock/<code>/discussion SPA 로 리다이렉트되어 HTML 파서가
     항상 0건(딥리서치 board_deep 결손). 번들 규약: itemCode·discussionType·isHolderOnly·
     excludesItemNews·isItemNewsOnly·pageSize **전부 필요** — 빠지면 전 종목 글이 섞여
-    온다(프로브 실측). 조회수는 새 API 에 없어 views=0(호환 키 유지)."""
+    온다(프로브 실측). 목록 응답엔 조회수가 없어 화면과 같이 글 ID 묶음 API
+    (posts/reactions?postIds=)로 viewCount·공감/비공감(최신값)을 채운다 — 실패 시
+    목록값 유지, views 는 0."""
     try:
         r = requests.get(_BOARD_API,
                          params={"itemCode": code, "discussionType": "domesticStock",
@@ -160,13 +162,13 @@ def naver_board(code, pages=1, limit=15):
         except (TypeError, ValueError):
             return 0
 
-    out = []
+    out, by_id = [], {}
     for p in posts:
         # 방어: 파라미터 규약이 바뀌어 다른 종목 글이 섞이면 버린다(프로브 실측 사례)
         if str(p.get("itemCode") or code) != code or p.get("replyDepth"):
             continue
         pid = str(p.get("id") or "")
-        out.append({
+        row = {
             "title": str(p.get("title") or "").strip(),
             "url": f"https://stock.naver.com/domestic/stock/{code}/discussion/{pid}" if pid else "",
             "date": str(p.get("writtenAt") or "").replace("T", " ")[:16],
@@ -174,7 +176,30 @@ def naver_board(code, pages=1, limit=15):
             "agree": _i(p.get("recommendCount")),
             "disagree": _i(p.get("notRecommendCount")),
             "comments": _i(p.get("commentCount")),
-        })
+        }
+        out.append(row)
+        if pid:
+            by_id[pid] = row
+
+    # 조회수·반응 — 글 ID 50개씩 묶음 조회(화면과 동일 경로)
+    ids = list(by_id)
+    for i in range(0, len(ids), 50):
+        try:
+            r = requests.get(f"{_BOARD_API}/reactions",
+                             params={"postIds": ",".join(ids[i:i + 50])},
+                             headers={**UA, "Referer":
+                                      f"https://stock.naver.com/domestic/stock/{code}/discussion"},
+                             timeout=15)
+            r.raise_for_status()
+            for rx in r.json() or []:
+                row = by_id.get(str(rx.get("postId") or ""))
+                if row is not None:
+                    row["views"] = _i(rx.get("viewCount"))
+                    row["agree"] = _i(rx.get("recommendCount", row["agree"]))
+                    row["disagree"] = _i(rx.get("notRecommendCount", row["disagree"]))
+        except Exception as e:
+            _warn(f"naver_board({code}) reactions failed: {e}")
+            break
 
     out.sort(key=lambda x: x.get("agree", 0), reverse=True)
     return out[:limit]

@@ -542,6 +542,58 @@ def main():
     except Exception as e:
         res["batch:error"] = str(e)
 
+    # ⑯ 12차(2026-09-21) — sameIndustryPer/ChangeRate 를 주는 API 확정.
+    #    그 필드를 쓰는 번들 파일에서 API 경로 전부(정적 + "/api/domestic/detail/".concat(x,
+    #    "/suffix") 동적 조합) 추출 → 후보 호출해 응답 본문에 sameIndustryPer 포함 여부
+    found = {"chunks": [], "paths": set(), "suffixes": set()}
+    try:
+        html = requests.get(NEW_WEB + "/domestic/stock/005930/price",
+                            headers=dict(UA, Referer=NEW_WEB + "/"), timeout=20).text
+        for s in re.findall(r'<script[^>]+src="([^"]+\.js)"', html)[:90]:
+            u = s if s.startswith("http") else NEW_WEB + s
+            try:
+                js = requests.get(u, headers=UA, timeout=20).text
+            except Exception:
+                continue
+            if "sameIndustryPer" not in js:
+                continue
+            found["chunks"].append(u.rsplit("/", 1)[-1])
+            found["paths"] |= set(re.findall(r'["\'`](/api/[^"\'`\s]{2,140})', js))
+            found["suffixes"] |= set(re.findall(r'\.concat\([^()]{1,30}?,"(/[A-Za-z/]+[^"]*)"\)', js))
+    except Exception as e:
+        found["error"] = str(e)
+    tries = {}
+    cands = {f"/api/domestic/detail/005930{sfx.split('?')[0]}" for sfx in found["suffixes"]}
+    cands |= {p for p in found["paths"] if "?" not in p and "{" not in p}
+    cands |= {f"/api/domestic/detail/005930/{x}" for x in
+              ("basic", "info", "invest", "investment", "investmentInfo", "stockInfo",
+               "summary", "indicator", "indicators", "fundamental", "overview", "total")}
+    for p in sorted(cands)[:60]:
+        url = NEW_WEB + (p if p.startswith("/api/domestic/detail/005930") or "005930" in p
+                         else p)
+        try:
+            r = requests.get(url, headers=dict(UA, Referer=NEW_WEB + "/domestic/stock/005930/price"),
+                             timeout=15)
+            hit = "sameIndustryPer" in r.text
+            tries[p] = {"status": r.status_code, "hit": hit,
+                        "snippet": (r.text[max(0, r.text.find("sameIndustry") - 300):
+                                           r.text.find("sameIndustry") + 300] if hit else None)}
+        except Exception as e:
+            tries[p] = {"error": str(e)}
+    res["sameIndustry"] = {"chunks": found["chunks"], "paths": sorted(found["paths"])[:120],
+                           "suffixes": sorted(found["suffixes"])[:80],
+                           "hits": {k: v for k, v in tries.items() if v.get("hit")},
+                           "tried": {k: v.get("status") for k, v in tries.items()}}
+    # 조회수 반영 naver_board 실동작
+    try:
+        from analysis import sources as S3
+        b = S3.naver_board("005930", pages=1)
+        res["liveCheck3"] = {"n": len(b), "withViews": sum(1 for x in b if x["views"]),
+                             "top": b[:3]}
+    except Exception:
+        import traceback
+        res["liveCheck3"] = {"error": traceback.format_exc()[-600:]}
+
     res["trendApiOk"] = all(res[f"trendApi:{c}"].get("hasData") for c in CODES)
     # 판정: 410=폐지(Gone) / 그 외 4xx·예외=차단·오류 / 200·행 0=구조 변경
     def _verdict(c):
