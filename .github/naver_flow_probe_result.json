@@ -1,5 +1,5 @@
 {
-  "asof": "2026-07-08T06:12:08.692198+00:00",
+  "asof": "2026-09-21T01:20:52.985899+00:00",
   "trendApi:005930": {
     "status": 200,
     "rows": 25,
@@ -12,14 +12,82 @@
   },
   "frgnHtml:005930": {
     "status": 200,
-    "size": 164439,
-    "hasData": true
+    "size": 137093,
+    "hasData": false
   },
   "frgnHtml:247540": {
     "status": 200,
-    "size": 163709,
-    "hasData": true
+    "size": 137094,
+    "hasData": false
+  },
+  "bizdate": "20260921",
+  "timeline:asis": {
+    "status": 410,
+    "finalUrl": "https://finance.naver.com/sise/investorDealTrendTime.naver?bizdate=20260921&sosok=01&page=1",
+    "size": 1496,
+    "rows": 0,
+    "colsPerRow": [],
+    "firstTime": null,
+    "hasTable": false,
+    "blockHint": false,
+    "head": "<html lang=\"ko\"> <head> <meta http-equiv=\"Content-Type\" content=\"text/html; charset=euc-kr\"> <title>Npay 증권</title> <link rel=\"stylesheet\" type=\"text/css\" href=\"https://ssl.pstatic.net/imgstock/static"
+  },
+  "timeline:referer": {
+    "status": 410,
+    "finalUrl": "https://finance.naver.com/sise/investorDealTrendTime.naver?bizdate=20260921&sosok=01&page=1",
+    "size": 1496,
+    "rows": 0,
+    "colsPerRow": [],
+    "firstTime": null,
+    "hasTable": false,
+    "blockHint": false,
+    "head": "<html lang=\"ko\"> <head> <meta http-equiv=\"Content-Type\" content=\"text/html; charset=euc-kr\"> <title>Npay 증권</title> <link rel=\"stylesheet\" type=\"text/css\" href=\"https://ssl.pstatic.net/imgstock/static"
+  },
+  "timeline:noBizdate": {
+    "status": 410,
+    "finalUrl": "https://finance.naver.com/sise/investorDealTrendTime.naver?sosok=01&page=1",
+    "size": 1496,
+    "rows": 0,
+    "colsPerRow": [],
+    "firstTime": null,
+    "hasTable": false,
+    "blockHint": false,
+    "head": "<html lang=\"ko\"> <head> <meta http-equiv=\"Content-Type\" content=\"text/html; charset=euc-kr\"> <title>Npay 증권</title> <link rel=\"stylesheet\" type=\"text/css\" href=\"https://ssl.pstatic.net/imgstock/static"
+  },
+  "timeline:kosdaq": {
+    "status": 410,
+    "finalUrl": "https://finance.naver.com/sise/investorDealTrendTime.naver?bizdate=20260921&sosok=02&page=1",
+    "size": 1496,
+    "rows": 0,
+    "colsPerRow": [],
+    "firstTime": null,
+    "hasTable": false,
+    "blockHint": false,
+    "head": "<html lang=\"ko\"> <head> <meta http-equiv=\"Content-Type\" content=\"text/html; charset=euc-kr\"> <title>Npay 증권</title> <link rel=\"stylesheet\" type=\"text/css\" href=\"https://ssl.pstatic.net/imgstock/static"
+  },
+  "altApi:indexTrend": {
+    "status": 404,
+    "isJson": false,
+    "type": null,
+    "n": null,
+    "keys": null,
+    "head": "<!doctype html> <html lang=\"ko\"> <head>     <meta charset=\"utf-8\">     <meta name=\"viewport\" content=\"width=device-width,initial-scale=1.0,maximum-scale=1.0,minimum-scale=1.0,user-scalable=no\">     <title>Npay 증권</title>     <link rel=\"shortcut icon\" href=\"https://ssl.pstatic.net/imgstock/favicon.ic"
+  },
+  "altApi:indexPrice": {
+    "status": 404,
+    "isJson": true,
+    "type": "dict",
+    "n": 5,
+    "keys": [
+      "timestamp",
+      "status",
+      "error",
+      "message",
+      "path"
+    ],
+    "head": "{\"timestamp\":\"2026-09-21T01:21:03.362+0000\",\"status\":404,\"error\":\"Not Found\",\"message\":\"No message available\",\"path\":\"/index/KOSPI/investor\"}"
   },
   "trendApiOk": true,
-  "frgnHtmlOk": true
+  "frgnHtmlOk": false,
+  "timelineVerdict": "요청실패(차단·오류 의심)"
 }
