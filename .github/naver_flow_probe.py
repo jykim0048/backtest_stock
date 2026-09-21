@@ -58,7 +58,10 @@ MOBILE = "https://m.stock.naver.com"
 API_STR_RE = re.compile(
     r'["\'`]((?:https?://[a-z.]*stock\.naver\.com)?/(?:api|front-api)/[^"\'`\s]{2,140}'
     r'|https?://(?:api|polling)[a-z.]*\.naver\.com/[^"\'`\s]{2,140})')
-API_KEYWORDS = ("invest", "trend", "deal", "theme", "group", "upjong", "sise", "time")
+API_KEYWORDS = ("invest", "trend", "deal", "theme", "group", "upjong", "sise", "time",
+                "trader", "flow")
+NEW_WEB = "https://stock.naver.com"   # 신규 웹(2026-09 개편) — 투자자별 매매동향 시간별 화면:
+TRADER_PAGE = "/market/stock/kr/trend/trader"   # 사용자 제공(2026-09-21)
 
 
 def _html_case(name, url, params, res, row_re=None, needle=None):
@@ -74,24 +77,30 @@ def _html_case(name, url, params, res, row_re=None, needle=None):
         res[name] = {"error": str(e)}
 
 
-def _discover_mobile_apis(res, pages):
-    """모바일 웹 페이지 → script 번들 → API 주소 문자열 수집(키워드 필터).
+def _discover_mobile_apis(res, pages, base=MOBILE, tag="discover", max_js=60):
+    """웹 페이지 → script 번들 → API 주소 문자열 수집(키워드 필터).
 
     Next.js 류 SPA 라 실제 데이터 호출 주소는 번들 JS 안에만 있다. 페이지별로 번들을
-    받아 문자열을 긁고, 키워드(invest/trend/theme…) 포함 것만 남긴다."""
+    받아 문자열을 긁고, 키워드(invest/trend/theme…) 포함 것만 남긴다. SSR 이면 HTML 에
+    박힌 초기 데이터(__NEXT_DATA__ 등)에서 필드명도 확인할 수 있게 머리 일부를 남긴다."""
     seen_js, found = set(), set()
     info = {}
     for path in pages:
         try:
-            r = requests.get(MOBILE + path, headers=UA, timeout=20)
+            r = requests.get(base + path, headers=dict(UA, Referer=base + "/"), timeout=20)
             srcs = re.findall(r'<script[^>]+src="([^"]+\.js)"', r.text)
-            info[path] = {"status": r.status_code, "scripts": len(srcs)}
+            nd = re.search(r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>', r.text, re.S)
+            info[path] = {"status": r.status_code, "scripts": len(srcs), "size": len(r.text),
+                          "nextData": nd.group(1)[:1500] if nd else None}
+            for m in API_STR_RE.findall(r.text):          # 인라인 스크립트의 주소도
+                if any(k in m.lower() for k in API_KEYWORDS):
+                    found.add(m)
         except Exception as e:
             info[path] = {"error": str(e)}
             continue
         for s in srcs:
-            u = s if s.startswith("http") else MOBILE + s
-            if u in seen_js or len(seen_js) >= 60:
+            u = s if s.startswith("http") else base + s
+            if u in seen_js or len(seen_js) >= max_js:
                 continue
             seen_js.add(u)
             try:
@@ -101,9 +110,37 @@ def _discover_mobile_apis(res, pages):
             for m in API_STR_RE.findall(js):
                 if any(k in m.lower() for k in API_KEYWORDS):
                     found.add(m)
-    res["discover:pages"] = info
-    res["discover:bundles"] = len(seen_js)
-    res["discover:apis"] = sorted(found)[:250]
+    res[f"{tag}:pages"] = info
+    res[f"{tag}:bundles"] = len(seen_js)
+    res[f"{tag}:apis"] = sorted(found)[:300]
+
+
+def _trim(o, depth=0):
+    """JSON 샘플 축약 — 리스트는 앞 2개, 깊이 4, 문자열 80자."""
+    if depth > 4:
+        return "…"
+    if isinstance(o, dict):
+        return {k: _trim(v, depth + 1) for k, v in list(o.items())[:30]}
+    if isinstance(o, list):
+        return [_trim(v, depth + 1) for v in o[:2]] + ([f"…(+{len(o) - 2})"] if len(o) > 2 else [])
+    if isinstance(o, str):
+        return o[:80]
+    return o
+
+
+def _json_sample(name, url, params, res, referer=None):
+    """응답 구조 샘플 저장 — 파서 작성용(필드명·단위 확인)."""
+    try:
+        h = dict(UA, Referer=referer) if referer else UA
+        r = requests.get(url, params=params, headers=h, timeout=20)
+        try:
+            data = r.json()
+        except Exception:
+            data = None
+        res[name] = {"status": r.status_code, "url": r.url,
+                     "sample": _trim(data) if data is not None else r.text[:300]}
+    except Exception as e:
+        res[name] = {"error": str(e)}
 
 
 def _json_case(name, url, params, res):
@@ -195,6 +232,25 @@ def main():
             ("m:themeDetail", "/api/stocks/theme/586", {"page": 1, "pageSize": 20}),
             ("m:upjongList", "/api/stocks/upjong", {"page": 1, "pageSize": 20})):
         _json_case(name, MOBILE + path, params, res)
+
+    # ⑥ 신규 웹(stock.naver.com) 투자자별 매매동향 시간별 화면 API 탐색(2026-09-21 사용자 제공)
+    #    + 테마 화면 — 번들·인라인·__NEXT_DATA__ 에서 API 주소 수집
+    _discover_mobile_apis(res, [TRADER_PAGE, "/market/stock/kr/theme/1",
+                                "/market/stock/kr/theme/586"],
+                          base=NEW_WEB, tag="newweb", max_js=80)
+    for name, path, params in (
+            ("nw:traderTime", "/api/domestic/market/trend/trader", {"marketType": "KOSPI"}),
+            ("nw:investorTime", "/api/domestic/market/investor/time", {"market": "KOSPI"}),
+            ("nw:dealTrendTime", "/api/domestic/index/KOSPI/dealTrend/time", {})):
+        _json_sample(name, NEW_WEB + path, params, res, referer=NEW_WEB + TRADER_PAGE)
+
+    # ⑦ 파서 작성용 샘플 — 살아 있는 모바일 JSON(테마 목록·상세, 지수 수급·통합)
+    _json_sample("sample:themeList", MOBILE + "/api/stocks/theme", {"page": 1, "pageSize": 3}, res)
+    _json_sample("sample:themeDetail", MOBILE + "/api/stocks/theme/586",
+                 {"page": 1, "pageSize": 3}, res)
+    _json_sample("sample:indexTrend", MOBILE + "/api/index/KOSPI/trend",
+                 {"pageSize": 3, "page": 1}, res)
+    _json_sample("sample:indexIntegration", MOBILE + "/api/index/KOSPI/integration", {}, res)
 
     res["trendApiOk"] = all(res[f"trendApi:{c}"].get("hasData") for c in CODES)
     res["frgnHtmlOk"] = all(res[f"frgnHtml:{c}"].get("hasData") for c in CODES)
