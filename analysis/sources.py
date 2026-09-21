@@ -700,82 +700,87 @@ def naver_investor_trend(code, days=20):
 
 # ----------------------------------------------------------------------------
 # 2j) 네이버 테마 랭킹 / 테마 구성종목 / 급등급락 랭킹 (장중 시황판 입력)
-#     generate_intraday_briefing 이 사용. Actions 해외 IP 접근성은
-#     .github/naver_theme_probe_result.json 으로 검증(2026-07-09) — KRX 와 달리
-#     차단 없음. 테마 페이지는 EUC-KR HTML.
+#     generate_intraday_briefing 이 사용. 2026-09-21 모바일 JSON 으로 전환 —
+#     구형 theme.naver·sise_group_detail.naver 가 신규 웹(stock.naver.com/market/
+#     stock/kr/theme/…) SPA 로 리다이렉트되어 HTML 파서가 0행(9/14·9/21 theme_map.yml
+#     연속 실패). m.stock.naver.com/api/stocks/theme 는 Actions IP 에서 정상(프로브 실측).
 # ----------------------------------------------------------------------------
-_THEME_ROW_RE = re.compile(
-    r'col_type1"><a href="/sise/sise_group_detail\.naver\?type=theme&no=(\d+)">([^<]+)</a>'
-    r'.*?col_type2">\s*<span[^>]*>\s*([+\-]?[\d.]+)%(.*?)</tr>', re.S)
+_THEME_API = "https://m.stock.naver.com/api/stocks/theme"
+_THEME_PAGE = 100          # 목록·상세 1콜 행 수(전체 테마 ~264 → 3콜)
+
+
+def _fpct(s):
+    """'20.09' / '-1.34' / '+3.2' → float, 실패 None."""
+    try:
+        return float(str(s).replace(",", "").replace("+", ""))
+    except (TypeError, ValueError):
+        return None
 
 
 def naver_theme_ranking(max_pages=8):
-    """테마 랭킹 전 페이지 파싱 → [{no, name, changePct, leaders:[{code,name}]}].
+    """테마 랭킹 전체 → [{no, name, changePct, leaders}] (등락률 내림차순, API 정렬).
 
-    theme.naver 는 당일 등락률 내림차순 정렬이라 전 페이지(현재 ~7페이지)를
-    모으면 급등·급락 테마를 양끝에서 뽑을 수 있다. leaders 는 리스트 페이지가
-    보여주는 주도주 최대 2개. 실패한 페이지에서 중단(부분 결과 반환)."""
+    모바일 JSON groups[{no, name, changeRate, totalCount, rise/fall/steadyCount}].
+    구형 HTML 이 주던 주도주 2종목(leaders)은 목록 API 에 없어 빈 리스트 — 매칭은
+    정적 테마맵(theme_map.json) 구성종목이 1순위라 영향은 보조 자격(lead_ov)뿐.
+    no 는 종전과 같이 문자열(테마맵 키와 일치). 실패한 페이지에서 중단(부분 반환)."""
     themes, seen = [], set()
     for page in range(1, max_pages + 1):
         try:
-            r = requests.get("https://finance.naver.com/sise/theme.naver",
-                             params={"page": page}, headers=UA, timeout=15)
+            r = requests.get(_THEME_API, params={"page": page, "pageSize": _THEME_PAGE},
+                             headers=UA, timeout=15)
             r.raise_for_status()
-            html = r.content.decode("euc-kr", errors="replace")
+            d = r.json() or {}
         except Exception as e:
             _warn(f"naver_theme_ranking p{page} failed: {e}")
             break
-        rows = _THEME_ROW_RE.findall(html)
         new = 0
-        for no, name, chg, rest in rows:
-            if no in seen:      # 마지막 페이지 초과 요청은 마지막 페이지를 반복 반환
-                continue        # → 중복 테마('자동차 대표주' 2회) 방지 (2026-07-09 실측)
-            seen.add(no)
-            try:
-                pct = float(chg)
-            except ValueError:
+        for g in d.get("groups") or []:
+            no = str(g.get("no") or "")
+            pct = _fpct(g.get("changeRate"))
+            if not no or no in seen or pct is None:
                 continue
-            leaders = [{"code": c, "name": _strip_tags(n).strip()}
-                       for c, n in re.findall(
-                           r'/item/main\.naver\?code=(\d{6})">([^<]+)', rest)]
-            themes.append({"no": no, "name": _strip_tags(name).strip(),
-                           "changePct": pct, "leaders": leaders})
+            seen.add(no)
+            themes.append({"no": no, "name": str(g.get("name") or "").strip(),
+                           "changePct": pct, "leaders": []})
             new += 1
-        if not new:             # 이 페이지에서 신규 0 = 클램프된 반복 페이지 → 종료
+        if not new or len(themes) >= int(d.get("totalCount") or 0):
             break
     return themes
 
 
 def naver_theme_stocks(theme_no, limit=10):
-    """테마 상세 구성종목 → [{code, name, changePct, reason}] (등락률 순 아님 —
-    페이지 순서 그대로). reason 은 네이버의 '테마 편입 사유' 요약(없으면 "")."""
-    try:
-        r = requests.get("https://finance.naver.com/sise/sise_group_detail.naver",
-                         params={"type": "theme", "no": theme_no},
-                         headers=UA, timeout=15)
-        r.raise_for_status()
-        html = r.content.decode("euc-kr", errors="replace")
-    except Exception as e:
-        _warn(f"naver_theme_stocks({theme_no}) failed: {e}")
-        return []
-    out = []
-    for chunk in html.split("<tr onMouseOver")[1:]:
-        m = re.search(r'/item/main\.naver\?code=(\d{6})">([^<]+)</a>', chunk)
-        if not m:
-            continue
-        pct = None
-        pm = re.search(r'tah p11 (?:red01|nv01|gray03)">\s*([+\-]?[\d.]+)%', chunk)
-        if pm:
-            try:
-                pct = float(pm.group(1))
-            except ValueError:
-                pct = None
-        rm = re.search(r'<p class="info_txt">([^<]+)</p>', chunk)
-        out.append({"code": m.group(1), "name": _strip_tags(m.group(2)).strip(),
-                    "changePct": pct,
-                    "reason": _strip_tags(rm.group(1)).strip() if rm else ""})
-        if len(out) >= limit:
+    """테마 상세 구성종목 → [{code, name, changePct, reason}] (API 응답 순서 그대로).
+
+    모바일 JSON stocks[{itemCode, stockName, fluctuationsRatio, …}] +
+    themeItemInfoMap{code: '테마 편입 사유'}. limit 이 한 페이지를 넘으면 이어 받는다."""
+    out, reasons = [], {}
+    page = 1
+    while len(out) < limit:
+        try:
+            r = requests.get(f"{_THEME_API}/{theme_no}",
+                             params={"page": page, "pageSize": min(_THEME_PAGE, limit)},
+                             headers=UA, timeout=15)
+            r.raise_for_status()
+            d = r.json() or {}
+        except Exception as e:
+            _warn(f"naver_theme_stocks({theme_no}) p{page} failed: {e}")
             break
+        reasons.update(d.get("themeItemInfoMap") or {})
+        rows = d.get("stocks") or []
+        for x in rows:
+            code = str(x.get("itemCode") or "")
+            if not re.fullmatch(r"\d{6}", code):
+                continue
+            out.append({"code": code, "name": str(x.get("stockName") or "").strip(),
+                        "changePct": _fpct(x.get("fluctuationsRatio")), "reason": ""})
+            if len(out) >= limit:
+                break
+        if not rows or len(out) >= int(d.get("totalCount") or 0):
+            break
+        page += 1
+    for x in out:
+        x["reason"] = str(reasons.get(x["code"]) or "").strip()
     return out
 
 
@@ -869,59 +874,79 @@ def naver_market_indicators():
     return out if any(out.values()) else {}
 
 
-def naver_investor_timeline(market="KOSPI", pages=6):
-    """투자자별 매매 동향 시간별(1분) '누적' 순매수(억원) — 실데이터 iframe
-    investorDealTrendTime.naver (KOSPI: sosok=01, KOSDAQ: sosok=02, 페이지당 10행 최신순).
-    겉 페이지(sise_trans_style)는 iframe 셸이라 시간 행이 없다(2026-07-13 프로브 실측).
+# 투자자 코드(investorGubun) → 금액(원). 신규 웹 번들 코드표(2026-09-21 프로브):
+# 1000 금융투자 · 2000 보험 · 3000 투신 · 3100 사모 · 4000 은행 · 5000 기타금융 ·
+# 6000 연기금등 · 7000 국가·지자체 · 7100 기타법인 · 8000 개인 · 9000 외국인 ·
+# 9001 기타외국인. 응답엔 기관계(9999)가 없어 1000~7000 합으로 만든다(모바일 일별
+# 총계 institutionalValue 와 대조 일치), 외국인 = 9000+9001, 투신(사모) = 3000+3100.
+_INV_TIME_API = "https://stock.naver.com/api/domestic/market/trend/time"
+_INST_CODES = ("1000", "2000", "3000", "3100", "4000", "5000", "6000", "7000")
+_INV_PAGE = 200            # 상한(300 은 400 응답) — 하루 ~380분이라 2콜이면 전량
 
-    반환: [{time 'HH:MM', individual, foreign, institution}] 시간 오름차순.
-    행 값이 당일 누적이라 그대로 이으면 수급 곡선이 된다. 페이지가 신규 행을 더
-    안 주면(마지막 페이지 클램프 반복) 중단. 실패 시 수집분까지만 반환."""
-    sosok = {"KOSPI": "01", "KOSDAQ": "02"}.get(str(market).upper(), "01")
+
+def _inv_time_row(item):
+    """content[] 1행 → 종전 스키마 행(억원 반올림). 핵심 3주체 결손이면 None."""
+    amt = {}
+    for a in item.get("netAmounts") or []:
+        try:
+            amt[str(a.get("investorGubun"))] = float(a.get("diffValue"))
+        except (TypeError, ValueError):
+            continue
+    t = str(item.get("time") or "")
+    if len(t) < 4 or "8000" not in amt or "9000" not in amt:
+        return None
+
+    def eok(*codes):
+        vals = [amt[c] for c in codes if c in amt]
+        return round(sum(vals) / 1e8) if vals else None
+    return {"time": f"{t[:2]}:{t[2:4]}",
+            "individual": eok("8000"), "foreign": eok("9000", "9001"),
+            "institution": eok(*_INST_CODES),
+            # 기관 세부(대시보드 기관 알약 토글)·기타법인(기관 옆 알약) — 종전 키 유지
+            "finInv": eok("1000"), "insur": eok("2000"), "trust": eok("3000", "3100"),
+            "pension": eok("6000"), "etc": eok("7100")}
+
+
+def naver_investor_timeline(market="KOSPI", pages=6):
+    """투자자별 매매 동향 시간별(1분) '당일 누적' 순매수(억원) — 신규 웹 JSON API
+    stock.naver.com/api/domestic/market/trend/time (화면: /market/stock/kr/trend/trader).
+
+    2026-09-21 전환 — 구형 iframe(finance.naver.com/sise/investorDealTrendTime.naver)이
+    9/18 부터 410 Gone(폐지)이라 장중 시황 수급 차트·기관 세부·기타법인 알약이 빠졌다.
+    파라미터: tradeType=KRX · marketType=KOSPI|KOSDAQ · bizdate · startIdx(페이지 번호) ·
+    pageSize(≤200). 응답은 최신순 content[{bizdate, time 'HHMMSS', netAmounts[]}].
+
+    반환(종전과 동일 스키마): [{time 'HH:MM', individual, foreign, institution,
+    finInv, insur, trust, pension, etc}] 시간 오름차순. pages = 최대 페이지 수(호출부가
+    증분 회차엔 6, 첫 회차엔 40 을 준다 — 200행 페이지라 2콜 안에 끝난다). 실패 시
+    수집분까지만 반환(graceful)."""
+    mkt = "KOSDAQ" if str(market).upper() == "KOSDAQ" else "KOSPI"
     bizdate = datetime.datetime.now(
         datetime.timezone(datetime.timedelta(hours=9))).strftime("%Y%m%d")
     out = {}
-    for page in range(1, pages + 1):
+    for page in range(max(1, pages)):
         try:
-            r = requests.get("https://finance.naver.com/sise/investorDealTrendTime.naver",
-                             params={"bizdate": bizdate, "sosok": sosok, "page": page},
-                             headers=UA, timeout=15)
+            r = requests.get(_INV_TIME_API,
+                             params={"tradeType": "KRX", "marketType": mkt,
+                                     "bizdate": bizdate, "startIdx": page,
+                                     "pageSize": _INV_PAGE},
+                             headers=dict(UA, Referer="https://stock.naver.com/market/"
+                                                      "stock/kr/trend/trader"),
+                             timeout=15)
             r.raise_for_status()
-            html = r.content.decode("euc-kr", errors="replace")
+            d = r.json() or {}
         except Exception as e:
             _warn(f"naver_investor_timeline({market}) p{page} failed: {e}")
             break
-        rows = re.findall(
-            r'<tr[^>]*>\s*<td[^>]*>\s*(\d{1,2}:\d{2})\s*</td>(.*?)</tr>', html, re.S)
-        new = 0
-        for tm, rest in rows:
-            nums = re.findall(r'>\s*(-?[\d,]+)\s*<', rest)
-            if len(nums) < 3:
-                continue
-
-            def _n(s):
-                try:
-                    return int(s.replace(",", ""))
-                except ValueError:
-                    return None
-            ind, frn, inst = _n(nums[0]), _n(nums[1]), _n(nums[2])
-            if ind is None or tm in out:
-                continue
-            row = {"time": tm, "individual": ind,
-                   "foreign": frn, "institution": inst}
-            # 기관계 세부(같은 행 후속 컬럼: 금융투자·보험·투신(사모)·은행·기타금융·연기금등·
-            # 기타법인) — 대시보드 기관 알약 클릭 세부내역용(2026-07-29). 컬럼 수가 다르면
-            # (레이아웃 변경) 세부만 생략(graceful) — 기존 3주체는 영향 없음.
-            if len(nums) >= 9:
-                row["finInv"] = _n(nums[3])     # 금융투자
-                row["insur"] = _n(nums[4])      # 보험
-                row["trust"] = _n(nums[5])      # 투신(사모)
-                row["pension"] = _n(nums[8])    # 연기금등
-            if len(nums) >= 10:
-                row["etc"] = _n(nums[9])        # 기타법인(2026-09-14) — 마지막 열
-            out[tm] = row
-            new += 1
-        if not rows or not new:
+        content = d.get("content") or []
+        for item in content:
+            if str(item.get("bizdate") or bizdate) != bizdate:
+                continue                    # 장 시작 전엔 전 거래일 행이 올 수 있음 — 제외
+            row = _inv_time_row(item)
+            if row and row["time"] not in out:
+                out[row["time"]] = row
+        total = int(d.get("totalElements") or 0)
+        if not content or (page + 1) * _INV_PAGE >= total:
             break
     return sorted(out.values(), key=lambda x: x["time"])
 

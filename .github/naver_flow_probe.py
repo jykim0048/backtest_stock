@@ -357,6 +357,39 @@ def main():
         except Exception as e:
             res[key] = {"error": str(e)}
 
+    # ⑪ 7차(2026-09-21) — 교체한 sources 함수 실동작 검증(파이프라인 코드 그대로 import).
+    #    pandas/yfinance 는 이 워크플로에 없어 스텁(두 함수는 미사용)
+    import sys
+    import types
+    import os
+    sys.path.insert(0, os.getcwd())
+    for mod in ("pandas", "yfinance"):
+        sys.modules.setdefault(mod, types.ModuleType(mod))
+    try:
+        from analysis import sources as S
+        live = {}
+        for mk in ("KOSPI", "KOSDAQ"):
+            rows = S.naver_investor_timeline(mk, pages=40)
+            ref = {}
+            try:
+                ref = requests.get(f"{MOBILE}/api/index/{mk}/trend", headers=UA,
+                                   timeout=20).json()
+            except Exception:
+                pass
+            live[mk] = {"n": len(rows), "firstTime": rows[0]["time"] if rows else None,
+                        "last": rows[-1] if rows else None,
+                        "mobileTotals": {k: ref.get(k) for k in
+                                         ("personalValue", "foreignValue", "institutionalValue")}}
+        live["kospiEqKosdaq"] = (live["KOSPI"]["last"] == live["KOSDAQ"]["last"])
+        rk = S.naver_theme_ranking()
+        st = S.naver_theme_stocks(rk[0]["no"], limit=500) if rk else []
+        live["themes"] = {"ranking": len(rk), "top": rk[:2], "detailN": len(st),
+                          "detailSample": st[:2], "reasonFilled": sum(1 for x in st if x["reason"])}
+        res["liveCheck"] = live
+    except Exception as e:
+        import traceback
+        res["liveCheck"] = {"error": traceback.format_exc()[-800:]}
+
     res["trendApiOk"] = all(res[f"trendApi:{c}"].get("hasData") for c in CODES)
     res["frgnHtmlOk"] = all(res[f"frgnHtml:{c}"].get("hasData") for c in CODES)
     # 판정: 410=폐지(Gone) / 그 외 4xx·예외=차단·오류 / 200·행 0=구조 변경
