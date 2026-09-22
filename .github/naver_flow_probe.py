@@ -594,6 +594,72 @@ def main():
         import traceback
         res["liveCheck3"] = {"error": traceback.format_exc()[-600:]}
 
+    # ⑰ 13차(2026-09-22) — 사용자 요청 2건
+    #  A. 동일업종 PER·등락률: 가격 화면 RSC 페이로드 + invest-info/detail 후보 호출
+    ref_p = NEW_WEB + "/domestic/stock/005930/price"
+    a13 = {}
+    for name, hdr, url in (
+            ("rsc", {"RSC": "1"}, ref_p),
+            ("rscQuery", {}, ref_p + "?_rsc=1"),
+            ("rscNextUrl", {"RSC": "1", "Next-Url": "/domestic/stock/005930/price"}, ref_p)):
+        try:
+            r = requests.get(url, headers=dict(UA, Referer=ref_p, **hdr), timeout=20)
+            i = r.text.find("sameIndustry")
+            a13[name] = {"status": r.status_code, "ctype": r.headers.get("content-type"),
+                         "size": len(r.text), "hit": i >= 0,
+                         "snippet": r.text[max(0, i - 600):i + 400] if i >= 0 else None}
+        except Exception as e:
+            a13[name] = {"error": str(e)}
+    for p in ("/api/stockDomestic/invest-info/005930", "/api/stockDomestic/invest-info/stock/005930",
+              "/api/stockDomestic/005930/invest-info", "/api/stockDomestic/invest-info?itemCode=005930",
+              "/api/domestic/detail/stock/005930/KRX/invest", "/api/domestic/detail/005930/invest-info",
+              "/api/domestic/detail/005930/investInfo?tradeType=KRX",
+              "/api/domestic/stock/005930/invest-info", "/api/domestic/stock/005930/price",
+              "/api/domestic/stock/005930/basic", "/api/domestic/stock/005930/integration"):
+        try:
+            r = requests.get(NEW_WEB + p, headers=dict(UA, Referer=ref_p), timeout=15)
+            i = r.text.find("sameIndustry")
+            a13[p] = {"status": r.status_code, "hit": i >= 0, "head": r.text[:160],
+                      "snippet": r.text[max(0, i - 400):i + 400] if i >= 0 else None}
+        except Exception as e:
+            a13[p] = {"error": str(e)}
+    # 번들 내 invest-info 사용처 문맥(경로·파라미터 확인용)
+    _bundle_context(res, "/domestic/stock/005930/price",
+                    ["invest-info", "stockDomestic/"], width=400)
+    a13["ctx"] = res.pop("ctx", None)
+    res["sameIndustry13"] = a13
+
+    #  B. 시장지표: 화면 링크에서 (분류, 코드) 추출 → 실시간 API 호출 샘플
+    b13 = {"pages": {}, "pairs": [], "calls": {}}
+    pairs = set()
+    for page in ("/market/marketindex", "/market/marketindex/exchange",
+                 "/market/marketindex/bond", "/market/marketindex/interest",
+                 "/market/marketindex/energy", "/market/marketindex/metals"):
+        try:
+            r = requests.get(NEW_WEB + page, headers=dict(UA, Referer=NEW_WEB + "/"), timeout=20)
+            found = set(re.findall(r'/marketindex/([A-Za-z]+)/([^/"?\s]+)/price', r.text))
+            b13["pages"][page] = {"status": r.status_code, "finalUrl": r.url, "pairs": len(found),
+                                  "apis": sorted(set(re.findall(
+                                      r'["\'`](/api/[^"\'`\s]{2,120})', r.text)))[:40]}
+            pairs |= found
+        except Exception as e:
+            b13["pages"][page] = {"error": str(e)}
+    b13["pairs"] = sorted(pairs)[:80]
+    by_cat = {}
+    for cat, code in pairs:
+        by_cat.setdefault(cat, []).append(code)
+    for cat, codes in by_cat.items():
+        _json_sample(f"mi:{cat}", NEW_WEB + f"/api/realtime/marketindex/{cat}/{','.join(codes[:12])}",
+                     {}, res, referer=NEW_WEB + "/market/marketindex")
+        b13["calls"][cat] = res.pop(f"mi:{cat}")
+    _discover_mobile_apis(res, ["/market/marketindex"], base=NEW_WEB, tag="miweb", max_js=90)
+    b13["bundleApis"] = [a for a in res.pop("miweb:apis", []) if any(
+        k in a.lower() for k in ("marketindex", "bond", "interest", "exchange", "energy", "metal",
+                                 "rate"))]
+    res.pop("miweb:pages", None)
+    res.pop("miweb:bundles", None)
+    res["marketindex13"] = b13
+
     res["trendApiOk"] = all(res[f"trendApi:{c}"].get("hasData") for c in CODES)
     # 판정: 410=폐지(Gone) / 그 외 4xx·예외=차단·오류 / 200·행 0=구조 변경
     def _verdict(c):
