@@ -1,5 +1,5 @@
 {
- "asof": "2026-09-22T01:50:20.482540+00:00",
+ "asof": "2026-09-22T01:58:54.417739+00:00",
  "stockPrice": {
   "n": 26,
   "withHits": [
@@ -7,12 +7,12 @@
     "url": "https://stock.naver.com/api/domestic/detail/005930/detail?codeType=KRX",
     "status": 200,
     "method": "GET",
-    "size": 1734,
+    "size": 1735,
     "hits": [
      "sameIndustry",
      "9.39"
     ],
-    "head": "{\"itemcode\":\"005930\",\"itemname\":\"삼성전자\",\"sosok\":\"0\",\"type\":\"ST\",\"upjongCode\":\"27\",\"tradeTime\":\"20260922105021\",\"manageStatusGb\":\"0\",\"tradeStopYn\":\"N\",\"tradableStatus\":\"tradable\",\"tradableStatusCode\":\"ok\",\"isManagement\":null,\"managementDate\":null,\"managementReasonCode\":null,\"isTradingHalt\":null,\"tradingHaltDate\":null,\"tradingHaltReasonCode\":null,\"marketAlertType\":\"00\",\"marketGb\":\"1\",\"marketStatus\":\"OPEN\",\"tradingSessionType\":\"REGULAR_MARKET\",\"nowPrice\":\"278500\",\"openPrice\":\"283000\",\"prevClosePrice\":\"275000\",\"stdPrice\":\"274000\",\"highPrice\":\"283500\",\"lowPrice\":\"278500\",\"facePrice\":\"100\",\"unit\":\"1\""
+    "head": "{\"itemcode\":\"005930\",\"itemname\":\"삼성전자\",\"sosok\":\"0\",\"type\":\"ST\",\"upjongCode\":\"27\",\"tradeTime\":\"20260922105820\",\"manageStatusGb\":\"0\",\"tradeStopYn\":\"N\",\"tradableStatus\":\"tradable\",\"tradableStatusCode\":\"ok\",\"isManagement\":null,\"managementDate\":null,\"managementReasonCode\":null,\"isTradingHalt\":null,\"tradingHaltDate\":null,\"tradingHaltReasonCode\":null,\"marketAlertType\":\"00\",\"marketGb\":\"1\",\"marketStatus\":\"OPEN\",\"tradingSessionType\":\"REGULAR_MARKET\",\"nowPrice\":\"279250\",\"openPrice\":\"283000\",\"prevClosePrice\":\"275000\",\"stdPrice\":\"274000\",\"highPrice\":\"283500\",\"lowPrice\":\"278500\",\"facePrice\":\"100\",\"unit\":\"1\""
    }
   ],
   "all": [
@@ -20,18 +20,6 @@
     "url": "https://stock.naver.com/api/auth/userInfo",
     "status": 200,
     "size": 112,
-    "hits": []
-   },
-   {
-    "url": "https://stock.naver.com/api/stockSecurity/exchanges/market-status?exchanges=krx&exchanges=nxt",
-    "status": 200,
-    "size": 4362,
-    "hits": []
-   },
-   {
-    "url": "https://stock.naver.com/api/domestic/detail/005930/sosok",
-    "status": 200,
-    "size": 31,
     "hits": []
    },
    {
@@ -47,9 +35,21 @@
     "hits": []
    },
    {
+    "url": "https://stock.naver.com/api/domestic/detail/005930/sosok",
+    "status": 200,
+    "size": 31,
+    "hits": []
+   },
+   {
     "url": "https://stock.naver.com/api/securityService/integration/indicators?indicatorCodes=KOSPI%2CKOSDAQ%2CKPI200%2C.DJI%2C.INX%2CFX_USDKRW%2C.IXIC%2CGCcv1%2CCLcv1",
     "status": 200,
     "size": 5308,
+    "hits": []
+   },
+   {
+    "url": "https://stock.naver.com/api/stockSecurity/exchanges/market-status?exchanges=krx&exchanges=nxt",
+    "status": 200,
+    "size": 4362,
     "hits": []
    },
    {
@@ -61,7 +61,7 @@
    {
     "url": "https://stock.naver.com/api/domestic/detail/005930/siseTick?startIdx=0&pageSize=20",
     "status": 200,
-    "size": 4500,
+    "size": 4499,
     "hits": []
    },
    {
@@ -73,13 +73,25 @@
    {
     "url": "https://stock.naver.com/api/personal/users/favorite/ranking?pageSize=10",
     "status": 200,
-    "size": 5451,
+    "size": 5442,
+    "hits": []
+   },
+   {
+    "url": "https://stock.naver.com/api/domestic/detail/005930/trend?tradeType=KRX&startIdx=0&pageSize=50",
+    "status": 200,
+    "size": 14016,
+    "hits": []
+   },
+   {
+    "url": "https://stock.naver.com/api/domestic/detail/005930/hoga",
+    "status": 200,
+    "size": 691,
     "hits": []
    },
    {
     "url": "https://stock.naver.com/api/domestic/detail/005930/detail?codeType=KRX",
     "status": 200,
-    "size": 1734,
+    "size": 1735,
     "hits": [
      "sameIndustry",
      "9.39"
@@ -92,39 +104,27 @@
     "hits": []
    },
    {
-    "url": "https://stock.naver.com/api/domestic/detail/005930/trend?tradeType=KRX&startIdx=0&pageSize=20",
-    "status": 200,
-    "size": 5600,
-    "hits": []
-   },
-   {
     "url": "https://stock.naver.com/api/stockSecurity/items/v2/domestic/005930/price-snapshot",
     "status": 200,
     "size": 1677,
     "hits": []
    },
    {
-    "url": "https://stock.naver.com/api/domestic/detail/005930/hoga",
+    "url": "https://stock.naver.com/api/domestic/detail/005930/trend?tradeType=KRX&startIdx=0&pageSize=20",
     "status": 200,
-    "size": 691,
-    "hits": []
-   },
-   {
-    "url": "https://stock.naver.com/api/domestic/detail/005930/trend?tradeType=KRX&startIdx=0&pageSize=50",
-    "status": 200,
-    "size": 14016,
+    "size": 5600,
     "hits": []
    },
    {
     "url": "https://stock.naver.com/api/personal/guest/recent/products",
-    "status": 200,
-    "size": 16,
+    "status": 400,
+    "size": 43,
     "hits": []
    },
    {
     "url": "https://stock.naver.com/api/securityService/rdc2",
-    "status": 200,
-    "size": 4,
+    "status": 400,
+    "size": 50,
     "hits": []
    },
    {
@@ -142,7 +142,7 @@
    {
     "url": "https://polling.finance.naver.com/api/realtime/domestic/stock/000660,005380,005490,005930,006400,009150,034020,035420,035720,066570",
     "status": 200,
-    "size": 22571,
+    "size": 22577,
     "hits": []
    },
    {
