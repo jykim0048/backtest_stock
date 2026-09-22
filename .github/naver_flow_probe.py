@@ -707,6 +707,70 @@ def main():
         import traceback
         res["liveCheck5"] = {"error": traceback.format_exc()[-600:]}
 
+    # ⑲ 15차(2026-09-22) — 남은 네이버 경로 전수 점검(조용한 0/빈 값 탐지). 파이프라인과
+    #    같은 URL·파싱 기준으로 1콜씩: 폴링 구형 쿼리(기여도 가중)·급등락 랭킹·실적 재무·
+    #    K200 fchart(구형)·지수 basic·종목 basic
+    a15 = {}
+
+    def _chk(name, url, params=None, parse=None):
+        try:
+            r = requests.get(url, params=params, headers={"User-Agent": "Mozilla/5.0"}, timeout=20)
+            info = {"status": r.status_code, "finalUrl": r.url[:160], "size": len(r.text),
+                    "head": r.text[:240]}
+            if parse:
+                try:
+                    info["parsed"] = parse(r)
+                except Exception as e:
+                    info["parseError"] = str(e)[:200]
+            a15[name] = info
+        except Exception as e:
+            a15[name] = {"error": str(e)[:200]}
+
+    def _poll(r):                        # generate_intraday_briefing._fetch_match_rates 와 동일
+        out = {}
+        for a in ((r.json() or {}).get("result") or {}).get("areas") or []:
+            for it in a.get("datas") or []:
+                if it.get("cd") and it.get("cr") is not None:
+                    out[str(it["cd"])] = it.get("cr")
+        return {"n": len(out), "sample": dict(list(out.items())[:3])}
+    _chk("pollingServiceItem",
+         "https://polling.finance.naver.com/api/realtime?query=SERVICE_ITEM:005930,000660,247540",
+         parse=_poll)
+    _chk("pollingNewStock",               # 신규 웹이 쓰는 형식(대체 후보)
+         "https://polling.finance.naver.com/api/realtime/domestic/stock/005930,000660,247540",
+         parse=lambda r: {"n": len((r.json() or {}).get("datas") or []),
+                          "keys": sorted(((r.json() or {}).get("datas") or [{}])[0])[:40],
+                          "sample": [{k: x.get(k) for k in ("itemCode", "closePrice",
+                                                             "fluctuationsRatio",
+                                                             "compareToPreviousPrice")}
+                                     for x in ((r.json() or {}).get("datas") or [])[:3]]})
+    _chk("stockRankingUp", "https://m.stock.naver.com/api/stocks/up/KOSPI",
+         {"page": 1, "pageSize": 5},
+         parse=lambda r: {"n": len((r.json() or {}).get("stocks") or []),
+                          "sample": [{k: x.get(k) for k in ("itemCode", "stockName",
+                                                             "fluctuationsRatio", "closePrice")}
+                                     for x in ((r.json() or {}).get("stocks") or [])[:2]]})
+    for kind in ("quarter", "annual"):
+        _chk(f"finance:{kind}", f"https://m.stock.naver.com/api/stock/005930/finance/{kind}",
+             parse=lambda r: {"rows": len(((r.json() or {}).get("financeInfo") or {})
+                                          .get("rowList") or []),
+                              "cols": [c.get("key") for c in ((r.json() or {}).get("financeInfo")
+                                                              or {}).get("trTitleList") or []]})
+    _chk("k200:siseJson", "https://fchart.stock.naver.com/siseJson.naver",
+         {"symbol": "KPI200", "requestType": 1, "startTime": "20260901", "endTime": "20260922",
+          "timeframe": "day"},
+         parse=lambda r: {"lines": r.text.count("\n"), "tail": r.text.strip()[-160:]})
+    _chk("k200:indexPrice", "https://m.stock.naver.com/api/index/KPI200/price",
+         {"pageSize": 3, "page": 1},
+         parse=lambda r: {"n": len(r.json() or []), "first": (r.json() or [{}])[0]})
+    _chk("indexBasic", "https://m.stock.naver.com/api/index/KOSPI/basic",
+         parse=lambda r: {k: (r.json() or {}).get(k) for k in ("closePrice", "fluctuationsRatio")})
+    _chk("stockBasic", "https://m.stock.naver.com/api/stock/005930/basic",
+         parse=lambda r: {k: (r.json() or {}).get(k) for k in ("closePrice", "fluctuationsRatio")})
+    _chk("indexTrend", "https://m.stock.naver.com/api/index/KOSPI/trend",
+         parse=lambda r: r.json())
+    res["audit15"] = a15
+
     res["trendApiOk"] = all(res[f"trendApi:{c}"].get("hasData") for c in CODES)
     # 판정: 410=폐지(Gone) / 그 외 4xx·예외=차단·오류 / 200·행 0=구조 변경
     def _verdict(c):
