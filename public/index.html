@@ -7980,21 +7980,35 @@
     var slw = d.shortLoan;
     if (slw && ((slw.shortTop || []).length || (slw.loanUp || []).length || (slw.loanDown || []).length)) {
       var slCol = function (title, arr, fmt) {
-        return '<div style="flex:1;min-width:190px"><div style="font-weight:600;opacity:.8;margin-bottom:3px">' + title + "</div>"
+        return '<div style="flex:1;min-width:230px"><div style="font-weight:600;opacity:.8;margin-bottom:3px">' + title + "</div>"
           + ((arr || []).map(fmt).join("") || "<div style='opacity:.5'>— (2일차부터 집계)</div>") + "</div>";
       };
+      // 시총비(2026-09-22): 공매도=누적÷시총, 대차=잔고÷시총 — 구 아카이브(capPct 키 없음)는 칸 생략
+      var slHasCap = [].concat(slw.shortTop || [], slw.loanUp || [], slw.loanDown || []).some(function (e) { return "capPct" in e; });
+      var slPct = function (e, nd) {
+        if (!slHasCap) return "";
+        return "<span style='display:inline-block;min-width:52px;text-align:right;opacity:.6;margin-left:8px'>"
+          + (e.capPct == null ? "—" : Number(e.capPct).toFixed(nd) + "%") + "</span>";
+      };
+      var slRow = function (e, valHtml, nd) {
+        return "<div style='display:flex;justify-content:space-between'><span style='opacity:.85'>" + esc(e.name) + "</span><span>" + valHtml + slPct(e, nd) + "</span></div>";
+      };
+      var slUnit = slHasCap ? "(억 · 시총비)" : "(억)";
       h += '<details class="flow-details" style="margin-top:2px"><summary style="text-align:right">공매도 · 대차 ' + WBP.per + ' 동향 ▾</summary>'
         + '<div style="display:flex;gap:14px;flex-wrap:wrap;font-size:12px;margin-top:6px">'
-        + slCol("공매도 누적 상위(억)", slw.shortTop, function (e) {
-            return "<div style='display:flex;justify-content:space-between'><span style='opacity:.85'>" + esc(e.name) + "</span><span>" + Math.round(e.amt).toLocaleString() + "</span></div>";
+        + slCol("공매도 누적 상위" + slUnit, slw.shortTop, function (e) {
+            return slRow(e, Math.round(e.amt).toLocaleString(), 3);
           })
-        + slCol("대차잔고 증가(억)", slw.loanUp, function (e) {
-            return "<div style='display:flex;justify-content:space-between'><span style='opacity:.85'>" + esc(e.name) + "</span><span style='color:#f04452'>+" + Math.round(e.chg).toLocaleString() + "</span></div>";
+        + slCol("대차잔고 증가" + slUnit, slw.loanUp, function (e) {
+            return slRow(e, "<span style='color:#f04452'>+" + Math.round(e.chg).toLocaleString() + "</span>", 2);
           })
-        + slCol("대차잔고 감소 · 숏커버 추정(억)", slw.loanDown, function (e) {
-            return "<div style='display:flex;justify-content:space-between'><span style='opacity:.85'>" + esc(e.name) + "</span><span style='color:#3182f6'>" + Math.round(e.chg).toLocaleString() + "</span></div>";
+        + slCol("대차잔고 감소 · 숏커버 추정" + slUnit, slw.loanDown, function (e) {
+            return slRow(e, "<span style='color:#3182f6'>" + Math.round(e.chg).toLocaleString() + "</span>", 2);
           })
-        + "</div></details>";
+        + "</div>"
+        + (slHasCap ? "<div style='opacity:.5;font-size:10.5px;margin-top:4px'>시총비 = 공매도 누적 ÷ 시가총액 · 대차잔고 ÷ 시가총액 ("
+            + esc(slw.capBasis || "KIS 마스터 시총") + ")</div>" : "")
+        + "</details>";
     }
     h += bullets("📈 " + WBP.per + " 시장 흐름", syn.weekNarrative);
     h += bullets("🔁 섹터·테마 흐름", syn.sectorRotation);

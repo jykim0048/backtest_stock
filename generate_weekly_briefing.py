@@ -937,6 +937,32 @@ def _breadth_weekly(dates):
     return out
 
 
+def _cap_map():
+    """종목코드 → 시가총액(억원) — krx_sector_map.json(KIS 마스터, theme_map.yml 주 1회
+    재생성)의 cap. 공매도·대차 시총비 분모용(2026-09-22). 실패 시 {}."""
+    try:
+        with open(os.path.join(ROOT, "public", "assets", "krx_sector_map.json"),
+                  encoding="utf-8") as f:
+            sm = json.load(f) or {}
+    except Exception as ex:
+        print(f"[weekly] 시총 맵 로드 실패(시총비 생략): {ex}", file=sys.stderr)
+        return {}
+    out = {}
+    for s in (sm.get("sectors") or {}).values():
+        for x in (s.get("stocks") or []) + (s.get("kosdaqStocks") or []):
+            code, cap = str(x.get("code") or "").zfill(6), x.get("cap")
+            if code and isinstance(cap, (int, float)) and cap > 0:
+                out.setdefault(code, float(cap))
+    return out
+
+
+def _cap_pct(amt, cap, nd):
+    """금액(억) ÷ 시총(억) × 100 — 분모·분자 결측이면 None."""
+    if amt is None or not cap:
+        return None
+    return round(amt / cap * 100, nd)
+
+
 def _short_loan_weekly(dates, flow=None):
     """공매도 주간 누적·대차잔고 주간 증감 상/하위 — 유니버스는 그 주 netbuy_rank
     등재 종목 전체, 값은 /flow shorts·loans 시계열 주간 직접 계산(_flow_week
@@ -966,23 +992,38 @@ def _short_loan_weekly(dates, flow=None):
         if c in acc:
             fw[c] = _archive_flow_row(acc[c])
             n_fb += 1
-    ent = [{"name": uni[c], **v} for c, v in fw.items() if c in uni]
+    ent = [{"name": uni[c], "code": c, **v} for c, v in fw.items() if c in uni]
     if not ent:
         return None
+    caps = _cap_map()
     short_top = sorted([e for e in ent if e.get("shortSum", 0) > 0],
                        key=lambda x: -x["shortSum"])[:10]
     loan_up = sorted([e for e in ent if (e.get("loanChg") or 0) > 0],
                      key=lambda x: -x["loanChg"])[:10]
     loan_dn = sorted([e for e in ent if (e.get("loanChg") or 0) < 0],
                      key=lambda x: x["loanChg"])[:10]
+    shown = short_top + loan_up + loan_dn
+    n_cap = sum(1 for e in shown if caps.get(e["code"]))
     print(f"[weekly] 공매도·대차 주간(flow): 유니버스 {len(uni)} · 수급응답 {len(ent)}"
           f"(아카이브 폴백 {n_fb}) · 공매도 {len(short_top)} · 대차증가 {len(loan_up)} · "
-          f"대차감소 {len(loan_dn)}")
+          f"대차감소 {len(loan_dn)} · 시총비 {n_cap}/{len(shown)}")
+
+    # 시총비(2026-09-22 사용자 요청): 공매도 = 기간 누적 공매도 ÷ 시총(소수 3자리 — 대형주는
+    # 0.01% 대), 대차 = 대차잔고 ÷ 시총(2자리). 시총 없는 종목은 None(UI '—'). 순위 기준 불변.
+    def _row(e, **kw):
+        return {"name": e["name"], "code": e["code"], **kw, "cap": caps.get(e["code"])}
     return {
         "basis": "archive" if n_fb and n_fb >= len(ent) else ("mixed" if n_fb else "flow"),
-        "shortTop": [{"name": e["name"], "amt": round(e["shortSum"])} for e in short_top],
-        "loanUp": [{"name": e["name"], "chg": e["loanChg"], "amt": e.get("loanAmt")} for e in loan_up],
-        "loanDown": [{"name": e["name"], "chg": e["loanChg"], "amt": e.get("loanAmt")} for e in loan_dn],
+        "capBasis": "KIS 마스터 시총(주 1회 갱신)" if caps else None,
+        "shortTop": [_row(e, amt=round(e["shortSum"]),
+                          capPct=_cap_pct(e["shortSum"], caps.get(e["code"]), 3))
+                     for e in short_top],
+        "loanUp": [_row(e, chg=e["loanChg"], amt=e.get("loanAmt"),
+                        capPct=_cap_pct(e.get("loanAmt"), caps.get(e["code"]), 2))
+                   for e in loan_up],
+        "loanDown": [_row(e, chg=e["loanChg"], amt=e.get("loanAmt"),
+                          capPct=_cap_pct(e.get("loanAmt"), caps.get(e["code"]), 2))
+                     for e in loan_dn],
     }
 
 
