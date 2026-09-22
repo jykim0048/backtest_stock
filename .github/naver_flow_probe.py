@@ -803,8 +803,11 @@ def main():
     try:
         import subprocess
         import sys as _s18
+        import os as _o18
+        # 19차(2026-09-22): 네이버 업종 대응 보강 실동작 — 타임라인 누락 8종목을 SECTOR_PROBE 로 추적
+        env = dict(_o18.environ, SECTOR_PROBE="393210,049470,0007J0,356680,140430,411080,071200,201490")
         p = subprocess.run([_s18.executable, "build_sector_map_auto.py", "--dry-run"],
-                           capture_output=True, text=True, timeout=240)
+                           capture_output=True, text=True, timeout=900, env=env)
         res["sectorMapDryRun"] = {"rc": p.returncode,
                                   "log": (p.stdout + "\n" + p.stderr)[-4000:]}
     except Exception as e:

@@ -148,6 +148,73 @@ def _kospi_names():
     return dict(_KOSPI_SECTOR_NAME)
 
 
+NAVER_DETAIL = "https://stock.naver.com/api/domestic/detail/{code}/detail"
+NAVER_MIN_N = 3          # 대응표 채택 최소 표본(그 네이버 업종 중 KIS 업종이 있는 종목 수)
+NAVER_MIN_SHARE = 0.6    # 최다 KIS 업종 비율 하한 — 미만이면 애매해 채우지 않음
+
+
+def _naver_upjong(code):
+    """네이버 종목 상세 → (upjongCode, upJongName) — 실패 시 (None, None)."""
+    try:
+        r = requests.get(NAVER_DETAIL.format(code=code), params={"codeType": "KRX"},
+                         headers={"User-Agent": "Mozilla/5.0",
+                                  "Referer": f"https://stock.naver.com/domestic/stock/{code}/price"},
+                         timeout=10)
+        r.raise_for_status()
+        d = r.json() or {}
+        c = str(d.get("upjongCode") or "").strip()
+        return (c or None), (str(d.get("upJongName") or "").strip() or None)
+    except Exception:
+        return None, None
+
+
+def _naver_map(stocks, full, fetch=None, workers=8):
+    """전 종목 네이버 업종 수집 → (대응표 {naver코드: KIS업종}, 종목별 naver코드, 업종명표)."""
+    from concurrent.futures import ThreadPoolExecutor
+    fetch = fetch or _naver_upjong
+    codes = [s["code"] for s in stocks]
+    with ThreadPoolExecutor(max_workers=workers) as ex:
+        got = dict(zip(codes, ex.map(fetch, codes)))
+    nv_of = {c: v[0] for c, v in got.items() if v and v[0]}
+    nv_name = {v[0]: v[1] for v in got.values() if v and v[0] and v[1]}
+    votes = {}
+    for c, nc in nv_of.items():
+        if full.get(c):
+            votes.setdefault(nc, Counter())[full[c]] += 1
+    table = {}
+    for nc, cnt in votes.items():
+        top, n = cnt.most_common(1)[0]
+        total = sum(cnt.values())
+        if total >= NAVER_MIN_N and n / total >= NAVER_MIN_SHARE:
+            table[nc] = top
+    print(f"  네이버 업종 수집: {len(nv_of)}/{len(codes)}종목 · 업종 {len(votes)}개 중 대응 채택 "
+          f"{len(table)}개(표본≥{NAVER_MIN_N}·비율≥{NAVER_MIN_SHARE:.0%})")
+    return table, nv_of, nv_name
+
+
+def _fill_from_naver(stocks, full, fetch=None):
+    """무분류 종목(full 미등재)만 네이버→KIS 대응표로 채움 — full 제자리 갱신, 채운 수 반환."""
+    missing = [s for s in stocks if not full.get(s["code"])]
+    if not missing:
+        return 0
+    table, nv_of, nv_name = _naver_map(stocks, full, fetch=fetch)
+    n, skipped = 0, Counter()
+    for s in missing:
+        nc = nv_of.get(s["code"])
+        if nc and table.get(nc):
+            full[s["code"]] = table[nc]
+            n += 1
+        elif nc:
+            skipped[nv_name.get(nc) or nc] += 1
+    for nm, k in skipped.most_common(8):
+        print(f"  [네이버 대응 미채택] {nm}: {k}종목 (표본 부족 또는 KIS 업종 분산)")
+    probes = set(os.environ.get("SECTOR_PROBE", "").replace(" ", "").split(",")) - {""}
+    for p in sorted(probes):
+        print(f"  [probe naver] {p} naver={nv_of.get(p)}({nv_name.get(nv_of.get(p))}) "
+              f"→ {full.get(p)}", file=sys.stderr)
+    return n
+
+
 def _norm(name):
     return re.sub(r"[\s·・()]", "", str(name or "")).strip()
 
@@ -164,6 +231,8 @@ def main():
     ap.add_argument("--insecure", action="store_true", help="로컬 테스트용 SSL 검증 생략")
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--out", default=OUT_PATH)
+    ap.add_argument("--no-naver", action="store_true",
+                    help="네이버 업종 대응 보강 생략(무분류 종목은 맵에서 빠짐)")
     args = ap.parse_args()
     verify = not args.insecure
     if args.insecure:
@@ -300,6 +369,15 @@ def main():
     print(f"  KOSDAQ 대분류 폴백: {len(kq_big_name)}개 big 해석, {n_bigfill}종목 충전")
     for mid, ns in sorted(unresolved.items(), key=lambda x: -len(x[1]))[:15]:
         print(f"  [미해석 KOSDAQ mid {mid}] {len(ns)}종목 예: {', '.join(ns[:4])}")
+    # ── 네이버 업종 → KIS 업종 대응표로 무분류 종목 보강(2026-09-22) ────────────
+    # KIS 마스터에 대·중분류가 모두 0000 인 코스닥 종목(약 13%, 예: 토마토시스템·미투온)은
+    # 이름 붙일 코드가 없어 전 종목 맵에서 빠졌다(촉매 타임라인 섹터 결측). 네이버 종목
+    # 상세의 업종(upjongCode)을 전 종목 수집해, KIS 업종이 이미 있는 종목들로 '네이버 업종
+    # → KIS 업종' 다수결 대응표를 만들고(표본 NAVER_MIN_N·최다 비율 NAVER_MIN_SHARE 이상만)
+    # 무분류 종목만 KIS 체계 이름으로 채운다. 애매한 업종은 채우지 않음(정직).
+    if not args.no_naver:
+        n_nv = _fill_from_naver(kospi + kosdaq, full)
+        print(f"  네이버 업종 대응 보강: {n_nv}종목")
     print(f"  전 종목 업종 맵: {len(full)}종목 (KOSPI+KOSDAQ, 컷 없음, "
           f"KOSDAQ 미해석 {sum(len(v) for v in unresolved.values())}종목)")
 
