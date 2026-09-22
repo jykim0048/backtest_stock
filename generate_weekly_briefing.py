@@ -441,8 +441,9 @@ def _sector_live(code, nv_table):
         with urllib.request.urlopen(req, timeout=10) as r:
             d = json.loads(r.read().decode("utf-8")) or {}
         nc = str(d.get("upjongCode") or "").strip()
-        sec = nv_table.get(nc) or None
-        print(f"[weekly] 섹터 실시간 보강: {code} 네이버 {nc}({d.get('upJongName')}) → {sec}")
+        nm = str(d.get("upJongName") or "").strip()
+        sec = nv_table.get(nm) or nv_table.get(nc) or None    # 업종명 키(구 맵은 코드 키)
+        print(f"[weekly] 섹터 실시간 보강: {code} 네이버 {nc}({nm}) → {sec}")
     except Exception as ex:
         print(f"[weekly] 섹터 실시간 조회 실패 {code}: {ex}", file=sys.stderr)
     _SEC_LIVE[code] = sec

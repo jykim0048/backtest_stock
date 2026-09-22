@@ -150,7 +150,12 @@ def _kospi_names():
 
 NAVER_DETAIL = "https://stock.naver.com/api/domestic/detail/{code}/detail"
 NAVER_MIN_N = 3          # 대응표 채택 최소 표본(그 네이버 업종 중 KIS 업종이 있는 종목 수)
-NAVER_MIN_SHARE = 0.6    # 최다 KIS 업종 비율 하한 — 미만이면 애매해 채우지 않음
+_NAVER_VOTES = {}        # 업종명 → Counter(KIS 업종) 최근 투표 분포(진단 로그)
+NAVER_MIN_SHARE = 0.6
+# 다수결 표본이 구조적으로 부족한 업종의 고정 대응(2026-09-22 실측: KIS 마스터가 소프트웨어·
+# IT서비스 코스닥 종목 대부분을 무분류(0000)로 둬 투표자가 1~18명뿐 — 소프트웨어 1/2,
+# IT서비스 11/19). KRX 통합 업종분류에서 소프트웨어·IT서비스업은 'IT 서비스'로 정의돼 자명.
+NAVER_FIXED = {"IT서비스": "IT 서비스", "소프트웨어": "IT 서비스"}    # 최다 KIS 업종 비율 하한 — 미만이면 애매해 채우지 않음
 
 
 def _naver_upjong(code):
@@ -168,37 +173,49 @@ def _naver_upjong(code):
         return None, None
 
 
-def _naver_map(stocks, full, fetch=None, workers=8):
-    """전 종목 네이버 업종 수집 → (대응표 {naver코드: KIS업종}, 종목별 naver코드, 업종명표)."""
+def _naver_map(stocks, full, fetch=None, workers=8, weak=frozenset()):
+    """전 종목 네이버 업종 수집 → (대응표 {naver코드: KIS업종}, 종목별 naver코드, 업종명표).
+    weak = 대분류 버킷 다수결로 추정한 코드 집합 — 투표에서 제외(2026-09-22): KIS 지수업종이
+    비어 있는 코스닥 바이오 R&D(알테오젠·인벤테라 등, 표준산업 '연구개발업')가 버킷 추정
+    '일반서비스'로 투표해 네이버 제약(12)→일반서비스 대응표가 오염되던 문제."""
     from concurrent.futures import ThreadPoolExecutor
     fetch = fetch or _naver_upjong
     codes = [s["code"] for s in stocks]
     with ThreadPoolExecutor(max_workers=workers) as ex:
         got = dict(zip(codes, ex.map(fetch, codes)))
-    nv_of = {c: v[0] for c, v in got.items() if v and v[0]}
-    nv_name = {v[0]: v[1] for v in got.values() if v and v[0] and v[1]}
+    # 키는 업종코드가 아니라 업종명(2026-09-22): 네이버 업종코드는 시장별 번호라(코스피 12 ≠
+    # 코스닥 12) 코드 키 대응표가 시장 간에 섞여 제약→일반서비스로 오염됐다. 업종명(WICS
+    # 체계)은 시장 공통.
+    nv_of = {c: (v[1] or v[0]) for c, v in got.items() if v and (v[1] or v[0])}
+    nv_name = {k: k for k in set(nv_of.values())}
     votes = {}
     for c, nc in nv_of.items():
-        if full.get(c):
+        if full.get(c) and c not in weak:
             votes.setdefault(nc, Counter())[full[c]] += 1
+    _NAVER_VOTES.clear()
+    _NAVER_VOTES.update(votes)              # 미채택 진단 로그용(투표 분포)
     table = {}
     for nc, cnt in votes.items():
         top, n = cnt.most_common(1)[0]
         total = sum(cnt.values())
         if total >= NAVER_MIN_N and n / total >= NAVER_MIN_SHARE:
             table[nc] = top
+    table.update(NAVER_FIXED)               # 정의상 자명한 대응은 투표와 무관하게 고정
     print(f"  네이버 업종 수집: {len(nv_of)}/{len(codes)}종목 · 업종 {len(votes)}개 중 대응 채택 "
           f"{len(table)}개(표본≥{NAVER_MIN_N}·비율≥{NAVER_MIN_SHARE:.0%})")
     return table, nv_of, nv_name
 
 
-def _fill_from_naver(stocks, full, fetch=None):
-    """무분류 종목(full 미등재)만 네이버→KIS 대응표로 채움 — full 제자리 갱신, 채운 수 반환."""
+def _fill_from_naver(stocks, full, fetch=None, weak=frozenset()):
+    """무분류 종목(full 미등재)은 네이버→KIS 대응표로 채우고, 대분류 버킷 추정(weak) 라벨은
+    대응표에 더 구체적 근거가 있으면 정정한다 — full 제자리 갱신, 반환 (채운 수, 정정 수,
+    대응표, 업종명표). KRX 체계명은 대응표(중분류 확정 종목 다수결)에서만 나오므로 추측 없음."""
     missing = [s for s in stocks if not full.get(s["code"])]
-    if not missing:
-        return 0
-    table, nv_of, nv_name = _naver_map(stocks, full, fetch=fetch)
-    n, skipped = 0, Counter()
+    weak_rows = [s for s in stocks if s["code"] in weak]
+    if not missing and not weak_rows:
+        return 0, 0, {}, {}
+    table, nv_of, nv_name = _naver_map(stocks, full, fetch=fetch, weak=weak)
+    n, n_fix, skipped, fixes = 0, 0, Counter(), Counter()
     for s in missing:
         nc = nv_of.get(s["code"])
         if nc and table.get(nc):
@@ -206,15 +223,25 @@ def _fill_from_naver(stocks, full, fetch=None):
             n += 1
         elif nc:
             skipped[nv_name.get(nc) or nc] += 1
+    for s in weak_rows:
+        nc = nv_of.get(s["code"])
+        if nc and table.get(nc) and table[nc] != full.get(s["code"]):
+            fixes[f"{full.get(s['code'])}→{table[nc]}({nv_name.get(nc)})"] += 1
+            full[s["code"]] = table[nc]
+            n_fix += 1
+    for k, v in fixes.most_common(10):
+        print(f"  [버킷 추정 정정] {k}: {v}종목")
     for nm, k in skipped.most_common(8):
-        print(f"  [네이버 대응 미채택] {nm}: {k}종목 (표본 부족 또는 KIS 업종 분산)")
+        dist = _NAVER_VOTES.get(nm)
+        print(f"  [네이버 대응 미채택] {nm}: {k}종목 (표본 부족 또는 KIS 업종 분산) "
+              f"투표={dist.most_common(4) if dist else None}")
     probes = set(os.environ.get("SECTOR_PROBE", "").replace(" ", "").split(",")) - {""}
     for p in sorted(probes):
         print(f"  [probe naver] {p} naver={nv_of.get(p)}({nv_name.get(nv_of.get(p))}) "
               f"→ {full.get(p)}", file=sys.stderr)
     # 대응표·업종명표는 전 종목 맵 파일에 같이 저장 — 주간 브리핑 생성기가 맵 미등재
     # 코드(신규 상장·재빌드 사이)를 네이버 실시간 조회로 즉석 변환하는 데 쓴다(2026-09-22)
-    return n, table, nv_name
+    return n, n_fix, table, nv_name
 
 
 def _norm(name):
@@ -359,11 +386,13 @@ def main():
                                      or (old.get(key) or {}).get("name") or key)
     n_bigfill = 0
     unresolved = {}
+    weak = set()            # 대분류 버킷 추정으로만 이름 붙은 코드 — 네이버 대응표가 정정 가능
     for s in kosdaq:
         nm = kq_mid_name.get(s["mid"])
         if not nm and kq_big_name.get(s["big"]):
             nm = kq_big_name[s["big"]]
             n_bigfill += 1
+            weak.add(s["code"])
         if nm:
             full[s["code"]] = nm
         elif s["mid"] and s["mid"] != "0000":
@@ -379,8 +408,9 @@ def main():
     # 무분류 종목만 KIS 체계 이름으로 채운다. 애매한 업종은 채우지 않음(정직).
     nv_table, nv_names = {}, {}
     if not args.no_naver:
-        n_nv, nv_table, nv_names = _fill_from_naver(kospi + kosdaq, full)
-        print(f"  네이버 업종 대응 보강: {n_nv}종목 (대응표 {len(nv_table)}업종 저장)")
+        n_nv, n_fix, nv_table, nv_names = _fill_from_naver(kospi + kosdaq, full, weak=weak)
+        print(f"  네이버 업종 대응 보강: 결측 채움 {n_nv}종목 · 버킷 추정 정정 {n_fix}종목 "
+              f"(대응표 {len(nv_table)}업종 저장)")
     print(f"  전 종목 업종 맵: {len(full)}종목 (KOSPI+KOSDAQ, 컷 없음, "
           f"KOSDAQ 미해석 {sum(len(v) for v in unresolved.values())}종목)")
 
