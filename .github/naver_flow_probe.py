@@ -660,6 +660,42 @@ def main():
     res.pop("miweb:bundles", None)
     res["marketindex13"] = b13
 
+    # ⑱ 14차(2026-09-22) — Playwright 캡처로 찾은 API 를 일반 requests 로 호출(쿠키 없이도
+    #    되는지) + 파서 작성용 전 항목 덤프
+    f14 = {}
+    for code in CODES:
+        try:
+            r = requests.get(f"{NEW_WEB}/api/domestic/detail/{code}/detail",
+                             params={"codeType": "KRX"},
+                             headers=dict(UA, Referer=f"{NEW_WEB}/domestic/stock/{code}/price"),
+                             timeout=20)
+            d = r.json()
+            f14[f"detail:{code}"] = {
+                "status": r.status_code,
+                "keys": sorted(d)[:120] if isinstance(d, dict) else None,
+                "picked": {k: v for k, v in (d.items() if isinstance(d, dict) else [])
+                           if re.search(r"same|industry|upjong|per|pbr|eps|dividend", k, re.I)}}
+        except Exception as e:
+            f14[f"detail:{code}"] = {"error": str(e)}
+    for name in ("majors/rpc", "majors/domesticInterest", "majors/standardInterest",
+                 "majors/bond", "energy", "metals"):
+        try:
+            r = requests.get(f"{NEW_WEB}/api/securityService/marketindex/{name}",
+                             headers=dict(UA, Referer=NEW_WEB + "/market/marketindex"), timeout=20)
+            d = r.json()
+            rows = d if isinstance(d, list) else (d.get("datas") or d.get("items") or [])
+            f14[f"mi:{name}"] = {
+                "status": r.status_code, "type": type(d).__name__, "n": len(rows),
+                "keys": sorted(rows[0])[:60] if rows and isinstance(rows[0], dict) else None,
+                "rows": [{k: x.get(k) for k in ("categoryType", "reutersCode", "symbolCode", "name",
+                                                 "closePrice", "fluctuations", "fluctuationsRatio",
+                                                 "localTradedAt")}
+                         | {"dir": (x.get("fluctuationsType") or {}).get("name")}
+                         for x in rows if isinstance(x, dict)]}
+        except Exception as e:
+            f14[f"mi:{name}"] = {"error": str(e)}
+    res["api14"] = f14
+
     res["trendApiOk"] = all(res[f"trendApi:{c}"].get("hasData") for c in CODES)
     # 판정: 410=폐지(Gone) / 그 외 4xx·예외=차단·오류 / 200·행 0=구조 변경
     def _verdict(c):
