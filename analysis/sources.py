@@ -375,9 +375,30 @@ def naver_industry_detail(url, max_chars=400):
 #     셀렉터가 전부 사라졌다(값이 모두 None 인 dict 를 돌려줘 '조회 실패' 경고도 안 뜨고
 #     추정PER·배당·목표가 폴백이 조용히 결측). integration 은 totalInfos[{code,key,
 #     value}]·consensusInfo{recommMean, priceTargetMean} 를 준다(프로브 실측).
-#     동일업종 PER·등락률은 새 API 에 없어 None — 업종 PER 은 FnGuide 3순위가 보완.
+#     동일업종 PER·등락률은 integration 에 없어 신규 가격 화면이 부르는 detail API
+#     (stock.naver.com/api/domestic/detail/<code>/detail?codeType=KRX — sameIndustryPer·
+#     sameIndustryChangeRate, 2026-09-22 Playwright 캡처)로 채운다. 실패·결측이면 None →
+#     sector._merge_fnguide_valuation 이 업종 PER 을 FnGuide 로 보완(음수 등 이상치는
+#     _validate_valuation 이 제거 → 역시 FnGuide 폴백).
 # ----------------------------------------------------------------------------
 _INTEGRATION_API = "https://m.stock.naver.com/api/stock/{code}/integration"
+_DETAIL_API = "https://stock.naver.com/api/domestic/detail/{code}/detail"
+
+
+def _same_industry(code):
+    """(동일업종 PER, 동일업종 등락률%) — 실패 시 (None, None)."""
+    try:
+        r = requests.get(_DETAIL_API.format(code=code), params={"codeType": "KRX"},
+                         headers={**UA, "Referer":
+                                  f"https://stock.naver.com/domestic/stock/{code}/price"},
+                         timeout=15)
+        r.raise_for_status()
+        d = r.json() or {}
+    except Exception as e:
+        _warn(f"naver_valuation({code}) 동일업종 조회 실패: {e}")
+        return None, None
+    per = _vnum(d.get("sameIndustryPer"))
+    return (round(per, 2) if per is not None else None), _vnum(d.get("sameIndustryChangeRate"))
 
 
 def _vnum(s):
@@ -429,12 +450,13 @@ def naver_valuation(code):
                 return v
         return None
 
+    ind_per, ind_chg = _same_industry(code)
     return {
         "per": pick("per"), "eps": pick("eps"),
         "estPer": pick("cnsPer"), "estEps": pick("cnsEps"),
         "pbr": pick("pbr"), "bps": pick("bps"),
         "dividendYield": pick("dividendYieldRatio"),
-        "industryPer": None, "industryChangePct": None,
+        "industryPer": ind_per, "industryChangePct": ind_chg,
         "opinionScore": score, "opinionLabel": _opinion_label(score),
         "targetPrice": _vnum(cns.get("priceTargetMean")),
         "high52w": pick("highPriceOf52WeeksAdjusted", "highPriceOf52Weeks"),
@@ -805,63 +827,76 @@ def naver_stock_ranking(direction="up", market="KOSPI", limit=20):
     return out
 
 
-def naver_market_indicators():
-    """네이버 시장지표(finance.naver.com/marketindex) — 환율·국제환율·유가·금·국내금리.
+_MI_API = "https://stock.naver.com/api/securityService/marketindex"
+# 신규 웹 항목(reutersCode) → (분류, 종전 표기 이름). 소비처(웹 시장지표 칩·장중 시황 LLM
+# 입력)가 이름 정규식으로 고르므로 구형 화면 라벨을 유지한다(2026-09-22 전환).
+_MI_MAP = {
+    "FX_USDKRW": ("exchange", "미국 USD"),
+    "FX_JPYKRW": ("exchange", "일본 JPY(100엔)"),     # 새 라벨 '일본 JPY' — 값은 100엔 기준 동일
+    "FX_EURKRW": ("exchange", "유럽연합 EUR"),        # 새 라벨 '유럽 EUR'
+    "FX_CNYKRW": ("exchange", "중국 CNY"),
+    "USDJPY": ("world", "달러/일본 엔"),
+    "EURUSD": ("world", "유로/달러"),
+    "GBPUSD": ("world", "영국 파운드/달러"),
+    ".DXY": ("world", "달러인덱스"),                  # 새 소스는 exchange 분류 — 종전대로 world
+    "CLcv1": ("commodities", "WTI"),
+    "LCOcv1": ("commodities", "브렌트유"),
+    "DCBc1": ("commodities", "두바이유"),
+    "OIL_GSL": ("commodities", "휘발유"),              # 국내 휘발유(원/L)
+    "GCcv1": ("commodities", "국제 금"),
+    "M04020000": ("commodities", "국내 금"),
+    "KFIA114000": ("rates", "CD금리(91일)"),
+    "KRCALLBOKK": ("rates", "콜 금리"),
+    "KRCOFIXOUTB": ("rates", "COFIX 잔액"),
+    "KRCOFIXMANF": ("rates", "COFIX 신규취급액"),
+    # 국고채 3년·회사채 3년은 신규 화면에 없음 — 한국 국채 10년으로 대체(라벨에 만기 명시)
+    "KR10YT=RR": ("rates", "국고채 (10년)"),
+}
 
-    반환: {"exchange": [...], "world": [...], "commodities": [...], "rates": [...]}
-    - exchange: 환전 고시 환율(미국 USD·유럽연합 EUR·일본 JPY(100엔)·중국 CNY)
-    - world:    국제환율(달러인덱스·엔/달러·달러/유로 등) — 원화 무관 글로벌 통화 지표
-    각 항목 {name, value, change, direction('up'|'down'|'same')}. 실패 시 {}."""
-    try:
-        r = requests.get("https://finance.naver.com/marketindex/",
-                         headers=UA, timeout=15)
-        r.raise_for_status()
-        html = r.content.decode("euc-kr", errors="replace")
-    except Exception as e:
-        _warn(f"naver_market_indicators failed: {e}")
-        return {}
+
+def naver_market_indicators():
+    """네이버 시장지표 — 환율·국제환율·유가·금·국내금리.
+
+    2026-09-22 전환: 구형 finance.naver.com/marketindex/ 가 개편되어 2026-09 중순부터 빈 값
+    (장중 시황 시장지표 칩·LLM marketIndicators 결손). 신규 화면(stock.naver.com/market/
+    marketindex)이 부르는 JSON 4종을 쓴다(Playwright 캡처·프로브 실측):
+      majors/rpc(환율·국제환율·WTI·브렌트·금) · majors/domesticInterest(콜·CD·COFIX) ·
+      energy(국내 휘발유 등) · majors/bond(국채 10년).
+    반환(종전과 동일): {"exchange", "world", "commodities", "rates"} 각 항목
+    {name, value, change(절댓값), direction('up'|'down'|'same')}. 전부 실패 시 {}."""
+    got = {}
+    for path in ("majors/rpc", "majors/domesticInterest", "energy", "majors/bond"):
+        try:
+            r = requests.get(f"{_MI_API}/{path}",
+                             headers={**UA, "Referer": "https://stock.naver.com/market/marketindex"},
+                             timeout=15)
+            r.raise_for_status()
+            for x in r.json() or []:
+                code = str((x or {}).get("reutersCode") or "")
+                if code in _MI_MAP and code not in got:
+                    got[code] = x
+        except Exception as e:
+            _warn(f"naver_market_indicators {path} failed: {e}")
 
     def _fnum(s):
         try:
             return float(str(s).replace(",", "").strip())
-        except ValueError:
+        except (TypeError, ValueError):
             return None
 
-    # 환율/유가·금 리스트(li 구조): blind 이름 + head_info point_up|dn + value/change
-    def _parse_list(section_id):
-        i = html.find(f'id="{section_id}"')
-        if i < 0:
-            return []
-        chunk = html[i:html.find("</ul>", i)]
-        out = []
-        for m in re.finditer(
-                r'<span class="blind">([^<]+)</span></h3>.*?'
-                r'head_info(?:\s+point_(up|dn))?[^>]*>.*?'
-                r'<span class="value">([^<]+)</span>.*?'
-                r'<span class="change">\s*([^<]+?)\s*</span>', chunk, re.S):
-            name, direction, value, change = m.groups()
-            out.append({"name": name.strip(),
-                        "value": _fnum(value),
-                        "change": _fnum(change),
-                        "direction": {"up": "up", "dn": "down"}.get(direction, "same")})
-        return out
-
-    # 국내시장금리 테이블: tr class=up|down|same, 이름 span, 금리 td, 등락 td
-    rates = []
-    j = html.find("국내시장금리")
-    if j >= 0:
-        chunk = html[j:html.find("</table>", j)]
-        for m in re.finditer(
-                r'<tr class="(up|down|same)">.*?<span>([^<]+)</span></a></th>\s*'
-                r'<td>([\d.,\-]+)</td>\s*<td>.*?([\d.,]+)\s*</td>', chunk, re.S):
-            direction, name, value, change = m.groups()
-            rates.append({"name": name.strip(), "value": _fnum(value),
-                          "change": _fnum(change), "direction": direction})
-
-    out = {"exchange": _parse_list("exchangeList"),
-           "world": _parse_list("worldExchangeList"),   # 국제환율: 달러인덱스·엔/달러 등
-           "commodities": _parse_list("oilGoldList"),
-           "rates": rates}
+    out = {"exchange": [], "world": [], "commodities": [], "rates": []}
+    for code, (cat, name) in _MI_MAP.items():        # 표시 순서 = 매핑 순서(종전 화면 순)
+        x = got.get(code)
+        if not x:
+            continue
+        chg = _fnum(x.get("fluctuations"))
+        out[cat].append({
+            "name": name,
+            "value": _fnum(x.get("closePrice")),
+            "change": abs(chg) if chg is not None else None,
+            "direction": {"RISING": "up", "FALLING": "down"}.get(
+                (x.get("fluctuationsType") or {}).get("name"), "same"),
+        })
     return out if any(out.values()) else {}
 
 

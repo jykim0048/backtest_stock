@@ -695,6 +695,17 @@ def main():
         except Exception as e:
             f14[f"mi:{name}"] = {"error": str(e)}
     res["api14"] = f14
+    # 교체한 naver_valuation(동일업종)·naver_market_indicators 실동작(파이프라인 코드 import)
+    try:
+        from analysis import sources as S5
+        res["liveCheck5"] = {
+            "valuation": {c: {k: v for k, v in S5.naver_valuation(c).items()
+                              if k in ("per", "estPer", "industryPer", "industryChangePct",
+                                       "opinionLabel", "targetPrice")} for c in CODES},
+            "marketIndicators": S5.naver_market_indicators()}
+    except Exception:
+        import traceback
+        res["liveCheck5"] = {"error": traceback.format_exc()[-600:]}
 
     res["trendApiOk"] = all(res[f"trendApi:{c}"].get("hasData") for c in CODES)
     # 판정: 410=폐지(Gone) / 그 외 4xx·예외=차단·오류 / 200·행 0=구조 변경
