@@ -92,14 +92,20 @@ def _compound(pcts):
     return round((acc - 1.0) * 100.0, 2)
 
 
-def _us_period_returns(days):
-    """미국 지수 기간 수익률(%) — 레벨 기반: 첫 관측의 전일 종가(price/(1+chg))를
-    기준가로, 마지막 관측 레벨과 비교. 레벨 결측 지수는 일별 등락 복리 폴백."""
+def _us_period_returns(days, key="usIndices"):
+    """[폴백] 모닝브리핑 관측으로 미국 기간 수익률(%) — 레벨 기반: 첫 관측의 전일
+    종가(price/(1+chg))를 기준가로, 마지막 관측 레벨과 비교. 레벨 결측은 일별 등락 복리.
+    미국 휴장일 다음 브리핑은 직전 세션을 그대로 반복하므로(2026-09-08 브리핑 = 9/4 세션,
+    노동절) 직전과 (가격, 등락)이 같은 관측은 제외(2026-09-22). 1순위는 _us_level_returns."""
     obs = {}
     for d in days:
-        for i in (d.get("usIndices") or []):
+        for i in (d.get(key) or []):
             nm = i.get("name")
             if nm and isinstance(i.get("changePct"), (int, float)):
+                prev = (obs.get(nm) or [None])[-1]
+                if prev and prev.get("price") == i.get("price") \
+                        and prev.get("changePct") == i.get("changePct"):
+                    continue                    # 휴장 반복 관측
                 obs.setdefault(nm, []).append(i)
     out = {}
     for nm, xs in obs.items():
@@ -110,6 +116,125 @@ def _us_period_returns(days):
         else:
             out[nm] = _compound(x["changePct"] for x in xs)
     return out
+
+
+# 구 아카이브(티커 미저장) 대비 표시명→티커 폴백 — 모닝브리핑 usMarket.indices 와 동일
+_US_INDEX_TICKERS = {"S&P500": "^GSPC", "나스닥": "^IXIC", "다우": "^DJI",
+                     "필라델피아 반도체": "^SOX", "VIX 변동성": "^VIX"}
+
+
+def _us_level_returns(days, start, end, fetch_closes=None):
+    """미국 지수·섹터 ETF 기간 수익률(%) — **yfinance 종가 직접**(2026-09-22 사용자 요청).
+
+    기준 = start(한국 기간 첫날: 주 월요일/월 1일) **이전** 마지막 미국 거래일 종가,
+    비교 = end(기간 마지막 날, 달력 기준) **이하** 마지막 미국 거래일 종가. 날짜는 미국
+    거래소 날짜라 모닝브리핑 방식의 하루 밀림(전주 금~이번 주 목)·휴장일 중복 합산
+    문제가 없다. 평일 16:10 런은 미국 당일(금요일 포함) 장 전이라 직전 세션까지,
+    토요일 08:00 런(기존 주간·월간 워크플로, 주말 자동 미국만 갱신)이 금요일 종가로 확정한다.
+    티커·표시명은 기간 모닝브리핑 관측에서 수집(표시명 호환). 반환
+    (idx {name: pct}, sec {name: pct}, basis {source, from, to}) — 전부 실패 시 None."""
+    idx_t, sec_t = {}, {}
+    for d in days:
+        for i in (d.get("usIndices") or []):
+            if i.get("name"):
+                idx_t.setdefault(i["name"], i.get("ticker") or _US_INDEX_TICKERS.get(i["name"]))
+        for s in (d.get("usSectors") or []):
+            if s.get("name") and s.get("ticker"):
+                sec_t.setdefault(s["name"], s["ticker"])
+    tickers = sorted({t for t in list(idx_t.values()) + list(sec_t.values()) if t})
+    if not tickers:
+        return None
+    try:
+        closes = (fetch_closes or (lambda ts: _yf_closes(ts, period="3mo")))(tickers)
+    except Exception as ex:
+        print(f"[weekly] 미국 종가(yfinance) 조회 실패 — 모닝브리핑 폴백: {ex}", file=sys.stderr)
+        return None
+    s_iso, e_iso = start.isoformat(), end.isoformat()
+    froms, tos = [], []
+
+    def ret(t):
+        rows = closes.get(t) or []
+        base = [r for r in rows if r[0] < s_iso]
+        cur = [r for r in rows if s_iso <= r[0] <= e_iso]
+        if not base or not cur or not base[-1][1]:
+            return None
+        froms.append(base[-1][0])
+        tos.append(cur[-1][0])
+        return round((cur[-1][1] / base[-1][1] - 1.0) * 100.0, 2)
+
+    idx = {n: v for n, t in idx_t.items() if t and (v := ret(t)) is not None}
+    sec = {n: v for n, t in sec_t.items() if (v := ret(t)) is not None}
+    if not idx and not sec:
+        return None
+    # 기준·비교일은 최빈값(지수·ETF 거래일은 대개 동일) — 라벨 표시용
+    basis = {"source": "yfinance",
+             "from": max(set(froms), key=froms.count), "to": max(set(tos), key=tos.count)}
+    print(f"[weekly] 미국 기간 수익률(yfinance 종가): 지수 {len(idx)}/{len(idx_t)} · 섹터 "
+          f"{len(sec)}/{len(sec_t)} · {basis['from']} 종가 → {basis['to']}")
+    return idx, sec, basis
+
+
+def _us_sector_rank(us_sec):
+    """섹터 ETF 기간 수익률 → 상위/하위 3."""
+    if not us_sec:
+        return None
+    ranked = sorted(us_sec.items(), key=lambda x: -x[1])
+    return {"up": [{"name": n, "chg": v} for n, v in ranked[:3] if v > 0],
+            "down": [{"name": n, "chg": v} for n, v in ranked[-3:][::-1] if v < 0]}
+
+
+def _us_period_block(days, dates, is_month):
+    """usWeekly · usSectorWeekly · usWeeklyBasis — yfinance 1순위, 실패 시 모닝브리핑
+    관측(레벨 기반·휴장 반복 제거) 폴백. 기간 끝 = 주: 그 주 금요일 / 월: 기간 마지막 날."""
+    start = dates[0]
+    end = dates[-1] if is_month else start + datetime.timedelta(days=4 - start.weekday())
+    got = _us_level_returns(days, start, end)
+    if got:
+        idx, sec, basis = got
+        return idx, _us_sector_rank(sec), basis
+    idx = _us_period_returns(days)
+    sec = _us_period_returns(days, key="usSectors")
+    return idx, _us_sector_rank(sec), ({"source": "morning-briefing"} if idx else None)
+
+
+def _us_only_patch(days, dates, is_month, week_start):
+    """기존 기간 산출물(아카이브 + 최신 스냅샷)의 usWeekly·usSectorWeekly·usWeeklyBasis 만
+    yfinance 종가로 재계산해 덮어쓴다. 산출물이 없거나 yfinance 실패면 아무것도 쓰지 않음
+    (금요일 16:10 본 유지). 반환 코드 0(워크플로 실패로 만들지 않음)."""
+    if is_month:
+        out_dir = os.path.join(ROOT, "public", "reports", "monthly_review")
+        snap, key = os.path.join(ROOT, "public", "monthly_review.json"), week_start[:7]
+    else:
+        out_dir, snap, key = OUT_DIR, SNAP, week_start
+    start = dates[0]
+    end = dates[-1] if is_month else start + datetime.timedelta(days=4 - start.weekday())
+    got = _us_level_returns(days, start, end)
+    if not got:
+        print("[weekly] --us-only: yfinance 결과 없음 — 기존 산출물 유지")
+        return 0
+    idx, sec, basis = got
+    n = 0
+    for p in (os.path.join(out_dir, f"{key}.json"), snap):
+        try:
+            with open(p, encoding="utf-8") as f:
+                d = json.load(f)
+        except OSError:
+            continue
+        # 스냅샷이 다른 기간이면 건드리지 않음 — 주간은 weekStart, 월간은 periodStart(YYYY-MM)
+        k0 = (str(d.get("periodStart") or "")[:7] if is_month
+              else str(d.get("weekStart") or ""))
+        if k0 != key:
+            continue
+        before = d.get("usWeekly")
+        d["usWeekly"], d["usSectorWeekly"], d["usWeeklyBasis"] = idx, _us_sector_rank(sec), basis
+        with open(p, "w", encoding="utf-8") as f:
+            json.dump(d, f, ensure_ascii=False, indent=1)
+        n += 1
+        print(f"[weekly] --us-only 갱신: {os.path.relpath(p, ROOT)} "
+              f"S&P500 {(before or {}).get('S&P500')} → {idx.get('S&P500')} ({basis['from']}→{basis['to']})")
+    if not n:
+        print(f"[weekly] --us-only: {key} 산출물 없음 — 생략")
+    return 0
 
 
 def _compact_day(d):
@@ -161,11 +286,13 @@ def _day_summary(date_str):
         day["usReview"] = (morning.get("usReview") or {}).get("bullets") or []
         day["krPreview"] = (morning.get("krPreview") or {}).get("narrative") or ""
         us = morning.get("usMarket") or {}
+        # ticker(2026-09-22): 기간 수익률을 yfinance 종가로 직접 계산(_us_level_returns)
         day["usIndices"] = [{"name": i.get("name"), "changePct": i.get("changePct"),
-                             "price": i.get("price")}          # 월간 레벨 기반 수익률용
+                             "price": i.get("price"), "ticker": i.get("ticker")}
                             for i in (us.get("indices") or [])[:5]]
         # 미국 섹터 히트(섹터 ETF 일별 등락) — 주간 누적 상위/하위 섹터 집계 입력
-        day["usSectors"] = [{"name": s.get("name"), "changePct": s.get("changePct")}
+        day["usSectors"] = [{"name": s.get("name"), "changePct": s.get("changePct"),
+                             "price": s.get("price"), "ticker": s.get("ticker")}
                             for s in (us.get("sectors") or [])
                             if s.get("name") and isinstance(s.get("changePct"), (int, float))]
         day["usCatalystsTop"] = [
@@ -1328,11 +1455,12 @@ def _norm_listed_name(s):
     return s.upper()
 
 
-def _yf_closes(tickers):
-    """yfinance 일별 종가 배치 조회 -> {ticker: [(iso날짜, 종가), ...]}."""
+def _yf_closes(tickers, period="1mo"):
+    """yfinance 일별 종가 배치 조회 -> {ticker: [(iso날짜, 종가), ...]}.
+    period: 월간 미국 수익률은 월초 이전 기준가가 필요해 3mo(2026-09-22)."""
     import yfinance as yf
     import pandas as pd
-    df = yf.download(tickers, period="1mo", progress=False, auto_adjust=True)
+    df = yf.download(tickers, period=period, progress=False, auto_adjust=True)
     close = df["Close"] if "Close" in df else df
     if isinstance(close, pd.Series):
         close = close.to_frame(tickers[0])
@@ -1619,6 +1747,16 @@ def main():
         return 0
     week_end = days[-1]["date"]
 
+    # 미국 수익률만 갱신(2026-09-22): 토요일 08:00 KST 스케줄러가 기존 주간·월간 워크플로를
+    # 그대로 dispatch → **주말 실행이면 자동으로** 기존 산출물의 미국 기간 수익률 3키만
+    # 재계산·덮어쓰기(미국 금요일 종가 반영). LLM·KIS 허브·스냅샷 호출 없음 — 주말 허브
+    # 장애로 금요일 정상본이 열화되는 것 방지. --us-only 로 평일에도 강제 가능,
+    # --full 또는 --date(과거 재생성) 지정 시 주말이어도 전체 실행.
+    weekend = datetime.datetime.now(KST).weekday() >= 5
+    if "--us-only" in args or (weekend and "--full" not in args and "--date" not in args):
+        print("[weekly] 미국 수익률만 갱신 모드" + (" (주말 자동)" if weekend else ""))
+        return _us_only_patch(days, dates, is_month, week_start)
+
     # 당일 순매수 랭킹 스냅샷(거래일이었을 때만) + 주간 누적 합산
     _tmark("스냅샷·백필·누적")
     today_iso = datetime.datetime.now(KST).date().isoformat()
@@ -1634,34 +1772,11 @@ def main():
     print(f"[weekly] {week_start} ~ {week_end}: 거래일 {len(days)}일 수집")
 
     # ── Phase 1 결정적 집계 (2026-09-08 주간회의 자료 벤치마킹) ──────────────
-    # ① 미국 주간 컨텍스트 — 모닝브리핑 usIndices(전일 미국장) 일별 등락 합산 근사
-    us_weekly = {}
-    if is_month:                     # 월간: 레벨 기반(결측 시 복리) — 합산 오차 제거
-        us_weekly = _us_period_returns(days)
-    else:
-        for d in days:
-            for i in (d.get("usIndices") or []):
-                nm, ch = i.get("name"), i.get("changePct")
-                if nm and isinstance(ch, (int, float)):
-                    us_weekly[nm] = round(us_weekly.get(nm, 0.0) + ch, 2)
-    # ①b 미국 섹터 ETF 기간 누적 상위/하위 3 — 주간 단순 합산 / 월간 복리
-    us_sec = {}
-    if is_month:
-        seq = {}
-        for d in days:
-            for s in (d.get("usSectors") or []):
-                seq.setdefault(s["name"], []).append(s["changePct"])
-        us_sec = {n: _compound(v) for n, v in seq.items()}
-    else:
-        for d in days:
-            for s in (d.get("usSectors") or []):
-                us_sec[s["name"]] = round(us_sec.get(s["name"], 0.0) + s["changePct"], 2)
-    us_sector_weekly = None
-    if us_sec:
-        ranked = sorted(us_sec.items(), key=lambda x: -x[1])
-        us_sector_weekly = {
-            "up": [{"name": n, "chg": v} for n, v in ranked[:3] if v > 0],
-            "down": [{"name": n, "chg": v} for n, v in ranked[-3:][::-1] if v < 0]}
+    # ① 미국 기간 수익률(지수) + ①b 섹터 ETF 상위/하위 3 — yfinance 종가 레벨 기반
+    #    (2026-09-22). 종전 '모닝브리핑 전일 등락 단순 합산'은 기간이 하루 밀리고(전주 금~
+    #    이번 주 목) 미국 휴장일에 직전 세션을 중복 합산해(9/7 주 S&P -2.40 vs 실제 약 -2.02,
+    #    9/14 주 +0.62 vs 실제 미국 주간 -0.08) 폐기. 실패 시 모닝브리핑 레벨 기반 폴백.
+    us_weekly, us_sector_weekly, us_basis = _us_period_block(days, dates, is_month)
 
     # ② 공매도·대차 주간 동향 — 유니버스는 netbuy_rank 등재 종목(현행), 값은
     #    /flow shorts·loans 주간 직접 계산(_flow_week 재사용, 2026-09-09) —
@@ -1953,7 +2068,8 @@ def main():
                   "koEcon": d.get("koEcon") or [],   # 당일 한국 지표(★3+)
                   "catalysts": (d.get("catalysts") or [])[:3]} for d in days],
         "netbuyCum": netbuy_cum,        # 주체별(외인/기관/연기금) 주간 누적 순매수 상/하위
-        "usWeekly": us_weekly,          # 미국 지수 주간 누적 등락(모닝브리핑 전일 기준 합산)
+        "usWeekly": us_weekly,          # 미국 지수 기간 수익률(yfinance 종가 레벨 기반, 2026-09-22)
+        "usWeeklyBasis": us_basis,      # {source, from(기준 종가일), to(비교 종가일)} — 라벨용
         "usSectorWeekly": us_sector_weekly,  # 미국 섹터 ETF 주간 누적 상위/하위 3
         "shortLoan": short_loan,        # 공매도 누적·대차잔고 증감 상위 (랭킹 유니버스 한정)
         "sectorWeekly": sector_weekly,  # 섹터 주간 지속성 (등장 일수·평균 등락)

@@ -4,6 +4,8 @@ on:
   # Railway 상시 서버 스케줄러(railway_server._scheduler)가 평일 16:10 KST 에 트리거.
   # 마감 시황(15:40)·수급 확정(16:00) 이후라 당일 데이터가 완결된 시점 — 그 주
   # 월요일~당일을 재합성해 같은 키(월요일 날짜)에 upsert (데일리 누적 주간 브리핑).
+  # 토요일 08:00 KST 에도 트리거(2026-09-22) — 생성기가 주말 실행을 감지해 미국 기간
+  # 수익률(usWeekly 등)만 yfinance 종가로 갱신(미국 금요일 종가 반영, LLM·허브 미호출).
   workflow_dispatch: # 수동 실행 + Railway 스케줄러 트리거 진입점
 
 concurrency:

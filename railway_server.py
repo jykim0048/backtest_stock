@@ -661,6 +661,8 @@ CLOSING_WF   = "closing_briefing.yml"
 FINALIZE_WF  = "finalize_netbuy.yml"     # 16:00 수급 확정 패스(마감 회차 netbuy 패치)
 WEEKLY_WF    = "weekly_briefing.yml"     # 16:10 주간 브리핑(그 주 월~당일 재합성 upsert)
 MONTHLY_WF   = "monthly_review.yml"      # 16:20 월간 리뷰(그 달 1일~당일 재합성 upsert, P5)
+                                         # 두 워크플로 모두 토 08:00 에도 dispatch — 생성기가 주말
+                                         # 실행을 감지해 미국 수익률만 갱신(금요일 종가 반영, 2026-09-22)
 PROBE_WF     = "aftermarket_probe.yml"   # 애프터마켓 실측 프로브(16:12·20:35, 기간 한정)
 PROBE_UNTIL  = "2026-09-18"              # 이 날짜까지만(도입 전 기준선 9/11 + 첫 주)
 SCORING_WF   = "catalyst_scoring.yml"    # 16:05 촉매 스코어링(당일 전 회차 → 별점 회차)
@@ -782,6 +784,16 @@ def _scheduler():
                 key = (today, f"usnight-{now.hour:02d}{now.minute:02d}")
                 if key not in fired and _dispatch(USNIGHT_WF):
                     fired.add(key)
+            # 토요일 08:00 — 미국 금요일 종가(KST 토 05:00 확정) 반영(2026-09-22). 평일
+            # 16:10/16:20 런은 미국 당일 장 전이라 금요일 세션이 구조적으로 빠진다. 기존
+            # 주간·월간 워크플로를 그대로 dispatch 하면 생성기가 주말 실행을 감지해
+            # 미국 기간 수익률 3키만 yfinance 로 재계산(LLM·허브 미호출 — 금요일본 보존).
+            # concurrency 그룹(weekly-briefing) 공유라 두 런은 직렬 실행.
+            if now.weekday() == 5 and now.hour == 8 and now.minute == 0:
+                for wf, k in ((WEEKLY_WF, "us-close-weekly"), (MONTHLY_WF, "us-close-monthly")):
+                    key = (today, k)
+                    if key not in fired and _dispatch(wf):
+                        fired.add(key)
             # 평일 무관(시각 민감도 낮음) — 월 1회 / 반기
             if now.day == 2 and now.hour == 3 and now.minute == 13:       # 매월 2일 03:13 corp map
                 key = (today, "corpmap")

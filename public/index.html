@@ -7415,6 +7415,16 @@
             empty: "월간 종합 코멘트는 다음 갱신(평일 16:20)에 채워집니다."}
   };
   var WBP = WB_L.week;          // 지금 렌더 중인 산출물의 라벨 — render 가 d.period 로 설정
+  // 미국 기간 수익률 라벨 — yfinance 종가 산출분(usWeeklyBasis, 2026-09-22)은 실제 사용한
+  // 미국 거래일(기준 종가 → 비교 종가)을 표시. 구 아카이브·폴백은 종전 라벨(WBP.usCap).
+  function usCapLabel(d) {
+    var b = d.usWeeklyBasis || {};
+    if (b.source === "yfinance" && b.from && b.to) {
+      var md = function (s) { return String(s).slice(5).replace("-", "/"); };
+      return "미국 종가 기준 " + md(b.from) + " → " + md(b.to);
+    }
+    return b.source === "morning-briefing" ? "모닝브리핑 지수 레벨 기준" : WBP.usCap;
+  }
   function esc(s) {
     return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) {
       return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c];
@@ -7688,7 +7698,7 @@
     h += invCharts(d.days || []);
     // US 미국 주간 — 지수 카드 섹션 + US/KR 섹터 TOP3 매트릭스 (2026-09-08 양식 개편)
     if (d.usWeekly && Object.keys(d.usWeekly).length) {
-      h += '<div style="font-weight:600;margin:6px 0 6px">US 미국 ' + WBP.per + ' <span style="font-weight:400;opacity:.55;font-size:11px">(' + WBP.usCap + ')</span></div>'
+      h += '<div style="font-weight:600;margin:6px 0 6px">US 미국 ' + WBP.per + ' <span style="font-weight:400;opacity:.55;font-size:11px">(' + esc(usCapLabel(d)) + ')</span></div>'
         + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin:0 0 10px">';
       [["나스닥", "나스닥"], ["S&P500", "S&P500"], ["다우", "다우"],
        ["필라델피아 반도체", "필라델피아"], ["VIX 변동성", "VIX"]].forEach(function (p) {
@@ -8103,7 +8113,7 @@
                    a.institution != null ? Math.round(a.institution) : ""]);
     });
 
-    sec("2. US 미국 주간 (모닝브리핑 전일 기준 누적, %)");
+    sec("2. US 미국 " + WBP.per + " (" + usCapLabel(d) + ", %)");
     var usKeys = Object.keys(d.usWeekly || {});
     if (usKeys.length) {
       row("hdr", usKeys);
@@ -8288,7 +8298,7 @@
       chip(R, "01", "주간 누적 수급", "단위: 억원", 2);
       put(R, 4, "02", st({c: WHITE, f: NAVY, b: true, a: "center"}));
       put(R, 5, "US 미국 주간", st({c: SECT, f: SECTBG, b: true}));
-      put(R, 6, "모닝브리핑 전일 기준 누적, %", st({c: CAP, sz: 9}));
+      put(R, 6, usCapLabel(d) + ", %", st({c: CAP, sz: 9}));
       R++;
       var usKeys = Object.keys(d.usWeekly || {});
       ["시장", "개인", "외국인", "기관"].forEach(function (h, i) { hdr(R, i, h); });

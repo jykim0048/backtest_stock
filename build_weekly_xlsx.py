@@ -365,7 +365,16 @@ def build(d):
     b.cell(1, "01", "chip"); b.cell(2, PL["s01"], "sect"); b.cell(3, "", "sect")
     b.cell(4, "단위: 억원", "cap")
     b.cell(5, "02", "chip"); b.cell(6, PL["s02"], "sect"); b.cell(7, "", "sect")
-    b.cell(8, PL["s02cap"], "cap"); b.cell(9, "", "cap"); b.cell(10, "", "cap")
+    # 미국 수익률 라벨 — yfinance 종가 산출분은 실제 미국 거래일 구간 표시(2026-09-22)
+    ub = d.get("usWeeklyBasis") or {}
+    if ub.get("source") == "yfinance" and ub.get("from") and ub.get("to"):
+        us_cap = (f"미국 종가 기준 {ub['from'][5:].replace('-', '/')} → "
+                  f"{ub['to'][5:].replace('-', '/')}, %")
+    elif ub.get("source") == "morning-briefing":
+        us_cap = "모닝브리핑 지수 레벨 기준, %"
+    else:
+        us_cap = PL["s02cap"]
+    b.cell(8, us_cap, "cap"); b.cell(9, "", "cap"); b.cell(10, "", "cap")
     b.nl()
     us = d.get("usWeekly") or {}
     b.hdr_row(["시장", "개인", "외국인", "기관", "S&P500", "다우", "나스닥", "VIX 변동성", "필라델피아 반도체", ""])
