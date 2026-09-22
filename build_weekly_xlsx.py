@@ -937,23 +937,24 @@ def add_detail_sheets(wb, b, d):
     if (slw.get("shortTop") or slw.get("loanUp") or slw.get("loanDown")):
         ws2 = new_sheet("공매도·대차", W_SL, meta=(16, 17))
         # 카드 내부 컬럼: 순위|종목명|섹터명|...|시총비 (3차 스펙 §15 + 2026-09-22 시총비).
-        # 시총비는 % 값 그대로(생성기 산출: 공매도 누적÷시총 3자리, 대차잔고÷시총 2자리).
+        # 시총비는 % 값 그대로(생성기 산출: 공매도 누적÷시총·대차잔고÷시총, 소수 2자리 통일).
         # 구 아카이브(capPct 없음)는 빈칸 — 표 구조는 유지.
         # 열 이름에 단위 명시(2026-09-22 사용자 요청) — 카드 제목의 '(억)' 제거, 값엔 % 기호 없이 숫자만
-        F_CP3, F_CP2 = "0.000", "0.00"
+        F_CP2 = "0.00"                  # 시총대비 소수 2자리(2026-09-22 사용자 요청)
+        _cp2 = lambda v: None if v is None else round(float(v), 2)   # 구 아카이브 3자리 값도 2자리로 저장
         cards = [("S1 공매도 누적 상위", 1, slw.get("shortTop"),
                   ["순위", "종목명", "섹터명", "금액(억)", "시총대비(%)"],
-                  lambda e: [(e.get("amt"), "#,##0", "amt"), (e.get("capPct"), F_CP3, "sec")]),
+                  lambda e: [(e.get("amt"), "#,##0", "amt"), (_cp2(e.get("capPct")), F_CP2, "sec")]),
                  # 대차: 헤더에 항목명·단위 명시, 증감·잔고 모두 소수점 없이 정수 표기
                  # (2026-09-22 사용자 요청 — 증감은 부호 정수 F_EOK, 웹 표기와 동일)
                  ("S2 대차잔고 증가", 7, slw.get("loanUp"),
                   ["순위", "종목명", "섹터명", "증감(억)", "대차잔고(억)", "시총대비(%)"],
                   lambda e: [(e.get("chg"), F_EOK, "chg"), (e.get("amt"), F_INT, "sec"),
-                             (e.get("capPct"), F_CP2, "sec")]),
+                             (_cp2(e.get("capPct")), F_CP2, "sec")]),
                  ("S3 대차잔고 감소 · 숏커버 추정", 14, slw.get("loanDown"),
                   ["순위", "종목명", "섹터명", "증감(억)", "대차잔고(억)", "시총대비(%)"],
                   lambda e: [(e.get("chg"), F_EOK, "chg"), (e.get("amt"), F_INT, "sec"),
-                             (e.get("capPct"), F_CP2, "sec")])]
+                             (_cp2(e.get("capPct")), F_CP2, "sec")])]
         # 카드 헤더(네이비 바) — 3카드 같은 행
         for title, c0, rows_, hdr, _vals in cards:
             b.cell(c0, title, "meta_label")

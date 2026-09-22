@@ -1179,8 +1179,8 @@ def _short_loan_weekly(dates, flow=None):
           f"(아카이브 폴백 {n_fb}) · 공매도 {len(short_top)} · 대차증가 {len(loan_up)} · "
           f"대차감소 {len(loan_dn)} · 시총비 {n_cap}/{len(shown)}(네이버 폴백 {n_nv})")
 
-    # 시총비(2026-09-22 사용자 요청): 공매도 = 기간 누적 공매도 ÷ 시총(소수 3자리 — 대형주는
-    # 0.01% 대), 대차 = 대차잔고 ÷ 시총(2자리). 시총 없는 종목은 None(UI '—'). 순위 기준 불변.
+    # 시총비(2026-09-22 사용자 요청): 공매도 = 기간 누적 공매도 ÷ 시총, 대차 = 대차잔고 ÷ 시총
+    # — 둘 다 소수 2자리(같은 날 사용자 요청으로 공매도 3→2자리 통일). 시총 없는 종목은 None(UI '—'). 순위 기준 불변.
     def _row(e, **kw):
         return {"name": e["name"], "code": e["code"], **kw, "cap": caps.get(e["code"])}
     return {
@@ -1188,7 +1188,7 @@ def _short_loan_weekly(dates, flow=None):
         "capBasis": (("KIS 마스터 시총(주 1회 갱신)" + (" · 일부 네이버 실시간" if n_nv else ""))
                      if caps else None),
         "shortTop": [_row(e, amt=round(e["shortSum"]),
-                          capPct=_cap_pct(e["shortSum"], caps.get(e["code"]), 3))
+                          capPct=_cap_pct(e["shortSum"], caps.get(e["code"]), 2))
                      for e in short_top],
         "loanUp": [_row(e, chg=e["loanChg"], amt=e.get("loanAmt"),
                         capPct=_cap_pct(e.get("loanAmt"), caps.get(e["code"]), 2))

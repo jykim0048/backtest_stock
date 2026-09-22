@@ -8009,7 +8009,7 @@
       h += '<details class="flow-details" style="margin-top:2px"><summary style="text-align:right">공매도 · 대차 ' + WBP.per + ' 동향 ▾</summary>'
         + '<div style="display:flex;gap:14px;flex-wrap:wrap;font-size:12px;margin-top:6px">'
         + slCol("공매도 누적 상위", "금액(억)", slw.shortTop, function (e) {
-            return slRow(e, Math.round(e.amt).toLocaleString(), 3);
+            return slRow(e, Math.round(e.amt).toLocaleString(), 2);
           })
         + slCol("대차잔고 증가", "증감(억)", slw.loanUp, function (e) {
             return slRow(e, "<span style='color:#f04452'>+" + Math.round(e.chg).toLocaleString() + "</span>", 2);
