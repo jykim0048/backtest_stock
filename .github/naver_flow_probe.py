@@ -791,10 +791,24 @@ def main():
             nv[c] = next((x.get("value") for x in (j.get("totalInfos") or [])
                           if x.get("code") == "marketValue"), None)
         cap17["naverMarketValue"] = nv
+        # 18차(2026-09-22) — 타임라인 섹터 누락 코스닥 8종목의 마스터 분류(big/mid)
+        tl_codes = ("393210", "049470", "0007J0", "356680", "140430", "411080", "071200", "201490")
+        cap17["tlMissing"] = {c: ({k: by[c][k] for k in ("name", "big", "mid", "pref")}
+                                  if c in by else "마스터에 없음") for c in tl_codes}
         res["prefCap17"] = cap17
     except Exception:
         import traceback
         res["prefCap17"] = {"error": traceback.format_exc()[-600:]}
+    # 18차 — 섹터맵 생성기 dry-run 로그(미해석 KOSDAQ 중분류 리포트 포함, 파일 미저장)
+    try:
+        import subprocess
+        import sys as _s18
+        p = subprocess.run([_s18.executable, "build_sector_map_auto.py", "--dry-run"],
+                           capture_output=True, text=True, timeout=240)
+        res["sectorMapDryRun"] = {"rc": p.returncode,
+                                  "log": (p.stdout + "\n" + p.stderr)[-4000:]}
+    except Exception as e:
+        res["sectorMapDryRun"] = {"error": str(e)}
 
     # ⑳ 16차(2026-09-22) — 폴링 신규 형식 전환 검증: 급등·급락 종목을 섞어 구형(SERVICE_ITEM,
     #    rf 4/5=하락)과 신규(api/realtime/domestic/stock, compareToPreviousPrice.code) 등락률을

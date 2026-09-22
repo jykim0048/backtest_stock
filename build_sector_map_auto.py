@@ -97,7 +97,9 @@ def _parse_mst(name, verify=True):
         kname = p1[21:].strip()
         if not (len(code) == 6 and code.isalnum()):
             continue
-        pref = not (code.isdigit() and code.endswith("0"))   # 우선주(끝자리 ≠ 0·영숫자)
+        # 우선주 = 끝자리 ≠ 0(5·7·9·K 등). 신형 영숫자 보통주 코드(예: 인벤테라 0007J0)는
+        # 끝자리 0 이라 보통주 — 종전 isdigit 필터가 이들을 전부 빠뜨려 업종·섹터 결측(2026-09-22)
+        pref = code[5] != "0"
         if p2[pad:pad + 2] != "ST":                    # 주권만(ETF/ETN/리츠 등 제외)
             continue
         big = p2[pad + 3: pad + 7]                     # 그룹2+시총규모1 다음 4자리
