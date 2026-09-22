@@ -10,6 +10,7 @@ on:
     paths:
       - ".github/workflows/naver_flow_probe.yml"
       - ".github/naver_flow_probe.py"
+      - ".github/naver_netcap_probe.py"
 
 permissions:
   contents: write
@@ -25,11 +26,20 @@ jobs:
       - run: pip install requests
       - name: Probe Naver flow endpoints from Actions IP
         run: python .github/naver_flow_probe.py
+      # 2026-09-22 — 신규 웹 화면의 실제 API 호출을 헤드리스 브라우저로 캡처(지연 로드
+      # 청크라 번들 문자열 탐색으로 못 찾는 주소용). 실패해도 위 결과 커밋은 진행.
+      - name: Capture Naver new-web API calls (Playwright)
+        continue-on-error: true
+        run: |
+          pip install playwright
+          python -m playwright install --with-deps chromium
+          python .github/naver_netcap_probe.py
       - name: Commit result
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add .github/naver_flow_probe_result.json
+          git add .github/naver_netcap_result.json 2>/dev/null || true
           git commit -m "chore: 네이버 수급 API Actions IP 프로브 결과 [skip railway]" || echo "no changes"
           git pull --rebase origin main
           git push
