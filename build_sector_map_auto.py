@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""KIS 마스터파일 기반 섹터맵 자동 생성 — krx_sector_map.json 재생성 (주 1회).
+"""KIS 마스터파일 기반 섹터맵 자동 생성 — krx_sector_map.json 재생성 (평일 매일).
 
 KRX 정보데이터시스템은 해외 IP 차단이라 업종분류 엑셀을 수동 다운로드해야 했다.
 KIS 가 공개 CDN 으로 배포하는 종목 마스터(kospi_code.mst / kosdaq_code.mst)에는
@@ -21,7 +21,7 @@ KIS 가 공개 CDN 으로 배포하는 종목 마스터(kospi_code.mst / kosdaq_
 - 자동 생성이 못 채운 기존 항목·필드는 보존(안전망) + 기존 맵 대비 일치율 출력.
 
 실행: python build_sector_map_auto.py [--insecure(로컬 테스트용)] [--dry-run]
-theme_map.yml(월 06:30 KST)이 테마맵 재생성과 함께 실행한다.
+theme_map.yml(평일 06:30 KST — 2026-09-22 주 1회→매일)이 테마맵 재생성과 함께 실행한다.
 """
 import io
 import os
@@ -212,7 +212,9 @@ def _fill_from_naver(stocks, full, fetch=None):
     for p in sorted(probes):
         print(f"  [probe naver] {p} naver={nv_of.get(p)}({nv_name.get(nv_of.get(p))}) "
               f"→ {full.get(p)}", file=sys.stderr)
-    return n
+    # 대응표·업종명표는 전 종목 맵 파일에 같이 저장 — 주간 브리핑 생성기가 맵 미등재
+    # 코드(신규 상장·재빌드 사이)를 네이버 실시간 조회로 즉석 변환하는 데 쓴다(2026-09-22)
+    return n, table, nv_name
 
 
 def _norm(name):
@@ -375,16 +377,17 @@ def main():
     # 상세의 업종(upjongCode)을 전 종목 수집해, KIS 업종이 이미 있는 종목들로 '네이버 업종
     # → KIS 업종' 다수결 대응표를 만들고(표본 NAVER_MIN_N·최다 비율 NAVER_MIN_SHARE 이상만)
     # 무분류 종목만 KIS 체계 이름으로 채운다. 애매한 업종은 채우지 않음(정직).
+    nv_table, nv_names = {}, {}
     if not args.no_naver:
-        n_nv = _fill_from_naver(kospi + kosdaq, full)
-        print(f"  네이버 업종 대응 보강: {n_nv}종목")
+        n_nv, nv_table, nv_names = _fill_from_naver(kospi + kosdaq, full)
+        print(f"  네이버 업종 대응 보강: {n_nv}종목 (대응표 {len(nv_table)}업종 저장)")
     print(f"  전 종목 업종 맵: {len(full)}종목 (KOSPI+KOSDAQ, 컷 없음, "
           f"KOSDAQ 미해석 {sum(len(v) for v in unresolved.values())}종목)")
 
     out = {
         "asof": datetime.datetime.now(KST).strftime("%Y-%m-%d %H:%M KST"),
         "note": "KIS 마스터파일 자동 생성 — 지수업종 분류 기반(지수 정합). "
-                "theme_map.yml 이 주 1회(월 06:30 KST) 재생성. "
+                "theme_map.yml 이 평일 매일 06:30 KST 재생성. "
                 "stocks=KOSPI 시총상위, kosdaqStocks=KOSDAQ 시총상위(테마 매칭 확장).",
         "sectors": sectors,
     }
@@ -396,8 +399,11 @@ def main():
     print(f"  Updated {args.out}")
     with open(OUT_FULL_PATH, "w", encoding="utf-8") as fp:
         json.dump({"asof": out["asof"],
-                   "note": "전 종목 code→업종명 (TOP 컷 없음 — 알약/엑셀 폴백)",
-                   "map": full}, fp, ensure_ascii=False, indent=0)
+                   "note": "전 종목 code→업종명 (TOP 컷 없음 — 알약/엑셀 폴백). "
+                           "naverTable=네이버 업종코드→KIS 업종명 다수결 대응표(맵 미등재 코드의 "
+                           "실시간 폴백용, 2026-09-22), naverNames=네이버 업종코드→업종명",
+                   "map": full, "naverTable": nv_table, "naverNames": nv_names},
+                  fp, ensure_ascii=False, indent=0)
     print(f"  Updated {OUT_FULL_PATH}")
     # 전 종목 시총(우선주 포함, TOP 컷 없음) — 주간 브리핑 공매도·대차 시총대비 분모
     # (2026-09-22). 섹터맵은 업종별 상위 30 보통주라 우선주·30위 밖 종목이 결측이었다.

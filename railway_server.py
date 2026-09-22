@@ -766,7 +766,9 @@ def _scheduler():
                     key = (today, "monthly-review")
                     if key not in fired and _dispatch(MONTHLY_WF):
                         fired.add(key)
-                if now.weekday() == 0 and now.hour == 6 and now.minute == 30:   # 테마맵 주1회 월 06:30 KST
+                # 테마·섹터맵 평일 매일 06:30 KST (2026-09-22 주 1회→매일: 신규 상장·분류 변경
+                # 종목이 다음 월요일까지 촉매 타임라인 섹터 결측이던 공백 축소, 빌드 ~3분)
+                if now.hour == 6 and now.minute == 30:
                     key = (today, "thememap")
                     if key not in fired and _dispatch(THEMEMAP_WF):
                         fired.add(key)

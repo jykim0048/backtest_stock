@@ -419,18 +419,49 @@ def _is_etf_name(name):
 
 
 _SEC_LOOKUP = None
+_SEC_LIVE = {}                                   # code → 업종명|None (실행 내 캐시)
+_SEC_LIVE_MAX = int(os.environ.get("SECTOR_LIVE_MAX", "40") or 40)   # 실행당 원격 조회 상한
+
+
+def _sector_live(code, nv_table):
+    """맵 미등재 코드의 실시간 폴백(2026-09-22): 네이버 종목 상세 업종(upjongCode)을 조회해
+    빌더(build_sector_map_auto)가 맵 파일에 저장한 네이버→KIS 업종 다수결 대응표로 변환.
+    맵 재빌드(평일 06:30) 사이의 신규 상장·분류 변경 공백용 — 대응표에 없는 업종·조회
+    실패는 None(추정 금지). 실행당 SECTOR_LIVE_MAX 건까지만 원격 조회."""
+    if code in _SEC_LIVE:
+        return _SEC_LIVE[code]
+    if not nv_table or len(_SEC_LIVE) >= _SEC_LIVE_MAX:
+        return None
+    sec = None
+    try:
+        req = urllib.request.Request(
+            f"https://stock.naver.com/api/domestic/detail/{code}/detail?codeType=KRX",
+            headers={"User-Agent": "Mozilla/5.0",
+                     "Referer": f"https://stock.naver.com/domestic/stock/{code}/price"})
+        with urllib.request.urlopen(req, timeout=10) as r:
+            d = json.loads(r.read().decode("utf-8")) or {}
+        nc = str(d.get("upjongCode") or "").strip()
+        sec = nv_table.get(nc) or None
+        print(f"[weekly] 섹터 실시간 보강: {code} 네이버 {nc}({d.get('upJongName')}) → {sec}")
+    except Exception as ex:
+        print(f"[weekly] 섹터 실시간 조회 실패 {code}: {ex}", file=sys.stderr)
+    _SEC_LIVE[code] = sec
+    return sec
 
 
 def _sector_of_name(name, code=None):
     """종목명(→krx_companies 코드) → 업종(krx_code_sector 전 종목 맵). 우선주는
-    보통주 코드 폴백. 촉매 타임라인 섹터 컬럼용(2026-09-09) — 미해석은 None."""
+    보통주 코드 폴백, 맵 미등재는 네이버 실시간 폴백(_sector_live). 촉매 타임라인
+    섹터 컬럼용(2026-09-09) — 미해석은 None."""
     global _SEC_LOOKUP
     if _SEC_LOOKUP is None:
-        code_sec, name_code = {}, {}
+        code_sec, name_code, nv_table = {}, {}, {}
         try:
             with open(os.path.join(ROOT, "public", "assets", "krx_code_sector.json"),
                       encoding="utf-8") as f:
-                code_sec = dict((json.load(f) or {}).get("map") or {})
+                _cs = json.load(f) or {}
+                code_sec = dict(_cs.get("map") or {})
+                nv_table = dict(_cs.get("naverTable") or {})
         except Exception:
             pass
         try:
@@ -443,12 +474,13 @@ def _sector_of_name(name, code=None):
                         name_code[nm] = c
         except Exception:
             pass
-        _SEC_LOOKUP = (code_sec, name_code)
-    code_sec, name_code = _SEC_LOOKUP
+        _SEC_LOOKUP = (code_sec, name_code, nv_table)
+    code_sec, name_code, nv_table = _SEC_LOOKUP
     c = str(code).zfill(6) if code else name_code.get(str(name or "").strip())
     if not c:
         return None
-    return code_sec.get(c) or (code_sec.get(c[:5] + "0") if c[5] != "0" else None)
+    base = c[:5] + "0" if c[5] != "0" else c            # 우선주 → 보통주 코드
+    return code_sec.get(c) or code_sec.get(base) or _sector_live(base, nv_table)
 
 
 def _code_of_name(name):
