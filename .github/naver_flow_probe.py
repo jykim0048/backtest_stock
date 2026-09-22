@@ -771,6 +771,44 @@ def main():
          parse=lambda r: r.json())
     res["audit15"] = a15
 
+    # ⑳ 16차(2026-09-22) — 폴링 신규 형식 전환 검증: 급등·급락 종목을 섞어 구형(SERVICE_ITEM,
+    #    rf 4/5=하락)과 신규(api/realtime/domestic/stock, compareToPreviousPrice.code) 등락률을
+    #    같은 종목으로 대조(부호 포함 일치 여부)
+    try:
+        codes = []
+        for d_ in ("up", "down"):
+            j = requests.get(f"https://m.stock.naver.com/api/stocks/{d_}/KOSPI",
+                             params={"page": 1, "pageSize": 15}, headers=UA, timeout=20).json()
+            codes += [x["itemCode"] for x in (j.get("stocks") or []) if x.get("itemCode")]
+        codes = [c for c in dict.fromkeys(codes) if re.fullmatch(r"\d{6}", c)][:30]
+        old, new = {}, {}
+        j = requests.get("https://polling.finance.naver.com/api/realtime?query=SERVICE_ITEM:"
+                         + ",".join(codes), headers={"User-Agent": "Mozilla/5.0"}, timeout=20).json()
+        for a in ((j or {}).get("result") or {}).get("areas") or []:
+            for it in a.get("datas") or []:
+                if it.get("cd") and it.get("cr") is not None:
+                    old[str(it["cd"])] = (-1 if str(it.get("rf")) in ("4", "5") else 1) * float(it["cr"])
+        j = requests.get("https://polling.finance.naver.com/api/realtime/domestic/stock/"
+                         + ",".join(codes), headers={"User-Agent": "Mozilla/5.0",
+                                                     "Referer": "https://stock.naver.com/"},
+                         timeout=20).json()
+        raw_new = {}
+        for it in (j or {}).get("datas") or []:
+            cmp_ = it.get("compareToPreviousPrice") or {}
+            rate = abs(float(str(it.get("fluctuationsRatioRaw", it.get("fluctuationsRatio"))).replace(",", "")))
+            down = str(cmp_.get("code")) in ("4", "5") or cmp_.get("name") in ("FALLING", "LOWER_LIMIT")
+            new[str(it["itemCode"])] = -rate if down else rate
+            raw_new[str(it["itemCode"])] = [it.get("fluctuationsRatio"), it.get("fluctuationsRatioRaw"),
+                                            cmp_.get("code")]
+        both = [c for c in codes if c in old and c in new]
+        diff = {c: (old[c], new[c]) for c in both if abs(old[c] - new[c]) > 0.011}
+        res["pollCompare16"] = {"codes": len(codes), "old": len(old), "new": len(new),
+                                "both": len(both), "negatives": sum(1 for c in both if new[c] < 0),
+                                "mismatch": diff, "rawSample": dict(list(raw_new.items())[-4:])}
+    except Exception:
+        import traceback
+        res["pollCompare16"] = {"error": traceback.format_exc()[-600:]}
+
     res["trendApiOk"] = all(res[f"trendApi:{c}"].get("hasData") for c in CODES)
     # 판정: 410=폐지(Gone) / 그 외 4xx·예외=차단·오류 / 200·행 0=구조 변경
     def _verdict(c):

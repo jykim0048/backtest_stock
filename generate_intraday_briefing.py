@@ -293,25 +293,39 @@ def _kw_hit(kws, theme_name):
     return any(t == k or t.startswith(k) for k in kws for t in toks)
 
 
+_POLL_STOCK = "https://polling.finance.naver.com/api/realtime/domestic/stock/"
+
+
 def _fetch_match_rates(codes):
     """매칭코드 전체의 당일 등락률(%) — 네이버 폴링 API 배치(50종목/1콜, KIS 무관).
 
-    반환 {code: rate(부호 포함)}. 실패 청크는 생략(해당 종목 기여 0 처리) — 전체 실패
-    시 빈 dict 이고 기여항이 자동 비활성돼 구조항만으로 동작한다(graceful)."""
+    2026-09-22 신규 형식으로 전환: 구형 `api/realtime?query=SERVICE_ITEM:` 대신 신규 웹
+    (stock.naver.com)이 쓰는 `api/realtime/domestic/stock/{코드,…}` — datas[{itemCode,
+    fluctuationsRatio, compareToPreviousPrice{code}}]. 방향 코드는 구형 rf 와 같은 체계
+    (1 상한·2 상승·3 보합·4 하한·5 하락)라 |등락률|에 방향으로 부호를 붙인다(원문 부호
+    유무와 무관하게 일관). 반환 {code: rate(부호 포함)}. 실패 청크는 생략(해당 종목 기여
+    0 처리) — 전체 실패 시 빈 dict 이고 기여항이 자동 비활성돼 구조항만으로 동작(graceful)."""
     out = {}
     for i in range(0, len(codes), 50):
         chunk = codes[i:i + 50]
         try:
-            r = requests.get(
-                "https://polling.finance.naver.com/api/realtime?query=SERVICE_ITEM:"
-                + ",".join(chunk),
-                headers={"User-Agent": "Mozilla/5.0"}, timeout=10)
-            for a in ((r.json() or {}).get("result") or {}).get("areas") or []:
-                for it in a.get("datas") or []:
-                    cd, cr = str(it.get("cd") or ""), it.get("cr")
-                    if cd and cr is not None:
-                        sign = -1 if str(it.get("rf")) in ("4", "5") else 1  # rf 4/5 = 하락
-                        out[cd] = sign * float(cr)
+            r = requests.get(_POLL_STOCK + ",".join(chunk),
+                             headers={"User-Agent": "Mozilla/5.0",
+                                      "Referer": "https://stock.naver.com/"}, timeout=10)
+            r.raise_for_status()
+            for it in (r.json() or {}).get("datas") or []:
+                cd = str(it.get("itemCode") or "")
+                raw = it.get("fluctuationsRatioRaw", it.get("fluctuationsRatio"))
+                try:
+                    rate = abs(float(str(raw).replace(",", "")))
+                except (TypeError, ValueError):
+                    continue
+                if not cd:
+                    continue
+                cmp_ = it.get("compareToPreviousPrice") or {}
+                down = (str(cmp_.get("code")) in ("4", "5")
+                        or cmp_.get("name") in ("FALLING", "LOWER_LIMIT"))
+                out[cd] = -rate if down else rate
         except Exception as e:
             _warn(f"매칭코드 등락률 조회 실패(청크 생략): {e}")
     return out
