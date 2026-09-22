@@ -41,6 +41,8 @@ OUT_PATH = os.path.join(ROOT, "public", "assets", "krx_sector_map.json")
 # TOP 컷 기반 krx_sector_map 은 지주 분류(한미사이언스→금융계)·소형주(지엘팜텍)가
 # 계속 새서, 자르기 전 전 종목을 별도 파일로 보존한다.
 OUT_FULL_PATH = os.path.join(ROOT, "public", "assets", "krx_code_sector.json")
+# 전 종목 시총(우선주 포함) — 공매도·대차 시총대비 분모(2026-09-22)
+OUT_CAPS_PATH = os.path.join(ROOT, "public", "assets", "krx_caps.json")
 KST = datetime.timezone(datetime.timedelta(hours=9))
 TOP = 30
 # 12→30 확대(2026-09-08): 주간 브리핑 순매수 표 섹터 알약이 이 맵을 쓰는데, 업종
@@ -66,7 +68,11 @@ _TAIL = {"kospi_code": 228, "kosdaq_code": 222}
 
 
 def _parse_mst(name, verify=True):
-    """마스터 파일 → [{code, name, big(대분류), mid(중분류), cap}] (보통주·주권만)."""
+    """마스터 파일 → [{code, name, big(대분류), mid(중분류), cap, pref}] (주권만).
+
+    pref=True 는 우선주(코드 끝자리 ≠ 0, 신형 영숫자 코드 포함). 섹터·업종 맵은
+    보통주만 쓰고(호출측 필터), 우선주는 전 종목 시총 파일(krx_caps.json)에만 쓴다
+    (2026-09-22 — 공매도·대차 시총대비에서 삼성전자우 등 우선주가 시총 결측)."""
     r = requests.get(MST_URL.format(name=name), timeout=60, verify=verify)
     r.raise_for_status()
     with zipfile.ZipFile(io.BytesIO(r.content)) as z:
@@ -89,8 +95,9 @@ def _parse_mst(name, verify=True):
         p1, p2 = row[:-tail], row[-tail:]
         code = p1[0:9].strip()
         kname = p1[21:].strip()
-        if not (len(code) == 6 and code.isdigit() and code.endswith("0")):
-            continue                                   # 보통주(끝자리 0)만
+        if not (len(code) == 6 and code.isalnum()):
+            continue
+        pref = not (code.isdigit() and code.endswith("0"))   # 우선주(끝자리 ≠ 0·영숫자)
         if p2[pad:pad + 2] != "ST":                    # 주권만(ETF/ETN/리츠 등 제외)
             continue
         big = p2[pad + 3: pad + 7]                     # 그룹2+시총규모1 다음 4자리
@@ -100,7 +107,8 @@ def _parse_mst(name, verify=True):
             cap = float(cap_s or 0)
         except ValueError:
             cap = 0.0
-        out.append({"code": code, "name": kname, "big": big, "mid": mid, "cap": cap})
+        out.append({"code": code, "name": kname, "big": big, "mid": mid, "cap": cap,
+                    "pref": pref})
     # 진단 프로브(2026-09-09): SECTOR_PROBE=코드,코드 — 원시 필드/고정부 덤프.
     # (지엘팜텍 204840 이 HTS 상 '유통'인데 전 종목 맵에서 빠짐 — 미분류인지
     #  파싱 오프셋 문제인지 클라우드 로그로 판별)
@@ -160,9 +168,13 @@ def main():
         requests.packages.urllib3.disable_warnings()
 
     print("=== Build sector map from KIS master files ===")
-    kospi = _parse_mst("kospi_code", verify)
-    kosdaq = _parse_mst("kosdaq_code", verify)
-    print(f"  마스터: KOSPI {len(kospi)} / KOSDAQ {len(kosdaq)} 보통주")
+    kospi_all = _parse_mst("kospi_code", verify)
+    kosdaq_all = _parse_mst("kosdaq_code", verify)
+    # 섹터·업종 맵은 종전대로 보통주만(동작 불변) — 우선주는 전 종목 시총 파일에만
+    kospi = [s for s in kospi_all if not s["pref"]]
+    kosdaq = [s for s in kosdaq_all if not s["pref"]]
+    n_pref = len(kospi_all) + len(kosdaq_all) - len(kospi) - len(kosdaq)
+    print(f"  마스터: KOSPI {len(kospi)} / KOSDAQ {len(kosdaq)} 보통주 (+우선주 {n_pref})")
     if len(kospi) < 500 or len(kosdaq) < 800:
         print("  마스터 파싱 부족 — 기존 맵 유지, 중단", file=sys.stderr)
         sys.exit(1)
@@ -307,6 +319,15 @@ def main():
                    "note": "전 종목 code→업종명 (TOP 컷 없음 — 알약/엑셀 폴백)",
                    "map": full}, fp, ensure_ascii=False, indent=0)
     print(f"  Updated {OUT_FULL_PATH}")
+    # 전 종목 시총(우선주 포함, TOP 컷 없음) — 주간 브리핑 공매도·대차 시총대비 분모
+    # (2026-09-22). 섹터맵은 업종별 상위 30 보통주라 우선주·30위 밖 종목이 결측이었다.
+    caps = {s["code"]: s["cap"] for s in kospi_all + kosdaq_all if s.get("cap")}
+    with open(OUT_CAPS_PATH, "w", encoding="utf-8") as fp:
+        json.dump({"asof": out["asof"], "unit": "억원",
+                   "note": "KIS 마스터 전일 시가총액 — 보통주+우선주 전 종목(TOP 컷 없음)",
+                   "caps": caps}, fp, ensure_ascii=False, indent=0)
+    print(f"  Updated {OUT_CAPS_PATH} ({len(caps)}종목, 우선주 "
+          f"{sum(1 for s in kospi_all + kosdaq_all if s['pref'] and s.get('cap'))})")
     print("=== Done ===")
 
 

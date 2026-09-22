@@ -771,6 +771,31 @@ def main():
          parse=lambda r: r.json())
     res["audit15"] = a15
 
+    # ㉑ 17차(2026-09-22) — 우선주 시총: KIS 마스터 파싱(build_sector_map_auto._parse_mst,
+    #    우선주 포함) + 네이버 integration marketValue 폴백 실동작
+    try:
+        import sys as _sys
+        import os as _os
+        _sys.path.insert(0, _os.getcwd())
+        import build_sector_map_auto as B
+        rows = B._parse_mst("kospi_code") + B._parse_mst("kosdaq_code")
+        by = {s["code"]: s for s in rows}
+        cap17 = {"total": len(rows), "pref": sum(1 for s in rows if s["pref"]),
+                 "sample": {c: {k: by[c][k] for k in ("name", "cap", "pref")}
+                            for c in ("005930", "005935", "005380", "005385", "005387")
+                            if c in by},
+                 "prefAlnum": [s["code"] for s in rows if s["pref"] and not s["code"].isdigit()][:5]}
+        nv = {}
+        for c in ("005935", "005385"):
+            j = requests.get(f"{MOBILE}/api/stock/{c}/integration", headers=UA, timeout=20).json()
+            nv[c] = next((x.get("value") for x in (j.get("totalInfos") or [])
+                          if x.get("code") == "marketValue"), None)
+        cap17["naverMarketValue"] = nv
+        res["prefCap17"] = cap17
+    except Exception:
+        import traceback
+        res["prefCap17"] = {"error": traceback.format_exc()[-600:]}
+
     # ⑳ 16차(2026-09-22) — 폴링 신규 형식 전환 검증: 급등·급락 종목을 섞어 구형(SERVICE_ITEM,
     #    rf 4/5=하락)과 신규(api/realtime/domestic/stock, compareToPreviousPrice.code) 등락률을
     #    같은 종목으로 대조(부호 포함 일치 여부)

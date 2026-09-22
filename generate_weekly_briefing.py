@@ -1065,22 +1065,65 @@ def _breadth_weekly(dates):
 
 
 def _cap_map():
-    """종목코드 → 시가총액(억원) — krx_sector_map.json(KIS 마스터, theme_map.yml 주 1회
-    재생성)의 cap. 공매도·대차 시총비 분모용(2026-09-22). 실패 시 {}."""
+    """종목코드 → 시가총액(억원) — 공매도·대차 시총대비 분모(2026-09-22).
+
+    1순위 krx_caps.json(KIS 마스터 전 종목, **우선주 포함**, theme_map.yml 주 1회 재생성),
+    2순위 krx_sector_map.json cap(업종별 상위 30 보통주 — 구 버전 호환). 3순위 네이버
+    실시간 조회는 결측 종목에만 호출측(_fill_caps_naver)에서. 실패 시 {}."""
+    out = {}
+    try:
+        with open(os.path.join(ROOT, "public", "assets", "krx_caps.json"),
+                  encoding="utf-8") as f:
+            for code, cap in ((json.load(f) or {}).get("caps") or {}).items():
+                if isinstance(cap, (int, float)) and cap > 0:
+                    out[str(code).zfill(6)] = float(cap)
+    except Exception as ex:
+        print(f"[weekly] 전 종목 시총(krx_caps) 로드 실패 — 섹터맵만: {ex}", file=sys.stderr)
     try:
         with open(os.path.join(ROOT, "public", "assets", "krx_sector_map.json"),
                   encoding="utf-8") as f:
             sm = json.load(f) or {}
+        for s in (sm.get("sectors") or {}).values():
+            for x in (s.get("stocks") or []) + (s.get("kosdaqStocks") or []):
+                code, cap = str(x.get("code") or "").zfill(6), x.get("cap")
+                if code and isinstance(cap, (int, float)) and cap > 0:
+                    out.setdefault(code, float(cap))
     except Exception as ex:
-        print(f"[weekly] 시총 맵 로드 실패(시총비 생략): {ex}", file=sys.stderr)
-        return {}
-    out = {}
-    for s in (sm.get("sectors") or {}).values():
-        for x in (s.get("stocks") or []) + (s.get("kosdaqStocks") or []):
-            code, cap = str(x.get("code") or "").zfill(6), x.get("cap")
-            if code and isinstance(cap, (int, float)) and cap > 0:
-                out.setdefault(code, float(cap))
+        print(f"[weekly] 섹터맵 시총 로드 실패: {ex}", file=sys.stderr)
     return out
+
+
+def _parse_krw_eok(s):
+    """네이버 시가총액 표기 → 억원. '1,596조 341억'·'10조 472억'·'9,073억'·'1조' 수용."""
+    t = str(s or "").replace(",", "").replace(" ", "")
+    m = re.fullmatch(r"(?:(\d+(?:\.\d+)?)조)?(?:(\d+(?:\.\d+)?)억)?(?:원)?", t)
+    if not m or not (m.group(1) or m.group(2)):
+        return None
+    return float(m.group(1) or 0) * 10000 + float(m.group(2) or 0)
+
+
+def _fill_caps_naver(codes, caps):
+    """시총 결측 종목만 네이버 모바일 integration(totalInfos marketValue)으로 보충 —
+    caps 를 제자리 갱신하고 채운 수 반환(2026-09-22, 우선주·30위 밖 종목 폴백). fail-open."""
+    n = 0
+    for code in codes:
+        if caps.get(code):
+            continue
+        try:
+            req = urllib.request.Request(
+                f"https://m.stock.naver.com/api/stock/{code}/integration",
+                headers={"User-Agent": "Mozilla/5.0"})
+            with urllib.request.urlopen(req, timeout=10) as r:
+                d = json.loads(r.read().decode("utf-8")) or {}
+            mv = next((x.get("value") for x in (d.get("totalInfos") or [])
+                       if isinstance(x, dict) and x.get("code") == "marketValue"), None)
+            v = _parse_krw_eok(mv)
+            if v:
+                caps[code] = v
+                n += 1
+        except Exception as ex:
+            print(f"[weekly] 네이버 시총 조회 실패 {code}: {ex}", file=sys.stderr)
+    return n
 
 
 def _cap_pct(amt, cap, nd):
@@ -1130,10 +1173,11 @@ def _short_loan_weekly(dates, flow=None):
     loan_dn = sorted([e for e in ent if (e.get("loanChg") or 0) < 0],
                      key=lambda x: x["loanChg"])[:10]
     shown = short_top + loan_up + loan_dn
+    n_nv = _fill_caps_naver(sorted({e["code"] for e in shown}), caps)   # 결측만 네이버 폴백
     n_cap = sum(1 for e in shown if caps.get(e["code"]))
     print(f"[weekly] 공매도·대차 주간(flow): 유니버스 {len(uni)} · 수급응답 {len(ent)}"
           f"(아카이브 폴백 {n_fb}) · 공매도 {len(short_top)} · 대차증가 {len(loan_up)} · "
-          f"대차감소 {len(loan_dn)} · 시총비 {n_cap}/{len(shown)}")
+          f"대차감소 {len(loan_dn)} · 시총비 {n_cap}/{len(shown)}(네이버 폴백 {n_nv})")
 
     # 시총비(2026-09-22 사용자 요청): 공매도 = 기간 누적 공매도 ÷ 시총(소수 3자리 — 대형주는
     # 0.01% 대), 대차 = 대차잔고 ÷ 시총(2자리). 시총 없는 종목은 None(UI '—'). 순위 기준 불변.
@@ -1141,7 +1185,8 @@ def _short_loan_weekly(dates, flow=None):
         return {"name": e["name"], "code": e["code"], **kw, "cap": caps.get(e["code"])}
     return {
         "basis": "archive" if n_fb and n_fb >= len(ent) else ("mixed" if n_fb else "flow"),
-        "capBasis": "KIS 마스터 시총(주 1회 갱신)" if caps else None,
+        "capBasis": (("KIS 마스터 시총(주 1회 갱신)" + (" · 일부 네이버 실시간" if n_nv else ""))
+                     if caps else None),
         "shortTop": [_row(e, amt=round(e["shortSum"]),
                           capPct=_cap_pct(e["shortSum"], caps.get(e["code"]), 3))
                      for e in short_top],

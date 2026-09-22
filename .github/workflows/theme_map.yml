@@ -40,6 +40,9 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          # krx_caps.json: 전 종목 시총(우선주 포함, 2026-09-22) — 공매도·대차 시총대비 분모
+          git add public/assets/theme_map.json public/assets/krx_sector_map.json \
+                  public/assets/krx_code_sector.json public/assets/krx_caps.json 2>/dev/null || \
           git add public/assets/theme_map.json public/assets/krx_sector_map.json \
                   public/assets/krx_code_sector.json
           git diff --staged --quiet && echo "No changes to commit" && exit 0
