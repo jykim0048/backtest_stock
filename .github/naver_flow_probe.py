@@ -851,6 +851,34 @@ def main():
         import traceback
         res["pollCompare16"] = {"error": traceback.format_exc()[-600:]}
 
+    # ㉒ 20차(2026-09-23) — 섹터x수급 '일반서비스' 데이터부족(returns null) 원인:
+    #    허브 /sector-flow 의 업종별 returns 결손 목록 + /status 업종 코드·이름 대조
+    hub = os.environ.get("KIS_HUB_URL",
+                         "https://tradingstrategies-production-09d4.up.railway.app")
+    sf20 = {}
+    try:
+        j = requests.get(f"{hub}/sector-flow", params={"days": 2},
+                         headers={"User-Agent": "probe"}, timeout=180).json()
+        secs = j.get("sectors") or []
+        sf20["asof"] = j.get("asof")
+        sf20["n"] = len(secs)
+        sf20["noReturns"] = [{"code": s.get("code"), "name": s.get("name"),
+                              "daily": len(s.get("daily") or [])}
+                             for s in secs if not s.get("returns")]
+        sf20["sample"] = [{"code": s.get("code"), "name": s.get("name"),
+                           "returns": s.get("returns")}
+                          for s in secs if "일반" in (s.get("name") or "")
+                          or "오락" in (s.get("name") or "")][:4]
+    except Exception as e:
+        sf20["error"] = str(e)[:300]
+    try:
+        st = requests.get(f"{hub}/status", headers={"User-Agent": "probe"}, timeout=30).json()
+        sf20["statusSectors"] = [{"code": s.get("code"), "name": s.get("name")}
+                                 for s in (st.get("sectors") or [])]
+    except Exception as e:
+        sf20["statusError"] = str(e)[:200]
+    res["sectorFlow20"] = sf20
+
     res["trendApiOk"] = all(res[f"trendApi:{c}"].get("hasData") for c in CODES)
     # 판정: 410=폐지(Gone) / 그 외 4xx·예외=차단·오류 / 200·행 0=구조 변경
     def _verdict(c):
