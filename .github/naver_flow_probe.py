@@ -890,6 +890,51 @@ def main():
         sf20["statusError"] = str(e)[:200]
     res["sectorFlow20"] = sf20
 
+    # ㉓ 21차(2026-09-23) — KIS 해외뉴스 장중 실효성 실측: 허브 /us-news 스냅샷의
+    #    시간대(KST)·종류(news/flash)·국가·관련종목 부착률 분포. 장중 시황 보강 범위 판단용.
+    news21 = {}
+    try:
+        d = requests.get(f"{hub}/us-news", headers={"User-Agent": "probe"}, timeout=60).json()
+        items = d.get("items") or []
+        now_kst = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=9)))
+        news21["status"] = d.get("status")
+        news21["n"] = len(items)
+        news21["probeAtKST"] = now_kst.strftime("%Y-%m-%d %H:%M")
+        by_hour, by_kind, by_nation, by_class = {}, {}, {}, {}
+        fresh60 = fresh180 = withNames = 0
+        for it in items:
+            t = (it.get("time") or "")[:2]
+            by_hour[t] = by_hour.get(t, 0) + 1
+            by_kind[it.get("kind")] = by_kind.get(it.get("kind"), 0) + 1
+            by_nation[it.get("nation") or "-"] = by_nation.get(it.get("nation") or "-", 0) + 1
+            by_class[it.get("class") or "-"] = by_class.get(it.get("class") or "-", 0) + 1
+            if [n for n in (it.get("names") or []) if n]:
+                withNames += 1
+            try:
+                ts = datetime.datetime.strptime(f"{it.get('date')} {it.get('time')}",
+                                                "%Y-%m-%d %H:%M:%S").replace(
+                    tzinfo=datetime.timezone(datetime.timedelta(hours=9)))
+                age = (now_kst - ts).total_seconds() / 60
+                fresh60 += 1 if age <= 60 else 0
+                fresh180 += 1 if age <= 180 else 0
+            except Exception:
+                pass
+        news21.update({"byHourKST": dict(sorted(by_hour.items())), "byKind": by_kind,
+                       "byNation": by_nation, "byClass": dict(sorted(
+                           by_class.items(), key=lambda x: -x[1])[:10]),
+                       "fresh60min": fresh60, "fresh180min": fresh180,
+                       "withNames": withNames,
+                       "oldest": items[-1].get("date", "") + " " + items[-1].get("time", "")
+                                 if items else None,
+                       "newest": items[0].get("date", "") + " " + items[0].get("time", "")
+                                 if items else None,
+                       "sample": [{k: it.get(k) for k in ("kind", "date", "time", "source",
+                                                          "nation", "class", "names", "title")}
+                                  for it in items[:8]]})
+    except Exception as e:
+        news21["error"] = str(e)[:300]
+    res["usNews21"] = news21
+
     res["trendApiOk"] = all(res[f"trendApi:{c}"].get("hasData") for c in CODES)
     # 판정: 410=폐지(Gone) / 그 외 4xx·예외=차단·오류 / 200·행 0=구조 변경
     def _verdict(c):
