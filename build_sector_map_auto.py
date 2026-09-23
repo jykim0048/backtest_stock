@@ -41,6 +41,9 @@ OUT_PATH = os.path.join(ROOT, "public", "assets", "krx_sector_map.json")
 # TOP 컷 기반 krx_sector_map 은 지주 분류(한미사이언스→금융계)·소형주(지엘팜텍)가
 # 계속 새서, 자르기 전 전 종목을 별도 파일로 보존한다.
 OUT_FULL_PATH = os.path.join(ROOT, "public", "assets", "krx_code_sector.json")
+# KRX 정보데이터시스템 업종분류현황(코스피·코스닥 전종목, 사용자 제공 xlsx → JSON, 2026-09-23).
+# 전 종목 업종맵의 1순위 소스 — KIS 마스터 추정·네이버 대응은 여기 없는 코드(신규 상장)만.
+KRX_INDUSTRY_PATH = os.path.join(ROOT, "public", "assets", "krx_industry.json")
 # 전 종목 시총(우선주 포함) — 공매도·대차 시총대비 분모(2026-09-22)
 OUT_CAPS_PATH = os.path.join(ROOT, "public", "assets", "krx_caps.json")
 KST = datetime.timezone(datetime.timedelta(hours=9))
@@ -200,7 +203,8 @@ def _naver_map(stocks, full, fetch=None, workers=8, weak=frozenset()):
         total = sum(cnt.values())
         if total >= NAVER_MIN_N and n / total >= NAVER_MIN_SHARE:
             table[nc] = top
-    table.update(NAVER_FIXED)               # 정의상 자명한 대응은 투표와 무관하게 고정
+    for k, v in NAVER_FIXED.items():        # 투표(KRX 확정 종목)가 없을 때만 고정 대응
+        table.setdefault(k, v)
     print(f"  네이버 업종 수집: {len(nv_of)}/{len(codes)}종목 · 업종 {len(votes)}개 중 대응 채택 "
           f"{len(table)}개(표본≥{NAVER_MIN_N}·비율≥{NAVER_MIN_SHARE:.0%})")
     return table, nv_of, nv_name
@@ -406,6 +410,22 @@ def main():
     # 상세의 업종(upjongCode)을 전 종목 수집해, KIS 업종이 이미 있는 종목들로 '네이버 업종
     # → KIS 업종' 다수결 대응표를 만들고(표본 NAVER_MIN_N·최다 비율 NAVER_MIN_SHARE 이상만)
     # 무분류 종목만 KIS 체계 이름으로 채운다. 애매한 업종은 채우지 않음(정직).
+    # ── KRX 공식 업종분류 덮어쓰기(2026-09-23) — 추정값 전부 KRX 로 교체, 미등재만 폴백 ──
+    krx_ind = {}
+    try:
+        with open(KRX_INDUSTRY_PATH, encoding="utf-8") as fp:
+            krx_ind = dict((json.load(fp) or {}).get("map") or {})
+    except Exception as ex:
+        print(f"  KRX 업종분류(krx_industry.json) 로드 실패 — KIS 추정만: {ex}", file=sys.stderr)
+    n_krx_over = sum(1 for c in krx_ind if full.get(c) and full[c] != krx_ind[c])
+    for c, nm in krx_ind.items():
+        if nm and c[5] == "0":                      # 우선주는 종전대로 보통주 코드 폴백
+            full[c] = nm
+    weak -= set(krx_ind)                             # KRX 확정 코드는 더 이상 추정 아님
+    n_not_krx = sum(1 for s in kospi + kosdaq if s["code"] not in krx_ind)
+    print(f"  KRX 업종분류 반영: {len(krx_ind)}종목 (추정값 교체 {n_krx_over}) · "
+          f"KRX 미등재(신규 상장 등) {n_not_krx}종목은 KIS/네이버 폴백")
+
     nv_table, nv_names = {}, {}
     if not args.no_naver:
         n_nv, n_fix, nv_table, nv_names = _fill_from_naver(kospi + kosdaq, full, weak=weak)
@@ -430,6 +450,7 @@ def main():
     with open(OUT_FULL_PATH, "w", encoding="utf-8") as fp:
         json.dump({"asof": out["asof"],
                    "note": "전 종목 code→업종명 (TOP 컷 없음 — 알약/엑셀 폴백). "
+                           "1순위 KRX 업종분류현황(krx_industry.json), 미등재는 KIS 추정/네이버. "
                            "naverTable=네이버 업종코드→KIS 업종명 다수결 대응표(맵 미등재 코드의 "
                            "실시간 폴백용, 2026-09-22), naverNames=네이버 업종코드→업종명",
                    "map": full, "naverTable": nv_table, "naverNames": nv_names},

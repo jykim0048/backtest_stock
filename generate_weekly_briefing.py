@@ -465,6 +465,16 @@ def _sector_of_name(name, code=None):
                 nv_table = dict(_cs.get("naverTable") or {})
         except Exception:
             pass
+        # KRX 공식 업종분류(2026-09-23, 사용자 제공 전종목 표)를 맵 위에 덮어쓴다 — 빌더도
+        # 같은 파일을 1순위로 쓰지만, 재빌드 전이라도 생성기가 KRX 기준을 보게.
+        try:
+            with open(os.path.join(ROOT, "public", "assets", "krx_industry.json"),
+                      encoding="utf-8") as f:
+                for _c, _nm in ((json.load(f) or {}).get("map") or {}).items():
+                    if _nm and _c[5] == "0":
+                        code_sec[_c] = _nm
+        except Exception:
+            pass
         try:
             with open(os.path.join(ROOT, "public", "assets", "krx_companies.json"),
                       encoding="utf-8") as f:
@@ -490,8 +500,14 @@ def _code_of_name(name):
     return _SEC_LOOKUP[1].get(str(name or "").strip())
 
 
+# KRX 업종분류(krx_industry.json)에는 있으나 KIS 업종지수(허브 sectorFlow 24행)에는 없는
+# 이름의 매칭 별칭(2026-09-23) — 표기는 KRX 이름 그대로, 섹터 신호 조인만 상위 지수로.
+_SEC_ALIAS = {"기타금융": "금융", "은행": "금융", "기타제조": "제조", "전기·가스·수도": "전기·가스"}
+
+
 def _norm_sec(s):
     """섹터명 정규화 — sectorFlow(KIS 업종지수명)와 krx_code_sector 값 매칭용."""
+    s = _SEC_ALIAS.get(str(s or "").strip(), s)
     return re.sub(r"[\s·・()]", "", str(s or ""))
 
 
