@@ -1,5 +1,5 @@
 {
- "asof": "2026-09-23T00:29:36.036958+00:00",
+ "asof": "2026-09-23T01:53:18.591605+00:00",
  "stockPrice": {
   "n": 26,
   "withHits": [
@@ -7,11 +7,11 @@
     "url": "https://stock.naver.com/api/domestic/detail/005930/detail?codeType=KRX",
     "status": 200,
     "method": "GET",
-    "size": 1731,
+    "size": 1734,
     "hits": [
      "sameIndustry"
     ],
-    "head": "{\"itemcode\":\"005930\",\"itemname\":\"삼성전자\",\"sosok\":\"0\",\"type\":\"ST\",\"upjongCode\":\"27\",\"tradeTime\":\"20260923092921\",\"manageStatusGb\":\"0\",\"tradeStopYn\":\"N\",\"tradableStatus\":\"tradable\",\"tradableStatusCode\":\"ok\",\"isManagement\":null,\"managementDate\":null,\"managementReasonCode\":null,\"isTradingHalt\":null,\"tradingHaltDate\":null,\"tradingHaltReasonCode\":null,\"marketAlertType\":\"00\",\"marketGb\":\"1\",\"marketStatus\":\"OPEN\",\"tradingSessionType\":\"REGULAR_MARKET\",\"nowPrice\":\"284250\",\"openPrice\":\"284500\",\"prevClosePrice\":\"277500\",\"stdPrice\":\"276500\",\"highPrice\":\"285000\",\"lowPrice\":\"283000\",\"facePrice\":\"100\",\"unit\":\"1\""
+    "head": "{\"itemcode\":\"005930\",\"itemname\":\"삼성전자\",\"sosok\":\"0\",\"type\":\"ST\",\"upjongCode\":\"27\",\"tradeTime\":\"20260923105320\",\"manageStatusGb\":\"0\",\"tradeStopYn\":\"N\",\"tradableStatus\":\"tradable\",\"tradableStatusCode\":\"ok\",\"isManagement\":null,\"managementDate\":null,\"managementReasonCode\":null,\"isTradingHalt\":null,\"tradingHaltDate\":null,\"tradingHaltReasonCode\":null,\"marketAlertType\":\"00\",\"marketGb\":\"1\",\"marketStatus\":\"OPEN\",\"tradingSessionType\":\"REGULAR_MARKET\",\"nowPrice\":\"281250\",\"openPrice\":\"284500\",\"prevClosePrice\":\"277500\",\"stdPrice\":\"276500\",\"highPrice\":\"285000\",\"lowPrice\":\"281000\",\"facePrice\":\"100\",\"unit\":\"1\""
    }
   ],
   "all": [
@@ -28,33 +28,9 @@
     "hits": []
    },
    {
-    "url": "https://stock.naver.com/api/securityFe/api/fchart/domestic/stock/005930",
-    "status": 200,
-    "size": 315,
-    "hits": []
-   },
-   {
-    "url": "https://stock.naver.com/api/securityService/integration/indicators?indicatorCodes=KOSPI%2CKOSDAQ%2CKPI200%2C.DJI%2C.INX%2CFX_USDKRW%2C.IXIC%2CGCcv1%2CCLcv1",
-    "status": 200,
-    "size": 5311,
-    "hits": []
-   },
-   {
-    "url": "https://stock.naver.com/api/community/discussion/posts?itemCode=005930&discussionType=domesticStock&isHolderOnly=false&excludesItemNews=false&isItemNewsOnly=true&pageSize=1",
-    "status": 200,
-    "size": 1715,
-    "hits": []
-   },
-   {
     "url": "https://stock.naver.com/api/stockSecurity/exchanges/market-status?exchanges=krx&exchanges=nxt",
     "status": 200,
     "size": 4362,
-    "hits": []
-   },
-   {
-    "url": "https://stock.naver.com/api/domestic/detail/005930/traderInfo",
-    "status": 200,
-    "size": 1969,
     "hits": []
    },
    {
@@ -64,15 +40,39 @@
     "hits": []
    },
    {
+    "url": "https://stock.naver.com/api/securityFe/api/fchart/domestic/stock/005930",
+    "status": 200,
+    "size": 315,
+    "hits": []
+   },
+   {
+    "url": "https://stock.naver.com/api/securityService/integration/indicators?indicatorCodes=KOSPI%2CKOSDAQ%2CKPI200%2C.DJI%2C.INX%2CFX_USDKRW%2C.IXIC%2CGCcv1%2CCLcv1",
+    "status": 200,
+    "size": 5308,
+    "hits": []
+   },
+   {
+    "url": "https://stock.naver.com/api/community/discussion/posts?itemCode=005930&discussionType=domesticStock&isHolderOnly=false&excludesItemNews=false&isItemNewsOnly=true&pageSize=1",
+    "status": 200,
+    "size": 2025,
+    "hits": []
+   },
+   {
+    "url": "https://stock.naver.com/api/domestic/detail/005930/traderInfo",
+    "status": 200,
+    "size": 1987,
+    "hits": []
+   },
+   {
     "url": "https://stock.naver.com/api/domestic/detail/005930/siseTick?startIdx=0&pageSize=20",
     "status": 200,
-    "size": 4482,
+    "size": 4500,
     "hits": []
    },
    {
     "url": "https://stock.naver.com/api/personal/users/favorite/ranking?pageSize=10",
     "status": 200,
-    "size": 5477,
+    "size": 5490,
     "hits": []
    },
    {
@@ -84,27 +84,27 @@
    {
     "url": "https://stock.naver.com/api/domestic/detail/005930/detail?codeType=KRX",
     "status": 200,
-    "size": 1731,
+    "size": 1734,
     "hits": [
      "sameIndustry"
     ]
    },
    {
-    "url": "https://stock.naver.com/api/domestic/detail/005930/hoga",
-    "status": 200,
-    "size": 691,
-    "hits": []
-   },
-   {
     "url": "https://stock.naver.com/api/stockSecurity/items/v2/domestic/005930/price-snapshot",
     "status": 200,
-    "size": 1675,
+    "size": 1677,
     "hits": []
    },
    {
     "url": "https://stock.naver.com/api/domestic/detail/005930/trend?tradeType=KRX&startIdx=0&pageSize=20",
     "status": 200,
     "size": 5602,
+    "hits": []
+   },
+   {
+    "url": "https://stock.naver.com/api/domestic/detail/005930/hoga",
+    "status": 200,
+    "size": 691,
     "hits": []
    },
    {
@@ -126,21 +126,21 @@
     "hits": []
    },
    {
-    "url": "https://polling.finance.naver.com/api/realtime/domestic/index/KOSPI,KOSDAQ,KPI200",
-    "status": 200,
-    "size": 2904,
-    "hits": []
-   },
-   {
     "url": "https://polling.finance.naver.com/api/realtime/domestic/v2/stock?itemCodes=005930",
     "status": 200,
-    "size": 1453,
+    "size": 1454,
     "hits": []
    },
    {
     "url": "https://polling.finance.naver.com/api/realtime/domestic/stock/000660,005380,005490,005930,006400,009150,034020,035420,035720,066570",
     "status": 200,
-    "size": 22562,
+    "size": 22633,
+    "hits": []
+   },
+   {
+    "url": "https://polling.finance.naver.com/api/realtime/domestic/index/KOSPI,KOSDAQ,KPI200",
+    "status": 200,
+    "size": 2900,
     "hits": []
    },
    {
@@ -152,13 +152,7 @@
    {
     "url": "https://polling.finance.naver.com/api/realtime/marketindex/metals/GCcv1",
     "status": 200,
-    "size": 828,
-    "hits": []
-   },
-   {
-    "url": "https://polling.finance.naver.com/api/realtime/marketindex/energy/CLcv1",
-    "status": 200,
-    "size": 805,
+    "size": 829,
     "hits": []
    },
    {
@@ -168,9 +162,15 @@
     "hits": null
    },
    {
+    "url": "https://polling.finance.naver.com/api/realtime/marketindex/energy/CLcv1",
+    "status": 200,
+    "size": 805,
+    "hits": []
+   },
+   {
     "url": "https://polling.finance.naver.com/api/realtime/domestic/stock/005930",
     "status": 200,
-    "size": 2411,
+    "size": 2419,
     "hits": []
    }
   ]
@@ -178,6 +178,16 @@
  "marketindex": {
   "n": 17,
   "withHits": [
+   {
+    "url": "https://polling.finance.naver.com/api/realtime/marketindex/metals/GCcv1,M04020000",
+    "status": 200,
+    "method": "GET",
+    "size": 1650,
+    "hits": [
+     "CD"
+    ],
+    "head": "{\"pollingInterval\":7000,\"datas\":[{\"reutersCode\":\"M04020000\",\"symbolCode\":\"M04020000\",\"name\":\"국내 금\",\"stockExchangeType\":{\"code\":\"KRX\",\"zoneId\":\"Asia/Seoul\",\"nationType\":\"KOR\",\"delayTime\":0,\"startTime\":\"0900\",\"endTime\":\"1530\",\"closePriceSendTime\":\"1530\",\"nameKor\":\"한국거래소\",\"nameEng\":\"KOREA EXCHANGE\",\"name\":\"KRX\",\"nationCode\":\"KOR\",\"nationName\":\"대한민국\",\"stockType\":\"domestic\"},\"closePrice\":\"189,000\",\"fluctuations\":\"-120\",\"fluctuationsRatio\":\"-0.06\",\"openPrice\":\"190,000\",\"highPrice\":\"190,660\",\"lowPrice\":\"188,910\",\"accumulatedTradingVolume\":\"66,606\",\"accumulatedTradingValue\":\"12,625백만\",\"fluctuationsTyp"
+   },
    {
     "url": "https://polling.finance.naver.com/api/realtime/marketindex/energy/CLcv1,LCOcv1",
     "status": 200,
@@ -187,17 +197,7 @@
      "WTI",
      "CD"
     ],
-    "head": "{\"pollingInterval\":7000,\"datas\":[{\"reutersCode\":\"CLcv1\",\"symbolCode\":\"CL\",\"name\":\"WTI\",\"stockExchangeType\":{\"code\":\"NYM\",\"zoneId\":\"CST6CDT\",\"nationType\":\"USA\",\"delayTime\":10,\"startTime\":\"1700\",\"endTime\":\"1600\",\"closePriceSendTime\":\"1600\",\"nameKor\":\"뉴욕상업거래소\",\"nameEng\":\"New York Mercantile Exchange\",\"nationCode\":\"USA\",\"nationName\":\"미국\",\"stockType\":\"worldstock\",\"name\":\"NYMEX\"},\"closePrice\":\"94.59\",\"fluctuations\":\"0.00\",\"fluctuationsRatio\":\"0.00\",\"openPrice\":\"-\",\"highPrice\":\"-\",\"lowPrice\":\"-\",\"accumulatedTradingVolume\":\"-\",\"accumulatedTradingValue\":\"-\",\"fluctuationsType\":{\"code\":\"3\",\"text\":\"보합\",\"n"
-   },
-   {
-    "url": "https://polling.finance.naver.com/api/realtime/marketindex/metals/GCcv1,M04020000",
-    "status": 200,
-    "method": "GET",
-    "size": 1645,
-    "hits": [
-     "CD"
-    ],
-    "head": "{\"pollingInterval\":7000,\"datas\":[{\"reutersCode\":\"M04020000\",\"symbolCode\":\"M04020000\",\"name\":\"국내 금\",\"stockExchangeType\":{\"code\":\"KRX\",\"zoneId\":\"Asia/Seoul\",\"nationType\":\"KOR\",\"delayTime\":0,\"startTime\":\"0900\",\"endTime\":\"1530\",\"closePriceSendTime\":\"1530\",\"nameKor\":\"한국거래소\",\"nameEng\":\"KOREA EXCHANGE\",\"nationCode\":\"KOR\",\"nationName\":\"대한민국\",\"stockType\":\"domestic\",\"name\":\"KRX\"},\"closePrice\":\"189,610\",\"fluctuations\":\"490\",\"fluctuationsRatio\":\"0.26\",\"openPrice\":\"190,000\",\"highPrice\":\"190,660\",\"lowPrice\":\"189,550\",\"accumulatedTradingVolume\":\"19,194\",\"accumulatedTradingValue\":\"3,645백만\",\"fluctuationsType\":"
+    "head": "{\"pollingInterval\":7000,\"datas\":[{\"reutersCode\":\"CLcv1\",\"symbolCode\":\"CL\",\"name\":\"WTI\",\"stockExchangeType\":{\"code\":\"NYM\",\"zoneId\":\"CST6CDT\",\"nationType\":\"USA\",\"delayTime\":10,\"startTime\":\"1700\",\"endTime\":\"1600\",\"closePriceSendTime\":\"1600\",\"nameKor\":\"뉴욕상업거래소\",\"nameEng\":\"New York Mercantile Exchange\",\"name\":\"NYMEX\",\"nationCode\":\"USA\",\"nationName\":\"미국\",\"stockType\":\"worldstock\"},\"closePrice\":\"94.59\",\"fluctuations\":\"0.00\",\"fluctuationsRatio\":\"0.00\",\"openPrice\":\"-\",\"highPrice\":\"-\",\"lowPrice\":\"-\",\"accumulatedTradingVolume\":\"-\",\"accumulatedTradingValue\":\"-\",\"fluctuationsType\":{\"code\":\"3\",\"text\":\"보합\",\"n"
    },
    {
     "url": "https://polling.finance.naver.com/api/realtime/marketindex/energy/CLcv1,LCOcv1,RBcv1,HOcv1,DCBc1",
@@ -211,35 +211,35 @@
     "head": "{\"pollingInterval\":7000,\"datas\":[{\"reutersCode\":\"CLcv1\",\"symbolCode\":\"CL\",\"name\":\"WTI\",\"stockExchangeType\":{\"code\":\"NYM\",\"zoneId\":\"CST6CDT\",\"nationType\":\"USA\",\"delayTime\":10,\"startTime\":\"1700\",\"endTime\":\"1600\",\"closePriceSendTime\":\"1600\",\"nameKor\":\"뉴욕상업거래소\",\"nameEng\":\"New York Mercantile Exchange\",\"nationCode\":\"USA\",\"nationName\":\"미국\",\"stockType\":\"worldstock\",\"name\":\"NYMEX\"},\"closePrice\":\"94.59\",\"fluctuations\":\"0.00\",\"fluctuationsRatio\":\"0.00\",\"openPrice\":\"-\",\"highPrice\":\"-\",\"lowPrice\":\"-\",\"accumulatedTradingVolume\":\"-\",\"accumulatedTradingValue\":\"-\",\"fluctuationsType\":{\"code\":\"3\",\"text\":\"보합\",\"n"
    },
    {
-    "url": "https://stock.naver.com/api/securityService/marketindex/metals",
-    "status": 200,
-    "method": "GET",
-    "size": 26562,
-    "hits": [
-     "CD"
-    ],
-    "head": "[{\"categoryType\":\"metals\",\"stockExchangeType\":{\"code\":\"CMX\",\"zoneId\":\"CST6CDT\",\"nationType\":\"USA\",\"delayTime\":10,\"startTime\":\"1700\",\"endTime\":\"1600\",\"closePriceSendTime\":\"1600\",\"nameKor\":\"뉴욕상품거래소\",\"nameEng\":\"Commodity Exchange\",\"name\":\"COMEX\",\"nationCode\":\"USA\",\"stockType\":\"worldstock\",\"nationName\":\"미국\"},\"reutersCode\":\"GCcv1\",\"symbolCode\":\"GC\",\"name\":\"국제 금\",\"fullName\":\"국제 금\",\"nameEng\":\"COMEX 100oz Gold cv1\",\"itemLogoUrl\":null,\"itemLogoPngUrl\":null,\"delayTime\":10,\"delayTimeName\":\"10분 지연\",\"description\":\"뉴욕상품거래소(COMEX)에서 거래되는 금 선물의 최근월물 가격으로, 순도 99.5% 이상으로 정제된 바 형태의 실물 인수도가 가능한 상품 (계약단위: 100 트로이온"
-   },
-   {
     "url": "https://polling.finance.naver.com/api/realtime/marketindex/metals/GCcv1,M04020000,SIcv1,HGcv1,PLcv1,PAcv1,TIOc1",
     "status": 200,
     "method": "GET",
-    "size": 5450,
+    "size": 5459,
     "hits": [
      "CD"
     ],
-    "head": "{\"pollingInterval\":7000,\"datas\":[{\"reutersCode\":\"M04020000\",\"symbolCode\":\"M04020000\",\"name\":\"국내 금\",\"stockExchangeType\":{\"code\":\"KRX\",\"zoneId\":\"Asia/Seoul\",\"nationType\":\"KOR\",\"delayTime\":0,\"startTime\":\"0900\",\"endTime\":\"1530\",\"closePriceSendTime\":\"1530\",\"nameKor\":\"한국거래소\",\"nameEng\":\"KOREA EXCHANGE\",\"nationCode\":\"KOR\",\"nationName\":\"대한민국\",\"stockType\":\"domestic\",\"name\":\"KRX\"},\"closePrice\":\"189,610\",\"fluctuations\":\"490\",\"fluctuationsRatio\":\"0.26\",\"openPrice\":\"190,000\",\"highPrice\":\"190,660\",\"lowPrice\":\"189,550\",\"accumulatedTradingVolume\":\"19,194\",\"accumulatedTradingValue\":\"3,645백만\",\"fluctuationsType\":"
+    "head": "{\"pollingInterval\":7000,\"datas\":[{\"reutersCode\":\"M04020000\",\"symbolCode\":\"M04020000\",\"name\":\"국내 금\",\"stockExchangeType\":{\"code\":\"KRX\",\"zoneId\":\"Asia/Seoul\",\"nationType\":\"KOR\",\"delayTime\":0,\"startTime\":\"0900\",\"endTime\":\"1530\",\"closePriceSendTime\":\"1530\",\"nameKor\":\"한국거래소\",\"nameEng\":\"KOREA EXCHANGE\",\"name\":\"KRX\",\"nationCode\":\"KOR\",\"nationName\":\"대한민국\",\"stockType\":\"domestic\"},\"closePrice\":\"189,000\",\"fluctuations\":\"-120\",\"fluctuationsRatio\":\"-0.06\",\"openPrice\":\"190,000\",\"highPrice\":\"190,660\",\"lowPrice\":\"188,910\",\"accumulatedTradingVolume\":\"66,606\",\"accumulatedTradingValue\":\"12,625백만\",\"fluctuationsTyp"
+   },
+   {
+    "url": "https://stock.naver.com/api/stockSecurity/researches/v2/economy?size=5",
+    "status": 200,
+    "method": "GET",
+    "size": 4282,
+    "hits": [
+     "WTI"
+    ],
+    "head": "{\"hasNext\":true,\"totalCount\":\"13258\",\"items\":[{\"nid\":\"13849\",\"title\":\"09/23, Kiwoom Morning Letter\",\"content\":\"<p><strong>Comment</strong></p><p>&nbsp;</p><p>- 22일(화) 코스피는 미국 반도체주 강세로 상승 출발했으나 차익실현 매물에 오름폭을 반납하며 강보합 마감(KOSPI +0.15%, KOSDAQ -0.23%). 지수는 뉴욕증시 기술주 급등에 7,161.61로 출발해 7,171.44까지 뛰어올랐으나 추석 연휴를 앞둔 차익실현 매물과 장중 미·이란 협상 기대감 후 유가 재상승 여파로 7,017.91에 마감. 외국인이 3거래일 연속 매수(850억원), 순매수로 출발했던 기관(1,190억원)은 매도, 개인(1조 6,089억원)도 순매도. 삼성전자(0.91%)는 오름세를 유지한 반면 SK하이닉스(-1.50%)는 하락. 코스닥은 외국인(579억원)과 기관(945억원)의 동반 매도세에 834.38로 하락 마감. 유가증권시장과 코스닥시장 거래대금은 각각 22조 1,780억원, 7조 9,263억원.</p>\",\"brokerName\":\"키움증권\","
    },
    {
     "url": "https://stock.naver.com/api/securityService/marketindex/energy",
     "status": 200,
     "method": "GET",
-    "size": 25486,
+    "size": 25483,
     "hits": [
      "WTI",
      "CD"
     ],
-    "head": "[{\"categoryType\":\"energy\",\"stockExchangeType\":{\"code\":\"NYM\",\"zoneId\":\"CST6CDT\",\"nationType\":\"USA\",\"delayTime\":10,\"startTime\":\"1700\",\"endTime\":\"1600\",\"closePriceSendTime\":\"1600\",\"nameKor\":\"뉴욕상업거래소\",\"nameEng\":\"New York Mercantile Exchange\",\"stockType\":\"worldstock\",\"nationName\":\"미국\",\"nationCode\":\"USA\",\"name\":\"NYMEX\"},\"reutersCode\":\"CLcv1\",\"symbolCode\":\"CL\",\"name\":\"WTI\",\"fullName\":\"서부텍사스산 원유\",\"nameEng\":\"NYMEX Lt Crude Oil cv1\",\"itemLogoUrl\":null,\"itemLogoPngUrl\":null,\"delayTime\":10,\"delayTimeName\":\"10분 지연\",\"description\":\"뉴욕상업거래소(NYMEX)에서 거래되는 WTI(Western Texas Intermediate) 선물의 최근월물 가격으로, 세계 3대 유종"
+    "head": "[{\"categoryType\":\"energy\",\"stockExchangeType\":{\"code\":\"NYM\",\"zoneId\":\"CST6CDT\",\"nationType\":\"USA\",\"delayTime\":10,\"startTime\":\"1700\",\"endTime\":\"1600\",\"closePriceSendTime\":\"1600\",\"nameKor\":\"뉴욕상업거래소\",\"nameEng\":\"New York Mercantile Exchange\",\"name\":\"NYMEX\",\"nationName\":\"미국\",\"stockType\":\"worldstock\",\"nationCode\":\"USA\"},\"reutersCode\":\"CLcv1\",\"symbolCode\":\"CL\",\"name\":\"WTI\",\"fullName\":\"서부텍사스산 원유\",\"nameEng\":\"NYMEX Lt Crude Oil cv1\",\"itemLogoUrl\":null,\"itemLogoPngUrl\":null,\"delayTime\":10,\"delayTimeName\":\"10분 지연\",\"description\":\"뉴욕상업거래소(NYMEX)에서 거래되는 WTI(Western Texas Intermediate) 선물의 최근월물 가격으로, 세계 3대 유종"
    },
    {
     "url": "https://stock.naver.com/api/securityService/marketindex/majors/domesticInterest",
@@ -249,23 +249,13 @@
     "hits": [
      "CD"
     ],
-    "head": "[{\"categoryType\":\"domesticInterest\",\"stockExchangeType\":{\"code\":\"BOK\",\"zoneId\":\"Asia/Seoul\",\"nationType\":\"KOR\",\"delayTime\":0,\"startTime\":\"\",\"endTime\":\"\",\"closePriceSendTime\":\"\",\"nameKor\":\"한국은행\",\"nameEng\":\"\",\"name\":\"BOK\",\"stockType\":\"domestic\",\"nationName\":\"대한민국\",\"nationCode\":\"KOR\"},\"reutersCode\":\"KRCALLBOKK\",\"symbolCode\":\"\",\"name\":\"콜금리 (1일)\",\"fullName\":\"콜금리 (1일)\",\"nameEng\":null,\"itemLogoUrl\":null,\"itemLogoPngUrl\":null,\"delayTime\":null,\"delayTimeName\":null,\"description\":\"금융기관 상호간의 초단기 자금부족을 해결하기 위한 시장인 콜시장에서 결정되는 금리로, 기준금리 변동을 신속하게 반영하여 시장금리에 영향을 줌\",\"localTradedAt\":\"2026-09-21T00:00:00+09:00\",\""
-   },
-   {
-    "url": "https://stock.naver.com/api/stockSecurity/researches/v2/economy?size=5",
-    "status": 200,
-    "method": "GET",
-    "size": 4280,
-    "hits": [
-     "WTI"
-    ],
-    "head": "{\"hasNext\":true,\"totalCount\":\"13258\",\"items\":[{\"nid\":\"13849\",\"title\":\"09/23, Kiwoom Morning Letter\",\"content\":\"<p><strong>Comment</strong></p><p>&nbsp;</p><p>- 22일(화) 코스피는 미국 반도체주 강세로 상승 출발했으나 차익실현 매물에 오름폭을 반납하며 강보합 마감(KOSPI +0.15%, KOSDAQ -0.23%). 지수는 뉴욕증시 기술주 급등에 7,161.61로 출발해 7,171.44까지 뛰어올랐으나 추석 연휴를 앞둔 차익실현 매물과 장중 미·이란 협상 기대감 후 유가 재상승 여파로 7,017.91에 마감. 외국인이 3거래일 연속 매수(850억원), 순매수로 출발했던 기관(1,190억원)은 매도, 개인(1조 6,089억원)도 순매도. 삼성전자(0.91%)는 오름세를 유지한 반면 SK하이닉스(-1.50%)는 하락. 코스닥은 외국인(579억원)과 기관(945억원)의 동반 매도세에 834.38로 하락 마감. 유가증권시장과 코스닥시장 거래대금은 각각 22조 1,780억원, 7조 9,263억원.</p>\",\"brokerName\":\"키움증권\","
+    "head": "[{\"categoryType\":\"domesticInterest\",\"stockExchangeType\":{\"code\":\"BOK\",\"zoneId\":\"Asia/Seoul\",\"nationType\":\"KOR\",\"delayTime\":0,\"startTime\":\"\",\"endTime\":\"\",\"closePriceSendTime\":\"\",\"nameKor\":\"한국은행\",\"nameEng\":\"\",\"stockType\":\"domestic\",\"nationName\":\"대한민국\",\"nationCode\":\"KOR\",\"name\":\"BOK\"},\"reutersCode\":\"KRCALLBOKK\",\"symbolCode\":\"\",\"name\":\"콜금리 (1일)\",\"fullName\":\"콜금리 (1일)\",\"nameEng\":null,\"itemLogoUrl\":null,\"itemLogoPngUrl\":null,\"delayTime\":null,\"delayTimeName\":null,\"description\":\"금융기관 상호간의 초단기 자금부족을 해결하기 위한 시장인 콜시장에서 결정되는 금리로, 기준금리 변동을 신속하게 반영하여 시장금리에 영향을 줌\",\"localTradedAt\":\"2026-09-21T00:00:00+09:00\",\""
    },
    {
     "url": "https://stock.naver.com/api/securityService/marketindex/majors/rpc",
     "status": 200,
     "method": "GET",
-    "size": 18822,
+    "size": 18825,
     "hits": [
      "FX_USDKRW",
      "USDKRW",
@@ -273,7 +263,17 @@
      "WTI",
      "CD"
     ],
-    "head": "[{\"categoryType\":\"exchange\",\"stockExchangeType\":{\"code\":\"HANA\",\"zoneId\":\"Asia/Seoul\",\"nationType\":\"KOR\",\"delayTime\":0,\"startTime\":\"\",\"endTime\":\"\",\"closePriceSendTime\":\"\",\"nameKor\":\"하나은행\",\"nameEng\":\"Hana Bank\",\"name\":\"HANA\",\"nationName\":\"대한민국\",\"stockType\":\"domestic\",\"nationCode\":\"KOR\"},\"reutersCode\":\"FX_USDKRW\",\"symbolCode\":\"USD\",\"exchangeCode\":\"USD\",\"name\":\"미국 USD\",\"description\":\"하나은행 고시회차\",\"localTradedAt\":\"2026-09-23T09:28:23+09:00\",\"closePrice\":\"1,347.80\",\"fluctuations\":\"-7.70\",\"fluctuationsRatio\":\"-0.57\",\"fluctuationsType\":{\"code\":\"5\",\"text\":\"하락\",\"name\":\"FALLING\"},\"marketStatus\":\"OPEN\",\"pri"
+    "head": "[{\"categoryType\":\"exchange\",\"stockExchangeType\":{\"code\":\"HANA\",\"zoneId\":\"Asia/Seoul\",\"nationType\":\"KOR\",\"delayTime\":0,\"startTime\":\"\",\"endTime\":\"\",\"closePriceSendTime\":\"\",\"nameKor\":\"하나은행\",\"nameEng\":\"Hana Bank\",\"name\":\"HANA\",\"nationCode\":\"KOR\",\"stockType\":\"domestic\",\"nationName\":\"대한민국\"},\"reutersCode\":\"FX_USDKRW\",\"symbolCode\":\"USD\",\"exchangeCode\":\"USD\",\"name\":\"미국 USD\",\"description\":\"하나은행 고시회차\",\"localTradedAt\":\"2026-09-23T10:51:05+09:00\",\"closePrice\":\"1,348.90\",\"fluctuations\":\"-6.60\",\"fluctuationsRatio\":\"-0.49\",\"fluctuationsType\":{\"code\":\"5\",\"text\":\"하락\",\"name\":\"FALLING\"},\"marketStatus\":\"OPEN\",\"pri"
+   },
+   {
+    "url": "https://stock.naver.com/api/securityService/marketindex/metals",
+    "status": 200,
+    "method": "GET",
+    "size": 26563,
+    "hits": [
+     "CD"
+    ],
+    "head": "[{\"categoryType\":\"metals\",\"stockExchangeType\":{\"code\":\"CMX\",\"zoneId\":\"CST6CDT\",\"nationType\":\"USA\",\"delayTime\":10,\"startTime\":\"1700\",\"endTime\":\"1600\",\"closePriceSendTime\":\"1600\",\"nameKor\":\"뉴욕상품거래소\",\"nameEng\":\"Commodity Exchange\",\"nationName\":\"미국\",\"stockType\":\"worldstock\",\"nationCode\":\"USA\",\"name\":\"COMEX\"},\"reutersCode\":\"GCcv1\",\"symbolCode\":\"GC\",\"name\":\"국제 금\",\"fullName\":\"국제 금\",\"nameEng\":\"COMEX 100oz Gold cv1\",\"itemLogoUrl\":null,\"itemLogoPngUrl\":null,\"delayTime\":10,\"delayTimeName\":\"10분 지연\",\"description\":\"뉴욕상품거래소(COMEX)에서 거래되는 금 선물의 최근월물 가격으로, 순도 99.5% 이상으로 정제된 바 형태의 실물 인수도가 가능한 상품 (계약단위: 100 트로이온"
    }
   ],
   "all": [
@@ -290,6 +290,20 @@
     "hits": []
    },
    {
+    "url": "https://polling.finance.naver.com/api/realtime/marketindex/metals/GCcv1,M04020000",
+    "status": 200,
+    "size": 1650,
+    "hits": [
+     "CD"
+    ]
+   },
+   {
+    "url": "https://stock.naver.com/api/securityService/marketindex/majors/standardInterest",
+    "status": 200,
+    "size": 5425,
+    "hits": []
+   },
+   {
     "url": "https://polling.finance.naver.com/api/realtime/marketindex/energy/CLcv1,LCOcv1",
     "status": 200,
     "size": 1590,
@@ -299,12 +313,10 @@
     ]
    },
    {
-    "url": "https://polling.finance.naver.com/api/realtime/marketindex/metals/GCcv1,M04020000",
+    "url": "https://stock.naver.com/api/domestic/news/focus?sid=429&page=1&pageSize=5&date=20260923&enableFallback=true",
     "status": 200,
-    "size": 1645,
-    "hits": [
-     "CD"
-    ]
+    "size": 3722,
+    "hits": []
    },
    {
     "url": "https://polling.finance.naver.com/api/realtime/marketindex/energy/CLcv1,LCOcv1,RBcv1,HOcv1,DCBc1",
@@ -316,31 +328,31 @@
     ]
    },
    {
-    "url": "https://stock.naver.com/api/securityService/marketindex/majors/standardInterest",
-    "status": 200,
-    "size": 5425,
-    "hits": []
-   },
-   {
-    "url": "https://stock.naver.com/api/securityService/marketindex/metals",
-    "status": 200,
-    "size": 26562,
-    "hits": [
-     "CD"
-    ]
-   },
-   {
     "url": "https://polling.finance.naver.com/api/realtime/marketindex/metals/GCcv1,M04020000,SIcv1,HGcv1,PLcv1,PAcv1,TIOc1",
     "status": 200,
-    "size": 5450,
+    "size": 5459,
     "hits": [
      "CD"
     ]
+   },
+   {
+    "url": "https://stock.naver.com/api/stockSecurity/researches/v2/economy?size=5",
+    "status": 200,
+    "size": 4282,
+    "hits": [
+     "WTI"
+    ]
+   },
+   {
+    "url": "https://stock.naver.com/api/securityService/marketindex/majors/bond",
+    "status": 200,
+    "size": 7379,
+    "hits": []
    },
    {
     "url": "https://stock.naver.com/api/securityService/marketindex/energy",
     "status": 200,
-    "size": 25486,
+    "size": 25483,
     "hits": [
      "WTI",
      "CD"
@@ -355,34 +367,22 @@
     ]
    },
    {
-    "url": "https://stock.naver.com/api/stockSecurity/researches/v2/economy?size=5",
-    "status": 200,
-    "size": 4280,
-    "hits": [
-     "WTI"
-    ]
-   },
-   {
-    "url": "https://stock.naver.com/api/securityService/marketindex/majors/bond",
-    "status": 200,
-    "size": 7376,
-    "hits": []
-   },
-   {
-    "url": "https://stock.naver.com/api/domestic/news/focus?sid=429&page=1&pageSize=5&date=20260923&enableFallback=true",
-    "status": 200,
-    "size": 3728,
-    "hits": []
-   },
-   {
     "url": "https://stock.naver.com/api/securityService/marketindex/majors/rpc",
     "status": 200,
-    "size": 18822,
+    "size": 18825,
     "hits": [
      "FX_USDKRW",
      "USDKRW",
      "DXY",
      "WTI",
+     "CD"
+    ]
+   },
+   {
+    "url": "https://stock.naver.com/api/securityService/marketindex/metals",
+    "status": 200,
+    "size": 26563,
+    "hits": [
      "CD"
     ]
    },
@@ -395,13 +395,13 @@
    {
     "url": "https://stock.naver.com/api/personal/users/favorite/ranking?pageSize=10",
     "status": 200,
-    "size": 5477,
+    "size": 5490,
     "hits": []
    },
    {
     "url": "https://polling.finance.naver.com/api/realtime/domestic/stock/000660,005380,005490,005930,006400,009150,034020,035420,035720,066570",
     "status": 200,
-    "size": 22565,
+    "size": 22633,
     "hits": []
    }
   ]
