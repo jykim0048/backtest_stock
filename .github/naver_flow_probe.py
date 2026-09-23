@@ -857,8 +857,19 @@ def main():
                          "https://tradingstrategies-production-09d4.up.railway.app")
     sf20 = {}
     try:
-        j = requests.get(f"{hub}/sector-flow", params={"days": 2},
-                         headers={"User-Agent": "probe"}, timeout=180).json()
+        # 콜드 빌드는 ~150s+ — 1차로 데우고(타임아웃 무시) 2차에서 캐시 히트로 받는다
+        j, attempts = None, []
+        for i, tmo in enumerate((260, 120, 120)):
+            try:
+                j = requests.get(f"{hub}/sector-flow", params={"days": 2},
+                                 headers={"User-Agent": "probe"}, timeout=tmo).json()
+                attempts.append(f"{i + 1}:ok")
+                break
+            except Exception as e:
+                attempts.append(f"{i + 1}:{type(e).__name__}")
+        sf20["attempts"] = attempts
+        if j is None:
+            raise RuntimeError("sector-flow 응답 없음(빌드 지연)")
         secs = j.get("sectors") or []
         sf20["asof"] = j.get("asof")
         sf20["n"] = len(secs)
