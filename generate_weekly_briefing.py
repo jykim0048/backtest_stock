@@ -30,6 +30,7 @@ import urllib.request
 ROOT = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, ROOT)
 import llm
+import krx_calendar        # KRX 휴장일 제외(_period_dates, 2026-09-24)
 
 KST = datetime.timezone(datetime.timedelta(hours=9))
 BASE = os.environ.get("DASHBOARD_BASE", "https://backteststock-production.up.railway.app")
@@ -71,17 +72,25 @@ def _week_dates(base_date):
 # ---------------------------------------------------------------------------
 # 일별 압축 추출 — LLM 프롬프트에 넣을 2~3KB 요약 (regime/모의투자 제외)
 # ---------------------------------------------------------------------------
-def _period_dates(base_date, period="week"):
-    """기간 거래일 후보 — week: 그 주 월~기준일(_week_dates), month: 그 달 1일~기준일의
-    평일(주말이면 직전 금요일까지). 휴장일은 하위 단계가 데이터 부재로 자연 스킵."""
+def _period_dates(base_date, period="week", holidays=None):
+    """기간 거래일 — week: 그 주 월~기준일(_week_dates), month: 그 달 1일~기준일의 평일
+    (주말이면 직전 금요일까지). KRX 휴장일(data/krx_holidays.json, krx_calendar)은 제외한다.
+
+    종전엔 '휴장일은 하위 단계가 데이터 부재로 자연 스킵'에 기댔는데, 2026-09-24 추석 연휴에
+    스케줄러가 휴장일을 몰라 파이프라인이 돌며 산출물(전날 지수·수급 복제)이 생기자 주간·월간에
+    그대로 합산됐다. 캘린더가 없으면(빈 집합) 종전과 같이 평일 전부(fail-open)."""
+    if holidays is None:
+        holidays = krx_calendar.load_holidays()
     if period != "month":
-        return _week_dates(base_date)
-    if base_date.weekday() >= 5:
-        base_date -= datetime.timedelta(days=base_date.weekday() - 4)
-    first = base_date.replace(day=1)
-    return [first + datetime.timedelta(days=i)
-            for i in range((base_date - first).days + 1)
-            if (first + datetime.timedelta(days=i)).weekday() < 5]
+        dates = _week_dates(base_date)
+    else:
+        if base_date.weekday() >= 5:
+            base_date -= datetime.timedelta(days=base_date.weekday() - 4)
+        first = base_date.replace(day=1)
+        dates = [first + datetime.timedelta(days=i)
+                 for i in range((base_date - first).days + 1)
+                 if (first + datetime.timedelta(days=i)).weekday() < 5]
+    return [d for d in dates if d.isoformat() not in holidays]
 
 
 def _compound(pcts):
