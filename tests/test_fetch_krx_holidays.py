@@ -107,5 +107,25 @@ def main():
     print("ALL PASS (fetch_krx_holidays: api call/merge/keep-on-failure/main rc, HolidayCache refresh)")
 
 
+def main_error_surfacing():
+    """포털 인증 오류(HTTP 403 + cmmMsgHeader)는 사유 문구를 예외 메시지에 싣는다 — 로그만으로
+    '활용신청 누락' 과 '키 오타' 를 구분할 수 있어야 한다(2026-09-24 첫 실행: 403 만 보여 원인 불명)."""
+    class R:
+        status_code = 403
+        text = '{"OpenAPI_ServiceResponse":{"cmmMsgHeader":{"errMsg":"SERVICE_KEY_IS_NOT_REGISTERED_ERROR","returnAuthMsg":"등록되지 않은 서비스키","returnReasonCode":"30"}}}'
+        def raise_for_status(self): raise RuntimeError("403 Client Error: Forbidden")
+        def json(self): return json.loads(self.text)
+    fk.requests.get = lambda *a, **k: R()
+    try:
+        fk.fetch_public_holidays(2026, "KEY")
+        assert False, "403 은 예외여야 한다"
+    except Exception as e:
+        msg = str(e)
+        assert "SERVICE_KEY_IS_NOT_REGISTERED_ERROR" in msg and "등록되지 않은 서비스키" in msg, msg
+        assert "활용신청" in msg, msg          # 운영자 행동 안내까지
+    print("ALL PASS (fetch_krx_holidays: portal auth error surfaced with reason + guidance)")
+
+
 if __name__ == "__main__":
     main()
+    main_error_surfacing()

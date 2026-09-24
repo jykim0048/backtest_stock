@@ -30,12 +30,34 @@ def _log(msg):
     print(f"[krx-holidays] {msg}", file=sys.stderr, flush=True)
 
 
+def _portal_error(resp):
+    """공공데이터포털 GW 인증 오류 본문(cmmMsgHeader) → 사유 + 운영자 조치 안내 문자열. 없으면 ""."""
+    try:
+        h = (resp.json() or {}).get("OpenAPI_ServiceResponse", {}).get("cmmMsgHeader") or {}
+    except Exception:
+        return ""
+    if not h:
+        return ""
+    code = str(h.get("returnReasonCode") or "")
+    hint = {
+        "30": "→ DATA_GO_KR_KEY 계정에서 '한국천문연구원_특일 정보' API 활용신청이 필요합니다(관세청 API 와 별도 승인)",
+        "20": "→ serviceKey 가 비어 있습니다(DATA_GO_KR_KEY 시크릿 확인)",
+        "22": "→ 일일 트래픽 초과",
+    }.get(code, "→ 공공데이터포털 마이페이지에서 키·활용신청 상태 확인")
+    return f"{h.get('errMsg', '')}({h.get('returnAuthMsg', '')}, code {code}) {hint}"
+
+
 def fetch_public_holidays(year, key, timeout=20):
-    """특일정보 API 1콜(연 단위) → {"YYYY-MM-DD": 이름}. 예외는 호출측이 처리."""
+    """특일정보 API 1콜(연 단위) → {"YYYY-MM-DD": 이름}. HTTP/인증 오류는 포털 사유를 담아 예외."""
     r = requests.get(RESTDE_URL, params={"serviceKey": key, "solYear": str(year),
                                          "numOfRows": "100", "pageNo": "1", "_type": "json"},
                      timeout=timeout)
-    r.raise_for_status()
+    if getattr(r, "status_code", 200) >= 400:
+        detail = _portal_error(r)
+        try:
+            r.raise_for_status()
+        except Exception as e:
+            raise RuntimeError(f"{e} {detail}".strip()) from None
     return kc.parse_restde(r.json())
 
 
