@@ -5,6 +5,11 @@ on:
   # 장중 회차(09:07~14:37)와 달리 이 회차는 BRIEFING_FINAL=1 로 실행돼, 당일 이전
   # 회차 다이제스트를 반영한 '마감 시황'을 작성한다 (generate_intraday_briefing.py).
   workflow_dispatch: # 수동 실행 + Railway 스케줄러 트리거 진입점
+    inputs:
+      force:
+        description: "KRX 휴장일 가드 무시(테스트·수동 재실행용)"
+        required: false
+        default: "false"
 
 # 장중 회차와 같은 그룹 — intraday_briefing 산출물 push 를 직렬화
 concurrency:
@@ -26,6 +31,11 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: '3.11'
+
+      # KRX 휴장일이면 종료 — 휴장일 '마감 시황'은 전날 회차를 재합성한 가짜가 된다(2026-09-24).
+      - name: Guard — KRX 휴장일 (force=true 면 생략)
+        if: ${{ github.event.inputs.force != 'true' }}
+        run: python krx_calendar.py --guard
 
       - name: Install dependencies
         run: pip install -r requirements.txt

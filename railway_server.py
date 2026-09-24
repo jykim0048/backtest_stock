@@ -45,6 +45,7 @@ sys.path.insert(0, ROOT)
 
 import generate_analysis as ga          # heavy import once at boot — keeps the worker warm
 import report_db                        # 리포트 Postgres 저장소 (DATABASE_URL 미설정 시 자동 비활성)
+import krx_calendar                     # KRX 휴장일 캘린더 — KR 파이프라인 dispatch 게이트(2026-09-24)
 
 KRX_MASTER = os.path.join(ROOT, "public", "assets", "krx_companies.json")
 PEERS_PATH = os.path.join(ROOT, "analysis", "peers.json")
@@ -698,16 +699,41 @@ def _dispatch(workflow_file):
     return False
 
 
+# KRX 휴장일 캘린더(data/krx_holidays.json) — 부팅 시 컨테이너 로컬본, 이후 하루 1회 GitHub
+# raw 로 갱신(krx_holidays.yml 이 매년 갱신·커밋). 2026-09-24 추석 연휴에 요일만 보고 장전·
+# 장중·마감 전부를 돌려 전날 데이터를 재가공한 문제의 재발 방지. 파일이 없으면 fail-open
+# (평일 = 영업일)이라 정상 영업일 파이프라인이 멈추는 일은 없다.
+def _holidays_from_raw():
+    body = _raw_fetch("data/krx_holidays.json")
+    return json.loads(body.decode("utf-8")) if body else {}
+
+
+KR_HOLIDAYS = krx_calendar.HolidayCache(
+    fetcher=_holidays_from_raw, refresh_s=86400,
+    log=lambda m: print(f"[sched] {m}", flush=True))
+
+
+def _kr_market_day(now):
+    """KR 파이프라인(장전·장중·마감·수급확정·스코어링·주간·월간·프로브) 발화 여부 — 평일이면서
+    휴장일이 아닐 때만. 미국 야간 촉매·월 1회 작업은 이 판정을 타지 않는다."""
+    return now.weekday() <= 4 and KR_HOLIDAYS.is_trading_day(now)
+
+
 def _scheduler():
     print(f"[sched] started (repo={GH_REPO} ref={GH_REF} "
-          f"token={'set' if GH_TOKEN else 'MISSING'})", flush=True)
+          f"token={'set' if GH_TOKEN else 'MISSING'} "
+          f"휴장일 캘린더 {len(KR_HOLIDAYS.holidays)}일)", flush=True)
     fired = set()                                  # (date, key) — 같은 시각 중복 트리거 방지
     while True:
         try:
             now = datetime.datetime.now(KST)
             today = now.strftime("%Y-%m-%d")
             fired = {(d, k) for (d, k) in fired if d == today}   # 날짜 바뀌면 정리
-            if now.weekday() <= 4:                               # 월~금
+            kr_day = _kr_market_day(now)
+            if now.weekday() <= 4 and not kr_day and (today, "holiday-note") not in fired:
+                fired.add((today, "holiday-note"))               # 휴장일 하루 1회 로그
+                print(f"[sched] {today} KRX 휴장 — KR 파이프라인(장전·장중·마감·주간·월간) 생략", flush=True)
+            if kr_day:                                           # 월~금 & 휴장일 아님
                 if now.hour == 7 and now.minute == 43:           # 장전 리포트 07:43 KST
                     key = (today, "daily")
                     if key not in fired and _dispatch(DAILY_WF):

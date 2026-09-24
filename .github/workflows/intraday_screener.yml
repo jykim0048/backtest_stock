@@ -5,6 +5,11 @@ on:
   # 30분 간격(:07/:37, 마지막 15:07 은 최종 가집계 14:30±10분 포착용)으로 workflow_dispatch
   # 트리거한다. GitHub 자체 schedule 은 지연·드롭이 잦아 제거했다(guard 는 안전망으로 유지).
   workflow_dispatch: # 수동 실행 + Railway 스케줄러 트리거 진입점
+    inputs:
+      force:
+        description: "KRX 휴장일 가드 무시(테스트·수동 재실행용)"
+        required: false
+        default: "false"
 
 # 장중 관심종목은 자체 그룹으로 직렬화한다. 장전(daily_report)·아카이브와 group 을 공유하면
 # 장중 시간대에 그들이 그룹을 점유할 때 장중 schedule 이 대기하다 다음 트리거에 밀려 취소된다.
@@ -56,6 +61,12 @@ jobs:
           python-version: '3.11'
           cache: 'pip'
           cache-dependency-path: requirements.txt
+
+      # KRX 휴장일이면 종료 — 위 시간 가드는 요일·시간만 본다(2026-09-24 추석 연휴에 15회차
+      # 전부 실행된 재발 방지). data/krx_holidays.json 기준, 파일 없으면 통과(fail-open).
+      - name: Guard — KRX 휴장일 (force=true 면 생략)
+        if: ${{ github.event.inputs.force != 'true' }}
+        run: python krx_calendar.py --guard
 
       - name: Install dependencies
         run: pip install -r requirements.txt

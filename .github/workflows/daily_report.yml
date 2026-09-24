@@ -4,6 +4,11 @@ on:
   # 정기 실행은 Railway 상시 서버 스케줄러(railway_server._scheduler)가 평일 07:43 KST 에
   # workflow_dispatch 로 트리거한다. GitHub 자체 schedule 은 1~3h 지연·드롭이 잦아 제거했다.
   workflow_dispatch: # 수동 실행 + Railway 스케줄러 트리거 진입점
+    inputs:
+      force:
+        description: "KRX 휴장일 가드 무시(테스트·수동 재실행용)"
+        required: false
+        default: "false"
 
 # Serialize report-writing workflows so they never race each other on push.
 concurrency:
@@ -25,6 +30,13 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: '3.11'
+
+      # KRX 휴장일이면 종료(2026-09-24 추석 연휴에 전날 데이터로 장전 리포트가 생성된 재발 방지).
+      # Railway 스케줄러가 1차로 거르지만, 수동 실행·스케줄러 우회 경로도 여기서 막는다.
+      # data/krx_holidays.json 은 krx_holidays.yml 이 매년 갱신. 파일이 없으면 통과(fail-open).
+      - name: Guard — KRX 휴장일 (force=true 면 생략)
+        if: ${{ github.event.inputs.force != 'true' }}
+        run: python krx_calendar.py --guard
 
       - name: Install dependencies
         run: pip install -r requirements.txt

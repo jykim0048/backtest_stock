@@ -1,0 +1,57 @@
+# KRX 휴장일 캘린더 갱신 — data/krx_holidays.json (올해 + 내년)
+# 소스: 공공데이터포털 한국천문연구원 특일정보(getRestDeInfo, 공휴일·대체공휴일·임시공휴일)
+#       + KRX 고유 휴장 규칙(근로자의날 5/1, 연말휴장 12/31 또는 직전 영업일) — fetch_krx_holidays.py
+# 소비: Railway 스케줄러(railway_server._kr_market_day, raw 로 하루 1회 갱신)와
+#       daily_report / intraday_screener / closing_briefing 의 휴장일 가드(python krx_calendar.py --guard).
+# 실행: 수동(workflow_dispatch) + 매년 12월 1일 07:13 KST(내년치 확보). 임시휴장은 파일 수동 편집.
+name: KRX Holidays Update
+on:
+  workflow_dispatch:
+    inputs:
+      year:
+        description: "기준 연도 YYYY (기본: 올해 — 올해+내년 생성)"
+        required: false
+        default: ""
+  schedule:
+    - cron: '13 22 30 11 *'   # UTC 11/30 22:13 = KST 12/1 07:13
+permissions:
+  contents: write
+concurrency:
+  group: report-push
+  cancel-in-progress: false
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - run: pip install requests
+      - name: Fetch KRX holidays (data.go.kr 특일정보 + KRX 규칙)
+        env:
+          DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
+        run: |
+          if [ -n "${{ github.event.inputs.year }}" ]; then
+            python fetch_krx_holidays.py --year "${{ github.event.inputs.year }}"
+          else
+            python fetch_krx_holidays.py
+          fi
+      - name: Show result
+        run: python -c "import json; d=json.load(open('data/krx_holidays.json', encoding='utf-8')); print(d['updatedAt']); [print(y, len(v), v) for y, v in d['holidays'].items()]"
+      - name: Commit result
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/krx_holidays.json
+          git diff --staged --quiet && echo "No changes to commit" && exit 0
+          git commit -m "chore: KRX 휴장일 캘린더 갱신 $(TZ=Asia/Seoul date +'%Y-%m-%d') [skip railway]"
+          for i in $(seq 1 5); do
+            if git push origin HEAD:main; then echo "pushed (attempt $i)"; exit 0; fi
+            git fetch origin main
+            git rebase FETCH_HEAD || { git rebase --abort; echo "::error::rebase conflict"; exit 1; }
+            sleep $((RANDOM % 4 + 2))
+          done
+          echo "::error::push failed after 5 attempts" && exit 1
