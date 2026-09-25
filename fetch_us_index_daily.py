@@ -95,15 +95,52 @@ def yahoo_yfinance(symbol):
 
 
 def fred_csv(series):
-    url = f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={series}"
-    r = requests.get(url, headers=UA, timeout=60)
+    """FRED_API_KEY 가 있으면 공식 API(JSON), 없으면 fredgraph.csv. 기록 URL에서 키는 가린다."""
+    key = os.environ.get("FRED_API_KEY")
     rows = []
+    if key:
+        url = ("https://api.stlouisfed.org/fred/series/observations"
+               f"?series_id={series}&file_type=json&observation_start=2004-01-01&api_key=")
+        r = requests.get(url + key, headers=UA, timeout=120)
+        if r.status_code == 200:
+            for o in r.json()["observations"]:
+                if o["value"] not in (".", ""):
+                    rows.append([o["date"], float(o["value"])])
+        return url + "<REDACTED>", r.status_code, r.content, rows
+    url = f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={series}"
+    r = requests.get(url, headers=UA, timeout=120)
     if r.status_code == 200:
         for line in r.text.strip().splitlines()[1:]:
             d, v = line.split(",")[:2]
             if v not in (".", ""):
                 rows.append([d, float(v)])
     return url, r.status_code, r.content, rows
+
+
+NAVER = {"sp500": "SPI@SPX", "nasdaq100": "NAS@NDX"}
+
+
+def naver_world(symbol, max_pages=800):
+    """네이버 해외지수 일별 시세(10행/페이지, 최신→과거). 교차검증 전용."""
+    base = f"https://finance.naver.com/world/worldDayListJson.naver?symbol={symbol}&fdtc=0&page="
+    pages, rows, status = [], {}, None
+    for p in range(1, max_pages + 1):
+        r = requests.get(base + str(p), headers=UA, timeout=30)
+        status = r.status_code
+        if r.status_code != 200:
+            break
+        pages.append(r.text)
+        items = r.json() or []
+        if not items:
+            break
+        for it in items:
+            d = str(it["xymd"])
+            rows[f"{d[:4]}-{d[4:6]}-{d[6:8]}"] = float(it["clos"])
+        if min(rows) < "2004-01-01":
+            break
+        time.sleep(0.05)
+    raw = ("[" + ",".join(pages) + "]").encode("utf-8")
+    return base + "<1..N>", status, raw, [[d, rows[d]] for d in sorted(rows)]
 
 
 def main():
@@ -158,6 +195,23 @@ def main():
                          last_date=rows[-1][0] if rows else None)
         except Exception:
             manifest["errors"].append(f"fred {sid}:\n{traceback.format_exc()}")
+        manifest["files"].append(entry)
+
+    for name, sym in NAVER.items():
+        entry = {"provider": "naver", "series": name, "symbol": sym, "role": "cross_check"}
+        try:
+            url, status, raw, rows = naver_world(sym)
+            write(os.path.join(out, f"raw/naver_{name}.json"), raw)
+            write_csv(os.path.join(out, f"parsed/naver_{name}.csv"), ["session_date", "close"], rows)
+            entry.update(method="worldDayListJson", url=url, http_status=status,
+                         downloaded_at_utc=now_utc(), raw_file=f"raw/naver_{name}.json",
+                         raw_sha256=sha256(raw), raw_bytes=len(raw),
+                         parsed_file=f"parsed/naver_{name}.csv", rows=len(rows),
+                         first_date=rows[0][0] if rows else None,
+                         last_date=rows[-1][0] if rows else None,
+                         raw_head=raw[:300].decode("utf-8", "replace"))
+        except Exception:
+            manifest["errors"].append(f"naver {sym}:\n{traceback.format_exc()}")
         manifest["files"].append(entry)
 
     for e in manifest["files"]:

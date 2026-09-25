@@ -27,6 +27,8 @@ jobs:
         run: pip install requests yfinance
 
       - name: Fetch S&P 500 / Nasdaq-100 daily closes
+        env:
+          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}   # 교차검증용. 없으면 fredgraph.csv 시도
         run: python fetch_us_index_daily.py
 
       - name: Upload snapshot artifact
