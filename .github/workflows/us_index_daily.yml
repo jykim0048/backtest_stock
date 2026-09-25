@@ -1,0 +1,39 @@
+name: US Index Daily Snapshot (rwkv Set D)
+
+# rwkv_ts_kospi200 논문 Set D 외생변수(S&P500·Nasdaq-100 가격지수 일별 종가) 스냅샷 수집.
+# 공개 레포이므로 지수 데이터는 커밋하지 않고 artifact(보관 3일)로만 업로드한다.
+# 이 브랜치(rwkv-setd-us-index)에 수집 스크립트/워크플로를 푸시하면 실행된다(main 무관).
+on:
+  workflow_dispatch:
+  push:
+    branches: [rwkv-setd-us-index]
+    paths:
+      - fetch_us_index_daily.py
+      - .github/workflows/us_index_daily.yml
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install requests yfinance
+
+      - name: Fetch S&P 500 / Nasdaq-100 daily closes
+        run: python fetch_us_index_daily.py
+
+      - name: Upload snapshot artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: us-index-daily-snapshot
+          path: out/us_index_daily/
+          retention-days: 3
+          if-no-files-found: warn
