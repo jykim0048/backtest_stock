@@ -69,8 +69,9 @@ def api_positions(q):
     out = []
     for p in L["positions"]:
         px = p.get("lastClose") or p["entry"]
+        r = px / p["entry"] - 1
         out.append({**p, "value": round(p["qty"] * px),
-                    "unrealPct": round((px / p["entry"] - 1) * 100, 2)})
+                    "unrealPct": round((-r if p.get("side") == "short" else r) * 100, 2)})   # 숏은 하락이 이익
     return out
 
 
@@ -112,7 +113,7 @@ def api_signals(q):
 
 def api_config(q):
     return {"initialCapital": config.INITIAL_CAPITAL, "sellTax": config.SELL_TAX,
-            "holdDays": config.HOLD_DAYS, "maxWeight": config.MAX_WEIGHT,
+            "holdDays": config.HOLD_DAYS, "maxHoldDays": config.MAX_HOLD_DAYS, "maxWeight": config.MAX_WEIGHT,
             "defaultWeight": config.DEFAULT_WEIGHT, "maxNewPerDay": config.MAX_NEW_PER_DAY,
             "buySignals": config.BUY_SIGNALS, "sellSignals": config.SELL_SIGNALS,
             "buyRatings": config.BUY_RATINGS, "sellRatings": config.SELL_RATINGS}

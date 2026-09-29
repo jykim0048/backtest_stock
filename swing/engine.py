@@ -2,16 +2,20 @@
 네트워크·저장소 무관. 가격은 에이전트 가격, 일봉 고저는 '도달 여부' 판정에만 쓴다.
 
 하루(D) 처리 순서 — settle_day(ledger, D, bars):
-  [시가]  ① 전일 PM 매도 예약 → 시가 매도
+  [시가]  ① 전일 매도 예약(PM 매도·목표/만기 재판별 매도·최대 보유) → 시가 매도
           ② 보유 종목 갭하락(시가 ≤ 손절가) → 시가 손절
   [장중]  ③ D 가 유효일인 진입 주문: 저가 ≤ 진입가 → 진입가 체결. 현금 부족이면 평가손실
              보유 종목을 손실률 큰 순으로 시가 청산해 확보(합쳐도 부족하면 청산 없이 스킵).
              미도달·시세 없음 → 취소
-          ④ 기존 보유: 저가 ≤ 손절 → 손절가, 고가 ≥ 목표 → 목표가, 둘 다 → 손절 우선
+          ④ 기존 보유: 저가 ≤ 손절 → 손절가 즉시 청산. 고가 ≥ 목표 → **청산하지 않고 재판별 표시**
+             (reviewFlag="target", 2026-09-29) — 둘 다면 손절 우선
           ⑤ 당일 체결분: 저가 ≤ 손절 → 손절가(보수적). 목표가는 체결 전후 순서를 알 수 없어
              체결일엔 미적용(보수적)
-  [종가]  ⑥ 보유일 == HOLD_DAYS(체결일=1일째) → 종가 청산
+  [종가]  ⑥ 보유일 ≥ HOLD_DAYS(체결일=1일째) → **청산하지 않고 재판별 표시**(reviewFlag="expiry").
+             보유일 ≥ MAX_HOLD_DAYS → 판별 없이 다음 영업일 시가 매도 예약(max_hold)
           ⑦ 평가(종가, 시세 없으면 직전 종가) → equity 행
+재판별(daily.run_day, 장 마감 후): trading_agent PM Sell/Underweight → schedule_sell(다음 날 시가),
+그 외 → apply_hold(목표 도달이면 새 목표가·본전 손절, 이후 매일 재판별 = extended).
 
 비용: 매수 수수료 없음, 매도 대금 × SELL_TAX. side 는 현재 'long' 만(숏 확장 대비 필드).
 """
@@ -53,13 +57,44 @@ def place_entry(L, *, code, name, date, valid_date, entry, stop, target, weight,
     return o
 
 
-def schedule_sell(L, code, reason, decision_key=None, date=None):
-    """보유 종목을 다음 영업일 시가에 매도 예약(PM 매도 판정)."""
+def schedule_sell(L, code, reason, decision_key=None, date=None, kind="pm_sell"):
+    """보유 종목을 다음 영업일 시가에 매도 예약. kind = 청산 사유 코드
+    (pm_sell 신호 트리거 PM 매도 · review_target 목표 도달 후 PM 매도 · review_expiry 만기/연장 후 PM 매도 ·
+    max_hold 최대 보유 도달)."""
     for p in L["positions"]:
         if p["code"] == code and not p.get("sellPending"):
-            p["sellPending"] = {"reason": reason, "decisionKey": decision_key, "date": date}
+            p["sellPending"] = {"reason": reason, "decisionKey": decision_key, "date": date, "kind": kind}
             return True
     return False
+
+
+def apply_hold(L, code, *, target=None, stop=None, decision_key=None, date=None):
+    """재판별 결과 '계속 보유'(2026-09-29 사용자 합의).
+    - 목표 도달(reviewFlag=target): 목표가 = 새 목표가(현재가 초과일 때만, 아니면 없음),
+      손절가 = max(새 손절가(현재가 미만일 때), 기존 손절가, 매수가) — 본전 손절로 이익을 손실로 돌리지 않음.
+    - 만기·연장(expiry/extended): 새 목표가·손절가가 유효하면(목표 > 현재가, 손절 < 현재가) 교체, 아니면 유지.
+    이후 매일 재판별(extended=True). 반환: 갱신된 포지션 또는 None."""
+    for p in L["positions"]:
+        if p["code"] != code:
+            continue
+        px = p.get("lastClose") or p["entry"]
+        flag = p.get("reviewFlag")
+        ok_t = bool(target) and target > px
+        ok_s = bool(stop) and stop < px
+        if flag == "target":
+            p["target"] = float(target) if ok_t else None
+            p["stop"] = float(max([p["stop"], p["entry"]] + ([stop] if ok_s else [])))
+        else:
+            if ok_t:
+                p["target"] = float(target)
+            if ok_s:
+                p["stop"] = float(stop)
+        p["extended"] = True
+        p.setdefault("holdLog", []).append({"date": date, "flag": flag or "extended", "decisionKey": decision_key,
+                                            "target": p["target"], "stop": p["stop"]})
+        p["reviewFlag"] = None
+        return p
+    return None
 
 
 # ── 체결 헬퍼 ────────────────────────────────────────────────────────────────
@@ -123,8 +158,9 @@ def settle_day(L, date, bars):
     for p in list(L["positions"]):
         b = bars.get(p["code"])
         if p.get("sellPending") and b and b.get("open"):
-            ev["exits"].append(_close_position(L, p, date, b["open"], "pm_sell",
-                                               note=p["sellPending"].get("reason")))
+            sp = p["sellPending"]
+            ev["exits"].append(_close_position(L, p, date, b["open"], sp.get("kind") or "pm_sell",
+                                               note=sp.get("reason")))
     # ② 갭하락 손절 → 시가
     for p in list(L["positions"]):
         b = bars.get(p["code"])
@@ -186,16 +222,23 @@ def settle_day(L, date, bars):
             ev["exits"].append(_close_position(
                 L, p, date, p["stop"], "stop",
                 note="목표·손절 동시 도달 → 손절 우선" if hit_tgt else None))
-        elif hit_tgt:
-            ev["exits"].append(_close_position(L, p, date, p["target"], "target"))
+        elif hit_tgt and not p.get("sellPending"):
+            p["reviewFlag"] = "target"                      # 청산하지 않음 — 장 마감 후 재판별
+            p["targetHit"] = {"date": date, "target": p["target"], "high": b["high"]}
 
-    # ⑥ 만기 종가 청산 · ⑦ 평가
+    # ⑥ 만기 → 재판별 표시 / 최대 보유 → 다음 날 시가 매도 예약 · ⑦ 평가
     for p in list(L["positions"]):
         b = bars.get(p["code"])
         if b and b.get("close"):
             p["lastClose"] = float(b["close"])
-            if p["holdDay"] >= config.HOLD_DAYS:
-                ev["exits"].append(_close_position(L, p, date, b["close"], "expiry"))
+        if p.get("sellPending"):
+            continue
+        if p["holdDay"] >= config.MAX_HOLD_DAYS:
+            schedule_sell(L, p["code"], f"최대 보유 {config.MAX_HOLD_DAYS}영업일 도달", date=date, kind="max_hold")
+            p["reviewFlag"] = None
+            ev.setdefault("maxHold", []).append({"id": p["id"], "code": p["code"]})
+        elif p["holdDay"] >= config.HOLD_DAYS and not p.get("reviewFlag"):
+            p["reviewFlag"] = "expiry"
     value = sum(p["qty"] * (p.get("lastClose") or p["entry"]) for p in L["positions"])
     eq = L["cash"] + value
     L["equity"].append({"date": date, "cash": round(L["cash"]), "value": round(value),

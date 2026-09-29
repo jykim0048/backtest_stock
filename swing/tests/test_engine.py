@@ -63,13 +63,38 @@ class TestExits(unittest.TestCase):
         E.settle_day(L, "2026-09-02", {"000001": bar(10100, 10200, 9950, 10100)})
         return L
 
-    def test_target(self):
+    def test_target_flags_review_not_sell(self):
         L = self.filled()
         E.settle_day(L, "2026-09-03", {"000001": bar(10200, 10700, 10100, 10650)})
+        self.assertFalse(L["trades"])                        # 목표 도달 = 청산 아님(재판별 대기)
+        p = L["positions"][0]
+        self.assertEqual((p["reviewFlag"], p["targetHit"]["high"]), ("target", 10700))
+
+    def test_review_sell_next_open_with_kind_and_tax(self):
+        L = self.filled()
+        E.settle_day(L, "2026-09-03", {"000001": bar(10200, 10700, 10100, 10650)})
+        E.schedule_sell(L, "000001", "PM Sell — 목표 도달", "d/r", "2026-09-03", kind="review_target")
+        E.settle_day(L, "2026-09-04", {"000001": bar(10550, 10600, 10400, 10500)})
         t = L["trades"][0]
-        self.assertEqual((t["reason"], t["exitPrice"], t["holdDays"]), ("target", 10600, 2))
-        self.assertAlmostEqual(t["tax"], round(10 * 10600 * config.SELL_TAX))
-        self.assertEqual(t["pnl"], round(10 * 10600 * (1 - config.SELL_TAX) - 100_000))
+        self.assertEqual((t["reason"], t["exitPrice"], t["exitDecisionKey"]), ("review_target", 10550, "d/r"))
+        self.assertEqual(t["tax"], round(10 * 10550 * config.SELL_TAX))
+        self.assertEqual(t["pnl"], round(10 * 10550 * (1 - config.SELL_TAX) - 100_000))
+
+    def test_apply_hold_after_target_breakeven_stop(self):
+        L = self.filled()                                    # 진입 10000 · 손절 9500 · 목표 10600
+        E.settle_day(L, "2026-09-03", {"000001": bar(10200, 10700, 10100, 10650)})
+        E.apply_hold(L, "000001", target=11200, stop=9800, decision_key="d/h", date="2026-09-03")
+        p = L["positions"][0]
+        self.assertEqual((p["target"], p["stop"], p["extended"], p["reviewFlag"]), (11200, 10000, True, None))
+        E.apply_hold(L, "000001", target=10500, stop=10300, date="2026-09-04")   # 목표 ≤ 현재가 → 무시, 손절 상향
+        self.assertEqual((p["target"], p["stop"]), (11200, 10300))
+
+    def test_apply_hold_target_without_new_target(self):
+        L = self.filled()
+        E.settle_day(L, "2026-09-03", {"000001": bar(10200, 10700, 10100, 10650)})
+        E.apply_hold(L, "000001", target=None, stop=None)
+        p = L["positions"][0]
+        self.assertEqual((p["target"], p["stop"]), (None, 10000))   # 목표 없음 · 본전 손절
 
     def test_stop_priority_when_both(self):
         L = self.filled()
@@ -83,13 +108,25 @@ class TestExits(unittest.TestCase):
         t = L["trades"][0]
         self.assertEqual((t["reason"], t["exitPrice"]), ("stop_gap", 9000))
 
-    def test_expiry_day3_close(self):
+    def test_expiry_flags_review_not_sell(self):
+        L = self.filled()                                   # 체결일 = 1일째
+        days = [f"2026-09-{d:02d}" for d in range(3, 3 + config.HOLD_DAYS - 1)]
+        for d in days:
+            E.settle_day(L, d, {"000001": bar(10100, 10300, 10000, 10200)})
+        p = L["positions"][0]
+        self.assertFalse(L["trades"])
+        self.assertEqual((p["holdDay"], p["reviewFlag"]), (config.HOLD_DAYS, "expiry"))
+        self.assertEqual(L["positions"][0]["lastClose"], 10200)
+
+    def test_max_hold_schedules_sell_next_open(self):
         L = self.filled()
-        E.settle_day(L, "2026-09-03", {"000001": bar(10100, 10300, 10000, 10200)})
-        self.assertEqual(len(L["positions"]), 1)
-        E.settle_day(L, "2026-09-04", {"000001": bar(10200, 10400, 10050, 10350)})
-        t = L["trades"][0]
-        self.assertEqual((t["reason"], t["exitPrice"], t["holdDays"]), ("expiry", 10350, 3))
+        L["positions"][0]["holdDay"] = config.MAX_HOLD_DAYS - 1
+        ev = E.settle_day(L, "2026-09-03", {"000001": bar(10100, 10300, 10000, 10200)})
+        p = L["positions"][0]
+        self.assertEqual((p["sellPending"]["kind"], p["reviewFlag"]), ("max_hold", None))
+        self.assertEqual(ev["maxHold"][0]["code"], "000001")
+        E.settle_day(L, "2026-09-04", {"000001": bar(10150, 10300, 10000, 10200)})
+        self.assertEqual((L["trades"][0]["reason"], L["trades"][0]["exitPrice"]), ("max_hold", 10150))
 
     def test_no_target_only_stop_expiry(self):
         L = self.filled(target=None)

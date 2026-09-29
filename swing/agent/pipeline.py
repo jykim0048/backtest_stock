@@ -13,6 +13,7 @@ import os
 import tempfile
 
 from .. import agent_iface as A
+from .. import config
 from . import KIT_DIR, SOURCE_SHA, ensure_kit_path
 from . import peers as peers_mod
 
@@ -71,15 +72,16 @@ def _clip(text, label):
 def strategy_context(req):
     if req.purpose == "review":
         p = req.position or {}
-        return ("[전략 맥락] 보유 중 종목 매도 검토. 진입 {e}·손절 {s}·목표 {t}·보유 {h}/3일. 트리거: {r}. "
-                "PM 이 Sell/Underweight 면 다음 영업일 시가 매도, 그 외 보유 유지. 이 검토에서 Trader Action 은 "
-                "Sell/Hold 중심이며 가격 줄은 생략해도 된다.").format(
+        return ("[전략 맥락] 보유 중 종목 매도 검토. 진입 {e}·손절 {s}·목표 {t}·보유 {h}/{n}일(최대 {mx}일). 트리거: {r}. "
+                "PM 이 Sell/Underweight 면 다음 영업일 시가 매도, 그 외 계속 보유. 트리거가 목표가 도달·보유 만기·연장 보유면 "
+                "계속 보유할 경우 Trader 는 새 Stop Loss(현재가 아래), PM 은 새 Price Target(현재가 위)을 원 단위로 제시한다"
+                "(목표 도달 후 보유는 손절가가 매수가 아래로 내려가지 않는다). Trader Action 은 Sell/Hold 중심.").format(
             e=p.get("entry"), s=p.get("stop"), t=p.get("target") or "없음", h=p.get("holdDay"),
-            r=req.reason or "-")
+            n=config.HOLD_DAYS, mx=config.MAX_HOLD_DAYS, r=req.reason or "-")
     return ("[전략 맥락] 스윙 모의투자 신규 진입 검토. 주문은 다음 영업일 1일 유효 지정가(Entry Price 도달 시 "
-            "그 가격 체결), 보유 최대 3영업일 후 종가 청산. Stop Loss 필수(없으면 주문 안 됨). Price Target 은 "
-            "3영업일 안에 현실적인 수준으로. 섹터 신호: {sig} {sec}, 스크리닝 근거: {r}.").format(
-        sig=req.signal or "-", sec=req.sector or "-", r=req.reason or "-")
+            "그 가격 체결), 보유 최대 {n}영업일 후 종가 청산. Stop Loss 필수(없으면 주문 안 됨). Price Target 은 "
+            "{n}영업일 안에 현실적인 수준으로. 섹터 신호: {sig} {sec}, 스크리닝 근거: {r}.").format(
+        n=config.HOLD_DAYS, sig=req.signal or "-", sec=req.sector or "-", r=req.reason or "-")
 
 
 def _default_llm(system, user, max_tokens, schema):

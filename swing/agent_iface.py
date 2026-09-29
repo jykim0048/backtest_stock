@@ -158,6 +158,9 @@ class MockAgent:
         last = req.last_close
         if req.purpose == "review":
             d.rating = "Sell" if int(req.code[-1]) % 2 == 0 else "Hold"
+            d.action = "Sell" if d.rating == "Sell" else "Hold"
+            if d.rating == "Hold" and last:                 # 계속 보유 시 새 목표·손절(목표/만기 재판별용)
+                d.target, d.stop = round(last * 1.05), round(last * 0.96)
             d.summary = f"[mock] 매도 검토 — {req.reason or ''}"
             return d
         if not last:

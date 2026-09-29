@@ -152,7 +152,7 @@ class TestPipeline(unittest.TestCase):
         agent(llm).decide(req("review"))
         u = dict(llm.calls)
         self.assertIn("보유 중 종목 매도 검토", u["13_portfolio_manager.md"])
-        self.assertIn("보유 2/3일", u["09_trader.md"])
+        self.assertIn(f"보유 2/{PL.config.HOLD_DAYS}일", u["09_trader.md"])
 
     def test_peer_failure_does_not_block(self):
         def boom(stock):

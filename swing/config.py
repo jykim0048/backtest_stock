@@ -18,7 +18,8 @@ def _i(name, default):
 
 INITIAL_CAPITAL = _f("SWING_INITIAL_CAPITAL", 500_000_000)   # 초기 자본 5억
 SELL_TAX = _f("SWING_SELL_TAX", 0.002)                       # 매도세 0.2% (슬리피지 없음)
-HOLD_DAYS = _i("SWING_HOLD_DAYS", 3)                         # 보유 3영업일(체결일=1일째)
+HOLD_DAYS = _i("SWING_HOLD_DAYS", 5)                         # 보유 5영업일(체결일=1일째) — 2026-09-29 3→5
+MAX_HOLD_DAYS = _i("SWING_MAX_HOLD_DAYS", 15)                 # 만기 후 재판별로 연장해도 이 보유일에서 다음 날 시가 청산
 MAX_WEIGHT = _f("SWING_MAX_WEIGHT", 0.10)                    # 종목당 비중 상한
 DEFAULT_WEIGHT = _f("SWING_DEFAULT_WEIGHT", 0.05)            # 트레이더가 비중 생략 시
 MAX_NEW_PER_DAY = _i("SWING_MAX_NEW_PER_DAY", 10)            # 하루 신규 분석 종목 상한(LLM 호출량)
