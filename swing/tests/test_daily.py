@@ -183,6 +183,63 @@ class TestTargetExpiryReview(unittest.TestCase):
         self.assertTrue(self.st.get("ledger")["positions"][0]["extended"])
 
 
+class RecordingStore(store.FileStore):
+    """progress 쓰기 이력을 남기는 저장소."""
+    def __init__(self, root):
+        super().__init__(root)
+        self.progress = []
+
+    def put(self, key, obj):
+        if key == "progress":
+            self.progress.append(dict(obj))
+        super().put(key, obj)
+
+
+class TestProgress(unittest.TestCase):
+    def test_progress_counts_each_decision_and_closes_done(self):
+        st = RecordingStore(tempfile.mkdtemp())
+        ag = FixedAgent({"000010": ("Buy", "Buy", 10000, 9500, 10600)})
+        px = prices.DictPrices({"2026-09-21": {"000010": b(10000, 10100, 9900, 10050),
+                                               "000020": b(5000, 5000, 5000, 5000),
+                                               "000030": b(8000, 8000, 8000, 8000)}})
+        daily.run_day("2026-09-21", st, ag, px,
+                      wb("2026-09-21", buy=[("000010", "화학"), ("000020", "화학")], down=["000030"]))
+        dones = [p["done"] for p in st.progress]
+        self.assertEqual(dones, sorted(dones))                               # 줄지 않음
+        steps = [p for i, p in enumerate(st.progress) if i and p["done"] > st.progress[i - 1]["done"]]
+        self.assertEqual([p["done"] for p in steps], [1, 2, 3])            # 판단마다 +1 (Long 2 + Short 1)
+        self.assertTrue(all(p["total"] == 3 for p in steps))
+        self.assertEqual([p["last"]["side"] for p in steps], ["long", "long", "short"])
+        final = st.get("progress")
+        self.assertEqual((final["status"], final["done"], final["total"]), ("done", 3, 3))
+        self.assertEqual(st.progress[0]["status"], "running")
+
+    def test_run_daily_marks_failed_on_exception(self):
+        import json as _json
+        import os as _os
+        from swing import run_daily
+
+        class Boom:
+            def daily_bars(self, codes, date):
+                raise RuntimeError("시세 없음")
+        root = tempfile.mkdtemp()
+        wbd = tempfile.mkdtemp()
+        with open(_os.path.join(wbd, "2026-09-21.json"), "w", encoding="utf-8") as f:
+            _json.dump(wb("2026-09-21", buy=[("000010", "화학")]), f)
+        old = run_daily.make_prices
+        run_daily.make_prices = lambda kind: Boom()
+        try:
+            with self.assertRaises(RuntimeError):
+                run_daily.main(["--date", "2026-09-21", "--wb-dir", wbd, "--agent", "mock",
+                                "--prices", "mock", "--store", "file:" + root])
+        finally:
+            run_daily.make_prices = old
+        p = store.FileStore(root).get("progress")
+        self.assertEqual(p["status"], "failed")
+        self.assertIn("시세 없음", p["error"])
+        self.assertIsNone(store.FileStore(root).get("ledger"))             # 원장은 저장되지 않음
+
+
 class TestSqlStore(unittest.TestCase):
     def test_roundtrip_sqlite(self):
         path = tempfile.mktemp(suffix=".db")

@@ -156,6 +156,43 @@
     }
     $("agent-status").textContent = lr && lr.agent ? "판단 엔진 " + lr.agent : "판단 엔진 —";
   }
+  // ── 실행 진행률(daily.Progress) — 실행 중이면 헤더에 n/N·마지막 판단, 30초마다 갱신, 끝나면 새로고침 ──
+  var PROG_STALE_MIN = 20;                     // 이 시간 넘게 갱신이 없으면 중단된 것으로 표시
+  var progWasRunning = false, progTimer = null;
+  function progAgeMin(p) {
+    var t = Date.parse(p && (p.updatedAt || p.startedAt));
+    return isNaN(t) ? 1e9 : (Date.now() - t) / 60000;
+  }
+  function progressText(p) {
+    var ph = { settle: "정산", review: "청산 검토", long: "Long 판단", short: "Short 판단" }[p.phase] || "";
+    var t = "실행 중 " + p.date + " · " + (p.total ? p.done + "/" + p.total : ph || "준비");
+    if (p.last) t += " · 마지막 " + p.last.name + " " + (p.last.error ? "실패" : (p.last.rating || "")) +
+      (p.last.side === "short" ? "(Short)" : "");
+    return t;
+  }
+  function pollProgress() {
+    clearTimeout(progTimer);
+    api("/api/swing/progress").then(function (p) {
+      var lr = S.summary && S.summary.lastRun;
+      var running = p && p.status === "running";
+      if (running && progAgeMin(p) > PROG_STALE_MIN) {
+        $("run-dot").className = "status-dot warn";
+        $("run-status").textContent = "실행 응답 없음 " + p.date + " · " + p.done + "/" + p.total + " (" + Math.round(progAgeMin(p)) + "분째 갱신 없음)";
+        running = false;
+      } else if (running) {
+        $("run-dot").className = "status-dot run";
+        $("run-status").textContent = progressText(p);
+        $("run-status").title = "시작 " + (p.startedAt || "").slice(11, 16) + " · 갱신 " + (p.updatedAt || "").slice(11, 16);
+      } else if (p && p.status === "failed" && (!lr || p.date >= lr.date)) {
+        $("run-dot").className = "status-dot warn";
+        $("run-status").textContent = "실행 실패 " + p.date + " · " + (p.error || "");
+      }
+      if (progWasRunning && !running && p && p.status === "done") { location.reload(); return; }
+      progWasRunning = running;
+      if (running) progTimer = setTimeout(pollProgress, 30000);
+    }).catch(function () { /* 진행률은 보조 정보 — 실패해도 무시 */ });
+  }
+
   // ── 계좌 현황: 평가액(원) · 기간 수익률(YTD/3M/1M/1W) · 포트폴리오 평가 지표(2026-09-29) ──
   // 일별 평가액(equity 행) 기준. 기간 시작 전 기록이 없으면 운용 시작(초기 자본) 대비로 계산하고 *로 표시.
   function periodReturn(rows, cap, days, ytd) {
@@ -918,7 +955,7 @@
     S.summary = r[0]; S.equity = r[1]; S.positions = r[2]; S.trades = r[4]; S.config = r[5];
     S.heldShort = {};
     S.positions.forEach(function (p) { if (sideOf(p) === "short") S.heldShort[p.code] = 1; else S.held[p.code] = 1; });
-    renderHeader(r[0]); renderPortfolio(r[0]); renderRules(r[5]);
+    renderHeader(r[0]); pollProgress(); renderPortfolio(r[0]); renderRules(r[5]);
     document.querySelectorAll(".hold-n").forEach(function (x) { x.textContent = HOLD_N(); });
     if (S.config && S.config.borrowRate != null) $("cfg-borrow").textContent = +(S.config.borrowRate * 100).toFixed(2);
     if (S.config && S.config.shortMaxGross != null) $("cfg-sgross").textContent = Math.round(S.config.shortMaxGross * 100);

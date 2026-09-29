@@ -22,6 +22,32 @@ def _dkey(date, code, purpose, side="long"):
     return f"decision/{date}/{code}/{purpose}" + ("-short" if side == "short" else "")
 
 
+def _now():
+    return datetime.datetime.now().isoformat(timespec="seconds")
+
+
+class Progress:
+    """실행 진행률 — store `progress` 문서 하나를 갱신(대시보드 헤더 "실행 중 n/N", 2026-09-29).
+    판단(LLM) 한 건이 끝날 때마다 쓰므로 하루 수십 번 쓰기뿐이다. 실패해도 런을 멈추지 않는다."""
+
+    def __init__(self, store, date, agent):
+        self.store = store
+        self.doc = {"date": date, "status": "running", "agent": agent, "startedAt": _now(),
+                    "phase": "settle", "total": 0, "done": 0, "last": None}
+
+    def update(self, **kw):
+        self.doc.update(kw, updatedAt=_now())
+        try:
+            self.store.put("progress", self.doc)
+        except Exception:
+            traceback.print_exc()
+
+    def step(self, d, name, side, purpose):
+        self.update(done=self.doc["done"] + 1,
+                    last={"code": d.code, "name": name, "side": side, "purpose": purpose,
+                          "rating": d.rating, "action": d.action, "error": (d.error or "")[:120] or None})
+
+
 def _safe_decide(agent, req):
     try:
         return agent.decide(req)
@@ -42,6 +68,8 @@ def run_day(date, store, agent, prices, wb, *, force=False, log=print):
     if L.get("asof") and date <= L["asof"] and not force:
         run["skip"] = f"이미 처리됨(asof {L['asof']})"
         return run
+    prog = Progress(store, date, run["agent"])
+    prog.update()
 
     # 1) 원장 갱신 — 후보 종목 전일 종가도 같은 호출로 받는다
     wb_ok = bool(wb) and signals.asof_date(wb) == date
@@ -97,6 +125,7 @@ def run_day(date, store, agent, prices, wb, *, force=False, log=print):
                                         "reasons": [], "kinds": [], "side": p.get("side", "long")})
         e["reasons"].insert(0, why)
         e["kinds"].insert(0, flag)
+    prog.update(phase="review", total=len(todo) + len(cands) + len(scands))
     for code, t in todo.items():
         p = next(x for x in L["positions"] if x["code"] == code)
         flag = next((k for k in t["kinds"] if k in ("target", "expiry", "extended")), None)
@@ -126,15 +155,18 @@ def run_day(date, store, agent, prices, wb, *, force=False, log=print):
             action = "hold_updated" if (p["target"], p["stop"]) != before else "hold"
         if p.get("sellPending"):
             p["reviewFlag"] = None
+        prog.step(d, t["name"], side, "review")
         run["reviews"].append({"code": code, "name": t["name"], "side": side, "trigger": req.reason, "kinds": t["kinds"],
                                "rating": d.rating, "sell": action.startswith("sell"), "action": action,
                                "error": d.error, "target": p.get("target"), "stop": p.get("stop"),
                                "decisionKey": key})
 
     # 3) 신규 분석·주문(Long) · 4) 신규 Short
-    run["candidates"] = _new_entries(L, store, agent, cands, bars, date, nxt, "long")
+    prog.update(phase="long")
+    run["candidates"] = _new_entries(L, store, agent, cands, bars, date, nxt, "long", prog)
     run["capSkipped"] = [c["code"] for c in skipped_cap]
-    run["shortCandidates"] = _new_entries(L, store, agent, scands, bars, date, nxt, "short")
+    prog.update(phase="short")
+    run["shortCandidates"] = _new_entries(L, store, agent, scands, bars, date, nxt, "short", prog)
     run["shortCapSkipped"] = [c["code"] for c in skipped_short_cap]
 
     if wb_ok:
@@ -143,6 +175,7 @@ def run_day(date, store, agent, prices, wb, *, force=False, log=print):
     run["equity"] = L["equity"][-1] if L["equity"] else None
     run["finishedAt"] = datetime.datetime.now().isoformat(timespec="seconds")
     store.put(f"run/{date}", run)
+    prog.update(status="done", phase="done", finishedAt=run["finishedAt"])
     log(f"[swing] {date} 청산 {len(run['exits'])} · 검토 {len(run['reviews'])} · "
         f"후보 {len(run['candidates'])} · 주문 {sum(r['ordered'] for r in run['candidates'])} · "
         f"숏 후보 {len(run['shortCandidates'])} · 숏 주문 {sum(r['ordered'] for r in run['shortCandidates'])} · "
@@ -150,7 +183,7 @@ def run_day(date, store, agent, prices, wb, *, force=False, log=print):
     return run
 
 
-def _new_entries(L, store, agent, cands, bars, date, nxt, side):
+def _new_entries(L, store, agent, cands, bars, date, nxt, side, prog=None):
     """후보 → trading_agent 판단 → 조건 충족 시 다음 영업일 1일 유효 지정가(Long 매수·Short 공매도)."""
     rows = []
     for c in cands:
@@ -174,4 +207,6 @@ def _new_entries(L, store, agent, cands, bars, date, nxt, side):
             row.update(ordered=o["status"] == "open", orderId=o["id"], qty=o["qty"],
                        why=o.get("note", ""))
         rows.append(row)
+        if prog:
+            prog.step(d, c["name"], side, "entry")
     return rows

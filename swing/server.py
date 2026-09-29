@@ -112,6 +112,11 @@ def api_signals(q):
     return {"date": d, "signals": STORE.get(f"signals/{d}") if d else None}
 
 
+def api_progress(q):
+    """실행 진행률(daily.Progress) — 없으면 None."""
+    return STORE.get("progress")
+
+
 def api_config(q):
     return {"initialCapital": config.INITIAL_CAPITAL, "sellTax": config.SELL_TAX,
             "holdDays": config.HOLD_DAYS, "maxHoldDays": config.MAX_HOLD_DAYS, "maxWeight": config.MAX_WEIGHT,
@@ -127,7 +132,7 @@ def api_export(q):
     return {k: STORE.get(k) for k in STORE.keys("")}
 
 
-ROUTES = {"/api/swing/summary": api_summary, "/api/swing/positions": api_positions,
+ROUTES = {"/api/swing/summary": api_summary, "/api/swing/progress": api_progress, "/api/swing/positions": api_positions,
           "/api/swing/orders": api_orders, "/api/swing/trades": api_trades,
           "/api/swing/equity": lambda q: _ledger()["equity"],
           "/api/swing/runs": api_runs, "/api/swing/decision": api_decision,

@@ -78,6 +78,7 @@ header {
 }
 .status-dot.warn { background: var(--amber); box-shadow: 0 0 10px var(--amber); }
 .status-dot.idle { background: var(--text-muted); box-shadow: none; animation: none; }
+.status-dot.run { background: var(--kospi-blue); box-shadow: 0 0 10px var(--kospi-blue); }
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
 .date-picker-panel label { color: var(--text-muted); white-space: nowrap; }
 .date-picker-panel select {

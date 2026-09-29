@@ -92,7 +92,16 @@ def main(argv=None):
         except Exception as ex:
             print(f"[swing] {d} 주간 브리핑 로드 실패: {ex}", file=sys.stderr)
             wb = None
-        run = daily.run_day(d, st, ag, px, wb, force=a.force)
+        try:
+            run = daily.run_day(d, st, ag, px, wb, force=a.force)
+        except Exception as ex:
+            # 진행률이 "실행 중"으로 남지 않게 실패로 닫고 다시 올린다(원장은 저장되지 않음)
+            p = st.get("progress") or {}
+            if p.get("date") == d and p.get("status") == "running":
+                p.update(status="failed", error=f"{type(ex).__name__}: {ex}"[:300],
+                         updatedAt=datetime.datetime.now().isoformat(timespec="seconds"))
+                st.put("progress", p)
+            raise
         if run.get("skip"):
             print(f"[swing] {d} 건너뜀: {run['skip']}")
         for n in run.get("notes", []):
