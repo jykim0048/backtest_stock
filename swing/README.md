@@ -27,6 +27,14 @@ server.py        swing-web(API + static/)   tools/extract_wb_history.py  과거 
 data/wb_history/ 9/9~ 일별 주간 브리핑 축약본(git 이력에서 추출)
 ```
 
+## 브랜치 구성 (2026-09-29 정리)
+- 이 브랜치에는 `swing/` 와 의존 파일만 있다: `llm.py`(P1 LLM 호출), `krx_calendar.py`·`data/krx_holidays.json`
+  (휴장일), `public/assets/krx_companies.json`(일봉 시장 구분), `requirements.txt`, `.python-version`.
+- main 의 대시보드·파이프라인·워크플로·리포트는 삭제됨 → **`git merge main` 금지**(삭제 파일마다 충돌).
+  main 쪽 개선을 가져올 땐 남긴 파일만: `git checkout origin/main -- llm.py krx_calendar.py data/krx_holidays.json`.
+- 주간 브리핑 입력은 병합이 아니라 main raw 에서 매일 읽는다(`SWING_MAIN_RAW_BASE`). 과거 신호 복원 도구는
+  같은 레포의 main 이력을 읽으므로 `git fetch origin main` 후 `--ref origin/main` 으로 실행.
+
 ## 로컬
 ```bash
 python -m unittest discover -s swing/tests -t .

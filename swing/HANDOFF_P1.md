@@ -12,11 +12,15 @@
 - Railway 크론(`swing-cron`, 평일 16:30 KST)에서 사람 없이 돈다 → 서브에이전트·대화 없이 LLM 호출만으로 재현.
 
 ## 1. 규칙 (반드시)
-- 작업 브랜치는 `swing_paper` 만. **main 에 병합·푸시 금지**(main → swing_paper 방향만 허용).
-  푸시는 `git push origin swing_paper`.
+- 작업 브랜치는 `swing_paper` 만. **main 에 병합·푸시 금지.** 푸시는 `git push origin swing_paper`.
+- **이 브랜치는 swing 전용으로 정리됨(2026-09-29)** — 루트에는 `swing/` 와 의존 파일 6개(`llm.py`,
+  `krx_calendar.py`, `data/krx_holidays.json`, `public/assets/krx_companies.json`, `requirements.txt`,
+  `.python-version`)만 있다. 따라서 **`git merge main` 도 금지**(삭제 파일마다 충돌). main 의 수정이 필요하면
+  남긴 파일만 개별로: `git checkout origin/main -- llm.py`.
 - 코드 수정은 `swing/` 안에서만. 예외: 루트 `requirements.txt` 에 패키지 추가가 필요하면 이 브랜치에서만
   `# swing` 주석 블록으로 추가.
-- main 쪽 기존 파일(`llm.py`, `analysis/`, `krx_calendar.py` 등)은 **import 만** 하고 고치지 않는다.
+- 남긴 main 파일(`llm.py`, `krx_calendar.py`)은 **import 만** 하고 고치지 않는다. main 의 `analysis/` 는
+  이 브랜치에 없다 — 수집은 homework 스킬 코드(kit)만 쓴다.
 - homework 레포(`jykim0048/homework`, 브랜치 `trading_agent`)는 **원본**. 이식은 복사로 하고 출처 커밋을 기록.
 - 커밋 메시지 끝: `Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>`. 커밋·푸시는 사용자 요청 시.
 - 키(.env)는 커밋 금지, 채팅에 남기지 말 것.
@@ -31,7 +35,8 @@
    # 또는
    git clone -b swing_paper https://github.com/jykim0048/backtest_stock.git backtest_stock-swing
    ```
-3. `pip install -r requirements.txt` (backtest_stock 루트) + homework `trading_agent/requirements.txt`.
+3. `pip install -r requirements.txt` (브랜치 루트) + homework `trading_agent/requirements.txt`.
+   Railway 는 루트 requirements.txt 만 설치하므로 kit 에 필요한 패키지는 루트에 합쳐 넣는다.
 4. 키: `GEMINI_API_KEY`(또는 `LLM_CHAIN` 에 anthropic 추가 시 `ANTHROPIC_API_KEY`), `DART_API_KEY`,
    `NAVER_CLIENT_ID`, `NAVER_CLIENT_SECRET`, 선택 `FLOW_API_BASE`·`TAVILY_API_KEY`. 환경변수로 설정.
 5. 확인: `python -m unittest discover -s swing/tests -t .` → 32건 OK.
@@ -177,3 +182,5 @@ swing/HANDOFF_P1.md 와 swing/README.md 를 먼저 읽고, HANDOFF_P1.md 의 2~5
 - 2026-09-29 (회사 PC) **해외 peer 무인 확정 = B안(LLM 제안 + yfinance 검증 + 저장소 캐시)** 사용자 결정 → 3-6 절 추가,
   3-1·3-2·3-4·3-5·4·5 절 반영. 업종 기본표(`industry_peers.json`)는 951c796 에서 새로 작성된 폴백(외부 출처 아님)이라
   제안 실패 시에만 사용.
+- 2026-09-29 (회사 PC) 브랜치 정리: swing 에 불필요한 main 파일 990개 삭제(대시보드·파이프라인·워크플로·리포트).
+  남긴 의존 파일은 1절 참조. `git merge main` 금지 → 필요한 파일만 `git checkout origin/main -- <파일>`.

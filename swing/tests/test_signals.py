@@ -43,16 +43,15 @@ class TestSignals(unittest.TestCase):
         self.assertIsNone(S.asof_date({}))
 
     def test_real_archive(self):
-        p = os.path.join(ROOT, "public", "reports", "weekly_briefing", "2026-09-14.json")
-        if not os.path.exists(p):
-            self.skipTest("아카이브 없음")
+        # main 아카이브는 이 브랜치에 없음 → git 이력에서 복원한 축약본(swing/data/wb_history)으로 검증
+        p = os.path.join(ROOT, "swing", "data", "wb_history", "2026-09-14.json")
         with open(p, encoding="utf-8") as f:
             d = json.load(f)
         c = S.buy_candidates(d)
         self.assertTrue(c and all(len(x["code"]) == 6 for x in c))
-        k = S.compact(d)
-        self.assertEqual(S.buy_candidates(k), c)
-        self.assertEqual(S.sector_signals(k), S.sector_signals(d))
+        self.assertTrue(all(x["signal"] in ("동반강세", "수급유입") for x in c))
+        self.assertEqual(S.buy_candidates(S.compact(d)), c)          # 축약 재적용 불변
+        self.assertEqual(S.sector_signals(S.compact(d)), S.sector_signals(d))
 
 
 if __name__ == "__main__":
