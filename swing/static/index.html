@@ -31,17 +31,28 @@
     </div>
   </header>
 
-  <!-- 흐름 요약: 섹터 시그널 → 판단 → 주문 → 보유 → 청산 -->
-  <section class="flow-strip" id="flow-strip" aria-label="오늘의 흐름"></section>
+  <!-- 상단: 계좌 현황 · 평가액 추이 -->
+  <section class="top-row">
+    <div class="side-panel">
+      <h3>💼 계좌 현황</h3>
+      <div class="portfolio-summary-box" id="portfolio"></div>
+      <div class="pf-note" id="pf-note"></div>
+    </div>
+    <div class="side-panel">
+      <h3>📈 평가액 추이 <span class="h3-sub" id="eq-caption"></span></h3>
+      <div class="chart" id="equity-chart" role="img" aria-label="일별 평가액 추이"></div>
+    </div>
+  </section>
 
+  <!-- 가운데: 메인 보드(전체 폭) -->
   <div class="main-grid">
-    <!-- 왼쪽: 메인 보드 -->
     <div class="board-container">
       <div class="main-tabs-row" role="tablist">
         <button class="main-tab active" data-tab="signals">섹터 시그널</button>
-        <button class="main-tab" data-tab="positions">보유 종목 <span class="tab-count" id="cnt-positions"></span></button>
-        <button class="main-tab" data-tab="decisions">판단 · 주문 <span class="tab-count" id="cnt-decisions"></span></button>
-        <button class="main-tab" data-tab="trades">청산 내역 <span class="tab-count" id="cnt-trades"></span></button>
+        <button class="main-tab tab-long" data-tab="long">Long <span class="tab-count" id="cnt-long"></span></button>
+        <button class="main-tab tab-short" data-tab="short">Short <span class="tab-count" id="cnt-short"></span></button>
+        <button class="main-tab" data-tab="pf">Long·Short PF <span class="tab-count" id="cnt-pf"></span></button>
+        <button class="main-tab" data-tab="report">트레이딩 리포트 <span class="tab-count" id="cnt-trades"></span></button>
       </div>
 
       <div class="tab-pane active" id="pane-signals">
@@ -52,66 +63,150 @@
         <div id="sector-matrix"></div>
         <div class="board-header mt">
           <h2>섹터 시그널 종목 관찰</h2>
-          <span class="board-subtitle">동반강세·수급유입 = 매수 후보 · 수급이탈·동반약세 = 보유 시 매도 검토 · ● 보유 중</span>
+          <span class="board-subtitle">동반강세·수급유입 = Long 후보 · 수급이탈·동반약세 = Short 후보(관찰)·Long 보유 시 매도 검토 · ● 보유 중</span>
         </div>
         <div class="matrix" id="matrix"></div>
       </div>
 
-      <div class="tab-pane" id="pane-positions">
-        <div class="board-header">
-          <h2>보유 종목</h2>
-          <span class="board-subtitle">진입가 체결 · 3영업일 보유 · 손절/목표 도달 시 청산</span>
+      <!-- Long: 보유 → 매도 검토 → 신규 후보·주문 → 체결 결과 -->
+      <div class="tab-pane" id="pane-long">
+        <div class="board-header side-long">
+          <h2>Long 보유</h2>
+          <span class="board-subtitle">진입가 체결 · <span class="hold-n">5</span>영업일 보유 · 손절 즉시 청산 · 목표 도달·만기는 trading_agent 재판별 · 행을 누르면 판단 원문</span>
         </div>
         <div class="table-wrap"><table class="stocks-table" id="positions"></table></div>
-      </div>
-
-      <div class="tab-pane" id="pane-decisions">
-        <div class="board-header">
+        <div class="board-header side-long mt">
           <h2>매도 검토</h2>
-          <span class="board-subtitle">보유 섹터 수급이탈·동반약세 전환 또는 종목 하방 칸 등재 → PM 재판단</span>
+          <span class="board-subtitle">신호(섹터 전환·하방 칸) · 목표가 도달 · 보유 만기 · 연장 보유(매일) → PM 재판별 → 매도 예약 또는 계속 보유</span>
         </div>
         <div class="table-wrap"><table class="stocks-table compact" id="reviews"></table></div>
-        <div class="board-header mt">
+        <div class="board-header side-long mt">
           <h2>신규 후보 → 주문</h2>
-          <span class="board-subtitle">PM Buy/Overweight + Trader Buy + 손절가 → 다음 영업일 1일 유효 지정가</span>
+          <span class="board-subtitle">동반강세·수급유입 · PM Buy/Overweight + Trader Buy + 손절가 → 다음 영업일 1일 유효 지정가</span>
         </div>
         <div class="table-wrap"><table class="stocks-table compact" id="candidates"></table></div>
-        <div class="board-header mt">
+        <div class="board-header side-long mt">
           <h2>이 날 체결 결과</h2>
           <span class="board-subtitle">전 영업일 주문의 체결·취소·스킵</span>
         </div>
         <div class="table-wrap"><table class="stocks-table compact" id="executed"></table></div>
       </div>
 
-      <div class="tab-pane" id="pane-trades">
-        <div class="board-header">
-          <h2>청산 내역</h2>
-          <span class="board-subtitle" id="trade-caption">세후 손익(매도세 0.2%)</span>
+      <!-- Short: 같은 구성, 숏 모의투자 확장 전까지 후보 관찰만 -->
+      <div class="tab-pane" id="pane-short">
+        <div class="notice">
+          <b>Short 모의투자 준비 중</b> — 현재는 Long 전용으로 운용합니다. 숏 확장 시 수급이탈·동반약세 종목을 trading_agent 가
+          판단해 공매도 진입가·손절가(진입가 위)·목표가(진입가 아래)로 운용하며, 원장은 이미 방향(side) 필드를 갖고 있습니다.
         </div>
-        <div class="table-wrap"><table class="stocks-table compact" id="trades"></table></div>
+        <div class="board-header side-short mt">
+          <h2>Short 보유</h2>
+          <span class="board-subtitle">공매도 진입 · <span class="hold-n">5</span>영업일 보유 · 손절(상승)/목표(하락) 도달 시 환매</span>
+        </div>
+        <div class="table-wrap"><table class="stocks-table" id="short-positions"></table></div>
+        <div class="board-header side-short mt">
+          <h2>Short 후보 관찰</h2>
+          <span class="board-subtitle" id="short-watch-sub">수급이탈·동반약세 칸 — 판단·주문 없음(관찰)</span>
+        </div>
+        <div class="table-wrap"><table class="stocks-table compact" id="short-watch"></table></div>
+      </div>
+
+      <!-- Long·Short 포트폴리오: 지금 무엇을 얼마나 들고 있나(노출·비중·섹터 구성) -->
+      <div class="tab-pane" id="pane-pf">
+        <div class="board-header">
+          <h2>Long · Short 포트폴리오</h2>
+          <span class="board-subtitle" id="pf-asof">현재 보유 기준 · 비중 = 평가금액 ÷ 총자산</span>
+        </div>
+        <div class="pf-tiles" id="pf-tiles"></div>
+        <div class="exposure" id="pf-exposure"></div>
+        <div class="board-header mt">
+          <h2>섹터별 노출</h2>
+          <span class="board-subtitle">Long(+) · Short(−) · 순노출 = Long − Short</span>
+        </div>
+        <div class="table-wrap"><table class="stocks-table compact" id="pf-sectors"></table></div>
+        <div class="board-header mt">
+          <h2>보유 구성</h2>
+          <span class="board-subtitle">비중 큰 순 · 행을 누르면 진입 판단</span>
+        </div>
+        <div class="table-wrap"><table class="stocks-table compact" id="pf-holdings"></table></div>
+      </div>
+
+      <!-- 트레이딩 리포트: 청산 거래 성과 — ①핵심 지표 ②누적 손익 ③Long vs Short ④청산 사유 ⑤분포 ⑥내역 -->
+      <div class="tab-pane" id="pane-report">
+        <div class="board-header">
+          <h2>트레이딩 리포트</h2>
+          <div class="rp-period-wrap">
+            <div class="seg" id="rp-period" role="group" aria-label="기간">
+              <button type="button" class="active" data-v="all">전체</button>
+              <button type="button" data-v="month">이번 달</button>
+              <button type="button" data-v="week">이번 주</button>
+              <button type="button" data-v="day">일자</button>
+            </div>
+            <select class="rp-day" id="rp-day" aria-label="조회 일자" hidden></select>
+          </div>
+        </div>
+        <div class="board-subtitle" id="rp-sub" style="margin:-6px 0 14px"></div>
+
+        <div class="rp-kpis" id="rp-kpis"></div>
+
+        <div class="rp-section">
+          <div class="rp-h"><h3>누적 실현 손익</h3><div class="rp-legend" id="rp-cum-legend"></div></div>
+          <div class="chart rp-chart" id="rp-cum" role="img" aria-label="청산일 기준 누적 실현 손익"></div>
+        </div>
+
+        <div class="rp-section">
+          <div class="rp-h"><h3>일자별 요약</h3><span class="rp-note">청산일 기준 · 행을 누르면 그 날짜로 조회</span></div>
+          <div class="table-wrap"><table class="rp-table rp-daily" id="rp-daily"></table></div>
+        </div>
+
+        <div class="rp-grid">
+          <div class="rp-section">
+            <div class="rp-h"><h3>Long vs Short</h3><span class="rp-note" id="rp-compare-note"></span></div>
+            <table class="rp-table" id="rp-compare"></table>
+          </div>
+          <div class="rp-section">
+            <div class="rp-h"><h3>청산 사유</h3><span class="rp-note">막대 = 건수 · 칩 = 평균 수익률 · 오른쪽 = 손익 기여</span></div>
+            <div id="rp-reasons"></div>
+            <div class="rp-h" style="margin-top:18px"><h3>수익률 분포</h3><span class="rp-note">거래별 수익률(%) 구간</span></div>
+            <div id="rp-dist"></div>
+          </div>
+        </div>
+
+        <div class="rp-section">
+          <div class="rp-h">
+            <h3>청산 내역</h3>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <div class="seg" id="trade-filter" role="group" aria-label="방향">
+                <button type="button" class="active" data-v="all">전체</button>
+                <button type="button" data-v="long">Long</button>
+                <button type="button" data-v="short">Short</button>
+              </div>
+              <div class="seg" id="trade-sort" role="group" aria-label="정렬">
+                <button type="button" class="active" data-v="date">최신순</button>
+                <button type="button" data-v="best">수익률 ↓</button>
+                <button type="button" data-v="worst">수익률 ↑</button>
+              </div>
+            </div>
+          </div>
+          <div class="rp-note" id="trade-caption" style="margin:-4px 0 8px"></div>
+          <div class="table-wrap"><table class="stocks-table compact rp-trades" id="trades"></table></div>
+          <button type="button" class="more-btn" id="trades-more" hidden>더 보기</button>
+        </div>
       </div>
     </div>
 
-    <!-- 오른쪽: 계좌·차트·규칙·로그 -->
-    <aside class="control-sidebar">
-      <div class="side-panel">
-        <h3>💼 계좌 현황</h3>
-        <div class="portfolio-summary-box" id="portfolio"></div>
-      </div>
-      <div class="side-panel">
-        <h3>📈 평가액 추이 <span class="h3-sub" id="eq-caption"></span></h3>
-        <div class="chart" id="equity-chart" role="img" aria-label="일별 평가액 추이"></div>
-      </div>
-      <div class="side-panel">
-        <h3>⚙️ 운용 규칙</h3>
-        <div class="rules" id="rules"></div>
-      </div>
-      <div class="side-panel">
-        <h3>🧾 실행 로그</h3>
-        <div class="logs-box" id="logs"></div>
-      </div>
-    </aside>
   </div>
+
+  <!-- 하단: 운용 규칙 · 실행 로그 -->
+  <section class="bottom-row">
+    <div class="side-panel">
+      <h3>⚙️ 운용 규칙</h3>
+      <div class="rules" id="rules"></div>
+    </div>
+    <div class="side-panel">
+      <h3>🧾 실행 로그</h3>
+      <div class="logs-box" id="logs"></div>
+    </div>
+  </section>
 </div>
 
 <dialog id="decision">
