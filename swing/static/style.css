@@ -409,7 +409,9 @@ button.reason.name-link:hover { filter: brightness(1.25); }
 .hero-row { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; }
 .hero-main, .hero-weight { display: flex; flex-direction: column; gap: 4px; }
 .hero-weight { min-width: 200px; align-items: flex-end; text-align: right; }
-.hero-weight .port-val { font-size: 22px; font-weight: 800; }
+.exp-pair { display: flex; gap: 22px; }
+.exp-pair > div { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+.top-row .hero-weight .port-val { font-size: 22px; font-weight: 800; }
 .hero-weight .port-sub b { font-weight: 700; }
 .wt-bar { display: flex; width: 200px; height: 8px; border-radius: 4px; overflow: hidden; background: rgba(148, 163, 184, .2); gap: 1px; }
 .wt-bar span { display: block; height: 100%; }

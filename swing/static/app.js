@@ -135,14 +135,16 @@
       ["1M", periodReturn(rows, cap, 30)], ["3M", periodReturn(rows, cap, 91)]];
     var m = riskMetrics(rows, cap);
     function f2(v) { return v == null ? "—" : v.toFixed(2); }
-    // 주식 보유 비중 = 보유 평가금액 ÷ 평가액 (Long·Short 별도)
+    // 총노출 = (Long+Short) ÷ 평가액, 순노출 = (Long−Short) ÷ 평가액 — 막대는 Long·Short 비중
     var lv = 0, sv = 0;
     (S.positions || []).forEach(function (p) { if (sideOf(p) === "short") sv += p.value || 0; else lv += p.value || 0; });
     var base = eqNow || 1, wL = lv / base * 100, wS = sv / base * 100;
     var h = '<div class="port-item wide4 hero"><div class="hero-row"><div class="hero-main"><span class="port-lbl">평가액</span><span class="port-val">' +
       '<span class="num">' + won(eqNow) + '</span><small>원</small></span><span class="port-sub">초기 ' + won(cap) + "원 대비 " +
       pct(s.retPct) + " · 기준일 " + (s.asof || "—") + "</span></div>" +
-      '<div class="hero-weight"><span class="port-lbl">주식 보유 비중</span><span class="port-val num">' + (wL + wS).toFixed(1) + "%</span>" +
+      '<div class="hero-weight"><div class="exp-pair"><div><span class="port-lbl">총노출</span><span class="port-val num">' + (wL + wS).toFixed(1) +
+      '%</span></div><div><span class="port-lbl">순노출</span><span class="port-val num ' + (wL - wS > 0 ? "up" : wL - wS < 0 ? "down" : "") + '">' +
+      (wL - wS > 0 ? "+" : "") + (wL - wS).toFixed(1) + "%</span></div></div>" +
       '<div class="wt-bar"><span class="b-long" style="width:' + Math.min(wL, 100) + '%"></span><span class="b-short" style="width:' +
       Math.min(wS, Math.max(0, 100 - wL)) + '%"></span></div>' +
       '<span class="port-sub">Long <b class="up">' + wL.toFixed(1) + "%</b> · Short <b class=\"down\">" + wS.toFixed(1) + "%</b> · " +
