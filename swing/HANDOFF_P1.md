@@ -139,6 +139,17 @@ backtest_stock `generate_analysis.resolve_peers` 가 Gemini 로 하던 방식과
    `peers/dynamic` 초기값으로 넣는 1회성 스크립트 `swing/agent/seed_peers.py`. 넣은 항목은 source 를 유지.
 - 백필(과거 날짜)에서도 peer 는 **현재 시점 정보로 확정**된다(뉴스·여론과 같은 룩어헤드 — 결과에 명시).
 
+## 3-7. 대시보드 확인(데모) — 네트워크 없이 바로
+클론/풀 직후 이 명령 하나로 대시보드를 볼 수 있다. 데모 데이터가 없으면 **자동 생성**한다.
+```bash
+python swing/server.py --demo          # http://localhost:8124
+python swing/server.py --rebuild-demo  # 코드가 바뀌었으면 데모 재생성
+```
+- 생성 내용: mock 에이전트·mock 시세로 9/9~9/28 백필(과거 신호 `swing/data/wb_history`) + 테스트 Short
+  (`swing/tools/seed_demo_short.py`, 화면에 TEST 표시). 위치 `swing/data/demo/`(git 제외).
+- 표준 라이브러리만 사용 — 패키지·API 키 불필요, `DATABASE_URL` 이 있어도 무시(항상 로컬 파일).
+- 실제 로컬 실행 결과(`swing/data/local`, 4절 3번)와 섞이지 않는다. 판단 원문은 "[mock]" 으로 표시된다.
+
 ## 4. 실동작 검증 (이 PC 는 네트워크 가능)
 1. 수집 단독: `python swing/agent/kit/scripts/collect.py 005930 --no-social` → manifest legs 표로 보고.
 2. 판단 단독: 2~3종목(대형·코스닥·금융)으로 `TradingAgent().decide(...)` → Rating·가격 줄 파싱 확인.
@@ -168,7 +179,8 @@ backtest_stock 레포의 swing_paper 브랜치를 최신으로 받아줘(없으�
 swing/HANDOFF_P1.md, swing/README.md, swing/agent/SOURCE.md 를 먼저 읽어.
 P1 구현은 회사 PC 에서 끝났고, 이 PC 에서는 HANDOFF_P1.md 4절 "실동작 검증" 1~6 만 하면 돼.
 
-- 시작 전: python -m unittest discover -s swing/tests -t . 가 전부 통과하는지 확인.
+- 시작 전: python -m unittest discover -s swing/tests -t . 가 전부 통과하는지 확인하고,
+  python swing/server.py --demo 로 대시보드가 뜨는지(데모 데이터 자동 생성) 먼저 확인.
 - 키는 내가 환경변수로 넣을 테니 비어 있는 키만 알려줘(GEMINI_API_KEY, DART_API_KEY, NAVER_CLIENT_ID/SECRET).
 - 검증 중 버그를 찾으면 swing/ 안에서만 고치고 테스트를 추가해. kit/ 는 원본 무수정 원칙 — kit 문제면
   homework trading_agent 원본을 고치고 SOURCE.md 재동기화 절차를 따를 것.
@@ -194,3 +206,5 @@ P1 구현은 회사 PC 에서 끝났고, 이 PC 에서는 HANDOFF_P1.md 4절 "�
   peers·collect 추가. 오프라인 테스트 43건 통과(신규 11: 호출 순서·입력 격리·결정 파싱·라운드2·가격 실패·역할 실패·
   수집 예외·review 맥락·peer 실패 격리·peer 큐레이션/제안·검증·캐시/재시도 대기/TTL). 실동작(4절)은 미실행 —
   이 PC 네트워크 금지. 기본값: SWING_AGENT_NO_SOCIAL=0(소셜 수집 켬 — peer B안과 짝), ohlcv 최근 60행.
+- 2026-09-29 (회사 PC) 대시보드 확인용 데모 자동 생성: `python swing/server.py --demo`(없으면 `swing/data/demo`에 mock
+  백필 + 테스트 Short 생성 후 서빙, `--rebuild-demo` 재생성). 3-7절 추가, 6절 프롬프트에 확인 단계 추가.

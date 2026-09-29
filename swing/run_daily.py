@@ -62,6 +62,11 @@ def make_store(spec):
 
 
 def main(argv=None):
+    for _s in (sys.stdout, sys.stderr):                  # Windows 콘솔(cp949)에서 한글 로그 깨짐 방지
+        try:
+            _s.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
     ap = argparse.ArgumentParser()
     ap.add_argument("--date")
     ap.add_argument("--from", dest="start")

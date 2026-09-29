@@ -16,6 +16,7 @@
   GET /healthz
 
 저장소는 store.from_env() — DATABASE_URL 있으면 Postgres(swing_docs), 없으면 파일.
+로컬 확인: `python swing/server.py --demo` → 데모 데이터(swing/data/demo) 자동 생성 후 서빙.
 """
 import json
 import mimetypes
@@ -187,11 +188,27 @@ class Handler(BaseHTTPRequestHandler):
             return self._json({"error": str(ex)[:200]}, 502)
 
 
-def main():
+def main(argv=None):
+    """--demo: 데모 데이터(swing/data/demo)가 없으면 자동 생성하고 그 데이터로 서빙(로컬 확인용,
+    DATABASE_URL 무시). --rebuild-demo: 데모 데이터를 지우고 다시 생성. 옵션 없으면 store.from_env()."""
+    import argparse
     global STORE
-    STORE = store_mod.from_env()
+    for _s in (sys.stdout, sys.stderr):                  # Windows 콘솔(cp949)에서 한글 로그 깨짐 방지
+        try:
+            _s.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--demo", action="store_true", help="데모 데이터로 서빙(없으면 자동 생성)")
+    ap.add_argument("--rebuild-demo", action="store_true", help="데모 데이터 재생성 후 서빙")
+    a = ap.parse_args(argv)
+    if a.demo or a.rebuild_demo:
+        from swing.tools import demo_data
+        STORE = store_mod.FileStore(demo_data.build(rebuild=a.rebuild_demo))
+    else:
+        STORE = store_mod.from_env()
     port = int(os.environ.get("PORT", "8124"))
-    print(f"[swing-web] :{port} store={type(STORE).__name__}", flush=True)
+    print(f"[swing-web] :{port} store={type(STORE).__name__}" + (" (demo)" if a.demo or a.rebuild_demo else ""), flush=True)
     ThreadingHTTPServer(("0.0.0.0", port), Handler).serve_forever()
 
 

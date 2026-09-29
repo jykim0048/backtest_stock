@@ -37,11 +37,19 @@ data/wb_history/ 9/9~ 일별 주간 브리핑 축약본(git 이력에서 추출)
   같은 레포의 main 이력을 읽으므로 `git fetch origin main` 후 `--ref origin/main` 으로 실행.
 
 ## 로컬
+**대시보드 확인(데모)** — 클론 직후 명령 하나. 데모 데이터(swing/data/demo, git 제외)가 없으면 자동 생성
+(mock 에이전트·mock 시세로 9/9~9/28 백필 + 테스트 Short)한 뒤 http://localhost:8124 로 서빙.
+표준 라이브러리만 쓰고 네트워크·API 키·패키지 설치 불필요, DATABASE_URL 이 있어도 무시.
+```bash
+python swing/server.py --demo            # 없으면 생성 후 서빙
+python swing/server.py --rebuild-demo    # 코드 변경 후 데모 다시 만들기
+```
+그 밖:
 ```bash
 python -m unittest discover -s swing/tests -t .
 python -m swing.run_daily --from 2026-09-09 --to 2026-09-28 --wb-dir swing/data/wb_history \
     --agent mock --prices mock --store file:swing/data/local
-python swing/server.py        # http://localhost:8124 (DATABASE_URL 없으면 swing/data/local)
+python swing/server.py        # 옵션 없음: DATABASE_URL 있으면 Postgres, 없으면 swing/data/local
 ```
 
 ## Railway 설정 (사용자 작업, 1회)
