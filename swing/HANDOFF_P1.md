@@ -133,3 +133,7 @@ swing/HANDOFF_P1.md 와 swing/README.md 를 먼저 읽고, HANDOFF_P1.md 의 2~5
 
 ## 진행 기록
 - 2026-09-29 (회사 PC) 오프라인 골격 `2ec53d93` 푸시. P1 대기 — homework trading_agent 최신 푸시 필요.
+- 2026-09-29 (개인 PC) homework `trading_agent` 최신 푸시 완료 → **`951c796`**(9/22 로컬 실측 반영: 해외 peer 뉴스·
+  동적 peer `peers_resolve.py`·공매도/대차 시총비중·DART YoY 수정, 오프라인 테스트 16건). 2절 1번 통과 — P1 시작 가능,
+  `SOURCE.md` 출처 sha 는 `951c796`. `memory/`(decision_log·peers_dynamic)는 커밋하지 않음(P1 범위 밖).
+  이 PC 는 스킬 원본을 레포 밖 `Workspace\trading_agent` 에서 관리(스킬 정션이 그 경로) — 스킬 수정 시 homework 로 복사 후 커밋.
