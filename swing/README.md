@@ -53,5 +53,5 @@ python swing/server.py        # http://localhost:8124 (DATABASE_URL 없으면 sw
 
 ## 남은 작업
 - P0: Railway 에서 수집 경로·일봉 소스(yfinance vs KIS 허브) 실측
-- P1: trading_agent 역할 프롬프트 헤드리스 이식(`--agent trading_agent`) — homework 레포 최신 푸시 후
+- P1: trading_agent 역할 프롬프트 헤드리스 이식(`--agent trading_agent`) — 절차는 [HANDOFF_P1.md](HANDOFF_P1.md)
 - P5: `--from 2026-09-09 --to 2026-09-28 --wb-dir swing/data/wb_history` 소급 검증(뉴스·여론은 현재값 — 룩어헤드 명시)
