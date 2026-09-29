@@ -936,6 +936,23 @@ def main():
         news21["error"] = str(e)[:300]
     res["usNews21"] = news21
 
+    # ㉔ 22차(2026-09-29) — 속보(flash) 카테고리 코드 의미 추정용 클래스별 제목 덤프 +
+    #    해외뉴스종합(news) 전량(시각·출처·종목·클래스) — 필터 설계·건수 상한 판단
+    try:
+        items = (items if isinstance(items, list) else [])
+        by_cls = {}
+        for it in items:
+            if it.get("kind") == "flash":
+                by_cls.setdefault(it.get("class") or "-", []).append(
+                    f"{it.get('time', '')[:5]} [{it.get('source', '')}] {(it.get('title') or '')[:60]}")
+        res["flashByClass22"] = {k: {"n": len(v), "titles": v[:6]}
+                                 for k, v in sorted(by_cls.items(), key=lambda x: -len(x[1]))}
+        res["newsAll22"] = [{k: it.get(k) for k in ("date", "time", "source", "class",
+                                                    "names", "symbols", "title")}
+                            for it in items if it.get("kind") == "news"]
+    except Exception as e:
+        res["flashByClass22"] = {"error": str(e)[:200]}
+
     res["trendApiOk"] = all(res[f"trendApi:{c}"].get("hasData") for c in CODES)
     # 판정: 410=폐지(Gone) / 그 외 4xx·예외=차단·오류 / 200·행 0=구조 변경
     def _verdict(c):
