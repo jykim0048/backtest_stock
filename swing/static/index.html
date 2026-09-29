@@ -1,52 +1,118 @@
 <!doctype html>
 <html lang="ko">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>스윙 모의투자</title>
-<link rel="stylesheet" href="/static/style.css">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Swing Paper — QUANT ANTIGRAVITY</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Noto+Sans+KR:wght@300;400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-<header class="top">
-  <div>
-    <h1>스윙 모의투자</h1>
-    <p class="sub">주간 브리핑 섹터 시그널(동반강세·수급유입) → trading_agent 판단 → 3영업일 보유 · 롱 전용</p>
-  </div>
-  <div class="asof" id="asof">—</div>
-</header>
-
-<main>
-  <section class="kpis" id="kpis" aria-label="요약"></section>
-  <div class="notes" id="notes"></div>
-
-  <section class="card">
-    <div class="card-head"><h2>평가액 추이</h2><span class="muted" id="eq-caption"></span></div>
-    <div class="chart" id="equity-chart" role="img" aria-label="일별 평가액 추이"></div>
-  </section>
-
-  <section class="card">
-    <div class="card-head"><h2>보유 종목</h2><span class="muted" id="pos-caption"></span></div>
-    <div class="table-wrap"><table id="positions"></table></div>
-  </section>
-
-  <section class="card">
-    <div class="card-head">
-      <h2>일자별 판단·주문</h2>
-      <label class="muted">기준일 <select id="run-date"></select></label>
+<div class="app-container">
+  <header>
+    <div class="logo-section">
+      <div class="logo-symbol">SW</div>
+      <div class="logo-text">
+        <h1>QUANT ANTIGRAVITY</h1>
+        <span>Swing Paper Trading</span>
+      </div>
     </div>
-    <h3>매도 검토</h3>
-    <div class="table-wrap"><table id="reviews"></table></div>
-    <h3>신규 후보 → 주문 (다음 영업일 유효)</h3>
-    <div class="table-wrap"><table id="candidates"></table></div>
-    <h3>이 날 체결 결과</h3>
-    <div class="table-wrap"><table id="executed"></table></div>
-  </section>
+    <div class="header-right">
+      <div class="status-panel">
+        <div class="status-item"><span class="status-dot" id="run-dot"></span><span id="run-status">불러오는 중…</span></div>
+        <div class="status-item muted" id="agent-status">—</div>
+      </div>
+      <div class="date-picker-panel">
+        <label for="run-date">기준일</label>
+        <select id="run-date"></select>
+      </div>
+    </div>
+  </header>
 
-  <section class="card">
-    <div class="card-head"><h2>청산 내역</h2><span class="muted" id="trade-caption"></span></div>
-    <div class="table-wrap"><table id="trades"></table></div>
-  </section>
-</main>
+  <!-- 흐름 요약: 섹터 시그널 → 판단 → 주문 → 보유 → 청산 -->
+  <section class="flow-strip" id="flow-strip" aria-label="오늘의 흐름"></section>
+
+  <div class="main-grid">
+    <!-- 왼쪽: 메인 보드 -->
+    <div class="board-container">
+      <div class="main-tabs-row" role="tablist">
+        <button class="main-tab active" data-tab="signals">섹터 시그널</button>
+        <button class="main-tab" data-tab="positions">보유 종목 <span class="tab-count" id="cnt-positions"></span></button>
+        <button class="main-tab" data-tab="decisions">판단 · 주문 <span class="tab-count" id="cnt-decisions"></span></button>
+        <button class="main-tab" data-tab="trades">청산 내역 <span class="tab-count" id="cnt-trades"></span></button>
+      </div>
+
+      <div class="tab-pane active" id="pane-signals">
+        <div class="board-header">
+          <h2>섹터 × 수급 매트릭스</h2>
+          <span class="board-subtitle" id="sig-asof">주간 브리핑 기준</span>
+        </div>
+        <div id="sector-matrix"></div>
+        <div class="board-header mt">
+          <h2>섹터 시그널 종목 관찰</h2>
+          <span class="board-subtitle">동반강세·수급유입 = 매수 후보 · 수급이탈·동반약세 = 보유 시 매도 검토 · ● 보유 중</span>
+        </div>
+        <div class="matrix" id="matrix"></div>
+      </div>
+
+      <div class="tab-pane" id="pane-positions">
+        <div class="board-header">
+          <h2>보유 종목</h2>
+          <span class="board-subtitle">진입가 체결 · 3영업일 보유 · 손절/목표 도달 시 청산</span>
+        </div>
+        <div class="table-wrap"><table class="stocks-table" id="positions"></table></div>
+      </div>
+
+      <div class="tab-pane" id="pane-decisions">
+        <div class="board-header">
+          <h2>매도 검토</h2>
+          <span class="board-subtitle">보유 섹터 수급이탈·동반약세 전환 또는 종목 하방 칸 등재 → PM 재판단</span>
+        </div>
+        <div class="table-wrap"><table class="stocks-table compact" id="reviews"></table></div>
+        <div class="board-header mt">
+          <h2>신규 후보 → 주문</h2>
+          <span class="board-subtitle">PM Buy/Overweight + Trader Buy + 손절가 → 다음 영업일 1일 유효 지정가</span>
+        </div>
+        <div class="table-wrap"><table class="stocks-table compact" id="candidates"></table></div>
+        <div class="board-header mt">
+          <h2>이 날 체결 결과</h2>
+          <span class="board-subtitle">전 영업일 주문의 체결·취소·스킵</span>
+        </div>
+        <div class="table-wrap"><table class="stocks-table compact" id="executed"></table></div>
+      </div>
+
+      <div class="tab-pane" id="pane-trades">
+        <div class="board-header">
+          <h2>청산 내역</h2>
+          <span class="board-subtitle" id="trade-caption">세후 손익(매도세 0.2%)</span>
+        </div>
+        <div class="table-wrap"><table class="stocks-table compact" id="trades"></table></div>
+      </div>
+    </div>
+
+    <!-- 오른쪽: 계좌·차트·규칙·로그 -->
+    <aside class="control-sidebar">
+      <div class="side-panel">
+        <h3>💼 계좌 현황</h3>
+        <div class="portfolio-summary-box" id="portfolio"></div>
+      </div>
+      <div class="side-panel">
+        <h3>📈 평가액 추이 <span class="h3-sub" id="eq-caption"></span></h3>
+        <div class="chart" id="equity-chart" role="img" aria-label="일별 평가액 추이"></div>
+      </div>
+      <div class="side-panel">
+        <h3>⚙️ 운용 규칙</h3>
+        <div class="rules" id="rules"></div>
+      </div>
+      <div class="side-panel">
+        <h3>🧾 실행 로그</h3>
+        <div class="logs-box" id="logs"></div>
+      </div>
+    </aside>
+  </div>
+</div>
 
 <dialog id="decision">
   <form method="dialog" class="dlg-head"><h2 id="dec-title">판단</h2><button aria-label="닫기">✕</button></form>

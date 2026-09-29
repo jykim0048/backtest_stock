@@ -9,6 +9,8 @@
   GET /api/swing/equity               일별 평가액
   GET /api/swing/runs[?date=]         런 날짜 목록 / 그날 런 로그
   GET /api/swing/decision?key=        trading_agent 판단 원문(decision/<date>/<code>/<purpose>)
+  GET /api/swing/signals?date=        그날 주간 브리핑 신호(섹터 신호·종목 관찰 4칸 축약본)
+  GET /api/swing/config               운용 규칙(자본·보유일·세금·비중·신호/등급 조건)
   GET /api/swing/export               전체 문서 JSON(백업)
   GET /api/prices?codes=              장중 시세 — SWING_PRICES_PROXY(main 대시보드) 중계, 표시 전용
   GET /healthz
@@ -26,7 +28,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _ROOT not in sys.path:
     sys.path.insert(0, _ROOT)
-from swing import engine, store as store_mod  # noqa: E402
+from swing import config, engine, store as store_mod  # noqa: E402
 
 STATIC = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
 PRICES_PROXY = os.environ.get("SWING_PRICES_PROXY", "").rstrip("/")
@@ -100,6 +102,22 @@ def api_decision(q):
     return STORE.get(k)
 
 
+def api_signals(q):
+    d = q.get("date")
+    if not d:
+        ks = STORE.keys("signals/")
+        d = ks[-1].split("/", 1)[1] if ks else None
+    return {"date": d, "signals": STORE.get(f"signals/{d}") if d else None}
+
+
+def api_config(q):
+    return {"initialCapital": config.INITIAL_CAPITAL, "sellTax": config.SELL_TAX,
+            "holdDays": config.HOLD_DAYS, "maxWeight": config.MAX_WEIGHT,
+            "defaultWeight": config.DEFAULT_WEIGHT, "maxNewPerDay": config.MAX_NEW_PER_DAY,
+            "buySignals": config.BUY_SIGNALS, "sellSignals": config.SELL_SIGNALS,
+            "buyRatings": config.BUY_RATINGS, "sellRatings": config.SELL_RATINGS}
+
+
 def api_export(q):
     return {k: STORE.get(k) for k in STORE.keys("")}
 
@@ -108,6 +126,7 @@ ROUTES = {"/api/swing/summary": api_summary, "/api/swing/positions": api_positio
           "/api/swing/orders": api_orders, "/api/swing/trades": api_trades,
           "/api/swing/equity": lambda q: _ledger()["equity"],
           "/api/swing/runs": api_runs, "/api/swing/decision": api_decision,
+          "/api/swing/signals": api_signals, "/api/swing/config": api_config,
           "/api/swing/export": api_export}
 
 

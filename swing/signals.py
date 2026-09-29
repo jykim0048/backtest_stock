@@ -75,13 +75,14 @@ def review_triggers(positions, wb):
 
 
 def compact(wb):
-    """백필·저장용 축약본 — 신호 판정에 필요한 키만."""
+    """백필·저장용 축약본 — 신호 판정 키 + 대시보드 섹터x수급 매트릭스 행 전체."""
     m = _matrix(wb)
     return {"asof": (wb or {}).get("asof"), "weekStart": (wb or {}).get("weekStart"),
-            "sectorFlow": {"rows": [{"name": r.get("name"), "signal": r.get("signal"),
-                                     "chgPct": r.get("chgPct"), "frgn": r.get("frgn"),
-                                     "orgn": r.get("orgn")}
-                                    for r in ((wb or {}).get("sectorFlow") or {}).get("rows") or []]},
+            # 섹터x수급 매트릭스는 주간 브리핑 양식 그대로 렌더하므로 행 전체(YTD/3M/1M/1W·투자자 세분·
+            # 신호)와 범례용 chgBasis·neutralRatio 를 보존
+            "sectorFlow": {"rows": list(((wb or {}).get("sectorFlow") or {}).get("rows") or []),
+                           **{k: ((wb or {}).get("sectorFlow") or {}).get(k)
+                              for k in ("asof", "chgBasis", "neutralRatio")}},
             "sectorScreen": {"matrix": {k: [{f: x.get(f) for f in
                                              ("code", "name", "sector", "sectorSignal",
                                               "score", "reason")} for x in v]
