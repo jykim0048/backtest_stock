@@ -5,7 +5,7 @@
   python -m swing.run_daily --from 2026-09-07 --to 2026-09-28 --wb-dir swing/data/wb_history
   python -m swing.run_daily --agent mock --prices mock --store file:swing/data/local  # 오프라인
 
---agent trading_agent 는 P1(역할 프롬프트 이식) 후 사용 가능.
+--agent trading_agent = swing/agent(homework trading_agent 헤드리스 이식, HANDOFF_P1).
 """
 import argparse
 import datetime
@@ -40,11 +40,12 @@ def load_wb(date, wb_dir=None):
         return json.loads(r.read().decode("utf-8"))
 
 
-def make_agent(kind):
+def make_agent(kind, store=None):
     if kind == "mock":
         return agent_iface.MockAgent()
     if kind == "trading_agent":
-        raise SystemExit("trading_agent 구현은 P1(역할 프롬프트 이식) 후 사용 가능")
+        from swing.agent.pipeline import TradingAgent
+        return TradingAgent(store=store)                  # store = 해외 peer 캐시(peers/dynamic)
     raise SystemExit(f"알 수 없는 agent: {kind}")
 
 
@@ -76,7 +77,8 @@ def main(argv=None):
         dates = tradedays.trading_days(a.start, a.end or a.start)
     else:
         dates = [a.date or datetime.datetime.now(KST).date().isoformat()]
-    st, ag, px = make_store(a.store), make_agent(a.agent), make_prices(a.prices)
+    st = make_store(a.store)
+    ag, px = make_agent(a.agent, st), make_prices(a.prices)
     rc = 0
     for d in dates:
         try:

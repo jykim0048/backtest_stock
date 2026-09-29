@@ -1,5 +1,8 @@
 # HANDOFF P1 — trading_agent 헤드리스 이식 (다른 PC 의 Claude Code 용)
 
+> **2026-09-29 갱신: P1 구현(3절)·오프라인 테스트는 회사 PC 에서 완료**(`swing/agent/`, 테스트 43건).
+> 개인 PC 에 남은 일은 **4절 실동작 검증**(네트워크 필요)뿐이다 — 6절 프롬프트 참조.
+>
 > 이 문서는 **개인 PC(가정용 회선, 네트워크 가능)** 에서 Claude Code 가 읽고 P1 을 진행하기 위한
 > 인수인계서다. 회사 PC 에만 있는 로컬 문서(CLAUDE.md·PROGRESS.md)는 이 PC 에 없으므로,
 > 필요한 규칙·맥락은 전부 여기에 적는다. 작성: 2026-09-29(회사 PC), 기준 커밋 `2ec53d93`.
@@ -137,7 +140,7 @@ backtest_stock `generate_analysis.resolve_peers` 가 Gemini 로 하던 방식과
 - 백필(과거 날짜)에서도 peer 는 **현재 시점 정보로 확정**된다(뉴스·여론과 같은 룩어헤드 — 결과에 명시).
 
 ## 4. 실동작 검증 (이 PC 는 네트워크 가능)
-1. 수집 단독: `python swing/agent/kit/collect.py 005930 --no-social` → manifest legs 표로 보고.
+1. 수집 단독: `python swing/agent/kit/scripts/collect.py 005930 --no-social` → manifest legs 표로 보고.
 2. 판단 단독: 2~3종목(대형·코스닥·금융)으로 `TradingAgent().decide(...)` → Rating·가격 줄 파싱 확인.
 3. 하루 런(파일 저장소):
    ```bash
@@ -153,22 +156,24 @@ backtest_stock `generate_analysis.resolve_peers` 가 Gemini 로 하던 방식과
    제안 → 검증 결과(유효·거절 티커·사유)와 캐시 적중(두 번째 실행 LLM 0콜)을 보고.
 
 ## 5. 완료 기준 · 보고
-- [ ] homework trading_agent 최신 푸시 확인, `swing/agent/SOURCE.md` 에 출처 sha
-- [ ] swing/agent 구현(peer B안 포함) + 오프라인 테스트 전부 통과
+- [x] homework trading_agent 최신 푸시 확인, `swing/agent/SOURCE.md` 에 출처 sha(`951c796`)
+- [x] swing/agent 구현(peer B안 포함) + 오프라인 테스트 전부 통과(43건, 회사 PC)
 - [ ] 실동작 1~6 결과(수집 legs 표, 판단 샘플, 하루 런, 일봉 대조, 콜 수·시간, peer 제안·캐시)
 - [ ] 이 문서 하단 "진행 기록" 에 결과·함정 추가 후 `swing_paper` 에 커밋·푸시(사용자 승인 후)
 - 사용자에게: 샘플 종목 PM 등급·진입/손절/목표, 실패 레그, 하루 런 소요시간, 남은 리스크를 한국어 존댓말로 보고.
 
 ## 6. 붙여넣을 프롬프트 (개인 PC Claude Code)
 ```
-backtest_stock 레포의 swing_paper 브랜치를 준비했어(없으면 클론/worktree 해줘).
-swing/HANDOFF_P1.md 와 swing/README.md 를 먼저 읽고, HANDOFF_P1.md 의 2~5절을 순서대로 진행해줘.
+backtest_stock 레포의 swing_paper 브랜치를 최신으로 받아줘(없으면 클론/worktree).
+swing/HANDOFF_P1.md, swing/README.md, swing/agent/SOURCE.md 를 먼저 읽어.
+P1 구현은 회사 PC 에서 끝났고, 이 PC 에서는 HANDOFF_P1.md 4절 "실동작 검증" 1~6 만 하면 돼.
 
-- 먼저 homework 레포 trading_agent 브랜치에 이 PC 의 미푸시 변경이 있는지 확인하고, 있으면 무엇인지 보여준 뒤
-  내 승인을 받아 푸시해.
-- 이식은 swing/agent/ 안에서만, main 병합·푸시 금지, main 쪽 기존 파일 수정 금지.
-- 오프라인 테스트가 전부 통과한 다음 4절 실동작 검증을 해. 키는 내가 환경변수로 넣을 테니 비어 있는 키만 알려줘.
-- 끝나면 HANDOFF_P1.md 하단 "진행 기록" 을 갱신하고, 커밋·푸시는 내 승인 후 swing_paper 로만.
+- 시작 전: python -m unittest discover -s swing/tests -t . 가 전부 통과하는지 확인.
+- 키는 내가 환경변수로 넣을 테니 비어 있는 키만 알려줘(GEMINI_API_KEY, DART_API_KEY, NAVER_CLIENT_ID/SECRET).
+- 검증 중 버그를 찾으면 swing/ 안에서만 고치고 테스트를 추가해. kit/ 는 원본 무수정 원칙 — kit 문제면
+  homework trading_agent 원본을 고치고 SOURCE.md 재동기화 절차를 따를 것.
+- main 병합·푸시 금지. 끝나면 HANDOFF_P1.md "진행 기록"에 결과(수집 legs 표, 판단 샘플, 하루 런, 일봉 대조,
+  종목당 LLM 콜 수·소요시간, peer 제안·캐시)를 적고, 커밋·푸시는 내 승인 후 swing_paper 로만.
   커밋 메시지 끝에 Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>.
 - 답변은 한국어 존댓말로.
 ```
@@ -184,3 +189,8 @@ swing/HANDOFF_P1.md 와 swing/README.md 를 먼저 읽고, HANDOFF_P1.md 의 2~5
   제안 실패 시에만 사용.
 - 2026-09-29 (회사 PC) 브랜치 정리: swing 에 불필요한 main 파일 990개 삭제(대시보드·파이프라인·워크플로·리포트).
   남긴 의존 파일은 1절 참조. `git merge main` 금지 → 필요한 파일만 `git checkout origin/main -- <파일>`.
+- 2026-09-29 (회사 PC) **P1 구현 완료** — `swing/agent/`: kit(homework `951c796` 바이트 동일 복사), `peers.py`(B안),
+  `pipeline.py`(13역할, JSON 래핑, 전략 맥락, 실패 격리), `run_daily --agent trading_agent` 연결, 대시보드 판단 원문에
+  peers·collect 추가. 오프라인 테스트 43건 통과(신규 11: 호출 순서·입력 격리·결정 파싱·라운드2·가격 실패·역할 실패·
+  수집 예외·review 맥락·peer 실패 격리·peer 큐레이션/제안·검증·캐시/재시도 대기/TTL). 실동작(4절)은 미실행 —
+  이 PC 네트워크 금지. 기본값: SWING_AGENT_NO_SOCIAL=0(소셜 수집 켬 — peer B안과 짝), ohlcv 최근 60행.

@@ -1,0 +1,132 @@
+{
+  "_comment": "yfinance info.industryKey → 기본 미국 peer. peers.json 에 종목별 큐레이션이 없을 때만 쓰는 폴백이며, 결과에는 peer_source=industry-default 가 붙는다. 업종 분류 오차(예: 삼성전자=consumer-electronics)가 있으므로 대형주는 peers.json 에 직접 등록할 것.",
+  "semiconductors": [
+    {"name": "Micron Technology", "ticker": "MU", "note": "메모리(DRAM·NAND·HBM) 직접 경쟁"},
+    {"name": "NVIDIA", "ticker": "NVDA", "note": "AI 가속기, HBM 최대 수요처"},
+    {"name": "Advanced Micro Devices", "ticker": "AMD", "note": "GPU·CPU, AI 반도체 수요 대리"},
+    {"name": "Taiwan Semiconductor", "ticker": "TSM", "note": "파운드리 1위"}
+  ],
+  "semiconductor-equipment-materials": [
+    {"name": "Applied Materials", "ticker": "AMAT", "note": "반도체 장비 1위, 투자 사이클 대리"},
+    {"name": "Lam Research", "ticker": "LRCX", "note": "식각·증착 장비, 메모리 투자 민감"},
+    {"name": "KLA", "ticker": "KLAC", "note": "계측·검사 장비"},
+    {"name": "Entegris", "ticker": "ENTG", "note": "소재·부품"}
+  ],
+  "consumer-electronics": [
+    {"name": "Apple", "ticker": "AAPL", "note": "스마트폰·기기 경쟁"},
+    {"name": "Sony Group", "ticker": "SONY", "note": "가전·이미지센서"},
+    {"name": "Garmin", "ticker": "GRMN", "note": "웨어러블"}
+  ],
+  "auto-manufacturers": [
+    {"name": "Toyota Motor", "ticker": "TM", "note": "완성차 글로벌 1위"},
+    {"name": "Tesla", "ticker": "TSLA", "note": "전기차 밸류에이션 기준"},
+    {"name": "General Motors", "ticker": "GM", "note": "북미 수요 대리"},
+    {"name": "Ford Motor", "ticker": "F", "note": "북미 수요 대리"}
+  ],
+  "auto-parts": [
+    {"name": "Aptiv", "ticker": "APTV", "note": "전장 부품"},
+    {"name": "BorgWarner", "ticker": "BWA", "note": "구동 부품"},
+    {"name": "Magna International", "ticker": "MGA", "note": "종합 부품"}
+  ],
+  "banks-regional": [
+    {"name": "JPMorgan Chase", "ticker": "JPM", "note": "은행 섹터 대리(직접 경쟁 아님)"},
+    {"name": "Bank of America", "ticker": "BAC", "note": "은행 섹터 대리"},
+    {"name": "Wells Fargo", "ticker": "WFC", "note": "은행 섹터 대리"}
+  ],
+  "banks-diversified": [
+    {"name": "JPMorgan Chase", "ticker": "JPM", "note": "은행 섹터 대리"},
+    {"name": "Citigroup", "ticker": "C", "note": "은행 섹터 대리"}
+  ],
+  "insurance-life": [
+    {"name": "MetLife", "ticker": "MET", "note": "생명보험 섹터 대리"},
+    {"name": "Prudential Financial", "ticker": "PRU", "note": "생명보험 섹터 대리"}
+  ],
+  "capital-markets": [
+    {"name": "Goldman Sachs", "ticker": "GS", "note": "IB·자기매매"},
+    {"name": "Morgan Stanley", "ticker": "MS", "note": "자산관리·IB"}
+  ],
+  "internet-content-information": [
+    {"name": "Alphabet", "ticker": "GOOGL", "note": "검색·광고"},
+    {"name": "Meta Platforms", "ticker": "META", "note": "SNS·광고"},
+    {"name": "Baidu", "ticker": "BIDU", "note": "아시아 검색 포털"}
+  ],
+  "electronic-gaming-multimedia": [
+    {"name": "Electronic Arts", "ticker": "EA", "note": "게임 퍼블리셔"},
+    {"name": "Take-Two Interactive", "ticker": "TTWO", "note": "게임 퍼블리셔"},
+    {"name": "Roblox", "ticker": "RBLX", "note": "플랫폼형 게임"}
+  ],
+  "biotechnology": [
+    {"name": "Amgen", "ticker": "AMGN", "note": "대형 바이오"},
+    {"name": "Regeneron", "ticker": "REGN", "note": "항체 신약"},
+    {"name": "Vertex Pharmaceuticals", "ticker": "VRTX", "note": "대형 바이오"},
+    {"name": "Gilead Sciences", "ticker": "GILD", "note": "대형 바이오"}
+  ],
+  "drug-manufacturers-general": [
+    {"name": "Pfizer", "ticker": "PFE", "note": "빅파마"},
+    {"name": "Merck & Co.", "ticker": "MRK", "note": "빅파마"},
+    {"name": "Eli Lilly", "ticker": "LLY", "note": "빅파마 밸류에이션 기준"}
+  ],
+  "drug-manufacturers-specialty-generic": [
+    {"name": "Teva Pharmaceutical", "ticker": "TEVA", "note": "제네릭·바이오시밀러"},
+    {"name": "Viatris", "ticker": "VTRS", "note": "제네릭"}
+  ],
+  "health-information-services": [
+    {"name": "Tempus AI", "ticker": "TEM", "note": "의료 AI·진단 데이터"},
+    {"name": "Veeva Systems", "ticker": "VEEV", "note": "헬스케어 SaaS"},
+    {"name": "RadNet", "ticker": "RDNT", "note": "영상의학·AI 판독"}
+  ],
+  "medical-devices": [
+    {"name": "Intuitive Surgical", "ticker": "ISRG", "note": "의료기기 성장주 기준"},
+    {"name": "Medtronic", "ticker": "MDT", "note": "대형 의료기기"},
+    {"name": "GE HealthCare", "ticker": "GEHC", "note": "영상 장비"}
+  ],
+  "diagnostics-research": [
+    {"name": "Thermo Fisher Scientific", "ticker": "TMO", "note": "CDMO·연구장비"},
+    {"name": "Danaher", "ticker": "DHR", "note": "바이오프로세스"}
+  ],
+  "specialty-chemicals": [
+    {"name": "Dow", "ticker": "DOW", "note": "석유화학"},
+    {"name": "LyondellBasell", "ticker": "LYB", "note": "석유화학"},
+    {"name": "Albemarle", "ticker": "ALB", "note": "리튬·배터리 소재"}
+  ],
+  "electrical-equipment-parts": [
+    {"name": "GE Vernova", "ticker": "GEV", "note": "발전 설비"},
+    {"name": "Eaton", "ticker": "ETN", "note": "전력 설비"},
+    {"name": "Vertiv", "ticker": "VRT", "note": "데이터센터 전력"}
+  ],
+  "aerospace-defense": [
+    {"name": "Lockheed Martin", "ticker": "LMT", "note": "방산 1위"},
+    {"name": "RTX", "ticker": "RTX", "note": "방산·항공엔진"},
+    {"name": "Northrop Grumman", "ticker": "NOC", "note": "방산"},
+    {"name": "General Dynamics", "ticker": "GD", "note": "방산·조선"}
+  ],
+  "steel": [
+    {"name": "Nucor", "ticker": "NUE", "note": "철강"},
+    {"name": "Steel Dynamics", "ticker": "STLD", "note": "철강"},
+    {"name": "ArcelorMittal", "ticker": "MT", "note": "글로벌 철강"}
+  ],
+  "oil-gas-refining-marketing": [
+    {"name": "Valero Energy", "ticker": "VLO", "note": "정유"},
+    {"name": "Marathon Petroleum", "ticker": "MPC", "note": "정유"},
+    {"name": "Phillips 66", "ticker": "PSX", "note": "정유"}
+  ],
+  "software-application": [
+    {"name": "Salesforce", "ticker": "CRM", "note": "SaaS"},
+    {"name": "Adobe", "ticker": "ADBE", "note": "SaaS"}
+  ],
+  "telecom-services": [
+    {"name": "Verizon", "ticker": "VZ", "note": "통신"},
+    {"name": "AT&T", "ticker": "T", "note": "통신"}
+  ],
+  "entertainment": [
+    {"name": "Netflix", "ticker": "NFLX", "note": "콘텐츠"},
+    {"name": "Walt Disney", "ticker": "DIS", "note": "콘텐츠"}
+  ],
+  "conglomerates": [
+    {"name": "Berkshire Hathaway", "ticker": "BRK-B", "note": "복합기업 대리"}
+  ],
+  "engineering-construction": [
+    {"name": "Fluor", "ticker": "FLR", "note": "플랜트·건설"},
+    {"name": "Jacobs Solutions", "ticker": "J", "note": "엔지니어링"}
+  ]
+}

@@ -21,6 +21,7 @@ trading_agent 가 판단하고, 3영업일 보유 롱 모의투자를 한다. **
 ```
 config.py        설정(env 노브)             engine.py      원장·체결·청산(순수 함수)
 agent_iface.py   판단 요청/결과·파서·Mock   signals.py     주간 브리핑 → 후보·매도 트리거
+agent/           trading_agent 헤드리스(kit=원본 복사, peers.py, pipeline.py)
 daily.py         하루 처리                  run_daily.py   swing-cron 진입점(백필 포함)
 store.py         File / Postgres(swing_docs) prices.py     일봉(Dict·Mock·yfinance)
 server.py        swing-web(API + static/)   tools/extract_wb_history.py  과거 신호 복원
@@ -61,5 +62,5 @@ python swing/server.py        # http://localhost:8124 (DATABASE_URL 없으면 sw
 
 ## 남은 작업
 - P0: Railway 에서 수집 경로·일봉 소스(yfinance vs KIS 허브) 실측
-- P1: trading_agent 역할 프롬프트 헤드리스 이식(`--agent trading_agent`) — 절차는 [HANDOFF_P1.md](HANDOFF_P1.md)
+- P1 실동작 검증(개인 PC, 네트워크 필요) — 구현은 완료(`swing/agent/`, 출처 [SOURCE.md](agent/SOURCE.md)), 절차는 [HANDOFF_P1.md](HANDOFF_P1.md) 4절
 - P5: `--from 2026-09-09 --to 2026-09-28 --wb-dir swing/data/wb_history` 소급 검증(뉴스·여론은 현재값 — 룩어헤드 명시)
