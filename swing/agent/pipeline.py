@@ -11,6 +11,7 @@ JSON {"markdown": "..."} 한 겹으로 감싼다. 역할 파일은 수정하지 
 import json
 import os
 import tempfile
+from pathlib import Path
 
 from .. import agent_iface as A
 from .. import config
@@ -116,6 +117,11 @@ def _default_llm(system, user, max_tokens, schema):
 def _default_collect(stock, date, out, social_on):
     ensure_kit_path()
     import collect                                        # kit/scripts/collect.py (무수정)
+    # 스킬 collect(out: Path) 는 하위 모듈(indicators.run 등)에서 `out / "ohlcv.csv"` 로 경로를 잇고, 폴더는
+    # CLI 쪽(run_dir)이 미리 만든다 → 직접 호출할 땐 Path 로 넘기고 폴더를 먼저 만든다. 둘 다 빠지면 가격 레그가
+    # TypeError / "non-existent directory" 로 실패(2026-09-29 첫 실운용에서 발견)
+    out = Path(out)
+    out.mkdir(parents=True, exist_ok=True)
     return collect.collect(stock, date, out, social_on=social_on, full_dart=False)
 
 

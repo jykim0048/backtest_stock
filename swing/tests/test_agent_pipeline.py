@@ -251,5 +251,35 @@ class TestPeers(unittest.TestCase):
         self.assertEqual(info["peers"][0]["ticker"], "AMC")
 
 
+class TestDefaultCollect(unittest.TestCase):
+    def test_passes_path_and_creates_dir(self):
+        """스킬 collect 는 out 을 Path 로 받고 폴더가 있어야 한다(2026-09-29 첫 실운용 가격 레그 실패 회귀)."""
+        import sys
+        import types
+        from pathlib import Path
+        seen = {}
+
+        def fake_collect(stock, date, out, social_on=True, full_dart=False):
+            seen.update(out=out, exists=out.is_dir(), social=social_on)
+            (out / "ohlcv.csv").write_text("x")              # indicators.run 과 같은 경로 결합
+            return {"legs": {"price": "ok"}}
+        old_mod, old_ensure = sys.modules.get("collect"), PL.ensure_kit_path
+        sys.modules["collect"] = types.SimpleNamespace(collect=fake_collect)
+        PL.ensure_kit_path = lambda: None
+        try:
+            out = os.path.join(tempfile.mkdtemp(), "005930", "2026-09-29", "entry")
+            m = PL._default_collect({"code": "005930"}, "2026-09-29", out, False)
+        finally:
+            PL.ensure_kit_path = old_ensure
+            if old_mod is None:
+                sys.modules.pop("collect", None)
+            else:
+                sys.modules["collect"] = old_mod
+        self.assertIsInstance(seen["out"], Path)
+        self.assertTrue(seen["exists"])
+        self.assertTrue(os.path.exists(os.path.join(out, "ohlcv.csv")))
+        self.assertEqual(m["legs"]["price"], "ok")
+
+
 if __name__ == "__main__":
     unittest.main()
