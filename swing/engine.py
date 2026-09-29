@@ -17,7 +17,7 @@
 재판별(daily.run_day, 장 마감 후): Long PM Sell/Underweight · Short PM Buy/Overweight → schedule_sell
 (다음 날 시가), 그 외 → apply_hold(목표 도달이면 새 목표가·본전 손절, 이후 매일 재판별 = extended).
 
-비용·자금(2026-09-30 Short 추가):
+비용·자금(2026-09-29 Short 추가):
   Long  : 매수 수수료 없음, 매도 대금 × SELL_TAX.
   Short : 공매도 진입(매도) 대금 × SELL_TAX, 환매(매수) 비용 없음, 대차수수료 일할.
           체결 시 진입금액 100% 를 담보로 현금에서 묶고 매도대금은 현금에 넣지 않는다(레버리지 없음).

@@ -1,7 +1,7 @@
 """대시보드 확인용 데모 데이터 생성 — `python swing/server.py --demo` 가 자동 호출.
 
 swing/data/demo/ (git 제외)에 mock 에이전트·mock 시세로 9/9~9/28 백필(과거 신호 swing/data/wb_history)을
-만든다 — Long·Short 모두 실제 흐름(MockAgent Short 경로, 2026-09-30). 네트워크·API 키·패키지 설치 불필요(표준 라이브러리만).
+만든다 — Long·Short 모두 실제 흐름(MockAgent Short 경로, 2026-09-29). 네트워크·API 키·패키지 설치 불필요(표준 라이브러리만).
 실제 로컬 실행 결과(swing/data/local)·Postgres 와 섞이지 않는다.
 
   python swing/tools/demo_data.py            # 없을 때만 생성

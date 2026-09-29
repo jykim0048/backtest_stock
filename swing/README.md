@@ -1,7 +1,7 @@
 # swing — 섹터 시그널 스윙 모의투자 (`swing_paper` 브랜치 전용)
 
 main 주간 브리핑의 **섹터 시그널 종목 관찰**(동반강세·수급유입) 종목을 매일 누적해
-trading_agent 가 판단하고, 5영업일 보유 롱 모의투자를 한다(`SWING_HOLD_DAYS`). 2026-09-30 부터 동반약세·수급이탈
+trading_agent 가 판단하고, 5영업일 보유 롱 모의투자를 한다(`SWING_HOLD_DAYS`). 2026-09-29 부터 동반약세·수급이탈
 종목의 **Short(공매도)** 도 대칭 규칙으로 운용한다 — 규칙 R1~R13 은 [PLAN_SHORT.md](PLAN_SHORT.md). **main 에 병합하지 않는다.**
 
 ## 규칙 요약
@@ -25,7 +25,7 @@ config.py        설정(env 노브)             engine.py      원장·체결·�
 agent_iface.py   판단 요청/결과·파서·Mock   signals.py     주간 브리핑 → 후보·매도 트리거
 agent/           trading_agent 헤드리스(kit=원본 복사, peers.py, pipeline.py)
 daily.py         하루 처리                  run_daily.py   swing-cron 진입점(백필 포함)
-store.py         File / Postgres(swing_docs) prices.py     일봉(Dict·Mock·yfinance)
+store.py         File / Postgres(swing_docs) prices.py     일봉(Dict·Mock·yfinance·DbHub=DB증권 CHARTDAY)
 server.py        swing-web(API + static/)   tools/extract_wb_history.py  과거 신호 복원
 data/wb_history/ 9/9~ 일별 주간 브리핑 축약본(git 이력에서 추출)
 ```
@@ -55,7 +55,12 @@ python swing/server.py        # 옵션 없음: DATABASE_URL 있으면 Postgres, 
 ```
 
 ## Railway 설정 (사용자 작업, 1회)
-기존 대시보드 서비스는 main 브랜치라 이 브랜치 푸시에 영향받지 않는다. 같은 프로젝트에 서비스 2개를 추가한다.
+**배치 = `trading_bot_DB_HUB` 프로젝트(DB·KIS 하이브리드, 2026-09-29 결정, 리전 전부 EU West).**
+일봉은 같은 프로젝트 DB 허브의 Redis 토큰으로 DB증권 CHARTDAY(내부망), 수급·공매도·대차는 다른 프로젝트의
+KIS 허브(`FLOW_API_BASE` 공개 URL), 신호는 backtest_stock main 주간 브리핑(GitHub raw). main 대시보드 서비스는
+main 브랜치라 이 브랜치 푸시에 영향받지 않는다. **Postgres 를 새로 추가**하고(이 프로젝트엔 없음) 서비스 2개를
+같은 레포·브랜치로 만든다(새 레포 불필요 — 웹은 상시, 크론은 실행 후 종료라 서비스만 분리). 리전은 **eu-west**
+하나(Hobby 단일 리전 — CLI 는 `eu-west=1 southeast-asia=0` 처럼 나머지를 0 으로).
 
 1. **New Service → GitHub Repo `jykim0048/backtest_stock`** → Settings → Source → Branch = `swing_paper`
 2. Settings → **Config-as-code 파일 경로**
@@ -63,15 +68,17 @@ python swing/server.py        # 옵션 없음: DATABASE_URL 있으면 Postgres, 
    - `swing-cron`: `swing/railway.cron.json` (시작 `python -m swing.run_daily`, 크론 `30 7 * * 1-5` = 평일 16:30 KST)
    - config 파일을 못 쓰면 같은 값을 Settings 의 Start Command·Cron Schedule 에 직접 입력.
      루트 `Procfile`(main 대시보드용)이 기본값으로 잡히지 않게 반드시 시작 명령을 지정.
-3. **변수** (둘 다): `DATABASE_URL`(기존 Postgres 참조 변수 — 테이블 `swing_docs` 자동 생성)
-   - `swing-cron` 추가: `GEMINI_API_KEY`, `DART_API_KEY`, `NAVER_CLIENT_ID`, `NAVER_CLIENT_SECRET`,
-     `FLOW_API_BASE`(KIS 허브), 선택 `GH_RAW_TOKEN`(레포 private 전환 시), `LLM_CHAIN`
+3. **변수** (둘 다): `DATABASE_URL`=`${{Postgres.DATABASE_URL}}`(테이블 `swing_docs` 자동 생성)
+   - `swing-cron` 추가: `SWING_PRICES=dbhub`, `REDIS_URL`=`${{Redis.REDIS_URL}}`(DB 허브 Redis — 토큰 읽기 전용,
+     다른 Redis 를 쓰게 되면 `DBHUB_REDIS_URL` 로 따로 지정), `GEMINI_API_KEY`, `DART_API_KEY`, `NAVER_CLIENT_ID`,
+     `NAVER_CLIENT_SECRET`, `FLOW_API_BASE`(KIS 허브 vi_limit 서비스 URL), 선택 `GH_RAW_TOKEN`(레포 private 전환 시),
+     `LLM_CHAIN`, `DB_REST_BASE`(기본 https://openapi.dbsec.co.kr:8443)
    - `swing-web` 선택: `SWING_PRICES_PROXY`(main 대시보드 URL — 장중 시세 중계)
    - 노브(선택): `SWING_MAX_NEW_PER_DAY`, `SWING_INITIAL_CAPITAL`, `SWING_SELL_TAX`, `SWING_AGENT`, `SWING_PRICES`
 4. `swing-web` → Settings → Networking → **Generate Domain**
 
 ## 남은 작업
-- P0: Railway 에서 수집 경로·일봉 소스(yfinance vs KIS 허브) 실측
+- P0: 일봉 소스 = **DB증권 CHARTDAY(`SWING_PRICES=dbhub`) 확정**(2026-09-29 실측: 5종목×2일 네이버와 전부 일치, yfinance 는 종가·고저 오차와 코스닥 누락). 남은 것은 Railway 에서 수집 경로(trading_agent collect) 실측
 - P1 실동작 검증(개인 PC, 네트워크 필요) — 구현은 완료(`swing/agent/`, 출처 [SOURCE.md](agent/SOURCE.md)), 절차는 [HANDOFF_P1.md](HANDOFF_P1.md) 4절
 - Short S4: 실제 trading_agent 로 공매도 판단 실측(Trader Sell·가격 방향) — [PLAN_SHORT.md](PLAN_SHORT.md) 남은 확인
 - P5: `--from 2026-09-09 --to 2026-09-28 --wb-dir swing/data/wb_history` 소급 검증(뉴스·여론은 현재값 — 룩어헤드 명시)

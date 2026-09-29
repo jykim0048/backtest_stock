@@ -29,7 +29,7 @@ SELL_SIGNALS = ("수급이탈", "동반약세")                       # 매도 �
 BUY_RATINGS = ("Buy", "Overweight")                          # PM 등급 — 진입 허용
 SELL_RATINGS = ("Sell", "Underweight")                       # PM 등급 — 보유 종목 매도
 
-# Short(공매도) — 2026-09-30 사용자 합의(PLAN_SHORT.md R1~R13). Long 과 대칭 규칙
+# Short(공매도) — 2026-09-29 사용자 합의(PLAN_SHORT.md R1~R13). Long 과 대칭 규칙
 SHORT_ENABLED = os.environ.get("SWING_SHORT", "1") != "0"   # 0 이면 Short 신규 분석·주문 안 함(보유분 정산은 계속)
 SHORT_SIGNALS = ("동반약세", "수급이탈")                      # 숏 후보 칸(동반약세 먼저)
 SHORT_RATINGS = SELL_RATINGS                                 # PM 등급 — 공매도 진입 허용

@@ -9,7 +9,7 @@
     hold_updated: ["ext", "계속 보유 · 가격 갱신"], hold: ["hold-ok", "계속 보유"] };
   var KIND_TXT = { target: "목표 도달", expiry: "보유 만기", extended: "연장 재판별", signal: "신호" };
   var STATUS = { filled: "체결", cancelled: "취소", skipped: "스킵", open: "대기" };
-  // Short 청산 라벨 — 매도 → 환매(2026-09-30)
+  // Short 청산 라벨 — 매도 → 환매(2026-09-29)
   function reasonTxt(r, side) {
     var t = REASON[r] || r;
     return side === "short" ? String(t).replace("PM 매도", "PM 환매").replace("후 매도", "후 환매") : t;

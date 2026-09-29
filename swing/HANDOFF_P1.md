@@ -146,7 +146,7 @@ python swing/server.py --demo          # http://localhost:8124
 python swing/server.py --rebuild-demo  # 코드가 바뀌었으면 데모 재생성
 ```
 - 생성 내용: mock 에이전트·mock 시세로 9/9~9/28 백필(과거 신호 `swing/data/wb_history`) — Long·Short 모두
-  실제 흐름(2026-09-30 Short 구현 후 테스트 Short 주입 스크립트 삭제). 위치 `swing/data/demo/`(git 제외).
+  실제 흐름(2026-09-29 Short 구현 후 테스트 Short 주입 스크립트 삭제). 위치 `swing/data/demo/`(git 제외).
 - 표준 라이브러리만 사용 — 패키지·API 키 불필요, `DATABASE_URL` 이 있어도 무시(항상 로컬 파일).
 - 실제 로컬 실행 결과(`swing/data/local`, 4절 3번)와 섞이지 않는다. 판단 원문은 "[mock]" 으로 표시된다.
 
@@ -160,8 +160,9 @@ python swing/server.py --rebuild-demo  # 코드가 바뀌었으면 데모 재생
    ```
    → `swing/data/local/run/2026-09-28.json` 의 candidates 에 rating·entry·stop·ordered 확인,
    `python swing/server.py` 로 대시보드 판단 원문 대화상자에 역할별 리포트가 보이는지.
-4. **P0 겸 확인**: yfinance 일봉(`swing/prices.py YFinancePrices`)이 당일 16:30 기준 OHLC 를 주는지,
-   KIS 허브/네이버 값과 2~3종목 대조. 틀리면 소스 교체 제안(구현은 사용자 확인 후).
+4. **P0 겸 확인**: ~~yfinance 일봉 대조~~ → 2026-09-29 완료. 일봉은 `DbHubPrices`(DB증권 CHARTDAY)로 확정 —
+   네이버와 5종목×2일 전부 일치, yfinance 는 오차·누락. 로컬(개인 PC)에서는 DB 허브 Redis(내부망)에 닿지 않으므로
+   실동작 검증은 `--prices yfinance` 그대로 두되 가격 판정은 참고용으로만 볼 것.
 5. 호출량·소요시간 기록: 종목당 LLM 콜 수·초, 10종목 하루 런 총 시간(Railway 크론 타임아웃 판단용).
 6. **peer B안 실측**: `peers.json` 에 없는 중소형 2종목(예: 9/28 후보 중 CJ CGV 079160, 실리콘투 257720)으로
    제안 → 검증 결과(유효·거절 티커·사유)와 캐시 적중(두 번째 실행 LLM 0콜)을 보고.
@@ -208,4 +209,5 @@ P1 구현은 회사 PC 에서 끝났고, 이 PC 에서는 HANDOFF_P1.md 4절 "�
   이 PC 네트워크 금지. 기본값: SWING_AGENT_NO_SOCIAL=0(소셜 수집 켬 — peer B안과 짝), ohlcv 최근 60행.
 - 2026-09-29 (회사 PC) 대시보드 확인용 데모 자동 생성: `python swing/server.py --demo`(없으면 `swing/data/demo`에 mock
   백필 + 테스트 Short 생성 후 서빙, `--rebuild-demo` 재생성). 3-7절 추가, 6절 프롬프트에 확인 단계 추가.
-- 2026-09-30 (개인 PC) **Short(공매도) 구현** — 규칙 R1~R13·구현 위치는 `swing/PLAN_SHORT.md`(하루 Short 분석 상한 10, 나머지 권장값). 테스트 71건 통과(Short 18 신규). 4절 실동작 검증 때 **Short 후보 2~3종목도 함께** 돌려 Trader 가 `Action: Sell`·Entry(≥ 전일 종가)·Stop(진입가 위)을 주는지 확인하고, 하루 런 소요시간은 Long 10 + Short 10 기준으로 잴 것. 판단 원문 팝업은 스킬 종합 리포트 I~V 단계 묶음·마크다운 렌더링(`fb497fdc`). 데모 테스트 Short 주입 스크립트는 삭제 — mock 백필이 Short 도 실제 흐름으로 생성(`--rebuild-demo`).
+- 2026-09-29 (개인 PC) **Short(공매도) 구현** — 규칙 R1~R13·구현 위치는 `swing/PLAN_SHORT.md`(하루 Short 분석 상한 10, 나머지 권장값). 테스트 71건 통과(Short 18 신규). 4절 실동작 검증 때 **Short 후보 2~3종목도 함께** 돌려 Trader 가 `Action: Sell`·Entry(≥ 전일 종가)·Stop(진입가 위)을 주는지 확인하고, 하루 런 소요시간은 Long 10 + Short 10 기준으로 잴 것. 판단 원문 팝업은 스킬 종합 리포트 I~V 단계 묶음·마크다운 렌더링(`fb497fdc`). 데모 테스트 Short 주입 스크립트는 삭제 — mock 백필이 Short 도 실제 흐름으로 생성(`--rebuild-demo`).
+- 2026-09-29 (개인 PC) **일봉 소스 DbHubPrices** — `swing/prices.py`: DB 허브가 Redis `db:token` 에 둔 토큰을 읽기만 하고(발급 안 함) DB증권 CHARTDAY(`/api/v1/quote/kr-chart/day`, J·수정주가 미사용) 한 경로만 호출(조회 전용 — 토큰이 주문 TR 도 통과하므로 허브 core 패키지 미사용). 토큰 없음·만료·Redis 장애는 `DbHubPriceError` 로 런 중단(원장 미저장 — 시세 없이 정산하면 대기 주문이 전부 취소되므로). 4 TPS 간격 0.26초. 테스트 7건(총 78). 실측: `railway ssh` 로 arbitrage_futures 컨테이너에서 5종목(005930·000660·035420·003490·247540) 9/28·9/29 조회 → **네이버 일봉과 10봉 전부 일치**, yfinance 는 000660 9/28 종가 1,768,000(실제 1,761,000)·005930 9/29 종가 272,500(실제 275,000)·247540 9/29 누락. 같은 날 DB_HUB 프로젝트 전 서비스 리전 EU West 로 통일. 루트 requirements 에 `# swing` 블록으로 `redis` 추가.

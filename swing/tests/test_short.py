@@ -1,4 +1,4 @@
-"""Short(공매도) 오프라인 테스트 — 엔진·신호·판정·파이프라인 맥락·하루 흐름(2026-09-30, PLAN_SHORT.md)."""
+"""Short(공매도) 오프라인 테스트 — 엔진·신호·판정·파이프라인 맥락·하루 흐름(2026-09-29, PLAN_SHORT.md)."""
 import tempfile
 import unittest
 

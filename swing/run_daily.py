@@ -50,7 +50,8 @@ def make_agent(kind, store=None):
 
 
 def make_prices(kind):
-    return {"mock": prices.MockPrices, "yfinance": prices.YFinancePrices}[kind]()
+    return {"mock": prices.MockPrices, "yfinance": prices.YFinancePrices,
+            "dbhub": prices.DbHubPrices}[kind]()
 
 
 def make_store(spec):

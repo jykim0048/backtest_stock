@@ -11,3 +11,6 @@ psycopg2-binary       # 리포트 Postgres 저장소 (report_db.py — Railway �
 # LLM providers (see llm.py — chain configurable via LLM_CHAIN)
 google-genai          # default / primary provider (Gemini)
 anthropic             # fallback adapter (optional in the chain)
+
+# swing (swing_paper 브랜치 전용)
+redis                 # swing/prices.py DbHubPrices — DB 허브 Redis 의 db:token 읽기(조회 전용)

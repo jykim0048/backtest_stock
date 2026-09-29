@@ -2,13 +2,16 @@
 
 - DictPrices   : 고정 데이터(테스트·백필 재현)
 - MockPrices   : 코드별 결정적 랜덤워크(로컬 프리뷰)
-- YFinancePrices: Railway 용(네트워크). **미검증** — P0 에서 KIS 허브·네이버와 비교해 확정.
+- YFinancePrices: 참고용. 2026-09-29 P0 실측에서 종가·고저 오차와 코스닥 누락 → Railway 는 DbHubPrices 사용.
+- DbHubPrices  : DB증권 CHARTDAY 확정 일봉(2026-09-29). 같은 Railway 프로젝트의 DB 허브가 Redis 에 둔
+                 토큰(`db:token`)을 **읽기만** 한다(발급하지 않음 — 토큰 1분 1건 제한·허브 단일 발급 원칙).
 """
 import datetime
 import hashlib
 import json
 import os
 import random
+import time
 
 _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -86,4 +89,106 @@ class YFinancePrices:
                           "close": v("Close")}
             except Exception as ex:
                 print(f"[swing] yfinance {c} {date}: {ex}")
+        return out
+
+
+class DbHubPriceError(RuntimeError):
+    """DB 허브 시세 사용 불가(토큰 없음·만료·Redis 장애). 하루 런을 멈춰 원장을 저장하지 않게 한다 —
+    시세 없이 정산하면 대기 주문이 '시세 없음' 으로 전부 취소되기 때문."""
+
+
+class DbHubPrices:
+    """DB증권 CHARTDAY(일차트) — KRX 정규장 확정 일봉(시장 J = KRX, 수정주가 미사용 = 실제 체결가).
+
+    **조회 전용.** DB증권 토큰은 계좌를 식별해 주문 TR 도 통과하므로, 이 클래스는 CHARTDAY 경로 하나만
+    호출하고 허브 패키지(core.broker 등)를 가져오지 않는다. 토큰은 DB 허브가 발급해 Redis `db:token`
+    ({"token", "expires_at"})에 둔 것을 읽기만 한다.
+
+    환경변수: DBHUB_REDIS_URL(없으면 REDIS_URL) — Railway 에선 `${{Redis.REDIS_URL}}`(DB 허브 Redis),
+    DB_REST_BASE(기본 https://openapi.dbsec.co.kr:8443). CHARTDAY 4 TPS → 호출 간격 0.26초.
+    종목 하나가 실패(응답 오류·그날 봉 없음)하면 그 종목만 빠지고, 토큰 문제는 DbHubPriceError.
+    """
+    PATH = "/api/v1/quote/kr-chart/day"          # CHARTDAY — 이 경로만 허용
+    TOKEN_KEY = "db:token"
+    MIN_GAP = 0.26                               # 4 TPS
+
+    def __init__(self, redis_url=None, rest_base=None, *, redis_client=None, post=None,
+                 sleep=time.sleep, now=time.time, log=print):
+        self.redis_url = redis_url or os.environ.get("DBHUB_REDIS_URL") or os.environ.get("REDIS_URL")
+        self.rest_base = (rest_base or os.environ.get("DB_REST_BASE") or "https://openapi.dbsec.co.kr:8443").rstrip("/")
+        self._redis, self._post = redis_client, post
+        self.sleep, self.now, self.log = sleep, now, log
+        self._last = 0.0
+
+    def _token(self):
+        r = self._redis
+        if r is None:
+            if not self.redis_url:
+                raise DbHubPriceError("DBHUB_REDIS_URL/REDIS_URL 없음 — DB 허브 Redis 를 참조해야 함")
+            import redis                                  # 루트 requirements(# swing)
+            r = self._redis = redis.Redis.from_url(self.redis_url, socket_timeout=5)
+        try:
+            raw = r.get(self.TOKEN_KEY)
+        except Exception as ex:
+            raise DbHubPriceError(f"DB 허브 Redis 읽기 실패: {type(ex).__name__}: {ex}") from ex
+        if not raw:
+            raise DbHubPriceError(f"Redis `{self.TOKEN_KEY}` 없음 — DB 허브가 토큰을 발급했는지 확인")
+        try:
+            d = json.loads(raw)
+            tok, exp = str(d["token"]), float(d["expires_at"])
+        except (ValueError, KeyError, TypeError) as ex:
+            raise DbHubPriceError(f"`{self.TOKEN_KEY}` 형식 오류: {ex}") from ex
+        if exp <= self.now() + 60:
+            raise DbHubPriceError("DB 허브 토큰 만료(또는 1분 이내 만료) — 허브 재발급 대기")
+        return tok
+
+    def _call(self, token, code, ymd):
+        gap = self.MIN_GAP - (self.now() - self._last)
+        if gap > 0:
+            self.sleep(gap)
+        self._last = self.now()
+        body = {"In": {"InputOrgAdjPrc": "0", "InputCondMrktDivCode": "J", "InputIscd1": code,
+                       "InputDate1": ymd, "InputDate2": ymd}}
+        headers = {"content-type": "application/json; charset=utf-8", "authorization": f"Bearer {token}",
+                   "cont_yn": "N", "cont_key": ""}
+        post = self._post
+        if post is None:
+            import requests
+            post = requests.post
+        r = post(self.rest_base + self.PATH, headers=headers, json=body, timeout=10)
+        if getattr(r, "status_code", 200) != 200:
+            raise RuntimeError(f"HTTP {r.status_code}")
+        data = r.json()
+        if str(data.get("rsp_cd")) != "00000":
+            raise RuntimeError(f"{data.get('rsp_cd')} {data.get('rsp_msg')}")
+        out = data.get("Out") or []
+        return out if isinstance(out, list) else [out]
+
+    @staticmethod
+    def _num(v):
+        try:
+            x = float(str(v).replace(",", "").strip())
+        except (TypeError, ValueError):
+            return None
+        return abs(x) if x else None                     # 부호 붙은 값 방어, 0 = 없음
+
+    def daily_bars(self, codes, date):
+        if not codes:
+            return {}
+        token = self._token()
+        ymd = date.replace("-", "")
+        out = {}
+        for c in codes:
+            try:
+                rows = self._call(token, c, ymd)
+            except Exception as ex:
+                self.log(f"[swing] dbhub {c} {date}: {ex}")
+                continue
+            row = next((x for x in rows if str(x.get("Date", "")).strip() == ymd), None)
+            if not row:
+                continue
+            bar = {"open": self._num(row.get("Oprc")), "high": self._num(row.get("Hprc")),
+                   "low": self._num(row.get("Lprc")), "close": self._num(row.get("Prpr"))}
+            if all(bar.values()):
+                out[c] = bar
         return out
