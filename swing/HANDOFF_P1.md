@@ -44,18 +44,22 @@ swing/agent/
   SOURCE.md          원본 homework 커밋 sha·복사 파일 목록·수정점
   roles/             homework trading_agent/references/roles/01~13 + kr_market_rules.md + output_schemas.md 복사
   kit/               homework trading_agent/scripts 의 collect·sources_kr·social_kr·dart_fin·indicators·
-                     resolve·_common + assets/ 복사 (import 경로만 수정, 로직 불변)
+                     resolve·peers_resolve·_common + assets/(peers.json·industry_peers.json 포함) 복사
+                     (import 경로만 수정, 로직 불변). 출처 = homework `951c796` 이후 최신
+  peers.py           해외 peer 무인 확정(3-6 B안) — LLM 제안 + yfinance 검증 + 저장소 캐시
   pipeline.py        TradingAgent — decide(req) -> Decision
 swing/tests/test_agent_pipeline.py
 ```
 - 수집은 **스킬의 collect.py 를 그대로 재사용**(스킬과 결과 동일성 우선). `.env` 로딩 대신 환경변수.
   출력은 임시 폴더(`SWING_AGENT_RUNS`, 기본 `/tmp/swing_runs/<code>/<date>/`).
 - 14_reflector·decision_log·outcome(반성 루프)은 **P1 범위 밖**. PM 의 과거 맥락 입력은 "과거 맥락 없음".
+- 해외 peer 동적 확정(스킬의 `peers_resolve.py status/propose` + Claude 제안)은 **P1 범위 안** — 3-6 절.
 
 ### 3-2. 파이프라인 (SKILL.md 0~8단계의 무인 버전)
 | 순서 | 역할 파일 | 입력 | reports 키 |
 |---|---|---|---|
-| 0 | — | `collect.py <code> --date <req.date>` → 01~05 JSON·manifest. **01_price unavailable 이면 중단 → `Decision.error`** | — |
+| 0a | — | **해외 peer 확정(3-6)**: 캐시 → 없으면 LLM 제안 1콜 + yfinance 검증 → 저장소 캐시 → kit 의 `memory/peers_dynamic.json` 으로 내려쓰기 | peers |
+| 0b | — | `collect.py <code> --date <req.date>` → 01~05 JSON·manifest(0a 의 동적 peer 를 `select_peers` 가 사용). **01_price unavailable 이면 중단 → `Decision.error`** | collect |
 | 1~5 | 01~05 애널리스트 | 각자 자기 JSON 만 | market, sentiment, news, fundamentals, flow |
 | 6 | 06 Bull → 07 Bear | 리포트 5개 + 이력(라운드 1, `SWING_AGENT_ROUNDS`) | debate |
 | 7 | 08 Research Manager | 토론 전문 | research_manager |
@@ -83,9 +87,12 @@ swing/tests/test_agent_pipeline.py
 - 역할 파일 자체는 수정하지 않는다(원본 동일성). 맥락은 user 쪽에만 추가.
 
 ### 3-4. 연결·설정
-- `swing/run_daily.py` `make_agent("trading_agent")` 가 `swing.agent.pipeline.TradingAgent()` 를 반환하게.
+- `swing/run_daily.py` `make_agent("trading_agent")` 가 `swing.agent.pipeline.TradingAgent(store=...)` 를 반환하게
+  (peer 캐시용 저장소 — `make_store` 결과를 넘기도록 `main()` 순서 조정).
 - env 노브: `SWING_AGENT_ROUNDS`(1), `SWING_AGENT_NO_SOCIAL`(1이면 `--no-social` — Reddit 429 회피 기본 권장),
-  `SWING_AGENT_RUNS`(수집 임시 폴더). 종목당 LLM 약 13콜(라운드 1) — `SWING_MAX_NEW_PER_DAY` 로 총량 제어.
+  `SWING_AGENT_RUNS`(수집 임시 폴더), `SWING_PEER_TTL_DAYS`(동적 peer 유효기간, 180),
+  `SWING_PEER_RETRY_DAYS`(제안 실패 후 재시도 대기, 30).
+  종목당 LLM 약 13콜(라운드 1) + **처음 보는 종목만 peer 제안 1~2콜** — `SWING_MAX_NEW_PER_DAY` 로 총량 제어.
 - 필요한 패키지가 루트 requirements.txt 에 없으면 이 브랜치에서만 추가.
 
 ### 3-5. 테스트 (오프라인)
@@ -94,7 +101,35 @@ swing/tests/test_agent_pipeline.py
 - 가짜 Trader/PM 마크다운 → Decision 값(entry/stop/target/rating/weight) 정확
 - 01_price unavailable → error, 중간 역할 LLMError → error + 부분 reports
 - review 맥락 문구 주입 여부
+- peer(3-6): 큐레이션 종목은 LLM 미호출 / 캐시 적중 시 미호출 / 제안에 한국 상장·가짜 티커 섞이면 제거 /
+  유효 2개 미만이면 1회 재제안 → 그래도 실패면 업종 기본표 + `failedAt` 기록 → 재시도 대기 중 미호출 /
+  TTL 경과 시 재제안 / 미국 벨웨더 2개가 앞으로 정렬 / peer 단계 실패가 판단 전체를 막지 않음
+  (yfinance 는 가짜 함수로 대체)
 기존 32건 포함 전부 통과해야 함.
+
+### 3-6. 해외 peer 무인 확정 (사용자 결정: B안, 2026-09-29)
+스킬은 `peers_resolve.py status` 결과 `needs_proposal`(source 가 industry-default·none)이면 **Claude 가 대화 중
+peer 를 제안**하고 `propose` 로 검증·저장한다. 무인 실행에서는 이 제안을 **LLM 1콜로 대체**한다(원본
+backtest_stock `generate_analysis.resolve_peers` 가 Gemini 로 하던 방식과 같음).
+1. **판정**: `sources_kr.select_peers(code, industryKey, peers.json, industry_peers.json, dynamic_cfg=캐시)`.
+   `curated`·`dynamic`(TTL 이내)이면 그대로. `industry-default`·`none` 이면 2로.
+   단 캐시에 `failedAt` 이 있고 `SWING_PEER_RETRY_DAYS` 이내면 제안 생략(업종 기본표로 진행).
+2. **제안**: `llm.generate_json` 1콜. system = `peers_resolve.py` 독스트링의 제안 규칙 그대로(사업이 가장 유사한
+   해외 상장 4~5개, 한국 상장 제외, Yahoo 심볼, **앞 2개는 미국 상장 벨웨더**, note 는 한국어 한 줄).
+   user = 종목명·코드·yfinance 프로필(sector·industry·industryKey·영문 사업 요약이 있으면 포함).
+   schema = `{"peers":[{"name","ticker","note"}]}`.
+3. **검증**: `peers_resolve.validate_proposal` → `check_yfinance`(5일 시세) → `order_bellwethers_first`.
+   **유효 2개 미만이면 거절 사유를 user 에 붙여 1회 재제안**. 그래도 미달이면 업종 기본표로 진행하고
+   캐시에 `{"failedAt": 날짜, "rejected": [...]}` 기록.
+4. **저장**: swing 저장소 키 `peers/dynamic` 한 문서(`{code: {name, resolved_at, source:"llm-proposed", model,
+   peers, failedAt?}}`) — Railway 파일시스템은 휘발성이라 **저장소가 진실 원천**. 판단 직전에 이 문서를
+   kit 의 `memory/peers_dynamic.json` 형식으로 내려써 `collect.py` 가 그대로 읽게 한다(collect 로직 불변).
+5. **기록**: `reports["peers"]` 에 source(curated/dynamic/llm-proposed/industry-default/none)·peer 목록·
+   거절 목록·LLM 호출 수. 대시보드 판단 원문에 그대로 보인다.
+6. **실패 격리**: peer 단계의 어떤 예외도 판단을 막지 않는다 — 업종 기본표(또는 peer 없음)로 수집 진행.
+7. **선택(사용자 승인 시)**: 개인 PC 스킬의 `memory/peers_dynamic.json`(커밋 안 된 기존 검증분)을
+   `peers/dynamic` 초기값으로 넣는 1회성 스크립트 `swing/agent/seed_peers.py`. 넣은 항목은 source 를 유지.
+- 백필(과거 날짜)에서도 peer 는 **현재 시점 정보로 확정**된다(뉴스·여론과 같은 룩어헤드 — 결과에 명시).
 
 ## 4. 실동작 검증 (이 PC 는 네트워크 가능)
 1. 수집 단독: `python swing/agent/kit/collect.py 005930 --no-social` → manifest legs 표로 보고.
@@ -109,11 +144,13 @@ swing/tests/test_agent_pipeline.py
 4. **P0 겸 확인**: yfinance 일봉(`swing/prices.py YFinancePrices`)이 당일 16:30 기준 OHLC 를 주는지,
    KIS 허브/네이버 값과 2~3종목 대조. 틀리면 소스 교체 제안(구현은 사용자 확인 후).
 5. 호출량·소요시간 기록: 종목당 LLM 콜 수·초, 10종목 하루 런 총 시간(Railway 크론 타임아웃 판단용).
+6. **peer B안 실측**: `peers.json` 에 없는 중소형 2종목(예: 9/28 후보 중 CJ CGV 079160, 실리콘투 257720)으로
+   제안 → 검증 결과(유효·거절 티커·사유)와 캐시 적중(두 번째 실행 LLM 0콜)을 보고.
 
 ## 5. 완료 기준 · 보고
 - [ ] homework trading_agent 최신 푸시 확인, `swing/agent/SOURCE.md` 에 출처 sha
-- [ ] swing/agent 구현 + 오프라인 테스트 전부 통과
-- [ ] 실동작 1~5 결과(수집 legs 표, 판단 샘플, 하루 런, 일봉 대조, 콜 수·시간)
+- [ ] swing/agent 구현(peer B안 포함) + 오프라인 테스트 전부 통과
+- [ ] 실동작 1~6 결과(수집 legs 표, 판단 샘플, 하루 런, 일봉 대조, 콜 수·시간, peer 제안·캐시)
 - [ ] 이 문서 하단 "진행 기록" 에 결과·함정 추가 후 `swing_paper` 에 커밋·푸시(사용자 승인 후)
 - 사용자에게: 샘플 종목 PM 등급·진입/손절/목표, 실패 레그, 하루 런 소요시간, 남은 리스크를 한국어 존댓말로 보고.
 
@@ -137,3 +174,6 @@ swing/HANDOFF_P1.md 와 swing/README.md 를 먼저 읽고, HANDOFF_P1.md 의 2~5
   동적 peer `peers_resolve.py`·공매도/대차 시총비중·DART YoY 수정, 오프라인 테스트 16건). 2절 1번 통과 — P1 시작 가능,
   `SOURCE.md` 출처 sha 는 `951c796`. `memory/`(decision_log·peers_dynamic)는 커밋하지 않음(P1 범위 밖).
   이 PC 는 스킬 원본을 레포 밖 `Workspace\trading_agent` 에서 관리(스킬 정션이 그 경로) — 스킬 수정 시 homework 로 복사 후 커밋.
+- 2026-09-29 (회사 PC) **해외 peer 무인 확정 = B안(LLM 제안 + yfinance 검증 + 저장소 캐시)** 사용자 결정 → 3-6 절 추가,
+  3-1·3-2·3-4·3-5·4·5 절 반영. 업종 기본표(`industry_peers.json`)는 951c796 에서 새로 작성된 폴백(외부 출처 아님)이라
+  제안 실패 시에만 사용.
