@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>스윙 모의투자</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header class="top">
+  <div>
+    <h1>스윙 모의투자</h1>
+    <p class="sub">주간 브리핑 섹터 시그널(동반강세·수급유입) → trading_agent 판단 → 3영업일 보유 · 롱 전용</p>
+  </div>
+  <div class="asof" id="asof">—</div>
+</header>
+
+<main>
+  <section class="kpis" id="kpis" aria-label="요약"></section>
+  <div class="notes" id="notes"></div>
+
+  <section class="card">
+    <div class="card-head"><h2>평가액 추이</h2><span class="muted" id="eq-caption"></span></div>
+    <div class="chart" id="equity-chart" role="img" aria-label="일별 평가액 추이"></div>
+  </section>
+
+  <section class="card">
+    <div class="card-head"><h2>보유 종목</h2><span class="muted" id="pos-caption"></span></div>
+    <div class="table-wrap"><table id="positions"></table></div>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <h2>일자별 판단·주문</h2>
+      <label class="muted">기준일 <select id="run-date"></select></label>
+    </div>
+    <h3>매도 검토</h3>
+    <div class="table-wrap"><table id="reviews"></table></div>
+    <h3>신규 후보 → 주문 (다음 영업일 유효)</h3>
+    <div class="table-wrap"><table id="candidates"></table></div>
+    <h3>이 날 체결 결과</h3>
+    <div class="table-wrap"><table id="executed"></table></div>
+  </section>
+
+  <section class="card">
+    <div class="card-head"><h2>청산 내역</h2><span class="muted" id="trade-caption"></span></div>
+    <div class="table-wrap"><table id="trades"></table></div>
+  </section>
+</main>
+
+<dialog id="decision">
+  <form method="dialog" class="dlg-head"><h2 id="dec-title">판단</h2><button aria-label="닫기">✕</button></form>
+  <div id="dec-body"></div>
+</dialog>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
