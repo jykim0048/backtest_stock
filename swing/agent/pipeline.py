@@ -14,6 +14,7 @@ import tempfile
 from pathlib import Path
 
 from .. import agent_iface as A
+from .. import chart as chart_mod
 from .. import config
 from . import KIT_DIR, SOURCE_SHA, ensure_kit_path
 from . import peers as peers_mod
@@ -180,7 +181,7 @@ class TradingAgent:
 
     # ── 판단 ──
     def decide(self, req):
-        R = {}
+        R, chart = {}, None
         try:
             stock = self.resolve_fn(req.code)
             if not stock:
@@ -198,6 +199,10 @@ class TradingAgent:
             manifest = self.collect_fn(stock, req.date, out, self.social) or {}
             legs = {k: (v or {}).get("status") for k, v in (manifest.get("legs") or {}).items()}
             R["collect"] = "\n".join(f"- {k}: {v}" for k, v in sorted(legs.items())) or "(manifest 없음)"
+            try:                                          # I-1 차트(스킬 ohlcv.csv, 실패해도 판단 계속)
+                chart = chart_mod.from_csv(os.path.join(out, "ohlcv.csv"))
+            except Exception:
+                chart = None
             price_p = os.path.join(out, "01_price.json")
             price = json.loads(_read(price_p)) if os.path.exists(price_p) else {}
             if not price or price.get("status") == "unavailable" or legs.get("price") == "unavailable":
@@ -257,6 +262,7 @@ class TradingAgent:
         except Exception as ex:                           # 수집 예외 등도 부분 리포트와 함께 error 로
             msg = str(ex) if isinstance(ex, RoleError) else f"{type(ex).__name__}: {ex}"
             return A.Decision(code=req.code, date=req.date, purpose=req.purpose, agent=self.name,
-                              error=msg, reports=R, side=req.side)
+                              error=msg, reports=R, side=req.side, chart=chart)
         d = A.decision_from_markdown(req, R["trader"], R["pm"], reports=R, agent=self.name)
+        d.chart = chart
         return d

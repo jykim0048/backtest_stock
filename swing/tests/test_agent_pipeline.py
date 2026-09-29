@@ -65,7 +65,8 @@ def fake_collect(price_status="ok", raise_exc=None):
             with open(os.path.join(out, n), "w", encoding="utf-8") as f:
                 json.dump(v, f)
         with open(os.path.join(out, "ohlcv.csv"), "w", encoding="utf-8") as f:
-            f.write("Date,Close\n" + "\n".join(f"2026-06-{i:02d},{i}" for i in range(1, 100)))
+            f.write("Date,Open,High,Low,Close,Volume\n" + "\n".join(
+                f"2026-{1 + i // 28:02d}-{1 + i % 28:02d},{i},{i + 1},{i - 1},{i},{1000 + i}" for i in range(1, 100)))
         return {"legs": {"price": {"status": price_status}, "naver_news": {"status": "ok"}}}
     return fn
 
@@ -146,6 +147,15 @@ class TestPipeline(unittest.TestCase):
     def test_collect_exception_is_error(self):
         d = agent(collect=fake_collect(raise_exc=ConnectionError("net"))).decide(req())
         self.assertIn("ConnectionError", d.error)
+
+    def test_chart_from_ohlcv(self):
+        """I-1 차트: 스킬 ohlcv.csv 최근 90거래일 → Decision.chart (2026-09-29)."""
+        d = agent().decide(req())
+        self.assertIsNone(d.error)
+        self.assertEqual(len(d.chart["dates"]), 90)
+        self.assertEqual(d.chart["c"][-1], 99)
+        self.assertIsNotNone(d.chart["sma50"][-1])
+        self.assertIn("chart", d.to_dict())
 
     def test_review_context(self):
         llm = FakeLLM()

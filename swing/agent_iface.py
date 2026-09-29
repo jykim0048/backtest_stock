@@ -46,6 +46,7 @@ class Decision:
     agent: str = ""                  # 구현 식별자(mock / trading_agent@<sha>)
     error: Optional[str] = None      # 판단 실패 사유(수집 실패·LLM 실패)
     side: str = "long"               # 요청 방향(대시보드 제목 — 공매도 진입·환매 검토)
+    chart: Optional[dict] = None     # I-1 기술적 분석 차트 시계열(swing/chart.py, 최근 90거래일)
 
     def to_dict(self):
         return asdict(self)
@@ -201,6 +202,22 @@ def _mock_reports(req, d):
     return {k: r[k] for k in REPORT_KEYS}
 
 
+def _mock_chart(code, date, n=260):
+    """MockPrices 일봉으로 차트(데모) — 판단 기준일까지 평일 n 일."""
+    import datetime
+    import hashlib
+    from . import chart, prices
+    d, days = datetime.date.fromisoformat(date), []
+    while len(days) < n:
+        if d.weekday() < 5:
+            days.append(d.isoformat())
+        d -= datetime.timedelta(days=1)
+    mp = prices.MockPrices()
+    rows = [dict(date=x, volume=100_000 + int(hashlib.md5(f"{code}{x}".encode()).hexdigest()[:6], 16) % 900_000,
+                 **mp._bar(code, x)) for x in reversed(days)]
+    return chart.build(rows)
+
+
 class MockAgent:
     """결정적 가짜 판단. 신규 Long: 전일 종가 기준 진입 -1%, 손절 -5%, 목표 +6%, 비중 5%.
     신규 Short: 진입 +1%, 손절 +5%, 목표 -6%(Underweight·Sell). 코드 끝자리가 7·8·9 면 Hold(미진입 경로).
@@ -212,6 +229,7 @@ class MockAgent:
         d = self._decide(req)
         if not d.error:
             d.reports = _mock_reports(req, d)
+            d.chart = _mock_chart(req.code, req.date)
         return d
 
     def _decide(self, req):

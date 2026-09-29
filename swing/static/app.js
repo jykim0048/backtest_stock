@@ -893,6 +893,145 @@
       }), "보유 종목 없음");
   }
 
+  // ── I-1 기술적 분석 차트(Decision.chart — swing/chart.py, 2026-09-29) ──
+  // 가격(캔들·EMA10·SMA50·SMA200·볼린저) + 진입·손절·목표 수평선 / 거래량 / RSI(30·70) / MACD. 손익 색은 한국식.
+  var TC = { up: "#ef4444", down: "#3b82f6", ema10: "#00f0ff", sma50: "#fbbf24", sma200: "#a78bfa",
+    band: "rgba(148,163,184,.10)", bandLine: "rgba(148,163,184,.45)", grid: "rgba(255,255,255,.06)",
+    text: "#94a3b8", entry: "#00f0ff", stop: "#ef4444", target: "#10b981", macd: "#00f0ff", macds: "#fbbf24" };
+  function techChart(ch, d) {
+    var n = (ch && ch.dates || []).length;
+    if (!n) return "";
+    var W = 760, L = 6, R = 64, pw = W - L - R, step = pw / n;
+    var P = { top: 22, h: 200 }, V = { top: 228, h: 44 }, RS = { top: 284, h: 56 }, M = { top: 352, h: 64 }, H = 438;
+    var X = function (i) { return L + (i + 0.5) * step; };
+    var lv = [["진입", d.entry, TC.entry], ["손절", d.stop, TC.stop], ["목표", d.target, TC.target]]
+      .filter(function (x) { return x[1]; });
+    var lo = Infinity, hi = -Infinity;
+    for (var i = 0; i < n; i++) {
+      [ch.l[i], ch.bl[i]].forEach(function (v) { if (v != null && v < lo) lo = v; });
+      [ch.h[i], ch.bu[i]].forEach(function (v) { if (v != null && v > hi) hi = v; });
+    }
+    lv.forEach(function (x) { lo = Math.min(lo, x[1]); hi = Math.max(hi, x[1]); });
+    var pad = (hi - lo) * 0.04 || 1; lo -= pad; hi += pad;
+    var Y = function (v) { return P.top + (hi - v) / (hi - lo) * P.h; };
+    var s = [];
+    s.push('<rect x="0" y="0" width="' + W + '" height="' + H + '" fill="transparent"/>');
+    // 가격 눈금(5개)
+    for (var g = 0; g <= 4; g++) {
+      var gv = lo + (hi - lo) * g / 4, gy = Y(gv);
+      s.push('<line x1="' + L + '" x2="' + (L + pw) + '" y1="' + gy + '" y2="' + gy + '" stroke="' + TC.grid + '"/>' +
+        '<text x="' + (L + pw + 4) + '" y="' + (gy + 3) + '" fill="' + TC.text + '" font-size="9">' + won(gv) + "</text>");
+    }
+    // 볼린저 밴드(채움 + 경계)
+    var up = [], dn = [];
+    for (i = 0; i < n; i++) if (ch.bu[i] != null && ch.bl[i] != null) { up.push(X(i) + "," + Y(ch.bu[i])); dn.unshift(X(i) + "," + Y(ch.bl[i])); }
+    if (up.length) s.push('<polygon points="' + up.concat(dn).join(" ") + '" fill="' + TC.band + '"/>');
+    var line = function (key, col, dash, w) {
+      var pts = [], segs = [];
+      for (var j = 0; j < n; j++) {
+        if (ch[key][j] == null) { if (pts.length) segs.push(pts), pts = []; continue; }
+        pts.push(X(j).toFixed(1) + "," + Y(ch[key][j]).toFixed(1));
+      }
+      if (pts.length) segs.push(pts);
+      return segs.map(function (p) {
+        return '<polyline points="' + p.join(" ") + '" fill="none" stroke="' + col + '" stroke-width="' + (w || 1.2) + '"' +
+          (dash ? ' stroke-dasharray="' + dash + '"' : "") + "/>";
+      }).join("");
+    };
+    s.push(line("bu", TC.bandLine, "2 2", 0.8), line("bl", TC.bandLine, "2 2", 0.8));
+    // 캔들
+    var bw = Math.max(1.5, step * 0.62);
+    for (i = 0; i < n; i++) {
+      var o = ch.o[i], c = ch.c[i], h = ch.h[i], l = ch.l[i];
+      if (o == null || c == null) continue;
+      var col = c >= o ? TC.up : TC.down, y1 = Y(Math.max(o, c)), y2 = Y(Math.min(o, c));
+      s.push('<line x1="' + X(i) + '" x2="' + X(i) + '" y1="' + Y(h) + '" y2="' + Y(l) + '" stroke="' + col + '"/>' +
+        '<rect x="' + (X(i) - bw / 2) + '" y="' + y1 + '" width="' + bw + '" height="' + Math.max(1, y2 - y1) + '" fill="' + col + '"/>');
+    }
+    s.push(line("sma200", TC.sma200), line("sma50", TC.sma50), line("ema10", TC.ema10, null, 1));
+    // 진입·손절·목표
+    lv.forEach(function (x) {
+      var yy = Y(x[1]);
+      s.push('<line x1="' + L + '" x2="' + (L + pw) + '" y1="' + yy + '" y2="' + yy + '" stroke="' + x[2] + '" stroke-dasharray="5 3" stroke-width="1.2"/>' +
+        '<rect x="' + (L + pw + 1) + '" y="' + (yy - 7) + '" width="' + (R - 2) + '" height="14" rx="3" fill="' + x[2] + '"/>' +
+        '<text x="' + (L + pw + 4) + '" y="' + (yy + 3.5) + '" fill="#0b1020" font-size="9" font-weight="700">' + x[0] + " " + won(x[1]) + "</text>");
+    });
+    // 거래량
+    var vmax = Math.max.apply(null, ch.v.concat([1]));
+    for (i = 0; i < n; i++) {
+      var vh = ch.v[i] / vmax * V.h;
+      s.push('<rect x="' + (X(i) - bw / 2) + '" y="' + (V.top + V.h - vh) + '" width="' + bw + '" height="' + vh + '" fill="' +
+        ((ch.c[i] >= ch.o[i]) ? TC.up : TC.down) + '" opacity=".45"/>');
+    }
+    // RSI
+    var RY = function (v) { return RS.top + (100 - v) / 100 * RS.h; };
+    [30, 70].forEach(function (t) {
+      s.push('<line x1="' + L + '" x2="' + (L + pw) + '" y1="' + RY(t) + '" y2="' + RY(t) + '" stroke="' + TC.grid + '" stroke-dasharray="3 3"/>' +
+        '<text x="' + (L + pw + 4) + '" y="' + (RY(t) + 3) + '" fill="' + TC.text + '" font-size="9">' + t + "</text>");
+    });
+    var rpts = [];
+    for (i = 0; i < n; i++) if (ch.rsi[i] != null) rpts.push(X(i).toFixed(1) + "," + RY(ch.rsi[i]).toFixed(1));
+    if (rpts.length) s.push('<polyline points="' + rpts.join(" ") + '" fill="none" stroke="#e2e8f0" stroke-width="1.1"/>');
+    // MACD
+    var mm = 0;
+    for (i = 0; i < n; i++) [ch.macd[i], ch.macds[i], ch.macdh[i]].forEach(function (v) { if (v != null) mm = Math.max(mm, Math.abs(v)); });
+    mm = mm || 1;
+    var MY = function (v) { return M.top + M.h / 2 - v / mm * (M.h / 2); };
+    s.push('<line x1="' + L + '" x2="' + (L + pw) + '" y1="' + MY(0) + '" y2="' + MY(0) + '" stroke="' + TC.grid + '"/>');
+    for (i = 0; i < n; i++) {
+      var hv = ch.macdh[i];
+      if (hv == null) continue;
+      s.push('<rect x="' + (X(i) - bw / 2) + '" y="' + Math.min(MY(0), MY(hv)) + '" width="' + bw + '" height="' +
+        Math.max(0.5, Math.abs(MY(hv) - MY(0))) + '" fill="' + (hv >= 0 ? TC.up : TC.down) + '" opacity=".55"/>');
+    }
+    var mline = function (key, col) {
+      var p = [];
+      for (var j = 0; j < n; j++) if (ch[key][j] != null) p.push(X(j).toFixed(1) + "," + MY(ch[key][j]).toFixed(1));
+      return p.length ? '<polyline points="' + p.join(" ") + '" fill="none" stroke="' + col + '" stroke-width="1.1"/>' : "";
+    };
+    s.push(mline("macd", TC.macd), mline("macds", TC.macds));
+    // 패널 제목·날짜 축
+    [["거래량", V.top], ["RSI 14", RS.top], ["MACD 12·26·9", M.top]].forEach(function (x) {
+      s.push('<text x="' + (L + 2) + '" y="' + (x[1] + 9) + '" fill="' + TC.text + '" font-size="9">' + x[0] + "</text>");
+    });
+    for (i = 0; i < n; i += Math.ceil(n / 6)) {
+      s.push('<text x="' + X(i) + '" y="' + (H - 4) + '" fill="' + TC.text + '" font-size="9" text-anchor="middle">' + ch.dates[i].slice(5) + "</text>");
+    }
+    var leg = [["EMA10", TC.ema10], ["SMA50", TC.sma50], ["SMA200", TC.sma200], ["볼린저 20·2σ", TC.bandLine]]
+      .map(function (x, k) {
+        return '<g transform="translate(' + (L + k * 92) + ',6)"><rect width="14" height="3" y="3" fill="' + x[1] + '"/>' +
+          '<text x="18" y="8" fill="' + TC.text + '" font-size="9.5">' + x[0] + "</text></g>";
+      }).join("");
+    s.push(leg);
+    s.push('<line class="tc-x" x1="0" x2="0" y1="' + P.top + '" y2="' + (M.top + M.h) + '" stroke="rgba(255,255,255,.35)" visibility="hidden"/>');
+    return '<div class="tchart" data-n="' + n + '"><svg viewBox="0 0 ' + W + " " + H + '" preserveAspectRatio="none">' + s.join("") +
+      '</svg><div class="tc-tip"></div><div class="tc-note">최근 ' + n + '거래일 · 스킬 ohlcv(수정주가) 기준 · 점선 = 판단 가격</div></div>';
+  }
+  function bindTechChart(root, ch) {
+    var box = root.querySelector(".tchart");
+    if (!box || !ch) return;
+    var svg = box.querySelector("svg"), tip = box.querySelector(".tc-tip"), xl = box.querySelector(".tc-x");
+    var n = ch.dates.length, W = 760, L = 6, pw = W - 6 - 64;
+    svg.addEventListener("mousemove", function (e) {
+      var r = svg.getBoundingClientRect(), vx = (e.clientX - r.left) / r.width * W;
+      var i = Math.max(0, Math.min(n - 1, Math.floor((vx - L) / (pw / n))));
+      var x = L + (i + 0.5) * pw / n;
+      xl.setAttribute("x1", x); xl.setAttribute("x2", x); xl.setAttribute("visibility", "visible");
+      var f = function (v, nd) { return v == null ? "—" : nd ? Number(v).toFixed(nd) : won(v); };
+      var chg = i > 0 && ch.c[i - 1] ? (ch.c[i] / ch.c[i - 1] - 1) * 100 : null;
+      tip.innerHTML = "<b>" + ch.dates[i] + "</b> " + (chg == null ? "" : '<span class="' + (chg >= 0 ? "up" : "down") + '">' +
+        (chg >= 0 ? "+" : "") + chg.toFixed(2) + "%</span>") +
+        "<br>시 " + f(ch.o[i]) + " · 고 " + f(ch.h[i]) + " · 저 " + f(ch.l[i]) + " · 종 <b>" + f(ch.c[i]) + "</b>" +
+        "<br>EMA10 " + f(ch.ema10[i]) + " · SMA50 " + f(ch.sma50[i]) + " · SMA200 " + f(ch.sma200[i]) +
+        "<br>볼린저 " + f(ch.bl[i]) + " ~ " + f(ch.bu[i]) + " · 거래량 " + won(ch.v[i]) +
+        "<br>RSI " + f(ch.rsi[i], 1) + " · MACD " + f(ch.macd[i], 1) + " / " + f(ch.macds[i], 1) + " (" + f(ch.macdh[i], 1) + ")";
+      tip.style.display = "block";
+      var left = (x / W) * r.width;
+      tip.style.left = (left > r.width / 2 ? left - tip.offsetWidth - 12 : left + 12) + "px";
+    });
+    svg.addEventListener("mouseleave", function () { tip.style.display = "none"; xl.setAttribute("visibility", "hidden"); });
+  }
+
   // ── 판단 원문 ──
   function openDecision(key) {
     api("/api/swing/decision?key=" + encodeURIComponent(key)).then(function (d) {
@@ -917,7 +1056,8 @@
       // 단계 묶음은 접힌 상태. 역할이 하나인 단계는 원문 바로, 여럿이면 역할별로 한 번 더 접는다
       if (groups.length) h += '<div class="dec-sec"><h4>종합 리포트</h4>' + groups.map(function (g) {
         var rep = function (k) {   // peers 는 JSON 이라 코드 블록, 나머지는 마크다운
-          return '<div class="report md">' + (k === "peers" ? "<pre><code>" + esc(reps[k]) + "</code></pre>" : md(reps[k])) + "</div>";
+          return (k === "market" && d.chart ? techChart(d.chart, d) : "") +     // I-1 에 차트
+            '<div class="report md">' + (k === "peers" ? "<pre><code>" + esc(reps[k]) + "</code></pre>" : md(reps[k])) + "</div>";
         };
         var body = g[1].length === 1 ? rep(g[1][0][0])
           : '<div class="role-list">' + g[1].map(function (r) {
@@ -928,6 +1068,7 @@
       }).join("") + "</div>";
       h += '<p class="muted" style="font-size:11px;margin-top:14px">판단 엔진 ' + esc(d.agent || "—") + "</p>";
       $("dec-body").innerHTML = h;
+      bindTechChart($("dec-body"), d.chart);
       $("decision").showModal();
     }).catch(function (e) { alert("판단 원문을 불러오지 못했습니다: " + e.message); });
   }
