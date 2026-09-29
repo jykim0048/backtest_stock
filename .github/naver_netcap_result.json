@@ -1,5 +1,5 @@
 {
- "asof": "2026-09-23T06:10:33.461094+00:00",
+ "asof": "2026-09-29T00:45:52.992459+00:00",
  "stockPrice": {
   "n": 26,
   "withHits": [
@@ -7,11 +7,11 @@
     "url": "https://stock.naver.com/api/domestic/detail/005930/detail?codeType=KRX",
     "status": 200,
     "method": "GET",
-    "size": 1735,
+    "size": 1733,
     "hits": [
      "sameIndustry"
     ],
-    "head": "{\"itemcode\":\"005930\",\"itemname\":\"삼성전자\",\"sosok\":\"0\",\"type\":\"ST\",\"upjongCode\":\"27\",\"tradeTime\":\"20260923151022\",\"manageStatusGb\":\"0\",\"tradeStopYn\":\"N\",\"tradableStatus\":\"tradable\",\"tradableStatusCode\":\"ok\",\"isManagement\":null,\"managementDate\":null,\"managementReasonCode\":null,\"isTradingHalt\":null,\"tradingHaltDate\":null,\"tradingHaltReasonCode\":null,\"marketAlertType\":\"00\",\"marketGb\":\"1\",\"marketStatus\":\"OPEN\",\"tradingSessionType\":\"REGULAR_MARKET\",\"nowPrice\":\"284500\",\"openPrice\":\"284500\",\"prevClosePrice\":\"277500\",\"stdPrice\":\"276500\",\"highPrice\":\"285000\",\"lowPrice\":\"281000\",\"facePrice\":\"100\",\"unit\":\"1\""
+    "head": "{\"itemcode\":\"005930\",\"itemname\":\"삼성전자\",\"sosok\":\"0\",\"type\":\"ST\",\"upjongCode\":\"27\",\"tradeTime\":\"20260929094521\",\"manageStatusGb\":\"0\",\"tradeStopYn\":\"N\",\"tradableStatus\":\"tradable\",\"tradableStatusCode\":\"ok\",\"isManagement\":null,\"managementDate\":null,\"managementReasonCode\":null,\"isTradingHalt\":null,\"tradingHaltDate\":null,\"tradingHaltReasonCode\":null,\"marketAlertType\":\"00\",\"marketGb\":\"1\",\"marketStatus\":\"OPEN\",\"tradingSessionType\":\"REGULAR_MARKET\",\"nowPrice\":\"273250\",\"openPrice\":\"266000\",\"prevClosePrice\":\"270000\",\"stdPrice\":\"270000\",\"highPrice\":\"274000\",\"lowPrice\":\"266000\",\"facePrice\":\"100\",\"unit\":\"1\""
    }
   ],
   "all": [
@@ -28,27 +28,27 @@
     "hits": []
    },
    {
-    "url": "https://stock.naver.com/api/securityFe/api/fchart/domestic/stock/005930",
-    "status": 200,
-    "size": 315,
-    "hits": []
-   },
-   {
-    "url": "https://stock.naver.com/api/securityService/integration/indicators?indicatorCodes=KOSPI%2CKOSDAQ%2CKPI200%2C.DJI%2C.INX%2CFX_USDKRW%2C.IXIC%2CGCcv1%2CCLcv1",
-    "status": 200,
-    "size": 5314,
-    "hits": []
-   },
-   {
     "url": "https://stock.naver.com/api/domestic/detail/005930/sosok",
     "status": 200,
     "size": 31,
     "hits": []
    },
    {
+    "url": "https://stock.naver.com/api/securityFe/api/fchart/domestic/stock/005930",
+    "status": 200,
+    "size": 315,
+    "hits": []
+   },
+   {
     "url": "https://stock.naver.com/api/community/discussion/posts?itemCode=005930&discussionType=domesticStock&isHolderOnly=false&excludesItemNews=false&isItemNewsOnly=true&pageSize=1",
     "status": 200,
-    "size": 2025,
+    "size": 2768,
+    "hits": []
+   },
+   {
+    "url": "https://stock.naver.com/api/securityService/integration/indicators?indicatorCodes=KOSPI%2CKOSDAQ%2CKPI200%2C.DJI%2C.INX%2CFX_USDKRW%2C.IXIC%2CGCcv1%2CCLcv1",
+    "status": 200,
+    "size": 5319,
     "hits": []
    },
    {
@@ -60,19 +60,19 @@
    {
     "url": "https://stock.naver.com/api/domestic/detail/005930/traderInfo",
     "status": 200,
-    "size": 2004,
+    "size": 1990,
     "hits": []
    },
    {
     "url": "https://stock.naver.com/api/domestic/detail/005930/siseTick?startIdx=0&pageSize=20",
     "status": 200,
-    "size": 4523,
+    "size": 4480,
     "hits": []
    },
    {
     "url": "https://stock.naver.com/api/personal/users/favorite/ranking?pageSize=10",
     "status": 200,
-    "size": 5492,
+    "size": 5486,
     "hits": []
    },
    {
@@ -82,35 +82,35 @@
     "hits": []
    },
    {
+    "url": "https://stock.naver.com/api/stockSecurity/items/v2/domestic/005930/price-snapshot",
+    "status": 200,
+    "size": 1675,
+    "hits": []
+   },
+   {
     "url": "https://stock.naver.com/api/domestic/detail/005930/hoga",
     "status": 200,
-    "size": 691,
+    "size": 690,
     "hits": []
    },
    {
     "url": "https://stock.naver.com/api/domestic/detail/005930/detail?codeType=KRX",
     "status": 200,
-    "size": 1735,
+    "size": 1733,
     "hits": [
      "sameIndustry"
     ]
    },
    {
-    "url": "https://stock.naver.com/api/stockSecurity/items/v2/domestic/005930/price-snapshot",
+    "url": "https://stock.naver.com/api/domestic/detail/005930/trend?tradeType=KRX&startIdx=0&pageSize=20",
     "status": 200,
-    "size": 1678,
+    "size": 5608,
     "hits": []
    },
    {
     "url": "https://stock.naver.com/api/domestic/detail/005930/trend?tradeType=KRX&startIdx=0&pageSize=50",
     "status": 200,
-    "size": 14015,
-    "hits": []
-   },
-   {
-    "url": "https://stock.naver.com/api/domestic/detail/005930/trend?tradeType=KRX&startIdx=0&pageSize=20",
-    "status": 200,
-    "size": 5602,
+    "size": 14016,
     "hits": []
    },
    {
@@ -120,45 +120,45 @@
     "hits": []
    },
    {
-    "url": "https://polling.finance.naver.com/api/realtime/domestic/v2/stock?itemCodes=005930",
-    "status": 200,
-    "size": 1455,
-    "hits": []
-   },
-   {
-    "url": "https://polling.finance.naver.com/api/realtime/domestic/index/KOSPI,KOSDAQ,KPI200",
-    "status": 200,
-    "size": 2906,
-    "hits": []
-   },
-   {
-    "url": "https://polling.finance.naver.com/api/realtime/domestic/stock/000660,005380,005490,005930,006400,009150,034020,035420,035720,066570",
-    "status": 200,
-    "size": 22681,
-    "hits": []
-   },
-   {
     "url": "https://stock.naver.com/api/securityService/rdc2",
     "status": 200,
     "size": 4,
     "hits": []
    },
    {
+    "url": "https://polling.finance.naver.com/api/realtime/domestic/index/KOSPI,KOSDAQ,KPI200",
+    "status": 200,
+    "size": 2911,
+    "hits": []
+   },
+   {
+    "url": "https://polling.finance.naver.com/api/realtime/domestic/stock/000660,005380,005490,005930,006400,009150,034020,035420,035720,066570",
+    "status": 200,
+    "size": 22564,
+    "hits": []
+   },
+   {
+    "url": "https://polling.finance.naver.com/api/realtime/domestic/v2/stock?itemCodes=005930",
+    "status": 200,
+    "size": 1454,
+    "hits": []
+   },
+   {
     "url": "https://polling.finance.naver.com/api/realtime/worldstock/index/.DJI,.INX,.IXIC",
     "status": 200,
-    "size": 2942,
+    "size": 2951,
     "hits": []
    },
    {
     "url": "https://polling.finance.naver.com/api/realtime/marketindex/metals/GCcv1",
     "status": 200,
-    "size": 832,
+    "size": 831,
     "hits": []
    },
    {
     "url": "https://polling.finance.naver.com/api/realtime/marketindex/energy/CLcv1",
     "status": 200,
-    "size": 827,
+    "size": 822,
     "hits": []
    },
    {
@@ -170,7 +170,7 @@
    {
     "url": "https://polling.finance.naver.com/api/realtime/domestic/stock/005930",
     "status": 200,
-    "size": 2421,
+    "size": 2416,
     "hits": []
    }
   ]
