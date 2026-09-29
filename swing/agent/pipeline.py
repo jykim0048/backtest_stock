@@ -70,6 +70,8 @@ def _clip(text, label):
 
 
 def strategy_context(req):
+    if getattr(req, "side", "long") == "short":
+        return _short_context(req)
     if req.purpose == "review":
         p = req.position or {}
         return ("[전략 맥락] 보유 중 종목 매도 검토. 진입 {e}·손절 {s}·목표 {t}·보유 {h}/{n}일(최대 {mx}일). 트리거: {r}. "
@@ -82,6 +84,28 @@ def strategy_context(req):
             "그 가격 체결), 보유 최대 {n}영업일 후 종가 청산. Stop Loss 필수(없으면 주문 안 됨). Price Target 은 "
             "{n}영업일 안에 현실적인 수준으로. 섹터 신호: {sig} {sec}, 스크리닝 근거: {r}.").format(
         n=config.HOLD_DAYS, sig=req.signal or "-", sec=req.sector or "-", r=req.reason or "-")
+
+
+def _short_context(req):
+    """공매도(Short) 맥락 — 역할 파일은 롱 관점이라 Sell 의 뜻·가격 방향을 user 쪽에서 명시한다."""
+    if req.purpose == "review":
+        p = req.position or {}
+        return ("[전략 맥락] **공매도(Short) 보유 종목 환매 검토.** 공매도 진입 {e}·손절 {s}(진입가 위)·목표 {t}"
+                "(진입가 아래)·보유 {h}/{n}일(최대 {mx}일). 트리거: {r}. 이 포지션은 주가가 내려야 이익이다. "
+                "PM Rating 이 Buy/Overweight(상승 전망)면 다음 영업일 시가 환매, Hold·Underweight·Sell 이면 계속 보유. "
+                "트리거가 목표가 도달·보유 만기·연장 보유면 계속 보유할 경우 Trader 는 새 Stop Loss(현재가 위), "
+                "PM 은 새 Price Target(현재가 아래)을 원 단위로 제시한다(목표 도달 후 보유는 손절가가 공매도 진입가 "
+                "위로 올라가지 않는다). Trader Action 은 Buy(환매)/Hold 중심.").format(
+            e=p.get("entry"), s=p.get("stop"), t=p.get("target") or "없음", h=p.get("holdDay"),
+            n=config.HOLD_DAYS, mx=config.MAX_HOLD_DAYS, r=req.reason or "-")
+    return ("[전략 맥락] 스윙 모의투자 **공매도(Short) 신규 진입** 검토 — 이 종목은 약세 신호로 선정됐다. "
+            "여기서 Trader Action **Sell = 공매도 신규 진입**(보유 주식 매도가 아님), PM Rating Sell/Underweight "
+            "= 공매도 진행, 그 외 등급은 진입하지 않는다. 주문은 다음 영업일 1일 유효 지정가 매도(고가가 Entry Price "
+            "에 닿으면 그 가격 체결). 업틱룰 근사로 Entry Price 는 전일 종가({lc}) 이상. Stop Loss 는 Entry Price "
+            "**위**(필수, 없으면 주문 안 됨), Price Target 은 Entry Price **아래**로 {n}영업일 안에 현실적인 수준. "
+            "보유 {n}영업일 후 재판별, 대차수수료 연 {br:.1f}%. 섹터 신호: {sig} {sec}, 스크리닝 근거: {r}.").format(
+        lc=f"{req.last_close:,.0f}원" if req.last_close else "미상", n=config.HOLD_DAYS,
+        br=config.BORROW_RATE * 100, sig=req.signal or "-", sec=req.sector or "-", r=req.reason or "-")
 
 
 def _default_llm(system, user, max_tokens, schema):
@@ -227,6 +251,6 @@ class TradingAgent:
         except Exception as ex:                           # 수집 예외 등도 부분 리포트와 함께 error 로
             msg = str(ex) if isinstance(ex, RoleError) else f"{type(ex).__name__}: {ex}"
             return A.Decision(code=req.code, date=req.date, purpose=req.purpose, agent=self.name,
-                              error=msg, reports=R)
+                              error=msg, reports=R, side=req.side)
         d = A.decision_from_markdown(req, R["trader"], R["pm"], reports=R, agent=self.name)
         return d

@@ -63,7 +63,7 @@
         <div id="sector-matrix"></div>
         <div class="board-header mt">
           <h2>섹터 시그널 종목 관찰</h2>
-          <span class="board-subtitle">동반강세·수급유입 = Long 후보 · 수급이탈·동반약세 = Short 후보(관찰)·Long 보유 시 매도 검토 · ● 보유 중</span>
+          <span class="board-subtitle">동반강세·수급유입 = Long 후보·Short 보유 시 환매 검토 · 수급이탈·동반약세 = Short 후보·Long 보유 시 매도 검토 · ● 보유 중</span>
         </div>
         <div class="matrix" id="matrix"></div>
       </div>
@@ -92,20 +92,37 @@
         <div class="table-wrap"><table class="stocks-table compact" id="executed"></table></div>
       </div>
 
-      <!-- Short: 같은 구성, 숏 모의투자 확장 전까지 후보 관찰만 -->
+      <!-- Short: Long 과 같은 구성(보유 → 환매 검토 → 신규 후보·공매도 주문 → 체결 결과) — 2026-09-30 -->
       <div class="tab-pane" id="pane-short">
         <div class="notice">
-          <b>Short 모의투자 준비 중</b> — 현재는 Long 전용으로 운용합니다. 숏 확장 시 수급이탈·동반약세 종목을 trading_agent 가
-          판단해 공매도 진입가·손절가(진입가 위)·목표가(진입가 아래)로 운용하며, 원장은 이미 방향(side) 필드를 갖고 있습니다.
+          <b>Short 모의투자</b> — 동반약세·수급이탈 종목을 trading_agent 가 공매도 관점으로 판단(PM Sell/Underweight + Trader Sell).
+          다음 영업일 1일 유효 지정가 <b>매도</b>(고가 ≥ 진입가 체결, 진입가 ≥ 전일 종가 = 업틱룰 근사), 손절가는 진입가 위·목표가는 아래.
+          진입금액 100% 담보(레버리지 없음) · 매도세 0.2%(진입) · 대차수수료 연 <span id="cfg-borrow">4</span>% · Short 총노출 ≤ 평가액의
+          <span id="cfg-sgross">30</span>%. 대차 가능 여부·과열종목·리콜은 반영하지 않는 모의 가정입니다.
         </div>
         <div class="board-header side-short mt">
           <h2>Short 보유</h2>
-          <span class="board-subtitle">공매도 진입 · <span class="hold-n">5</span>영업일 보유 · 손절(상승)/목표(하락) 도달 시 환매</span>
+          <span class="board-subtitle">공매도 진입 · <span class="hold-n">5</span>영업일 보유 · 손절(상승) 즉시 환매 · 목표 도달(하락)·만기는 trading_agent 재판별 · 행을 누르면 판단 원문</span>
         </div>
         <div class="table-wrap"><table class="stocks-table" id="short-positions"></table></div>
         <div class="board-header side-short mt">
-          <h2>Short 후보 관찰</h2>
-          <span class="board-subtitle" id="short-watch-sub">수급이탈·동반약세 칸 — 판단·주문 없음(관찰)</span>
+          <h2>환매 검토</h2>
+          <span class="board-subtitle">신호(섹터 동반강세·수급유입 전환·상방 칸) · 목표가 도달 · 보유 만기 · 연장 보유(매일) → PM Buy/Overweight 면 환매 예약, 그 외 계속 보유</span>
+        </div>
+        <div class="table-wrap"><table class="stocks-table compact" id="short-reviews"></table></div>
+        <div class="board-header side-short mt">
+          <h2>신규 후보 → 공매도 주문</h2>
+          <span class="board-subtitle">동반약세·수급이탈 · PM Sell/Underweight + Trader Sell + 손절가(진입가 위) → 다음 영업일 1일 유효 지정가 매도</span>
+        </div>
+        <div class="table-wrap"><table class="stocks-table compact" id="short-candidates"></table></div>
+        <div class="board-header side-short mt">
+          <h2>이 날 체결 결과</h2>
+          <span class="board-subtitle">전 영업일 공매도 주문의 체결·취소·스킵</span>
+        </div>
+        <div class="table-wrap"><table class="stocks-table compact" id="short-executed"></table></div>
+        <div class="board-header side-short mt">
+          <h2>Short 후보 칸</h2>
+          <span class="board-subtitle" id="short-watch-sub">동반약세·수급이탈 칸 전체</span>
         </div>
         <div class="table-wrap"><table class="stocks-table compact" id="short-watch"></table></div>
       </div>

@@ -27,6 +27,7 @@ class DecisionRequest:
     reason: Optional[str] = None    # 스크리닝 근거 문구 / 매도 검토 트리거 사유
     last_close: Optional[float] = None
     position: Optional[dict] = None  # review 일 때 보유 정보(진입가·손절·목표·보유일)
+    side: str = "long"              # "long" | "short"(공매도 진입 / 보유 숏 환매 검토)
 
 
 @dataclass
@@ -44,6 +45,7 @@ class Decision:
     reports: dict = field(default_factory=dict)   # 역할별 원문(대시보드 판단 리포트)
     agent: str = ""                  # 구현 식별자(mock / trading_agent@<sha>)
     error: Optional[str] = None      # 판단 실패 사유(수집 실패·LLM 실패)
+    side: str = "long"               # 요청 방향(대시보드 제목 — 공매도 진입·환매 검토)
 
     def to_dict(self):
         return asdict(self)
@@ -111,31 +113,42 @@ def decision_from_markdown(req, trader_md, pm_md, reports=None, agent=""):
     return Decision(code=req.code, date=req.date, purpose=req.purpose,
                     rating=p["rating"], action=t["action"], entry=t["entry"],
                     stop=t["stop"], target=p["target"], weight=t["weight"],
-                    summary=p["summary"], reports=reports or {}, agent=agent)
+                    summary=p["summary"], reports=reports or {}, agent=agent, side=req.side)
 
 
 # ── 판정 ────────────────────────────────────────────────────────────────────
-def entry_verdict(d):
-    """진입 주문 가능 여부 → (ok, 사유). 조건: PM Buy/Overweight + Trader Buy + 진입가·손절가,
-    손절 < 진입, 목표가 있으면 목표 > 진입(아니면 목표 무시하고 진행)."""
+def entry_verdict(d, last_close=None):
+    """진입 주문 가능 여부 → (ok, 사유). 방향은 d.side.
+    Long : PM Buy/Overweight + Trader Buy + 진입가·손절가, 손절 < 진입.
+    Short: PM Sell/Underweight + Trader Sell(= 공매도 진입) + 진입가·손절가, 손절 > 진입,
+           업틱룰 근사로 진입가 ≥ 전일 종가(last_close 있을 때).
+    목표가는 방향이 맞지 않으면 무시하고 진행(effective_target)."""
+    short = d.side == "short"
     if d.error:
         return False, f"판단 실패: {d.error}"
-    if d.rating not in config.BUY_RATINGS:
+    if d.rating not in (config.SHORT_RATINGS if short else config.BUY_RATINGS):
         return False, f"PM {d.rating}"
-    if d.action != "Buy":
+    want = "Sell" if short else "Buy"
+    if d.action != want:
         return False, f"Trader {d.action or '없음'}"
     if not d.entry:
         return False, "진입가 없음"
     if not d.stop:
         return False, "손절가 없음"
-    if d.stop >= d.entry:
+    if short and d.stop <= d.entry:
+        return False, "손절가 ≤ 진입가(공매도)"
+    if not short and d.stop >= d.entry:
         return False, "손절가 ≥ 진입가"
+    if short and last_close and d.entry < last_close:
+        return False, f"진입가 < 전일 종가 {last_close:,.0f}(업틱룰 근사)"
     return True, ""
 
 
 def sell_verdict(d):
-    """보유 종목 매도 여부 — PM Sell/Underweight 면 매도. 판단 실패는 보유 유지."""
-    return (not d.error) and d.rating in config.SELL_RATINGS
+    """보유 종목 청산 여부 — Long 은 PM Sell/Underweight 면 매도, Short 는 PM Buy/Overweight 면 환매
+    (Hold 는 양쪽 모두 계속 보유). 판단 실패는 보유 유지."""
+    ratings = config.COVER_RATINGS if d.side == "short" else config.SELL_RATINGS
+    return (not d.error) and d.rating in ratings
 
 
 def effective_weight(d):
@@ -144,7 +157,11 @@ def effective_weight(d):
 
 
 def effective_target(d):
-    return d.target if (d.target and d.entry and d.target > d.entry) else None
+    """방향이 맞는 목표가만 — Long 목표 > 진입, Short 목표 < 진입."""
+    if not (d.target and d.entry):
+        return None
+    ok = d.target < d.entry if d.side == "short" else d.target > d.entry
+    return d.target if ok else None
 
 
 # ── 가짜 구현(오프라인 테스트·로컬 프리뷰용) ─────────────────────────────────
@@ -185,8 +202,9 @@ def _mock_reports(req, d):
 
 
 class MockAgent:
-    """결정적 가짜 판단. 신규: 전일 종가 기준 진입 -1%, 손절 -5%, 목표 +6%, 비중 5%.
-    코드 끝자리가 7·8·9 면 Hold(미진입 경로 확인용). 매도 검토: 끝자리 짝수면 Sell.
+    """결정적 가짜 판단. 신규 Long: 전일 종가 기준 진입 -1%, 손절 -5%, 목표 +6%, 비중 5%.
+    신규 Short: 진입 +1%, 손절 +5%, 목표 -6%(Underweight·Sell). 코드 끝자리가 7·8·9 면 Hold(미진입 경로).
+    청산 검토: 끝자리 짝수면 Long Sell / Short Buy(환매), 아니면 Hold(새 목표·손절 제시).
     reports 는 실제 파이프라인과 같은 12개 키를 자리표시로 채운다(판단 실패 제외)."""
     name = "mock"
 
@@ -197,14 +215,21 @@ class MockAgent:
         return d
 
     def _decide(self, req):
-        d = Decision(code=req.code, date=req.date, purpose=req.purpose, agent=self.name)
+        d = Decision(code=req.code, date=req.date, purpose=req.purpose, agent=self.name, side=req.side)
         last = req.last_close
+        short = req.side == "short"
         if req.purpose == "review":
-            d.rating = "Sell" if int(req.code[-1]) % 2 == 0 else "Hold"
-            d.action = "Sell" if d.rating == "Sell" else "Hold"
-            if d.rating == "Hold" and last:                 # 계속 보유 시 새 목표·손절(목표/만기 재판별용)
-                d.target, d.stop = round(last * 1.05), round(last * 0.96)
-            d.summary = f"[mock] 매도 검토 — {req.reason or ''}"
+            exit_ = int(req.code[-1]) % 2 == 0
+            if short:
+                d.rating, d.action = ("Buy", "Buy") if exit_ else ("Hold", "Hold")
+                if not exit_ and last:                      # 계속 보유 시 새 목표(아래)·손절(위)
+                    d.target, d.stop = round(last * 0.95), round(last * 1.04)
+                d.summary = f"[mock] 환매 검토 — {req.reason or ''}"
+            else:
+                d.rating, d.action = ("Sell", "Sell") if exit_ else ("Hold", "Hold")
+                if not exit_ and last:                      # 계속 보유 시 새 목표·손절(목표/만기 재판별용)
+                    d.target, d.stop = round(last * 1.05), round(last * 0.96)
+                d.summary = f"[mock] 매도 검토 — {req.reason or ''}"
             return d
         if not last:
             d.error = "전일 종가 없음"
@@ -213,10 +238,15 @@ class MockAgent:
             d.rating, d.action = "Hold", "Hold"
             d.summary = "[mock] 근거 균형 — Hold"
             return d
+        d.weight = 0.05
+        if short:
+            d.rating, d.action = "Underweight", "Sell"
+            d.entry, d.stop, d.target = round(last * 1.01), round(last * 1.05), round(last * 0.94)
+            d.summary = f"[mock] {req.signal} {req.sector} — 공매도 {d.entry:,.0f} 손절 {d.stop:,.0f}"
+            return d
         d.rating, d.action = "Buy", "Buy"
         d.entry = round(last * 0.99)
         d.stop = round(last * 0.95)
         d.target = round(last * 1.06)
-        d.weight = 0.05
         d.summary = f"[mock] {req.signal} {req.sector} — 진입 {d.entry:,.0f} 손절 {d.stop:,.0f}"
         return d

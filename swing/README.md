@@ -1,7 +1,8 @@
 # swing — 섹터 시그널 스윙 모의투자 (`swing_paper` 브랜치 전용)
 
 main 주간 브리핑의 **섹터 시그널 종목 관찰**(동반강세·수급유입) 종목을 매일 누적해
-trading_agent 가 판단하고, 5영업일 보유 롱 모의투자를 한다(`SWING_HOLD_DAYS`). **main 에 병합하지 않는다.**
+trading_agent 가 판단하고, 5영업일 보유 롱 모의투자를 한다(`SWING_HOLD_DAYS`). 2026-09-30 부터 동반약세·수급이탈
+종목의 **Short(공매도)** 도 대칭 규칙으로 운용한다 — 규칙 R1~R13 은 [PLAN_SHORT.md](PLAN_SHORT.md). **main 에 병합하지 않는다.**
 
 ## 규칙 요약
 | 항목 | 값 |
@@ -16,6 +17,7 @@ trading_agent 가 판단하고, 5영업일 보유 롱 모의투자를 한다(`SW
 | 조기 매도 | 보유 종목 섹터가 수급이탈/동반약세 전환 **또는** 종목이 그 칸에 등재 → trading_agent 재판단 → PM Sell/Underweight 면 다음 영업일 시가 |
 | 자본·비용 | 5억, 매도세 0.2%, 슬리피지 없음, 비중 = Trader %(생략 5%, 상한 10%) |
 | 현금 부족 | 체결일 시가에 평가손실 종목을 손실률 큰 순으로 청산(합쳐도 부족하면 청산 없이 스킵) |
+| **Short** | 동반약세 → 수급이탈(하루 ≤ `SWING_MAX_NEW_SHORT_PER_DAY`=10), PM Sell/Underweight + Trader Sell, 고가 ≥ 진입가 체결(진입가 ≥ 전일 종가), 손절 진입가 위·목표 아래, 환매 = PM Buy/Overweight, 담보 100%·매도세 0.2%·대차 연 4%·총노출 ≤ 30% — [PLAN_SHORT.md](PLAN_SHORT.md) |
 
 ## 구성
 ```
@@ -38,7 +40,7 @@ data/wb_history/ 9/9~ 일별 주간 브리핑 축약본(git 이력에서 추출)
 
 ## 로컬
 **대시보드 확인(데모)** — 클론 직후 명령 하나. 데모 데이터(swing/data/demo, git 제외)가 없으면 자동 생성
-(mock 에이전트·mock 시세로 9/9~9/28 백필 + 테스트 Short)한 뒤 http://localhost:8124 로 서빙.
+(mock 에이전트·mock 시세로 9/9~9/28 Long·Short 백필)한 뒤 http://localhost:8124 로 서빙.
 표준 라이브러리만 쓰고 네트워크·API 키·패키지 설치 불필요, DATABASE_URL 이 있어도 무시.
 ```bash
 python swing/server.py --demo            # 없으면 생성 후 서빙
@@ -71,4 +73,5 @@ python swing/server.py        # 옵션 없음: DATABASE_URL 있으면 Postgres, 
 ## 남은 작업
 - P0: Railway 에서 수집 경로·일봉 소스(yfinance vs KIS 허브) 실측
 - P1 실동작 검증(개인 PC, 네트워크 필요) — 구현은 완료(`swing/agent/`, 출처 [SOURCE.md](agent/SOURCE.md)), 절차는 [HANDOFF_P1.md](HANDOFF_P1.md) 4절
+- Short S4: 실제 trading_agent 로 공매도 판단 실측(Trader Sell·가격 방향) — [PLAN_SHORT.md](PLAN_SHORT.md) 남은 확인
 - P5: `--from 2026-09-09 --to 2026-09-28 --wb-dir swing/data/wb_history` 소급 검증(뉴스·여론은 현재값 — 룩어헤드 명시)

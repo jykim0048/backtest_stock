@@ -9,9 +9,14 @@
     hold_updated: ["ext", "계속 보유 · 가격 갱신"], hold: ["hold-ok", "계속 보유"] };
   var KIND_TXT = { target: "목표 도달", expiry: "보유 만기", extended: "연장 재판별", signal: "신호" };
   var STATUS = { filled: "체결", cancelled: "취소", skipped: "스킵", open: "대기" };
+  // Short 청산 라벨 — 매도 → 환매(2026-09-30)
+  function reasonTxt(r, side) {
+    var t = REASON[r] || r;
+    return side === "short" ? String(t).replace("PM 매도", "PM 환매").replace("후 매도", "후 환매") : t;
+  }
   var SIG_ORDER = ["동반강세", "수급유입", "수급이탈", "동반약세"];
   var SIG_C = { "동반강세": "var(--sig-strong)", "수급유입": "var(--sig-inflow)", "수급이탈": "var(--sig-outflow)", "동반약세": "var(--sig-weak)" };
-  var SIG_SUB = { "동반강세": "추세 지속형 상방", "수급유입": "초기 유입형 상방", "수급이탈": "상승 후 약화 · 매도 검토 트리거", "동반약세": "약세 지속형 하방 · 매도 검토 트리거" };
+  var SIG_SUB = { "동반강세": "추세 지속형 상방", "수급유입": "초기 유입형 상방", "수급이탈": "상승 후 약화 · Short 후보 · Long 매도 검토", "동반약세": "약세 지속형 하방 · Short 후보 · Long 매도 검토" };
   // 판단 원문 = 스킬 종합 리포트(complete_report.md)와 같은 I~V 단계 묶음. 수집 정보는 부록(스킬은 사용자 보고에만 표시)
   var ROLE_GROUPS = [
     ["I. 애널리스트 리포트", [["market", "I-1. Market Analyst · 기술적 분석"], ["sentiment", "I-2. Sentiment Analyst · 심리"],
@@ -312,7 +317,7 @@
     setCount("cnt-long", longs.length);
     setCount("cnt-short", shorts.length);
     posTable($("positions"), longs, "Long 보유 종목이 없습니다");
-    posTable($("short-positions"), shorts, "Short 보유 없음 — 숏 모의투자 확장 후 표시");
+    posTable($("short-positions"), shorts, "Short 보유 종목이 없습니다");
   }
   function posTable(el, ps, empty) {
     table(el, [["종목"], ["신호"], ["가격 레벨"], ["수량", "r"], ["종가", "r"], ["평가손익", "r"], ["보유일"], ["상태"]],
@@ -329,33 +334,40 @@
       }), empty);
   }
 
-  // ── 판단·주문 (기준일) ──
+  // ── 판단·주문 (기준일) — Long·Short 탭이 같은 표 양식, 방향으로 나눔 ──
   function renderRun(run, orders) {
     run = run || {};
-    var reviews = run.reviews || [], cands = run.candidates || [], ex = orders.executed || [];
-    table($("reviews"), [["종목"], ["트리거"], ["PM"], ["결과"]],
+    var bySd = function (xs, sd) { return (xs || []).filter(function (x) { return sideOf(x) === sd; }); };
+    var ex = orders.executed || [];
+    runTables("", bySd(run.reviews, "long"), run.candidates || [], bySd(ex, "long"), run, "long");
+    runTables("short-", bySd(run.reviews, "short"), run.shortCandidates || [], bySd(ex, "short"), run, "short");
+    renderLogs(run);
+    return { cands: (run.candidates || []).concat(run.shortCandidates || []), reviews: run.reviews || [], ex: ex };
+  }
+  function runTables(pre, reviews, cands, ex, run, sd) {
+    table($(pre + "reviews"), [["종목"], ["트리거"], ["PM"], ["결과"]],
       reviews.map(function (r) {
         return { key: r.decisionKey, cells: [td(stock(r.name, r.code)), td(esc(r.trigger), "wrap"), td(rating(r.rating, r.error)),
           td(reviewResult(r))] };
-      }), "매도 검토 대상 없음");
-    table($("candidates"), [["종목"], ["신호"], ["PM"], ["Trader"], ["가격 레벨"], ["결과"]],
+      }), sd === "short" ? "환매 검토 대상 없음" : "매도 검토 대상 없음");
+    table($(pre + "candidates"), [["종목"], ["신호"], ["PM"], ["Trader"], ["가격 레벨"], ["결과"]],
       cands.map(function (c) {
         return { key: c.decisionKey, cells: [td(stock(c.name, c.code)), td('<span class="sec-name">' + esc(c.sector || "") + "</span>" + sig(c.signal)),
           td(rating(c.rating, /판단 실패/.test(c.why || ""))), td(esc(c.action || "—")),
           td(c.entry ? levels(c.entry, c.stop, c.target) : '<span class="muted">—</span>'),
-          td(c.ordered ? '<span class="state ordered">주문 ' + won(c.qty) + "주</span>" : '<span class="muted" style="font-size:12px">' + esc(c.why || "미주문") + "</span>")] };
+          td(c.ordered ? '<span class="state ordered">' + (sd === "short" ? "공매도 " : "주문 ") + won(c.qty) + "주</span>"
+            : '<span class="muted" style="font-size:12px">' + esc(c.why || "미주문") + "</span>")] };
       }), run.skip ? esc(run.skip) : "후보 없음");
-    table($("executed"), [["종목"], ["결과"], ["진입가", "r"], ["수량", "r"], ["비고"]],
+    table($(pre + "executed"), [["종목"], ["결과"], ["진입가", "r"], ["수량", "r"], ["비고"]],
       ex.map(function (o) {
         return [td(stock(o.name, o.code)), td('<span class="state ' + o.status + '">' + (STATUS[o.status] || o.status) + "</span>"),
           td('<span class="num">' + won(o.entry) + "</span>", "r"), td('<span class="num">' + won(o.qty) + "</span>", "r"),
           td(esc(o.note || ""), "wrap")];
       }), "이 날 유효했던 주문 없음");
-    renderLogs(run);
-    return { cands: cands, reviews: reviews, ex: ex };
   }
   function reviewResult(r) {
     var a = REVIEW_ACT[r.action] || (r.sell ? REVIEW_ACT.sell : r.error ? ["skipped", "판단 실패 — 보유 유지"] : REVIEW_ACT.hold);
+    if (sideOf(r) === "short") a = [a[0], String(a[1]).replace("매도", "환매")];
     var extra = r.action === "hold_updated" ? '<div class="stock-code">목표 ' + (r.target ? won(r.target) : "없음") + " · 손절 " + won(r.stop) + "</div>" : "";
     var kinds = (r.kinds || []).map(function (k) { return '<span class="kind-chip k-' + k + '">' + (KIND_TXT[k] || k) + "</span>"; }).join("");
     return (kinds ? '<div class="kinds">' + kinds + "</div>" : "") + '<span class="state ' + a[0] + '">' + a[1] + "</span>" + extra;
@@ -366,14 +378,17 @@
     if (run.skip) L.push('<div class="warn">[' + run.date + "] 건너뜀 — " + esc(run.skip) + "</div>");
     else {
       var nOrd = (run.candidates || []).filter(function (c) { return c.ordered; }).length;
+      var sc = run.shortCandidates || [], nS = sc.filter(function (c) { return c.ordered; }).length;
       L.push("<div>[" + run.date + "] 청산 " + (run.exits || []).length + " · 검토 " + (run.reviews || []).length +
-        " · 후보 " + (run.candidates || []).length + " · 주문 " + nOrd + "</div>");
+        " · 후보 " + (run.candidates || []).length + " · 주문 " + nOrd +
+        (sc.length ? " · 숏 후보 " + sc.length + " · 공매도 " + nS : "") + "</div>");
     }
     (run.notes || []).forEach(function (n) { L.push('<div class="warn">⚠ ' + esc(n) + "</div>"); });
     (run.exits || []).forEach(function (e) {
-      L.push("<div>· 청산 " + esc(e.name) + " " + (REASON[e.reason] || e.reason) + " " + pctTxt(e.retPct) + "</div>");
+      L.push("<div>· 청산 " + esc(e.name) + " " + reasonTxt(e.reason, e.side) + " " + pctTxt(e.retPct) + "</div>");
     });
     if ((run.capSkipped || []).length) L.push('<div class="dim">· 상한 초과로 미분석 ' + run.capSkipped.length + "종목</div>");
+    if ((run.shortCapSkipped || []).length) L.push('<div class="dim">· Short 상한 초과로 미분석 ' + run.shortCapSkipped.length + "종목</div>");
     if (run.startedAt) L.push('<div class="dim">' + esc(run.startedAt) + " → " + esc(run.finishedAt || "…") + " · " + esc(run.agent || "") + "</div>");
     $("logs").innerHTML = L.join("");
   }
@@ -459,11 +474,11 @@
     });
   }
 
-  // ── Short 후보 관찰(수급이탈·동반약세 칸 — 숏 확장 전 판단·주문 없음) ──
+  // ── Short 후보 칸(동반약세·수급이탈 전체 — 보유·상한으로 분석하지 않은 종목 포함) ──
   function renderShortWatch(m, date) {
     var xs = [];
-    ["수급이탈", "동반약세"].forEach(function (k) { (m[k] || []).forEach(function (x) { xs.push([k, x]); }); });
-    $("short-watch-sub").textContent = "수급이탈·동반약세 칸" + (date ? " · " + date : "") + " — 판단·주문 없음(관찰)";
+    ["동반약세", "수급이탈"].forEach(function (k) { (m[k] || []).forEach(function (x) { xs.push([k, x]); }); });
+    $("short-watch-sub").textContent = "동반약세·수급이탈 칸 전체" + (date ? " · " + date : "") + " — 판단·주문 결과는 위 표";
     table($("short-watch"), [["종목"], ["신호"], ["근거"], ["점수", "r"], ["보유 상태"]],
       xs.map(function (p) {
         var x = p[1];
@@ -734,8 +749,8 @@
           td('<span class="side-tag ' + sideOf(t) + '">' + (sideOf(t) === "long" ? "LONG" : "SHORT") + "</span>"),
           td(stock(t.name, t.code, "진입 " + (t.entryDate || "").slice(5), null, testTag(t))),
           td(t.exitDecisionKey
-            ? '<button type="button" class="reason ' + t.reason + ' name-link" data-key="' + esc(t.exitDecisionKey) + '" title="매도 판단 원문 보기">' + esc(REASON[t.reason] || t.reason) + " ›</button>"
-            : '<span class="reason ' + t.reason + '"' + (t.note ? ' title="' + esc(t.note) + '"' : "") + ">" + esc(REASON[t.reason] || t.reason) + "</span>"),
+            ? '<button type="button" class="reason ' + t.reason + ' name-link" data-key="' + esc(t.exitDecisionKey) + '" title="청산 판단 원문 보기">' + esc(reasonTxt(t.reason, t.side)) + " ›</button>"
+            : '<span class="reason ' + t.reason + '"' + (t.note ? ' title="' + esc(t.note) + '"' : "") + ">" + esc(reasonTxt(t.reason, t.side)) + "</span>"),
           td('<div class="stock-info" style="align-items:flex-end"><span class="num">' + won(t.entryPrice) + " → " + won(t.exitPrice) +
             '</span><span class="stock-code">' + won(t.qty) + "주</span></div>", "r"),
           td('<span class="num">' + t.holdDays + "일</span>", "r"),
@@ -844,7 +859,9 @@
   // ── 판단 원문 ──
   function openDecision(key) {
     api("/api/swing/decision?key=" + encodeURIComponent(key)).then(function (d) {
-      $("dec-title").textContent = d.code + " · " + d.date + " · " + (d.purpose === "review" ? "매도 검토" : "신규 진입");
+      var sh = d.side === "short";
+      $("dec-title").textContent = d.code + " · " + d.date + " · " +
+        (d.purpose === "review" ? (sh ? "Short 환매 검토" : "매도 검토") : (sh ? "공매도 진입" : "신규 진입"));
       var g = [["PM 등급", rating(d.rating, d.error)], ["Trader", esc(d.action || "—")],
         ["진입가", '<span class="param-value entry">' + won(d.entry) + "</span>"], ["손절가", '<span class="param-value stop">' + won(d.stop) + "</span>"],
         ["목표가(PM)", '<span class="param-value target">' + (d.target ? won(d.target) : "—") + "</span>"],
@@ -903,6 +920,8 @@
     S.positions.forEach(function (p) { if (sideOf(p) === "short") S.heldShort[p.code] = 1; else S.held[p.code] = 1; });
     renderHeader(r[0]); renderPortfolio(r[0]); renderRules(r[5]);
     document.querySelectorAll(".hold-n").forEach(function (x) { x.textContent = HOLD_N(); });
+    if (S.config && S.config.borrowRate != null) $("cfg-borrow").textContent = +(S.config.borrowRate * 100).toFixed(2);
+    if (S.config && S.config.shortMaxGross != null) $("cfg-sgross").textContent = Math.round(S.config.shortMaxGross * 100);
     renderEquity(r[1], r[0].capital0); renderPositions(r[2]); renderHoldingsPF(r[2], r[0]); renderReport();
     var dates = r[3].slice().reverse(), sel = $("run-date");
     sel.innerHTML = dates.length ? dates.map(function (d) { return "<option>" + d + "</option>"; }).join("") : "<option>—</option>";

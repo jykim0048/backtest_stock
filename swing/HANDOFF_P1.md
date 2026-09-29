@@ -145,8 +145,8 @@ backtest_stock `generate_analysis.resolve_peers` 가 Gemini 로 하던 방식과
 python swing/server.py --demo          # http://localhost:8124
 python swing/server.py --rebuild-demo  # 코드가 바뀌었으면 데모 재생성
 ```
-- 생성 내용: mock 에이전트·mock 시세로 9/9~9/28 백필(과거 신호 `swing/data/wb_history`) + 테스트 Short
-  (`swing/tools/seed_demo_short.py`, 화면에 TEST 표시). 위치 `swing/data/demo/`(git 제외).
+- 생성 내용: mock 에이전트·mock 시세로 9/9~9/28 백필(과거 신호 `swing/data/wb_history`) — Long·Short 모두
+  실제 흐름(2026-09-30 Short 구현 후 테스트 Short 주입 스크립트 삭제). 위치 `swing/data/demo/`(git 제외).
 - 표준 라이브러리만 사용 — 패키지·API 키 불필요, `DATABASE_URL` 이 있어도 무시(항상 로컬 파일).
 - 실제 로컬 실행 결과(`swing/data/local`, 4절 3번)와 섞이지 않는다. 판단 원문은 "[mock]" 으로 표시된다.
 
@@ -208,3 +208,4 @@ P1 구현은 회사 PC 에서 끝났고, 이 PC 에서는 HANDOFF_P1.md 4절 "�
   이 PC 네트워크 금지. 기본값: SWING_AGENT_NO_SOCIAL=0(소셜 수집 켬 — peer B안과 짝), ohlcv 최근 60행.
 - 2026-09-29 (회사 PC) 대시보드 확인용 데모 자동 생성: `python swing/server.py --demo`(없으면 `swing/data/demo`에 mock
   백필 + 테스트 Short 생성 후 서빙, `--rebuild-demo` 재생성). 3-7절 추가, 6절 프롬프트에 확인 단계 추가.
+- 2026-09-30 (개인 PC) **Short(공매도) 구현** — 규칙 R1~R13·구현 위치는 `swing/PLAN_SHORT.md`(하루 Short 분석 상한 10, 나머지 권장값). 테스트 71건 통과(Short 18 신규). 4절 실동작 검증 때 **Short 후보 2~3종목도 함께** 돌려 Trader 가 `Action: Sell`·Entry(≥ 전일 종가)·Stop(진입가 위)을 주는지 확인하고, 하루 런 소요시간은 Long 10 + Short 10 기준으로 잴 것. 판단 원문 팝업은 스킬 종합 리포트 I~V 단계 묶음·마크다운 렌더링(`fb497fdc`). 데모 테스트 Short 주입 스크립트는 삭제 — mock 백필이 Short 도 실제 흐름으로 생성(`--rebuild-demo`).

@@ -117,7 +117,10 @@ def api_config(q):
             "holdDays": config.HOLD_DAYS, "maxHoldDays": config.MAX_HOLD_DAYS, "maxWeight": config.MAX_WEIGHT,
             "defaultWeight": config.DEFAULT_WEIGHT, "maxNewPerDay": config.MAX_NEW_PER_DAY,
             "buySignals": config.BUY_SIGNALS, "sellSignals": config.SELL_SIGNALS,
-            "buyRatings": config.BUY_RATINGS, "sellRatings": config.SELL_RATINGS}
+            "buyRatings": config.BUY_RATINGS, "sellRatings": config.SELL_RATINGS,
+            "shortEnabled": config.SHORT_ENABLED, "shortSignals": config.SHORT_SIGNALS,
+            "maxNewShortPerDay": config.MAX_NEW_SHORT_PER_DAY, "shortMaxGross": config.SHORT_MAX_GROSS,
+            "borrowRate": config.BORROW_RATE}
 
 
 def api_export(q):
