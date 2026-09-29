@@ -13,21 +13,41 @@ import sys
 
 _ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, _ROOT)
-from swing import config, store  # noqa: E402
+from swing import config, store, tradedays  # noqa: E402
 
 # (코드, 이름, 섹터, 신호, 진입가, 손절가, 목표가, 수량, 체결일, 보유일, 종가)
 HOLD = [
-    ("028260", "삼성물산", "유통", "동반약세", 162000, 170100, 150700, 300, "2026-09-24", 2, 158500),
-    ("016360", "삼성증권", "증권", "동반약세", 61500, 64600, 57200, 700, "2026-09-25", 1, 62300),
+    ("028260", "삼성물산", "유통", "동반약세", 162000, 170100, 150700, 300, "2026-09-23", 2, 158500),
+    ("016360", "삼성증권", "증권", "동반약세", 61500, 64600, 57200, 700, "2026-09-28", 1, 62300),
     ("006800", "미래에셋증권", "증권", "수급이탈", 13200, 13860, 12280, 3000, "2026-09-22", 3, 12790),
 ]
 # (코드, 이름, 섹터, 신호, 진입일, 진입가, 청산일, 청산가, 사유, 수량, 보유일)
 CLOSED = [
-    ("257720", "실리콘투", "유통", "동반약세", "2026-09-15", 41000, "2026-09-19", 38150, "target", 1000, 5),
+    ("257720", "실리콘투", "유통", "동반약세", "2026-09-15", 41000, "2026-09-21", 38150, "target", 1000, 5),
     ("039490", "키움증권", "증권", "동반약세", "2026-09-16", 255000, "2026-09-17", 267750, "stop", 150, 2),
     ("000720", "현대건설", "건설", "수급이탈", "2026-09-17", 58900, "2026-09-23", 57400, "expiry", 700, 5),
     ("047040", "대우건설", "건설", "수급이탈", "2026-09-18", 9650, "2026-09-22", 9980, "pm_sell", 4000, 3),
 ]
+
+
+ASOF = "2026-09-28"   # 데모 백필 마지막 날 — 보유 종목 보유일 기준
+
+
+def _hold_days(start, end):
+    """체결일=1일째인 영업일 보유일."""
+    return len(tradedays.trading_days(start, end))
+
+
+def check_dates():
+    """체결·청산일이 영업일이고 보유일이 영업일 수와 맞는지 → 문제 목록(빈 리스트면 정상)."""
+    bad = []
+    for code, *_, fd, hd, _c in HOLD:
+        if not tradedays.is_trading_day(fd) or _hold_days(fd, ASOF) != hd:
+            bad.append(f"보유 {code} 체결 {fd} 보유일 {hd}")
+    for code, _n, _s, _g, ed, _e, xd, _x, _w, _q, hd in CLOSED:
+        if not (tradedays.is_trading_day(ed) and tradedays.is_trading_day(xd)) or _hold_days(ed, xd) != hd:
+            bad.append(f"청산 {code} {ed}→{xd} 보유일 {hd}")
+    return bad
 
 
 def _is_demo(x):
@@ -41,6 +61,9 @@ def main(argv=None):
     a = ap.parse_args(argv)
     if os.environ.get("DATABASE_URL"):
         raise SystemExit("DATABASE_URL 이 설정돼 있음 — 테스트 데이터는 로컬 파일 저장소에만 넣는다")
+    bad = check_dates()
+    if bad:
+        raise SystemExit("데모 Short 날짜 오류(휴장일·보유일 불일치): " + "; ".join(bad))
     st = store.FileStore(a.store)
     L = st.get("ledger")
     if not L:

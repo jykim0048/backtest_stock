@@ -12,9 +12,16 @@
   var SIG_ORDER = ["동반강세", "수급유입", "수급이탈", "동반약세"];
   var SIG_C = { "동반강세": "var(--sig-strong)", "수급유입": "var(--sig-inflow)", "수급이탈": "var(--sig-outflow)", "동반약세": "var(--sig-weak)" };
   var SIG_SUB = { "동반강세": "추세 지속형 상방", "수급유입": "초기 유입형 상방", "수급이탈": "상승 후 약화 · 매도 검토 트리거", "동반약세": "약세 지속형 하방 · 매도 검토 트리거" };
-  var ROLE_ORDER = [["peers", "해외 비교기업"], ["collect", "수집 상태"], ["market", "기술적 분석"], ["sentiment", "심리"],
-    ["news", "뉴스·공시"], ["fundamentals", "펀더멘털"], ["flow", "수급"], ["debate", "강세·약세 토론"],
-    ["research_manager", "리서치 매니저"], ["trader", "트레이더"], ["risk_debate", "리스크 토론"], ["pm", "포트폴리오 매니저"]];
+  // 판단 원문 = 스킬 종합 리포트(complete_report.md)와 같은 I~V 단계 묶음. 수집 정보는 부록(스킬은 사용자 보고에만 표시)
+  var ROLE_GROUPS = [
+    ["I. 애널리스트 리포트", [["market", "I-1. Market Analyst · 기술적 분석"], ["sentiment", "I-2. Sentiment Analyst · 심리"],
+      ["news", "I-3. News Analyst · 뉴스·공시"], ["fundamentals", "I-4. Fundamentals Analyst · 펀더멘털"],
+      ["flow", "I-5. Flow Analyst · 수급"]]],
+    ["II. 강세·약세 토론과 Research Manager", [["debate", "II-1. 강세·약세 토론"], ["research_manager", "II-2. Research Manager"]]],
+    ["III. Trader", [["trader", "Trader"]]],
+    ["IV. 리스크 토론", [["risk_debate", "공격 → 보수 → 중립"]]],
+    ["V. Portfolio Manager", [["pm", "Portfolio Manager"]]],
+    ["부록 · 수집 정보", [["peers", "해외 비교기업"], ["collect", "수집 상태"]]]];
 
   function HOLD_N() { return (S.config && S.config.holdDays) || 5; }
   var S = { summary: null, positions: [], trades: [], equity: [], config: null, held: {} };
@@ -29,6 +36,56 @@
     return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
       return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
     });
+  }
+  // 판단 원문 마크다운 → HTML. LLM 출력이라 먼저 esc 하고 허용 문법(제목·표·목록·인용·굵게·코드·구분선)만 태그로 바꾼다
+  function mdInline(s) {
+    return esc(s).replace(/`([^`]+)`/g, "<code>$1</code>")
+      .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+      .replace(/(^|[^*])\*([^*\s][^*]*)\*(?!\*)/g, "$1<em>$2</em>");
+  }
+  function md(src) {
+    var lines = String(src == null ? "" : src).replace(/\r/g, "").split("\n"), out = [], i = 0, para = [];
+    var cells = function (l) { return l.trim().replace(/^\||\|$/g, "").split("|").map(function (c) { return c.trim(); }); };
+    var isSep = function (l) { return /^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?\s*$/.test(l); };
+    function flush() { if (para.length) { out.push("<p>" + para.map(mdInline).join("<br>") + "</p>"); para = []; } }
+    while (i < lines.length) {
+      var l = lines[i], m;
+      if (!l.trim()) { flush(); i++; continue; }
+      if (/^```/.test(l)) {
+        flush(); var code = []; i++;
+        while (i < lines.length && !/^```/.test(lines[i])) code.push(lines[i++]);
+        out.push("<pre><code>" + esc(code.join("\n")) + "</code></pre>"); i++; continue;
+      }
+      if ((m = /^(#{1,6})\s+(.*)$/.exec(l))) {
+        flush(); var lv = Math.min(m[1].length + 2, 6);   // 대화상자 안이라 h3~h6 로 낮춤
+        out.push("<h" + lv + ">" + mdInline(m[2]) + "</h" + lv + ">"); i++; continue;
+      }
+      if (/^\s*([-*_])(\s*\1){2,}\s*$/.test(l)) { flush(); out.push("<hr>"); i++; continue; }
+      if (l.indexOf("|") >= 0 && i + 1 < lines.length && isSep(lines[i + 1])) {
+        flush(); var head = cells(l), rows = []; i += 2;
+        while (i < lines.length && lines[i].indexOf("|") >= 0 && lines[i].trim()) rows.push(cells(lines[i++]));
+        out.push('<div class="md-table"><table><thead><tr>' + head.map(function (c) { return "<th>" + mdInline(c) + "</th>"; }).join("") +
+          "</tr></thead><tbody>" + rows.map(function (r) {
+            return "<tr>" + r.map(function (c) { return "<td>" + mdInline(c) + "</td>"; }).join("") + "</tr>";
+          }).join("") + "</tbody></table></div>");
+        continue;
+      }
+      if (/^\s*>/.test(l)) {
+        flush(); var q = [];
+        while (i < lines.length && /^\s*>/.test(lines[i])) q.push(lines[i++].replace(/^\s*>\s?/, ""));
+        out.push("<blockquote>" + md(q.join("\n")) + "</blockquote>"); continue;
+      }
+      if ((m = /^\s*([-*+]|\d+[.)])\s+/.exec(l))) {
+        flush(); var ol = /\d/.test(m[1]), items = [];
+        while (i < lines.length && (m = /^(\s*)([-*+]|\d+[.)])\s+(.*)$/.exec(lines[i])) && /\d/.test(m[2]) === ol) {
+          items.push((m[1].length >= 2 ? '<li class="sub">' : "<li>") + mdInline(m[3]) + "</li>"); i++;
+        }
+        out.push((ol ? "<ol>" : "<ul>") + items.join("") + (ol ? "</ol>" : "</ul>")); continue;
+      }
+      para.push(l); i++;
+    }
+    flush();
+    return out.join("");
   }
   function won(v) { return v == null ? "—" : Math.round(v).toLocaleString("ko-KR"); }
   function eok(v) { return v == null ? "—" : (v / 1e8).toFixed(2) + "억"; }
@@ -798,11 +855,22 @@
       if (d.error) h += '<div class="dec-sec"><h4>판단 실패</h4><div class="report" style="color:#fca5a5">' + esc(d.error) + "</div></div>";
       if (d.summary) h += '<div class="dec-sec"><h4>PM 요약</h4><div class="report">' + esc(d.summary) + "</div></div>";
       var reps = d.reports || {}, known = {};
-      ROLE_ORDER.forEach(function (r) { known[r[0]] = 1; });
-      var list = ROLE_ORDER.filter(function (r) { return reps[r[0]]; }).concat(
-        Object.keys(reps).filter(function (k) { return !known[k]; }).map(function (k) { return [k, k]; }));
-      if (list.length) h += '<div class="dec-sec"><h4>역할별 리포트</h4>' + list.map(function (r) {
-        return "<details><summary>" + esc(r[1]) + '</summary><div class="report">' + esc(reps[r[0]]) + "</div></details>";
+      ROLE_GROUPS.forEach(function (g) { g[1].forEach(function (r) { known[r[0]] = 1; }); });
+      var extra = Object.keys(reps).filter(function (k) { return !known[k]; }).map(function (k) { return [k, k]; });
+      var groups = ROLE_GROUPS.map(function (g, i) {
+        return [g[0], g[1].concat(i === ROLE_GROUPS.length - 1 ? extra : []).filter(function (r) { return reps[r[0]]; })];
+      }).filter(function (g) { return g[1].length; });
+      // 단계 묶음은 접힌 상태. 역할이 하나인 단계는 원문 바로, 여럿이면 역할별로 한 번 더 접는다
+      if (groups.length) h += '<div class="dec-sec"><h4>종합 리포트</h4>' + groups.map(function (g) {
+        var rep = function (k) {   // peers 는 JSON 이라 코드 블록, 나머지는 마크다운
+          return '<div class="report md">' + (k === "peers" ? "<pre><code>" + esc(reps[k]) + "</code></pre>" : md(reps[k])) + "</div>";
+        };
+        var body = g[1].length === 1 ? rep(g[1][0][0])
+          : '<div class="role-list">' + g[1].map(function (r) {
+            return "<details><summary>" + esc(r[1]) + "</summary>" + rep(r[0]) + "</details>";
+          }).join("") + "</div>";
+        return '<details class="stage"><summary>' + esc(g[0]) + (g[1].length > 1 ? ' <span class="muted">' + g[1].length + "</span>" : "") +
+          "</summary>" + body + "</details>";
       }).join("") + "</div>";
       h += '<p class="muted" style="font-size:11px;margin-top:14px">판단 엔진 ' + esc(d.agent || "—") + "</p>";
       $("dec-body").innerHTML = h;

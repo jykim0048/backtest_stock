@@ -148,12 +148,55 @@ def effective_target(d):
 
 
 # ── 가짜 구현(오프라인 테스트·로컬 프리뷰용) ─────────────────────────────────
+# 실제 파이프라인(swing/agent/pipeline.py)이 채우는 reports 키 — 대시보드 ROLE_GROUPS(I~V·부록) 순서
+REPORT_KEYS = ("peers", "collect", "market", "sentiment", "news", "fundamentals", "flow",
+               "debate", "research_manager", "trader", "risk_debate", "pm")
+
+
+def _won(v):
+    return f"{v:,.0f}원" if v else "—"
+
+
+_MOCK_ANALYSTS = (("market", "Market Analyst", "기술적 분석"), ("sentiment", "Sentiment Analyst", "시장 심리"),
+                  ("news", "News Analyst", "뉴스·공시·거시"), ("fundamentals", "Fundamentals Analyst", "재무·밸류에이션"),
+                  ("flow", "Flow Analyst", "수급"))
+
+
+def _mock_reports(req, d):
+    """대시보드 판단 원문 구조 확인용 자리표시 — 12개 키 전부, 스킬 리포트 머리 형식을 흉내.
+    trader·pm 은 파서 라벨 유지."""
+    who = f"{req.name} ({req.code}) {req.date}"
+    note = "[mock] 데모 자리표시 — 실제 판단(--agent trading_agent)에서는 역할 원문이 들어갑니다."
+    r = {k: f"# {role} — {who} {title}\n{note}" for k, role, title in _MOCK_ANALYSTS}
+    r["peers"] = f'{{"source": "mock", "peers": []}}\n{note}'
+    r["collect"] = "\n".join(f"- {k}: mock" for k in ("price", "naver_news", "hub_flow", "dart_financials"))
+    r["debate"] = (f"# 강세·약세 토론 — {who}\n라운드 1.\n\n## Round 1 — Bull\n\nBull Analyst: {note}\n\n"
+                   f"## Round 1 — Bear\n\nBear Analyst: {note}")
+    r["research_manager"] = f"**Recommendation**: {d.rating}\n\n**Rationale**: {note}"
+    r["risk_debate"] = (f"# 리스크 3자 토론 — {who}\n라운드 1. 순서 공격 → 보수 → 중립.\n\n" + "\n\n".join(
+        f"## Round 1 — {s}\n\n{s} Analyst: {note}" for s in ("Aggressive", "Conservative", "Neutral")))
+    r["trader"] = (f"**Action**: {d.action or 'Hold'}\n\n**Reasoning**: {note}\n\n**Entry Price**: {_won(d.entry)}\n"
+                   f"**Stop Loss**: {_won(d.stop)}\n"
+                   f"**Position Sizing**: 포트폴리오의 {(d.weight or 0) * 100:.0f}%\n\n"
+                   f"FINAL TRANSACTION PROPOSAL: **{(d.action or 'Hold').upper()}**")
+    r["pm"] = (f"**Rating**: {d.rating}\n\n**Executive Summary**: {d.summary}\n\n**Investment Thesis**: {note}\n\n"
+               f"**Price Target**: {_won(d.target)}")
+    return {k: r[k] for k in REPORT_KEYS}
+
+
 class MockAgent:
     """결정적 가짜 판단. 신규: 전일 종가 기준 진입 -1%, 손절 -5%, 목표 +6%, 비중 5%.
-    코드 끝자리가 7·8·9 면 Hold(미진입 경로 확인용). 매도 검토: 끝자리 짝수면 Sell."""
+    코드 끝자리가 7·8·9 면 Hold(미진입 경로 확인용). 매도 검토: 끝자리 짝수면 Sell.
+    reports 는 실제 파이프라인과 같은 12개 키를 자리표시로 채운다(판단 실패 제외)."""
     name = "mock"
 
     def decide(self, req):
+        d = self._decide(req)
+        if not d.error:
+            d.reports = _mock_reports(req, d)
+        return d
+
+    def _decide(self, req):
         d = Decision(code=req.code, date=req.date, purpose=req.purpose, agent=self.name)
         last = req.last_close
         if req.purpose == "review":
@@ -176,6 +219,4 @@ class MockAgent:
         d.target = round(last * 1.06)
         d.weight = 0.05
         d.summary = f"[mock] {req.signal} {req.sector} — 진입 {d.entry:,.0f} 손절 {d.stop:,.0f}"
-        d.reports = {"trader": f"**Action**: Buy\n\n**Entry Price**: {d.entry:,.0f}원",
-                     "pm": f"**Rating**: Buy\n\n**Price Target**: {d.target:,.0f}원"}
         return d

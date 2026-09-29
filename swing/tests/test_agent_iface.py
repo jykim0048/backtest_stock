@@ -61,6 +61,35 @@ class TestParse(unittest.TestCase):
         d.weight = None
         self.assertEqual(A.effective_weight(d), 0.05)
 
+    def test_mock_reports_all_roles_and_parse_back(self):
+        """데모 판단 원문에 실제 파이프라인과 같은 12개 키, trader·pm 은 파서로 같은 값 복원."""
+        ag = A.MockAgent()
+        req = A.DecisionRequest(code="005930", name="삼성전자", date="2026-09-28",
+                                purpose="entry", sector="전기·전자", signal="동반강세",
+                                last_close=100_000)
+        d = ag.decide(req)
+        self.assertEqual(tuple(d.reports), A.REPORT_KEYS)
+        back = A.decision_from_markdown(req, d.reports["trader"], d.reports["pm"])
+        self.assertEqual((back.rating, back.action, back.entry, back.stop, back.target, back.weight),
+                         (d.rating, d.action, d.entry, d.stop, d.target, d.weight))
+        # Hold·매도 검토도 12개 키, 판단 실패는 reports 없음
+        for code, purpose in (("005937", "entry"), ("005930", "review"), ("005931", "review")):
+            r = ag.decide(A.DecisionRequest(code=code, name="x", date="2026-09-28",
+                                            purpose=purpose, last_close=100_000))
+            self.assertEqual(tuple(r.reports), A.REPORT_KEYS)
+        err = ag.decide(A.DecisionRequest(code="005930", name="x", date="2026-09-28", purpose="entry"))
+        self.assertTrue(err.error)
+        self.assertEqual(err.reports, {})
+
+    def test_report_keys_match_pipeline(self):
+        """REPORT_KEYS 가 pipeline 이 채우는 키와 어긋나지 않게."""
+        import inspect
+        import re
+        from swing.agent import pipeline
+        keys = set(re.findall(r'R\["(\w+)"\]\s*=', inspect.getsource(pipeline)))
+        keys |= {k for k, _, _ in pipeline.ANALYSTS}
+        self.assertEqual(keys, set(A.REPORT_KEYS))
+
 
 if __name__ == "__main__":
     unittest.main()
