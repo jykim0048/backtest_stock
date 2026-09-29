@@ -13,7 +13,7 @@ import sys
 
 _ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, _ROOT)
-from swing import config, store, tradedays  # noqa: E402
+from swing import agent_iface as A, config, store, tradedays  # noqa: E402
 
 # (코드, 이름, 섹터, 신호, 진입가, 손절가, 목표가, 수량, 체결일, 보유일, 종가)
 HOLD = [
@@ -50,6 +50,18 @@ def check_dates():
     return bad
 
 
+def _demo_decision(code, name, date, entry, stop=None, target=None):
+    """Long 데모와 같은 12개 역할 자리표시(Underweight·Sell). 실제 판단 아님(agent=demo)."""
+    req = A.DecisionRequest(code=code, name=f"{name} TEST", date=date, purpose="entry")
+    d = A.Decision(code=code, date=date, purpose="entry", rating="Underweight", action="Sell",
+                   entry=float(entry), stop=float(stop) if stop else None,
+                   target=float(target) if target else None, weight=0.05, agent="demo")
+    d.summary = (f"[TEST] 공매도 진입 {entry:,}" + (f" · 손절 {stop:,}(진입가 위)" if stop else "")
+                 + (f" · 목표 {target:,}(진입가 아래)" if target else ""))
+    d.reports = A._mock_reports(req, d)
+    return d.to_dict()
+
+
 def _is_demo(x):
     return bool(x.get("demo"))
 
@@ -80,10 +92,7 @@ def main(argv=None):
                                "entry": float(e), "stop": float(s_), "target": float(t), "fillDate": fd,
                                "holdDay": hd, "sector": sec, "signal": sig, "decisionKey": key,
                                "lastClose": float(c), "sellPending": None, "demo": True})
-        st.put(key, {"code": code, "date": fd, "purpose": "entry", "rating": "Underweight", "action": "Sell",
-                     "entry": e, "stop": s_, "target": t, "weight": 0.05, "agent": "demo",
-                     "summary": f"[TEST] {sec} {sig} — 공매도 진입 {e:,} · 손절 {s_:,}(진입가 위) · 목표 {t:,}(진입가 아래)",
-                     "reports": {"trader": "**Action**: Sell\n\n(테스트 데이터 — 실제 판단 아님)"}})
+        st.put(key, _demo_decision(code, name, fd, e, s_, t))
     for i, (code, name, sec, sig, ed, e, xd, x, why, q, hd) in enumerate(CLOSED):
         # 숏 손익 = (진입가 − 환매가) × 수량 − 매도세(공매도 진입이 매도, 환매는 매수라 세금 없음)
         pnl = q * (e - x) - q * e * config.SELL_TAX
@@ -93,9 +102,7 @@ def main(argv=None):
                             "reason": why, "holdDays": hd, "tax": round(q * e * config.SELL_TAX),
                             "pnl": round(pnl), "retPct": round(pnl / (q * e) * 100, 2), "sector": sec,
                             "signal": sig, "decisionKey": key, "exitDecisionKey": None, "demo": True})
-        st.put(key, {"code": code, "date": ed, "purpose": "entry", "rating": "Sell", "action": "Sell",
-                     "entry": e, "agent": "demo", "summary": f"[TEST] {sec} {sig} — 공매도 진입 {e:,}",
-                     "reports": {"trader": "**Action**: Sell\n\n(테스트 데이터 — 실제 판단 아님)"}})
+        st.put(key, _demo_decision(code, name, ed, e))
     L["trades"].sort(key=lambda t: t["exitDate"])
     st.put("ledger", L)
     print(f"demo Short 주입: 보유 {len(HOLD)} · 청산 {len(CLOSED)}")
