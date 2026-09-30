@@ -6,11 +6,783 @@
     "selectedDate": "2026-09-30",
     "basePrice": 586000,
     "entry": 588900,
-    "target": 636600,
-    "stop": 548000,
+    "target": 636900,
+    "stop": 547800,
     "stars": "⭐⭐⭐",
-    "catalyst": "전일 종가 기준 상승 +1.38% 마감. 자동 생성 리포트 — 세부 촉매 분석은 수동 업데이트가 필요합니다.",
-    "scenario": "<b>[자동 생성 시나리오]</b><br>전일 종가 586,000원 기준으로 산출된 기술적 레벨입니다. 진입 상한가 588,900원 이하에서 분할 매수하고, 목표 익절가 636,600원, 손절선 548,000원으로 리스크를 관리하세요."
+    "catalyst": "SK하이닉스의 HBM 시장 지배력 강화와 SK텔레콤의 고객만족도 1위 등 자회사들의 견조한 실적 모멘텀이 존재합니다. 그러나 지주사 할인 이슈와 복잡한 지배구조에 대한 개인 투자자들의 불만이 주가 상승을 제한하는 핵심 요인입니다.",
+    "scenario": "<b>[자동 생성 시나리오]</b><br>전일 종가 586,000원 기준으로 산출된 기술적 레벨입니다. 진입 상한가 588,900원 이하에서 분할 매수하고, 목표 익절가 636,900원, 손절선 547,800원으로 리스크를 관리하세요.",
+    "analysis": {
+      "catalyst": "SK하이닉스의 HBM 시장 지배력 강화와 SK텔레콤의 고객만족도 1위 등 자회사들의 견조한 실적 모멘텀이 존재합니다. 그러나 지주사 할인 이슈와 복잡한 지배구조에 대한 개인 투자자들의 불만이 주가 상승을 제한하는 핵심 요인입니다.",
+      "direction": "neutral",
+      "flowComment": "기관은 최근 순매수 기조를 유지하며 하단을 지지하고 있으나, 외국인의 지속적인 매도세와 9월 28일 공매도 비중이 16.64%까지 급증한 점은 부담입니다. 대차잔고 또한 59만 주 수준으로 누증되고 있어 단기적인 수급 압박이 존재합니다.",
+      "peers": {
+        "summary": "글로벌 지주회사인 Berkshire Hathaway(BRK-B)가 주요 피어이며, 해외 여론은 경영진 교체와 자사주 매입을 통한 주가 방어에 주목하고 있습니다.",
+        "reddit": [
+          {
+            "title": "BRK.B at $509: How Low Does It Go With Warren Buffett Stepping Down as Chairman?",
+            "url": "https://www.reddit.com/r/stocks/comments/1wjmz94/brkb_at_509_how_low_does_it_go_with_warren/",
+            "subreddit": "r/stocks",
+            "sentiment": "중립",
+            "summary": "워런 버핏의 회장직 사임 이후 버크셔 해서웨이의 경영진 교체와 막대한 현금 활용 방안에 대한 시장의 우려와 기대가 공존합니다."
+          }
+        ],
+        "stocktwits": [
+          {
+            "ticker": "BRK-B",
+            "name": "Berkshire Hathaway Inc.",
+            "status": "ok",
+            "bullish": 13,
+            "bearish": 3,
+            "unlabeled": 14,
+            "total": 30,
+            "labeled": 16,
+            "bullPct": 81,
+            "windowDays": 7,
+            "newest": "2026-09-30 08:10",
+            "oldest": "2026-09-29 10:37",
+            "samples": [
+              {
+                "createdAt": "2026-09-30 08:10",
+                "user": "ggoggo",
+                "sentiment": "Bullish",
+                "body": "$BRK.B Corporate buybacks for August and September are in $495-500 range. They&#39;re defending 500 level IMO."
+              },
+              {
+                "createdAt": "2026-09-30 04:39",
+                "user": "ggoggo",
+                "sentiment": "Bullish",
+                "body": "$BRK.B Corporate buybacks price has increased boys. Time to go much higher."
+              },
+              {
+                "createdAt": "2026-09-30 03:17",
+                "user": "ggoggo",
+                "sentiment": "Bullish",
+                "body": "$BRK.B Dealers will teach you bears a few lessons"
+              }
+            ],
+            "summary": "기업의 자사주 매입이 500달러 선을 방어하고 있다는 의견이 지배적이며, 전반적으로 강세 심리가 우세합니다."
+          }
+        ],
+        "items": [
+          {
+            "name": "Berkshire Hathaway Inc.",
+            "ticker": "BRK-B",
+            "price": 502.35,
+            "changePct": -0.15,
+            "note": "다양한 산업 포트폴리오를 보유한 지주회사로서의 사업 구조가 가장 유사함"
+          },
+          {
+            "name": "SoftBank Group Corp.",
+            "ticker": "9984.T",
+            "price": 6035.0,
+            "changePct": -3.26,
+            "note": "기술 및 투자 중심의 지주회사 모델을 운영하며 글로벌 투자 포트폴리오를 보유함"
+          },
+          {
+            "name": "Exor N.V.",
+            "ticker": "EXO.AS",
+            "price": 70.65,
+            "changePct": 0.0,
+            "note": "에너지, 자동차, 금융 등 다각화된 자산을 관리하는 유럽의 대표적인 지주회사"
+          },
+          {
+            "name": "Investor AB",
+            "ticker": "INVE-B.ST",
+            "price": 408.15,
+            "changePct": 0.0,
+            "note": "스웨덴의 대표적인 산업 지주회사로, 다양한 산업군에 걸친 장기 투자 전략을 구사함"
+          },
+          {
+            "name": "Mitsui & Co., Ltd.",
+            "ticker": "8031.T",
+            "price": 4829.0,
+            "changePct": -2.46,
+            "note": "에너지, 화학, 인프라 등 다양한 사업 영역을 영위하는 일본의 종합상사형 지주회사"
+          }
+        ],
+        "socialStatus": {
+          "reddit": "ok",
+          "redditQueried": [
+            "BRK-B@stocks",
+            "web:Berkshire Hathaway Inc.",
+            "web:SoftBank Group Corp."
+          ],
+          "stocktwits": {
+            "BRK-B": "ok"
+          }
+        }
+      },
+      "news": {
+        "summary": "SK하이닉스의 HBM4 시장 선점과 SK텔레콤의 서비스 경쟁력 입증 등 자회사들의 성과가 돋보입니다. 다만, 부동산 시장 냉각 등 거시경제적 불확실성이 투자 심리에 영향을 미치고 있습니다.",
+        "items": [
+          {
+            "title": "NH투자증권 \"SK하이닉스, 메모리 수요 지속.. 목표가 340만원\"",
+            "source": "G-enews",
+            "date": "2026-09-30",
+            "sentiment": "긍정",
+            "url": "https://www.g-enews.com/view.php?ud=20260930082142419644093b5d4e_1",
+            "insight": "AI 메모리 수요 증가에 따른 SK하이닉스의 실적 개선 기대감이 지주사 SK의 가치 재평가로 이어질 가능성이 있습니다."
+          },
+          {
+            "title": "SK텔레콤, 1년 만에 KCSI 1위 탈환…국내 3대 고객만족도 조사 '그랜드슬램'",
+            "source": "중앙뉴스",
+            "date": "2026-09-30",
+            "sentiment": "긍정",
+            "url": "https://www.joongangenews.com/news/articleView.html?idxno=551438",
+            "insight": "핵심 자회사인 SK텔레콤의 서비스 경쟁력 강화는 지주사 브랜드 가치 제고에 긍정적입니다."
+          },
+          {
+            "title": "\"내년 HBM 평균판매가 121% 상승\" 전망…공급 부족 2027년까지",
+            "source": "컨슈머타임스",
+            "date": "2026-09-30",
+            "sentiment": "긍정",
+            "url": "https://www.cstimes.com/news/articleView.html?idxno=722336",
+            "insight": "HBM 공급 부족 장기화는 SK하이닉스의 수익성 극대화와 SK의 지분 가치 상승을 견인할 핵심 동력입니다."
+          }
+        ]
+      },
+      "community": {
+        "summary": "종목토론방을 중심으로 주가 부진과 복잡한 지배구조(이른바 '5단 상장' 논란)에 대한 개인 투자자들의 불만이 매우 높습니다.",
+        "sentimentLabel": "부정",
+        "naver": [
+          {
+            "title": "5단 상장은 진짜 너무 한거 아니냐??",
+            "url": "https://stock.naver.com/domestic/stock/034730/discussion/429881663",
+            "sentiment": "부정",
+            "summary": "지배구조 개편 및 자회사 상장 이슈에 대한 소액주주들의 강한 불만이 표출되고 있습니다."
+          },
+          {
+            "title": "찬티였는데 이건 아니네요. 수고하세요.",
+            "url": "https://stock.naver.com/domestic/stock/034730/discussion/429862536",
+            "sentiment": "부정",
+            "summary": "주가 흐름에 실망한 기존 주주들의 이탈 조짐이 보입니다."
+          }
+        ]
+      },
+      "dart": {
+        "summary": "최근 공시는 자회사에 대한 금전 대여 및 채무 인수 등 지주사로서의 자금 지원 및 재무 관리 활동이 주를 이룹니다.",
+        "highlights": [
+          {
+            "label": "금전대여결정",
+            "value": "2026-09-29",
+            "note": "자회사에 대한 자금 지원을 통해 그룹 내 유동성 관리 및 경영 효율화를 도모하고 있습니다."
+          },
+          {
+            "label": "채무인수결정",
+            "value": "2026-09-29",
+            "note": "자회사의 재무 리스크 관리 차원의 채무 인수가 진행되었습니다."
+          }
+        ],
+        "recentFilings": [
+          {
+            "date": "2026-09-29",
+            "title": "금전대여결정(자회사의 주요경영사항)              ",
+            "filer": "SK",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260929800713"
+          },
+          {
+            "date": "2026-09-29",
+            "title": "금전대여결정(자회사의 주요경영사항)              ",
+            "filer": "SK",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260929800708"
+          },
+          {
+            "date": "2026-09-29",
+            "title": "최대주주등소유주식변동신고서              ",
+            "filer": "SK",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260929800685"
+          },
+          {
+            "date": "2026-09-29",
+            "title": "채무인수결정(자회사의 주요경영사항)              ",
+            "filer": "SK",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260929800626"
+          },
+          {
+            "date": "2026-09-28",
+            "title": "단일판매ㆍ공급계약체결(자회사의 주요경영사항)              ",
+            "filer": "SK",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260928800431"
+          }
+        ]
+      },
+      "research": {
+        "summary": "증권가에서는 SK하이닉스와 SK이노베이션 등 주요 자회사의 실적 호조를 근거로 매수 의견을 유지하고 있으며, 목표주가는 80만원 내외로 형성되어 있습니다.",
+        "items": [
+          {
+            "title": "실적개선과 주주환원에 대한 재평가",
+            "broker": "SK증권",
+            "date": "2026-08-31",
+            "url": "https://stock.naver.com/research/company/95929",
+            "pdfUrl": "https://stock.pstatic.net/stock-research/company/64/20260831_company_248021000.pdf",
+            "targetPrice": 800000,
+            "opinion": "매수",
+            "note": "SK에코플랜트의 고성장과 반도체 모듈 사업의 수익성을 바탕으로 한 실적 개선을 긍정적으로 평가합니다."
+          },
+          {
+            "title": "아직 시작도 안했다",
+            "broker": "유안타증권",
+            "date": "2026-08-21",
+            "url": "https://stock.naver.com/research/company/95802",
+            "pdfUrl": "https://stock.pstatic.net/stock-research/company/18/20260821_company_49560000.pdf",
+            "targetPrice": 830000,
+            "opinion": "Buy",
+            "note": "자회사 전반의 실적 호조와 마진 개선을 근거로 목표주가를 상향 조정하며 매수 의견을 제시합니다."
+          },
+          {
+            "title": "2Q26 Review: AI DC로 향하는 SK",
+            "broker": "한화투자증권",
+            "date": "2026-08-18",
+            "url": "https://stock.naver.com/research/company/95740",
+            "pdfUrl": "https://stock.pstatic.net/stock-research/company/16/20260818_company_254605000.pdf",
+            "targetPrice": 800000,
+            "opinion": "Buy",
+            "note": "AI 데이터센터 공정 본격화와 자회사들의 이익 성장이 지주사 실적을 견인할 것으로 전망합니다."
+          },
+          {
+            "title": "하이닉스가 끌고 이노베이션이 민다",
+            "broker": "하나증권",
+            "date": "2026-08-18",
+            "url": "https://stock.naver.com/research/company/95720",
+            "pdfUrl": "",
+            "targetPrice": null,
+            "opinion": "",
+            "note": "SK하이닉스 외에도 SK이노베이션의 서프라이즈 실적을 반영하여 목표주가를 상향했습니다."
+          },
+          {
+            "title": "SK 실트론 매각, 재무구조 개선과 미래 성장가치 옵션 확보",
+            "broker": "SK증권",
+            "date": "2026-08-03",
+            "url": "https://stock.naver.com/research/company/94933",
+            "pdfUrl": "",
+            "targetPrice": null,
+            "opinion": "",
+            "note": "SK실트론 매각을 통한 재무 건전성 제고와 미래 성장 동력 확보를 긍정적인 이벤트로 평가합니다."
+          }
+        ],
+        "consensus": {
+          "avg": 810000,
+          "high": 830000,
+          "low": 800000,
+          "n": 3,
+          "upsidePct": 38.2,
+          "opinions": {
+            "매수": 3
+          }
+        }
+      },
+      "generatedBy": "gemini-3.1-flash-lite",
+      "flow": {
+        "rank": [],
+        "shorts": [
+          {
+            "date": "20260929",
+            "qty": 6644.0,
+            "volRlim": 6.21,
+            "pbmn": 38.5,
+            "pbmnRlim": 6.19
+          },
+          {
+            "date": "20260928",
+            "qty": 25731.0,
+            "volRlim": 16.64,
+            "pbmn": 149.8,
+            "pbmnRlim": 16.56
+          },
+          {
+            "date": "20260923",
+            "qty": 6792.0,
+            "volRlim": 5.23,
+            "pbmn": 41.0,
+            "pbmnRlim": 5.22
+          },
+          {
+            "date": "20260922",
+            "qty": 8501.0,
+            "volRlim": 7.38,
+            "pbmn": 50.0,
+            "pbmnRlim": 7.38
+          },
+          {
+            "date": "20260921",
+            "qty": 961.0,
+            "volRlim": 0.98,
+            "pbmn": 5.5,
+            "pbmnRlim": 0.97
+          },
+          {
+            "date": "20260918",
+            "qty": 3289.0,
+            "volRlim": 1.26,
+            "pbmn": 18.0,
+            "pbmnRlim": 1.26
+          },
+          {
+            "date": "20260917",
+            "qty": 4297.0,
+            "volRlim": 3.58,
+            "pbmn": 23.3,
+            "pbmnRlim": 3.58
+          },
+          {
+            "date": "20260916",
+            "qty": 8126.0,
+            "volRlim": 8.27,
+            "pbmn": 44.3,
+            "pbmnRlim": 8.24
+          },
+          {
+            "date": "20260915",
+            "qty": 11543.0,
+            "volRlim": 13.26,
+            "pbmn": 64.0,
+            "pbmnRlim": 13.22
+          },
+          {
+            "date": "20260914",
+            "qty": 7967.0,
+            "volRlim": 10.18,
+            "pbmn": 45.1,
+            "pbmnRlim": 10.16
+          },
+          {
+            "date": "20260911",
+            "qty": 15744.0,
+            "volRlim": 15.25,
+            "pbmn": 91.3,
+            "pbmnRlim": 15.23
+          },
+          {
+            "date": "20260910",
+            "qty": 10865.0,
+            "volRlim": 5.45,
+            "pbmn": 65.7,
+            "pbmnRlim": 5.42
+          },
+          {
+            "date": "20260909",
+            "qty": 9302.0,
+            "volRlim": 10.33,
+            "pbmn": 55.8,
+            "pbmnRlim": 10.37
+          },
+          {
+            "date": "20260908",
+            "qty": 6388.0,
+            "volRlim": 5.45,
+            "pbmn": 39.1,
+            "pbmnRlim": 5.43
+          },
+          {
+            "date": "20260907",
+            "qty": 6230.0,
+            "volRlim": 4.34,
+            "pbmn": 37.8,
+            "pbmnRlim": 4.34
+          },
+          {
+            "date": "20260904",
+            "qty": 5048.0,
+            "volRlim": 5.69,
+            "pbmn": 28.4,
+            "pbmnRlim": 5.69
+          },
+          {
+            "date": "20260903",
+            "qty": 5201.0,
+            "volRlim": 4.86,
+            "pbmn": 28.1,
+            "pbmnRlim": 4.84
+          },
+          {
+            "date": "20260902",
+            "qty": 14226.0,
+            "volRlim": 11.93,
+            "pbmn": 77.8,
+            "pbmnRlim": 11.88
+          },
+          {
+            "date": "20260901",
+            "qty": 6208.0,
+            "volRlim": 3.74,
+            "pbmn": 35.4,
+            "pbmnRlim": 3.71
+          },
+          {
+            "date": "20260831",
+            "qty": 1915.0,
+            "volRlim": 0.74,
+            "pbmn": 10.2,
+            "pbmnRlim": 0.72
+          }
+        ],
+        "loans": [
+          {
+            "date": "20260929",
+            "newQty": 2125.0,
+            "rdmpQty": 738.0,
+            "rmndChg": 1387.0,
+            "rmndQty": 594880.0,
+            "rmndAmt": 3486.0
+          },
+          {
+            "date": "20260928",
+            "newQty": 3651.0,
+            "rdmpQty": 1456.0,
+            "rmndChg": 2195.0,
+            "rmndQty": 593493.0,
+            "rmndAmt": 3430.4
+          },
+          {
+            "date": "20260923",
+            "newQty": 70869.0,
+            "rdmpQty": 50997.0,
+            "rmndChg": 19872.0,
+            "rmndQty": 591298.0,
+            "rmndAmt": 3612.8
+          },
+          {
+            "date": "20260922",
+            "newQty": 3486.0,
+            "rdmpQty": 1758.0,
+            "rmndChg": 1728.0,
+            "rmndQty": 571426.0,
+            "rmndAmt": 3360.0
+          },
+          {
+            "date": "20260921",
+            "newQty": 26574.0,
+            "rdmpQty": 24469.0,
+            "rmndChg": 2105.0,
+            "rmndQty": 569698.0,
+            "rmndAmt": 3275.8
+          },
+          {
+            "date": "20260918",
+            "newQty": 485.0,
+            "rdmpQty": 164.0,
+            "rmndChg": 321.0,
+            "rmndQty": 567593.0,
+            "rmndAmt": 3093.4
+          },
+          {
+            "date": "20260917",
+            "newQty": 7326.0,
+            "rdmpQty": 229.0,
+            "rmndChg": 7097.0,
+            "rmndQty": 567272.0,
+            "rmndAmt": 3057.6
+          },
+          {
+            "date": "20260916",
+            "newQty": 5079.0,
+            "rdmpQty": 10783.0,
+            "rmndChg": -5704.0,
+            "rmndQty": 560175.0,
+            "rmndAmt": 3086.6
+          },
+          {
+            "date": "20260915",
+            "newQty": 8493.0,
+            "rdmpQty": 10492.0,
+            "rmndChg": -1999.0,
+            "rmndQty": 565879.0,
+            "rmndAmt": 3112.3
+          },
+          {
+            "date": "20260914",
+            "newQty": 7532.0,
+            "rdmpQty": 4273.0,
+            "rmndChg": 3259.0,
+            "rmndQty": 567878.0,
+            "rmndAmt": 3236.9
+          },
+          {
+            "date": "20260911",
+            "newQty": 198.0,
+            "rdmpQty": 287.0,
+            "rmndChg": -89.0,
+            "rmndQty": 572817.0,
+            "rmndAmt": 3351.0
+          },
+          {
+            "date": "20260910",
+            "newQty": 20.0,
+            "rdmpQty": 4218.0,
+            "rmndChg": -4198.0,
+            "rmndQty": 572906.0,
+            "rmndAmt": 3506.2
+          },
+          {
+            "date": "20260909",
+            "newQty": 1112.0,
+            "rdmpQty": 1165.0,
+            "rmndChg": -53.0,
+            "rmndQty": 577104.0,
+            "rmndAmt": 3474.2
+          },
+          {
+            "date": "20260908",
+            "newQty": 421.0,
+            "rdmpQty": 4472.0,
+            "rmndChg": -4051.0,
+            "rmndQty": 577157.0,
+            "rmndAmt": 3480.2
+          },
+          {
+            "date": "20260907",
+            "newQty": 9337.0,
+            "rdmpQty": 11950.0,
+            "rmndChg": -2613.0,
+            "rmndQty": 581208.0,
+            "rmndAmt": 3551.2
+          },
+          {
+            "date": "20260904",
+            "newQty": 280.0,
+            "rdmpQty": 30328.0,
+            "rmndChg": -30048.0,
+            "rmndQty": 583821.0,
+            "rmndAmt": 3345.3
+          },
+          {
+            "date": "20260903",
+            "newQty": 5913.0,
+            "rdmpQty": 9188.0,
+            "rmndChg": -3275.0,
+            "rmndQty": 613869.0,
+            "rmndAmt": 3345.6
+          },
+          {
+            "date": "20260902",
+            "newQty": 2617.0,
+            "rdmpQty": 1149.0,
+            "rmndChg": 1468.0,
+            "rmndQty": 617144.0,
+            "rmndAmt": 3363.4
+          },
+          {
+            "date": "20260901",
+            "newQty": 1386.0,
+            "rdmpQty": 643.0,
+            "rmndChg": 743.0,
+            "rmndQty": 615676.0,
+            "rmndAmt": 3607.9
+          },
+          {
+            "date": "20260831",
+            "newQty": 616.0,
+            "rdmpQty": 2312.0,
+            "rmndChg": -1696.0,
+            "rmndQty": 614933.0,
+            "rmndAmt": 3351.4
+          }
+        ],
+        "rankAsof": "08:38",
+        "trend": [
+          {
+            "date": "20260929",
+            "frgn": -12240,
+            "orgn": 19848,
+            "prsn": -7750,
+            "holdRatio": 30.16,
+            "close": 587000,
+            "rate": 1.56
+          },
+          {
+            "date": "20260928",
+            "frgn": -42671,
+            "orgn": 25501,
+            "prsn": 16860,
+            "holdRatio": 30.17,
+            "close": 576000,
+            "rate": -5.73
+          },
+          {
+            "date": "20260923",
+            "frgn": 2733,
+            "orgn": 33137,
+            "prsn": -35383,
+            "holdRatio": 30.26,
+            "close": 607000,
+            "rate": 3.23
+          },
+          {
+            "date": "20260922",
+            "frgn": -15894,
+            "orgn": 26997,
+            "prsn": -11917,
+            "holdRatio": 30.26,
+            "close": 588000,
+            "rate": 2.26
+          },
+          {
+            "date": "20260921",
+            "frgn": 2253,
+            "orgn": 24078,
+            "prsn": -25784,
+            "holdRatio": 30.29,
+            "close": 578000,
+            "rate": 6.06
+          },
+          {
+            "date": "20260918",
+            "frgn": -12165,
+            "orgn": 12020,
+            "prsn": 485,
+            "holdRatio": 30.27,
+            "close": 550000,
+            "rate": 2.04
+          },
+          {
+            "date": "20260917",
+            "frgn": -19014,
+            "orgn": -694,
+            "prsn": 19233,
+            "holdRatio": 30.29,
+            "close": 546000,
+            "rate": -0.91
+          },
+          {
+            "date": "20260916",
+            "frgn": -10729,
+            "orgn": 9032,
+            "prsn": 1931,
+            "holdRatio": 30.32,
+            "close": 552000,
+            "rate": 0.36
+          },
+          {
+            "date": "20260915",
+            "frgn": 6314,
+            "orgn": -15875,
+            "prsn": 9427,
+            "holdRatio": 30.34,
+            "close": 555000,
+            "rate": -2.63
+          },
+          {
+            "date": "20260914",
+            "frgn": 14540,
+            "orgn": -8744,
+            "prsn": -5450,
+            "holdRatio": 30.33,
+            "close": 558000,
+            "rate": -4.62
+          },
+          {
+            "date": "20260911",
+            "frgn": -3251,
+            "orgn": -13195,
+            "prsn": 15979,
+            "holdRatio": 30.31,
+            "close": 585000,
+            "rate": -4.41
+          },
+          {
+            "date": "20260910",
+            "frgn": 64888,
+            "orgn": -43896,
+            "prsn": -20883,
+            "holdRatio": 30.32,
+            "close": 612000,
+            "rate": 1.66
+          },
+          {
+            "date": "20260909",
+            "frgn": -2713,
+            "orgn": -6274,
+            "prsn": 9566,
+            "holdRatio": 30.23,
+            "close": 602000,
+            "rate": -0.17
+          },
+          {
+            "date": "20260908",
+            "frgn": 16515,
+            "orgn": -15064,
+            "prsn": -1048,
+            "holdRatio": 30.23,
+            "close": 603000,
+            "rate": -1.31
+          },
+          {
+            "date": "20260907",
+            "frgn": 7388,
+            "orgn": 25638,
+            "prsn": -30141,
+            "holdRatio": 30.21,
+            "close": 611000,
+            "rate": 6.63
+          },
+          {
+            "date": "20260904",
+            "frgn": 17835,
+            "orgn": 14713,
+            "prsn": -31140,
+            "holdRatio": 30.18,
+            "close": 573000,
+            "rate": 5.14
+          },
+          {
+            "date": "20260903",
+            "frgn": 13025,
+            "orgn": -9012,
+            "prsn": -4028,
+            "holdRatio": 30.13,
+            "close": 545000,
+            "rate": 0.0
+          },
+          {
+            "date": "20260902",
+            "frgn": -7054,
+            "orgn": -14265,
+            "prsn": 20622,
+            "holdRatio": 30.11,
+            "close": 545000,
+            "rate": -7.0
+          },
+          {
+            "date": "20260901",
+            "frgn": 32929,
+            "orgn": 5566,
+            "prsn": -35913,
+            "holdRatio": 30.14,
+            "close": 586000,
+            "rate": 7.52
+          },
+          {
+            "date": "20260831",
+            "frgn": 17316,
+            "orgn": -1837,
+            "prsn": -14894,
+            "holdRatio": 30.08,
+            "close": 545000,
+            "rate": 0.37
+          }
+        ]
+      },
+      "_flowOk": true,
+      "_meta": {
+        "filingKey": "2026-09-29|금전대여결정(자회사의 주요경영사항)              ",
+        "asOf": "2026-09-30T08:38:50.699086+09:00",
+        "price": 586000
+      }
+    },
+    "direction": "neutral"
+  },
+  {
+    "code": "030000",
+    "name": "제일기획",
+    "market": "KOSPI",
+    "selectedDate": "2026-09-30",
+    "basePrice": 17880,
+    "entry": 18000,
+    "target": 18600,
+    "stop": 17300,
+    "stars": "⭐⭐⭐",
+    "catalyst": "전일 종가 기준 상승 +0.39% 마감. 자동 생성 리포트 — 세부 촉매 분석은 수동 업데이트가 필요합니다.",
+    "scenario": "<b>[자동 생성 시나리오]</b><br>전일 종가 17,880원 기준으로 산출된 기술적 레벨입니다. 진입 상한가 18,000원 이하에서 분할 매수하고, 목표 익절가 18,600원, 손절선 17,300원으로 리스크를 관리하세요."
   },
   {
     "code": "001060",
@@ -19,11 +791,716 @@
     "selectedDate": "2026-09-30",
     "basePrice": 26500,
     "entry": 26600,
-    "target": 28100,
-    "stop": 25300,
+    "target": 28000,
+    "stop": 25400,
     "stars": "⭐⭐⭐",
-    "catalyst": "전일 종가 기준 하락 -1.12% 마감. 자동 생성 리포트 — 세부 촉매 분석은 수동 업데이트가 필요합니다.",
-    "scenario": "<b>[자동 생성 시나리오]</b><br>전일 종가 26,500원 기준으로 산출된 기술적 레벨입니다. 진입 상한가 26,600원 이하에서 분할 매수하고, 목표 익절가 28,100원, 손절선 25,300원으로 리스크를 관리하세요."
+    "catalyst": "JW중외제약이 계열사 솔리더스인베스트먼트 지분 100%를 307억 원에 취득하며 오픈 이노베이션 및 신약 발굴 역량 강화를 공식화함. 보팡글루타이드 임상 3상 신청 등 R&D 모멘텀이 지속되고 있으나, 최근 주가는 수급 부진과 함께 박스권 흐름을 보이고 있음.",
+    "scenario": "<b>[자동 생성 시나리오]</b><br>전일 종가 26,500원 기준으로 산출된 기술적 레벨입니다. 진입 상한가 26,600원 이하에서 분할 매수하고, 목표 익절가 28,000원, 손절선 25,400원으로 리스크를 관리하세요.",
+    "analysis": {
+      "catalyst": "JW중외제약이 계열사 솔리더스인베스트먼트 지분 100%를 307억 원에 취득하며 오픈 이노베이션 및 신약 발굴 역량 강화를 공식화함. 보팡글루타이드 임상 3상 신청 등 R&D 모멘텀이 지속되고 있으나, 최근 주가는 수급 부진과 함께 박스권 흐름을 보이고 있음.",
+      "direction": "neutral",
+      "flowComment": "외국인이 9월 중순 이후 꾸준히 순매수하며 보유율을 7.67%까지 높였으나, 개인 투자자의 매도세가 지속되며 주가 상승을 제한하고 있음. 공매도 비중은 9월 18일 10.4% 고점 이후 6%대로 하락했으나 여전히 잔존하며, 대차잔고가 50만 주 내외에서 등락을 거듭하고 있어 수급 측면의 뚜렷한 반전 신호는 부족함.",
+      "peers": {
+        "summary": "수액제 및 전문의약품 사업을 영위하는 글로벌 피어 그룹(Baxter, Otsuka 등)은 전반적으로 안정적인 흐름을 보임. 해외 커뮤니티에서는 수액제 관련 글로벌 파트너십 및 FDA 승인 이슈가 주요 관심사임.",
+        "reddit": [],
+        "stocktwits": [
+          {
+            "ticker": "BAX",
+            "name": "Baxter International",
+            "status": "ok",
+            "bullish": 4,
+            "bearish": 0,
+            "unlabeled": 0,
+            "total": 4,
+            "labeled": 4,
+            "bullPct": 100,
+            "windowDays": 7,
+            "newest": "2026-09-30 04:43",
+            "oldest": "2026-09-28 03:37",
+            "samples": [
+              {
+                "createdAt": "2026-09-30 04:43",
+                "user": "dal_santos",
+                "sentiment": "Bullish",
+                "body": "$RYET That Formind headline is worth a second look. The Formind news has me revisiting $RYET: the company fulfilled a separate Smart Reading contract of about $1.20M net settlement. This is a compelling milestone to follow. I track $BAX on its own merits too."
+              },
+              {
+                "createdAt": "2026-09-29 05:10",
+                "user": "Yi_YandH",
+                "sentiment": "Bullish",
+                "body": "@Gmoneygrip0111111 SCD-PED is puny TAM. HOWEVER, if the press release included the Adult device to also be part of the International partnership when it receives its FDA PMA in June/July 2027….$5BILLION+ TAM outside the USA. That’s just for AKI/Sepsis/ARDS. (ARDS will be included…"
+              },
+              {
+                "createdAt": "2026-09-28 21:00",
+                "user": "Yi_YandH",
+                "sentiment": "Bullish",
+                "body": "$ICU Vantive($BAX): The SCD fits easily, as does Vantive, as our International, upfront $10,000,0000.00 PREMIUM paying partner with the SCD-PED. The 20%-25% royalties after device cost reimbursement plus the 10%-15%, for incidentals. International royalties will become a reality …"
+              }
+            ],
+            "summary": "국제 파트너십 및 FDA 승인 기대감이 주된 논점이며, 수액제 사업의 글로벌 업황을 가늠하는 참고 지표로 활용됨."
+          }
+        ],
+        "items": [
+          {
+            "name": "Takeda Pharmaceutical",
+            "ticker": "4502.T",
+            "price": 5739.0,
+            "changePct": -1.53,
+            "note": "소화기, 대사질환 등 전문의약품 중심의 포트폴리오를 보유한 일본 최대 제약사"
+          },
+          {
+            "name": "Otsuka Holdings",
+            "ticker": "4578.T",
+            "price": 11400.0,
+            "changePct": 2.89,
+            "note": "수액제 및 전문의약품 사업을 영위하며 JW중외제약과 사업 구조가 유사함"
+          },
+          {
+            "name": "Baxter International",
+            "ticker": "BAX",
+            "price": 23.48,
+            "changePct": -0.04,
+            "note": "수액제 및 병원용 의료기기 분야에서 글로벌 시장을 선도하는 기업"
+          },
+          {
+            "name": "Fresenius SE & Co. KGaA",
+            "ticker": "FRE.DE",
+            "price": 46.47,
+            "changePct": 0.0,
+            "note": "수액제, 투석 등 병원 치료 솔루션에 특화된 독일의 글로벌 헬스케어 기업"
+          },
+          {
+            "name": "Eisai Co., Ltd.",
+            "ticker": "4523.T",
+            "price": 4811.0,
+            "changePct": -0.62,
+            "note": "신경계 및 대사질환 치료제 개발에 강점을 가진 일본의 중견 제약사"
+          }
+        ],
+        "socialStatus": {
+          "reddit": "unavailable",
+          "redditQueried": [
+            "web:Takeda Pharmaceutical",
+            "web:Otsuka Holdings"
+          ],
+          "stocktwits": {
+            "BAX": "ok"
+          }
+        }
+      },
+      "news": {
+        "summary": "솔리더스인베스트먼트 인수를 통한 바이오 투자 역량 강화 소식이 핵심임. 이 외에도 GLP-1 제제 임상 3상 신청 등 R&D 성과가 있으나, 일부 품목의 급여 상한액 인하 등 악재도 공존함.",
+        "items": [
+          {
+            "title": "JW중외제약, 솔리더스인베스트먼트 지분 100% 307억원에 취득",
+            "source": "서울경제TV",
+            "date": "2026-09-30",
+            "sentiment": "긍정",
+            "url": "https://www.sentv.co.kr/article/view/sentv202609300015",
+            "insight": "오픈 이노베이션 전략의 일환으로 신약 발굴 역량 강화 기대."
+          },
+          {
+            "title": "[3Q 브리핑] 제약은 약가가, 바이오는 기술수출이 '터졌다'",
+            "source": "히트뉴스",
+            "date": "2026-09-30",
+            "sentiment": "중립",
+            "url": "https://www.hitnews.co.kr/news/articleView.html?idxno=79438",
+            "insight": "보팡글루타이드 임상 3상 신청 등 R&D 모멘텀은 유효함."
+          },
+          {
+            "title": "레테브모ㆍ리브리반트ㆍ빌로이ㆍ파드셉 급여목록 등재",
+            "source": "뉴스더보이스",
+            "date": "2026-09-30",
+            "sentiment": "부정",
+            "url": "http://www.newsmp.com/news/articleView.html?idxno=258393",
+            "insight": "리바로젯 등 기존 품목의 급여 상한액 인하는 수익성에 부정적 요인."
+          }
+        ]
+      },
+      "community": {
+        "summary": "종목토론방에서는 주가 부진에 대한 개인 투자자들의 불만과 비판이 주를 이루며, 신약 개발 기대감과 경영진에 대한 불신이 교차하는 모습임.",
+        "sentimentLabel": "부정",
+        "naver": [
+          {
+            "title": "다 팔았다. 진짜 이런회사는 시장에서 퇴출시키자.",
+            "url": "https://stock.naver.com/domestic/stock/001060/discussion/429275712",
+            "sentiment": "부정",
+            "summary": "주가 부진에 따른 투자자의 강한 불만 표출."
+          },
+          {
+            "title": "통풍신약 !",
+            "url": "https://stock.naver.com/domestic/stock/001060/discussion/429310615",
+            "sentiment": "긍정",
+            "summary": "신약 개발에 대한 기대감을 언급함."
+          },
+          {
+            "title": "[AI 요약] JW중외제약의 타법인 주식 및 출자증권 취득 결정 소식이 발표되었어요",
+            "url": "https://stock.naver.com/domestic/stock/001060/discussion/429935812",
+            "sentiment": "중립",
+            "summary": "공시 내용에 대한 정보 공유."
+          }
+        ]
+      },
+      "dart": {
+        "summary": "솔리더스인베스트먼트 지분 취득 공시가 가장 중요하며, 재무적으로는 자산 및 자본 총계가 전년 대비 안정적인 수준을 유지하고 있음.",
+        "highlights": [
+          {
+            "label": "타법인 주식 취득",
+            "value": "307억 원",
+            "note": "솔리더스인베스트먼트 지분 100% 취득 결정 (2026-09-29)"
+          },
+          {
+            "label": "자산총계",
+            "value": "6,052억 원",
+            "note": "전년 동기 대비 소폭 증가 (2025년 기준)"
+          },
+          {
+            "label": "자본총계",
+            "value": "3,693억 원",
+            "note": "전년 동기 대비 증가하며 재무 건전성 유지"
+          },
+          {
+            "label": "최대주주 지분율",
+            "value": "45.89%",
+            "note": "전환상환우선주의 보통주 전환으로 인한 변동"
+          }
+        ],
+        "recentFilings": [
+          {
+            "date": "2026-09-29",
+            "title": "타법인주식및출자증권취득결정              ",
+            "filer": "JW중외제약",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260929800726"
+          },
+          {
+            "date": "2026-09-18",
+            "title": "[기재정정]벌금등의부과              ",
+            "filer": "JW중외제약",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260918800750"
+          },
+          {
+            "date": "2026-09-17",
+            "title": "주식등의대량보유상황보고서(일반)",
+            "filer": "JW홀딩스",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260917000055"
+          },
+          {
+            "date": "2026-09-17",
+            "title": "임원ㆍ주요주주특정증권등소유상황보고서",
+            "filer": "JW홀딩스",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260917000035"
+          },
+          {
+            "date": "2026-09-17",
+            "title": "최대주주등소유주식변동신고서              ",
+            "filer": "JW중외제약",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260917800091"
+          }
+        ]
+      },
+      "research": {
+        "summary": "최근 60일간 발간된 증권사 리포트 없음.",
+        "items": []
+      },
+      "generatedBy": "gemini-3.1-flash-lite",
+      "flow": {
+        "rank": [],
+        "shorts": [
+          {
+            "date": "20260929",
+            "qty": 1907.0,
+            "volRlim": 6.8,
+            "pbmn": 0.5,
+            "pbmnRlim": 6.8
+          },
+          {
+            "date": "20260928",
+            "qty": 754.0,
+            "volRlim": 3.56,
+            "pbmn": 0.2,
+            "pbmnRlim": 3.56
+          },
+          {
+            "date": "20260923",
+            "qty": 1388.0,
+            "volRlim": 5.95,
+            "pbmn": 0.4,
+            "pbmnRlim": 5.96
+          },
+          {
+            "date": "20260922",
+            "qty": 2507.0,
+            "volRlim": 8.68,
+            "pbmn": 0.7,
+            "pbmnRlim": 8.68
+          },
+          {
+            "date": "20260921",
+            "qty": 3246.0,
+            "volRlim": 9.72,
+            "pbmn": 0.9,
+            "pbmnRlim": 9.75
+          },
+          {
+            "date": "20260918",
+            "qty": 5261.0,
+            "volRlim": 10.4,
+            "pbmn": 1.5,
+            "pbmnRlim": 10.41
+          },
+          {
+            "date": "20260917",
+            "qty": 4898.0,
+            "volRlim": 6.28,
+            "pbmn": 1.4,
+            "pbmnRlim": 6.25
+          },
+          {
+            "date": "20260916",
+            "qty": 1513.0,
+            "volRlim": 3.91,
+            "pbmn": 0.4,
+            "pbmnRlim": 3.9
+          },
+          {
+            "date": "20260915",
+            "qty": 883.0,
+            "volRlim": 2.22,
+            "pbmn": 0.2,
+            "pbmnRlim": 2.22
+          },
+          {
+            "date": "20260914",
+            "qty": 621.0,
+            "volRlim": 1.5,
+            "pbmn": 0.2,
+            "pbmnRlim": 1.5
+          },
+          {
+            "date": "20260911",
+            "qty": 1254.0,
+            "volRlim": 6.34,
+            "pbmn": 0.3,
+            "pbmnRlim": 6.35
+          },
+          {
+            "date": "20260910",
+            "qty": 8394.0,
+            "volRlim": 12.47,
+            "pbmn": 2.2,
+            "pbmnRlim": 12.54
+          },
+          {
+            "date": "20260909",
+            "qty": 8021.0,
+            "volRlim": 15.67,
+            "pbmn": 2.2,
+            "pbmnRlim": 15.68
+          },
+          {
+            "date": "20260908",
+            "qty": 9271.0,
+            "volRlim": 13.3,
+            "pbmn": 2.5,
+            "pbmnRlim": 13.29
+          },
+          {
+            "date": "20260907",
+            "qty": 9521.0,
+            "volRlim": 27.89,
+            "pbmn": 2.6,
+            "pbmnRlim": 27.89
+          },
+          {
+            "date": "20260904",
+            "qty": 616.0,
+            "volRlim": 1.64,
+            "pbmn": 0.2,
+            "pbmnRlim": 1.63
+          },
+          {
+            "date": "20260903",
+            "qty": 3152.0,
+            "volRlim": 3.93,
+            "pbmn": 0.9,
+            "pbmnRlim": 3.94
+          },
+          {
+            "date": "20260902",
+            "qty": 14848.0,
+            "volRlim": 14.1,
+            "pbmn": 4.2,
+            "pbmnRlim": 14.12
+          },
+          {
+            "date": "20260901",
+            "qty": 30271.0,
+            "volRlim": 9.36,
+            "pbmn": 8.8,
+            "pbmnRlim": 9.35
+          },
+          {
+            "date": "20260831",
+            "qty": 5072.0,
+            "volRlim": 7.65,
+            "pbmn": 1.4,
+            "pbmnRlim": 7.59
+          }
+        ],
+        "loans": [
+          {
+            "date": "20260929",
+            "newQty": 23893.0,
+            "rdmpQty": 17987.0,
+            "rmndChg": 5906.0,
+            "rmndQty": 505824.0,
+            "rmndAmt": 134.0
+          },
+          {
+            "date": "20260928",
+            "newQty": 33.0,
+            "rdmpQty": 3311.0,
+            "rmndChg": -3278.0,
+            "rmndQty": 499918.0,
+            "rmndAmt": 134.0
+          },
+          {
+            "date": "20260923",
+            "newQty": 3125.0,
+            "rdmpQty": 45661.0,
+            "rmndChg": -42536.0,
+            "rmndQty": 503196.0,
+            "rmndAmt": 135.1
+          },
+          {
+            "date": "20260922",
+            "newQty": 72392.0,
+            "rdmpQty": 20394.0,
+            "rmndChg": 51998.0,
+            "rmndQty": 545732.0,
+            "rmndAmt": 145.2
+          },
+          {
+            "date": "20260921",
+            "newQty": 447.0,
+            "rdmpQty": 5114.0,
+            "rmndChg": -4667.0,
+            "rmndQty": 493734.0,
+            "rmndAmt": 134.3
+          },
+          {
+            "date": "20260918",
+            "newQty": 6275.0,
+            "rdmpQty": 0.0,
+            "rmndChg": 6275.0,
+            "rmndQty": 498401.0,
+            "rmndAmt": 138.6
+          },
+          {
+            "date": "20260917",
+            "newQty": 0.0,
+            "rdmpQty": 16464.0,
+            "rmndChg": -16464.0,
+            "rmndQty": 492126.0,
+            "rmndAmt": 137.3
+          },
+          {
+            "date": "20260916",
+            "newQty": 15959.0,
+            "rdmpQty": 810.0,
+            "rmndChg": 15149.0,
+            "rmndQty": 508590.0,
+            "rmndAmt": 139.6
+          },
+          {
+            "date": "20260915",
+            "newQty": 418.0,
+            "rdmpQty": 233.0,
+            "rmndChg": 185.0,
+            "rmndQty": 493441.0,
+            "rmndAmt": 133.7
+          },
+          {
+            "date": "20260914",
+            "newQty": 15630.0,
+            "rdmpQty": 18492.0,
+            "rmndChg": -2862.0,
+            "rmndQty": 493256.0,
+            "rmndAmt": 133.7
+          },
+          {
+            "date": "20260911",
+            "newQty": 1220.0,
+            "rdmpQty": 9475.0,
+            "rmndChg": -8255.0,
+            "rmndQty": 496118.0,
+            "rmndAmt": 132.0
+          },
+          {
+            "date": "20260910",
+            "newQty": 6417.0,
+            "rdmpQty": 3751.0,
+            "rmndChg": 2666.0,
+            "rmndQty": 504373.0,
+            "rmndAmt": 134.9
+          },
+          {
+            "date": "20260909",
+            "newQty": 1787.0,
+            "rdmpQty": 0.0,
+            "rmndChg": 1787.0,
+            "rmndQty": 501707.0,
+            "rmndAmt": 134.9
+          },
+          {
+            "date": "20260908",
+            "newQty": 2547.0,
+            "rdmpQty": 3611.0,
+            "rmndChg": -1064.0,
+            "rmndQty": 499920.0,
+            "rmndAmt": 135.7
+          },
+          {
+            "date": "20260907",
+            "newQty": 8969.0,
+            "rdmpQty": 9033.0,
+            "rmndChg": -64.0,
+            "rmndQty": 500984.0,
+            "rmndAmt": 136.3
+          },
+          {
+            "date": "20260904",
+            "newQty": 1600.0,
+            "rdmpQty": 3559.0,
+            "rmndChg": -1959.0,
+            "rmndQty": 501048.0,
+            "rmndAmt": 137.8
+          },
+          {
+            "date": "20260903",
+            "newQty": 2498.0,
+            "rdmpQty": 2553.0,
+            "rmndChg": -55.0,
+            "rmndQty": 503007.0,
+            "rmndAmt": 136.6
+          },
+          {
+            "date": "20260902",
+            "newQty": 10548.0,
+            "rdmpQty": 10548.0,
+            "rmndChg": 0.0,
+            "rmndQty": 503062.0,
+            "rmndAmt": 139.6
+          },
+          {
+            "date": "20260901",
+            "newQty": 16.0,
+            "rdmpQty": 0.0,
+            "rmndChg": 16.0,
+            "rmndQty": 503062.0,
+            "rmndAmt": 145.9
+          },
+          {
+            "date": "20260831",
+            "newQty": 150.0,
+            "rdmpQty": 4986.0,
+            "rmndChg": -4836.0,
+            "rmndQty": 503046.0,
+            "rmndAmt": 141.8
+          }
+        ],
+        "rankAsof": "08:38",
+        "trend": [
+          {
+            "date": "20260929",
+            "frgn": 1256,
+            "orgn": 179,
+            "prsn": -1485,
+            "holdRatio": 7.67,
+            "close": 26400,
+            "rate": -1.49
+          },
+          {
+            "date": "20260928",
+            "frgn": 7386,
+            "orgn": -107,
+            "prsn": -7285,
+            "holdRatio": 7.64,
+            "close": 26800,
+            "rate": -0.19
+          },
+          {
+            "date": "20260923",
+            "frgn": 3529,
+            "orgn": 8,
+            "prsn": -3537,
+            "holdRatio": 7.61,
+            "close": 26450,
+            "rate": -0.56
+          },
+          {
+            "date": "20260922",
+            "frgn": -1707,
+            "orgn": -2780,
+            "prsn": 4487,
+            "holdRatio": 7.58,
+            "close": 26650,
+            "rate": -2.02
+          },
+          {
+            "date": "20260921",
+            "frgn": -625,
+            "orgn": -147,
+            "prsn": 770,
+            "holdRatio": 7.61,
+            "close": 27200,
+            "rate": -2.16
+          },
+          {
+            "date": "20260918",
+            "frgn": -1979,
+            "orgn": 78,
+            "prsn": 1896,
+            "holdRatio": 7.64,
+            "close": 27900,
+            "rate": 0.0
+          },
+          {
+            "date": "20260917",
+            "frgn": 7769,
+            "orgn": 9,
+            "prsn": -7840,
+            "holdRatio": 7.62,
+            "close": 28050,
+            "rate": 2.19
+          },
+          {
+            "date": "20260916",
+            "frgn": 8644,
+            "orgn": -55,
+            "prsn": -8589,
+            "holdRatio": 7.63,
+            "close": 27300,
+            "rate": 0.74
+          },
+          {
+            "date": "20260915",
+            "frgn": 13703,
+            "orgn": -41,
+            "prsn": -13714,
+            "holdRatio": 7.53,
+            "close": 27150,
+            "rate": 0.18
+          },
+          {
+            "date": "20260914",
+            "frgn": 14570,
+            "orgn": 4965,
+            "prsn": -19535,
+            "holdRatio": 7.47,
+            "close": 26950,
+            "rate": 1.32
+          },
+          {
+            "date": "20260911",
+            "frgn": 2922,
+            "orgn": -649,
+            "prsn": -2771,
+            "holdRatio": 7.4,
+            "close": 26600,
+            "rate": -0.56
+          },
+          {
+            "date": "20260910",
+            "frgn": 13699,
+            "orgn": -19275,
+            "prsn": 5571,
+            "holdRatio": 7.4,
+            "close": 26750,
+            "rate": -0.56
+          },
+          {
+            "date": "20260909",
+            "frgn": 928,
+            "orgn": -873,
+            "prsn": -55,
+            "holdRatio": 7.35,
+            "close": 26900,
+            "rate": -0.92
+          },
+          {
+            "date": "20260908",
+            "frgn": 14365,
+            "orgn": 6537,
+            "prsn": -20902,
+            "holdRatio": 7.34,
+            "close": 27150,
+            "rate": -0.18
+          },
+          {
+            "date": "20260907",
+            "frgn": -12033,
+            "orgn": -69,
+            "prsn": 12061,
+            "holdRatio": 7.29,
+            "close": 27200,
+            "rate": -1.09
+          },
+          {
+            "date": "20260904",
+            "frgn": 4546,
+            "orgn": 49,
+            "prsn": -4595,
+            "holdRatio": 7.35,
+            "close": 27500,
+            "rate": 1.29
+          },
+          {
+            "date": "20260903",
+            "frgn": 11512,
+            "orgn": 304,
+            "prsn": -11716,
+            "holdRatio": 7.34,
+            "close": 27150,
+            "rate": -2.16
+          },
+          {
+            "date": "20260902",
+            "frgn": -20445,
+            "orgn": 25408,
+            "prsn": -5044,
+            "holdRatio": 7.25,
+            "close": 27750,
+            "rate": -4.31
+          },
+          {
+            "date": "20260901",
+            "frgn": -94533,
+            "orgn": 1619,
+            "prsn": 92267,
+            "holdRatio": 7.33,
+            "close": 29000,
+            "rate": 2.84
+          },
+          {
+            "date": "20260831",
+            "frgn": -27872,
+            "orgn": 5045,
+            "prsn": 22827,
+            "holdRatio": 7.76,
+            "close": 28200,
+            "rate": 2.92
+          }
+        ]
+      },
+      "_flowOk": true,
+      "_meta": {
+        "filingKey": "2026-09-29|타법인주식및출자증권취득결정              ",
+        "asOf": "2026-09-30T08:38:50.699086+09:00",
+        "price": 26500
+      }
+    },
+    "direction": "neutral"
   },
   {
     "code": "174900",
@@ -33,32 +1510,38 @@
     "basePrice": 21750,
     "entry": 21900,
     "target": 24300,
-    "stop": 19900,
+    "stop": 19800,
     "stars": "⭐⭐⭐⭐⭐",
-    "catalyst": "앱클론이 기술이전한 HER2 표적 항체 신약 'AC101(HLX22)'의 임상 적응증이 결직장암 및 유방암으로 확대되어 총 9개로 늘어났다는 소식이 핵심 모멘텀입니다. 파트너사 헨리우스의 임상 개발 가속화는 앱클론의 기술 가치와 향후 마일스톤 유입 기대감을 높이는 요인입니다.",
-    "scenario": "<b>[자동 생성 시나리오]</b><br>전일 종가 21,750원 기준으로 산출된 기술적 레벨입니다. 진입 상한가 21,900원 이하에서 분할 매수하고, 목표 익절가 24,300원, 손절선 19,900원으로 리스크를 관리하세요.",
+    "catalyst": "앱클론이 중국 헨리우스에 기술이전한 HER2 표적 항체 신약 'AC101'의 임상 개발 범위가 결직장암까지 확대되었다는 소식이 주가 상승의 핵심 동력입니다. 이로 인해 상업화 이후 로열티 수익 증대 기대감이 커지며 9월 29일 주가가 13.93% 급등하는 등 강력한 모멘텀을 형성했습니다.",
+    "scenario": "<b>[자동 생성 시나리오]</b><br>전일 종가 21,750원 기준으로 산출된 기술적 레벨입니다. 진입 상한가 21,900원 이하에서 분할 매수하고, 목표 익절가 24,300원, 손절선 19,800원으로 리스크를 관리하세요.",
     "analysis": {
-      "catalyst": "앱클론이 기술이전한 HER2 표적 항체 신약 'AC101(HLX22)'의 임상 적응증이 결직장암 및 유방암으로 확대되어 총 9개로 늘어났다는 소식이 핵심 모멘텀입니다. 파트너사 헨리우스의 임상 개발 가속화는 앱클론의 기술 가치와 향후 마일스톤 유입 기대감을 높이는 요인입니다.",
+      "catalyst": "앱클론이 중국 헨리우스에 기술이전한 HER2 표적 항체 신약 'AC101'의 임상 개발 범위가 결직장암까지 확대되었다는 소식이 주가 상승의 핵심 동력입니다. 이로 인해 상업화 이후 로열티 수익 증대 기대감이 커지며 9월 29일 주가가 13.93% 급등하는 등 강력한 모멘텀을 형성했습니다.",
       "direction": "bullish",
-      "flowComment": "최근 외국인과 기관의 동반 매도세가 이어지고 있으나, 9월 28일 대차잔고가 약 12만 주 감소하며 상환 우위로 전환된 점은 긍정적입니다. 공매도 비중은 거래대금 대비 5% 내외로 관리되고 있어, 수급상 하방 압력이 완화되는 국면으로 해석됩니다.",
+      "flowComment": "9월 29일 기관이 31,686주를 순매수하며 주가 상승을 견인했으나 외국인은 29,011주 순매도했습니다. 당일 공매도 거래대금 비중이 5.41%로 다소 증가했으나, 대차잔고는 전일 대비 큰 변동이 없어 수급상 하방 압력은 제한적인 것으로 판단됩니다.",
       "peers": {
-        "summary": "해외 CAR-T 및 항체 신약 개발 기업들은 임상 데이터 발표와 파이프라인 진척에 따라 긍정적인 시장 반응을 보이고 있습니다. 다만, 소셜 미디어상의 표본이 적어 개별 기업의 이슈에 따른 변동성에 유의해야 합니다.",
+        "summary": "글로벌 CAR-T 및 항체 치료제 개발 기업인 FATE, AUTL 등은 최근 긍정적인 시장 분위기를 형성하고 있습니다. 특히 StockTwits에서 해당 종목들에 대한 투자자들의 낙관적인 전망이 우세하며, 이는 앱클론의 기술적 유사성과 섹터 모멘텀에 긍정적인 영향을 줄 수 있습니다.",
         "reddit": [],
         "stocktwits": [
           {
             "ticker": "FATE",
             "name": "Fate Therapeutics",
             "status": "ok",
-            "bullish": 19,
+            "bullish": 17,
             "bearish": 0,
             "unlabeled": 6,
-            "total": 25,
-            "labeled": 19,
+            "total": 23,
+            "labeled": 17,
             "bullPct": 100,
             "windowDays": 7,
-            "newest": "2026-09-29 03:44",
-            "oldest": "2026-09-22 21:51",
+            "newest": "2026-09-30 04:30",
+            "oldest": "2026-09-23 22:25",
             "samples": [
+              {
+                "createdAt": "2026-09-30 04:30",
+                "user": "radonco",
+                "sentiment": "Bullish",
+                "body": "$FATE bouncy time"
+              },
               {
                 "createdAt": "2026-09-29 03:44",
                 "user": "Rocketman808",
@@ -70,50 +1553,44 @@
                 "user": "WestEgg",
                 "sentiment": "Bullish",
                 "body": "$FATE hopefully FATE will move like KOD"
-              },
-              {
-                "createdAt": "2026-09-29 02:18",
-                "user": "Achandler787",
-                "sentiment": "Bullish",
-                "body": "$CABA cmon ! $XBI, $FATE , $KYTX sll up!! Take your 35 million shares short and cash in already! Hogs get slaughtered short too!"
               }
             ],
-            "summary": "임상 파이프라인 진척과 숏커버링 기대감으로 투자자들의 낙관적인 전망이 우세합니다."
+            "summary": "투자자들의 낙관적 전망이 지배적이며, 주가 반등에 대한 기대감이 높음."
           },
           {
             "ticker": "AUTL",
             "name": "Autolus Therapeutics",
             "status": "ok",
-            "bullish": 16,
+            "bullish": 14,
             "bearish": 0,
-            "unlabeled": 14,
+            "unlabeled": 16,
             "total": 30,
-            "labeled": 16,
+            "labeled": 14,
             "bullPct": 100,
             "windowDays": 7,
-            "newest": "2026-09-29 00:37",
-            "oldest": "2026-09-23 03:26",
+            "newest": "2026-09-30 05:21",
+            "oldest": "2026-09-24 01:16",
             "samples": [
               {
-                "createdAt": "2026-09-29 00:37",
+                "createdAt": "2026-09-30 05:21",
                 "user": "Michael_garic",
                 "sentiment": "Bullish",
-                "body": "$AUTL Looking at market chameleon, appears to be a steady algorithmic trading pattern. No real sell &quot;bursts.&quot; Three buy &quot;bursts&quot; totaling a little over 100K. Probably will do this on and off till our next catalyst."
+                "body": "$AUTL short interest continues to drop, now at 8.2M shares and 4.7 days to cover. Last time it was this low was December 2024. Doesn&#39;t appear like much short interest at this price."
               },
               {
-                "createdAt": "2026-09-29 00:29",
-                "user": "Michael_garic",
-                "sentiment": "Bullish",
-                "body": "$AUTL Some key notes from the Q2 earnings call In August. CEO Itin attributed revenue momentum to &quot;positive data that was reported from the real-world experience at the TANDEM meeting,&quot; which led to a significant increase in program registrations. CEO Itin explained the…"
+                "createdAt": "2026-09-30 03:49",
+                "user": "Deivittt",
+                "sentiment": null,
+                "body": "$AUTL &amp; $IOVA 🤦🏽😅"
               },
               {
-                "createdAt": "2026-09-29 00:26",
-                "user": "Michael_garic",
+                "createdAt": "2026-09-30 03:36",
+                "user": "TricksterT",
                 "sentiment": "Bullish",
-                "body": "$AUTL As we get closer to Q3 catalyst/results good to review the Q2 summaries...attached is the link. https://www.theglobeandmail.com/investing/markets/markets-news/Motley%20Fool/3910519/autolus-autl-q2-2026-earnings-call-transcript/"
+                "body": "$AUTL Q3 wraps up tomorrow. Another sales guidance surprise might be in store very soon. 👀"
               }
             ],
-            "summary": "실적 개선과 알고리즘 매매 패턴에 주목하며 다음 촉매를 기다리는 긍정적 분위기입니다."
+            "summary": "공매도 잔고 감소와 매출 가이던스 서프라이즈 기대감이 주가에 긍정적으로 작용 중."
           }
         ],
         "items": [
@@ -121,21 +1598,21 @@
             "name": "Fate Therapeutics",
             "ticker": "FATE",
             "price": 2.38,
-            "changePct": 1.28,
+            "changePct": 0.0,
             "note": "유도만능줄기세포 기반의 차세대 면역항암제 플랫폼을 보유한 기업"
           },
           {
             "name": "Autolus Therapeutics",
             "ticker": "AUTL",
             "price": 1.86,
-            "changePct": 0.27,
+            "changePct": 0.0,
             "note": "차세대 CAR-T 세포 치료제 개발에 특화된 임상 단계 바이오 기업"
           },
           {
             "name": "Legend Biotech",
             "ticker": "LEGN",
-            "price": 18.62,
-            "changePct": -2.56,
+            "price": 18.82,
+            "changePct": 1.07,
             "note": "CAR-T 세포 치료제 분야에서 강력한 파이프라인을 보유한 글로벌 기업"
           }
         ],
@@ -152,15 +1629,15 @@
         }
       },
       "news": {
-        "summary": "앱클론의 핵심 파이프라인인 AC101의 임상 적응증 확대 소식이 다수의 매체를 통해 보도되며 기술력에 대한 시장의 신뢰가 재확인되었습니다. 위암, 유방암에 이어 결직장암까지 영역을 넓히며 글로벌 시장 공략 가속화에 대한 기대감이 형성되었습니다.",
+        "summary": "앱클론의 기술이전 신약 'AC101'의 적응증 확대 소식이 주요 언론을 통해 보도되며 시장의 주목을 받고 있습니다. 위암, 유방암에 이어 결직장암까지 임상 범위가 넓어지면서 파이프라인의 가치가 재평가받고 있으며, 제약·바이오 섹터 내 상승세를 주도하는 모습입니다.",
         "items": [
           {
-            "title": "앱클론 'AC101' 적응증 확대 가속...대장암·유방암 적응증 추가",
-            "source": "파이낸셜뉴스",
+            "title": "앱클론 ‘AC101’, 결직장암까지 임상 확대…개발 프로그램 9건",
+            "source": "SEN TV",
             "date": "2026-09-29",
             "sentiment": "긍정",
-            "url": "http://www.paxetv.com/news/articleView.html?idxno=282925",
-            "insight": "임상 적응증 확대로 인한 파이프라인 가치 상승 기대"
+            "url": "https://www.sentv.co.kr/article/view/sentv202609290186",
+            "insight": "임상 범위 확대로 인한 파이프라인 가치 상승 및 로열티 수익 기대감 증대."
           },
           {
             "title": "앱클론 기술이전 신약 결직장암 적응증 확대…“29조 시장 공략”",
@@ -168,86 +1645,59 @@
             "date": "2026-09-29",
             "sentiment": "긍정",
             "url": "https://www.sedaily.com/article/20096061?ref=naver",
-            "insight": "대규모 시장 진출을 통한 매출 잠재력 부각"
+            "insight": "대규모 시장인 결직장암 적응증 추가로 인한 상업적 잠재력 부각."
           },
           {
-            "title": "앱클론 AC101, 결직장암까지 임상 확대…ADC 치료 후 유방암도 겨냥",
-            "source": "메디파나뉴스",
+            "title": "유가증권 제약지수 1만 5000선 수성",
+            "source": "뉴스메디컬",
             "date": "2026-09-29",
             "sentiment": "긍정",
-            "url": "https://www.medipana.com/news/articleView.html?idxno=418423",
-            "insight": "기존 치료제 내성 환자군까지 타겟 확장"
-          },
-          {
-            "title": "앱클론 AC101, 결직장암·ADC 내성 유방암 임상 추가…9개로 확대",
-            "source": "EBN",
-            "date": "2026-09-29",
-            "sentiment": "긍정",
-            "url": "https://www.ebn.co.kr/news/articleView.html?idxno=1726003",
-            "insight": "임상 파이프라인의 양적·질적 성장 확인"
-          },
-          {
-            "title": "앱클론, 'AC101' 결직장암까지 적응증 확대..\"현재 진행 임상 9건\"",
-            "source": "히트뉴스",
-            "date": "2026-09-29",
-            "sentiment": "긍정",
-            "url": "https://www.hitnews.co.kr/news/articleView.html?idxno=79480",
-            "insight": "글로벌 임상 3상 진행에 따른 마일스톤 기대감"
+            "url": "http://www.newsmp.com/news/articleView.html?idxno=258380",
+            "insight": "제약 섹터 내에서 앱클론이 두 자릿수 상승률을 기록하며 강한 모멘텀 입증."
           }
         ]
       },
       "community": {
-        "summary": "네이버 종목토론방에서는 AC101 임상 확대 소식에 대한 기대감이 높으나, 주가 흐름이 뉴스에 즉각 반응하지 않는 점에 대한 개인 투자자들의 답답함도 공존합니다. 전반적으로 기술적 성과에는 긍정적이나 주가 부양에 대한 요구가 강한 편입니다.",
-        "sentimentLabel": "중립",
+        "summary": "네이버 종목토론방과 카페에서는 'AC101' 임상 확대 소식에 대해 대체로 긍정적인 반응을 보이고 있습니다. 다만, 과거 주가 하락에 대한 피로감과 함께 실질적인 주가 부양을 요구하는 목소리도 공존하고 있습니다.",
+        "sentimentLabel": "긍정",
         "naver": [
           {
             "title": "AC101",
             "url": "https://stock.naver.com/domestic/stock/174900/discussion/429899997",
             "sentiment": "긍정",
-            "summary": "임상 확대 소식에 대한 기대감 표출"
+            "summary": "임상 확대 소식에 대한 기대감이 반영된 게시글."
           },
           {
-            "title": "HLX22",
-            "url": "https://stock.naver.com/domestic/stock/174900/discussion/429907295",
+            "title": "Esmo Asia에서 초록 발표되네요.",
+            "url": "https://stock.naver.com/domestic/stock/174900/discussion/429927558",
             "sentiment": "긍정",
-            "summary": "기술이전 파트너사의 임상 진행에 주목"
-          },
-          {
-            "title": "[필독] 앱클론 임상 확대",
-            "url": "https://stock.naver.com/domestic/stock/174900/discussion/429894638",
-            "sentiment": "긍정",
-            "summary": "호재성 뉴스 공유 및 주가 영향 분석"
+            "summary": "학회 발표 등 추가 모멘텀에 대한 기대."
           },
           {
             "title": "임상확대 : 주가하락..",
             "url": "https://stock.naver.com/domestic/stock/174900/discussion/429895755",
             "sentiment": "부정",
-            "summary": "뉴스에도 불구하고 주가가 오르지 않는 것에 대한 불만"
+            "summary": "호재에도 불구하고 주가 흐름이 기대에 미치지 못하는 것에 대한 불만."
           }
         ]
       },
       "dart": {
-        "summary": "최근 공시는 주로 기존 단일판매 및 공급계약에 대한 기재정정 사항으로, 기업의 본질적인 사업 구조 변화보다는 계약 내용의 구체화 과정으로 판단됩니다. 반기보고서 이후 특별한 악재성 공시는 확인되지 않습니다.",
+        "summary": "최근 공시는 주로 단일판매 및 공급계약 체결과 관련된 내용으로, 기술이전 파트너십의 지속적인 성과를 보여주고 있습니다. 재무적 안정성과 파이프라인의 상업적 가치가 점진적으로 증명되고 있는 단계입니다.",
         "highlights": [
           {
-            "label": "기재정정",
-            "value": "단일판매ㆍ공급계약체결",
-            "note": "기존 계약 내용의 정정 공시가 지속적으로 발생함"
+            "label": "단일판매·공급계약",
+            "value": "지속적 공시",
+            "note": "기술이전 파트너십을 통한 매출 가시성 확보."
           },
           {
             "label": "반기보고서",
             "value": "2026.06",
-            "note": "최근 정기 보고서 제출 완료"
+            "note": "재무 상태 및 파이프라인 진행 현황 확인 필요."
           },
           {
-            "label": "임원 변동",
-            "value": "정병석",
-            "note": "임원 및 주요주주 특정증권 소유상황 보고"
-          },
-          {
-            "label": "계약 체결",
-            "value": "단일판매ㆍ공급계약",
-            "note": "8월 초 신규 계약 체결 공시 존재"
+            "label": "임원 소유상황",
+            "value": "변동",
+            "note": "주요 주주 및 임원의 지분 변동 사항 지속 모니터링."
           }
         ],
         "recentFilings": [
@@ -291,6 +1741,13 @@
       "flow": {
         "rank": [],
         "shorts": [
+          {
+            "date": "20260929",
+            "qty": 19532.0,
+            "volRlim": 5.47,
+            "pbmn": 4.1,
+            "pbmnRlim": 5.41
+          },
           {
             "date": "20260928",
             "qty": 5003.0,
@@ -423,16 +1880,17 @@
             "volRlim": 4.53,
             "pbmn": 2.4,
             "pbmnRlim": 4.53
-          },
-          {
-            "date": "20260828",
-            "qty": 4012.0,
-            "volRlim": 1.8,
-            "pbmn": 1.0,
-            "pbmnRlim": 1.81
           }
         ],
         "loans": [
+          {
+            "date": "20260929",
+            "newQty": 9462.0,
+            "rdmpQty": 9462.0,
+            "rmndChg": 0.0,
+            "rmndQty": 1152806.0,
+            "rmndAmt": 250.7
+          },
           {
             "date": "20260928",
             "newQty": 224246.0,
@@ -584,18 +2042,19 @@
             "rmndChg": 0.0,
             "rmndQty": 1345087.0,
             "rmndAmt": 330.9
-          },
-          {
-            "date": "20260828",
-            "newQty": 1748.0,
-            "rdmpQty": 6689.0,
-            "rmndChg": -4941.0,
-            "rmndQty": 1345087.0,
-            "rmndAmt": 350.4
           }
         ],
-        "rankAsof": "15:09",
+        "rankAsof": "08:38",
         "trend": [
+          {
+            "date": "20260929",
+            "frgn": -29011,
+            "orgn": 31686,
+            "prsn": -4389,
+            "holdRatio": 7.9,
+            "close": 22000,
+            "rate": 13.93
+          },
           {
             "date": "20260928",
             "frgn": -9377,
@@ -766,23 +2225,14 @@
             "holdRatio": 7.35,
             "close": 24600,
             "rate": -5.57
-          },
-          {
-            "date": "20260828",
-            "frgn": -41998,
-            "orgn": -23860,
-            "prsn": 66328,
-            "holdRatio": 7.33,
-            "close": 26050,
-            "rate": -5.79
           }
         ]
       },
       "_flowOk": true,
       "_meta": {
         "filingKey": "2026-08-31|[기재정정]단일판매ㆍ공급계약체결(자율공시)              ",
-        "asOf": "2026-09-29T14:38:51.615553+09:00",
-        "price": 22350
+        "asOf": "2026-09-30T08:38:50.699086+09:00",
+        "price": 21750
       }
     },
     "direction": "bullish"
@@ -794,132 +2244,130 @@
     "selectedDate": "2026-09-30",
     "basePrice": 33600,
     "entry": 33800,
-    "target": 37900,
-    "stop": 30400,
+    "target": 38100,
+    "stop": 30200,
     "stars": "⭐⭐⭐⭐⭐",
-    "catalyst": "AI 데이터센터 투자 확대에 따른 반도체 세정·코팅 수요 증가와 자회사 미코세라믹스의 정전척(ESC) 사업 성장이 핵심 모멘텀이다. 최근 기관의 순매수 유입과 함께 글로벌 파운드리 3사를 고객사로 둔 안정적인 공급망 지위가 부각되고 있다.",
-    "scenario": "<b>[자동 생성 시나리오]</b><br>전일 종가 33,600원 기준으로 산출된 기술적 레벨입니다. 진입 상한가 33,800원 이하에서 분할 매수하고, 목표 익절가 37,900원, 손절선 30,400원으로 리스크를 관리하세요.",
+    "catalyst": "AI 반도체 및 HBM 수요 증가에 따른 자회사 미코세라믹스의 성장 가속화 기대감이 주가 상승을 견인하고 있음. 글로벌 반도체 장비주(AMAT, LRCX)의 동반 강세와 외국인 보유율 상승이 맞물리며 반도체 소부장 섹터 내 투자 심리가 크게 개선됨.",
+    "scenario": "<b>[자동 생성 시나리오]</b><br>전일 종가 33,600원 기준으로 산출된 기술적 레벨입니다. 진입 상한가 33,800원 이하에서 분할 매수하고, 목표 익절가 38,100원, 손절선 30,200원으로 리스크를 관리하세요.",
     "analysis": {
-      "catalyst": "AI 데이터센터 투자 확대에 따른 반도체 세정·코팅 수요 증가와 자회사 미코세라믹스의 정전척(ESC) 사업 성장이 핵심 모멘텀이다. 최근 기관의 순매수 유입과 함께 글로벌 파운드리 3사를 고객사로 둔 안정적인 공급망 지위가 부각되고 있다.",
+      "catalyst": "AI 반도체 및 HBM 수요 증가에 따른 자회사 미코세라믹스의 성장 가속화 기대감이 주가 상승을 견인하고 있음. 글로벌 반도체 장비주(AMAT, LRCX)의 동반 강세와 외국인 보유율 상승이 맞물리며 반도체 소부장 섹터 내 투자 심리가 크게 개선됨.",
       "direction": "bullish",
-      "flowComment": "최근 기관이 순매수 상위 랭킹에 진입하며 수급 개선 신호를 보이고 있으나, 공매도 비중이 3~5%대에서 등락하며 하방 압력도 상존한다. 대차잔고는 866억 원 수준으로 변동성이 크며, 외국인 보유율은 26%대에서 횡보 중이다.",
+      "flowComment": "외국인 보유율이 26%대에서 27.02%로 꾸준히 상승하며 수급 개선세가 뚜렷함. 공매도 비중은 4% 내외로 낮은 수준을 유지하고 있어 하방 압력은 제한적이며, 최근 매수 우위의 수급 흐름이 관찰됨.",
       "peers": {
-        "summary": "글로벌 반도체 장비 및 부품 기업들은 AI 인프라 투자에 힘입어 견조한 흐름을 보이고 있다. 특히 Lam Research 등 주요 피어 그룹은 강력한 재무 구조와 공격적인 채용을 바탕으로 시장의 긍정적인 평가를 받고 있다.",
+        "summary": "글로벌 반도체 장비주인 Applied Materials와 Lam Research가 AI 메모리 기술 협력 및 업황 회복 기대감으로 강세를 보이며 코미코의 투자 심리에도 긍정적인 영향을 미치고 있음.",
         "reddit": [],
         "stocktwits": [
           {
             "ticker": "AMAT",
             "name": "Applied Materials",
             "status": "ok",
-            "bullish": 6,
-            "bearish": 1,
-            "unlabeled": 23,
+            "bullish": 12,
+            "bearish": 0,
+            "unlabeled": 18,
             "total": 30,
-            "labeled": 7,
-            "bullPct": 86,
+            "labeled": 12,
+            "bullPct": 100,
             "windowDays": 7,
-            "newest": "2026-09-29 11:21",
-            "oldest": "2026-09-23 00:35",
+            "newest": "2026-09-30 07:22",
+            "oldest": "2026-09-26 19:40",
             "samples": [
               {
-                "createdAt": "2026-09-29 11:21",
-                "user": "jdlman",
-                "sentiment": null,
-                "body": "$CRDO $AVGO $AMAT $WDC $ORCL My shopping list past week.. did leaps on all of them"
+                "createdAt": "2026-09-30 07:22",
+                "user": "9ergang",
+                "sentiment": "Bullish",
+                "body": "$AMAT lfg"
               },
               {
-                "createdAt": "2026-09-29 04:15",
-                "user": "OptionsHarvest",
-                "sentiment": null,
-                "body": "An open put credit spread on $QCOM or $AMAT shows a P&amp;L every day, but until it&#39;s closed that number is a mark: the midpoint of two bid/ask spreads, and on a quieter strike those can be wide. A position can read -$80 at 10am and +$15 at noon with the stock barely moving. …"
+                "createdAt": "2026-09-30 07:10",
+                "user": "followtrendm",
+                "sentiment": "Bullish",
+                "body": "Bullish prelude to Micron&#39;s $MU future Earnings are already here. Semi equipment names related to Micron&#39;s capex - $AMAT $KLAC $LRCX were all trending down. But recently all of them together got above all moving averages and trending up. Certainly a strong indication that…"
               },
               {
-                "createdAt": "2026-09-29 03:56",
-                "user": "Whiskeyunderthebed",
-                "sentiment": null,
-                "body": "$AMAT Mama, take this badge off of me-I can&#39;t use it anymore, It&#39;s gettin&#39; dark, too dark to seeFeel I&#39;m knockin&#39; on Heaven&#39;s doorKnock, knock, knockin&#39; on Heaven&#39;s doorKnock, knock, knockin&#39; on Heaven&#39;s doorKnock, knock, knockin&#39; on He…"
+                "createdAt": "2026-09-30 07:01",
+                "user": "abman54",
+                "sentiment": "Bullish",
+                "body": "$AMAT regret not adding the last few weeks…o well. Time to push to $600 now!"
               }
             ],
-            "summary": "사용자들 사이에서 매수 기회로 인식되고 있으며, 전반적으로 긍정적인 투자 심리가 우세하다."
+            "summary": "AI 메모리 기술 협력 및 업황 회복 기대감으로 강한 매수 의견이 지배적임."
           },
           {
             "ticker": "LRCX",
             "name": "Lam Research",
             "status": "ok",
-            "bullish": 12,
-            "bearish": 1,
+            "bullish": 13,
+            "bearish": 0,
             "unlabeled": 17,
             "total": 30,
             "labeled": 13,
-            "bullPct": 92,
+            "bullPct": 100,
             "windowDays": 7,
-            "newest": "2026-09-29 04:28",
-            "oldest": "2026-09-24 01:48",
+            "newest": "2026-09-30 07:10",
+            "oldest": "2026-09-24 21:35",
             "samples": [
               {
-                "createdAt": "2026-09-29 04:28",
+                "createdAt": "2026-09-30 07:10",
+                "user": "followtrendm",
+                "sentiment": "Bullish",
+                "body": "Bullish prelude to Micron&#39;s $MU future Earnings are already here. Semi equipment names related to Micron&#39;s capex - $AMAT $KLAC $LRCX were all trending down. But recently all of them together got above all moving averages and trending up. Certainly a strong indication that…"
+              },
+              {
+                "createdAt": "2026-09-30 04:32",
                 "user": "skcots_13",
                 "sentiment": "Bullish",
-                "body": "$LRCX Good dog. Dogs never bite me. Just humans."
+                "body": "$LRCX DonCorleone I follow. Just for his unbiased post and facts. You cannot say ‘no’ to the people you love, not often. That’s the secret. And then when you do, it has to sound like a ‘yes’. Or you have to make them say ‘no.’ You have to take time and trouble to post here someti…"
               },
               {
-                "createdAt": "2026-09-29 03:46",
-                "user": "WallStJesus",
-                "sentiment": null,
-                "body": "$LRCX REPEAT BULL FLOW DETECTED TODAY.."
-              },
-              {
-                "createdAt": "2026-09-28 01:43",
-                "user": "4th_industrial_revolutn",
-                "sentiment": null,
-                "body": "$LRCX Could break above $320 but still skeptical short term"
+                "createdAt": "2026-09-30 00:39",
+                "user": "skcots_13",
+                "sentiment": "Bullish",
+                "body": "$LRCX Bullish bias, clearing recent resistance levels. Watch volume and whether it can hold above the 50-day and push through the next resistance cluster. It&#39;s actively testing/pushing into the next near-term resistance cluster right now. This is technical observation only fo…"
               }
             ],
-            "summary": "강력한 재무 상태와 공격적인 사업 확장 전략으로 인해 매우 높은 수준의 매수 우위 여론이 형성되어 있다."
+            "summary": "기술적 저항선 돌파 시도와 함께 업황 회복에 대한 긍정적 전망이 우세함."
           }
         ],
         "items": [
           {
             "name": "Applied Materials",
             "ticker": "AMAT",
-            "price": 486.76,
-            "changePct": 0.36,
+            "price": 512.01,
+            "changePct": 5.19,
             "note": "반도체 장비 제조 및 부품 세정/코팅 기술을 보유한 글로벌 선도 기업"
           },
           {
             "name": "Lam Research",
             "ticker": "LRCX",
-            "price": 314.47,
-            "changePct": -0.23,
+            "price": 323.86,
+            "changePct": 2.99,
             "note": "반도체 식각 장비 분야의 글로벌 리더로, 공정 부품 및 서비스 사업이 코미코와 유사"
           },
           {
             "name": "FerroTec Holdings",
             "ticker": "6890.T",
-            "price": 10490.0,
-            "changePct": 1.84,
+            "price": 10470.0,
+            "changePct": 1.65,
             "note": "반도체 장비 부품 제조, 세정 및 코팅 서비스를 주력으로 하는 일본 기업"
           },
           {
             "name": "Edwards Group (Atlas Copco)",
             "ticker": "ATCO-A.ST",
-            "price": 205.4,
+            "price": 203.6,
             "changePct": 0.0,
             "note": "반도체 공정용 진공 펌프 및 관련 부품 유지보수 서비스를 제공하는 글로벌 기업"
           },
           {
             "name": "Entegris",
             "ticker": "ENTG",
-            "price": 150.63,
-            "changePct": -0.83,
+            "price": 154.77,
+            "changePct": 2.75,
             "note": "반도체 공정용 특수 소재 및 부품을 공급하며, 공정 효율화 솔루션 측면에서 유사"
           }
         ],
         "socialStatus": {
-          "reddit": "empty",
+          "reddit": "unavailable",
           "redditQueried": [
-            "AMAT@stocks",
-            "LRCX@stocks",
             "web:Applied Materials",
             "web:Lam Research"
           ],
@@ -930,23 +2378,23 @@
         }
       },
       "news": {
-        "summary": "코미코는 AI 반도체 및 데이터센터 수요 증가의 직접적인 수혜주로 주목받고 있다. 특히 자회사 미코세라믹스의 정전척(ESC) 사업이 중국 장비 국산화와 맞물려 성장 가속화가 기대된다는 분석이 지배적이다. 다만, 최근 태양광 관련주로 분류되며 시장 변동성에 노출되는 모습도 관찰된다.",
+        "summary": "코미코가 AI 데이터센터 및 HBM 수요 증가의 수혜주로 부각되며 주가가 10%대 급등함. 특히 자회사 미코세라믹스의 ESC 및 세라믹 히터 사업이 중국 장비 국산화 수요와 맞물려 성장 가속화가 기대됨.",
         "items": [
+          {
+            "title": "코스닥150 지수 1.08% 상승 마감...태성·필옵틱스·코미코 10%대 상승",
+            "source": "핀포인트뉴스",
+            "date": "2026-09-29",
+            "sentiment": "긍정",
+            "url": "https://www.pinpointnews.co.kr/news/articleView.html?idxno=491156",
+            "insight": "반도체 소부장 섹터 전반의 강세 속에서 코미코가 두 자릿수 상승률을 기록하며 시장 주도주로 부각됨."
+          },
           {
             "title": "AI 반도체 투자에 중국까지…코미코 'ESC'가 새 성장축",
             "source": "핀포인트뉴스",
             "date": "2026-09-26",
             "sentiment": "긍정",
             "url": "https://www.pinpointnews.co.kr/news/articleView.html?idxno=490398",
-            "insight": "미코세라믹스의 정전척 사업이 신규 성장 동력으로 작용하며 수익성 개선을 견인할 전망."
-          },
-          {
-            "title": "[불장이 바꾼 증시 풍경②] 코스피 최고치에도 '1조 클럽' 축소…반도체...",
-            "source": "SR타임스",
-            "date": "2026-09-24",
-            "sentiment": "긍정",
-            "url": "http://www.srtimes.kr/news/articleView.html?idxno=213233",
-            "insight": "메모리 업황 개선과 공급망 내 지위 강화로 시가총액 1조 원을 돌파하며 시장의 주목을 받음."
+            "insight": "자회사 미코세라믹스의 정전척(ESC) 사업이 AI 반도체 및 중국 장비 국산화 수요를 흡수하며 핵심 성장 동력으로 작용 중."
           },
           {
             "title": "[더벨]DS운용 1호 ETF, 기준가 회복…종목 교체로 만회",
@@ -954,75 +2402,71 @@
             "date": "2026-09-29",
             "sentiment": "중립",
             "url": "https://www.thebell.co.kr/free/content/ArticleView.asp?key=202609221200551800106219",
-            "insight": "주요 ETF의 신규 편입 종목으로 선정되며 수급적 측면에서 긍정적인 신호."
-          },
-          {
-            "title": "[코스닥 기관] 파두·에코프로비엠· 솔브레인· ISC· 올릭스 쓸어 담았...",
-            "source": "핀포인트뉴스",
-            "date": "2026-09-28",
-            "sentiment": "긍정",
-            "url": "https://www.pinpointnews.co.kr/news/articleView.html?idxno=490849",
-            "insight": "기관 투자자들의 반도체 소부장 섹터 내 선별적 매수세가 유입되고 있음."
-          },
-          {
-            "title": "\"전력이 모자란다\"… AI 데이터센터발 수요 폭증에 태양광주 요동",
-            "source": "핀포인트뉴스",
-            "date": "2026-09-28",
-            "sentiment": "부정",
-            "url": "https://www.pinpointnews.co.kr/news/articleView.html?idxno=490764",
-            "insight": "태양광 테마와 엮이며 주가가 시장 변동성에 따라 약세를 보이는 등 테마성 흐름에 주의 필요."
+            "insight": "기관 투자자의 포트폴리오 신규 편입 종목으로 선정되며 수급적 관심이 지속되고 있음."
           }
         ]
       },
       "community": {
-        "summary": "개인 투자자들은 미코세라믹스 흡수합병 가능성과 삼성전자 파운드리향 매출에 큰 관심을 보이고 있다. 전반적으로 성장성에 대한 기대감이 높으나, 주가 변동성에 따른 단기 대응 전략에 대한 논의도 활발하다.",
+        "summary": "개인 투자자들은 HBM 및 AI 반도체 관련주로서의 코미코의 성장성에 주목하며, 최근 주가 반등에 대해 매우 긍정적인 반응을 보임. 특히 미코세라믹스 흡수합병 이슈와 기술적 반등에 대한 기대감이 높음.",
         "sentimentLabel": "긍정",
         "naver": [
-          {
-            "title": "코미코 (183300/KQ) 미코세라믹스도 성장 가속",
-            "url": "https://cafe.naver.com/tkdska3/478939",
-            "sentiment": "긍정",
-            "summary": "미코세라믹스의 역대 최대 매출 기록과 AI CAPEX 사이클 수혜를 강조하는 분석글."
-          },
           {
             "title": "* 골든크로스 [코미코]",
             "url": "https://stock.naver.com/domestic/stock/183300/discussion/429759177",
             "sentiment": "긍정",
-            "summary": "기술적 지표인 골든크로스 발생을 언급하며 상승 추세 전환을 기대하는 의견."
+            "summary": "기술적 지표인 골든크로스 발생에 대한 기대감을 표출함."
+          },
+          {
+            "title": "코미코는 삼성전자·TSMC·인텔 등 글로벌 파운드리 3사를 모두 고객으로 두고 있다",
+            "url": "https://stock.naver.com/domestic/stock/183300/discussion/429832991",
+            "sentiment": "긍정",
+            "summary": "글로벌 파운드리 고객사 확보를 통한 안정적인 사업 구조를 강조함."
           },
           {
             "title": "(FEEL)곧 미코세라믹스 흡수합병",
             "url": "https://stock.naver.com/domestic/stock/183300/discussion/429618381",
-            "sentiment": "중립",
-            "summary": "자회사 흡수합병 이슈에 대한 기대감과 불확실성이 공존하는 토론."
+            "sentiment": "긍정",
+            "summary": "자회사 흡수합병을 통한 기업 가치 제고를 기대하는 의견."
           }
         ]
       },
       "dart": {
-        "summary": "최근 공시를 통해 미코의 대량보유상황 보고가 지속되고 있으며, 주식 분할 이후 거래가 재개되어 유동성이 확보된 상태다. 반기보고서상 견조한 실적 흐름을 유지하고 있으며, 주요 주주들의 지분 변동은 안정적인 수준이다.",
+        "summary": "최근 주식등의대량보유상황보고서가 다수 제출되었으며, 미코의 지분율 유지 및 삼성자산운용의 지분 변동 등이 확인됨. 반기보고서를 통해 안정적인 재무 성장을 확인 가능.",
         "highlights": [
           {
-            "label": "주식등의대량보유상황보고서",
-            "value": "2026-09-14",
-            "note": "최대주주 미코의 지분 변동 관련 보고."
+            "label": "주식등의대량보유상황보고서(약식)",
+            "value": "삼성자산운용",
+            "note": "2026년 9월 29일 기준 지분 변동 보고."
+          },
+          {
+            "label": "주식등의대량보유상황보고서(일반)",
+            "value": "미코",
+            "note": "최대주주 미코의 지분율 유지 및 관련 공시."
           },
           {
             "label": "반기보고서",
-            "value": "2026-08-14",
-            "note": "2026년 상반기 실적 및 재무 상태 확인."
+            "value": "2026.06",
+            "note": "안정적인 매출 및 영업이익 성장세 확인."
           },
           {
             "label": "주권매매거래정지해제",
             "value": "2026-08-20",
             "note": "액면분할에 따른 변경상장 완료."
-          },
-          {
-            "label": "타인에대한채무보증결정",
-            "value": "2026-07-13",
-            "note": "계열사 지원을 위한 채무보증 결정."
           }
         ],
         "recentFilings": [
+          {
+            "date": "2026-09-29",
+            "title": "주식등의대량보유상황보고서(약식)",
+            "filer": "삼성자산운용",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260929000526"
+          },
+          {
+            "date": "2026-08-14",
+            "title": "[첨부추가]반기보고서 (2026.06)",
+            "filer": "코미코",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003614"
+          },
           {
             "date": "2026-09-14",
             "title": "주식등의대량보유상황보고서(일반)",
@@ -1040,23 +2484,11 @@
             "title": "주식등의대량보유상황보고서(일반)",
             "filer": "미코",
             "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260903000282"
-          },
-          {
-            "date": "2026-08-28",
-            "title": "임원ㆍ주요주주특정증권등소유상황보고서",
-            "filer": "이용수",
-            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260828001143"
-          },
-          {
-            "date": "2026-08-28",
-            "title": "임원ㆍ주요주주특정증권등소유상황보고서",
-            "filer": "박창섭",
-            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260828001117"
           }
         ]
       },
       "research": {
-        "summary": "SK증권은 미코세라믹스의 히터 및 ESC 사업 성장을 근거로 매수 의견을 유지하고 있다. AI CAPEX 사이클과 중국 장비 자립화에 따른 낙수 효과가 외형 성장을 가속화할 것으로 전망한다.",
+        "summary": "SK증권은 미코세라믹스의 히터 및 ESC 사업이 AI CAPEX 사이클과 중국 장비 자립화 수요를 동시에 흡수하며 성장을 가속화하고 있다고 평가함.",
         "items": [
           {
             "title": "미코세라믹스도 성장 가속",
@@ -1066,7 +2498,7 @@
             "pdfUrl": "https://stock.pstatic.net/stock-research/company/64/20260921_company_121681000.pdf",
             "targetPrice": 40000,
             "opinion": "매수",
-            "note": "미코세라믹스의 히터 및 ESC 사업이 AI 반도체 투자 확대와 중국 시장 수요를 동시에 흡수하며 수익성 개선을 주도할 것으로 평가함."
+            "note": "미코세라믹스의 히터 및 ESC 사업이 AI 반도체 투자 확대와 중국 장비 국산화 수요를 동시에 흡수하며 외형 성장을 가속화하고 있음."
           }
         ],
         "consensus": {
@@ -1074,7 +2506,7 @@
           "high": 40000,
           "low": 40000,
           "n": 1,
-          "upsidePct": 22.3,
+          "upsidePct": 19.0,
           "opinions": {
             "매수": 1
           }
@@ -1082,16 +2514,15 @@
       },
       "generatedBy": "gemini-3.1-flash-lite",
       "flow": {
-        "rank": [
-          {
-            "list": "기관계 순매수상위",
-            "rank": 24,
-            "frgn": 1698.0,
-            "orgn": 1931.0,
-            "fund": 266.0
-          }
-        ],
+        "rank": [],
         "shorts": [
+          {
+            "date": "20260929",
+            "qty": 26984.0,
+            "volRlim": 4.0,
+            "pbmn": 8.7,
+            "pbmnRlim": 3.98
+          },
           {
             "date": "20260928",
             "qty": 10992.0,
@@ -1224,16 +2655,17 @@
             "volRlim": 9.04,
             "pbmn": 9.9,
             "pbmnRlim": 8.81
-          },
-          {
-            "date": "20260828",
-            "qty": 55198.0,
-            "volRlim": 26.06,
-            "pbmn": 14.0,
-            "pbmnRlim": 26.08
           }
         ],
         "loans": [
+          {
+            "date": "20260929",
+            "newQty": 7670.0,
+            "rdmpQty": 11220.0,
+            "rmndChg": -3550.0,
+            "rmndQty": 2838511.0,
+            "rmndAmt": 953.7
+          },
           {
             "date": "20260928",
             "newQty": 97008.0,
@@ -1385,18 +2817,19 @@
             "rmndChg": 8130.0,
             "rmndQty": 3559886.0,
             "rmndAmt": 941.6
-          },
-          {
-            "date": "20260828",
-            "newQty": 35920.0,
-            "rdmpQty": 3665.0,
-            "rmndChg": 32255.0,
-            "rmndQty": 3551756.0,
-            "rmndAmt": 902.1
           }
         ],
-        "rankAsof": "15:09",
+        "rankAsof": "08:38",
         "trend": [
+          {
+            "date": "20260929",
+            "frgn": 12397,
+            "orgn": 85412,
+            "prsn": -99743,
+            "holdRatio": 27.02,
+            "close": 33500,
+            "rate": 9.84
+          },
           {
             "date": "20260928",
             "frgn": 55188,
@@ -1567,23 +3000,14 @@
             "holdRatio": 25.47,
             "close": 26450,
             "rate": 4.13
-          },
-          {
-            "date": "20260828",
-            "frgn": 15620,
-            "orgn": -10404,
-            "prsn": -5216,
-            "holdRatio": 25.49,
-            "close": 25400,
-            "rate": -0.2
           }
         ]
       },
       "_flowOk": true,
       "_meta": {
-        "filingKey": "2026-09-14|주식등의대량보유상황보고서(일반)",
-        "asOf": "2026-09-29T14:38:51.615553+09:00",
-        "price": 32700
+        "filingKey": "2026-09-29|주식등의대량보유상황보고서(약식)",
+        "asOf": "2026-09-30T08:38:50.699086+09:00",
+        "price": 33600
       }
     },
     "direction": "bullish"
@@ -1598,32 +3022,54 @@
     "target": 104700,
     "stop": 80700,
     "stars": "⭐⭐⭐⭐⭐",
-    "catalyst": "전일 종가 기준 상승 +9.77% 마감. 자동 생성 리포트 — 세부 촉매 분석은 수동 업데이트가 필요합니다.",
-    "scenario": "<b>[자동 생성 시나리오]</b><br>전일 종가 91,000원 기준으로 산출된 기술적 레벨입니다. 진입 상한가 91,500원 이하에서 분할 매수하고, 목표 익절가 104,700원, 손절선 80,700원으로 리스크를 관리하세요."
-  },
-  {
-    "code": "064760",
-    "name": "티씨케이",
-    "market": "KOSDAQ",
-    "selectedDate": "2026-09-30",
-    "basePrice": 300000,
-    "entry": 301500,
-    "target": 331500,
-    "stop": 276400,
-    "stars": "⭐⭐⭐⭐⭐",
-    "catalyst": "KB증권 등 주요 증권사가 메타의 AI 서비스 '뮤즈' 흥행과 낸드(NAND) 시장 호황을 근거로 목표주가를 36만 원으로 상향 조정함. SiC 포커스링의 구조적 수요 증가가 실적 성장을 견인할 것이라는 분석이 주가 상승 모멘텀으로 작용 중.",
-    "scenario": "<b>[자동 생성 시나리오]</b><br>전일 종가 300,000원 기준으로 산출된 기술적 레벨입니다. 진입 상한가 301,500원 이하에서 분할 매수하고, 목표 익절가 331,500원, 손절선 276,400원으로 리스크를 관리하세요.",
+    "catalyst": "반도체 테스트 기판 밸류체인(TSE-타이거일렉-엘디티) 구축에 따른 성장 기대감이 주가 상승을 견인하며 52주 신고가를 경신함. 다만, 단기 급등으로 인해 매매거래정지 예고가 공시되어 단기 변동성 확대에 대한 주의가 필요함.",
+    "scenario": "<b>[자동 생성 시나리오]</b><br>전일 종가 91,000원 기준으로 산출된 기술적 레벨입니다. 진입 상한가 91,500원 이하에서 분할 매수하고, 목표 익절가 104,700원, 손절선 80,700원으로 리스크를 관리하세요.",
     "analysis": {
-      "catalyst": "KB증권 등 주요 증권사가 메타의 AI 서비스 '뮤즈' 흥행과 낸드(NAND) 시장 호황을 근거로 목표주가를 36만 원으로 상향 조정함. SiC 포커스링의 구조적 수요 증가가 실적 성장을 견인할 것이라는 분석이 주가 상승 모멘텀으로 작용 중.",
+      "catalyst": "반도체 테스트 기판 밸류체인(TSE-타이거일렉-엘디티) 구축에 따른 성장 기대감이 주가 상승을 견인하며 52주 신고가를 경신함. 다만, 단기 급등으로 인해 매매거래정지 예고가 공시되어 단기 변동성 확대에 대한 주의가 필요함.",
       "direction": "bullish",
-      "flowComment": "외국인 지분율은 65% 수준에서 등락 중이나 최근 매도 우위 흐름이 관찰됨. 9월 23일 공매도 거래대금 비중이 31%까지 급증했으나 이후 11%대로 안정화되는 추세임. 대차잔고는 2,000억 원대 초반에서 상환과 체결이 반복되며 횡보하고 있음.",
+      "flowComment": "외국인과 기관이 최근 2거래일 연속 동반 순매수하며 주가 상승을 주도하고 있으며, 개인은 차익 실현 매물을 출회 중임. 대차잔고는 9월 29일 기준 5,748주 감소하며 하방 압력이 완화되었고, 공매도 비중 또한 1%대로 낮아 수급 환경은 양호함.",
       "peers": {
-        "summary": "글로벌 반도체 소재 기업인 Tokai Carbon, Entegris 등과 전방 산업을 공유함. 해외 peer 그룹은 반도체 업황 회복 기대와 장비 가동률에 민감하게 반응하는 경향을 보임. 여론 데이터 수집 실패로 Reddit 여론은 확인 불가.",
+        "summary": "해외 PCB 및 반도체 장비 관련주(TTMI, SANM 등)는 뚜렷한 방향성 없이 횡보 중이며, 타이거일렉과의 직접적인 상관관계는 낮음. 여론 데이터 수집 실패로 Reddit 여론은 확인 불가함.",
         "reddit": [],
         "stocktwits": [
           {
-            "ticker": "ENTG",
-            "name": "Entegris",
+            "ticker": "TTMI",
+            "name": "TTM Technologies",
+            "status": "ok",
+            "bullish": 0,
+            "bearish": 0,
+            "unlabeled": 5,
+            "total": 5,
+            "labeled": 0,
+            "bullPct": null,
+            "windowDays": 7,
+            "newest": "2026-09-30 05:17",
+            "oldest": "2026-09-23 14:37",
+            "samples": [
+              {
+                "createdAt": "2026-09-30 05:17",
+                "user": "XavierXV",
+                "sentiment": null,
+                "body": "$CLS $TTMI $FN"
+              },
+              {
+                "createdAt": "2026-09-30 01:59",
+                "user": "PapuSmith",
+                "sentiment": null,
+                "body": "$TTMI always getting fucked with this stock."
+              },
+              {
+                "createdAt": "2026-09-29 21:09",
+                "user": "DonCorleone77",
+                "sentiment": null,
+                "body": "$NVDA $AMD $AVGO $MPWR $TTMI From a Truist report on AI issued yesterday."
+              }
+            ],
+            "summary": "표본 부족으로 방향성 판단 불가."
+          },
+          {
+            "ticker": "SANM",
+            "name": "Sanmina Corporation",
             "status": "ok",
             "bullish": 0,
             "bearish": 0,
@@ -1632,59 +3078,788 @@
             "labeled": 0,
             "bullPct": null,
             "windowDays": 7,
-            "newest": "2026-09-28 12:48",
+            "newest": "2026-09-26 03:05",
+            "oldest": "2026-09-25 12:11",
+            "samples": [
+              {
+                "createdAt": "2026-09-26 03:05",
+                "user": "JCJustCharting",
+                "sentiment": null,
+                "body": "$SANM who missed it? https://x.com/JC_JustCharts/status/2102156810698289310?s=20"
+              },
+              {
+                "createdAt": "2026-09-25 12:11",
+                "user": "Albino_Trader123",
+                "sentiment": null,
+                "body": "$SANM Ready for right side move if it can hold above this pivot"
+              }
+            ],
+            "summary": "표본 부족으로 방향성 판단 불가."
+          }
+        ],
+        "items": [
+          {
+            "name": "TTM Technologies",
+            "ticker": "TTMI",
+            "price": 122.8,
+            "changePct": -1.12,
+            "note": "글로벌 PCB 제조사로 고부가가치 회로기판 및 PCB 검사 장비 관련 사업과 연관성이 높음"
+          },
+          {
+            "name": "Sanmina Corporation",
+            "ticker": "SANM",
+            "price": 222.73,
+            "changePct": 1.21,
+            "note": "전자 제조 서비스(EMS) 및 복합 PCB 솔루션을 제공하며 PCB 제조 공정 기술을 공유함"
+          },
+          {
+            "name": "Key Tronic Corporation",
+            "ticker": "KTCC",
+            "price": 2.1,
+            "changePct": 0.0,
+            "note": "전자 제품 제조 및 PCB 조립 서비스를 제공하는 기업으로 PCB 관련 밸류체인에 속함"
+          },
+          {
+            "name": "Multek (DSBJ)",
+            "ticker": "002384.SZ",
+            "price": 171.21,
+            "changePct": 1.74,
+            "note": "중국의 대형 PCB 제조사로 타이거일렉의 주력인 PCB 제조 및 검사 장비 시장과 경쟁 및 유사성 보유"
+          },
+          {
+            "name": "Tripod Technology",
+            "ticker": "5469.TW",
+            "price": 73.6,
+            "changePct": 0.82,
+            "note": "대만의 주요 PCB 제조사로 PCB 생산 공정 및 관련 장비 수요처로서의 유사한 사업 환경 공유"
+          }
+        ],
+        "socialStatus": {
+          "reddit": "unavailable",
+          "redditQueried": [
+            "web:TTM Technologies",
+            "web:Sanmina Corporation"
+          ],
+          "stocktwits": {
+            "TTMI": "ok",
+            "SANM": "ok"
+          }
+        }
+      },
+      "news": {
+        "summary": "반도체 테스트 기판 사업의 '삼각 편대' 구축 기대감이 주가 상승의 핵심 동력으로 작용함. MVP 상위 종목 편입 등 시장의 관심이 집중되고 있으나, 주가 급등에 따른 투자경고 및 매매거래정지 예고 공시가 리스크 요인으로 부상함.",
+        "items": [
+          {
+            "title": "[리스트] MVP 상위 주식 20선...달바글로벌, 월덱스 등 - 30일",
+            "source": "아이투자",
+            "date": "2026-09-30",
+            "sentiment": "긍정",
+            "url": "https://www.itooza.com/common/iview.php?no=2026093007152002052",
+            "insight": "MVP 상위 종목에 편입되며 시장의 강한 모멘텀을 입증함."
+          },
+          {
+            "title": "[공시] 씨싸이트 '거래정지', HLB 등 12개 종목 '공매도 금지', 네오티스...",
+            "source": "뉴스TNT",
+            "date": "2026-09-29",
+            "sentiment": "부정",
+            "url": "https://www.newstnt.com/news/articleView.html?idxno=720674",
+            "insight": "주가 급등으로 인한 매매거래정지 예고는 단기 차익 실현 욕구를 자극할 수 있음."
+          },
+          {
+            "title": "코리아써키트·뉴프렉스 주가 급등…PCB 매수 온기 확산",
+            "source": "핀포인트뉴스",
+            "date": "2026-09-28",
+            "sentiment": "긍정",
+            "url": "https://www.pinpointnews.co.kr/news/articleView.html?idxno=490730",
+            "insight": "PCB 섹터 전반의 온기가 확산되며 동반 상승 흐름을 보임."
+          },
+          {
+            "title": "엘디티, 임시주총서 멜파스 측 안건 부결…파장 대신 안정 전망",
+            "source": "파이낸셜포스트",
+            "date": "2026-09-22",
+            "sentiment": "긍정",
+            "url": "https://www.financialpost.co.kr/news/articleView.html?idxno=277117",
+            "insight": "TSE-타이거일렉-엘디티로 이어지는 반도체 테스트 기판 밸류체인 구축이 가시화됨."
+          },
+          {
+            "title": "AI 반도체 훈풍에 소부장 들썩…메가터치·오킨스전자 '함박웃음'",
+            "source": "핀포인트뉴스",
+            "date": "2026-09-23",
+            "sentiment": "긍정",
+            "url": "https://www.pinpointnews.co.kr/news/articleView.html?idxno=489862",
+            "insight": "반도체 검사 관련 PCB 사업의 성장성이 부각됨."
+          }
+        ]
+      },
+      "community": {
+        "summary": "52주 신고가 경신에 따른 개인 투자자들의 기대감이 매우 높으며, 거래정지 예고 공시에 대해서도 경계심과 함께 추가 상승을 기대하는 분위기가 공존함.",
+        "sentimentLabel": "긍정",
+        "naver": [
+          {
+            "title": "2026-09-30(수)정지예고- 피에스케이홀딩스 타이거일렉",
+            "url": "https://cafe.naver.com/onepercentsecret/27645",
+            "sentiment": "중립",
+            "summary": "매매거래정지 예고 공시를 공유하며 투자자들에게 주의를 환기함."
+          },
+          {
+            "title": "9/29 52주 신고가 종목 (씨싸이트, 현대바이오랜드, 타이거일렉, 피에스케이....",
+            "url": "https://cafe.naver.com/huntstock/45855",
+            "sentiment": "긍정",
+            "summary": "신고가 경신 종목으로 언급되며 투자자들의 관심을 받고 있음."
+          },
+          {
+            "title": "여기 물량 겁나 쌓여있어",
+            "url": "https://stock.naver.com/domestic/stock/219130/discussion/429945680",
+            "sentiment": "중립",
+            "summary": "주가 상승에 따른 매물대 부담을 언급하는 의견."
+          },
+          {
+            "title": "전고점돌파했네요",
+            "url": "https://stock.naver.com/domestic/stock/219130/discussion/429945032",
+            "sentiment": "긍정",
+            "summary": "전고점 돌파에 따른 기술적 상승 기대감 표출."
+          }
+        ]
+      },
+      "dart": {
+        "summary": "모회사 티에스이(TSE)와의 협력을 통한 반도체 테스트 기판 사업 확장이 핵심이며, 최근 IR 개최를 통해 사업 비전을 공유함.",
+        "highlights": [
+          {
+            "label": "최대주주",
+            "value": "티에스이 (43.79%)",
+            "note": "안정적인 지배구조 및 관계사 협력 기반 확보."
+          },
+          {
+            "label": "최근 IR",
+            "value": "2026-09-02",
+            "note": "기업설명회 개최를 통해 사업 방향성 공유."
+          },
+          {
+            "label": "주요 공시",
+            "value": "타법인 출자",
+            "note": "2026-07-29 타법인주식및출자증권취득결정 공시."
+          },
+          {
+            "label": "반기보고서",
+            "value": "2026-08-14",
+            "note": "2026년 6월 기준 반기보고서 제출 완료."
+          }
+        ],
+        "recentFilings": [
+          {
+            "date": "2026-09-02",
+            "title": "기업설명회(IR)개최              ",
+            "filer": "타이거일렉",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260902900145"
+          },
+          {
+            "date": "2026-08-14",
+            "title": "반기보고서 (2026.06)",
+            "filer": "타이거일렉",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814002236"
+          },
+          {
+            "date": "2026-07-29",
+            "title": "타법인주식및출자증권취득결정              ",
+            "filer": "타이거일렉",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260729900856"
+          }
+        ]
+      },
+      "research": {
+        "summary": "최근 60일 발간 리포트 없음.",
+        "items": []
+      },
+      "generatedBy": "gemini-3.1-flash-lite",
+      "flow": {
+        "rank": [],
+        "shorts": [
+          {
+            "date": "20260929",
+            "qty": 1110.0,
+            "volRlim": 1.28,
+            "pbmn": 1.0,
+            "pbmnRlim": 1.28
+          },
+          {
+            "date": "20260928",
+            "qty": 1023.0,
+            "volRlim": 2.79,
+            "pbmn": 0.8,
+            "pbmnRlim": 2.79
+          },
+          {
+            "date": "20260923",
+            "qty": 879.0,
+            "volRlim": 2.33,
+            "pbmn": 0.7,
+            "pbmnRlim": 2.36
+          },
+          {
+            "date": "20260922",
+            "qty": 1280.0,
+            "volRlim": 7.32,
+            "pbmn": 1.0,
+            "pbmnRlim": 7.32
+          },
+          {
+            "date": "20260921",
+            "qty": 1481.0,
+            "volRlim": 5.6,
+            "pbmn": 1.1,
+            "pbmnRlim": 5.57
+          },
+          {
+            "date": "20260918",
+            "qty": 579.0,
+            "volRlim": 2.67,
+            "pbmn": 0.4,
+            "pbmnRlim": 2.69
+          },
+          {
+            "date": "20260917",
+            "qty": 1321.0,
+            "volRlim": 3.54,
+            "pbmn": 1.0,
+            "pbmnRlim": 3.48
+          },
+          {
+            "date": "20260916",
+            "qty": 13951.0,
+            "volRlim": 9.35,
+            "pbmn": 9.8,
+            "pbmnRlim": 9.25
+          },
+          {
+            "date": "20260915",
+            "qty": 2406.0,
+            "volRlim": 9.53,
+            "pbmn": 1.6,
+            "pbmnRlim": 9.56
+          },
+          {
+            "date": "20260914",
+            "qty": 3509.0,
+            "volRlim": 14.44,
+            "pbmn": 2.4,
+            "pbmnRlim": 14.47
+          },
+          {
+            "date": "20260911",
+            "qty": 6563.0,
+            "volRlim": 21.76,
+            "pbmn": 4.4,
+            "pbmnRlim": 21.72
+          },
+          {
+            "date": "20260910",
+            "qty": 3185.0,
+            "volRlim": 7.57,
+            "pbmn": 2.2,
+            "pbmnRlim": 7.55
+          },
+          {
+            "date": "20260909",
+            "qty": 1304.0,
+            "volRlim": 2.5,
+            "pbmn": 0.9,
+            "pbmnRlim": 2.49
+          },
+          {
+            "date": "20260908",
+            "qty": 1012.0,
+            "volRlim": 1.92,
+            "pbmn": 0.6,
+            "pbmnRlim": 1.91
+          },
+          {
+            "date": "20260907",
+            "qty": 5385.0,
+            "volRlim": 9.64,
+            "pbmn": 3.2,
+            "pbmnRlim": 9.62
+          },
+          {
+            "date": "20260904",
+            "qty": 1986.0,
+            "volRlim": 5.78,
+            "pbmn": 1.2,
+            "pbmnRlim": 5.79
+          },
+          {
+            "date": "20260903",
+            "qty": 3648.0,
+            "volRlim": 9.35,
+            "pbmn": 2.2,
+            "pbmnRlim": 9.35
+          },
+          {
+            "date": "20260902",
+            "qty": 3832.0,
+            "volRlim": 5.41,
+            "pbmn": 2.4,
+            "pbmnRlim": 5.44
+          },
+          {
+            "date": "20260901",
+            "qty": 4075.0,
+            "volRlim": 15.29,
+            "pbmn": 2.5,
+            "pbmnRlim": 15.28
+          },
+          {
+            "date": "20260831",
+            "qty": 3514.0,
+            "volRlim": 16.01,
+            "pbmn": 2.2,
+            "pbmnRlim": 16.01
+          }
+        ],
+        "loans": [
+          {
+            "date": "20260929",
+            "newQty": 0.0,
+            "rdmpQty": 5748.0,
+            "rmndChg": -5748.0,
+            "rmndQty": 626771.0,
+            "rmndAmt": 570.4
+          },
+          {
+            "date": "20260928",
+            "newQty": 600.0,
+            "rdmpQty": 636.0,
+            "rmndChg": -36.0,
+            "rmndQty": 632519.0,
+            "rmndAmt": 524.4
+          },
+          {
+            "date": "20260923",
+            "newQty": 0.0,
+            "rdmpQty": 2582.0,
+            "rmndChg": -2582.0,
+            "rmndQty": 632555.0,
+            "rmndAmt": 511.1
+          },
+          {
+            "date": "20260922",
+            "newQty": 3000.0,
+            "rdmpQty": 3100.0,
+            "rmndChg": -100.0,
+            "rmndQty": 635137.0,
+            "rmndAmt": 488.4
+          },
+          {
+            "date": "20260921",
+            "newQty": 5352.0,
+            "rdmpQty": 5352.0,
+            "rmndChg": 0.0,
+            "rmndQty": 635237.0,
+            "rmndAmt": 480.9
+          },
+          {
+            "date": "20260918",
+            "newQty": 1200.0,
+            "rdmpQty": 1500.0,
+            "rmndChg": -300.0,
+            "rmndQty": 635237.0,
+            "rmndAmt": 457.4
+          },
+          {
+            "date": "20260917",
+            "newQty": 0.0,
+            "rdmpQty": 4380.0,
+            "rmndChg": -4380.0,
+            "rmndQty": 635537.0,
+            "rmndAmt": 456.3
+          },
+          {
+            "date": "20260916",
+            "newQty": 4282.0,
+            "rdmpQty": 256.0,
+            "rmndChg": 4026.0,
+            "rmndQty": 639917.0,
+            "rmndAmt": 478.6
+          },
+          {
+            "date": "20260915",
+            "newQty": 0.0,
+            "rdmpQty": 2804.0,
+            "rmndChg": -2804.0,
+            "rmndQty": 635891.0,
+            "rmndAmt": 413.3
+          },
+          {
+            "date": "20260914",
+            "newQty": 0.0,
+            "rdmpQty": 2154.0,
+            "rmndChg": -2154.0,
+            "rmndQty": 638695.0,
+            "rmndAmt": 438.8
+          },
+          {
+            "date": "20260911",
+            "newQty": 2186.0,
+            "rdmpQty": 2186.0,
+            "rmndChg": 0.0,
+            "rmndQty": 641849.0,
+            "rmndAmt": 439.0
+          },
+          {
+            "date": "20260910",
+            "newQty": 3220.0,
+            "rdmpQty": 8220.0,
+            "rmndChg": -5000.0,
+            "rmndQty": 641849.0,
+            "rmndAmt": 444.1
+          },
+          {
+            "date": "20260909",
+            "newQty": 5110.0,
+            "rdmpQty": 5259.0,
+            "rmndChg": -149.0,
+            "rmndQty": 646849.0,
+            "rmndAmt": 435.3
+          },
+          {
+            "date": "20260908",
+            "newQty": 2613.0,
+            "rdmpQty": 7613.0,
+            "rmndChg": -5000.0,
+            "rmndQty": 646998.0,
+            "rmndAmt": 403.1
+          },
+          {
+            "date": "20260907",
+            "newQty": 9000.0,
+            "rdmpQty": 5000.0,
+            "rmndChg": 4000.0,
+            "rmndQty": 651998.0,
+            "rmndAmt": 392.5
+          },
+          {
+            "date": "20260904",
+            "newQty": 0.0,
+            "rdmpQty": 1128.0,
+            "rmndChg": -1128.0,
+            "rmndQty": 647998.0,
+            "rmndAmt": 391.4
+          },
+          {
+            "date": "20260903",
+            "newQty": 16.0,
+            "rdmpQty": 16.0,
+            "rmndChg": 0.0,
+            "rmndQty": 649126.0,
+            "rmndAmt": 390.8
+          },
+          {
+            "date": "20260902",
+            "newQty": 500.0,
+            "rdmpQty": 2500.0,
+            "rmndChg": -2000.0,
+            "rmndQty": 649126.0,
+            "rmndAmt": 401.8
+          },
+          {
+            "date": "20260901",
+            "newQty": 0.0,
+            "rdmpQty": 0.0,
+            "rmndChg": 0.0,
+            "rmndQty": 651126.0,
+            "rmndAmt": 408.9
+          },
+          {
+            "date": "20260831",
+            "newQty": 0.0,
+            "rdmpQty": 0.0,
+            "rmndChg": 0.0,
+            "rmndQty": 651126.0,
+            "rmndAmt": 412.2
+          }
+        ],
+        "rankAsof": "08:38",
+        "trend": [
+          {
+            "date": "20260929",
+            "frgn": 30287,
+            "orgn": 19294,
+            "prsn": -49975,
+            "holdRatio": 6.21,
+            "close": 91000,
+            "rate": 9.77
+          },
+          {
+            "date": "20260928",
+            "frgn": 13565,
+            "orgn": 2432,
+            "prsn": -16007,
+            "holdRatio": 5.81,
+            "close": 82900,
+            "rate": 2.6
+          },
+          {
+            "date": "20260923",
+            "frgn": 7926,
+            "orgn": -718,
+            "prsn": -7217,
+            "holdRatio": 5.59,
+            "close": 80800,
+            "rate": 5.07
+          },
+          {
+            "date": "20260922",
+            "frgn": 2101,
+            "orgn": 930,
+            "prsn": -3031,
+            "holdRatio": 5.47,
+            "close": 76900,
+            "rate": 1.59
+          },
+          {
+            "date": "20260921",
+            "frgn": 207,
+            "orgn": 5279,
+            "prsn": -4763,
+            "holdRatio": 5.43,
+            "close": 75700,
+            "rate": 5.14
+          },
+          {
+            "date": "20260918",
+            "frgn": -3283,
+            "orgn": 2441,
+            "prsn": 842,
+            "holdRatio": 5.43,
+            "close": 72000,
+            "rate": 0.28
+          },
+          {
+            "date": "20260917",
+            "frgn": -7279,
+            "orgn": -3472,
+            "prsn": 10047,
+            "holdRatio": 5.48,
+            "close": 71800,
+            "rate": -4.01
+          },
+          {
+            "date": "20260916",
+            "frgn": -12324,
+            "orgn": -2299,
+            "prsn": 11110,
+            "holdRatio": 5.62,
+            "close": 73500,
+            "rate": 13.08
+          },
+          {
+            "date": "20260915",
+            "frgn": 1055,
+            "orgn": -6698,
+            "prsn": 5618,
+            "holdRatio": 5.79,
+            "close": 66000,
+            "rate": -3.93
+          },
+          {
+            "date": "20260914",
+            "frgn": 2615,
+            "orgn": -922,
+            "prsn": -1727,
+            "holdRatio": 5.78,
+            "close": 67600,
+            "rate": -1.17
+          },
+          {
+            "date": "20260911",
+            "frgn": -3493,
+            "orgn": -825,
+            "prsn": 3480,
+            "holdRatio": 5.77,
+            "close": 68400,
+            "rate": -1.16
+          },
+          {
+            "date": "20260910",
+            "frgn": -4704,
+            "orgn": -6542,
+            "prsn": 5393,
+            "holdRatio": 5.82,
+            "close": 69200,
+            "rate": 2.82
+          },
+          {
+            "date": "20260909",
+            "frgn": -8046,
+            "orgn": -5549,
+            "prsn": 12599,
+            "holdRatio": 5.9,
+            "close": 67300,
+            "rate": 8.03
+          },
+          {
+            "date": "20260908",
+            "frgn": -503,
+            "orgn": -2595,
+            "prsn": 724,
+            "holdRatio": 6.03,
+            "close": 62300,
+            "rate": 3.49
+          },
+          {
+            "date": "20260907",
+            "frgn": 8120,
+            "orgn": -21001,
+            "prsn": 12903,
+            "holdRatio": 6.11,
+            "close": 60200,
+            "rate": -0.33
+          },
+          {
+            "date": "20260904",
+            "frgn": 9957,
+            "orgn": -11494,
+            "prsn": 743,
+            "holdRatio": 5.92,
+            "close": 60400,
+            "rate": 0.33
+          },
+          {
+            "date": "20260903",
+            "frgn": 433,
+            "orgn": -3350,
+            "prsn": 717,
+            "holdRatio": 5.76,
+            "close": 60200,
+            "rate": -2.75
+          },
+          {
+            "date": "20260902",
+            "frgn": 30884,
+            "orgn": -8925,
+            "prsn": -23209,
+            "holdRatio": 5.76,
+            "close": 61900,
+            "rate": -1.43
+          },
+          {
+            "date": "20260901",
+            "frgn": 581,
+            "orgn": -3920,
+            "prsn": 2300,
+            "holdRatio": 5.26,
+            "close": 62800,
+            "rate": -0.79
+          },
+          {
+            "date": "20260831",
+            "frgn": 4890,
+            "orgn": -3271,
+            "prsn": -2222,
+            "holdRatio": 5.25,
+            "close": 63300,
+            "rate": 1.93
+          }
+        ]
+      },
+      "_flowOk": true,
+      "_meta": {
+        "filingKey": "2026-09-02|기업설명회(IR)개최              ",
+        "asOf": "2026-09-30T08:38:50.699086+09:00",
+        "price": 91000
+      }
+    },
+    "direction": "bullish"
+  },
+  {
+    "code": "064760",
+    "name": "티씨케이",
+    "market": "KOSDAQ",
+    "selectedDate": "2026-09-30",
+    "basePrice": 300000,
+    "entry": 301500,
+    "target": 329100,
+    "stop": 278200,
+    "stars": "⭐⭐⭐⭐⭐",
+    "catalyst": "메타의 에이전틱 AI '뮤즈' 흥행에 따른 낸드(NAND) 고단화 수요 급증과 이에 따른 SiC 포커스링 매출 성장이 핵심 촉매입니다. 최근 2분기 수주잔고가 전분기 대비 100% 이상 급증하며 생산능력을 상회하는 강력한 전방 수요가 확인되었습니다.",
+    "scenario": "<b>[자동 생성 시나리오]</b><br>전일 종가 300,000원 기준으로 산출된 기술적 레벨입니다. 진입 상한가 301,500원 이하에서 분할 매수하고, 목표 익절가 329,100원, 손절선 278,200원으로 리스크를 관리하세요.",
+    "analysis": {
+      "catalyst": "메타의 에이전틱 AI '뮤즈' 흥행에 따른 낸드(NAND) 고단화 수요 급증과 이에 따른 SiC 포커스링 매출 성장이 핵심 촉매입니다. 최근 2분기 수주잔고가 전분기 대비 100% 이상 급증하며 생산능력을 상회하는 강력한 전방 수요가 확인되었습니다.",
+      "direction": "bullish",
+      "flowComment": "최근 기관이 순매수세를 강화하는 가운데, 9월 29일 기관은 25,129주를 순매수하며 주가 상승을 견인했습니다. 공매도 비중은 9월 23일 31.31%까지 급증했으나 최근 10.96% 수준으로 완화되었으며, 대차잔고는 9월 중순 이후 전반적인 상환 우위를 보이며 하방 압력이 점차 해소되는 양상입니다.",
+      "peers": {
+        "summary": "해외 peer 그룹 여론 데이터는 수집 실패(unavailable) 상태이나, 일본의 Tokai Carbon(+4.75%) 및 미국의 Entegris(+2.75%) 등 글로벌 반도체 소재·부품 peer 기업들의 주가는 전반적으로 강세를 보였습니다.",
+        "reddit": [],
+        "stocktwits": [
+          {
+            "ticker": "ENTG",
+            "name": "Cabot Microelectronics Corporation (Entegris에 인수됨, 참고용)",
+            "status": "ok",
+            "bullish": 0,
+            "bearish": 0,
+            "unlabeled": 4,
+            "total": 4,
+            "labeled": 0,
+            "bullPct": null,
+            "windowDays": 7,
+            "newest": "2026-09-29 22:58",
             "oldest": "2026-09-24 02:49",
             "samples": [
+              {
+                "createdAt": "2026-09-29 22:58",
+                "user": "Dr_Stoxx",
+                "sentiment": null,
+                "body": "$ENTG with indicators poised for breakout"
+              },
+              {
+                "createdAt": "2026-09-29 22:40",
+                "user": "MonkeyBananaGenius",
+                "sentiment": null,
+                "body": "$ENTG Breaking out"
+              },
               {
                 "createdAt": "2026-09-28 12:48",
                 "user": "Techdamentals",
                 "sentiment": null,
                 "body": "Entegris sells the materials and filters that chip fabs burn through constantly. Revenue tracks how busy the fabs actually are, not any one company&#39;s product cycle. Quiet way to get exposure to overall chip manufacturing without picking which architecture wins. Educational to…"
-              },
-              {
-                "createdAt": "2026-09-24 02:49",
-                "user": "MonkeyBananaGenius",
-                "sentiment": null,
-                "body": "$ENTG interesting looking name and chart with potential breakout looming. That said, in this market, who the hell knows."
               }
             ],
-            "summary": "반도체 팹 가동률과 연동되는 소재 기업으로 언급되었으나, 최근 메시지 표본이 부족하여 뚜렷한 방향성을 판단하기 어려움."
+            "summary": "차트상 기술적 돌파(Breakout) 가능성이 언급되며 반도체 팹 가동률 상승에 따른 꾸준한 소재 소모 수혜주로 주목받고 있으나 표본이 부족합니다."
           }
         ],
         "items": [
           {
             "name": "Tokai Carbon",
             "ticker": "5301.T",
-            "price": 2325.5,
-            "changePct": 4.21,
+            "price": 2337.5,
+            "changePct": 4.75,
             "note": "고순도 흑연 제품을 생산하며 반도체 및 태양광 산업용 소재를 공급하는 일본의 대표적인 탄소 소재 기업입니다."
           },
           {
             "name": "SGL Carbon",
             "ticker": "SGL.DE",
-            "price": 4.57,
+            "price": 4.61,
             "changePct": 0.0,
             "note": "탄소 및 흑연 기반 솔루션을 전문으로 하며 반도체 공정용 부품을 포함한 다양한 산업용 소재를 제조합니다."
           },
           {
             "name": "Toyo Tanso",
             "ticker": "5310.T",
-            "price": 7360.0,
-            "changePct": -2.0,
+            "price": 7430.0,
+            "changePct": -1.07,
             "note": "등방성 흑연 분야의 글로벌 리더로, 반도체 제조 장비용 고순도 흑연 부품을 주력으로 생산합니다."
           },
           {
             "name": "Entegris",
             "ticker": "ENTG",
-            "price": 150.63,
-            "changePct": -0.83,
+            "price": 154.77,
+            "changePct": 2.75,
             "note": "반도체 공정용 특수 소재 및 부품을 공급하는 글로벌 기업으로, 티씨케이의 주요 제품군과 전방 산업이 겹칩니다."
           },
           {
             "name": "FerroTec Holdings",
             "ticker": "6890.T",
-            "price": 10410.0,
-            "changePct": 1.07,
+            "price": 10470.0,
+            "changePct": 1.65,
             "note": "반도체 제조 장비용 부품 및 소재를 공급하며, 흑연 가공 및 세라믹 부품 사업을 영위하고 있습니다."
           }
         ],
@@ -1700,7 +3875,7 @@
         }
       },
       "news": {
-        "summary": "KB증권 등 증권사들이 메타의 AI 서비스 '뮤즈' 흥행과 낸드 시장 회복을 이유로 티씨케이의 목표주가를 36만 원으로 상향함. SiC 포커스링의 독보적인 시장 지배력과 구조적 성장성이 부각되며 긍정적인 리포트가 잇따름.",
+        "summary": "메타의 에이전틱 AI '뮤즈' 흥행으로 인한 낸드 수요 증가와 이에 따른 티씨케이의 수혜 전망 보도가 집중되었습니다. 증권가에서는 3분기 호실적 전망과 함께 목표주가를 상향 조정했으며, 외국인 지분율이 높은 대표적인 반도체 소부장 주로 언급되며 시장의 관심을 받았습니다.",
         "items": [
           {
             "title": "KB證 \"티씨케이, 메타 '뮤즈' 흥행 수혜…목표가 20%↑\"",
@@ -1708,88 +3883,80 @@
             "date": "2026-09-29",
             "sentiment": "긍정",
             "url": "https://www.news1.kr/finance/general-stock/6304174",
-            "insight": "AI 서비스 확산에 따른 낸드 수요 증가가 실적 성장을 견인할 것으로 전망됨."
+            "insight": "에이전틱 AI 확산이 낸드 고단화 및 가동률 상승으로 이어져 비포마켓 독점적 지위를 가진 티씨케이의 직접적 수혜로 연결될 것임을 시사합니다."
           },
           {
-            "title": "[애널픽] 티씨케이, 에이전틱 AI 확산 NAND 호황 수혜…목표가↑",
-            "source": "뷰어스",
-            "date": "2026-09-29",
-            "sentiment": "긍정",
-            "url": "https://theviewers.co.kr/View.aspx?No=4244352",
-            "insight": "낸드 고단화에 따른 SiC 포커스링 수요 증가가 구조적 성장 동인으로 작용."
-          },
-          {
-            "title": "티씨케이, 메타 '뮤즈' 흥행 속 에이전틱 AI 확산 '수혜'…\"글로벌 고객...",
-            "source": "뉴스프라임",
+            "title": "티씨케이, 메타 '뮤즈' 흥행 속 에이전틱 AI 확산 '수혜'…\"글로벌 고객...\"",
+            "source": "프라임경제",
             "date": "2026-09-29",
             "sentiment": "긍정",
             "url": "http://www.newsprime.co.kr/news/article.html?no=749158",
-            "insight": "비포마켓 점유율 90%의 시장 지배력을 바탕으로 수익성 확대 기대."
+            "insight": "SiC 포커스링 시장 내 점유율 90%의 지배력과 샤워헤드 등 신규 제품군 확대를 통한 추가 성장 동력을 강조하고 있습니다."
           },
           {
-            "title": "[모닝 리포트] \"티씨케이 목표가 36만원으로 상향…낸드 회복 기대\"",
-            "source": "뉴스핌",
+            "title": "[클릭 e종목]티씨케이, '뮤즈'발 에이전틱 AI 확산…수혜 기대",
+            "source": "아시아경제",
+            "date": "2026-09-30",
+            "sentiment": "긍정",
+            "url": "https://view.asiae.co.kr/article/2026092913550351378",
+            "insight": "3분기 예상 매출액 1,063억원, 영업이익 328억원으로 전년 대비 대폭 성장이 기대되는 구체적 실적 가시성을 제시했습니다."
+          },
+          {
+            "title": "HPSP 7.68% 급등, 에코프로비엠 5.57% 하락… 업종별 순환매",
+            "source": "서울신문",
             "date": "2026-09-29",
             "sentiment": "긍정",
-            "url": "https://www.newspim.com/news/view/20260929000041",
-            "insight": "투자의견 매수 유지 및 목표주가 상향으로 투자 심리 개선."
-          },
-          {
-            "title": "\"이러다 반등 놓칠라\"…지금이 골든타임, 반도체 소부장 주목",
-            "source": "이데일리",
-            "date": "2026-09-28",
-            "sentiment": "긍정",
-            "url": "https://www.edaily.co.kr/News/Read?newsId=02122166645584712&mediaCodeNo=257",
-            "insight": "하방 공포보다는 점진적인 비중 확대 전략이 유효하다는 분석."
+            "url": "https://www.seoul.co.kr/news/economy/securities/2026/09/29/20260929500127?wlog_tag3=naver",
+            "insight": "티씨케이의 외국인 지분율이 65.09%로 코스닥 반도체 소부장 중 최고 수준임을 조명하며 수급적 안정성을 부각했습니다."
           }
         ]
       },
       "community": {
-        "summary": "네이버 종목토론방과 카페에서는 증권사 목표가 상향 소식에 대한 기대감이 높음. 차트상 정배열 흐름과 SiC 링 재고 부족에 따른 수요 증가를 언급하며 긍정적인 투자 심리가 우세함.",
-        "sentimentLabel": "긍정",
+        "summary": "국내 개인투자자들은 낸드 고단화에 따른 SiC 링의 구조적 수요 폭발과 재고 부족 상황에 주목하고 있습니다. 최근 주가 상승세와 정배열 차트 흐름에 대해 매우 긍정적인 반응을 보이고 있습니다.",
+        "sentimentLabel": "강한 긍정",
         "naver": [
           {
             "title": "Sic 링 역시 반도체와 마찬가지로 재고가 바닥 난 상태인데 문제는 생산 속도에 비한 수요 증가가 디램보다 훨씬 더 크다는 겁니다.",
             "url": "https://stock.naver.com/domestic/stock/064760/discussion/429820522",
             "sentiment": "긍정",
-            "summary": "수요 대비 공급 부족 현상을 근거로 실적 개선을 낙관함."
+            "summary": "디램 대비 낸드 및 SiC 링의 수요 증가 속도가 훨씬 가파르며 공급 부족 상황이 지속될 것이라는 긍정적 전망입니다."
           },
           {
             "title": "정배열 임박주",
             "url": "https://stock.naver.com/domestic/stock/064760/discussion/429006847",
             "sentiment": "긍정",
-            "summary": "기술적 차트 분석상 상승 추세 전환을 기대함."
+            "summary": "이동평균선 정배열 진입을 앞두고 기술적 차트 흐름이 매우 우호적이라는 평가입니다."
           },
           {
-            "title": "티씨케이, 메타 '뮤즈' 흥행 수혜…목표가 20%↑",
-            "url": "https://cafe.naver.com/tkdska3/480332",
+            "title": "티씨케이 주가 전망, 지금 주목해야 하는 이유는? SiC 포커스링·낸드 고단화....",
+            "url": "https://cafe.naver.com/stockking1/1896",
             "sentiment": "긍정",
-            "summary": "증권사 리포트 내용을 공유하며 긍정적인 반응을 보임."
+            "summary": "수주잔고가 전분기 대비 115% 급증한 1,763억원에 달해 실적 턴어라운드가 확실시된다는 분석입니다."
           }
         ]
       },
       "dart": {
-        "summary": "2026년 9월 기업설명회(IR) 개최 및 반기보고서 공시를 통해 실적 개선 기대감을 뒷받침함. SiC 포커스링 관련 신규 시설 투자 등 지속적인 성장을 위한 자본 지출이 확인됨.",
+        "summary": "최근 반기보고서 제출 및 잠정 실적 공시가 완료되었으며, 9월 초 기업설명회(IR)를 개최하여 시장과의 소통을 강화했습니다. 주요 주주로는 베어링자산운용(6.51%), 국민연금(6.03%), 삼성자산운용(5.04%) 등이 지분을 확보하고 있어 기관 투자자들의 높은 선호도가 확인됩니다.",
         "highlights": [
           {
-            "label": "기업설명회",
+            "label": "기업설명회(IR) 개최",
             "value": "2026-09-04",
-            "note": "IR 개최를 통해 시장과의 소통 강화 및 성장 전략 공유."
+            "note": "기관 및 전문투자자 대상 영업 현황 및 전망 공유를 위한 IR 개최 공시"
           },
           {
-            "label": "반기보고서",
-            "value": "2026-08-14",
-            "note": "상반기 실적 및 재무 상태 확인."
+            "label": "국민연금공단 지분율",
+            "value": "6.03%",
+            "note": "2025년 10월 공시 기준 단순 투자 목적으로 지분 6% 이상 보유 중"
           },
           {
-            "label": "영업실적",
-            "value": "2026-08-07",
-            "note": "잠정 실적 공시를 통해 시장 기대치 부합 여부 확인."
+            "label": "베어링자산운용 지분율",
+            "value": "6.51%",
+            "note": "꾸준히 6%대 지분을 유지하며 주요 주주로 등재되어 있음"
           },
           {
-            "label": "신규시설투자",
-            "value": "2026-06-26",
-            "note": "생산 능력 확대를 위한 자본 투자 지속."
+            "label": "삼성자산운용 지분 신규 보고",
+            "value": "5.04%",
+            "note": "2026년 3월 신규 지분 취득 공시로 대형 자산운용사들의 러브콜 확인"
           }
         ],
         "recentFilings": [
@@ -1820,7 +3987,7 @@
         ]
       },
       "research": {
-        "summary": "IBK투자증권과 신한투자증권 모두 '매수' 의견을 유지하며 목표주가를 상향함. 낸드 고단화에 따른 식각 공정 난도 상승으로 SiC 포커스링의 구조적 수요 증가가 실적 성장을 견인할 것으로 분석함.",
+        "summary": "최근 60일 이내 발간된 증권사 리포트들은 일제히 '매수' 의견을 유지하며 목표주가를 최고 360,000원까지 상향 조정했습니다. 낸드 고단화 전환에 따른 SiC 포커스링의 구조적 수요 증가와 생산능력을 초과하는 수주잔고 급증이 공통적인 핵심 논거입니다.",
         "items": [
           {
             "title": "SiC 포커스링, 두 번째 성장기 진입",
@@ -1830,7 +3997,7 @@
             "pdfUrl": "https://stock.pstatic.net/stock-research/company/40/20260903_company_624070000.pdf",
             "targetPrice": 285000,
             "opinion": "매수",
-            "note": "낸드 적층 단수 증가에 따른 SiC 포커스링의 구조적 수요 증가와 수주 잔고 급증을 근거로 성장성 강조."
+            "note": "낸드 8세대에서 9세대로의 전환 및 장기 1,000단 로드맵에 따라 식각 공정 난도가 높아지며 소모성 SiC 링 수요가 구조적으로 급증하고 있음을 강조했습니다."
           },
           {
             "title": "생산능력을 대폭 상회한 수주 잔고",
@@ -1840,7 +4007,7 @@
             "pdfUrl": "https://stock.pstatic.net/stock-research/company/21/20260818_company_706100000.pdf",
             "targetPrice": 360000,
             "opinion": "매수",
-            "note": "전방 수요 강세 장기화와 생산능력을 상회하는 수주 잔고를 바탕으로 이익 추정치 상향."
+            "note": "2분기 수주잔고가 전분기 대비 105% 급증한 1,994억원을 기록하며 분기 생산능력을 상회함에 따라, 최대 Capa 가동에 따른 이익 극대화 구간에 진입했다고 분석했습니다."
           }
         ],
         "consensus": {
@@ -1848,24 +4015,23 @@
           "high": 360000,
           "low": 285000,
           "n": 2,
-          "upsidePct": 10.6,
+          "upsidePct": 7.5,
           "opinions": {
             "매수": 2
           }
         }
       },
-      "generatedBy": "gemini-3.1-flash-lite",
+      "generatedBy": "gemini-3.5-flash",
       "flow": {
-        "rank": [
-          {
-            "list": "기관계 순매수상위",
-            "rank": 26,
-            "frgn": -2093.0,
-            "orgn": 1794.0,
-            "fund": 0.0
-          }
-        ],
+        "rank": [],
         "shorts": [
+          {
+            "date": "20260929",
+            "qty": 9308.0,
+            "volRlim": 10.96,
+            "pbmn": 27.0,
+            "pbmnRlim": 10.96
+          },
           {
             "date": "20260928",
             "qty": 5482.0,
@@ -1998,16 +4164,17 @@
             "volRlim": 15.23,
             "pbmn": 15.8,
             "pbmnRlim": 15.21
-          },
-          {
-            "date": "20260828",
-            "qty": 2656.0,
-            "volRlim": 5.19,
-            "pbmn": 6.3,
-            "pbmnRlim": 5.22
           }
         ],
         "loans": [
+          {
+            "date": "20260929",
+            "newQty": 5566.0,
+            "rdmpQty": 3019.0,
+            "rmndChg": 2547.0,
+            "rmndQty": 738209.0,
+            "rmndAmt": 2214.6
+          },
           {
             "date": "20260928",
             "newQty": 9500.0,
@@ -2159,18 +4326,19 @@
             "rmndChg": 8596.0,
             "rmndQty": 730841.0,
             "rmndAmt": 1812.5
-          },
-          {
-            "date": "20260828",
-            "newQty": 999.0,
-            "rdmpQty": 438.0,
-            "rmndChg": 561.0,
-            "rmndQty": 722245.0,
-            "rmndAmt": 1722.5
           }
         ],
-        "rankAsof": "15:09",
+        "rankAsof": "08:38",
         "trend": [
+          {
+            "date": "20260929",
+            "frgn": -23833,
+            "orgn": 25129,
+            "prsn": -1481,
+            "holdRatio": 64.89,
+            "close": 298000,
+            "rate": 6.43
+          },
           {
             "date": "20260928",
             "frgn": -4630,
@@ -2341,23 +4509,14 @@
             "holdRatio": 66.58,
             "close": 248000,
             "rate": 3.98
-          },
-          {
-            "date": "20260828",
-            "frgn": 2567,
-            "orgn": -2471,
-            "prsn": -73,
-            "holdRatio": 66.54,
-            "close": 238500,
-            "rate": -1.65
           }
         ]
       },
       "_flowOk": true,
       "_meta": {
         "filingKey": "2026-09-04|기업설명회(IR)개최              ",
-        "asOf": "2026-09-29T14:08:58.638501+09:00",
-        "price": 291500
+        "asOf": "2026-09-30T08:38:50.699086+09:00",
+        "price": 300000
       }
     },
     "direction": "bullish"
@@ -2370,16 +4529,16 @@
     "basePrice": 32250,
     "entry": 32400,
     "target": 34500,
-    "stop": 30500,
+    "stop": 30600,
     "stars": "⭐⭐⭐⭐",
-    "catalyst": "반도체 식각 공정용 소모성 부품 수요가 견조한 가운데, 최근 자사주 매입 결정과 구미 지역 대규모 투자 확정으로 기업 가치 제고 기대감이 유효합니다. 다만, 최근 공매도 비중이 10%를 상회하는 등 수급적 변동성이 확대되고 있어 단기적인 주가 등락에 유의해야 합니다.",
-    "scenario": "<b>[자동 생성 시나리오]</b><br>전일 종가 32,250원 기준으로 산출된 기술적 레벨입니다. 진입 상한가 32,400원 이하에서 분할 매수하고, 목표 익절가 34,500원, 손절선 30,500원으로 리스크를 관리하세요.",
+    "catalyst": "반도체 식각 공정용 소모성 부품 수요 증가와 함께 아이투자 MVP 상위 종목으로 지속 선정되며 펀더멘털 우수성을 입증받고 있음. 최근 자사주 매입 결정 및 구미 지역 대규모 투자 확정 등 주주환원과 성장 모멘텀이 동시에 부각되는 중.",
+    "scenario": "<b>[자동 생성 시나리오]</b><br>전일 종가 32,250원 기준으로 산출된 기술적 레벨입니다. 진입 상한가 32,400원 이하에서 분할 매수하고, 목표 익절가 34,500원, 손절선 30,600원으로 리스크를 관리하세요.",
     "analysis": {
-      "catalyst": "반도체 식각 공정용 소모성 부품 수요가 견조한 가운데, 최근 자사주 매입 결정과 구미 지역 대규모 투자 확정으로 기업 가치 제고 기대감이 유효합니다. 다만, 최근 공매도 비중이 10%를 상회하는 등 수급적 변동성이 확대되고 있어 단기적인 주가 등락에 유의해야 합니다.",
-      "direction": "neutral",
-      "flowComment": "외국인은 최근 순매수 기조를 보이나 기관의 매도세가 이어지며 수급 공방이 치열합니다. 특히 최근 공매도 거래대금 비중이 10%를 상회하는 등 하방 압력이 존재하며, 대차잔고 또한 215억 원 수준으로 누증되고 있어 단기 수급 부담이 관찰됩니다.",
+      "catalyst": "반도체 식각 공정용 소모성 부품 수요 증가와 함께 아이투자 MVP 상위 종목으로 지속 선정되며 펀더멘털 우수성을 입증받고 있음. 최근 자사주 매입 결정 및 구미 지역 대규모 투자 확정 등 주주환원과 성장 모멘텀이 동시에 부각되는 중.",
+      "direction": "bullish",
+      "flowComment": "최근 외국인과 기관의 동반 순매수세가 유입되며 주가 상승을 견인하고 있음(9/29 기준 외인 +2.1만주, 기관 +3.4만주). 공매도 비중은 낮은 수준을 유지하고 있으며, 대차잔고 역시 큰 변동 없이 안정적인 흐름을 보임.",
       "peers": {
-        "summary": "반도체 식각 공정용 부품을 생산하는 글로벌 기업들과 유사한 전방 산업을 공유하며, 업황 회복에 따른 동반 수혜 기대감이 존재합니다.",
+        "summary": "해외 피어 그룹(Entegris 등)은 반도체 팹 가동률과 연동되는 소재 기업으로 주목받고 있으나, 월덱스와 직접적인 상관관계에 대한 논의는 부족함.",
         "reddit": [],
         "stocktwits": [
           {
@@ -2388,64 +4547,69 @@
             "status": "ok",
             "bullish": 0,
             "bearish": 0,
-            "unlabeled": 2,
-            "total": 2,
+            "unlabeled": 4,
+            "total": 4,
             "labeled": 0,
             "bullPct": null,
             "windowDays": 7,
-            "newest": "2026-09-28 12:48",
+            "newest": "2026-09-29 22:58",
             "oldest": "2026-09-24 02:49",
             "samples": [
+              {
+                "createdAt": "2026-09-29 22:58",
+                "user": "Dr_Stoxx",
+                "sentiment": null,
+                "body": "$ENTG with indicators poised for breakout"
+              },
+              {
+                "createdAt": "2026-09-29 22:40",
+                "user": "MonkeyBananaGenius",
+                "sentiment": null,
+                "body": "$ENTG Breaking out"
+              },
               {
                 "createdAt": "2026-09-28 12:48",
                 "user": "Techdamentals",
                 "sentiment": null,
                 "body": "Entegris sells the materials and filters that chip fabs burn through constantly. Revenue tracks how busy the fabs actually are, not any one company&#39;s product cycle. Quiet way to get exposure to overall chip manufacturing without picking which architecture wins. Educational to…"
-              },
-              {
-                "createdAt": "2026-09-24 02:49",
-                "user": "MonkeyBananaGenius",
-                "sentiment": null,
-                "body": "$ENTG interesting looking name and chart with potential breakout looming. That said, in this market, who the hell knows."
               }
             ],
-            "summary": "표본 부족으로 여론 판단이 어려우나, 반도체 팹 가동률에 연동되는 소재 기업으로서의 성격이 강조되고 있습니다."
+            "summary": "반도체 팹 가동률에 따른 실적 연동성이 강조되며 기술적 돌파 가능성이 언급됨."
           }
         ],
         "items": [
           {
             "name": "FerroTec Holdings",
             "ticker": "6890.T",
-            "price": 10440.0,
-            "changePct": 1.36,
+            "price": 10470.0,
+            "changePct": 1.65,
             "note": "반도체 제조용 실리콘 및 쿼츠 부품을 생산하는 일본의 대표적인 소재 기업입니다."
           },
           {
             "name": "Entegris",
             "ticker": "ENTG",
-            "price": 150.63,
-            "changePct": -0.83,
+            "price": 154.77,
+            "changePct": 2.75,
             "note": "반도체 공정용 특수 소재 및 부품을 공급하며 월덱스와 유사한 전방 산업을 공유합니다."
           },
           {
             "name": "Tokai Carbon",
             "ticker": "5301.T",
-            "price": 2313.5,
-            "changePct": 3.67,
+            "price": 2337.5,
+            "changePct": 4.75,
             "note": "반도체 식각 공정에 사용되는 실리콘 카바이드(SiC) 및 탄소 소재 부품을 제조합니다."
           },
           {
             "name": "Morgan Advanced Materials",
             "ticker": "MGAM.L",
-            "price": 259.0,
+            "price": 258.5,
             "changePct": 0.0,
             "note": "반도체 및 산업용 고성능 세라믹 부품을 제조하는 영국 기업입니다."
           }
         ],
         "socialStatus": {
-          "reddit": "empty",
+          "reddit": "unavailable",
           "redditQueried": [
-            "ENTG@stocks",
             "web:FerroTec Holdings",
             "web:Entegris"
           ],
@@ -2455,15 +4619,15 @@
         }
       },
       "news": {
-        "summary": "반도체 소부장 섹터 내에서 꾸준히 MVP 상위권에 언급되며, 자사주 매입 및 구미 투자 등 주주 친화적 행보와 설비 투자 확대가 긍정적입니다.",
+        "summary": "반도체 소부장 섹터의 전반적인 훈풍과 함께 월덱스의 펀더멘털이 MVP 상위 종목으로 지속적으로 평가받고 있음. 자사주 매입 및 구미 투자 확대 등 주주가치 제고와 성장 전략이 뉴스 흐름을 주도함.",
         "items": [
           {
-            "title": "[리스트] MVP 상위 20선...슈프리마, 나이스디앤비 등 - 29일",
+            "title": "[리스트] MVP 상위 주식 20선...달바글로벌, 월덱스 등 - 30일",
             "source": "아이투자",
-            "date": "2026-09-29",
+            "date": "2026-09-30",
             "sentiment": "긍정",
-            "url": "https://www.itooza.com/common/iview.php?no=2026092907152000011",
-            "insight": "MVP 점수 상위권 유지로 우수한 펀더멘털과 주가 모멘텀이 지속되고 있음을 시사합니다."
+            "url": "https://www.itooza.com/common/iview.php?no=2026093007152002052",
+            "insight": "수급, 밸류에이션, 펀더멘털 종합 점수에서 우수한 평가를 받으며 상위권 유지 중."
           },
           {
             "title": "[공시] 9월 29일, 코스닥 상장사 53개 종목 자사주 매수 신청",
@@ -2471,7 +4635,7 @@
             "date": "2026-09-28",
             "sentiment": "긍정",
             "url": "https://www.newstnt.com/news/articleView.html?idxno=720456",
-            "insight": "자사주 매입 신청은 주가 방어 및 주주 가치 제고 의지로 해석됩니다."
+            "insight": "자사주 매입을 통한 주주환원 의지 표명은 주가 하방 경직성을 확보하는 요인."
           },
           {
             "title": "36조원 투자 이어지는 구미…주택시장 회복 속 ‘구미 파크원 데시앙’...",
@@ -2479,7 +4643,7 @@
             "date": "2026-09-28",
             "sentiment": "긍정",
             "url": "https://biz.heraldcorp.com/article/10886607?ref=naver",
-            "insight": "구미 지역 대규모 투자 확정으로 장기적인 생산 능력 확대 및 지역 내 입지 강화가 기대됩니다."
+            "insight": "구미 지역 대규모 투자 확정으로 인한 생산 능력 확대 및 지역 산업 기반 강화 기대."
           },
           {
             "title": "AI 반도체 훈풍에 소부장 들썩…메가터치·오킨스전자 '함박웃음'",
@@ -2487,56 +4651,70 @@
             "date": "2026-09-23",
             "sentiment": "긍정",
             "url": "https://www.pinpointnews.co.kr/news/articleView.html?idxno=489862",
-            "insight": "반도체 식각 공정 소모성 부품 사업의 성장성이 AI 반도체 수요와 맞물려 부각되고 있습니다."
+            "insight": "반도체 식각 공정용 소모성 부품 사업의 성장성이 AI 반도체 수요와 맞물려 부각됨."
+          },
+          {
+            "title": "반도체 후공정 훈풍... 하나마이크론, 패키징·테스트 외주 확대로 도약...",
+            "source": "핀포인트뉴스",
+            "date": "2026-09-21",
+            "sentiment": "긍정",
+            "url": "https://www.pinpointnews.co.kr/news/articleView.html?idxno=489011",
+            "insight": "반도체 업황 회복에 따른 관련 부품주들의 동반 상승세 확인."
           }
         ]
       },
       "community": {
-        "summary": "주주들 사이에서 자사주 매입 및 주주환원 정책에 대한 기대와 임시 주총 안건에 대한 찬반 논의가 활발하며, 기업의 본질적 가치에 대한 긍정적 평가와 단기 주가 흐름에 대한 불만이 공존합니다.",
+        "summary": "종목토론방에서는 IR 활동 및 주주환원 정책에 대한 불만과 기업 펀더멘털에 대한 신뢰가 공존함. 전반적으로 기업 가치 대비 저평가라는 인식이 강하며, 주주들의 적극적인 의결권 행사가 논의됨.",
         "sentimentLabel": "중립",
         "naver": [
           {
             "title": "이번 임시 주총 안건 사실상 찬성을 해야 맞긴합니다.",
             "url": "https://stock.naver.com/domestic/stock/101160/discussion/429074733",
             "sentiment": "중립",
-            "summary": "주주총회 안건에 대한 주주들의 신중한 접근과 찬반 의견이 교차하고 있습니다."
+            "summary": "주주총회 안건에 대한 주주들의 참여와 의사결정 중요성 강조."
           },
           {
             "title": "월덱스 항상 안티글 쓰지만 객관적으로 보면 좋은기업입니다.",
             "url": "https://stock.naver.com/domestic/stock/101160/discussion/429206144",
             "sentiment": "긍정",
-            "summary": "단기 주가 변동과 무관하게 기업의 펀더멘털을 긍정적으로 평가하는 의견입니다."
+            "summary": "단기적인 주가 흐름이나 IR 불만에도 불구하고 기업의 본질적 가치는 우수하다는 평가."
+          },
+          {
+            "title": "무조건 순 이익 증가 합니다.",
+            "url": "https://stock.naver.com/domestic/stock/101160/discussion/429080257",
+            "sentiment": "긍정",
+            "summary": "실적 성장에 대한 강한 확신을 가진 주주들의 의견."
           },
           {
             "title": "자사주매입 진행은?",
             "url": "https://stock.naver.com/domestic/stock/101160/discussion/429699041",
             "sentiment": "중립",
-            "summary": "자사주 매입 진행 상황에 대한 주주들의 관심과 확인 요구가 높습니다."
+            "summary": "주주환원 정책인 자사주 매입 진행 상황에 대한 관심."
           }
         ]
       },
       "dart": {
-        "summary": "자사주 취득 신탁 계약 체결 및 임시 주총 결과 등 주주 가치 제고를 위한 공시가 이어지고 있으며, 반기보고서를 통해 안정적인 재무 구조를 확인했습니다.",
+        "summary": "자사주 매입 신탁 계약 체결 및 임시주주총회 등 주주가치 제고를 위한 적극적인 행보가 확인됨. 반기보고서상 안정적인 재무 구조를 유지 중이며, IR 활동을 통해 시장과 소통하고 있음.",
         "highlights": [
           {
-            "label": "임시주주총회결과",
-            "value": "2026-09-17",
-            "note": "주주총회 안건 처리 완료."
+            "label": "자사주 취득",
+            "value": "신탁계약 체결",
+            "note": "주주가치 제고를 위한 적극적인 자사주 매입 정책 이행."
           },
           {
-            "label": "자기주식취득신탁계약",
-            "value": "2026-07-27",
-            "note": "주주 가치 제고를 위한 자사주 취득 결정."
+            "label": "임시주주총회",
+            "value": "결과 공시",
+            "note": "주요 경영 안건에 대한 주주 의결권 행사 완료."
           },
           {
-            "label": "반기보고서",
-            "value": "2026-08-14",
-            "note": "2026년 상반기 실적 및 재무 상태 공시."
+            "label": "재무 상태",
+            "value": "안정적",
+            "note": "반기보고서 기준 견조한 자산 및 자본 구조 유지."
           },
           {
-            "label": "기업가치제고계획",
-            "value": "2026-06-17",
-            "note": "자율공시를 통한 기업 가치 제고 의지 표명."
+            "label": "IR 활동",
+            "value": "지속",
+            "note": "기업설명회 개최 등을 통해 시장과의 소통 강화."
           }
         ],
         "recentFilings": [
@@ -2573,7 +4751,7 @@
         ]
       },
       "research": {
-        "summary": "한국IR협의회 리포트들은 반도체 공정 미세화에 따른 실리콘/쿼츠 부품 수요 증가와 주주환원 정책을 핵심 성장 동력으로 평가합니다.",
+        "summary": "한국IR협의회 리포트들은 반도체 미세화에 따른 실리콘/쿼츠 부품 수요 증가와 고객사 투자 확대에 주목함. 적극적인 주주환원 정책이 저평가 해소의 핵심 요인으로 분석됨.",
         "items": [
           {
             "title": "[AI] 반도체 식각공정용 실리콘·쿼츠 부품 기업",
@@ -2583,7 +4761,7 @@
             "pdfUrl": "https://stock.pstatic.net/stock-research/company/74/20260917_company_147277000.pdf",
             "targetPrice": null,
             "opinion": "없음",
-            "note": "반도체 에칭 공정 미세화에 따른 핵심 부품(실리콘/쿼츠)의 중요성 증대와 안정적인 매출 구조를 강조합니다."
+            "note": "반도체 미세화 공정에 필수적인 실리콘 및 쿼츠 부품의 기술적 중요성과 매출 비중 확대에 주목."
           },
           {
             "title": "이익 성장과 주주환원이 그리는 밸류업",
@@ -2593,7 +4771,7 @@
             "pdfUrl": "https://stock.pstatic.net/stock-research/company/74/20260904_company_712284000.pdf",
             "targetPrice": null,
             "opinion": "없음",
-            "note": "고객사의 투자 확대에 따른 영업레버리지 효과와 자사주 매입 등 적극적인 주주환원 정책을 긍정적으로 평가합니다."
+            "note": "고객사의 DRAM 투자 확대와 자사주 매입 등 주주환원 정책이 주가 저평가 해소의 동력이 될 것으로 전망."
           }
         ]
       },
@@ -2601,6 +4779,13 @@
       "flow": {
         "rank": [],
         "shorts": [
+          {
+            "date": "20260929",
+            "qty": 4221.0,
+            "volRlim": 4.11,
+            "pbmn": 1.3,
+            "pbmnRlim": 4.1
+          },
           {
             "date": "20260928",
             "qty": 4855.0,
@@ -2733,16 +4918,17 @@
             "volRlim": 19.47,
             "pbmn": 2.6,
             "pbmnRlim": 19.34
-          },
-          {
-            "date": "20260828",
-            "qty": 4860.0,
-            "volRlim": 8.48,
-            "pbmn": 1.4,
-            "pbmnRlim": 8.44
           }
         ],
         "loans": [
+          {
+            "date": "20260929",
+            "newQty": 19921.0,
+            "rdmpQty": 20804.0,
+            "rmndChg": -883.0,
+            "rmndQty": 709973.0,
+            "rmndAmt": 229.0
+          },
           {
             "date": "20260928",
             "newQty": 11215.0,
@@ -2894,18 +5080,19 @@
             "rmndChg": 1943.0,
             "rmndQty": 714548.0,
             "rmndAmt": 211.1
-          },
-          {
-            "date": "20260828",
-            "newQty": 2013.0,
-            "rdmpQty": 9.0,
-            "rmndChg": 2004.0,
-            "rmndQty": 712605.0,
-            "rmndAmt": 213.1
           }
         ],
-        "rankAsof": "15:09",
+        "rankAsof": "08:38",
         "trend": [
+          {
+            "date": "20260929",
+            "frgn": 21590,
+            "orgn": 34192,
+            "prsn": -55620,
+            "holdRatio": 20.88,
+            "close": 32100,
+            "rate": 6.12
+          },
           {
             "date": "20260928",
             "frgn": 2069,
@@ -3076,26 +5263,17 @@
             "holdRatio": 20.18,
             "close": 29550,
             "rate": -1.17
-          },
-          {
-            "date": "20260828",
-            "frgn": 17664,
-            "orgn": 16425,
-            "prsn": -33717,
-            "holdRatio": 20.13,
-            "close": 29900,
-            "rate": 2.05
           }
         ]
       },
       "_flowOk": true,
       "_meta": {
         "filingKey": "2026-09-17|임시주주총회결과              ",
-        "asOf": "2026-09-29T15:09:38.018828+09:00",
-        "price": 31950
+        "asOf": "2026-09-30T08:38:50.699086+09:00",
+        "price": 32250
       }
     },
-    "direction": "neutral"
+    "direction": "bullish"
   },
   {
     "code": "357780",
@@ -3104,17 +5282,17 @@
     "selectedDate": "2026-09-30",
     "basePrice": 386500,
     "entry": 388400,
-    "target": 423700,
-    "stop": 358600,
+    "target": 423500,
+    "stop": 358800,
     "stars": "⭐⭐⭐⭐",
-    "catalyst": "AI 메모리 증설에 따른 반도체 소재 수요 증가와 2분기 호실적 모멘텀이 지속되고 있습니다. 다만, 최근 외국인의 연속 순매도세와 공매도 비중이 10%를 상회하는 등 수급적 하방 압력이 주가 상승을 제한하는 핵심 요인입니다.",
-    "scenario": "<b>[자동 생성 시나리오]</b><br>전일 종가 386,500원 기준으로 산출된 기술적 레벨입니다. 진입 상한가 388,400원 이하에서 분할 매수하고, 목표 익절가 423,700원, 손절선 358,600원으로 리스크를 관리하세요.",
+    "catalyst": "AI 메모리 증설에 따른 식각액 및 세정액 수요 증가가 실적 성장을 견인하고 있으며, 2분기 영업이익이 전년 대비 128% 급증하는 등 펀더멘털이 강화되고 있음. 기관 투자자의 지속적인 매수세가 주가를 지지하고 있으나, 최근 공매도 비중이 10%를 상회하며 상방 압력을 제한하고 있음.",
+    "scenario": "<b>[자동 생성 시나리오]</b><br>전일 종가 386,500원 기준으로 산출된 기술적 레벨입니다. 진입 상한가 388,400원 이하에서 분할 매수하고, 목표 익절가 423,500원, 손절선 358,800원으로 리스크를 관리하세요.",
     "analysis": {
-      "catalyst": "AI 메모리 증설에 따른 반도체 소재 수요 증가와 2분기 호실적 모멘텀이 지속되고 있습니다. 다만, 최근 외국인의 연속 순매도세와 공매도 비중이 10%를 상회하는 등 수급적 하방 압력이 주가 상승을 제한하는 핵심 요인입니다.",
-      "direction": "neutral",
-      "flowComment": "최근 외국인은 9월 14일 이후 매도 우위로 전환되어 보유율이 30.53%까지 하락했습니다. 반면 기관은 9월 21일부터 매수세를 강화하며 수급을 방어하고 있습니다. 공매도 거래대금 비중이 13%대로 높게 유지되고 대차잔고가 2,580억 원 수준에서 등락을 반복하고 있어 단기적인 수급 변동성에 유의해야 합니다.",
+      "catalyst": "AI 메모리 증설에 따른 식각액 및 세정액 수요 증가가 실적 성장을 견인하고 있으며, 2분기 영업이익이 전년 대비 128% 급증하는 등 펀더멘털이 강화되고 있음. 기관 투자자의 지속적인 매수세가 주가를 지지하고 있으나, 최근 공매도 비중이 10%를 상회하며 상방 압력을 제한하고 있음.",
+      "direction": "bullish",
+      "flowComment": "기관 투자자가 지속적으로 순매수하며 주가를 방어하고 있으나, 외국인은 매도 우위를 보이고 있음. 최근 공매도 거래대금 비중이 10%를 상회하고 대차잔고가 누증되는 등 단기적인 하방 압력도 공존하는 수급 양상임.",
       "peers": {
-        "summary": "글로벌 반도체 소재 기업인 Entegris(ENTG) 등 해외 피어 그룹은 전반적으로 약세를 보이고 있습니다. 시장에서는 반도체 팹 가동률과 연동되는 소재 기업의 특성상, 특정 아키텍처의 승패보다 전체적인 팹 가동 현황이 실적의 핵심 지표라고 평가합니다.",
+        "summary": "Entegris(ENTG) 등 글로벌 반도체 소재 기업들은 전반적으로 견조한 흐름을 보이며 반도체 팹 가동률 회복에 따른 수혜 기대감이 공유됨.",
         "reddit": [],
         "stocktwits": [
           {
@@ -3123,28 +5301,34 @@
             "status": "ok",
             "bullish": 0,
             "bearish": 0,
-            "unlabeled": 2,
-            "total": 2,
+            "unlabeled": 4,
+            "total": 4,
             "labeled": 0,
             "bullPct": null,
             "windowDays": 7,
-            "newest": "2026-09-28 12:48",
+            "newest": "2026-09-29 22:58",
             "oldest": "2026-09-24 02:49",
             "samples": [
+              {
+                "createdAt": "2026-09-29 22:58",
+                "user": "Dr_Stoxx",
+                "sentiment": null,
+                "body": "$ENTG with indicators poised for breakout"
+              },
+              {
+                "createdAt": "2026-09-29 22:40",
+                "user": "MonkeyBananaGenius",
+                "sentiment": null,
+                "body": "$ENTG Breaking out"
+              },
               {
                 "createdAt": "2026-09-28 12:48",
                 "user": "Techdamentals",
                 "sentiment": null,
                 "body": "Entegris sells the materials and filters that chip fabs burn through constantly. Revenue tracks how busy the fabs actually are, not any one company&#39;s product cycle. Quiet way to get exposure to overall chip manufacturing without picking which architecture wins. Educational to…"
-              },
-              {
-                "createdAt": "2026-09-24 02:49",
-                "user": "MonkeyBananaGenius",
-                "sentiment": null,
-                "body": "$ENTG interesting looking name and chart with potential breakout looming. That said, in this market, who the hell knows."
               }
             ],
-            "summary": "반도체 팹 가동률에 따른 안정적인 매출 구조를 보유하고 있으나, 시장 불확실성으로 인해 방향성이 뚜렷하지 않다는 의견이 지배적입니다."
+            "summary": "기술적 지표상 돌파(Breakout) 가능성이 언급되며 긍정적인 차트 흐름에 주목함."
           },
           {
             "ticker": "ENTG",
@@ -3152,71 +5336,76 @@
             "status": "ok",
             "bullish": 0,
             "bearish": 0,
-            "unlabeled": 2,
-            "total": 2,
+            "unlabeled": 4,
+            "total": 4,
             "labeled": 0,
             "bullPct": null,
             "windowDays": 7,
-            "newest": "2026-09-28 12:48",
+            "newest": "2026-09-29 22:58",
             "oldest": "2026-09-24 02:49",
             "samples": [
+              {
+                "createdAt": "2026-09-29 22:58",
+                "user": "Dr_Stoxx",
+                "sentiment": null,
+                "body": "$ENTG with indicators poised for breakout"
+              },
+              {
+                "createdAt": "2026-09-29 22:40",
+                "user": "MonkeyBananaGenius",
+                "sentiment": null,
+                "body": "$ENTG Breaking out"
+              },
               {
                 "createdAt": "2026-09-28 12:48",
                 "user": "Techdamentals",
                 "sentiment": null,
                 "body": "Entegris sells the materials and filters that chip fabs burn through constantly. Revenue tracks how busy the fabs actually are, not any one company&#39;s product cycle. Quiet way to get exposure to overall chip manufacturing without picking which architecture wins. Educational to…"
-              },
-              {
-                "createdAt": "2026-09-24 02:49",
-                "user": "MonkeyBananaGenius",
-                "sentiment": null,
-                "body": "$ENTG interesting looking name and chart with potential breakout looming. That said, in this market, who the hell knows."
               }
             ],
-            "summary": "반도체 팹 가동률에 따른 안정적인 매출 구조를 보유하고 있으나, 시장 불확실성으로 인해 방향성이 뚜렷하지 않다는 의견이 지배적입니다."
+            "summary": "기술적 지표상 돌파(Breakout) 가능성이 언급되며 긍정적인 차트 흐름에 주목함."
           }
         ],
         "items": [
           {
             "name": "Entegris, Inc.",
             "ticker": "ENTG",
-            "price": 150.63,
-            "changePct": -0.83,
+            "price": 154.77,
+            "changePct": 2.75,
             "note": "반도체 공정용 특수 화학물질 및 소재를 공급하는 글로벌 선도 기업"
           },
           {
             "name": "Cabot Microelectronics Corporation (Entegris에 인수됨, 참고용)",
             "ticker": "ENTG",
-            "price": 150.63,
-            "changePct": -0.83,
+            "price": 154.77,
+            "changePct": 2.75,
             "note": "CMP 슬러리 분야의 글로벌 리더로 솔브레인의 핵심 사업과 겹침"
           },
           {
             "name": "Kanto Chemical Co., Inc.",
             "ticker": "4023.T",
-            "price": 3995.0,
-            "changePct": -1.28,
+            "price": 3985.0,
+            "changePct": -1.53,
             "note": "일본의 반도체용 고순도 화학약품 및 식각액 제조사"
           },
           {
             "name": "Stella Chemifa Corporation",
             "ticker": "4109.T",
-            "price": 5220.0,
-            "changePct": -1.14,
+            "price": 5250.0,
+            "changePct": -0.57,
             "note": "반도체 식각 및 세정용 고순도 불화수소(HF) 분야의 글로벌 강자"
           },
           {
             "name": "Versum Materials (Merck에 인수됨)",
             "ticker": "MRK",
-            "price": 148.69,
-            "changePct": -0.06,
+            "price": 149.28,
+            "changePct": 0.4,
             "note": "반도체 공정용 특수 가스 및 화학 소재를 공급하는 글로벌 기업"
           }
         ],
         "socialStatus": {
           "reddit": "unavailable",
           "redditQueried": [
-            "ENTG@stocks",
             "web:Entegris, Inc.",
             "web:Cabot Microelectronics Corporation (Entegris에 인수됨, 참고용)"
           ],
@@ -3226,23 +5415,23 @@
         }
       },
       "news": {
-        "summary": "솔브레인은 AI 메모리 증설 효과로 2분기 영업이익이 전년 대비 128% 급증하는 등 견조한 실적을 기록했습니다. K-소듐 얼라이언스 참여 등 2차전지 소재 분야로의 확장성도 부각되고 있습니다. 다만, 최근 외국인 투자자들의 매도세가 이어지며 주가 상승 탄력이 다소 둔화된 모습입니다.",
+        "summary": "2분기 어닝 서프라이즈 이후 AI 메모리 증설 수혜주로 부각되며 기관의 매수세가 집중됨. 나트륨이온배터리 소재 개발 MOU 등 신사업 확장성도 긍정적이나, 외국인의 매도세와 공매도 비중 확대는 주의가 필요함.",
         "items": [
           {
-            "title": "금융당국, 적기시정조치 금융사 5곳 재점검…탈출 가능할까",
-            "source": "EBN",
-            "date": "2026-09-29",
-            "sentiment": "중립",
-            "url": "https://news.einfomax.co.kr/news/articleView.html?idxno=4436845",
-            "insight": "저축은행 관련 조치 유예 대상에 포함되었으나, 본업인 반도체 소재 사업과는 직접적 연관성이 낮음."
+            "title": "[리스트] MVP 상위 주식 20선...달바글로벌, 월덱스 등 - 30일",
+            "source": "아이투자",
+            "date": "2026-09-30",
+            "sentiment": "긍정",
+            "url": "https://www.itooza.com/common/iview.php?no=2026093007152002052",
+            "insight": "MVP 지표 상위권 유지로 견조한 펀더멘털 확인."
           },
           {
-            "title": "[리스트] MVP 상위 20선...슈프리마, 나이스디앤비 등 - 29일",
-            "source": "아이투자",
+            "title": "한국 나트륨배터리 약점은 빈약한 소재 공급망, 최문호 에코프로비엠 선...",
+            "source": "비즈니스포스트",
             "date": "2026-09-29",
             "sentiment": "긍정",
-            "url": "https://www.itooza.com/common/iview.php?no=2026092907152000011",
-            "insight": "MVP 상위 20선에 포함되어 펀더멘털 및 주가 모멘텀 측면에서 긍정적인 평가를 받고 있음."
+            "url": "https://www.businesspost.co.kr/BP?command=article_view&num=448177",
+            "insight": "나트륨이온배터리 핵심 소재 공동개발 MOU 체결로 신사업 모멘텀 확보."
           },
           {
             "title": "[코스닥 기관] 파두·에코프로비엠· 솔브레인· ISC· 올릭스 쓸어 담았...",
@@ -3250,72 +5439,64 @@
             "date": "2026-09-28",
             "sentiment": "긍정",
             "url": "https://www.pinpointnews.co.kr/news/articleView.html?idxno=490849",
-            "insight": "기관 투자자들의 매수세가 집중되고 있어 수급 측면에서 긍정적인 신호로 해석됨."
+            "insight": "기관 투자자의 강한 매수세가 주가 하방을 지지하는 핵심 요인."
           },
           {
-            "title": "[코스닥 외국인] 주성엔지니어링·HPSP 집중 매수…원익IPS는 팔았다",
-            "source": "핀포인트뉴스",
-            "date": "2026-09-28",
-            "sentiment": "부정",
-            "url": "https://www.pinpointnews.co.kr/news/articleView.html?idxno=490844",
-            "insight": "외국인 순매도 상위권에 이름을 올리고 있어 단기적인 수급 부담 요인으로 작용."
-          },
-          {
-            "title": "테오도르의 시장분석 : 특징주와 테마주 \"바이오·반도체 소재 관련 종...",
-            "source": "파이낸셜투데이",
+            "title": "[애프터마켓 리뷰] 쓰리빌리언, ‘한국형 ARPA-H’ 과제 선정",
+            "source": "SBS Biz",
             "date": "2026-09-28",
             "sentiment": "긍정",
-            "url": "https://www.fntoday.co.kr/news/articleView.html?idxno=393973",
-            "insight": "반도체 소재 관련주로서 시장의 강세 테마에 포함되어 투자 심리 개선에 기여."
+            "url": "https://biz.sbs.co.kr/article_hub/20000336897?division=NAVER",
+            "insight": "2분기 영업이익 128% 급증으로 시장 기대치를 상회하는 실적 달성."
           }
         ]
       },
       "community": {
-        "summary": "개인 투자자들은 실적 개선에도 불구하고 주가가 기대만큼 오르지 않는 것에 대한 답답함을 토로하고 있습니다. 공매도 세력에 대한 경계심이 높으며, 정배열 전환을 기대하는 기술적 분석 의견도 공존합니다.",
+        "summary": "AI 메모리 및 HBM 관련 수혜에 대한 기대감이 높으나, 주가 상승 속도에 대한 개인 투자자들의 답답함이 공존함.",
         "sentimentLabel": "중립",
         "naver": [
+          {
+            "title": "솔브레인 주가 전망, 지금 주목해야 하는 이유는? HBM·서버 D램 증설과 반도....",
+            "url": "https://cafe.naver.com/stockking1/1898",
+            "sentiment": "긍정",
+            "summary": "반도체 생산량 증가에 따른 소재 수요 증가를 핵심 투자 포인트로 강조."
+          },
           {
             "title": "징그럽게 안가네요..",
             "url": "https://stock.naver.com/domestic/stock/357780/discussion/429509474",
             "sentiment": "부정",
-            "summary": "실적 대비 주가 상승이 더딘 것에 대한 개인 투자자의 불만."
-          },
-          {
-            "title": "사악한 정문주!",
-            "url": "https://stock.naver.com/domestic/stock/357780/discussion/429621106",
-            "sentiment": "부정",
-            "summary": "주가 흐름에 대한 강한 불만과 비판적 시각."
+            "summary": "실적 대비 주가 상승 탄력이 부족한 것에 대한 개인 투자자의 불만."
           },
           {
             "title": "공매도 들의 발악",
             "url": "https://stock.naver.com/domestic/stock/357780/discussion/429565486",
             "sentiment": "부정",
-            "summary": "공매도 세력의 영향력에 대한 경계심과 부정적 인식."
+            "summary": "공매도 세력에 대한 경계심과 주가 억제에 대한 부정적 인식."
           }
         ]
       },
       "dart": {
-        "summary": "최근 정지완 대표의 대량보유상황보고서가 지속적으로 제출되고 있으며, 자기주식취득신탁계약 등 주주가치 제고를 위한 움직임이 확인됩니다. 반기보고서를 통해 안정적인 재무 구조를 유지하고 있음을 알 수 있습니다.",
+        "summary": "정지완 대표의 지분 변동 보고가 지속되고 있으며, 2분기 실적 개선세가 확인됨.",
         "highlights": [
           {
-            "label": "최대주주 지분 변동",
-            "value": "정지완 44.92%",
-            "note": "지분율 변동 없이 안정적인 경영권 유지 중."
+            "label": "매출액(2025)",
+            "value": "9,233억 원",
+            "note": "전년 대비 외형 성장세 유지."
+          },
+          {
+            "label": "영업이익(2025)",
+            "value": "1,336억 원",
+            "note": "수익성 관리 지속."
+          },
+          {
+            "label": "주요 주주",
+            "value": "정지완(44.92%)",
+            "note": "최근 지속적인 지분 변동 보고 공시 발생."
           },
           {
             "label": "자기주식취득",
             "value": "신탁계약 체결",
-            "note": "7월 31일 공시, 주주가치 제고 목적의 신탁계약 체결."
-          },
-          {
-            "label": "반기 실적",
-            "value": "매출 9,233억",
-            "note": "2026년 반기 기준 견조한 매출 규모 유지."
-          },
-          {
-            "label": "기관 보유",
-            "value": "피델리티 등",
-            "note": "글로벌 기관 투자자들의 지분 보유 현황 지속 확인."
+            "note": "7월 31일 자기주식취득 신탁계약 체결 결정 공시."
           }
         ],
         "recentFilings": [
@@ -3352,7 +5533,7 @@
         ]
       },
       "research": {
-        "summary": "신한투자증권은 하반기 실적 상향을 전망하며 매수 의견을 유지하고 있습니다. 2분기 수익성 우려는 일시적이며, 3분기부터 DRAM 증설 및 NAND 전환 물량 증가로 수익성 회복이 본격화될 것으로 분석합니다.",
+        "summary": "신한투자증권은 하반기 실적 상향을 전망하며 매수 의견을 유지함. DRAM 조기 증설 및 NAND 전환 물량 증가로 인한 수익성 회복을 핵심 근거로 제시.",
         "items": [
           {
             "title": "하반기 실적 상향",
@@ -3362,7 +5543,7 @@
             "pdfUrl": "https://stock.pstatic.net/stock-research/company/21/20260901_company_163532000.pdf",
             "targetPrice": 554000,
             "opinion": "매수",
-            "note": "2분기 원가 상승 이슈는 반영 완료되었으며, 3분기부터 수익성 회복과 비메모리 사업 확대가 기대됨."
+            "note": "2분기 원가 상승 영향은 반영되었으며, 3분기부터 수익성 회복과 미국 테일러 공장 착공에 따른 비메모리 사업 확대가 기대됨."
           }
         ],
         "consensus": {
@@ -3370,7 +5551,7 @@
           "high": 554000,
           "low": 554000,
           "n": 1,
-          "upsidePct": 43.7,
+          "upsidePct": 43.3,
           "opinions": {
             "매수": 1
           }
@@ -3380,6 +5561,13 @@
       "flow": {
         "rank": [],
         "shorts": [
+          {
+            "date": "20260929",
+            "qty": 7680.0,
+            "volRlim": 11.6,
+            "pbmn": 29.3,
+            "pbmnRlim": 11.62
+          },
           {
             "date": "20260928",
             "qty": 6198.0,
@@ -3512,16 +5700,17 @@
             "volRlim": 8.64,
             "pbmn": 9.9,
             "pbmnRlim": 8.63
-          },
-          {
-            "date": "20260828",
-            "qty": 1225.0,
-            "volRlim": 4.03,
-            "pbmn": 4.2,
-            "pbmnRlim": 4.04
           }
         ],
         "loans": [
+          {
+            "date": "20260929",
+            "newQty": 1744.0,
+            "rdmpQty": 739.0,
+            "rmndChg": 1005.0,
+            "rmndQty": 703263.0,
+            "rmndAmt": 2718.1
+          },
           {
             "date": "20260928",
             "newQty": 24129.0,
@@ -3673,18 +5862,19 @@
             "rmndChg": 3290.0,
             "rmndQty": 799628.0,
             "rmndAmt": 2738.7
-          },
-          {
-            "date": "20260828",
-            "newQty": 20694.0,
-            "rdmpQty": 1297.0,
-            "rmndChg": 19397.0,
-            "rmndQty": 796338.0,
-            "rmndAmt": 2759.3
           }
         ],
-        "rankAsof": "15:09",
+        "rankAsof": "08:38",
         "trend": [
+          {
+            "date": "20260929",
+            "frgn": -9081,
+            "orgn": 23889,
+            "prsn": -14919,
+            "holdRatio": 30.44,
+            "close": 387500,
+            "rate": 5.44
+          },
           {
             "date": "20260928",
             "frgn": -17598,
@@ -3855,26 +6045,17 @@
             "holdRatio": 30.09,
             "close": 342500,
             "rate": -1.15
-          },
-          {
-            "date": "20260828",
-            "frgn": 126,
-            "orgn": 3061,
-            "prsn": -3224,
-            "holdRatio": 29.98,
-            "close": 346500,
-            "rate": 1.61
           }
         ]
       },
       "_flowOk": true,
       "_meta": {
         "filingKey": "2026-09-22|주식등의대량보유상황보고서(일반)",
-        "asOf": "2026-09-29T15:09:38.018828+09:00",
-        "price": 385500
+        "asOf": "2026-09-30T08:38:50.699086+09:00",
+        "price": 386500
       }
     },
-    "direction": "neutral"
+    "direction": "bullish"
   },
   {
     "code": "005930",
@@ -3883,88 +6064,88 @@
     "selectedDate": "2026-09-30",
     "basePrice": 272500,
     "entry": 273900,
-    "target": 291200,
-    "stop": 258500,
+    "target": 291900,
+    "stop": 257900,
     "stars": "⭐⭐⭐",
-    "catalyst": "삼성전자가 KKR과 손잡고 미국 AI 인프라 기업에 1조 3천억 원 규모의 공동 투자를 단행하며 AI 동맹을 강화했습니다. 그러나 당일 외국인과 기관의 동반 순매도가 집중되며 주가 하방 압력이 거센 상황입니다.",
-    "scenario": "<b>[자동 생성 시나리오]</b><br>전일 종가 272,500원 기준으로 산출된 기술적 레벨입니다. 진입 상한가 273,900원 이하에서 분할 매수하고, 목표 익절가 291,200원, 손절선 258,500원으로 리스크를 관리하세요.",
+    "catalyst": "삼성전자가 미국 AI 인프라 기업 '헬릭스'에 10억 달러 규모의 투자를 단행하며 AI 데이터센터 시장 진입을 본격화했습니다. 또한 3분기 영업이익이 분기 최초로 100조 원을 돌파할 것이라는 증권가의 긍정적 전망이 주가 상승 모멘텀으로 작용하고 있습니다.",
+    "scenario": "<b>[자동 생성 시나리오]</b><br>전일 종가 272,500원 기준으로 산출된 기술적 레벨입니다. 진입 상한가 273,900원 이하에서 분할 매수하고, 목표 익절가 291,900원, 손절선 257,900원으로 리스크를 관리하세요.",
     "analysis": {
-      "catalyst": "삼성전자가 KKR과 손잡고 미국 AI 인프라 기업에 1조 3천억 원 규모의 공동 투자를 단행하며 AI 동맹을 강화했습니다. 그러나 당일 외국인과 기관의 동반 순매도가 집중되며 주가 하방 압력이 거센 상황입니다.",
-      "direction": "bearish",
-      "flowComment": "외국인과 기관이 동반 순매도하며 매도 상위 2위에 랭크되는 등 수급 부담이 가중되고 있습니다. 다만, 최근 대차잔고가 456만 주 감소하며 숏커버링 움직임이 포착되는 점은 하방 경직성을 지지할 수 있는 요소입니다.",
+      "catalyst": "삼성전자가 미국 AI 인프라 기업 '헬릭스'에 10억 달러 규모의 투자를 단행하며 AI 데이터센터 시장 진입을 본격화했습니다. 또한 3분기 영업이익이 분기 최초로 100조 원을 돌파할 것이라는 증권가의 긍정적 전망이 주가 상승 모멘텀으로 작용하고 있습니다.",
+      "direction": "bullish",
+      "flowComment": "최근 외국인의 매도세가 지속되며 수급 부담이 존재하나, 대차잔고가 9월 29일 기준 7,475만 주로 감소하며 상환 우위 흐름을 보이고 있어 하방 압력은 다소 완화되는 모습입니다. 공매도 비중은 9월 29일 거래대금 대비 6.87% 수준으로, 수급 개선 여부를 확인해야 합니다.",
       "peers": {
-        "summary": "해외 반도체 경쟁사들은 StockTwits에서 높은 강세 의견을 보이고 있으나, 실제 주가 흐름은 변동성이 큽니다.",
+        "summary": "글로벌 반도체 peer 그룹은 AI 및 메모리 수요 기대감으로 전반적인 강세 흐름을 보이고 있습니다. 특히 인텔과 마이크론은 실적 기대감과 정책적 수혜 논의가 활발하며, 삼성전자의 메모리 경쟁력과 시너지를 낼 수 있는 환경이 조성되고 있습니다.",
         "reddit": [],
         "stocktwits": [
           {
             "ticker": "INTC",
             "name": "Intel Corporation",
             "status": "ok",
-            "bullish": 10,
-            "bearish": 1,
-            "unlabeled": 19,
+            "bullish": 16,
+            "bearish": 0,
+            "unlabeled": 14,
             "total": 30,
-            "labeled": 11,
-            "bullPct": 91,
+            "labeled": 16,
+            "bullPct": 100,
             "windowDays": 7,
-            "newest": "2026-09-29 13:29",
-            "oldest": "2026-09-29 10:22",
+            "newest": "2026-09-30 08:30",
+            "oldest": "2026-09-30 04:59",
             "samples": [
               {
-                "createdAt": "2026-09-29 13:29",
-                "user": "Hanna_Trader",
+                "createdAt": "2026-09-30 08:30",
+                "user": "Felaw",
                 "sentiment": "Bullish",
-                "body": "$INTC getting slapped seems like its heading to 110"
+                "body": "$INTC"
               },
               {
-                "createdAt": "2026-09-29 13:26",
-                "user": "RockyTSTH",
+                "createdAt": "2026-09-30 08:11",
+                "user": "SuperGreenToday",
                 "sentiment": null,
-                "body": "$INTC - Stock is about to enter the gap to the downside from $115 to $108.64. high watch for a move to the downside. puts below $115 looking good."
+                "body": "$INTC Share Price: $115.98 Contract Selected: Oct 07, 2026 $115 Calls Buy Zone: $3.91 – $4.83 Target Zone: $6.68 – $8.16 Potential Upside: 61% ROI Time to Expiration: 7 Days | Updates via https://fxcapta.com/stockinfo/"
               },
               {
-                "createdAt": "2026-09-29 13:23",
-                "user": "LBid73",
-                "sentiment": null,
-                "body": "$INTC Guess everyones smarter than I am.. I think theyre just using anything as an excuse to force it down and fill the gap to 109. Market always overshoots so maybe 107?! Be ready.."
+                "createdAt": "2026-09-30 08:01",
+                "user": "Mrfishclaw",
+                "sentiment": "Bullish",
+                "body": "$INTC full steam ahead with S I roll-out as per president Trump... YUGE for Intel"
               }
             ],
-            "summary": "91%의 높은 강세 의견을 보이나, 주가는 하락 추세로 기술적 지지선 테스트 중입니다."
+            "summary": "트럼프 행정부의 정책 수혜 기대감과 실적 개선 전망이 맞물리며 투자자들의 매수 심리가 강하게 형성되어 있습니다."
           },
           {
             "ticker": "MU",
             "name": "Micron Technology",
             "status": "ok",
-            "bullish": 12,
+            "bullish": 15,
             "bearish": 3,
-            "unlabeled": 15,
+            "unlabeled": 12,
             "total": 30,
-            "labeled": 15,
-            "bullPct": 80,
+            "labeled": 18,
+            "bullPct": 83,
             "windowDays": 7,
-            "newest": "2026-09-29 13:36",
-            "oldest": "2026-09-29 11:21",
+            "newest": "2026-09-30 08:39",
+            "oldest": "2026-09-30 07:58",
             "samples": [
               {
-                "createdAt": "2026-09-29 13:36",
-                "user": "RowdyRoddy44",
-                "sentiment": null,
-                "body": "$MU Time for the Bear to roar. September was bullish but October the ghouls will be bringing pain…."
-              },
-              {
-                "createdAt": "2026-09-29 13:35",
-                "user": "ShadowBanningIsBad",
-                "sentiment": null,
-                "body": "@jocortez70 $MU makes memory. has nothing and I mean nothing to do with any interest rates, wars, fuel prices. If the CCP takes control of Taiwan $MU will still be making memory there."
-              },
-              {
-                "createdAt": "2026-09-29 13:35",
-                "user": "Blackitheone",
+                "createdAt": "2026-09-30 08:39",
+                "user": "Teyont",
                 "sentiment": "Bullish",
-                "body": "$MU"
+                "body": "$MU Bring It!🤩"
+              },
+              {
+                "createdAt": "2026-09-30 08:34",
+                "user": "Stocktwits",
+                "sentiment": null,
+                "body": "$BTC.X $HOOD $MU $QQQ $SPY"
+              },
+              {
+                "createdAt": "2026-09-30 08:33",
+                "user": "PimpersParadise",
+                "sentiment": "Bearish",
+                "body": "$MU Earning will be good. Everyone knows this. That is why the news will be SOLD"
               }
             ],
-            "summary": "80%의 강세 의견이 우세하며, 실적 발표를 앞두고 기대감이 형성되어 있습니다."
+            "summary": "실적 발표를 앞두고 기대감이 선반영되었다는 경계론과 추가 상승을 기대하는 낙관론이 공존하고 있습니다."
           }
         ],
         "items": [
@@ -3978,29 +6159,29 @@
           {
             "name": "Intel Corporation",
             "ticker": "INTC",
-            "price": 116.03,
-            "changePct": -5.67,
+            "price": 115.93,
+            "changePct": -0.09,
             "note": "종합 반도체 기업(IDM)으로서 메모리 및 시스템 반도체 분야에서 경쟁 관계에 있습니다."
           },
           {
             "name": "Micron Technology",
             "ticker": "MU",
-            "price": 1053.98,
-            "changePct": -2.61,
+            "price": 1065.08,
+            "changePct": 1.05,
             "note": "삼성전자의 주력 사업인 메모리 반도체(DRAM, NAND) 시장의 주요 글로벌 경쟁사입니다."
           },
           {
             "name": "Apple Inc.",
             "ticker": "AAPL",
-            "price": 338.4,
-            "changePct": -0.78,
+            "price": 329.4,
+            "changePct": -2.66,
             "note": "스마트폰(갤럭시 vs 아이폰) 시장의 최대 경쟁자이자 반도체 부품의 주요 고객사입니다."
           },
           {
             "name": "Sony Group Corporation",
             "ticker": "6758.T",
-            "price": 3728.0,
-            "changePct": 1.79,
+            "price": 3732.0,
+            "changePct": 1.9,
             "note": "가전, 이미지 센서 등 전자제품 전반에서 삼성전자와 사업 영역이 겹치는 일본의 대표 전자 기업입니다."
           }
         ],
@@ -4017,96 +6198,96 @@
         }
       },
       "news": {
-        "summary": "삼성전자의 AI 인프라 투자와 물류 거점 확보 등 미래 성장 동력 확보 소식이 전해졌습니다. 또한 젠슨 황 엔비디아 CEO와의 협력 강화가 부각되었으나, 증권가에서는 환율 등 매크로 변수를 반영한 실적 추정치 조정이 이어지고 있습니다.",
+        "summary": "삼성전자의 AI 인프라 투자와 3분기 실적 100조 돌파 전망이 시장의 핵심 이슈로 부상했습니다. 메모리 반도체 업황 회복과 HBM4 등 차세대 제품의 성과가 실적 개선을 견인할 것으로 분석됩니다. 다만, 환율 변동성과 분기 말 리밸런싱에 따른 수급 변동 가능성은 주의가 필요합니다.",
         "items": [
           {
-            "title": "삼성 6개 계열사, KKR 미국 AI 인프라 기업에 1조 3천억 투자",
-            "source": "피플워치",
-            "date": "2026-09-29",
+            "title": "KB증권 \"삼성전자, AI 인프라 투자로 전략적 가치 재평가\"",
+            "source": "연합뉴스",
+            "date": "2026-09-30",
             "sentiment": "긍정",
-            "url": "https://www.peoplewatch.co.kr/article/view/ppw202609290010",
-            "insight": "AI 인프라 생태계 확장을 통한 중장기 성장 동력 확보."
+            "url": "https://www.yna.co.kr/view/AKR20260930029100008?input=1195m",
+            "insight": "AI 데이터센터 시장 직접 진입을 통한 기업 가치 재평가 기대"
           },
           {
-            "title": "평택 포승지구에 삼성전자 첨단 물류거점 5천억 투자",
-            "source": "이코노뉴스",
-            "date": "2026-09-29",
+            "title": "\"삼성전자, 3분기 영업익은 분기 최초로 100조원 돌파할 것\"-NH",
+            "source": "머니투데이",
+            "date": "2026-09-30",
             "sentiment": "긍정",
-            "url": "http://www.econonews.co.kr/news/articleView.html?idxno=444973",
-            "insight": "물류 효율화 및 지역 경제 활성화 기여."
+            "url": "https://www.mt.co.kr/stock/2026/09/30/2026093007585462368",
+            "insight": "메모리 시장 훈풍과 파운드리 실적 회복이 실적 견인"
           },
           {
-            "title": "젠슨 황 수상 무대서 뭉친 이재용·최태원…'AI 동맹' 과시",
-            "source": "전자신문",
-            "date": "2026-09-29",
+            "title": "삼성 6개사, 美 AI 인프라 기업 ‘헬릭스’에 10억 달러 투자",
+            "source": "브릿지경제",
+            "date": "2026-09-30",
             "sentiment": "긍정",
-            "url": "https://www.etnews.com/20260929000181",
-            "insight": "엔비디아와의 파트너십 강화로 HBM 등 반도체 경쟁력 부각."
+            "url": "https://www.viva100.com/article/20260929501150",
+            "insight": "AI 인프라 생태계 확장을 통한 미래 성장 동력 확보"
           },
           {
-            "title": "KB자산운용 '글로벌AI낸드메모리반도체 ETF' 1개월 수익률 13%",
-            "source": "중소기업신문",
-            "date": "2026-09-29",
+            "title": "[온체인 주식선물] 삼성전자, 정규장 종가보다 1.78% 웃돈",
+            "source": "토큰포스트",
+            "date": "2026-09-30",
             "sentiment": "긍정",
-            "url": "http://www.smedaily.co.kr/news/articleView.html?idxno=363872",
-            "insight": "AI 반도체 섹터에 대한 시장의 높은 관심 지속."
+            "url": "https://www.tokenpost.kr/news/insights/416105",
+            "insight": "정규장 이후 시장에서 상승세 유지로 투자 심리 개선 확인"
           },
           {
-            "title": "긴 호흡으로 (유진투자증권 리포트)",
-            "source": "유진투자증권",
-            "date": "2026-09-29",
+            "title": "[모닝 리포트] \"국내 증시 상승 출발 전망…미 금리 하락에 반도체도 반...\"",
+            "source": "뉴스핌",
+            "date": "2026-09-30",
             "sentiment": "중립",
-            "url": "https://stock.naver.com/research/company/96343",
-            "insight": "환율 및 성과급 충당금 영향으로 단기 실적 추정치 하향."
+            "url": "https://www.newspim.com/news/view/20260930000064",
+            "insight": "분기 말 리밸런싱 매물 출회 가능성 등 수급 변동성 주의"
           }
         ]
       },
       "community": {
-        "summary": "개인 투자자들은 장기 보유 관점과 정치적 이슈, 매크로 우려 사이에서 의견이 갈리고 있습니다. 종목토론방에서는 주가 변동성에 대한 피로감과 배당에 대한 기대감이 공존합니다.",
-        "sentimentLabel": "중립",
+        "summary": "개인 투자자들은 3분기 실적 기대감과 영국 ADR 폭등 소식에 힘입어 주가 상승을 강하게 기대하고 있습니다. 다만, 외국인의 매도세와 산업생산 감소 등 매크로 지표에 대한 우려도 일부 존재하며, 종목토론방에서는 실적 발표를 앞두고 기대와 불안이 교차하고 있습니다.",
+        "sentimentLabel": "긍정",
         "naver": [
           {
-            "title": "기관은 왜 하닉을 버리고 삼전을 계속 매수할까?",
-            "url": "https://stock.naver.com/domestic/stock/005930/discussion/429923864",
-            "sentiment": "중립",
-            "summary": "기관 수급에 대한 의문과 시장 흐름 분석."
+            "title": "★ 삼성전자: 영국 ADR 7% 폭등: 오늘 7% 폭등 전망: 매수",
+            "url": "https://stock.naver.com/domestic/stock/005930/discussion/429953572",
+            "sentiment": "긍정",
+            "summary": "해외 ADR 급등 소식에 따른 국내 정규장 상승 기대감"
           },
           {
-            "title": "잘익절하고 25~26기다립니다 ^^",
-            "url": "https://stock.naver.com/domestic/stock/005930/discussion/429924293",
+            "title": "다시 30만원 향하여",
+            "url": "https://stock.naver.com/domestic/stock/005930/discussion/429953994",
             "sentiment": "긍정",
-            "summary": "가격 조정 시 재진입을 노리는 투자자."
+            "summary": "주가 회복에 대한 강한 기대감 표출"
           },
           {
-            "title": "특별배당 감사합니다",
-            "url": "https://stock.naver.com/domestic/stock/005930/discussion/429923678",
+            "title": "최근 확실히 닉스보다 힘이 좋아졌네",
+            "url": "https://stock.naver.com/domestic/stock/005930/discussion/429953660",
             "sentiment": "긍정",
-            "summary": "주주환원 정책에 대한 긍정적 반응."
+            "summary": "경쟁사 대비 상대적 주가 강세에 주목"
           }
         ]
       },
       "dart": {
-        "summary": "2025년 기준 매출액과 영업이익이 전년 대비 큰 폭으로 성장하며 견조한 펀더멘털을 유지하고 있습니다. 최근 공시는 임원 및 주요 주주의 주식 소유 상황 변동 위주로 진행되었습니다.",
+        "summary": "최근 공시는 임원 및 주요 주주의 주식 소유 상황 보고가 주를 이루고 있으며, 대규모 기업집단 현황 공시 등을 통해 지배구조 및 계열사 현황을 확인할 수 있습니다. 재무적으로는 매출과 영업이익이 전년 대비 큰 폭으로 성장하며 견조한 펀더멘털을 유지하고 있습니다.",
         "highlights": [
           {
             "label": "매출액(2025)",
             "value": "333.6조 원",
-            "note": "전년 대비 성장세 지속."
+            "note": "전년 대비 외형 성장 지속"
           },
           {
             "label": "영업이익(2025)",
             "value": "43.6조 원",
-            "note": "수익성 개선 확인."
+            "note": "수익성 개선세 뚜렷"
           },
           {
-            "label": "자산총계(2025)",
-            "value": "566.9조 원",
-            "note": "재무 건전성 양호."
+            "label": "자본총계(2025)",
+            "value": "436.3조 원",
+            "note": "재무 건전성 강화"
           },
           {
             "label": "주요 공시",
-            "value": "임원 주식 변동",
-            "note": "임원 및 주요 주주의 소유 상황 보고가 다수 발생."
+            "value": "임원·주요주주 소유상황보고",
+            "note": "내부자 지분 변동 지속 확인"
           }
         ],
         "recentFilings": [
@@ -4143,7 +6324,7 @@
         ]
       },
       "research": {
-        "summary": "증권가에서는 환율 하락과 성과급 충당금 등 단기적인 실적 하향 요인을 반영하면서도, HBM4와 파운드리 등 중장기 성장성에 대해서는 여전히 긍정적인 시각을 유지하고 있습니다.",
+        "summary": "증권가에서는 삼성전자의 3분기 실적 호조와 AI 반도체 시장에서의 경쟁력 강화에 주목하며 매수 의견을 유지하고 있습니다. 다만, 환율 하락과 성과급 충당금 등 일회성 비용에 따른 실적 추정치 조정이 일부 있으나, 중장기적인 업사이클 지속력은 유효하다는 평가가 지배적입니다.",
         "items": [
           {
             "title": "긴 호흡으로",
@@ -4153,7 +6334,7 @@
             "pdfUrl": "https://stock.pstatic.net/stock-research/company/63/20260929_company_351136000.pdf",
             "targetPrice": 560000,
             "opinion": "StrongBuy",
-            "note": "환율 가정 하향 및 성과급 충당금 반영으로 실적 추정치 하향 조정."
+            "note": "환율 가정 하향 및 성과급 충당금 반영으로 실적 추정치는 조정했으나, 메모리 업황 개선은 지속될 전망."
           },
           {
             "title": "메모리 가격 상승폭 둔화보다 사이클 장기화!",
@@ -4163,7 +6344,7 @@
             "pdfUrl": "https://stock.pstatic.net/stock-research/company/18/20260923_company_435144000.pdf",
             "targetPrice": 630000,
             "opinion": "Buy",
-            "note": "메모리 가격 상승세 지속과 HBM4 판매 본격화에 따른 사이클 장기화 기대."
+            "note": "메모리 가격 상승세와 HBM4 판매 본격화로 비메모리 적자폭 축소 및 수익성 개선 기대."
           },
           {
             "title": "HBM, 파운드리 중장기 성장성에 주목",
@@ -4173,7 +6354,7 @@
             "pdfUrl": "https://stock.pstatic.net/stock-research/company/39/20260923_company_526904000.pdf",
             "targetPrice": 350000,
             "opinion": "Buy",
-            "note": "단기 실적은 기대치를 하회할 수 있으나 HBM 및 파운드리 수익성 개선은 긍정적."
+            "note": "환율 하락 및 범용 DRAM 가격 상승폭 둔화로 기대치를 하회할 수 있으나, HBM 부문의 성장세는 긍정적."
           },
           {
             "title": "Beyond the cycle",
@@ -4183,7 +6364,7 @@
             "pdfUrl": "",
             "targetPrice": null,
             "opinion": "",
-            "note": "수요 강세와 기술 경쟁력 개선을 근거로 매수 의견 유지."
+            "note": "기술 경쟁력 개선과 수요 강세가 지속되며 업사이클의 지속력 강화 증거가 다수 포착됨."
           },
           {
             "title": "HBM으로 매크로 우려 극복",
@@ -4193,7 +6374,7 @@
             "pdfUrl": "",
             "targetPrice": null,
             "opinion": "",
-            "note": "환율 하락에도 불구하고 증익 기조는 유효하며 목표주가 상향."
+            "note": "매크로 우려에도 불구하고 HBM 주도의 실적 개선세가 뚜렷하여 목표주가 상향."
           },
           {
             "title": "공포가 클수록 중심을 잡자",
@@ -4203,7 +6384,7 @@
             "pdfUrl": "",
             "targetPrice": null,
             "opinion": "",
-            "note": "매크로 불확실성에도 불구하고 역대급 주주환원 정책으로 중심 잡기 필요."
+            "note": "역대급 주주환원 정책에도 매크로 불확실성으로 주가가 과도하게 저평가된 상태."
           },
           {
             "title": "사방에서 울리는 낭보들",
@@ -4213,7 +6394,7 @@
             "pdfUrl": "",
             "targetPrice": null,
             "opinion": "",
-            "note": "고객군과 경쟁사 동향 업데이트를 통한 기업가치 재평가."
+            "note": "고객군과 경쟁사 동향을 고려할 때 사업 및 기업가치 개선 흐름은 여전히 유효함."
           },
           {
             "title": "비중확대의 적기",
@@ -4223,7 +6404,7 @@
             "pdfUrl": "",
             "targetPrice": null,
             "opinion": "",
-            "note": "주가 하락은 차익 실현 및 수급 부담에 기인하며 비중 확대 적기."
+            "note": "차익 실현 매물로 주가는 하락했으나, 영업 환경과 산업 전망에는 유의미한 변화가 없음."
           }
         ],
         "consensus": {
@@ -4231,7 +6412,7 @@
           "high": 630000,
           "low": 350000,
           "n": 3,
-          "upsidePct": 89.8,
+          "upsidePct": 88.4,
           "opinions": {
             "매수": 3
           }
@@ -4239,23 +6420,15 @@
       },
       "generatedBy": "gemini-3.1-flash-lite",
       "flow": {
-        "rank": [
-          {
-            "list": "외국인 순매도상위",
-            "rank": 2,
-            "frgn": -152600.0,
-            "orgn": -75483.0,
-            "fund": -25888.0
-          },
-          {
-            "list": "기관계 순매도상위",
-            "rank": 2,
-            "frgn": -152600.0,
-            "orgn": -75483.0,
-            "fund": -25888.0
-          }
-        ],
+        "rank": [],
         "shorts": [
+          {
+            "date": "20260929",
+            "qty": 1095215.0,
+            "volRlim": 6.86,
+            "pbmn": 2980.8,
+            "pbmnRlim": 6.87
+          },
           {
             "date": "20260928",
             "qty": 1017129.0,
@@ -4388,16 +6561,17 @@
             "volRlim": 8.56,
             "pbmn": 3930.9,
             "pbmnRlim": 8.46
-          },
-          {
-            "date": "20260828",
-            "qty": 836132.0,
-            "volRlim": 5.53,
-            "pbmn": 2177.7,
-            "pbmnRlim": 5.55
           }
         ],
         "loans": [
+          {
+            "date": "20260929",
+            "newQty": 1771811.0,
+            "rdmpQty": 8461482.0,
+            "rmndChg": -6689671.0,
+            "rmndQty": 74752152.0,
+            "rmndAmt": 203699.6
+          },
           {
             "date": "20260928",
             "newQty": 2526018.0,
@@ -4549,18 +6723,19 @@
             "rmndChg": -511088.0,
             "rmndQty": 88303849.0,
             "rmndAmt": 229590.0
-          },
-          {
-            "date": "20260828",
-            "newQty": 4020677.0,
-            "rdmpQty": 1367170.0,
-            "rmndChg": 2653507.0,
-            "rmndQty": 88814937.0,
-            "rmndAmt": 228254.4
           }
         ],
-        "rankAsof": "15:09",
+        "rankAsof": "08:38",
         "trend": [
+          {
+            "date": "20260929",
+            "frgn": -2508369,
+            "orgn": 53759,
+            "prsn": 422277,
+            "holdRatio": 46.47,
+            "close": 275000,
+            "rate": 1.85
+          },
           {
             "date": "20260928",
             "frgn": -4999903,
@@ -4731,25 +6906,29 @@
             "holdRatio": 46.72,
             "close": 260000,
             "rate": 1.17
-          },
-          {
-            "date": "20260828",
-            "frgn": -1927155,
-            "orgn": -1652437,
-            "prsn": 1589169,
-            "holdRatio": 46.72,
-            "close": 257000,
-            "rate": -3.38
           }
         ]
       },
       "_flowOk": true,
       "_meta": {
         "filingKey": "2026-09-22|임원ㆍ주요주주특정증권등소유상황보고서",
-        "asOf": "2026-09-29T13:38:22.107751+09:00",
-        "price": 270500
+        "asOf": "2026-09-30T08:38:50.699086+09:00",
+        "price": 272500
       }
     },
-    "direction": "bearish"
+    "direction": "bullish"
+  },
+  {
+    "code": "338220",
+    "name": "뷰노",
+    "market": "KOSDAQ",
+    "selectedDate": "2026-09-30",
+    "basePrice": 8320,
+    "entry": 8400,
+    "target": 9800,
+    "stop": 7200,
+    "stars": "⭐⭐⭐⭐⭐",
+    "catalyst": "전일 종가 기준 상승 +21.99% 마감. 자동 생성 리포트 — 세부 촉매 분석은 수동 업데이트가 필요합니다.",
+    "scenario": "<b>[자동 생성 시나리오]</b><br>전일 종가 8,320원 기준으로 산출된 기술적 레벨입니다. 진입 상한가 8,400원 이하에서 분할 매수하고, 목표 익절가 9,800원, 손절선 7,200원으로 리스크를 관리하세요."
   }
 ]
