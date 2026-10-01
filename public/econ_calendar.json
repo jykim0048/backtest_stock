@@ -1,6 +1,6 @@
 {
  "date": "2026-10-02",
- "asof": "2026-10-02 07:46 KST",
+ "asof": "2026-10-02 08:40 KST",
  "sources": {
   "naver": true,
   "forexfactory": true
@@ -1249,9 +1249,7 @@
     "diff": 11.0,
     "verdict": "above"
    }
-  }
- ],
- "upcoming": [
+  },
   {
    "nation": "KOR",
    "name": "소비자물가지수(CPI) 전년대비",
@@ -1260,12 +1258,18 @@
    "period": "Sep 2026",
    "category": "PRICE",
    "releaseAtKST": "2026-10-02 08:00",
+   "actual": 2.9,
    "previous": 3.1,
    "unit": "%",
    "unitScale": "",
    "forecast": null,
    "forecastSource": null,
-   "source": "naver"
+   "source": "naver",
+   "surprise": {
+    "vs": "previous",
+    "diff": -0.2,
+    "verdict": "below"
+   }
   },
   {
    "nation": "KOR",
@@ -1275,13 +1279,21 @@
    "period": "Sep 2026",
    "category": "PRICE",
    "releaseAtKST": "2026-10-02 08:00",
+   "actual": 0.3,
    "previous": 0.2,
    "unit": "%",
    "unitScale": "",
    "forecast": null,
    "forecastSource": null,
-   "source": "naver"
-  },
+   "source": "naver",
+   "surprise": {
+    "vs": "previous",
+    "diff": 0.1,
+    "verdict": "above"
+   }
+  }
+ ],
+ "upcoming": [
   {
    "nation": "USA",
    "name": "실업률",
@@ -2052,6 +2064,6 @@
     }
    ]
   },
-  "asof": "2026-10-02 07:46 KST"
+  "asof": "2026-10-02 08:40 KST"
  }
 }
