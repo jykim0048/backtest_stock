@@ -1,6 +1,6 @@
 {
- "date": "2026-10-06",
- "asof": "2026-10-06 15:40 KST",
+ "date": "2026-10-07",
+ "asof": "2026-10-07 07:46 KST",
  "sources": {
   "naver": true,
   "forexfactory": true
@@ -157,9 +157,7 @@
     "diff": -1.72,
     "verdict": "below"
    }
-  }
- ],
- "upcoming": [
+  },
   {
    "nation": "USA",
    "name": "무역수지",
@@ -168,12 +166,18 @@
    "period": "Aug 2026",
    "category": "BALANCE",
    "releaseAtKST": "2026-10-06 21:30",
+   "actual": -105.6,
    "previous": -88.6,
    "unit": "USD",
    "unitScale": "B",
    "forecast": null,
    "forecastSource": null,
-   "source": "naver"
+   "source": "naver",
+   "surprise": {
+    "vs": "previous",
+    "diff": -17.0,
+    "verdict": "below"
+   }
   },
   {
    "nation": "USA",
@@ -183,13 +187,21 @@
    "period": "03 Oct2026",
    "category": "BSI_CSI",
    "releaseAtKST": "2026-10-06 21:55",
+   "actual": 8.6,
    "previous": 8.2,
    "unit": "%",
    "unitScale": "",
    "forecast": null,
    "forecastSource": null,
-   "source": "naver"
-  },
+   "source": "naver",
+   "surprise": {
+    "vs": "previous",
+    "diff": 0.4,
+    "verdict": "above"
+   }
+  }
+ ],
+ "upcoming": [
   {
    "nation": "USA",
    "name": "MBA 구매지수",
@@ -563,10 +575,10 @@
    "previous": 47.8,
    "unit": "",
    "unitScale": "",
-   "forecast": 47.6,
+   "forecast": 47.5,
    "forecastSource": "forexfactory",
    "source": "naver",
-   "forecastText": "47.6"
+   "forecastText": "47.5"
   },
   {
    "nation": "USA",
@@ -668,6 +680,156 @@
    "releaseAtKST": "2026-10-13 23:00",
    "previous": -2,
    "unit": "%",
+   "unitScale": "",
+   "forecast": null,
+   "forecastSource": null,
+   "source": "naver"
+  },
+  {
+   "nation": "USA",
+   "name": "연방재정수지",
+   "reutersCode": "USGDEF=ECIX",
+   "importance": 1,
+   "period": "Sep 2026",
+   "category": "PUBLIC_FINANCE",
+   "releaseAtKST": "2026-10-14 03:00",
+   "previous": -167,
+   "unit": "USD",
+   "unitScale": "B",
+   "forecast": null,
+   "forecastSource": null,
+   "source": "naver"
+  },
+  {
+   "nation": "USA",
+   "name": "소비자물가지수(CPI) 전년대비",
+   "reutersCode": "USCPNY=ECIX",
+   "importance": 4,
+   "period": "Sep 2026",
+   "category": "PRICE",
+   "releaseAtKST": "2026-10-14 21:30",
+   "previous": 3.4,
+   "unit": "%",
+   "unitScale": "",
+   "forecast": null,
+   "forecastSource": null,
+   "source": "naver"
+  },
+  {
+   "nation": "USA",
+   "name": "소비자물가지수(CPI) 전월대비",
+   "reutersCode": "USCPI=ECIX",
+   "importance": 4,
+   "period": "Sep 2026",
+   "category": "PRICE",
+   "releaseAtKST": "2026-10-14 21:30",
+   "previous": 0.4,
+   "unit": "%",
+   "unitScale": "",
+   "forecast": null,
+   "forecastSource": null,
+   "source": "naver"
+  },
+  {
+   "nation": "USA",
+   "name": "근원 소비자물가지수(CPI) 전년대비",
+   "reutersCode": "USCPFY=ECIX",
+   "importance": 2,
+   "period": "Sep 2026",
+   "category": "PRICE",
+   "releaseAtKST": "2026-10-14 21:30",
+   "previous": 2.4,
+   "unit": "%",
+   "unitScale": "",
+   "forecast": null,
+   "forecastSource": null,
+   "source": "naver"
+  },
+  {
+   "nation": "USA",
+   "name": "근원 소비자물가지수(CPI) 전월대비",
+   "reutersCode": "USCPF=ECIX",
+   "importance": 1,
+   "period": "Sep 2026",
+   "category": "PRICE",
+   "releaseAtKST": "2026-10-14 21:30",
+   "previous": 0.3,
+   "unit": "%",
+   "unitScale": "",
+   "forecast": null,
+   "forecastSource": null,
+   "source": "naver"
+  },
+  {
+   "nation": "USA",
+   "name": "소비자물가지수(CPI)",
+   "reutersCode": "USCPN=ECIX",
+   "importance": 1,
+   "period": "Sep 2026",
+   "category": "PRICE",
+   "releaseAtKST": "2026-10-14 21:30",
+   "previous": 334.98,
+   "unit": "",
+   "unitScale": "",
+   "forecast": null,
+   "forecastSource": null,
+   "source": "naver"
+  },
+  {
+   "nation": "USA",
+   "name": "소비자물가지수(CPI)  계절 조정",
+   "reutersCode": "USCPSA=ECIX",
+   "importance": 1,
+   "period": "Sep 2026",
+   "category": "PRICE",
+   "releaseAtKST": "2026-10-14 21:30",
+   "previous": 334.13,
+   "unit": "",
+   "unitScale": "",
+   "forecast": null,
+   "forecastSource": null,
+   "source": "naver"
+  },
+  {
+   "nation": "USA",
+   "name": "소비자물가지수(CPI) 전월대비  계절 미조정",
+   "reutersCode": "USCPIM=ECIX",
+   "importance": 1,
+   "period": "Sep 2026",
+   "category": "PRICE",
+   "releaseAtKST": "2026-10-14 21:30",
+   "previous": 0.32,
+   "unit": "%",
+   "unitScale": "",
+   "forecast": null,
+   "forecastSource": null,
+   "source": "naver"
+  },
+  {
+   "nation": "USA",
+   "name": "실질임금 전월대비",
+   "reutersCode": "USEARN=ECIX",
+   "importance": 1,
+   "period": "Sep 2026",
+   "category": "EMPLOYMENT",
+   "releaseAtKST": "2026-10-14 21:30",
+   "previous": 0.2,
+   "unit": "%",
+   "unitScale": "",
+   "forecast": null,
+   "forecastSource": null,
+   "source": "naver"
+  },
+  {
+   "nation": "USA",
+   "name": "핵심 소비자물가 지수",
+   "reutersCode": "USCPNX=ECIX",
+   "importance": 1,
+   "period": "Sep 2026",
+   "category": "BSI_CSI",
+   "releaseAtKST": "2026-10-14 21:30",
+   "previous": 337.765,
+   "unit": "",
    "unitScale": "",
    "forecast": null,
    "forecastSource": null,
