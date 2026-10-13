@@ -153,7 +153,11 @@ def admin_dbq(q):
     tr, code = q.get("tr") or "industry", q.get("code") or "005930"
     d2 = q.get("d2") or datetime.date.today().isoformat()
     d1 = q.get("d1") or (datetime.date.fromisoformat(d2) - datetime.timedelta(days=14)).isoformat()
-    spec = {"industry": (dbq.P_IND, {"InputCondMrktDivCode": q.get("mkt") or "K", "InputMrktClsCode": "U"}),
+    if tr == "sectors":                                         # 구성종목 겹침 해석 결과(캐시 무시)
+        sm = U.load_sector_map(STORE, datetime.date.today().isoformat())
+        res = U.resolve_db_sectors(dbq, sm, codes=[str(c) for c in range(int(q.get("c1") or 1001), int(q.get("c2") or 1061))])
+        return {"sectorMap": len(sm), "resolved": res, "calls": dbq.calls}
+    spec = {"industry": (dbq.P_IND, {"InputCondMrktDivCode": q.get("mkt") or "K", "InputMrktClsCode": q.get("cls") if q.get("cls") is not None else "U"}),
             "components": (dbq.P_COMP, {"InputBstpIscd": code if len(code) == 4 else "1005", "InputRankSortClsCode1": "42", "InputCondMrktDivCode": "UJ"}),
             "investor": (dbq.P_INV, {"InputCondMrktDivCode": "J", "InputIscd1": code, "InputDate1": d1.replace("-", ""), "InputDate2": d2.replace("-", "")}),
             "chart": (dbq.P_CHART, {"InputOrgAdjPrc": "0", "InputCondMrktDivCode": "J", "InputIscd1": code, "InputDate1": d1.replace("-", ""), "InputDate2": d2.replace("-", "")}),

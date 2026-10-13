@@ -111,7 +111,7 @@ def weekly_fetch_live(what):
 
 
 # ─────────────────────────── 데이터 수집(한 번) ───────────────────────────
-def gather(p, dates, dbq, hub, sig, *, log=print, progress=None):
+def gather(p, dates, dbq, hub, sig, *, log=print, progress=None, store=None, sector_map=None):
     """구성종목(현재 스냅샷) · 종목 일별(DAYSTOCKTJJ 전 구간) · 공매도/대차(/flow) · 선물 상장 → dict."""
     sig_by_date, src_by_date = {}, {}
     for d in dates:
@@ -124,10 +124,11 @@ def gather(p, dates, dbq, hub, sig, *, log=print, progress=None):
                 wanted.add(k)
     diag = {"industries": [], "wanted": sorted(wanted), "unmatched": [], "errors": []}
     try:
-        inds = dbq.industry_codes("K")
+        inds, how = U.sector_codes(dbq, store, dates[-1], sector_map=sector_map, log=log)
     except Exception as e:
-        inds = []
-        diag["errors"].append(f"USTOCKCOND: {type(e).__name__}: {str(e)[:120]}")
+        inds, how = [], "error"
+        diag["errors"].append(f"업종 해석: {type(e).__name__}: {str(e)[:120]}")
+    diag["sectorSource"] = how
     diag["industries"] = [f"{i['code']} {i['name']}" for i in inds]
     comps, names = {}, {}
     for ind in inds:
@@ -459,14 +460,14 @@ def _by_sector(trades):
 
 
 # ─────────────────────────── 실행 ───────────────────────────
-def run(p, date_from, date_to, *, dbq, hub, sig, prices_fetch, store=None, log=print, progress=None, key=None):
+def run(p, date_from, date_to, *, dbq, hub, sig, prices_fetch, store=None, log=print, progress=None, key=None, sector_map=None):
     t0 = time.time()
     prog = progress or (lambda msg: None)
     dates = tradedays.trading_days(date_from, date_to)
     if not dates:
         raise ValueError("영업일 없음")
     prog("수집")
-    data = gather(p, dates, dbq, hub, sig, log=log, progress=prog)
+    data = gather(p, dates, dbq, hub, sig, log=log, progress=prog, store=store, sector_map=sector_map)
     days = {}
     for i, d in enumerate(dates):
         days[d] = build_day(p, d, data)
@@ -587,7 +588,7 @@ def main(argv=None):
         from swing import universe_mock as M
         dbq, hub = M.MockDbQuote(), M.MockHubFlow(d0=a.end, n=90)
         doc = run(p, a.start, a.end, dbq=dbq, hub=hub, sig=SignalSource(st, None), prices_fetch=M.mock_chart_prices(dbq),
-                  store=st, key=f"sim/universe_abc/{a.start}_{a.end}")
+                  store=st, key=f"sim/universe_abc/{a.start}_{a.end}", sector_map=M.mock_sector_map())
     else:
         dbq, hub = U.DbQuote(), U.HubFlow(rows=60)
         doc = run(p, a.start, a.end, dbq=dbq, hub=hub, sig=SignalSource(st, weekly_fetch_live), prices_fetch=chart_prices_live(dbq),

@@ -123,12 +123,20 @@ class DbQuote:
 
     def industry_codes(self, mkt="K"):
         """USTOCKCOND → [{code, name}] (코스피 32업종: 1001 종합 … 1027 제조 · KIS 0001 체계와 다름)."""
-        rows = self.post(self.P_IND, {"InputCondMrktDivCode": mkt, "InputMrktClsCode": "U"}, pages=2)
         out = []
-        for r in rows:
-            code, name = _pick_code_name(r)
-            if code and name:
-                out.append({"code": code, "name": name})
+        for body in ({"InputCondMrktDivCode": mkt, "InputMrktClsCode": "U"}, {"InputCondMrktDivCode": "U", "InputMrktClsCode": mkt},
+                     {"InputCondMrktDivCode": mkt}):
+            try:
+                rows = self.post(self.P_IND, body, pages=3)
+            except Exception as e:
+                self.log(f"[swing] USTOCKCOND {body}: {e}")
+                continue
+            for r in rows:
+                code, name = _pick_code_name(r)
+                if code and name:
+                    out.append({"code": code, "name": name})
+            if out:
+                break
         return out
 
     def industry_components(self, code, sort="42"):
@@ -347,7 +355,7 @@ def prelim_score(m, side):
 
 
 # ─────────────────────────── 빌드 ───────────────────────────
-def build_universe(date, wb, *, dbq, hub, ledger=None, decided=None, log=print, now=None):
+def build_universe(date, wb, *, dbq, hub, ledger=None, decided=None, log=print, now=None, store=None, sector_map=None):
     """→ universe 문서. 네트워크 실패는 업종/종목 단위로 건너뛰고 diag.errors 에 남긴다. 토큰 문제만 예외."""
     t0 = time.time()
     diag = {"errors": [], "unmatched": [], "rawSample": {}, "calls": {}}
@@ -361,9 +369,11 @@ def build_universe(date, wb, *, dbq, hub, ledger=None, decided=None, log=print, 
     pend = {o["code"]: o.get("side", "long") for o in ledger.get("orders", [])}
     decided = decided or {}
 
-    # U1 업종 목록 ↔ sectorFlow 조인
-    inds = dbq.industry_codes("K")
+    # U1 업종 목록 ↔ sectorFlow 조인 (USTOCKCOND 가 비면 구성종목 겹침으로 해석)
+    inds, how = sector_codes(dbq, store, date, sector_map=sector_map, log=log)
     diag["calls"]["industry"] = 1
+    diag["sectorSource"] = how
+    diag["industries"] = [f"{i['code']} {i['name']}" for i in inds]
     sectors = []
     for ind in inds:
         k = signals.norm_sec(ind["name"])
@@ -579,6 +589,90 @@ def load_caps(store, date, *, fetch=None, log=print):
     return cached.get("caps") or {}
 
 
+def load_sector_map(store, date, *, fetch=None, log=print):
+    """main `public/assets/krx_sector_map.json`(KIS 업종지수명 → 시총 상위 종목) → {norm 업종명: {"name", "codes": set}}.
+    DB증권 업종 코드를 종목 겹침으로 KIS 업종명에 매핑하는 데 쓴다. 7일 캐시 store `uni_cache/sector_map`."""
+    cached = store.get("uni_cache/sector_map") or {}
+    fresh = cached.get("date") and (datetime.date.fromisoformat(date) - datetime.date.fromisoformat(cached["date"])).days < 7
+    if fresh and cached.get("map"):
+        return {k: {"name": v["name"], "codes": set(v["codes"])} for k, v in cached["map"].items()}
+    try:
+        if fetch is None:
+            import json as _json
+            import urllib.request
+            url = f"{config.MAIN_RAW_BASE}/public/assets/krx_sector_map.json?t={int(time.time())}"
+            with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": "swing-cron"}), timeout=20) as r:
+                raw = _json.loads(r.read().decode("utf-8"))
+        else:
+            raw = fetch()
+        m = {}
+        for key, sec in (raw.get("sectors") or {}).items():
+            name = sec.get("name") or key
+            codes = {str(x.get("code")).zfill(6) for x in (sec.get("stocks") or []) + (sec.get("kosdaqStocks") or []) if x.get("code")}
+            if codes:
+                m[signals.norm_sec(name)] = {"name": name, "codes": codes}
+        if m:
+            store.put("uni_cache/sector_map", {"date": date, "asof": raw.get("asof"),
+                                               "map": {k: {"name": v["name"], "codes": sorted(v["codes"])} for k, v in m.items()}})
+            return m
+    except Exception as e:
+        log(f"[swing] krx_sector_map 로드 실패({type(e).__name__}: {str(e)[:80]}) — 캐시 {len(cached.get('map') or {})}업종 사용")
+    return {k: {"name": v["name"], "codes": set(v["codes"])} for k, v in (cached.get("map") or {}).items()}
+
+
+def resolve_db_sectors(dbq, sector_map, *, codes=None, min_overlap=0.3, log=print):
+    """DB증권 업종 코드 → KIS 업종명 매핑을 **구성종목 겹침**으로 만든다(USTOCKCOND 가 빈 응답을 주는 문제 우회, 2026-10-13).
+    각 후보 코드의 USTOCKCONDLIST 구성종목과 섹터 맵 종목의 겹침 비율(DB 구성종목 기준)이 가장 큰 KIS 업종에 붙인다.
+    → [{"code", "name", "overlap", "n"}] (name = KIS 업종명). 대분류(제조·금융 등 겹침이 넓은 코드)는 겹침 최대 업종이
+    여러 개라 min_overlap 미달로 빠지거나 가장 큰 쪽에 붙는데, 한 KIS 업종에는 겹침이 가장 큰 코드 하나만 남긴다."""
+    codes = list(codes or [str(c) for c in range(1001, 1061)])
+    found = []
+    for code in codes:
+        try:
+            rows = dbq.industry_components(code, "2")
+        except Exception as e:
+            log(f"[swing] 업종 {code} 구성종목 실패: {str(e)[:60]}")
+            continue
+        comp = {str(r.get("Iscd") or "").strip().zfill(6) for r in rows if r.get("Iscd")}
+        if len(comp) < 3:
+            continue
+        best, best_ov = None, 0.0
+        for k, v in sector_map.items():
+            ov = len(comp & v["codes"]) / len(comp)
+            if ov > best_ov:
+                best, best_ov = k, ov
+        if best and best_ov >= min_overlap:
+            found.append({"code": code, "name": sector_map[best]["name"], "key": best, "overlap": round(best_ov, 2), "n": len(comp)})
+    found.sort(key=lambda x: -x["overlap"])
+    out, used = [], set()
+    for f in found:
+        if f["key"] in used:
+            continue
+        used.add(f["key"])
+        out.append({"code": f["code"], "name": f["name"], "overlap": f["overlap"], "n": f["n"]})
+    return out
+
+
+def sector_codes(dbq, store, date, *, sector_map=None, log=print):
+    """업종 코드 목록 — ① store 캐시(7일) ② USTOCKCOND ③ 구성종목 겹침 해석(resolve_db_sectors). 반환 [{"code","name"}]."""
+    cached = store.get("uni_cache/db_sectors") if store is not None else None
+    if cached and cached.get("date") and (datetime.date.fromisoformat(date) - datetime.date.fromisoformat(cached["date"])).days < 7 \
+            and cached.get("sectors"):
+        return cached["sectors"], "cache"
+    inds, how = [], "industry"
+    try:
+        inds = dbq.industry_codes("K")
+    except Exception as e:
+        log(f"[swing] USTOCKCOND 실패: {e}")
+    if not inds:
+        sm = sector_map if sector_map is not None else (load_sector_map(store, date, log=log) if store is not None else {})
+        if sm:
+            inds, how = resolve_db_sectors(dbq, sm, log=log), "overlap"
+    if inds and store is not None:
+        store.put("uni_cache/db_sectors", {"date": date, "how": how, "sectors": inds})
+    return inds, how
+
+
 def score_codes(items, side, date, *, dbq, hub, caps=None, log=print):
     """임의 종목 목록에 유니버스와 **같은 모멘텀 점수**를 매긴다 → {code: {tv1w…, shortRlim1w…, score, shortHigh, reason}}.
     매트릭스 후보를 유니버스와 공통 척도로 정렬하기 위한 것. 시총은 caps(krx_caps) → 없으면 수급/시총 항목 0점."""
@@ -689,7 +783,7 @@ class UniverseRunner:
         doc = self.store.get(f"universe/{date}")
         if doc and not self.force:
             return doc
-        doc = build_universe(date, wb, dbq=self.dbq, hub=self.hub, ledger=ledger,
+        doc = build_universe(date, wb, dbq=self.dbq, hub=self.hub, ledger=ledger, store=self.store,
                              decided=recent_decisions(self.store, date, config.UNI_COOLDOWN_DAYS), log=self.log)
         self.store.put(f"universe/{date}", doc)
         return doc

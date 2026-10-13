@@ -69,6 +69,30 @@ class TestPure(unittest.TestCase):
         self.assertEqual(U.short_loan_metrics(None, 100)["shortRlim1w"], None)
 
 
+class TestSectorResolve(unittest.TestCase):
+    def test_resolve_db_sectors(self):
+        dbq = M.MockDbQuote()
+        sm = M.mock_sector_map()
+        res = U.resolve_db_sectors(dbq, sm, codes=[str(1005 + i) for i in range(len(dbq.sectors))] + ["1999"], log=lambda *a: None)
+        names = {r["name"] for r in res}
+        self.assertEqual(names, {s["name"] for s in dbq.sectors})
+        self.assertTrue(all(r["overlap"] >= 0.3 for r in res))
+        # USTOCKCOND 가 비면 겹침 해석으로 대체되고 캐시됨
+        import tempfile
+        st = store.FileStore(tempfile.mkdtemp())
+        dbq.industry_codes = lambda mkt="K": []
+        inds, how = U.sector_codes(dbq, st, DATE, sector_map=sm, log=lambda *a: None)
+        self.assertEqual(how, "overlap")
+        self.assertEqual({i["name"] for i in inds}, names)
+        inds2, how2 = U.sector_codes(dbq, st, DATE, sector_map=sm)
+        self.assertEqual(how2, "cache")
+        self.assertEqual(inds2, inds)
+        # build_universe 도 이 경로로 업종을 찾는다
+        doc = U.build_universe(DATE, wb(), dbq=dbq, hub=M.MockHubFlow(), store=st, log=lambda *a: None)
+        self.assertEqual(doc["diag"]["sectorSource"], "cache")
+        self.assertGreater(doc["summary"]["sectors"], 0)
+
+
 class TestBuild(unittest.TestCase):
     def test_build_doc(self):
         dbq, hub = mocks()
@@ -189,9 +213,10 @@ class TestDbQuoteClient(unittest.TestCase):
 
         def bad(url, headers=None, json=None, timeout=None):
             return self.R({"rsp_cd": "IGW00201", "rsp_msg": "유량"})
-        q2 = U.DbQuote(token_source=Tok(), post=bad, sleep=lambda s: None, now=lambda: 0.0)
+        q2 = U.DbQuote(token_source=Tok(), post=bad, sleep=lambda s: None, now=lambda: 0.0, log=lambda *a: None)
         with self.assertRaises(RuntimeError):
-            q2.industry_codes()
+            q2.post(U.DbQuote.P_COMP, {"a": 1})
+        self.assertEqual(q2.industry_codes(), [])            # 업종 목록은 변형 입력을 모두 시도한 뒤 빈 목록(겹침 해석으로 대체)
 
 
 if __name__ == "__main__":

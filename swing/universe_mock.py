@@ -16,6 +16,12 @@ def load_sectors():
         return json.load(f)["sectors"]
 
 
+def mock_sector_map(sectors=None):
+    """load_sector_map 형식 — demo_sectors 그대로."""
+    from . import signals
+    return {signals.norm_sec(s["name"]): {"name": s["name"], "codes": {x["code"] for x in s["stocks"]}} for s in (sectors or load_sectors())}
+
+
 class MockDbQuote:
     """industry_codes → demo 업종(코드 1005…), industry_components → 시총·당일 거래대금, daily_investor → 25영업일."""
 
