@@ -28,6 +28,9 @@ class DecisionRequest:
     last_close: Optional[float] = None
     position: Optional[dict] = None  # review 일 때 보유 정보(진입가·손절·목표·보유일)
     side: str = "long"              # "long" | "short"(공매도 진입 / 보유 숏 환매 검토)
+    source: str = "matrix"          # 후보 소스 — "matrix"(섹터 시그널 칸) | "universe"(업종별 수급 모멘텀, 2026-10-13)
+    score: Optional[int] = None     # 공통 모멘텀 점수(−5~+5, universe.score_stock) — 두 소스 동일 척도
+    metrics: Optional[dict] = None  # 점수 근거 지표(tv1w·tvMom·frgn1w·orgn1w·flowBp·shortRlim1w·shortMom·loanChg·ret1w)
 
 
 @dataclass

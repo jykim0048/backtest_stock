@@ -11,6 +11,8 @@
   GET /api/swing/decision?key=        trading_agent 판단 원문(decision/<date>/<code>/<purpose>)
   GET /api/swing/signals?date=        그날 주간 브리핑 신호(섹터 신호·종목 관찰 4칸 축약본)
   GET /api/swing/universe[?date=]     업종별 종목 수급 모멘텀 유니버스(universe/<date>, 없으면 최신) + 날짜 목록
+  GET /api/swing/sim[?key=]           유니버스 선정 방식 A/B/C 시뮬 결과(sim/…) — key 없으면 목록+진행
+  GET /admin/sim?token=&from=&to=     시뮬 백그라운드 실행(SWING_ADMIN_TOKEN 필요, Railway 에서 과거 재구성 — tools/sim_universe)
   GET /api/swing/config               운용 규칙(자본·보유일·세금·비중·신호/등급 조건)
   GET /api/swing/export               전체 문서 JSON(백업)
   GET /api/prices?codes=              장중 시세 — SWING_PRICES_PROXY(main 대시보드) 중계, 표시 전용
@@ -127,6 +129,25 @@ def api_universe(q):
     return {"date": d, "dates": ds, "universe": STORE.get(f"universe/{d}") if d else None}
 
 
+def api_sim(q):
+    k = q.get("key")
+    if k:
+        return STORE.get(k) if k.startswith("sim/") else None
+    return {"keys": [x for x in STORE.keys("sim/") if x != "sim/progress"], "progress": STORE.get("sim/progress")}
+
+
+def admin_sim(q):
+    tok = os.environ.get("SWING_ADMIN_TOKEN")
+    if not tok or q.get("token") != tok:
+        return None
+    from swing.tools import sim_universe
+    kw = {}
+    if q.get("cap"):
+        kw["capLong"] = kw["capShort"] = int(q["cap"])
+    key = sim_universe.start_background(STORE, q.get("from") or "2026-08-31", q.get("to") or STORE.get("ledger", {}).get("asof"), **kw)
+    return {"started": key, "progress": "/api/swing/sim"}
+
+
 def api_progress(q):
     """실행 진행률(daily.Progress) — 없으면 None."""
     return STORE.get("progress")
@@ -140,7 +161,10 @@ def api_config(q):
             "buyRatings": config.BUY_RATINGS, "sellRatings": config.SELL_RATINGS,
             "shortEnabled": config.SHORT_ENABLED, "shortSignals": config.SHORT_SIGNALS,
             "maxNewShortPerDay": config.MAX_NEW_SHORT_PER_DAY, "shortMaxGross": config.SHORT_MAX_GROSS,
-            "borrowRate": config.BORROW_RATE}
+            "borrowRate": config.BORROW_RATE,
+            "universe": config.UNIVERSE_ENABLED, "uniNewPerDay": config.UNI_NEW_PER_DAY,
+            "uniNewShortPerDay": config.UNI_NEW_SHORT_PER_DAY, "uniCandMin": config.UNI_CAND_MIN,
+            "uniCooldownDays": config.UNI_COOLDOWN_DAYS}
 
 
 def api_export(q):
@@ -151,7 +175,8 @@ ROUTES = {"/api/swing/summary": api_summary, "/api/swing/progress": api_progress
           "/api/swing/orders": api_orders, "/api/swing/trades": api_trades,
           "/api/swing/equity": lambda q: _ledger()["equity"],
           "/api/swing/runs": api_runs, "/api/swing/decision": api_decision,
-          "/api/swing/signals": api_signals, "/api/swing/universe": api_universe, "/api/swing/config": api_config,
+          "/api/swing/signals": api_signals, "/api/swing/universe": api_universe, "/api/swing/sim": api_sim,
+          "/admin/sim": admin_sim, "/api/swing/config": api_config,
           "/api/swing/export": api_export}
 
 

@@ -69,7 +69,7 @@ def equity_now(L):
 
 # ── 주문 생성(판단 직후, D 장 마감 후) ─────────────────────────────────────────
 def place_entry(L, *, code, name, date, valid_date, entry, stop, target, weight,
-                sector=None, signal=None, decision_key=None, side="long"):
+                sector=None, signal=None, decision_key=None, side="long", source=None):
     """다음 영업일(valid_date) 1일 유효 지정가 주문(Long 매수·Short 공매도).
     수량 = 비중 × D 종가 평가액 / 진입가. Short 는 총노출 상한을 넘으면 스킵."""
     eq = equity_now(L)
@@ -77,7 +77,8 @@ def place_entry(L, *, code, name, date, valid_date, entry, stop, target, weight,
     o = {"id": _id(L, "o"), "code": code, "name": name, "side": side, "type": "entry",
          "created": date, "validDate": valid_date, "entry": float(entry), "stop": float(stop),
          "target": float(target) if target else None, "weight": weight, "qty": qty,
-         "sector": sector, "signal": signal, "decisionKey": decision_key, "status": "open"}
+         "sector": sector, "signal": signal, "decisionKey": decision_key, "status": "open",
+         "source": source or "matrix"}
     note = None
     if qty <= 0:
         note = "수량 0(비중·가격)"
@@ -155,7 +156,7 @@ def _close_position(L, p, date, price, reason, note=None):
          "exitDate": date, "exitPrice": float(price), "reason": reason,
          "holdDays": p["holdDay"], "tax": round(tax), "pnl": round(pnl),
          "retPct": round(pnl / cost * 100, 2) if cost else 0.0,
-         "sector": p.get("sector"), "signal": p.get("signal"),
+         "sector": p.get("sector"), "signal": p.get("signal"), "source": p.get("source"),
          "decisionKey": p.get("decisionKey"),
          "exitDecisionKey": (p.get("sellPending") or {}).get("decisionKey")}
     if fee:
@@ -265,7 +266,7 @@ def settle_day(L, date, bars):
                 p = {"id": _id(L, "p"), "code": o["code"], "name": o["name"], "side": o["side"],
                      "qty": o["qty"], "entry": o["entry"], "stop": o["stop"],
                      "target": o["target"], "fillDate": date, "holdDay": 1,
-                     "sector": o.get("sector"), "signal": o.get("signal"),
+                     "sector": o.get("sector"), "signal": o.get("signal"), "source": o.get("source"),
                      "decisionKey": o.get("decisionKey"), "orderId": o["id"],
                      "lastClose": None, "sellPending": None}
                 if short:

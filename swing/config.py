@@ -46,15 +46,19 @@ MAIN_RAW_BASE = os.environ.get(
 # KIS 허브(vi_limit_monitor) HTTP — 수급·공매도·대차 /flow (스킬 collect 와 같은 기본값)
 FLOW_API_BASE = os.environ.get("FLOW_API_BASE", "https://tradingstrategies-production-09d4.up.railway.app")
 
-# 업종별 종목 수급 모멘텀 유니버스(2026-10-13, swing/universe.py · PLAN_UNIVERSE.md). 관찰 모드 — 후보 미연결
-UNIVERSE_ENABLED = os.environ.get("SWING_UNIVERSE", "1") != "0"
+# 업종별 종목 수급 모멘텀 유니버스(2026-10-13, swing/universe.py · PLAN_UNIVERSE.md) — 매트릭스와 독립 후보 소스, 공통 모멘텀 점수
+UNIVERSE_ENABLED = os.environ.get("SWING_UNIVERSE", "1") != "0"   # 0 이면 산출·후보 모두 끔
 UNI_TOPK_TV = _i("SWING_UNI_TOPK_TV", 15)          # 1차 컷: 업종별 당일 거래대금 상위
 UNI_TOPK_CAP = _i("SWING_UNI_TOPK_CAP", 5)         # 1차 컷: ∪ 시총 상위
 UNI_TOPN = _i("SWING_UNI_TOPN", 10)                # 업종별 Top N
 UNI_MIN_TV_EOK = _f("SWING_UNI_MIN_TV_EOK", 20)    # 유동성 하한: 20일 평균 거래대금(억)
 UNI_FLOW_PER_SECTOR = _i("SWING_UNI_FLOW_PER_SECTOR", 12)   # KIS 허브 /flow 보강 대상(업종별 예비 상위)
 UNI_CAND_MIN = _i("SWING_UNI_CAND_MIN", 2)         # '후보' 표시 최소 점수
-UNI_COOLDOWN_DAYS = _i("SWING_UNI_COOLDOWN_DAYS", 3)   # 최근 N영업일 entry 판단 있으면 ✓ 표시
+UNI_COOLDOWN_DAYS = _i("SWING_UNI_COOLDOWN_DAYS", 3)   # 최근 N영업일 entry 판단 있으면 유니버스 후보 제외(쿨다운)·✓ 표시
+UNI_NEW_PER_DAY = _i("SWING_UNI_NEW_PER_DAY", 10)     # 유니버스 소스 하루 신규 Long 분석 상한(= 통합 상위 10, 매트릭스와 별도)
+UNI_NEW_SHORT_PER_DAY = _i("SWING_UNI_NEW_SHORT_PER_DAY", 10)  # 유니버스 소스 하루 신규 Short 분석 상한(= 통합 상위 10)
+UNI_RANK_N = _i("SWING_UNI_RANK_N", 50)             # 전 업종 통합 롱/숏 순위 저장 길이(제외 뒤 채우기용, 표시는 10)
+UNI_SHORT_FUT_ONLY = os.environ.get("SWING_UNI_SHORT_FUT_ONLY", "0") == "1"   # Short 후보를 주식선물 상장 종목으로 한정
 # 점수 임계값 — 거래대금 가속(1W/4W−1), 수급/시총(bp), 공매도 비중 Δ(pp), 대차 Δ(bp), 공매도 비중 높음(%)
 UNI_TV_HI, UNI_TV_LO = _f("SWING_UNI_TV_HI", 0.40), _f("SWING_UNI_TV_LO", 0.15)
 UNI_FLOW_HI, UNI_FLOW_LO = _f("SWING_UNI_FLOW_HI", 20), _f("SWING_UNI_FLOW_LO", 6)

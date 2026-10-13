@@ -9,13 +9,17 @@
      MAX_NEW_SHORT_PER_DAY) → trading_agent(공매도 맥락) → PM Sell/Underweight + Trader Sell 이면
      다음 영업일 1일 유효 지정가 공매도. 보유 Short 는 2)에서 상방 신호·목표·만기로 환매 검토
      (PM Buy/Overweight 면 환매)
-주간 브리핑이 오늘자(asof)가 아니면 2)①·3)·4)는 건너뛴다(스테일 신호로 매매 금지) — 1)·2)②~④는 진행.
+  5) 유니버스(2026-10-13): 1) 뒤에 업종별 종목 수급 모멘텀을 산출(store universe/<date>)하고, 매트릭스 후보 3)·4)에
+     **같은 모멘텀 점수**를 매겨 점수순 정렬. 유니버스 자체도 **독립 후보 소스**로 점수 ≥ UNI_CAND_MIN 종목을
+     (보유·대기·매트릭스 후보·쿨다운 제외, 상한 UNI_NEW_PER_DAY / UNI_NEW_SHORT_PER_DAY) 같은 trading_agent 에 넘긴다.
+     주문·포지션·거래에 source(matrix|universe) 가 남는다. 산출·채점 실패는 노트만 남기고 매트릭스 흐름은 계속.
+주간 브리핑이 오늘자(asof)가 아니면 2)①·3)·4)·5)후보는 건너뛴다(스테일 신호로 매매 금지) — 1)·2)②~④·5)산출은 진행.
 """
 import datetime
 import traceback
 
 from . import agent_iface as A
-from . import config, engine, signals, tradedays
+from . import config, engine, signals, tradedays, universe
 
 
 def _dkey(date, code, purpose, side="long"):
@@ -57,8 +61,8 @@ def _safe_decide(agent, req):
                           agent=getattr(agent, "name", ""), error=f"{type(ex).__name__}: {ex}")
 
 
-def run_day(date, store, agent, prices, wb, *, force=False, log=print):
-    """하루 처리 → run 로그 dict. 원장·판단·로그는 store 에 저장."""
+def run_day(date, store, agent, prices, wb, *, force=False, log=print, uni=None):
+    """하루 처리 → run 로그 dict. 원장·판단·로그는 store 에 저장. uni = universe.UniverseRunner(None 이면 유니버스 생략)."""
     run = {"date": date, "startedAt": datetime.datetime.now().isoformat(timespec="seconds"),
            "agent": getattr(agent, "name", ""), "notes": []}
     if not tradedays.is_trading_day(date):
@@ -80,12 +84,10 @@ def run_day(date, store, agent, prices, wb, *, force=False, log=print):
     held = {p["code"] for p in L["positions"]}
     pend = {o["code"] for o in L["orders"]}
     cands = signals.buy_candidates(wb, held | pend) if wb_ok else []
-    skipped_cap = cands[config.MAX_NEW_PER_DAY:]
-    cands = cands[:config.MAX_NEW_PER_DAY]
     scands = (signals.short_candidates(wb, held | pend | {c["code"] for c in cands})
               if wb_ok and config.SHORT_ENABLED else [])
-    skipped_short_cap = scands[config.MAX_NEW_SHORT_PER_DAY:]
-    scands = scands[:config.MAX_NEW_SHORT_PER_DAY]
+    for c in cands + scands:
+        c["source"] = "matrix"
     need = (held | {o["code"] for o in L["orders"] if o["validDate"] <= date} | {c["code"] for c in cands}
             | {c["code"] for c in scands})
     bars = prices.daily_bars(sorted(need), date)
@@ -97,6 +99,39 @@ def run_day(date, store, agent, prices, wb, *, force=False, log=print):
     run["exits"] = [{"code": t["code"], "name": t["name"], "side": t.get("side", "long"), "reason": t["reason"],
                      "retPct": t["retPct"]} for t in ev.get("exits", [])]
     nxt = tradedays.next_trading_day(date)
+
+    # 5) 유니버스 산출 + 공통 모멘텀 채점(매트릭스 후보 정렬) + 유니버스 독립 후보(2026-10-13)
+    ucands, uscands, skipped_uni_cap, skipped_uni_short_cap = [], [], [], []
+    if uni is not None:
+        prog.update(phase="universe")
+        uni_doc = None
+        try:
+            uni_doc = uni.build_or_load(date, wb, L)
+        except Exception as ex:
+            traceback.print_exc()
+            run["notes"].append(f"유니버스 산출 실패: {type(ex).__name__}: {str(ex)[:120]}")
+        for side, xs in (("long", cands), ("short", scands)):
+            try:
+                uni.attach_scores(xs, side, date)
+            except Exception as ex:
+                traceback.print_exc()
+                run["notes"].append(f"매트릭스 {side} 후보 모멘텀 채점 실패: {type(ex).__name__}: {str(ex)[:120]}")
+        if uni_doc and wb_ok:
+            decided = universe.recent_decisions(store, date, config.UNI_COOLDOWN_DAYS)
+            ex_codes = held | pend | {c["code"] for c in cands} | {c["code"] for c in scands}
+            ucands = universe.universe_candidates(uni_doc, "long", ex_codes, decided)
+            skipped_uni_cap, ucands = ucands[config.UNI_NEW_PER_DAY:], ucands[:config.UNI_NEW_PER_DAY]
+            if config.SHORT_ENABLED:
+                uscands = universe.universe_candidates(uni_doc, "short", ex_codes | {c["code"] for c in ucands}, decided,
+                                                       fut_only=config.UNI_SHORT_FUT_ONLY)
+                skipped_uni_short_cap, uscands = uscands[config.UNI_NEW_SHORT_PER_DAY:], uscands[:config.UNI_NEW_SHORT_PER_DAY]
+            extra = sorted({c["code"] for c in ucands + uscands} - set(bars))
+            if extra:
+                bars.update(prices.daily_bars(extra, date))
+            run["notes"].append(f"유니버스 후보 Long {len(ucands)}(상한 초과 {len(skipped_uni_cap)}) · "
+                                f"Short {len(uscands)}(상한 초과 {len(skipped_uni_short_cap)}) · 쿨다운 제외 {len(decided)}종목")
+    skipped_cap, cands = cands[config.MAX_NEW_PER_DAY:], cands[:config.MAX_NEW_PER_DAY]
+    skipped_short_cap, scands = scands[config.MAX_NEW_SHORT_PER_DAY:], scands[:config.MAX_NEW_SHORT_PER_DAY]
 
     # 2) 매도 검토 — ① 신호 트리거(섹터 전환·하방 칸, 주간 브리핑 오늘자일 때만)
     #    ② 목표가 도달 · 보유 만기 · 연장 보유(매일) 재판별(2026-09-29, 브리핑과 무관)
@@ -125,7 +160,7 @@ def run_day(date, store, agent, prices, wb, *, force=False, log=print):
                                         "reasons": [], "kinds": [], "side": p.get("side", "long")})
         e["reasons"].insert(0, why)
         e["kinds"].insert(0, flag)
-    prog.update(phase="review", total=len(todo) + len(cands) + len(scands))
+    prog.update(phase="review", total=len(todo) + len(cands) + len(scands) + len(ucands) + len(uscands))
     for code, t in todo.items():
         p = next(x for x in L["positions"] if x["code"] == code)
         flag = next((k for k in t["kinds"] if k in ("target", "expiry", "extended")), None)
@@ -161,13 +196,17 @@ def run_day(date, store, agent, prices, wb, *, force=False, log=print):
                                "error": d.error, "target": p.get("target"), "stop": p.get("stop"),
                                "decisionKey": key})
 
-    # 3) 신규 분석·주문(Long) · 4) 신규 Short
+    # 3) 신규 분석·주문(Long) · 4) 신규 Short — 매트릭스 후보 뒤에 유니버스 후보(독립 소스, source 로 구분)
     prog.update(phase="long")
-    run["candidates"] = _new_entries(L, store, agent, cands, bars, date, nxt, "long", prog)
+    run["candidates"] = (_new_entries(L, store, agent, cands, bars, date, nxt, "long", prog)
+                         + _new_entries(L, store, agent, ucands, bars, date, nxt, "long", prog))
     run["capSkipped"] = [c["code"] for c in skipped_cap]
+    run["uniCapSkipped"] = [c["code"] for c in skipped_uni_cap]
     prog.update(phase="short")
-    run["shortCandidates"] = _new_entries(L, store, agent, scands, bars, date, nxt, "short", prog)
+    run["shortCandidates"] = (_new_entries(L, store, agent, scands, bars, date, nxt, "short", prog)
+                              + _new_entries(L, store, agent, uscands, bars, date, nxt, "short", prog))
     run["shortCapSkipped"] = [c["code"] for c in skipped_short_cap]
+    run["uniShortCapSkipped"] = [c["code"] for c in skipped_uni_short_cap]
 
     if wb_ok:
         store.put(f"signals/{date}", signals.compact(wb))
@@ -179,6 +218,7 @@ def run_day(date, store, agent, prices, wb, *, force=False, log=print):
     log(f"[swing] {date} 청산 {len(run['exits'])} · 검토 {len(run['reviews'])} · "
         f"후보 {len(run['candidates'])} · 주문 {sum(r['ordered'] for r in run['candidates'])} · "
         f"숏 후보 {len(run['shortCandidates'])} · 숏 주문 {sum(r['ordered'] for r in run['shortCandidates'])} · "
+        f"유니버스 {sum(1 for r in run['candidates'] + run['shortCandidates'] if r.get('source') == 'universe')} · "
         f"평가 {run['equity']['equity'] if run['equity'] else '-'}")
     return run
 
@@ -190,20 +230,23 @@ def _new_entries(L, store, agent, cands, bars, date, nxt, side, prog=None):
         b = bars.get(c["code"]) or {}
         req = A.DecisionRequest(code=c["code"], name=c["name"], date=date, purpose="entry", side=side,
                                 sector=c["sector"], signal=c["signal"], reason=c["reason"],
-                                last_close=b.get("close"))
+                                last_close=b.get("close"), source=c.get("source") or "matrix",
+                                score=c.get("score") if c.get("metrics") is not None else None, metrics=c.get("metrics"))
         d = _safe_decide(agent, req)
         key = _dkey(date, c["code"], "entry", side)
         store.put(key, d.to_dict())
         ok, why = A.entry_verdict(d, last_close=b.get("close"))
         row = {"code": c["code"], "name": c["name"], "side": side, "signal": c["signal"],
-               "sector": c["sector"], "rating": d.rating, "action": d.action,
+               "sector": c["sector"], "source": c.get("source") or "matrix", "rankAll": c.get("rankAll"),
+               "score": c.get("score") if c.get("metrics") is not None else None, "matrixScore": c.get("matrixScore"),
+               "rating": d.rating, "action": d.action,
                "entry": d.entry, "stop": d.stop, "target": A.effective_target(d),
                "ordered": False, "why": why, "decisionKey": key}
         if ok:
             o = engine.place_entry(L, code=c["code"], name=c["name"], date=date, valid_date=nxt,
                                    entry=d.entry, stop=d.stop, target=A.effective_target(d),
                                    weight=A.effective_weight(d), sector=c["sector"],
-                                   signal=c["signal"], decision_key=key, side=side)
+                                   signal=c["signal"], decision_key=key, side=side, source=c.get("source") or "matrix")
             row.update(ordered=o["status"] == "open", orderId=o["id"], qty=o["qty"],
                        why=o.get("note", ""))
         rows.append(row)

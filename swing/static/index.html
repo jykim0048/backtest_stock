@@ -70,7 +70,7 @@
       </div>
 
 
-      <!-- 유니버스(2026-10-13): 업종별 종목 수급 모멘텀 — 관찰 모드(후보 미연결). 순서: KPI → 업종 스트립(=필터) →
+      <!-- 유니버스(2026-10-13): 업종별 종목 수급 모멘텀 — 매트릭스와 독립 후보 소스(공통 점수). 순서: KPI → 업종 스트립(=필터) →
            통합 상위 10 → 업종 그룹 표 → 점수 구성·노브·산출 로그 -->
       <div class="tab-pane" id="pane-universe">
         <div class="un-head">
@@ -90,7 +90,7 @@
         <div class="un-strip" id="un-strip"></div>
         <div class="board-header mt">
           <h2>전 업종 통합 상위 10</h2>
-          <span class="board-subtitle">● 보유 · 대기 = 주문 대기 · F 주식선물 상장 · ✓ 최근 판단 · 관찰 모드(후보 연결 보류) — 매매 권유 아님</span>
+          <span class="board-subtitle"><b>= 유니버스 진입 후보</b>(점수 ≥ +2 · 보유·대기·매트릭스·쿨다운 제외 후 위에서부터 상한까지 trading_agent 분석) · ● 보유 · F 주식선물 · ✓ 최근 판단 · 상태 = 그날 분석 결과</span>
         </div>
         <div class="un-two">
           <div class="top-col" style="--c:var(--up-red)"><h4>▲ Long 모멘텀 상위 <small>거래대금 가속 + 외인·기관 순매수 + 공매도 비중 감소</small></h4><div id="un-top-long"></div></div>
@@ -127,7 +127,7 @@
         <div class="table-wrap"><table class="stocks-table compact" id="reviews"></table></div>
         <div class="board-header side-long mt">
           <h2>신규 후보 → 주문</h2>
-          <span class="board-subtitle">동반강세·수급유입 · PM Buy/Overweight + Trader Buy + 손절가 → 다음 영업일 1일 유효 지정가</span>
+          <span class="board-subtitle">동반강세·수급유입 칸 + <b>유니버스</b> 소스(독립, 점수 ≥ +2) · PM Buy/Overweight + Trader Buy + 손절가 → 다음 영업일 1일 유효 지정가</span>
         </div>
         <div class="table-wrap"><table class="stocks-table compact" id="candidates"></table></div>
         <div class="board-header side-long mt">
@@ -157,7 +157,7 @@
         <div class="table-wrap"><table class="stocks-table compact" id="short-reviews"></table></div>
         <div class="board-header side-short mt">
           <h2>신규 후보 → 공매도 주문</h2>
-          <span class="board-subtitle">동반약세·수급이탈 · PM Sell/Underweight + Trader Sell + 손절가(진입가 위) → 다음 영업일 1일 유효 지정가 매도</span>
+          <span class="board-subtitle">동반약세·수급이탈 칸 + <b>유니버스</b> 소스(독립, 점수 ≥ +2) · PM Sell/Underweight + Trader Sell + 손절가(진입가 위) → 다음 영업일 1일 유효 지정가 매도</span>
         </div>
         <div class="table-wrap"><table class="stocks-table compact" id="short-candidates"></table></div>
         <div class="board-header side-short mt">

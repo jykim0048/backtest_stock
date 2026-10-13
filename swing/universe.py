@@ -1,6 +1,10 @@
 """업종별 종목 수급 모멘텀 유니버스(2026-10-13, PLAN_UNIVERSE.md §3) — 매일 16:30 크론이 산출해
-store `universe/<date>` 에 저장하고 대시보드 「유니버스」 탭이 보여준다. **후보 연결은 보류**(관찰 모드):
-기존 섹터×수급 매트릭스 후보와 병합하지 않는다(사용자 결정 2026-10-13).
+store `universe/<date>` 에 저장하고 대시보드 「유니버스」 탭이 보여준다.
+**후보 소스**: 매트릭스(섹터 시그널 칸)와 **독립 소스**로 나란히 돌린다(병합 아님, 사용자 결정 2026-10-13) —
+두 소스 모두 아래 score_stock 의 **같은 모멘텀 점수(−5~+5)** 로 채점·정렬하고(attach_scores / universe_candidates),
+진입 규칙만 다르다: 매트릭스 = 칸 종목 전부 분석(점수순, 상한 MAX_NEW_PER_DAY) · 유니버스 = **전 업종 통합 롱/숏 모멘텀
+순위(rankLong/rankShort)** 상위에서 점수 ≥ UNI_CAND_MIN 인 종목을 보유·대기·매트릭스 후보·쿨다운 제외 후 위에서부터
+UNI_NEW_PER_DAY 개(2026-10-13 사용자 결정 — 업종별 풀이 아니라 통합 순위). 주문·포지션·거래에 source 가 남는다.
 
 파이프라인
   U1 업종 목록      DB증권 USTOCKCOND(K)            → 주간 브리핑 sectorFlow 24행과 이름(norm_sec)으로 조인
@@ -38,7 +42,8 @@ class DbQuote:
     P_COMP = "/api/v1/quote/kr-stock/inquiry/industry-components"
     P_INV = "/api/v1/quote/kr-stock/inquiry/daily-investor"
     P_FUT = "/api/v1/quote/kr-futureoption/inquiry/future-ticker"
-    TPS = {P_IND: 2, P_COMP: 2, P_INV: 2, P_FUT: 3}
+    P_CHART = "/api/v1/quote/kr-chart/day"
+    TPS = {P_IND: 2, P_COMP: 2, P_INV: 2, P_FUT: 3, P_CHART: 4}
 
     def __init__(self, token_source=None, rest_base=None, *, post=None, sleep=time.sleep, now=time.time, log=print):
         self.tok = token_source or DbHubPrices()
@@ -99,6 +104,11 @@ class DbQuote:
         """DAYSTOCKTJJ(기간 지정) → 원본 행(Date, Prpr, AcmlVol, AcmlTrPbmn, Orgn/FrgnReg/Prsn × Shnu/Seln × Vol/TrPbmn)."""
         return self.post(self.P_INV, {"InputCondMrktDivCode": "J", "InputIscd1": code,
                                       "InputDate1": d1.replace("-", ""), "InputDate2": d2.replace("-", "")}, pages=3)
+
+    def chart_day(self, code, d1, d2):
+        """CHARTDAY 기간 조회(수정주가 미사용, KRX) → 원본 행(Date, Oprc, Hprc, Lprc, Prpr, CntgVol) — 시뮬레이션용."""
+        return self.post(self.P_CHART, {"InputOrgAdjPrc": "0", "InputCondMrktDivCode": "J", "InputIscd1": code,
+                                        "InputDate1": d1.replace("-", ""), "InputDate2": d2.replace("-", "")}, pages=5)
 
     def stock_future_underlyings(self):
         """FCODES(JF) → {기초자산 현물코드} — 숏 실주문 전제(주식선물 매도) 플래그용."""
@@ -418,6 +428,7 @@ def build_universe(date, wb, *, dbq, hub, ledger=None, decided=None, log=print, 
     order = {"long": 0, "short": 1, None: 2}
     out_secs.sort(key=lambda x: (order[x.get("dir")], -max([y.get("score") or -9 for y in x["top"]] or [-9]),
                                  -(x.get("secTvMom") or -9)))
+    rank_long, rank_short = integrated_rank(out_secs, "long"), integrated_rank(out_secs, "short")
     diag["calls"].update(db=dbq.calls, hub=hub.calls)
     diag["secs"] = round(time.time() - t0, 1)
     doc = {"date": date, "asof": (now or datetime.datetime.now()).isoformat(timespec="seconds"),
@@ -432,11 +443,27 @@ def build_universe(date, wb, *, dbq, hub, ledger=None, decided=None, log=print, 
                        "big": sum(1 for x in out_secs if x.get("big")), "cut": n_cut, "top": n_top,
                        "long": n_long, "short": n_short, "shortFut": n_fut,
                        "heldOverlap": sum(1 for x in out_secs for y in x["top"] if y.get("held"))},
-           "sectors": out_secs, "diag": diag}
+           "sectors": out_secs, "rankLong": rank_long, "rankShort": rank_short, "diag": diag}
     log(f"[swing] universe {date}: 업종 {len(out_secs)}(신호 {doc['summary']['signaled']}) · 1차 컷 {n_cut} · "
         f"Top {n_top} · Long {n_long} · Short {n_short}(선물 {n_fut}) · DB {dbq.calls}콜 · 허브 {hub.calls}콜 · "
         f"{diag['secs']}s · 오류 {len(diag['errors'])}")
     return doc
+
+
+RANK_KEYS = ("code", "name", "rank", "score", "reason", "cap", "tv1w", "tvMom", "frgn1w", "orgn1w", "flowBp",
+             "shortRlim1w", "shortMom", "loanChg", "ret1w", "hasStockFuture", "shortHigh", "held", "pending", "done", "flags")
+
+
+def integrated_rank(sectors, side, n=None):
+    """전 업종 통합 롱/숏 모멘텀 순위 — 방향 업종들의 Top 을 합쳐 점수 → 주간 거래대금 순(2026-10-13 사용자 결정:
+    유니버스 진입 후보는 업종별 풀이 아니라 이 통합 순위 상위에서). rankAll = 통합 순위, rank = 업종 내 순위."""
+    xs = [dict({k: x.get(k) for k in RANK_KEYS}, sector=s.get("name"), signal=s.get("signal"))
+         for s in sectors if s.get("dir") == side for x in (s.get("top") or []) if x.get("score") is not None]
+    xs.sort(key=lambda x: (-x["score"], -(x.get("tv1w") or 0)))
+    xs = xs[:n or config.UNI_RANK_N]
+    for i, x in enumerate(xs):
+        x["rankAll"] = i + 1
+    return xs
 
 
 def recent_decisions(store, date, days=3):
@@ -469,3 +496,150 @@ def run_universe(date, store, wb, *, dbq=None, hub=None, force=False, log=print)
         return {"error": f"{type(e).__name__}: {e}"}
     store.put(f"universe/{date}", doc)
     return {"ok": True, "summary": doc["summary"], "secs": doc["diag"]["secs"]}
+
+
+# ─────────────────────────── 공통 채점 · 후보 소스(2026-10-13, 매트릭스와 독립 소스) ───────────────────────────
+def load_caps(store, date, *, fetch=None, log=print):
+    """main `public/assets/krx_caps.json`(KIS 마스터 시총, 억원, 보통주+우선주 전 종목) → {code: cap}.
+    하루 1회 store `uni_cache/caps` 에 캐시. 실패하면 이전 캐시(없으면 {})."""
+    cached = store.get("uni_cache/caps") or {}
+    if cached.get("date") == date and cached.get("caps"):
+        return cached["caps"]
+    try:
+        if fetch is None:
+            import json as _json
+            import urllib.request
+            url = f"{config.MAIN_RAW_BASE}/public/assets/krx_caps.json?t={int(time.time())}"
+            with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": "swing-cron"}), timeout=20) as r:
+                raw = _json.loads(r.read().decode("utf-8"))
+        else:
+            raw = fetch()
+        caps = next((v for v in raw.values() if isinstance(v, dict)), {}) if isinstance(raw, dict) else {}
+        caps = {str(k).zfill(6): float(v) for k, v in caps.items() if v}
+        if caps:
+            store.put("uni_cache/caps", {"date": date, "asof": raw.get("asof"), "caps": caps})
+            return caps
+    except Exception as e:
+        log(f"[swing] krx_caps 로드 실패({type(e).__name__}: {str(e)[:80]}) — 캐시 {len(cached.get('caps') or {})}종목 사용")
+    return cached.get("caps") or {}
+
+
+def score_codes(items, side, date, *, dbq, hub, caps=None, log=print):
+    """임의 종목 목록에 유니버스와 **같은 모멘텀 점수**를 매긴다 → {code: {tv1w…, shortRlim1w…, score, shortHigh, reason}}.
+    매트릭스 후보를 유니버스와 공통 척도로 정렬하기 위한 것. 시총은 caps(krx_caps) → 없으면 수급/시총 항목 0점."""
+    caps = caps or {}
+    start = (datetime.date.fromisoformat(date) - datetime.timedelta(days=45)).isoformat()
+    tdays = tradedays.trading_days(start, date)
+    d1 = tdays[-25] if len(tdays) >= 25 else tdays[0]
+    out, codes = {}, []
+    for it in items:
+        code = str(it["code"]).zfill(6)
+        try:
+            rows = dbq.daily_investor(code, d1, date)
+        except Exception as e:
+            log(f"[swing] score {code} DAYSTOCKTJJ 실패: {type(e).__name__}: {str(e)[:80]}")
+            continue
+        m = weekly_metrics(rows, date, caps.get(code) or it.get("cap"), tv_div=config.UNI_TV_DIV, flow_div=config.UNI_FLOW_DIV)
+        if not m:
+            continue
+        out[code] = m
+        codes.append(code)
+    flows, errs = hub.many(codes)
+    for e in errs[:3]:
+        log(f"[swing] score /flow {e}")
+    for code in codes:
+        m = out[code]
+        m.update(short_loan_metrics(flows.get(code), caps.get(code)))
+        sc, hi, why = score_stock(m, side)
+        m.update(score=sc, shortHigh=hi, reason=why, cap=caps.get(code))
+    return out
+
+
+def attach_scores(cands, side, date, *, dbq, hub, caps=None, log=print):
+    """매트릭스 후보(signals._candidates 형식) 에 공통 점수 부여(제자리) — score=모멘텀, matrixScore=생성기 점수,
+    metrics=지표, reason 뒤에 '모멘텀 +3: …' 추가. 채점 실패 종목은 score None(정렬 뒤로)."""
+    m = score_codes(cands, side, date, dbq=dbq, hub=hub, caps=caps, log=log)
+    for c in cands:
+        c["source"] = "matrix"
+        c["matrixScore"] = c.get("score")
+        x = m.get(str(c["code"]).zfill(6))
+        if x:
+            c["score"] = x["score"]
+            c["metrics"] = {k: x.get(k) for k in ("tv1w", "tvMom", "frgn1w", "orgn1w", "flowBp", "shortRlim1w",
+                                                  "shortMom", "loanChg", "ret1w", "shortHigh", "cap")}
+            c["reason"] = (c.get("reason") or "") + f" · 모멘텀 {x['score']:+d}/5" + (f"({x['reason']})" if x["reason"] else "")
+        else:
+            c["score"], c["metrics"] = None, None
+    cands.sort(key=score_key)
+    return cands
+
+
+def score_key(c):
+    s = c.get("score")
+    return (0 if s is not None else 1, -(s or 0), -((c.get("metrics") or {}).get("tv1w") or 0))
+
+
+def universe_candidates(doc, side, exclude=(), decided=None, fut_only=False):
+    """유니버스 문서 → 후보 [{code,name,sector,signal,score,reason,source:"universe",metrics}].
+    **전 업종 통합 롱/숏 모멘텀 순위(doc.rankLong/rankShort)** 를 위에서부터 훑어 점수 ≥ UNI_CAND_MIN 이고
+    보유·대기·매트릭스 후보(exclude)·최근 판단(decided, 쿨다운)이 아닌 종목을 순서대로 — 상한(UNI_NEW_PER_DAY)은
+    호출측이 자른다. 구 문서(rank 없음)는 업종 Top 을 모아 같은 순서로 만든다."""
+    decided, out, seen = decided or {}, [], set(exclude)
+    key = "rankLong" if side == "long" else "rankShort"
+    ranked = (doc or {}).get(key)
+    if ranked is None:
+        ranked = integrated_rank((doc or {}).get("sectors") or [], side)
+    for x in ranked:
+        code = str(x.get("code") or "").zfill(6)
+        if (x.get("score") is None or x["score"] < config.UNI_CAND_MIN or code in seen or code in decided
+                or (fut_only and not x.get("hasStockFuture"))):
+            continue
+        seen.add(code)
+        label = "롱" if side == "long" else "숏"
+        out.append({"code": code, "name": x.get("name"), "sector": x.get("sector"), "signal": x.get("signal"),
+                    "score": x["score"], "source": "universe", "rankAll": x.get("rankAll"),
+                    "reason": f"전 업종 통합 {label} 모멘텀 {x.get('rankAll')}위(업종 {x.get('sector')} {x.get('signal')} {x.get('rank')}위) · "
+                              f"모멘텀 {x['score']:+d}/5" + (f"({x.get('reason')})" if x.get("reason") else ""),
+                    "metrics": {k: x.get(k) for k in ("tv1w", "tvMom", "frgn1w", "orgn1w", "flowBp", "shortRlim1w",
+                                                      "shortMom", "loanChg", "ret1w", "shortHigh", "cap", "hasStockFuture")}})
+    return out
+
+
+class UniverseRunner:
+    """daily.run_day 에 꽂는 유니버스 어댑터 — 산출(또는 그날 문서 재사용)·공통 채점. DB증권/허브 클라이언트는 처음
+    쓸 때 만든다(토큰 없음 등은 호출 시점에 예외 → run_day 가 노트로 남기고 계속)."""
+
+    def __init__(self, store, dbq=None, hub=None, *, caps_loader=None, force=False, log=print):
+        self.store, self._dbq, self._hub, self.force, self.log = store, dbq, hub, force, log
+        self._caps_loader, self._caps = caps_loader, None
+
+    @property
+    def dbq(self):
+        if self._dbq is None:
+            self._dbq = DbQuote(log=self.log)
+        return self._dbq
+
+    @property
+    def hub(self):
+        if self._hub is None:
+            self._hub = HubFlow(log=self.log)
+        return self._hub
+
+    def caps(self, date):
+        if self._caps is None:
+            self._caps = self._caps_loader(date) if self._caps_loader else load_caps(self.store, date, log=self.log)
+        return self._caps
+
+    def build_or_load(self, date, wb, ledger):
+        doc = self.store.get(f"universe/{date}")
+        if doc and not self.force:
+            return doc
+        doc = build_universe(date, wb, dbq=self.dbq, hub=self.hub, ledger=ledger,
+                             decided=recent_decisions(self.store, date, config.UNI_COOLDOWN_DAYS), log=self.log)
+        self.store.put(f"universe/{date}", doc)
+        return doc
+
+    def attach_scores(self, cands, side, date):
+        if not cands:
+            return cands
+        return attach_scores(cands, side, date, dbq=self.dbq, hub=self.hub, caps=self.caps(date), log=self.log)

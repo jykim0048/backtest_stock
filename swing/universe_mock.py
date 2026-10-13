@@ -74,18 +74,46 @@ class MockDbQuote:
             return set(self._fut)
         return {x["code"] for s in self.sectors for x in s["stocks"][:4]}      # 업종별 시총 상위 4 = 선물 상장 가정
 
+    def chart_day(self, code, d1, d2):
+        """CHARTDAY 흉내 — 결정적 랜덤워크 OHLC(일별 투자자 Prpr 과는 독립)."""
+        self.calls += 1
+        g = self._rng(code, "chart")
+        px, rows = 10000 + g.random() * 90000, []
+        for d in tradedays.trading_days(d1, d2):
+            o = px * (1 + (g.random() - 0.5) * 0.02)
+            c = o * (1 + (g.random() - 0.5) * 0.05)
+            h, l = max(o, c) * (1 + g.random() * 0.015), min(o, c) * (1 - g.random() * 0.015)
+            rows.append({"Date": d.replace("-", ""), "Oprc": f"{o:.0f}", "Hprc": f"{h:.0f}", "Lprc": f"{l:.0f}", "Prpr": f"{c:.0f}",
+                         "CntgVol": "1000"})
+            px = c
+        return rows
+
+
+def mock_chart_prices(dbq):
+    """sim_universe.prices_fetch 형식: {code: {date: {o,h,l,c}}}."""
+    def fetch(codes, d1, d2):
+        out = {}
+        for c in codes:
+            px = {}
+            for r in dbq.chart_day(c, d1, d2):
+                d = r["Date"]
+                px[f"{d[:4]}-{d[4:6]}-{d[6:]}"] = {"o": float(r["Oprc"]), "h": float(r["Hprc"]), "l": float(r["Lprc"]), "c": float(r["Prpr"])}
+            out[c] = px
+        return out
+    return fetch
+
 
 class MockHubFlow:
-    def __init__(self, seed=11):
-        self.seed, self.calls = seed, 0
+    def __init__(self, seed=11, d0="2026-10-12", n=30):
+        self.seed, self.calls, self.d0, self.n = seed, 0, d0, n
 
     def one(self, code):
         self.calls += 1
         g = random.Random(f"{self.seed}:{code}")
         base, step = 1 + g.random() * 6, (g.random() - 0.5) * 0.4
-        d0 = datetime.date(2026, 10, 12)
+        d0 = datetime.date.fromisoformat(self.d0)
         shorts, loans, amt = [], [], 100 + g.random() * 2000
-        for i in range(30):
+        for i in range(self.n):
             d = (d0 - datetime.timedelta(days=i)).isoformat()
             shorts.append({"date": d, "qty": int(g.random() * 1e6), "volRlim": round(max(0.1, base + step * (10 - i) / 10 + (g.random() - 0.5)), 2),
                            "pbmn": round(g.random() * 100, 1), "pbmnRlim": 0})

@@ -71,6 +71,27 @@ def _clip(text, label):
     return text[:MAX_INPUT] + f"\n…(입력 {label} 이 {len(text):,}자라 앞 {MAX_INPUT:,}자만 첨부)"
 
 
+def _momentum_line(req):
+    """두 소스 공통 모멘텀 점수(2026-10-13) — 있으면 전략 맥락 끝에 붙인다."""
+    sc, m = getattr(req, "score", None), getattr(req, "metrics", None) or {}
+    if sc is None:
+        return ""
+    src = "업종별 수급 모멘텀 유니버스" if getattr(req, "source", "matrix") == "universe" else "섹터 시그널 매트릭스"
+    parts = []
+    if m.get("tvMom") is not None:
+        parts.append(f"주간 거래대금 {m.get('tv1w') or 0:,.0f}억(직전 4주 평균 대비 {m['tvMom'] * 100:+.0f}%)")
+    if m.get("frgn1w") is not None or m.get("orgn1w") is not None:
+        parts.append(f"외국인 {m.get('frgn1w') or 0:+,.0f}억·기관 {m.get('orgn1w') or 0:+,.0f}억"
+                     + (f"(시총 대비 {m['flowBp']:+.0f}bp)" if m.get("flowBp") is not None else ""))
+    if m.get("shortRlim1w") is not None:
+        parts.append(f"공매도 비중 {m['shortRlim1w']:.1f}%" + (f"({m['shortMom']:+.1f}pp)" if m.get("shortMom") is not None else ""))
+    if m.get("loanChg") is not None:
+        parts.append(f"대차잔고 {m['loanChg']:+,.0f}억")
+    if m.get("ret1w") is not None:
+        parts.append(f"1주 등락 {m['ret1w']:+.1f}%")
+    return f" 후보 소스: {src}. 수급 모멘텀 점수 {sc:+d}/5" + (" — " + ", ".join(parts) if parts else "") + "."
+
+
 def strategy_context(req):
     if getattr(req, "side", "long") == "short":
         return _short_context(req)
@@ -85,7 +106,7 @@ def strategy_context(req):
     return ("[전략 맥락] 스윙 모의투자 신규 진입 검토. 주문은 다음 영업일 1일 유효 지정가(Entry Price 도달 시 "
             "그 가격 체결), 보유 최대 {n}영업일 후 종가 청산. Stop Loss 필수(없으면 주문 안 됨). Price Target 은 "
             "{n}영업일 안에 현실적인 수준으로. 섹터 신호: {sig} {sec}, 스크리닝 근거: {r}.").format(
-        n=config.HOLD_DAYS, sig=req.signal or "-", sec=req.sector or "-", r=req.reason or "-")
+        n=config.HOLD_DAYS, sig=req.signal or "-", sec=req.sector or "-", r=req.reason or "-") + _momentum_line(req)
 
 
 def _short_context(req):
@@ -107,7 +128,7 @@ def _short_context(req):
             "**위**(필수, 없으면 주문 안 됨), Price Target 은 Entry Price **아래**로 {n}영업일 안에 현실적인 수준. "
             "보유 {n}영업일 후 재판별, 대차수수료 연 {br:.1f}%. 섹터 신호: {sig} {sec}, 스크리닝 근거: {r}.").format(
         lc=f"{req.last_close:,.0f}원" if req.last_close else "미상", n=config.HOLD_DAYS,
-        br=config.BORROW_RATE * 100, sig=req.signal or "-", sec=req.sector or "-", r=req.reason or "-")
+        br=config.BORROW_RATE * 100, sig=req.signal or "-", sec=req.sector or "-", r=req.reason or "-") + _momentum_line(req)
 
 
 def _default_llm(system, user, max_tokens, schema):
