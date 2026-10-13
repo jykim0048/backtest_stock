@@ -137,9 +137,12 @@ def api_sim(q):
 
 
 def admin_sim(q):
-    tok = os.environ.get("SWING_ADMIN_TOKEN")
-    if not tok or q.get("token") != tok:
-        return None
+    """토큰 미설정/불일치는 404 가 아니라 이유를 돌려준다(값은 노출하지 않음) — 2026-10-13 진단."""
+    tok = (os.environ.get("SWING_ADMIN_TOKEN") or "").strip().strip('"').strip("'")
+    if not tok:
+        return {"error": "SWING_ADMIN_TOKEN 미설정 — swing-web 서비스 Variables 에 추가 후 Deploy 필요"}
+    if (q.get("token") or "").strip() != tok:
+        return {"error": "token 불일치", "hint": f"서버 토큰 길이 {len(tok)} · 받은 길이 {len((q.get('token') or '').strip())}"}
     from swing.tools import sim_universe
     kw = {}
     if q.get("cap"):
@@ -164,7 +167,8 @@ def api_config(q):
             "borrowRate": config.BORROW_RATE,
             "universe": config.UNIVERSE_ENABLED, "uniNewPerDay": config.UNI_NEW_PER_DAY,
             "uniNewShortPerDay": config.UNI_NEW_SHORT_PER_DAY, "uniCandMin": config.UNI_CAND_MIN,
-            "uniCooldownDays": config.UNI_COOLDOWN_DAYS}
+            "uniCooldownDays": config.UNI_COOLDOWN_DAYS,
+            "adminSimConfigured": bool((os.environ.get("SWING_ADMIN_TOKEN") or "").strip())}
 
 
 def api_export(q):
