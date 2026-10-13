@@ -58,6 +58,41 @@ class DbQuote:
             self._token = self.tok._token()
         return self._token
 
+    def raw(self, path, body):
+        """1페이지 원본 JSON(진단용) — rsp_cd 와 무관하게 응답 그대로."""
+        post = self._post
+        if post is None:
+            import requests
+            post = requests.post
+        headers = {"content-type": "application/json; charset=utf-8", "authorization": f"Bearer {self.token()}",
+                   "cont_yn": "N", "cont_key": ""}
+        r = post(self.rest_base + path, headers=headers, json={"In": body}, timeout=15)
+        self.calls += 1
+        try:
+            data = r.json()
+        except Exception:
+            data = {"_text": getattr(r, "text", "")[:500]}
+        h = getattr(r, "headers", None) or {}
+        return {"status": getattr(r, "status_code", None), "cont_yn": h.get("cont_yn"), "cont_key": h.get("cont_key"), "body": data}
+
+    @staticmethod
+    def _rows_of(data):
+        """응답 → 행 리스트. Out 가 리스트면 그대로, dict 면 그 안의 리스트 값(Out1/Out2 등) 우선, 없으면 [dict]."""
+        out = data.get("Out")
+        if out is None:
+            for k in ("Out2", "Out1", "out", "OUT"):
+                if data.get(k) is not None:
+                    out = data[k]
+                    break
+        if isinstance(out, dict):
+            lists = [v for v in out.values() if isinstance(v, list)]
+            if lists:
+                return [x for v in lists for x in v]
+            return [out]
+        if isinstance(out, list):
+            return out
+        return []
+
     def post(self, path, body, pages=5):
         """→ Out 행 리스트(연속조회 합산). rsp_cd != 00000 이면 RuntimeError."""
         post = self._post
@@ -79,10 +114,7 @@ class DbQuote:
             data = r.json()
             if str(data.get("rsp_cd")) != "00000":
                 raise RuntimeError(f"{data.get('rsp_cd')} {data.get('rsp_msg')}")
-            out = data.get("Out")
-            if out is None:                                   # 일부 TR 은 Out1/Out2 블록
-                out = data.get("Out2") or data.get("Out1") or []
-            rows.extend(out if isinstance(out, list) else [out])
+            rows.extend(self._rows_of(data))
             h = getattr(r, "headers", None) or {}
             cont_yn, cont_key = str(h.get("cont_yn", "N")).upper(), str(h.get("cont_key", "") or "")
             if cont_yn != "Y" or not cont_key:
@@ -92,8 +124,12 @@ class DbQuote:
     def industry_codes(self, mkt="K"):
         """USTOCKCOND → [{code, name}] (코스피 32업종: 1001 종합 … 1027 제조 · KIS 0001 체계와 다름)."""
         rows = self.post(self.P_IND, {"InputCondMrktDivCode": mkt, "InputMrktClsCode": "U"}, pages=2)
-        return [{"code": str(r.get("Iscd") or "").strip(), "name": str(r.get("KorIsnm") or "").strip()}
-                for r in rows if r.get("Iscd")]
+        out = []
+        for r in rows:
+            code, name = _pick_code_name(r)
+            if code and name:
+                out.append({"code": code, "name": name})
+        return out
 
     def industry_components(self, code, sort="42"):
         """USTOCKCONDLIST(sort 42=거래대금·2=시총 DESC) → 원본 행(Iscd, KorIsnm, Avls(100만원), AcmlVol, AcmlTrPbmn, PrdyCtrt…)."""
@@ -152,6 +188,25 @@ class HubFlow:
                 except Exception as e:
                     errs.append(f"{c}: {type(e).__name__}: {str(e)[:80]}")
         return out, errs
+
+
+def _pick_code_name(row):
+    """업종 행에서 (코드, 이름) — 문서상 Iscd/KorIsnm 이지만 실제 필드명이 다를 수 있어 폴백: 코드 = 첫 3~4자리 숫자 값,
+    이름 = 한글이 든 가장 긴 문자열."""
+    if not isinstance(row, dict):
+        return None, None
+    code = str(row.get("Iscd") or row.get("BstpIscd") or row.get("InputBstpIscd") or "").strip()
+    name = str(row.get("KorIsnm") or row.get("BstpKorIsnm") or row.get("HtsKorIsnm") or "").strip()
+    if not code:
+        for v in row.values():
+            v = str(v or "").strip()
+            if v.isdigit() and 3 <= len(v) <= 4:
+                code = v
+                break
+    if not name:
+        cands = [str(v).strip() for v in row.values() if isinstance(v, str) and re.search(r"[가-힣]", v)]
+        name = max(cands, key=len) if cands else ""
+    return code, name
 
 
 # ─────────────────────────── 순수 계산 ───────────────────────────

@@ -122,17 +122,28 @@ def gather(p, dates, dbq, hub, sig, *, log=print, progress=None):
         for k, r in (rows or {}).items():
             if U.direction_of(r.get("signal"), r.get("name")):
                 wanted.add(k)
-    inds = dbq.industry_codes("K")
+    diag = {"industries": [], "wanted": sorted(wanted), "unmatched": [], "errors": []}
+    try:
+        inds = dbq.industry_codes("K")
+    except Exception as e:
+        inds = []
+        diag["errors"].append(f"USTOCKCOND: {type(e).__name__}: {str(e)[:120]}")
+    diag["industries"] = [f"{i['code']} {i['name']}" for i in inds]
     comps, names = {}, {}
     for ind in inds:
         k = signals.norm_sec(ind["name"])
         if k not in wanted:
+            diag["unmatched"].append(ind["name"])
             continue
         try:
             rows = dbq.industry_components(ind["code"], "2")
         except Exception as e:
             log(f"[sim] {ind['name']} 구성종목 실패: {e}")
+            diag["errors"].append(f"{ind['name']} USTOCKCONDLIST: {type(e).__name__}: {str(e)[:120]}")
             continue
+        if rows and "componentsSample" not in diag:
+            diag["componentsSample"] = rows[0]
+            diag["componentsKeys"] = list(rows[0].keys()) if isinstance(rows[0], dict) else None
         xs = []
         for r in rows:
             code = str(r.get("Iscd") or "").strip().zfill(6)
@@ -150,19 +161,28 @@ def gather(p, dates, dbq, hub, sig, *, log=print, progress=None):
     for i, c in enumerate(codes):
         try:
             inv[c] = dbq.daily_investor(c, d1, dates[-1])
+            if inv[c] and "investorSample" not in diag:
+                diag["investorSample"] = inv[c][0]
         except Exception as e:
             log(f"[sim] {c} DAYSTOCKTJJ 실패: {e}")
+            if len(diag["errors"]) < 10:
+                diag["errors"].append(f"{c} DAYSTOCKTJJ: {type(e).__name__}: {str(e)[:120]}")
         if progress and i % 50 == 0:
             progress(f"일별 투자자 {i}/{len(codes)}")
     flows, errs = hub.many(codes)
     if errs:
         log(f"[sim] /flow 실패 {len(errs)}: {errs[:3]}")
+        diag["errors"].extend(f"/flow {e}" for e in errs[:5])
+    if flows and "flowSample" not in diag:
+        fv = next(iter(flows.values()))
+        diag["flowSample"] = {"shorts": (fv.get("shorts") or [])[:1], "loans": (fv.get("loans") or [])[:1]}
     try:
         fut = dbq.stock_future_underlyings()
     except Exception as e:
         fut = set()
         log(f"[sim] FCODES 실패: {e}")
-    return {"sig": sig_by_date, "src": src_by_date, "comps": comps, "names": names, "inv": inv, "flows": flows, "fut": fut}
+    diag["calls"] = {"db": getattr(dbq, "calls", None), "hub": getattr(hub, "calls", None)}
+    return {"sig": sig_by_date, "src": src_by_date, "comps": comps, "names": names, "inv": inv, "flows": flows, "fut": fut, "diag": diag}
 
 
 def _asof_flow(flow, date):
@@ -480,6 +500,7 @@ def run(p, date_from, date_to, *, dbq, hub, sig, prices_fetch, store=None, log=p
            "secs": round(time.time() - t0, 1), "signalSource": {d: data["src"][d] for d in dates},
            "coverage": {"days": len(dates), "daysWithUniverse": sum(1 for d in dates if days[d]),
                         "pool": len(data["inv"]), "sectors": len(data["comps"]), "priced": len(prices)},
+           "diag": data.get("diag"),
            "note": ("구성종목·시총은 현재 스냅샷, 주간 아카이브 신호는 주 단위(선견 편향 가능), 체결은 기계 규칙(에이전트 생략) — "
                     "세 방식의 상대 비교용"),
            "methods": results}

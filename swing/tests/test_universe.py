@@ -154,6 +154,16 @@ class TestDbQuoteClient(unittest.TestCase):
         def json(self):
             return self.data
 
+    def test_rows_of_shapes(self):
+        R = U.DbQuote._rows_of
+        self.assertEqual(R({"Out": [{"a": 1}]}), [{"a": 1}])
+        self.assertEqual(R({"Out": {"list": [{"a": 1}, {"a": 2}]}}), [{"a": 1}, {"a": 2}])
+        self.assertEqual(R({"Out": {"a": 1}}), [{"a": 1}])
+        self.assertEqual(R({"Out2": [{"b": 1}]}), [{"b": 1}])
+        self.assertEqual(R({}), [])
+        self.assertEqual(U._pick_code_name({"BstpCode": "1005", "BstpNm": "음식료·담배", "x": "1"}), ("1005", "음식료·담배"))
+        self.assertEqual(U._pick_code_name({"Iscd": "1021", "KorIsnm": "운송·창고"}), ("1021", "운송·창고"))
+
     def test_post_cont_and_errors(self):
         calls = []
 

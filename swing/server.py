@@ -13,6 +13,7 @@
   GET /api/swing/universe[?date=]     업종별 종목 수급 모멘텀 유니버스(universe/<date>, 없으면 최신) + 날짜 목록
   GET /api/swing/sim[?key=]           유니버스 선정 방식 A/B/C 시뮬 결과(sim/…) — key 없으면 목록+진행
   GET /admin/sim?token=&from=&to=     시뮬 백그라운드 실행(SWING_ADMIN_TOKEN 필요, Railway 에서 과거 재구성 — tools/sim_universe)
+  GET /admin/dbq?token=&tr=&code=     DB증권 TR 원본 응답 진단(industry|components|investor|chart|fcodes) — 필드명·구조 확인용
   GET /api/swing/config               운용 규칙(자본·보유일·세금·비중·신호/등급 조건)
   GET /api/swing/export               전체 문서 JSON(백업)
   GET /api/prices?codes=              장중 시세 — SWING_PRICES_PROXY(main 대시보드) 중계, 표시 전용
@@ -21,6 +22,7 @@
 저장소는 store.from_env() — DATABASE_URL 있으면 Postgres(swing_docs), 없으면 파일.
 로컬 확인: `python swing/server.py --demo` → 데모 데이터(swing/data/demo) 자동 생성 후 서빙.
 """
+import datetime
 import json
 import mimetypes
 import os
@@ -136,6 +138,41 @@ def api_sim(q):
     return {"keys": [x for x in STORE.keys("sim/") if x != "sim/progress"], "progress": STORE.get("sim/progress")}
 
 
+def _admin_ok(q):
+    tok = (os.environ.get("SWING_ADMIN_TOKEN") or "").strip().strip('"').strip("'")
+    return bool(tok) and (q.get("token") or "").strip() == tok
+
+
+def admin_dbq(q):
+    """DB증권 TR 원본 응답 진단(토큰 필요) — tr=industry|components|investor|chart|fcodes[&code=][&d1=&d2=][&mkt=].
+    응답 본문은 행 3개·필드명·rsp 만(길이 제한)."""
+    if not _admin_ok(q):
+        return {"error": "token 불일치 또는 미설정"}
+    from swing import universe as U
+    dbq = U.DbQuote()
+    tr, code = q.get("tr") or "industry", q.get("code") or "005930"
+    d2 = q.get("d2") or datetime.date.today().isoformat()
+    d1 = q.get("d1") or (datetime.date.fromisoformat(d2) - datetime.timedelta(days=14)).isoformat()
+    spec = {"industry": (dbq.P_IND, {"InputCondMrktDivCode": q.get("mkt") or "K", "InputMrktClsCode": "U"}),
+            "components": (dbq.P_COMP, {"InputBstpIscd": code if len(code) == 4 else "1005", "InputRankSortClsCode1": "42", "InputCondMrktDivCode": "UJ"}),
+            "investor": (dbq.P_INV, {"InputCondMrktDivCode": "J", "InputIscd1": code, "InputDate1": d1.replace("-", ""), "InputDate2": d2.replace("-", "")}),
+            "chart": (dbq.P_CHART, {"InputOrgAdjPrc": "0", "InputCondMrktDivCode": "J", "InputIscd1": code, "InputDate1": d1.replace("-", ""), "InputDate2": d2.replace("-", "")}),
+            "fcodes": (dbq.P_FUT, {"InputCondMrktDivCode": "JF"})}
+    if tr not in spec:
+        return {"error": f"tr 는 {sorted(spec)} 중 하나"}
+    path, body = spec[tr]
+    try:
+        r = dbq.raw(path, body)
+    except Exception as ex:
+        return {"error": f"{type(ex).__name__}: {ex}"[:300], "path": path, "in": body}
+    data = r["body"] if isinstance(r["body"], dict) else {"_": r["body"]}
+    rows = U.DbQuote._rows_of(data) if isinstance(data, dict) else []
+    return {"path": path, "in": body, "http": r["status"], "cont_yn": r["cont_yn"],
+            "rsp_cd": data.get("rsp_cd"), "rsp_msg": data.get("rsp_msg"), "topKeys": list(data.keys())[:10],
+            "outType": type(data.get("Out")).__name__, "rows": len(rows), "fieldNames": list(rows[0].keys()) if rows and isinstance(rows[0], dict) else None,
+            "sample": rows[:3], "parsedIndustries": [dict(zip(("code", "name"), U._pick_code_name(x))) for x in rows[:40]] if tr == "industry" else None}
+
+
 def admin_sim(q):
     """토큰 미설정/불일치는 404 가 아니라 이유를 돌려준다(값은 노출하지 않음) — 2026-10-13 진단."""
     tok = (os.environ.get("SWING_ADMIN_TOKEN") or "").strip().strip('"').strip("'")
@@ -180,7 +217,7 @@ ROUTES = {"/api/swing/summary": api_summary, "/api/swing/progress": api_progress
           "/api/swing/equity": lambda q: _ledger()["equity"],
           "/api/swing/runs": api_runs, "/api/swing/decision": api_decision,
           "/api/swing/signals": api_signals, "/api/swing/universe": api_universe, "/api/swing/sim": api_sim,
-          "/admin/sim": admin_sim, "/api/swing/config": api_config,
+          "/admin/sim": admin_sim, "/admin/dbq": admin_dbq, "/api/swing/config": api_config,
           "/api/swing/export": api_export}
 
 
