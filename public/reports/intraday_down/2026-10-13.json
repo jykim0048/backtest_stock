@@ -6,11 +6,897 @@
     "selectedDate": "2026-10-13",
     "basePrice": 262000,
     "entry": 263300,
-    "target": 280600,
-    "stop": 248100,
+    "target": 281800,
+    "stop": 247200,
     "stars": "⭐⭐⭐",
-    "catalyst": "미국 반도체 섹터 쇼크 및 업황 우려",
+    "catalyst": "3분기 잠정 실적은 시장 기대치를 상회하는 호실적을 기록했으나, 외국인과 기관의 지속적인 매도세가 주가를 짓누르고 있다. 반도체 업황에 대한 우려와 수급 불균형이 펀더멘털을 압도하며 투자 심리가 크게 위축된 상황이다.",
     "scenario": "<b>[하락 관찰 종목]</b><br>하방 재료가 관찰된 참고용 종목입니다 — 자동매매(매수) 대상이 아닙니다. 전일 종가 262,000원. 반등 전환 시 관찰 레벨: 263,300원.",
-    "reason": "미국 필라델피아 반도체 지수 급락 여파와 중국 메모리 추격 우려가 겹치며 투자 심리가 크게 위축되었습니다."
+    "reason": "미국 필라델피아 반도체 지수 급락 여파와 중국 메모리 추격 우려가 겹치며 투자 심리가 크게 위축되었습니다.",
+    "analysis": {
+      "catalyst": "3분기 잠정 실적은 시장 기대치를 상회하는 호실적을 기록했으나, 외국인과 기관의 지속적인 매도세가 주가를 짓누르고 있다. 반도체 업황에 대한 우려와 수급 불균형이 펀더멘털을 압도하며 투자 심리가 크게 위축된 상황이다.",
+      "direction": "bearish",
+      "flowComment": "외국인과 기관이 최근 연속적으로 순매도를 기록하며 수급 이탈이 가속화되고 있다. 외국인 보유율은 46.3% 수준까지 하락했으며, 공매도와 대차잔고의 변동성 속에서도 매수 주체 부재가 주가 하락의 핵심 원인이다.",
+      "peers": {
+        "summary": "글로벌 반도체 경쟁사(TSM, INTC)들이 공급망 이슈와 주가 변동성을 겪으며 투자 심리에 부정적인 영향을 미치고 있다. 특히 AI 반도체 수요에 대한 기대와 공급 병목 현상에 대한 우려가 교차하고 있다.",
+        "reddit": [
+          {
+            "title": "How is my starter setup",
+            "url": "https://www.reddit.com/r/stocks/comments/1wot2j1/how_is_my_starter_setup/",
+            "subreddit": "r/stocks",
+            "sentiment": "neutral",
+            "summary": "TSM을 포함한 포트폴리오 구성에 대한 장기 투자 관점의 질문."
+          },
+          {
+            "title": "Advice on consolidating small positions from 4 stocks",
+            "url": "https://www.reddit.com/r/stocks/comments/1wneu40/advice_on_consolidating_small_positions_from_4/",
+            "subreddit": "r/stocks",
+            "sentiment": "neutral",
+            "summary": "TSM을 포함한 소액 포트폴리오 통합에 대한 조언 요청."
+          },
+          {
+            "title": "Will there be a \"TSMC\" of robotics?",
+            "url": "https://www.reddit.com/r/stocks/comments/1wfheka/will_there_be_a_tsmc_of_robotics/",
+            "subreddit": "r/stocks",
+            "sentiment": "bullish",
+            "summary": "TSM을 반도체 산업의 핵심 '톨게이트' 기업으로 평가하며 로봇 산업에서의 유사 기업을 탐색."
+          }
+        ],
+        "stocktwits": [
+          {
+            "ticker": "TSM",
+            "name": "TSMC",
+            "status": "ok",
+            "bullish": 7,
+            "bearish": 1,
+            "unlabeled": 22,
+            "total": 30,
+            "labeled": 8,
+            "bullPct": 88,
+            "windowDays": 7,
+            "newest": "2026-10-13 08:36",
+            "oldest": "2026-10-12 22:33",
+            "samples": [
+              {
+                "createdAt": "2026-10-13 08:36",
+                "user": "_StockDoc_",
+                "sentiment": null,
+                "body": "$TSM 10% down in less then a week, and these guys manufacture what chips again? $QQQ $SPY"
+              },
+              {
+                "createdAt": "2026-10-13 07:51",
+                "user": "alphagenhq",
+                "sentiment": null,
+                "body": "$AMD Lisa Su says AMD will invest tens of billions of dollars to ease its AI supply crunch and plans to substantially boost chip supply in 2027. Demand is running ahead of what AMD can build, which shifts the bottleneck from demand to execution. $NVDA $TSM"
+              },
+              {
+                "createdAt": "2026-10-13 07:45",
+                "user": "alphagenhq",
+                "sentiment": null,
+                "body": "$MSFT Microsoft unveiled Maia 300, its next-generation custom AI chip, and plans to deploy as many as 1 million of them next year. Every hyperscaler chip that handles in-house inference is compute Microsoft doesn’t have to buy from Nvidia. The custom-silicon race just got a major…"
+              }
+            ],
+            "summary": "88%의 강세 의견을 보이나, 최근 1주일간의 주가 하락에 대한 우려가 공존함."
+          },
+          {
+            "ticker": "INTC",
+            "name": "Intel",
+            "status": "ok",
+            "bullish": 7,
+            "bearish": 1,
+            "unlabeled": 22,
+            "total": 30,
+            "labeled": 8,
+            "bullPct": 88,
+            "windowDays": 7,
+            "newest": "2026-10-13 08:37",
+            "oldest": "2026-10-13 06:28",
+            "samples": [
+              {
+                "createdAt": "2026-10-13 08:37",
+                "user": "Universaal",
+                "sentiment": null,
+                "body": "$INTC pre market capitulation day is loading , bastards"
+              },
+              {
+                "createdAt": "2026-10-13 08:36",
+                "user": "StockMaster617",
+                "sentiment": null,
+                "body": "$INTC Looks like double digits"
+              },
+              {
+                "createdAt": "2026-10-13 08:35",
+                "user": "gordo1007",
+                "sentiment": null,
+                "body": "$INTC my bad guys. I did this. I bought some stock. At that moment it was doomed."
+              }
+            ],
+            "summary": "88%의 강세 의견에도 불구하고, 주가 하락세에 따른 투매(capitulation) 우려가 강함."
+          }
+        ],
+        "items": [
+          {
+            "name": "TSMC",
+            "ticker": "TSM",
+            "price": 444.35,
+            "changePct": -1.98,
+            "note": "세계 최대의 파운드리 업체로 삼성전자 반도체 사업부의 핵심 경쟁사입니다."
+          },
+          {
+            "name": "Intel",
+            "ticker": "INTC",
+            "price": 101.35,
+            "changePct": -3.2,
+            "note": "종합 반도체 기업(IDM)으로서 메모리 및 시스템 반도체 분야에서 경쟁 관계에 있습니다."
+          },
+          {
+            "name": "Micron Technology",
+            "ticker": "MU",
+            "price": 989.04,
+            "changePct": -3.88,
+            "note": "삼성전자의 주력 사업인 D램 및 낸드플래시 메모리 시장의 주요 글로벌 경쟁사입니다."
+          },
+          {
+            "name": "Apple",
+            "ticker": "AAPL",
+            "price": 340.97,
+            "changePct": 1.29,
+            "note": "스마트폰(갤럭시 vs 아이폰) 시장의 최대 경쟁자이자 반도체 고객사입니다."
+          },
+          {
+            "name": "Sony Group",
+            "ticker": "6758.T",
+            "price": 3814.0,
+            "changePct": 2.91,
+            "note": "가전, 이미지 센서 등 전자 부품 및 완제품 분야에서 삼성전자와 사업 영역이 겹칩니다."
+          }
+        ],
+        "socialStatus": {
+          "reddit": "ok",
+          "redditQueried": [
+            "TSM@stocks",
+            "INTC@stocks",
+            "web:TSMC",
+            "web:Intel"
+          ],
+          "stocktwits": {
+            "TSM": "ok",
+            "INTC": "ok"
+          }
+        }
+      },
+      "news": {
+        "summary": "삼성전자의 3분기 호실적에도 불구하고 외국인 수급 이탈이 주가를 압박하고 있다. AI 메모리(HBM, CXL) 사업 확장 노력은 지속되고 있으나, 거시 경제 불안과 반도체 업황에 대한 의구심이 시장을 지배하고 있다.",
+        "items": [
+          {
+            "title": "“땡큐, 잘 먹고 갑니다”…올해 코스피 199조 던진 외국인들, 이건 계속...",
+            "source": "서울경제",
+            "date": "2026-10-13",
+            "sentiment": "부정",
+            "url": "https://www.sedaily.com/article/20100759?ref=naver",
+            "insight": "외국인의 지속적인 순매도가 삼성전자 주가 하락의 핵심 원인으로 지목됨."
+          },
+          {
+            "title": "삼성전자, 'AI 메모리' 판 넓힌다…HBM 넘어 CXL·SSD까지",
+            "source": "뉴스1",
+            "date": "2026-10-13",
+            "sentiment": "긍정",
+            "url": "https://www.news1.kr/industry/general-industry/6317675",
+            "insight": "HBM을 넘어 CXL, SSD 등 AI 메모리 포트폴리오 다변화로 성장 동력 확보 중."
+          },
+          {
+            "title": "[오늘의 신문] 코스피 6400선 흔들·외국인 의료관광 1.7조원·서울 집값...",
+            "source": "더아시아",
+            "date": "2026-10-13",
+            "sentiment": "부정",
+            "url": "http://kor.theasian.asia/archives/418293",
+            "insight": "지정학적 리스크와 미국 국채 금리 상승 등이 투자 심리를 압박."
+          },
+          {
+            "title": "마이크론, 자사주 매입 47조원 확대…\"SK하이닉스보다 후하다\"",
+            "source": "이데일리",
+            "date": "2026-10-13",
+            "sentiment": "중립",
+            "url": "https://www.edaily.co.kr/News/Read?newsId=02233686645612592&mediaCodeNo=257&utm_source=naver&utm_medium=referral&utm_campaign=news_syndication&utm_content=original_article",
+            "insight": "경쟁사의 주주 환원 정책 강화가 상대적으로 삼성전자의 투자 매력을 희석시킬 수 있음."
+          },
+          {
+            "title": "삼성전자, 반도체 협력사 임직원에 커피차…\"고맙습니다\"",
+            "source": "이데일리",
+            "date": "2026-10-13",
+            "sentiment": "중립",
+            "url": "https://www.edaily.co.kr/News/Read?newsId=02230406645612592&mediaCodeNo=257&utm_source=naver&utm_medium=referral&utm_campaign=news_syndication&utm_content=original_article",
+            "insight": "ESG 경영 및 동반성장 행보이나 주가에 미치는 영향은 제한적."
+          }
+        ]
+      },
+      "community": {
+        "summary": "개인 투자자들의 여론은 매우 부정적이다. 실적 호조에도 불구하고 주가가 하락하는 현상에 대해 '국장 탈출'을 외치며 시장에 대한 불신이 극에 달해 있다.",
+        "sentimentLabel": "부정",
+        "naver": [
+          {
+            "title": "아파트 팔아서. 주식사라는 넘 어디갔나요.",
+            "url": "https://stock.naver.com/domestic/stock/005930/discussion/430410893",
+            "sentiment": "부정",
+            "summary": "주가 하락에 따른 투자 손실에 대한 강한 불만 표출."
+          },
+          {
+            "title": "대한민국 국장은 이제 끝났다.",
+            "url": "https://stock.naver.com/domestic/stock/005930/discussion/430410984",
+            "sentiment": "부정",
+            "summary": "한국 증시 전반에 대한 회의감과 실망감."
+          },
+          {
+            "title": "진짜 반등 살짝은 할 줄 알았는데...",
+            "url": "https://stock.naver.com/domestic/stock/005930/discussion/430410934",
+            "sentiment": "부정",
+            "summary": "기술적 반등조차 나오지 않는 주가 흐름에 대한 실망."
+          }
+        ]
+      },
+      "dart": {
+        "summary": "최근 공시는 임원들의 주식 소유 상황 보고와 자기주식 취득 결과 등 일상적인 내용 위주로 구성되어 있다. 실적 관련 공시 이후 특별한 경영상 이벤트는 부재하다.",
+        "highlights": [
+          {
+            "label": "3분기 잠정 실적",
+            "value": "영업이익 107.4조원",
+            "note": "시장 기대치를 상회하는 호실적 기록."
+          },
+          {
+            "label": "자기주식취득결과",
+            "value": "보고서 제출",
+            "note": "주주 환원 정책의 일환으로 진행된 결과 보고."
+          },
+          {
+            "label": "임원 주식 소유",
+            "value": "변동 신고",
+            "note": "임원들의 자사주 보유 변동 사항이 지속적으로 공시됨."
+          },
+          {
+            "label": "IR 개최",
+            "value": "안내 공시",
+            "note": "기업 설명회 개최를 통한 시장 소통 노력."
+          }
+        ],
+        "recentFilings": [
+          {
+            "date": "2026-10-12",
+            "title": "자기주식취득결과보고서",
+            "filer": "삼성전자",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261012000421"
+          },
+          {
+            "date": "2026-10-12",
+            "title": "임원ㆍ주요주주특정증권등소유상황보고서",
+            "filer": "김은용",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261012000021"
+          },
+          {
+            "date": "2026-10-08",
+            "title": "주식등의대량보유상황보고서(일반)",
+            "filer": "삼성물산",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261008000706"
+          },
+          {
+            "date": "2026-10-08",
+            "title": "기업설명회(IR)개최(안내공시)              ",
+            "filer": "삼성전자",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261008800028"
+          },
+          {
+            "date": "2026-10-08",
+            "title": "연결재무제표기준영업(잠정)실적(공정공시)              ",
+            "filer": "삼성전자",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261008800004"
+          }
+        ]
+      },
+      "research": {
+        "summary": "증권사들은 삼성전자의 펀더멘털(HBM, DRAM 가격 강세)을 높게 평가하며 매수 의견을 유지하고 있다. 다만, 현재의 주가 하락은 실적보다는 수급과 매크로 환경에 기인한 것으로 분석한다.",
+        "items": [
+          {
+            "title": "사상 최초 DRAM 분기 매출 100조원 상회",
+            "broker": "DS투자증권",
+            "date": "2026-10-12",
+            "url": "https://stock.naver.com/research/company/96634",
+            "pdfUrl": "https://stock.pstatic.net/stock-research/company/66/20261012_company_563668000.pdf",
+            "targetPrice": 530000,
+            "opinion": "매수",
+            "note": "3분기 실적이 컨센서스를 상회하며 메모리 부문의 강력한 이익 창출 능력을 입증함."
+          },
+          {
+            "title": "강한 DRAM 가격. LPDDR 공급 부족 심화",
+            "broker": "하나증권",
+            "date": "2026-10-12",
+            "url": "https://stock.naver.com/research/company/96616",
+            "pdfUrl": "https://stock.pstatic.net/stock-research/company/57/20261012_company_683115000.pdf",
+            "targetPrice": 480000,
+            "opinion": "Buy",
+            "note": "DRAM 가격 강세와 LPDDR 공급 부족이 실적 성장을 견인하고 있음."
+          },
+          {
+            "title": "눈높이를 높이는 구간",
+            "broker": "유진투자증권",
+            "date": "2026-10-12",
+            "url": "https://stock.naver.com/research/company/96597",
+            "pdfUrl": "https://stock.pstatic.net/stock-research/company/63/20261012_company_710373000.pdf",
+            "targetPrice": 560000,
+            "opinion": "StrongBuy",
+            "note": "메모리 가격 강세가 예상보다 강력하게 나타나며 실적 눈높이를 높이는 구간임."
+          },
+          {
+            "title": "환율도 메모리 호황을 막진 못했다",
+            "broker": "IBK투자증권",
+            "date": "2026-10-12",
+            "url": "https://stock.naver.com/research/company/96588",
+            "pdfUrl": "",
+            "targetPrice": null,
+            "opinion": "",
+            "note": "환율 변동성에도 불구하고 메모리 호황이 실적을 방어하고 있음."
+          },
+          {
+            "title": "4Q26 영업이익 116조원 전망",
+            "broker": "키움증권",
+            "date": "2026-10-12",
+            "url": "https://stock.naver.com/research/company/96578",
+            "pdfUrl": "",
+            "targetPrice": null,
+            "opinion": "",
+            "note": "4분기에도 영업이익 성장세가 지속될 것으로 전망됨."
+          },
+          {
+            "title": "주인공은 HBM으로 바뀐다",
+            "broker": "한화투자증권",
+            "date": "2026-10-07",
+            "url": "https://stock.naver.com/research/company/96513",
+            "pdfUrl": "",
+            "targetPrice": null,
+            "opinion": "",
+            "note": "2027년 성장의 핵심 동력은 HBM4가 될 것으로 예상됨."
+          },
+          {
+            "title": "3Q26 Preview HBM이 만들고, 메모리가 이어간다",
+            "broker": "교보증권",
+            "date": "2026-10-06",
+            "url": "https://stock.naver.com/research/company/96456",
+            "pdfUrl": "",
+            "targetPrice": null,
+            "opinion": "",
+            "note": "메모리 업사이클이 지속되는 가운데 HBM이 실적 성장을 주도할 것."
+          },
+          {
+            "title": "반도체 사상 첫 매출 천억불 달성",
+            "broker": "미래에셋증권",
+            "date": "2026-10-06",
+            "url": "https://stock.naver.com/research/company/96444",
+            "pdfUrl": "",
+            "targetPrice": null,
+            "opinion": "",
+            "note": "메모리 수요 우위가 장기화될 전망으로 비중 확대 적기."
+          }
+        ],
+        "consensus": {
+          "avg": 523333,
+          "high": 560000,
+          "low": 480000,
+          "n": 3,
+          "upsidePct": 99.7,
+          "opinions": {
+            "매수": 3
+          }
+        }
+      },
+      "generatedBy": "gemini-3.1-flash-lite",
+      "flow": {
+        "rank": [],
+        "shorts": [
+          {
+            "date": "20261012",
+            "qty": 741672.0,
+            "volRlim": 3.75,
+            "pbmn": 1886.6,
+            "pbmnRlim": 3.76
+          },
+          {
+            "date": "20261008",
+            "qty": 1372956.0,
+            "volRlim": 6.46,
+            "pbmn": 3649.4,
+            "pbmnRlim": 6.5
+          },
+          {
+            "date": "20261007",
+            "qty": 706028.0,
+            "volRlim": 4.31,
+            "pbmn": 1923.0,
+            "pbmnRlim": 4.3
+          },
+          {
+            "date": "20261006",
+            "qty": 792084.0,
+            "volRlim": 6.13,
+            "pbmn": 2157.8,
+            "pbmnRlim": 6.1
+          },
+          {
+            "date": "20261002",
+            "qty": 393987.0,
+            "volRlim": 3.43,
+            "pbmn": 1084.3,
+            "pbmnRlim": 3.42
+          },
+          {
+            "date": "20261001",
+            "qty": 413876.0,
+            "volRlim": 3.01,
+            "pbmn": 1116.5,
+            "pbmnRlim": 3.0
+          },
+          {
+            "date": "20260930",
+            "qty": 1069129.0,
+            "volRlim": 6.49,
+            "pbmn": 2889.3,
+            "pbmnRlim": 6.48
+          },
+          {
+            "date": "20260929",
+            "qty": 1095215.0,
+            "volRlim": 6.86,
+            "pbmn": 2980.8,
+            "pbmnRlim": 6.87
+          },
+          {
+            "date": "20260928",
+            "qty": 1017129.0,
+            "volRlim": 4.76,
+            "pbmn": 2789.2,
+            "pbmnRlim": 4.75
+          },
+          {
+            "date": "20260923",
+            "qty": 367144.0,
+            "volRlim": 1.76,
+            "pbmn": 1044.0,
+            "pbmnRlim": 1.76
+          },
+          {
+            "date": "20260922",
+            "qty": 246743.0,
+            "volRlim": 1.36,
+            "pbmn": 688.0,
+            "pbmnRlim": 1.36
+          },
+          {
+            "date": "20260921",
+            "qty": 191467.0,
+            "volRlim": 0.86,
+            "pbmn": 518.6,
+            "pbmnRlim": 0.86
+          },
+          {
+            "date": "20260918",
+            "qty": 1043615.0,
+            "volRlim": 5.97,
+            "pbmn": 2716.0,
+            "pbmnRlim": 5.96
+          },
+          {
+            "date": "20260917",
+            "qty": 562091.0,
+            "volRlim": 4.75,
+            "pbmn": 1427.5,
+            "pbmnRlim": 4.75
+          },
+          {
+            "date": "20260916",
+            "qty": 615534.0,
+            "volRlim": 5.24,
+            "pbmn": 1548.8,
+            "pbmnRlim": 5.24
+          },
+          {
+            "date": "20260915",
+            "qty": 791754.0,
+            "volRlim": 6.92,
+            "pbmn": 1970.7,
+            "pbmnRlim": 6.92
+          },
+          {
+            "date": "20260914",
+            "qty": 1468656.0,
+            "volRlim": 8.26,
+            "pbmn": 3677.0,
+            "pbmnRlim": 8.26
+          },
+          {
+            "date": "20260911",
+            "qty": 1670974.0,
+            "volRlim": 11.99,
+            "pbmn": 4319.4,
+            "pbmnRlim": 11.98
+          },
+          {
+            "date": "20260910",
+            "qty": 692808.0,
+            "volRlim": 3.08,
+            "pbmn": 1840.5,
+            "pbmnRlim": 3.05
+          },
+          {
+            "date": "20260909",
+            "qty": 561713.0,
+            "volRlim": 3.43,
+            "pbmn": 1521.6,
+            "pbmnRlim": 3.43
+          }
+        ],
+        "loans": [
+          {
+            "date": "20261012",
+            "newQty": 2587470.0,
+            "rdmpQty": 3971933.0,
+            "rmndChg": -1384463.0,
+            "rmndQty": 80903428.0,
+            "rmndAmt": 202663.1
+          },
+          {
+            "date": "20261008",
+            "newQty": 1000402.0,
+            "rdmpQty": 145168.0,
+            "rmndChg": 855234.0,
+            "rmndQty": 82287891.0,
+            "rmndAmt": 215594.3
+          },
+          {
+            "date": "20261007",
+            "newQty": 1548159.0,
+            "rdmpQty": 819917.0,
+            "rmndChg": 728242.0,
+            "rmndQty": 81432657.0,
+            "rmndAmt": 218646.7
+          },
+          {
+            "date": "20261006",
+            "newQty": 2932002.0,
+            "rdmpQty": 4402716.0,
+            "rmndChg": -1470714.0,
+            "rmndQty": 80704415.0,
+            "rmndAmt": 219516.0
+          },
+          {
+            "date": "20261002",
+            "newQty": 7784216.0,
+            "rdmpQty": 1595848.0,
+            "rmndChg": 6188368.0,
+            "rmndQty": 82175129.0,
+            "rmndAmt": 226803.4
+          },
+          {
+            "date": "20261001",
+            "newQty": 2672942.0,
+            "rdmpQty": 1069018.0,
+            "rmndChg": 1603924.0,
+            "rmndQty": 75986661.0,
+            "rmndAmt": 209723.2
+          },
+          {
+            "date": "20260930",
+            "newQty": 1328885.0,
+            "rdmpQty": 1698300.0,
+            "rmndChg": -369415.0,
+            "rmndQty": 74382737.0,
+            "rmndAmt": 199717.6
+          },
+          {
+            "date": "20260929",
+            "newQty": 1771811.0,
+            "rdmpQty": 8461482.0,
+            "rmndChg": -6689671.0,
+            "rmndQty": 74752152.0,
+            "rmndAmt": 203699.6
+          },
+          {
+            "date": "20260928",
+            "newQty": 2526018.0,
+            "rdmpQty": 7091596.0,
+            "rmndChg": -4565578.0,
+            "rmndQty": 81441823.0,
+            "rmndAmt": 219892.9
+          },
+          {
+            "date": "20260923",
+            "newQty": 491569.0,
+            "rdmpQty": 2168179.0,
+            "rmndChg": -1676610.0,
+            "rmndQty": 86007401.0,
+            "rmndAmt": 245551.1
+          },
+          {
+            "date": "20260922",
+            "newQty": 780310.0,
+            "rdmpQty": 981385.0,
+            "rmndChg": -201075.0,
+            "rmndQty": 87684011.0,
+            "rmndAmt": 242446.3
+          },
+          {
+            "date": "20260921",
+            "newQty": 2299043.0,
+            "rdmpQty": 6244187.0,
+            "rmndChg": -3945144.0,
+            "rmndQty": 87885086.0,
+            "rmndAmt": 240805.1
+          },
+          {
+            "date": "20260918",
+            "newQty": 411173.0,
+            "rdmpQty": 877277.0,
+            "rmndChg": -466104.0,
+            "rmndQty": 91830230.0,
+            "rmndAmt": 239676.9
+          },
+          {
+            "date": "20260917",
+            "newQty": 1694347.0,
+            "rdmpQty": 1662204.0,
+            "rmndChg": 32143.0,
+            "rmndQty": 92296334.0,
+            "rmndAmt": 233048.2
+          },
+          {
+            "date": "20260916",
+            "newQty": 411906.0,
+            "rdmpQty": 606770.0,
+            "rmndChg": -194864.0,
+            "rmndQty": 92264191.0,
+            "rmndAmt": 233889.7
+          },
+          {
+            "date": "20260915",
+            "newQty": 3111891.0,
+            "rdmpQty": 481953.0,
+            "rmndChg": 2629938.0,
+            "rmndQty": 92459055.0,
+            "rmndAmt": 229760.8
+          },
+          {
+            "date": "20260914",
+            "newQty": 1547654.0,
+            "rdmpQty": 824596.0,
+            "rmndChg": 723058.0,
+            "rmndQty": 89827717.0,
+            "rmndAmt": 223671.0
+          },
+          {
+            "date": "20260911",
+            "newQty": 4310426.0,
+            "rdmpQty": 2801585.0,
+            "rmndChg": 1508841.0,
+            "rmndQty": 89163054.0,
+            "rmndAmt": 231378.1
+          },
+          {
+            "date": "20260910",
+            "newQty": 3586484.0,
+            "rdmpQty": 3548345.0,
+            "rmndChg": 38139.0,
+            "rmndQty": 87654213.0,
+            "rmndAmt": 235789.8
+          },
+          {
+            "date": "20260909",
+            "newQty": 2129881.0,
+            "rdmpQty": 3673286.0,
+            "rmndChg": -1543405.0,
+            "rmndQty": 87616074.0,
+            "rmndAmt": 236125.3
+          }
+        ],
+        "rankAsof": "08:39",
+        "trend": [
+          {
+            "date": "20261012",
+            "frgn": -2178086,
+            "orgn": -1719656,
+            "prsn": 3855827,
+            "holdRatio": 46.3,
+            "close": 251000,
+            "rate": -4.2
+          },
+          {
+            "date": "20261008",
+            "frgn": -1307041,
+            "orgn": -4087636,
+            "prsn": 5259380,
+            "holdRatio": 46.35,
+            "close": 263000,
+            "rate": -2.05
+          },
+          {
+            "date": "20261007",
+            "frgn": -118283,
+            "orgn": -819541,
+            "prsn": 957691,
+            "holdRatio": 46.38,
+            "close": 269000,
+            "rate": -1.1
+          },
+          {
+            "date": "20261006",
+            "frgn": -2064174,
+            "orgn": -193422,
+            "prsn": 1273618,
+            "holdRatio": 46.37,
+            "close": 273000,
+            "rate": -1.09
+          },
+          {
+            "date": "20261002",
+            "frgn": -350942,
+            "orgn": 614278,
+            "prsn": -2217946,
+            "holdRatio": 46.41,
+            "close": 276000,
+            "rate": 0.0
+          },
+          {
+            "date": "20261001",
+            "frgn": -758236,
+            "orgn": 46127,
+            "prsn": -1292880,
+            "holdRatio": 46.41,
+            "close": 274500,
+            "rate": 2.23
+          },
+          {
+            "date": "20260930",
+            "frgn": -3191284,
+            "orgn": -1409182,
+            "prsn": 2546037,
+            "holdRatio": 46.4,
+            "close": 269500,
+            "rate": -1.1
+          },
+          {
+            "date": "20260929",
+            "frgn": -2508369,
+            "orgn": 53759,
+            "prsn": 422277,
+            "holdRatio": 46.47,
+            "close": 275000,
+            "rate": 1.85
+          },
+          {
+            "date": "20260928",
+            "frgn": -4999903,
+            "orgn": -2410724,
+            "prsn": 5330121,
+            "holdRatio": 46.52,
+            "close": 270000,
+            "rate": -5.43
+          },
+          {
+            "date": "20260923",
+            "frgn": 4513767,
+            "orgn": 1346883,
+            "prsn": -7630126,
+            "holdRatio": 46.64,
+            "close": 286500,
+            "rate": 3.62
+          },
+          {
+            "date": "20260922",
+            "frgn": 659851,
+            "orgn": 259459,
+            "prsn": -2707452,
+            "holdRatio": 46.55,
+            "close": 277500,
+            "rate": 1.28
+          },
+          {
+            "date": "20260921",
+            "frgn": 4080410,
+            "orgn": 4186614,
+            "prsn": -10152588,
+            "holdRatio": 46.56,
+            "close": 275000,
+            "rate": 5.36
+          },
+          {
+            "date": "20260918",
+            "frgn": -1673323,
+            "orgn": 2746972,
+            "prsn": -2975813,
+            "holdRatio": 46.46,
+            "close": 260000,
+            "rate": 2.97
+          },
+          {
+            "date": "20260917",
+            "frgn": -2170687,
+            "orgn": 196838,
+            "prsn": -39299,
+            "holdRatio": 46.48,
+            "close": 256000,
+            "rate": 0.99
+          },
+          {
+            "date": "20260916",
+            "frgn": -1906839,
+            "orgn": 1660246,
+            "prsn": -1730267,
+            "holdRatio": 46.52,
+            "close": 253500,
+            "rate": 2.01
+          },
+          {
+            "date": "20260915",
+            "frgn": -1088039,
+            "orgn": -2321959,
+            "prsn": 1379866,
+            "holdRatio": 46.56,
+            "close": 250500,
+            "rate": 0.6
+          },
+          {
+            "date": "20260914",
+            "frgn": -3466765,
+            "orgn": -1817020,
+            "prsn": 3570705,
+            "holdRatio": 46.57,
+            "close": 248500,
+            "rate": -4.24
+          },
+          {
+            "date": "20260911",
+            "frgn": -3531147,
+            "orgn": -2208594,
+            "prsn": 3643746,
+            "holdRatio": 46.64,
+            "close": 259500,
+            "rate": -3.53
+          },
+          {
+            "date": "20260910",
+            "frgn": -5769453,
+            "orgn": 4266985,
+            "prsn": -434111,
+            "holdRatio": 46.71,
+            "close": 269000,
+            "rate": -0.19
+          },
+          {
+            "date": "20260909",
+            "frgn": -2884161,
+            "orgn": 1740154,
+            "prsn": -920131,
+            "holdRatio": 46.81,
+            "close": 269500,
+            "rate": 0.0
+          }
+        ]
+      },
+      "_flowOk": true,
+      "_meta": {
+        "filingKey": "2026-10-12|자기주식취득결과보고서",
+        "asOf": "2026-10-13T08:40:20.141166+09:00",
+        "price": 262000
+      }
+    },
+    "direction": "bearish"
+  },
+  {
+    "code": "010120",
+    "name": "엘에스일렉트릭",
+    "market": "KOSPI",
+    "selectedDate": "2026-10-13",
+    "basePrice": 195500,
+    "entry": 196500,
+    "target": 214400,
+    "stop": 181300,
+    "stars": "⭐⭐⭐⭐",
+    "catalyst": "수주 공시 이후 재료 소멸에 따른 강력한 차익실현 매물 출회",
+    "scenario": "<b>[하락 관찰 종목]</b><br>하방 재료가 관찰된 참고용 종목입니다 — 자동매매(매수) 대상이 아닙니다. 전일 종가 195,500원. 반등 전환 시 관찰 레벨: 196,500원.",
+    "reason": "대규모 수주 공시가 발표되었음에도 불구하고, 장중 '뉴스에 파는' 차익실현 매물이 쏟아지며 4% 이상 급락 중입니다."
   }
 ]
