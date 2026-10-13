@@ -1,12 +1,11 @@
 {
- "date": "2026-10-13",
- "asof": "2026-10-13 15:40 KST",
+ "date": "2026-10-14",
+ "asof": "2026-10-14 07:49 KST",
  "sources": {
   "naver": true,
   "forexfactory": true
  },
- "released": [],
- "upcoming": [
+ "released": [
   {
    "nation": "USA",
    "name": "독립사업체연맹 중소기업낙관지수",
@@ -15,12 +14,18 @@
    "period": "Sep 2026",
    "category": "BSI_CSI",
    "releaseAtKST": "2026-10-13 19:00",
+   "actual": 97.9,
    "previous": 98.7,
    "unit": "",
    "unitScale": "",
    "forecast": null,
    "forecastSource": null,
-   "source": "naver"
+   "source": "naver",
+   "surprise": {
+    "vs": "previous",
+    "diff": -0.8,
+    "verdict": "below"
+   }
   },
   {
    "nation": "USA",
@@ -30,12 +35,18 @@
    "period": "10 Oct2026",
    "category": "BSI_CSI",
    "releaseAtKST": "2026-10-13 21:55",
+   "actual": 10.4,
    "previous": 8.6,
    "unit": "%",
    "unitScale": "",
    "forecast": null,
    "forecastSource": null,
-   "source": "naver"
+   "source": "naver",
+   "surprise": {
+    "vs": "previous",
+    "diff": 1.8,
+    "verdict": "above"
+   }
   },
   {
    "nation": "USA",
@@ -45,12 +56,18 @@
    "period": "Sep 2026",
    "category": "EMPLOYMENT",
    "releaseAtKST": "2026-10-13 23:00",
+   "actual": 3.99,
    "previous": 3.98,
    "unit": "",
    "unitScale": "M",
    "forecast": null,
    "forecastSource": null,
-   "source": "naver"
+   "source": "naver",
+   "surprise": {
+    "vs": "previous",
+    "diff": 0.01,
+    "verdict": "above"
+   }
   },
   {
    "nation": "USA",
@@ -60,28 +77,21 @@
    "period": "Sep 2026",
    "category": "EMPLOYMENT",
    "releaseAtKST": "2026-10-13 23:00",
+   "actual": 1.5,
    "previous": -2,
    "unit": "%",
    "unitScale": "",
    "forecast": null,
    "forecastSource": null,
-   "source": "naver"
-  },
-  {
-   "nation": "USA",
-   "name": "연방재정수지",
-   "reutersCode": "USGDEF=ECIX",
-   "importance": 1,
-   "period": "Sep 2026",
-   "category": "PUBLIC_FINANCE",
-   "releaseAtKST": "2026-10-14 03:00",
-   "previous": -167,
-   "unit": "USD",
-   "unitScale": "B",
-   "forecast": null,
-   "forecastSource": null,
-   "source": "naver"
-  },
+   "source": "naver",
+   "surprise": {
+    "vs": "previous",
+    "diff": 3.5,
+    "verdict": "above"
+   }
+  }
+ ],
+ "upcoming": [
   {
    "nation": "USA",
    "name": "MBA 구매지수",
@@ -1166,6 +1176,51 @@
    "releaseAtKST": "2026-10-20 23:00",
    "previous": 71.2,
    "unit": "",
+   "unitScale": "",
+   "forecast": null,
+   "forecastSource": null,
+   "source": "naver"
+  },
+  {
+   "nation": "KOR",
+   "name": "기업심리지수",
+   "reutersCode": "KRCBSI=ECIX",
+   "importance": 4,
+   "period": "Oct 2026",
+   "category": "BSI_CSI",
+   "releaseAtKST": "2026-10-21 06:00",
+   "previous": 99.1,
+   "unit": "",
+   "unitScale": "",
+   "forecast": null,
+   "forecastSource": null,
+   "source": "naver"
+  },
+  {
+   "nation": "KOR",
+   "name": "생산자물가지수 전월대비",
+   "reutersCode": "KRPPI=ECIX",
+   "importance": 4,
+   "period": "Sep 2026",
+   "category": "PRICE",
+   "releaseAtKST": "2026-10-21 06:00",
+   "previous": 0.2,
+   "unit": "%",
+   "unitScale": "",
+   "forecast": null,
+   "forecastSource": null,
+   "source": "naver"
+  },
+  {
+   "nation": "KOR",
+   "name": "생산자물가지수 전년대비",
+   "reutersCode": "KRPPIY=ECIX",
+   "importance": 1,
+   "period": "Sep 2026",
+   "category": "PRICE",
+   "releaseAtKST": "2026-10-21 06:00",
+   "previous": 7.9,
+   "unit": "%",
    "unitScale": "",
    "forecast": null,
    "forecastSource": null,

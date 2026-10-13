@@ -1,6 +1,6 @@
 {
-  "date": "2026-10-13",
-  "asof": "2026-10-13 07:49 KST",
+  "date": "2026-10-14",
+  "asof": "2026-10-14 07:55 KST",
   "generatedBy": "gemini-3.1-flash-lite",
   "macro": {
     "regime": "과열",
@@ -10,7 +10,7 @@
       "Materials",
       "Industrials"
     ],
-    "summary": "현재 미국 경제는 금리와 물가가 동반 상승하는 '과열' 국면에 진입해 있습니다. 10년물 국채금리가 5%를 상회하고 CPI가 상승세를 지속함에 따라 긴축적 통화 정책 기조가 유지될 가능성이 높으며, 이는 시장 전반의 밸류에이션 부담으로 작용하고 있습니다.",
+    "summary": "현재 시장은 금리와 물가가 동반 상승하는 '과열' 국면에 진입해 있습니다. 이러한 매크로 환경은 인플레이션 헤지 성격이 강한 에너지 및 소재 섹터에 유리하게 작용하며, 고금리 장기화 우려가 시장 전반의 밸류에이션 부담을 가중시키고 있습니다.",
     "indicators": [
       {
         "name": "기준금리",
@@ -21,24 +21,24 @@
       },
       {
         "name": "10Y 국채금리",
-        "latest": 5.22,
-        "prev": 5.28,
+        "latest": 5.24,
+        "prev": 5.22,
         "unit": "%",
-        "source": "FRED, DGS10, as of 2026-10-08"
+        "source": "FRED, DGS10, as of 2026-10-09"
       },
       {
         "name": "2Y 국채금리",
-        "latest": 4.75,
-        "prev": 4.77,
+        "latest": 4.8,
+        "prev": 4.75,
         "unit": "%",
-        "source": "FRED, DGS2, as of 2026-10-08"
+        "source": "FRED, DGS2, as of 2026-10-09"
       },
       {
         "name": "장단기 스프레드",
-        "latest": 0.47,
-        "prev": 0.51,
+        "latest": 0.44,
+        "prev": 0.47,
         "unit": "%p",
-        "source": "FRED, DGS10(2026-10-08) - DGS2(2026-10-08) 직접 계산"
+        "source": "FRED, DGS10(2026-10-09) - DGS2(2026-10-09) 직접 계산"
       },
       {
         "name": "CPI",
@@ -70,45 +70,45 @@
       },
       {
         "name": "VIX",
-        "latest": 14.84,
-        "prev": 15.41,
+        "latest": 15.21,
+        "prev": 14.84,
         "unit": "pt",
-        "source": "FRED, VIXCLS, as of 2026-10-09"
+        "source": "FRED, VIXCLS, as of 2026-10-12"
       },
       {
         "name": "HY 스프레드",
-        "latest": 3.15,
-        "prev": 3.09,
+        "latest": 3.11,
+        "prev": 3.11,
         "unit": "%",
-        "source": "FRED, BAMLH0A0HYM2, as of 2026-10-08"
+        "source": "FRED, BAMLH0A0HYM2, as of 2026-10-12"
       }
     ]
   },
   "sentiment": {
-    "score": 46,
-    "rating": "neutral",
-    "prevClose": 45.0,
-    "prevWeek": 43.7142857142857,
+    "score": 45,
+    "rating": "fear",
+    "prevClose": 45.7428571428571,
+    "prevWeek": 46.8,
     "prevMonth": 32.6857142857143,
     "components": [
       {
         "name": "Momentum",
-        "score": 70,
+        "score": 68,
         "rating": "greed"
       },
       {
         "name": "Strength",
-        "score": 8,
+        "score": 10,
         "rating": "extreme fear"
       },
       {
         "name": "Breadth",
-        "score": 4,
+        "score": 6,
         "rating": "extreme fear"
       },
       {
         "name": "Put/Call",
-        "score": 35,
+        "score": 33,
         "rating": "fear"
       },
       {
@@ -118,211 +118,211 @@
       },
       {
         "name": "Junk Bond",
-        "score": 85,
+        "score": 75,
         "rating": "extreme greed"
       },
       {
         "name": "Safe Haven",
-        "score": 69,
+        "score": 72,
         "rating": "greed"
       }
     ],
     "strategyHint": "Neutral — 모멘텀 추종 + 밸류 균형",
-    "summary": "CNN Fear & Greed 지수는 46으로 '중립(Neutral)' 구간에 머물러 있습니다. 한 달 전 32 수준에서 점진적으로 회복세를 보이고 있으나, 여전히 시장 참여자들은 매크로 불확실성을 경계하며 관망세를 유지하는 모습입니다.",
+    "summary": "센티먼트 지수는 45(Fear)로, 시장 참여자들의 불안감이 고조되고 있습니다. 이는 리스크 온/오프 정합성 측면에서 고베타 섹터의 변동성을 키우는 요인으로 작용하고 있으며, 투자자들은 방어적이고 퀄리티가 높은 자산으로 이동하려는 경향을 보입니다.",
     "note": "",
-    "source": "CNN Fear & Greed Index, 2026-10-13"
+    "source": "CNN Fear & Greed Index, 2026-10-14"
   },
   "sectors": [
     {
       "etf": "XLE",
       "name": "Energy",
-      "ret1W": 4.03,
-      "ret1M": 1.94,
-      "ret3M": 16.6,
-      "ret6M": 17.11,
-      "retYTD": 47.47,
-      "vol60": 21.0,
+      "ret1W": 5.41,
+      "ret1M": 4.76,
+      "ret3M": 19.65,
+      "ret6M": 21.69,
+      "retYTD": 50.12,
+      "vol60": 21.3,
       "mdd1Y": -15.0,
       "from52WHigh": 0.0,
       "beta": -0.38,
-      "source": "Yahoo Finance, XLE, 2026-10-13"
-    },
-    {
-      "etf": "XLV",
-      "name": "Healthcare",
-      "ret1W": 2.76,
-      "ret1M": 4.41,
-      "ret3M": 9.07,
-      "ret6M": 17.19,
-      "retYTD": 11.97,
-      "vol60": 16.3,
-      "mdd1Y": -10.5,
-      "from52WHigh": -1.7,
-      "beta": 0.27,
-      "source": "Yahoo Finance, XLV, 2026-10-13"
+      "source": "Yahoo Finance, XLE, 2026-10-14"
     },
     {
       "etf": "XLK",
       "name": "Technology",
-      "ret1W": -2.27,
-      "ret1M": 4.75,
-      "ret3M": 7.06,
-      "ret6M": 35.17,
-      "retYTD": 36.57,
+      "ret1W": -2.83,
+      "ret1M": 6.64,
+      "ret3M": 8.22,
+      "ret6M": 32.99,
+      "retYTD": 36.51,
       "vol60": 24.9,
       "mdd1Y": -15.9,
       "from52WHigh": -2.8,
       "beta": 1.75,
-      "source": "Yahoo Finance, XLK, 2026-10-13"
+      "source": "Yahoo Finance, XLK, 2026-10-14"
+    },
+    {
+      "etf": "XLV",
+      "name": "Healthcare",
+      "ret1W": 1.54,
+      "ret1M": 1.53,
+      "ret3M": 7.59,
+      "ret6M": 14.94,
+      "retYTD": 10.45,
+      "vol60": 16.4,
+      "mdd1Y": -10.5,
+      "from52WHigh": -3.1,
+      "beta": 0.27,
+      "source": "Yahoo Finance, XLV, 2026-10-14"
     },
     {
       "etf": "XLP",
       "name": "Consumer Staples",
-      "ret1W": 4.16,
-      "ret1M": 1.9,
-      "ret3M": 1.85,
-      "ret6M": 4.91,
-      "retYTD": 10.74,
+      "ret1W": 2.92,
+      "ret1M": 0.38,
+      "ret3M": 1.53,
+      "ret6M": 4.74,
+      "retYTD": 10.45,
       "vol60": 14.6,
       "mdd1Y": -9.7,
-      "from52WHigh": -4.4,
+      "from52WHigh": -4.7,
       "beta": -0.05,
-      "source": "Yahoo Finance, XLP, 2026-10-13"
-    },
-    {
-      "etf": "XLC",
-      "name": "Communication Services",
-      "ret1W": -0.14,
-      "ret1M": -0.7,
-      "ret3M": 0.33,
-      "ret6M": -2.36,
-      "retYTD": -3.79,
-      "vol60": 20.6,
-      "mdd1Y": -11.7,
-      "from52WHigh": -6.3,
-      "beta": 0.68,
-      "source": "Yahoo Finance, XLC, 2026-10-13"
+      "source": "Yahoo Finance, XLP, 2026-10-14"
     },
     {
       "etf": "SMH",
       "name": "Semiconductors",
-      "ret1W": -6.77,
-      "ret1M": 3.95,
-      "ret3M": -1.55,
-      "ret6M": 33.3,
-      "retYTD": 58.32,
+      "ret1W": -7.02,
+      "ret1M": 8.61,
+      "ret3M": -0.45,
+      "ret6M": 30.12,
+      "retYTD": 57.55,
       "vol60": 37.0,
       "mdd1Y": -24.6,
-      "from52WHigh": -11.6,
+      "from52WHigh": -12.1,
       "beta": 2.36,
-      "source": "Yahoo Finance, SMH, 2026-10-13"
+      "source": "Yahoo Finance, SMH, 2026-10-14"
     },
     {
-      "etf": "XLF",
-      "name": "Financials",
-      "ret1W": 2.17,
-      "ret1M": -3.5,
-      "ret3M": -1.66,
-      "ret6M": 7.31,
-      "retYTD": 1.44,
-      "vol60": 12.2,
-      "mdd1Y": -14.8,
-      "from52WHigh": -5.7,
-      "beta": 0.61,
-      "source": "Yahoo Finance, XLF, 2026-10-13"
+      "etf": "XLC",
+      "name": "Communication Services",
+      "ret1W": 0.56,
+      "ret1M": -2.1,
+      "ret3M": -0.64,
+      "ret6M": -3.1,
+      "retYTD": -3.08,
+      "vol60": 20.6,
+      "mdd1Y": -11.7,
+      "from52WHigh": -5.6,
+      "beta": 0.68,
+      "source": "Yahoo Finance, XLC, 2026-10-14"
     },
     {
       "etf": "XLB",
       "name": "Materials",
-      "ret1W": -0.12,
-      "ret1M": -2.52,
-      "ret3M": -1.92,
-      "ret6M": -4.48,
-      "retYTD": 8.58,
-      "vol60": 16.4,
+      "ret1W": -0.02,
+      "ret1M": -1.07,
+      "ret3M": -1.09,
+      "ret6M": -3.6,
+      "retYTD": 9.19,
+      "vol60": 16.3,
       "mdd1Y": -12.4,
-      "from52WHigh": -7.5,
+      "from52WHigh": -6.9,
       "beta": 0.73,
-      "source": "Yahoo Finance, XLB, 2026-10-13"
+      "source": "Yahoo Finance, XLB, 2026-10-14"
     },
     {
-      "etf": "XBI",
-      "name": "Biotech",
-      "ret1W": -3.07,
-      "ret1M": -3.07,
-      "ret3M": -2.61,
-      "ret6M": 14.77,
-      "retYTD": 24.71,
-      "vol60": 29.2,
-      "mdd1Y": -11.9,
-      "from52WHigh": -10.7,
-      "beta": 1.07,
-      "source": "Yahoo Finance, XBI, 2026-10-13"
+      "etf": "XLF",
+      "name": "Financials",
+      "ret1W": 1.5,
+      "ret1M": -3.53,
+      "ret3M": -2.73,
+      "ret6M": 6.62,
+      "retYTD": 1.02,
+      "vol60": 12.2,
+      "mdd1Y": -14.8,
+      "from52WHigh": -6.1,
+      "beta": 0.61,
+      "source": "Yahoo Finance, XLF, 2026-10-14"
     },
     {
       "etf": "XLY",
       "name": "Consumer Discretionary",
-      "ret1W": 1.68,
-      "ret1M": -0.39,
-      "ret3M": -2.92,
-      "ret6M": -1.03,
-      "retYTD": -4.55,
+      "ret1W": 0.57,
+      "ret1M": -0.21,
+      "ret3M": -3.75,
+      "ret6M": -3.1,
+      "retYTD": -4.47,
       "vol60": 18.9,
       "mdd1Y": -15.0,
-      "from52WHigh": -9.3,
+      "from52WHigh": -9.2,
       "beta": 1.16,
-      "source": "Yahoo Finance, XLY, 2026-10-13"
+      "source": "Yahoo Finance, XLY, 2026-10-14"
     },
     {
       "etf": "XLRE",
       "name": "Real Estate",
-      "ret1W": 3.07,
-      "ret1M": -2.64,
-      "ret3M": -4.96,
-      "ret6M": -0.88,
-      "retYTD": 6.31,
-      "vol60": 12.7,
+      "ret1W": 1.78,
+      "ret1M": -2.18,
+      "ret3M": -5.34,
+      "ret6M": -2.02,
+      "retYTD": 6.09,
+      "vol60": 12.6,
       "mdd1Y": -11.1,
-      "from52WHigh": -8.1,
+      "from52WHigh": -8.3,
       "beta": 0.29,
-      "source": "Yahoo Finance, XLRE, 2026-10-13"
+      "source": "Yahoo Finance, XLRE, 2026-10-14"
+    },
+    {
+      "etf": "XBI",
+      "name": "Biotech",
+      "ret1W": -2.72,
+      "ret1M": -6.85,
+      "ret3M": -6.03,
+      "ret6M": 8.27,
+      "retYTD": 20.92,
+      "vol60": 29.5,
+      "mdd1Y": -13.4,
+      "from52WHigh": -13.4,
+      "beta": 1.07,
+      "source": "Yahoo Finance, XBI, 2026-10-14"
     },
     {
       "etf": "XLI",
       "name": "Industrials",
-      "ret1W": -0.56,
-      "ret1M": -1.6,
-      "ret3M": -6.01,
-      "ret6M": -1.57,
-      "retYTD": 7.92,
-      "vol60": 15.2,
+      "ret1W": -1.7,
+      "ret1M": -0.47,
+      "ret3M": -6.07,
+      "ret6M": -2.2,
+      "retYTD": 7.62,
+      "vol60": 15.1,
       "mdd1Y": -12.2,
-      "from52WHigh": -9.1,
+      "from52WHigh": -9.3,
       "beta": 0.95,
-      "source": "Yahoo Finance, XLI, 2026-10-13"
+      "source": "Yahoo Finance, XLI, 2026-10-14"
     },
     {
       "etf": "XLU",
       "name": "Utilities",
-      "ret1W": 4.15,
-      "ret1M": -1.07,
-      "ret3M": -8.22,
-      "ret6M": -9.02,
-      "retYTD": -1.58,
+      "ret1W": 1.72,
+      "ret1M": 0.86,
+      "ret3M": -6.73,
+      "ret6M": -8.66,
+      "retYTD": -1.01,
       "vol60": 15.1,
       "mdd1Y": -16.1,
-      "from52WHigh": -11.0,
+      "from52WHigh": -10.4,
       "beta": 0.15,
-      "source": "Yahoo Finance, XLU, 2026-10-13"
+      "source": "Yahoo Finance, XLU, 2026-10-14"
     }
   ],
   "sectorScores": [
     {
       "etf": "XLE",
       "name": "Energy",
-      "score": 78,
+      "score": 72,
       "maxScore": 100,
-      "rawScore": 31,
+      "rawScore": 29,
       "rawMax": 40,
       "verdict": "OW",
       "parts": [
@@ -338,14 +338,14 @@
           "label": "센티먼트 정합성",
           "score": 3,
           "max": 5,
-          "note": "Neutral 구간(46)"
+          "note": "Neutral 구간(45)"
         },
         {
           "key": "momentum",
           "label": "상대 모멘텀 합성",
           "score": 5,
           "max": 5,
-          "note": "SPY 대비 합성 +7.2%p (1M/3M/6M)"
+          "note": "SPY 대비 합성 +11.0%p (1M/3M/6M)"
         },
         {
           "key": "high52w",
@@ -359,96 +359,28 @@
           "label": "추세 가속",
           "score": 5,
           "max": 5,
-          "note": "3M 가속도 +16.1%p"
+          "note": "3M 가속도 +17.6%p"
         },
         {
           "key": "valuation",
           "label": "밸류에이션 매력도",
           "score": 5,
           "max": 5,
-          "note": "PE 18.3 vs 중앙값 25.0 (0.73배)"
+          "note": "PE 19.1 vs 중앙값 25.0 (0.76배)"
         },
         {
           "key": "lowvol",
           "label": "저변동·하방 방어",
           "score": 0,
           "max": 5,
-          "note": "실현변동성 21.0% (60일 연율) · MDD -15.0%"
+          "note": "실현변동성 21.3% (60일 연율) · MDD -15.0%"
         },
         {
           "key": "riskonoff",
           "label": "리스크 온/오프 정합성",
-          "score": 3,
-          "max": 5,
-          "note": "중립 (VIX 14.84 · HY 확대)"
-        }
-      ],
-      "source": "결정론적 산출 (퀀트 팩터 스코어카드 v2 — 8항목×5점 100점 환산, 모멘텀 계열 37.5%)"
-    },
-    {
-      "etf": "XLV",
-      "name": "Healthcare",
-      "score": 60,
-      "maxScore": 100,
-      "rawScore": 24,
-      "rawMax": 40,
-      "verdict": "N",
-      "parts": [
-        {
-          "key": "macro",
-          "label": "매크로 적합도",
-          "score": 2,
-          "max": 5,
-          "note": "국면 선호 섹터 아님 (중립)"
-        },
-        {
-          "key": "sentiment",
-          "label": "센티먼트 정합성",
-          "score": 3,
-          "max": 5,
-          "note": "Neutral 구간(46)"
-        },
-        {
-          "key": "momentum",
-          "label": "상대 모멘텀 합성",
-          "score": 4,
-          "max": 5,
-          "note": "SPY 대비 합성 +4.1%p (1M/3M/6M)"
-        },
-        {
-          "key": "high52w",
-          "label": "52주 고점 근접",
-          "score": 5,
-          "max": 5,
-          "note": "52주 고점 대비 -1.7%"
-        },
-        {
-          "key": "accel",
-          "label": "추세 가속",
-          "score": 3,
-          "max": 5,
-          "note": "3M 가속도 +0.9%p"
-        },
-        {
-          "key": "valuation",
-          "label": "밸류에이션 매력도",
           "score": 1,
           "max": 5,
-          "note": "PE 30.7 vs 중앙값 25.0 (1.23배)"
-        },
-        {
-          "key": "lowvol",
-          "label": "저변동·하방 방어",
-          "score": 3,
-          "max": 5,
-          "note": "실현변동성 16.3% (60일 연율) · MDD -10.5% (중앙값보다 얕음)"
-        },
-        {
-          "key": "riskonoff",
-          "label": "리스크 온/오프 정합성",
-          "score": 3,
-          "max": 5,
-          "note": "중립 (VIX 14.84 · HY 확대)"
+          "note": "리스크온 (VIX 15.21 · HY 안정) — 고베타 우위 (β -0.38)"
         }
       ],
       "source": "결정론적 산출 (퀀트 팩터 스코어카드 v2 — 8항목×5점 100점 환산, 모멘텀 계열 37.5%)"
@@ -456,686 +388,6 @@
     {
       "etf": "XLK",
       "name": "Technology",
-      "score": 45,
-      "maxScore": 100,
-      "rawScore": 18,
-      "rawMax": 40,
-      "verdict": "N",
-      "parts": [
-        {
-          "key": "macro",
-          "label": "매크로 적합도",
-          "score": 2,
-          "max": 5,
-          "note": "국면 선호 섹터 아님 (중립)"
-        },
-        {
-          "key": "sentiment",
-          "label": "센티먼트 정합성",
-          "score": 3,
-          "max": 5,
-          "note": "Neutral 구간(46)"
-        },
-        {
-          "key": "momentum",
-          "label": "상대 모멘텀 합성",
-          "score": 5,
-          "max": 5,
-          "note": "SPY 대비 합성 +7.6%p (1M/3M/6M)"
-        },
-        {
-          "key": "high52w",
-          "label": "52주 고점 근접",
-          "score": 5,
-          "max": 5,
-          "note": "52주 고점 대비 -2.8%"
-        },
-        {
-          "key": "accel",
-          "label": "추세 가속",
-          "score": 0,
-          "max": 5,
-          "note": "3M 가속도 -21.1%p"
-        },
-        {
-          "key": "valuation",
-          "label": "밸류에이션 매력도",
-          "score": 0,
-          "max": 5,
-          "note": "PE 34.8 vs 중앙값 25.0 (1.39배)"
-        },
-        {
-          "key": "lowvol",
-          "label": "저변동·하방 방어",
-          "score": 0,
-          "max": 5,
-          "note": "실현변동성 24.9% (60일 연율) · MDD -15.9%"
-        },
-        {
-          "key": "riskonoff",
-          "label": "리스크 온/오프 정합성",
-          "score": 3,
-          "max": 5,
-          "note": "중립 (VIX 14.84 · HY 확대)"
-        }
-      ],
-      "source": "결정론적 산출 (퀀트 팩터 스코어카드 v2 — 8항목×5점 100점 환산, 모멘텀 계열 37.5%)"
-    },
-    {
-      "etf": "XLP",
-      "name": "Consumer Staples",
-      "score": 60,
-      "maxScore": 100,
-      "rawScore": 24,
-      "rawMax": 40,
-      "verdict": "N",
-      "parts": [
-        {
-          "key": "macro",
-          "label": "매크로 적합도",
-          "score": 2,
-          "max": 5,
-          "note": "국면 선호 섹터 아님 (중립)"
-        },
-        {
-          "key": "sentiment",
-          "label": "센티먼트 정합성",
-          "score": 3,
-          "max": 5,
-          "note": "Neutral 구간(46)"
-        },
-        {
-          "key": "momentum",
-          "label": "상대 모멘텀 합성",
-          "score": 2,
-          "max": 5,
-          "note": "SPY 대비 합성 -3.3%p (1M/3M/6M)"
-        },
-        {
-          "key": "high52w",
-          "label": "52주 고점 근접",
-          "score": 4,
-          "max": 5,
-          "note": "52주 고점 대비 -4.4%"
-        },
-        {
-          "key": "accel",
-          "label": "추세 가속",
-          "score": 2,
-          "max": 5,
-          "note": "3M 가속도 -1.2%p"
-        },
-        {
-          "key": "valuation",
-          "label": "밸류에이션 매력도",
-          "score": 3,
-          "max": 5,
-          "note": "PE 25.0 vs 중앙값 25.0 (1.00배)"
-        },
-        {
-          "key": "lowvol",
-          "label": "저변동·하방 방어",
-          "score": 5,
-          "max": 5,
-          "note": "실현변동성 14.6% (60일 연율) · MDD -9.7% (중앙값보다 얕음)"
-        },
-        {
-          "key": "riskonoff",
-          "label": "리스크 온/오프 정합성",
-          "score": 3,
-          "max": 5,
-          "note": "중립 (VIX 14.84 · HY 확대)"
-        }
-      ],
-      "source": "결정론적 산출 (퀀트 팩터 스코어카드 v2 — 8항목×5점 100점 환산, 모멘텀 계열 37.5%)"
-    },
-    {
-      "etf": "XLC",
-      "name": "Communication Services",
-      "score": 62,
-      "maxScore": 100,
-      "rawScore": 25,
-      "rawMax": 40,
-      "verdict": "N",
-      "parts": [
-        {
-          "key": "macro",
-          "label": "매크로 적합도",
-          "score": 2,
-          "max": 5,
-          "note": "국면 선호 섹터 아님 (중립)"
-        },
-        {
-          "key": "sentiment",
-          "label": "센티먼트 정합성",
-          "score": 3,
-          "max": 5,
-          "note": "Neutral 구간(46)"
-        },
-        {
-          "key": "momentum",
-          "label": "상대 모멘텀 합성",
-          "score": 1,
-          "max": 5,
-          "note": "SPY 대비 합성 -6.5%p (1M/3M/6M)"
-        },
-        {
-          "key": "high52w",
-          "label": "52주 고점 근접",
-          "score": 4,
-          "max": 5,
-          "note": "52주 고점 대비 -6.3%"
-        },
-        {
-          "key": "accel",
-          "label": "추세 가속",
-          "score": 4,
-          "max": 5,
-          "note": "3M 가속도 +3.0%p"
-        },
-        {
-          "key": "valuation",
-          "label": "밸류에이션 매력도",
-          "score": 5,
-          "max": 5,
-          "note": "PE 15.4 vs 중앙값 25.0 (0.62배)"
-        },
-        {
-          "key": "lowvol",
-          "label": "저변동·하방 방어",
-          "score": 3,
-          "max": 5,
-          "note": "실현변동성 20.6% (60일 연율) · MDD -11.7% (중앙값보다 얕음)"
-        },
-        {
-          "key": "riskonoff",
-          "label": "리스크 온/오프 정합성",
-          "score": 3,
-          "max": 5,
-          "note": "중립 (VIX 14.84 · HY 확대)"
-        }
-      ],
-      "source": "결정론적 산출 (퀀트 팩터 스코어카드 v2 — 8항목×5점 100점 환산, 모멘텀 계열 37.5%)"
-    },
-    {
-      "etf": "SMH",
-      "name": "Semiconductors",
-      "score": 38,
-      "maxScore": 100,
-      "rawScore": 15,
-      "rawMax": 40,
-      "verdict": "UW",
-      "parts": [
-        {
-          "key": "macro",
-          "label": "매크로 적합도",
-          "score": 2,
-          "max": 5,
-          "note": "국면 선호 섹터 아님 (중립)"
-        },
-        {
-          "key": "sentiment",
-          "label": "센티먼트 정합성",
-          "score": 3,
-          "max": 5,
-          "note": "Neutral 구간(46)"
-        },
-        {
-          "key": "momentum",
-          "label": "상대 모멘텀 합성",
-          "score": 4,
-          "max": 5,
-          "note": "SPY 대비 합성 +2.7%p (1M/3M/6M)"
-        },
-        {
-          "key": "high52w",
-          "label": "52주 고점 근접",
-          "score": 3,
-          "max": 5,
-          "note": "52주 고점 대비 -11.6%"
-        },
-        {
-          "key": "accel",
-          "label": "추세 가속",
-          "score": 0,
-          "max": 5,
-          "note": "3M 가속도 -36.4%p"
-        },
-        {
-          "key": "valuation",
-          "label": "밸류에이션 매력도",
-          "score": 0,
-          "max": 5,
-          "note": "PE 40.4 vs 중앙값 25.0 (1.62배)"
-        },
-        {
-          "key": "lowvol",
-          "label": "저변동·하방 방어",
-          "score": 0,
-          "max": 5,
-          "note": "실현변동성 37.0% (60일 연율) · MDD -24.6%"
-        },
-        {
-          "key": "riskonoff",
-          "label": "리스크 온/오프 정합성",
-          "score": 3,
-          "max": 5,
-          "note": "중립 (VIX 14.84 · HY 확대)"
-        }
-      ],
-      "source": "결정론적 산출 (퀀트 팩터 스코어카드 v2 — 8항목×5점 100점 환산, 모멘텀 계열 37.5%)"
-    },
-    {
-      "etf": "XLF",
-      "name": "Financials",
-      "score": 55,
-      "maxScore": 100,
-      "rawScore": 22,
-      "rawMax": 40,
-      "verdict": "N",
-      "parts": [
-        {
-          "key": "macro",
-          "label": "매크로 적합도",
-          "score": 2,
-          "max": 5,
-          "note": "국면 선호 섹터 아님 (중립)"
-        },
-        {
-          "key": "sentiment",
-          "label": "센티먼트 정합성",
-          "score": 3,
-          "max": 5,
-          "note": "Neutral 구간(46)"
-        },
-        {
-          "key": "momentum",
-          "label": "상대 모멘텀 합성",
-          "score": 1,
-          "max": 5,
-          "note": "SPY 대비 합성 -5.8%p (1M/3M/6M)"
-        },
-        {
-          "key": "high52w",
-          "label": "52주 고점 근접",
-          "score": 4,
-          "max": 5,
-          "note": "52주 고점 대비 -5.7%"
-        },
-        {
-          "key": "accel",
-          "label": "추세 가속",
-          "score": 0,
-          "max": 5,
-          "note": "3M 가속도 -10.6%p"
-        },
-        {
-          "key": "valuation",
-          "label": "밸류에이션 매력도",
-          "score": 5,
-          "max": 5,
-          "note": "PE 15.6 vs 중앙값 25.0 (0.62배)"
-        },
-        {
-          "key": "lowvol",
-          "label": "저변동·하방 방어",
-          "score": 4,
-          "max": 5,
-          "note": "실현변동성 12.2% (60일 연율) · MDD -14.8%"
-        },
-        {
-          "key": "riskonoff",
-          "label": "리스크 온/오프 정합성",
-          "score": 3,
-          "max": 5,
-          "note": "중립 (VIX 14.84 · HY 확대)"
-        }
-      ],
-      "source": "결정론적 산출 (퀀트 팩터 스코어카드 v2 — 8항목×5점 100점 환산, 모멘텀 계열 37.5%)"
-    },
-    {
-      "etf": "XLB",
-      "name": "Materials",
-      "score": 62,
-      "maxScore": 100,
-      "rawScore": 25,
-      "rawMax": 40,
-      "verdict": "N",
-      "parts": [
-        {
-          "key": "macro",
-          "label": "매크로 적합도",
-          "score": 5,
-          "max": 5,
-          "note": "과열 국면 선호 섹터"
-        },
-        {
-          "key": "sentiment",
-          "label": "센티먼트 정합성",
-          "score": 3,
-          "max": 5,
-          "note": "Neutral 구간(46)"
-        },
-        {
-          "key": "momentum",
-          "label": "상대 모멘텀 합성",
-          "score": 1,
-          "max": 5,
-          "note": "SPY 대비 합성 -8.6%p (1M/3M/6M)"
-        },
-        {
-          "key": "high52w",
-          "label": "52주 고점 근접",
-          "score": 4,
-          "max": 5,
-          "note": "52주 고점 대비 -7.5%"
-        },
-        {
-          "key": "accel",
-          "label": "추세 가속",
-          "score": 3,
-          "max": 5,
-          "note": "3M 가속도 +0.6%p"
-        },
-        {
-          "key": "valuation",
-          "label": "밸류에이션 매력도",
-          "score": 4,
-          "max": 5,
-          "note": "PE 23.1 vs 중앙값 25.0 (0.92배)"
-        },
-        {
-          "key": "lowvol",
-          "label": "저변동·하방 방어",
-          "score": 2,
-          "max": 5,
-          "note": "실현변동성 16.4% (60일 연율) · MDD -12.4%"
-        },
-        {
-          "key": "riskonoff",
-          "label": "리스크 온/오프 정합성",
-          "score": 3,
-          "max": 5,
-          "note": "중립 (VIX 14.84 · HY 확대)"
-        }
-      ],
-      "source": "결정론적 산출 (퀀트 팩터 스코어카드 v2 — 8항목×5점 100점 환산, 모멘텀 계열 37.5%)"
-    },
-    {
-      "etf": "XBI",
-      "name": "Biotech",
-      "score": 40,
-      "maxScore": 100,
-      "rawScore": 16,
-      "rawMax": 40,
-      "verdict": "N",
-      "parts": [
-        {
-          "key": "macro",
-          "label": "매크로 적합도",
-          "score": 2,
-          "max": 5,
-          "note": "국면 선호 섹터 아님 (중립)"
-        },
-        {
-          "key": "sentiment",
-          "label": "센티먼트 정합성",
-          "score": 3,
-          "max": 5,
-          "note": "Neutral 구간(46)"
-        },
-        {
-          "key": "momentum",
-          "label": "상대 모멘텀 합성",
-          "score": 2,
-          "max": 5,
-          "note": "SPY 대비 합성 -4.3%p (1M/3M/6M)"
-        },
-        {
-          "key": "high52w",
-          "label": "52주 고점 근접",
-          "score": 3,
-          "max": 5,
-          "note": "52주 고점 대비 -10.7%"
-        },
-        {
-          "key": "accel",
-          "label": "추세 가속",
-          "score": 0,
-          "max": 5,
-          "note": "3M 가속도 -20.0%p"
-        },
-        {
-          "key": "valuation",
-          "label": "밸류에이션 매력도",
-          "score": 2,
-          "max": 5,
-          "note": "ETF PE 미가용 (중립 2점)"
-        },
-        {
-          "key": "lowvol",
-          "label": "저변동·하방 방어",
-          "score": 1,
-          "max": 5,
-          "note": "실현변동성 29.2% (60일 연율) · MDD -11.9% (중앙값보다 얕음)"
-        },
-        {
-          "key": "riskonoff",
-          "label": "리스크 온/오프 정합성",
-          "score": 3,
-          "max": 5,
-          "note": "중립 (VIX 14.84 · HY 확대)"
-        }
-      ],
-      "source": "결정론적 산출 (퀀트 팩터 스코어카드 v2 — 8항목×5점 100점 환산, 모멘텀 계열 37.5%)"
-    },
-    {
-      "etf": "XLY",
-      "name": "Consumer Discretionary",
-      "score": 48,
-      "maxScore": 100,
-      "rawScore": 19,
-      "rawMax": 40,
-      "verdict": "N",
-      "parts": [
-        {
-          "key": "macro",
-          "label": "매크로 적합도",
-          "score": 2,
-          "max": 5,
-          "note": "국면 선호 섹터 아님 (중립)"
-        },
-        {
-          "key": "sentiment",
-          "label": "센티먼트 정합성",
-          "score": 3,
-          "max": 5,
-          "note": "Neutral 구간(46)"
-        },
-        {
-          "key": "momentum",
-          "label": "상대 모멘텀 합성",
-          "score": 1,
-          "max": 5,
-          "note": "SPY 대비 합성 -7.7%p (1M/3M/6M)"
-        },
-        {
-          "key": "high52w",
-          "label": "52주 고점 근접",
-          "score": 3,
-          "max": 5,
-          "note": "52주 고점 대비 -9.3%"
-        },
-        {
-          "key": "accel",
-          "label": "추세 가속",
-          "score": 2,
-          "max": 5,
-          "note": "3M 가속도 -4.8%p"
-        },
-        {
-          "key": "valuation",
-          "label": "밸류에이션 매력도",
-          "score": 3,
-          "max": 5,
-          "note": "PE 24.5 vs 중앙값 25.0 (0.98배)"
-        },
-        {
-          "key": "lowvol",
-          "label": "저변동·하방 방어",
-          "score": 2,
-          "max": 5,
-          "note": "실현변동성 18.9% (60일 연율) · MDD -15.0%"
-        },
-        {
-          "key": "riskonoff",
-          "label": "리스크 온/오프 정합성",
-          "score": 3,
-          "max": 5,
-          "note": "중립 (VIX 14.84 · HY 확대)"
-        }
-      ],
-      "source": "결정론적 산출 (퀀트 팩터 스코어카드 v2 — 8항목×5점 100점 환산, 모멘텀 계열 37.5%)"
-    },
-    {
-      "etf": "XLRE",
-      "name": "Real Estate",
-      "score": 48,
-      "maxScore": 100,
-      "rawScore": 19,
-      "rawMax": 40,
-      "verdict": "N",
-      "parts": [
-        {
-          "key": "macro",
-          "label": "매크로 적합도",
-          "score": 2,
-          "max": 5,
-          "note": "국면 선호 섹터 아님 (중립)"
-        },
-        {
-          "key": "sentiment",
-          "label": "센티먼트 정합성",
-          "score": 3,
-          "max": 5,
-          "note": "Neutral 구간(46)"
-        },
-        {
-          "key": "momentum",
-          "label": "상대 모멘텀 합성",
-          "score": 1,
-          "max": 5,
-          "note": "SPY 대비 합성 -9.2%p (1M/3M/6M)"
-        },
-        {
-          "key": "high52w",
-          "label": "52주 고점 근접",
-          "score": 3,
-          "max": 5,
-          "note": "52주 고점 대비 -8.1%"
-        },
-        {
-          "key": "accel",
-          "label": "추세 가속",
-          "score": 1,
-          "max": 5,
-          "note": "3M 가속도 -9.0%p"
-        },
-        {
-          "key": "valuation",
-          "label": "밸류에이션 매력도",
-          "score": 1,
-          "max": 5,
-          "note": "PE 29.9 vs 중앙값 25.0 (1.20배)"
-        },
-        {
-          "key": "lowvol",
-          "label": "저변동·하방 방어",
-          "score": 5,
-          "max": 5,
-          "note": "실현변동성 12.7% (60일 연율) · MDD -11.1% (중앙값보다 얕음)"
-        },
-        {
-          "key": "riskonoff",
-          "label": "리스크 온/오프 정합성",
-          "score": 3,
-          "max": 5,
-          "note": "중립 (VIX 14.84 · HY 확대)"
-        }
-      ],
-      "source": "결정론적 산출 (퀀트 팩터 스코어카드 v2 — 8항목×5점 100점 환산, 모멘텀 계열 37.5%)"
-    },
-    {
-      "etf": "XLI",
-      "name": "Industrials",
-      "score": 55,
-      "maxScore": 100,
-      "rawScore": 22,
-      "rawMax": 40,
-      "verdict": "N",
-      "parts": [
-        {
-          "key": "macro",
-          "label": "매크로 적합도",
-          "score": 5,
-          "max": 5,
-          "note": "과열 국면 선호 섹터"
-        },
-        {
-          "key": "sentiment",
-          "label": "센티먼트 정합성",
-          "score": 3,
-          "max": 5,
-          "note": "Neutral 구간(46)"
-        },
-        {
-          "key": "momentum",
-          "label": "상대 모멘텀 합성",
-          "score": 1,
-          "max": 5,
-          "note": "SPY 대비 합성 -9.7%p (1M/3M/6M)"
-        },
-        {
-          "key": "high52w",
-          "label": "52주 고점 근접",
-          "score": 3,
-          "max": 5,
-          "note": "52주 고점 대비 -9.1%"
-        },
-        {
-          "key": "accel",
-          "label": "추세 가속",
-          "score": 0,
-          "max": 5,
-          "note": "3M 가속도 -10.4%p"
-        },
-        {
-          "key": "valuation",
-          "label": "밸류에이션 매력도",
-          "score": 2,
-          "max": 5,
-          "note": "PE 27.5 vs 중앙값 25.0 (1.10배)"
-        },
-        {
-          "key": "lowvol",
-          "label": "저변동·하방 방어",
-          "score": 5,
-          "max": 5,
-          "note": "실현변동성 15.2% (60일 연율) · MDD -12.2% (중앙값보다 얕음)"
-        },
-        {
-          "key": "riskonoff",
-          "label": "리스크 온/오프 정합성",
-          "score": 3,
-          "max": 5,
-          "note": "중립 (VIX 14.84 · HY 확대)"
-        }
-      ],
-      "source": "결정론적 산출 (퀀트 팩터 스코어카드 v2 — 8항목×5점 100점 환산, 모멘텀 계열 37.5%)"
-    },
-    {
-      "etf": "XLU",
-      "name": "Utilities",
       "score": 52,
       "maxScore": 100,
       "rawScore": 21,
@@ -1154,35 +406,783 @@
           "label": "센티먼트 정합성",
           "score": 3,
           "max": 5,
-          "note": "Neutral 구간(46)"
+          "note": "Neutral 구간(45)"
         },
         {
           "key": "momentum",
           "label": "상대 모멘텀 합성",
+          "score": 5,
+          "max": 5,
+          "note": "SPY 대비 합성 +8.6%p (1M/3M/6M)"
+        },
+        {
+          "key": "high52w",
+          "label": "52주 고점 근접",
+          "score": 5,
+          "max": 5,
+          "note": "52주 고점 대비 -2.8%"
+        },
+        {
+          "key": "accel",
+          "label": "추세 가속",
           "score": 0,
           "max": 5,
-          "note": "SPY 대비 합성 -12.5%p (1M/3M/6M)"
+          "note": "3M 가속도 -16.6%p"
+        },
+        {
+          "key": "valuation",
+          "label": "밸류에이션 매력도",
+          "score": 1,
+          "max": 5,
+          "note": "PE 32.1 vs 중앙값 25.0 (1.28배)"
+        },
+        {
+          "key": "lowvol",
+          "label": "저변동·하방 방어",
+          "score": 0,
+          "max": 5,
+          "note": "실현변동성 24.9% (60일 연율) · MDD -15.9%"
+        },
+        {
+          "key": "riskonoff",
+          "label": "리스크 온/오프 정합성",
+          "score": 5,
+          "max": 5,
+          "note": "리스크온 (VIX 15.21 · HY 안정) — 고베타 우위 (β 1.75)"
+        }
+      ],
+      "source": "결정론적 산출 (퀀트 팩터 스코어카드 v2 — 8항목×5점 100점 환산, 모멘텀 계열 37.5%)"
+    },
+    {
+      "etf": "XLV",
+      "name": "Healthcare",
+      "score": 52,
+      "maxScore": 100,
+      "rawScore": 21,
+      "rawMax": 40,
+      "verdict": "N",
+      "parts": [
+        {
+          "key": "macro",
+          "label": "매크로 적합도",
+          "score": 2,
+          "max": 5,
+          "note": "국면 선호 섹터 아님 (중립)"
+        },
+        {
+          "key": "sentiment",
+          "label": "센티먼트 정합성",
+          "score": 3,
+          "max": 5,
+          "note": "Neutral 구간(45)"
+        },
+        {
+          "key": "momentum",
+          "label": "상대 모멘텀 합성",
+          "score": 4,
+          "max": 5,
+          "note": "SPY 대비 합성 +2.5%p (1M/3M/6M)"
+        },
+        {
+          "key": "high52w",
+          "label": "52주 고점 근접",
+          "score": 4,
+          "max": 5,
+          "note": "52주 고점 대비 -3.1%"
+        },
+        {
+          "key": "accel",
+          "label": "추세 가속",
+          "score": 3,
+          "max": 5,
+          "note": "3M 가속도 +0.2%p"
+        },
+        {
+          "key": "valuation",
+          "label": "밸류에이션 매력도",
+          "score": 1,
+          "max": 5,
+          "note": "PE 30.3 vs 중앙값 25.0 (1.21배)"
+        },
+        {
+          "key": "lowvol",
+          "label": "저변동·하방 방어",
+          "score": 3,
+          "max": 5,
+          "note": "실현변동성 16.4% (60일 연율) · MDD -10.5% (중앙값보다 얕음)"
+        },
+        {
+          "key": "riskonoff",
+          "label": "리스크 온/오프 정합성",
+          "score": 1,
+          "max": 5,
+          "note": "리스크온 (VIX 15.21 · HY 안정) — 고베타 우위 (β 0.27)"
+        }
+      ],
+      "source": "결정론적 산출 (퀀트 팩터 스코어카드 v2 — 8항목×5점 100점 환산, 모멘텀 계열 37.5%)"
+    },
+    {
+      "etf": "XLP",
+      "name": "Consumer Staples",
+      "score": 55,
+      "maxScore": 100,
+      "rawScore": 22,
+      "rawMax": 40,
+      "verdict": "N",
+      "parts": [
+        {
+          "key": "macro",
+          "label": "매크로 적합도",
+          "score": 2,
+          "max": 5,
+          "note": "국면 선호 섹터 아님 (중립)"
+        },
+        {
+          "key": "sentiment",
+          "label": "센티먼트 정합성",
+          "score": 3,
+          "max": 5,
+          "note": "Neutral 구간(45)"
+        },
+        {
+          "key": "momentum",
+          "label": "상대 모멘텀 합성",
+          "score": 2,
+          "max": 5,
+          "note": "SPY 대비 합성 -3.4%p (1M/3M/6M)"
+        },
+        {
+          "key": "high52w",
+          "label": "52주 고점 근접",
+          "score": 4,
+          "max": 5,
+          "note": "52주 고점 대비 -4.7%"
+        },
+        {
+          "key": "accel",
+          "label": "추세 가속",
+          "score": 2,
+          "max": 5,
+          "note": "3M 가속도 -1.7%p"
+        },
+        {
+          "key": "valuation",
+          "label": "밸류에이션 매력도",
+          "score": 3,
+          "max": 5,
+          "note": "PE 25.0 vs 중앙값 25.0 (1.00배)"
+        },
+        {
+          "key": "lowvol",
+          "label": "저변동·하방 방어",
+          "score": 5,
+          "max": 5,
+          "note": "실현변동성 14.6% (60일 연율) · MDD -9.7% (중앙값보다 얕음)"
+        },
+        {
+          "key": "riskonoff",
+          "label": "리스크 온/오프 정합성",
+          "score": 1,
+          "max": 5,
+          "note": "리스크온 (VIX 15.21 · HY 안정) — 고베타 우위 (β -0.05)"
+        }
+      ],
+      "source": "결정론적 산출 (퀀트 팩터 스코어카드 v2 — 8항목×5점 100점 환산, 모멘텀 계열 37.5%)"
+    },
+    {
+      "etf": "SMH",
+      "name": "Semiconductors",
+      "score": 45,
+      "maxScore": 100,
+      "rawScore": 18,
+      "rawMax": 40,
+      "verdict": "N",
+      "parts": [
+        {
+          "key": "macro",
+          "label": "매크로 적합도",
+          "score": 2,
+          "max": 5,
+          "note": "국면 선호 섹터 아님 (중립)"
+        },
+        {
+          "key": "sentiment",
+          "label": "센티먼트 정합성",
+          "score": 3,
+          "max": 5,
+          "note": "Neutral 구간(45)"
+        },
+        {
+          "key": "momentum",
+          "label": "상대 모멘텀 합성",
+          "score": 4,
+          "max": 5,
+          "note": "SPY 대비 합성 +4.0%p (1M/3M/6M)"
         },
         {
           "key": "high52w",
           "label": "52주 고점 근접",
           "score": 3,
           "max": 5,
-          "note": "52주 고점 대비 -11.0%"
+          "note": "52주 고점 대비 -12.1%"
         },
         {
           "key": "accel",
           "label": "추세 가속",
+          "score": 0,
+          "max": 5,
+          "note": "3M 가속도 -31.0%p"
+        },
+        {
+          "key": "valuation",
+          "label": "밸류에이션 매력도",
           "score": 1,
           "max": 5,
-          "note": "3M 가속도 -7.4%p"
+          "note": "PE 31.4 vs 중앙값 25.0 (1.26배)"
+        },
+        {
+          "key": "lowvol",
+          "label": "저변동·하방 방어",
+          "score": 0,
+          "max": 5,
+          "note": "실현변동성 37.0% (60일 연율) · MDD -24.6%"
+        },
+        {
+          "key": "riskonoff",
+          "label": "리스크 온/오프 정합성",
+          "score": 5,
+          "max": 5,
+          "note": "리스크온 (VIX 15.21 · HY 안정) — 고베타 우위 (β 2.36)"
+        }
+      ],
+      "source": "결정론적 산출 (퀀트 팩터 스코어카드 v2 — 8항목×5점 100점 환산, 모멘텀 계열 37.5%)"
+    },
+    {
+      "etf": "XLC",
+      "name": "Communication Services",
+      "score": 55,
+      "maxScore": 100,
+      "rawScore": 22,
+      "rawMax": 40,
+      "verdict": "N",
+      "parts": [
+        {
+          "key": "macro",
+          "label": "매크로 적합도",
+          "score": 2,
+          "max": 5,
+          "note": "국면 선호 섹터 아님 (중립)"
+        },
+        {
+          "key": "sentiment",
+          "label": "센티먼트 정합성",
+          "score": 3,
+          "max": 5,
+          "note": "Neutral 구간(45)"
+        },
+        {
+          "key": "momentum",
+          "label": "상대 모멘텀 합성",
+          "score": 1,
+          "max": 5,
+          "note": "SPY 대비 합성 -7.1%p (1M/3M/6M)"
+        },
+        {
+          "key": "high52w",
+          "label": "52주 고점 근접",
+          "score": 4,
+          "max": 5,
+          "note": "52주 고점 대비 -5.6%"
+        },
+        {
+          "key": "accel",
+          "label": "추세 가속",
+          "score": 3,
+          "max": 5,
+          "note": "3M 가속도 +1.8%p"
         },
         {
           "key": "valuation",
           "label": "밸류에이션 매력도",
           "score": 5,
           "max": 5,
-          "note": "PE 18.7 vs 중앙값 25.0 (0.75배)"
+          "note": "PE 16.5 vs 중앙값 25.0 (0.66배)"
+        },
+        {
+          "key": "lowvol",
+          "label": "저변동·하방 방어",
+          "score": 3,
+          "max": 5,
+          "note": "실현변동성 20.6% (60일 연율) · MDD -11.7% (중앙값보다 얕음)"
+        },
+        {
+          "key": "riskonoff",
+          "label": "리스크 온/오프 정합성",
+          "score": 1,
+          "max": 5,
+          "note": "리스크온 (VIX 15.21 · HY 안정) — 고베타 우위 (β 0.68)"
+        }
+      ],
+      "source": "결정론적 산출 (퀀트 팩터 스코어카드 v2 — 8항목×5점 100점 환산, 모멘텀 계열 37.5%)"
+    },
+    {
+      "etf": "XLB",
+      "name": "Materials",
+      "score": 60,
+      "maxScore": 100,
+      "rawScore": 24,
+      "rawMax": 40,
+      "verdict": "N",
+      "parts": [
+        {
+          "key": "macro",
+          "label": "매크로 적합도",
+          "score": 5,
+          "max": 5,
+          "note": "과열 국면 선호 섹터"
+        },
+        {
+          "key": "sentiment",
+          "label": "센티먼트 정합성",
+          "score": 3,
+          "max": 5,
+          "note": "Neutral 구간(45)"
+        },
+        {
+          "key": "momentum",
+          "label": "상대 모멘텀 합성",
+          "score": 1,
+          "max": 5,
+          "note": "SPY 대비 합성 -7.2%p (1M/3M/6M)"
+        },
+        {
+          "key": "high52w",
+          "label": "52주 고점 근접",
+          "score": 4,
+          "max": 5,
+          "note": "52주 고점 대비 -6.9%"
+        },
+        {
+          "key": "accel",
+          "label": "추세 가속",
+          "score": 3,
+          "max": 5,
+          "note": "3M 가속도 +1.4%p"
+        },
+        {
+          "key": "valuation",
+          "label": "밸류에이션 매력도",
+          "score": 4,
+          "max": 5,
+          "note": "PE 23.2 vs 중앙값 25.0 (0.93배)"
+        },
+        {
+          "key": "lowvol",
+          "label": "저변동·하방 방어",
+          "score": 3,
+          "max": 5,
+          "note": "실현변동성 16.3% (60일 연율) · MDD -12.4% (중앙값보다 얕음)"
+        },
+        {
+          "key": "riskonoff",
+          "label": "리스크 온/오프 정합성",
+          "score": 1,
+          "max": 5,
+          "note": "리스크온 (VIX 15.21 · HY 안정) — 고베타 우위 (β 0.73)"
+        }
+      ],
+      "source": "결정론적 산출 (퀀트 팩터 스코어카드 v2 — 8항목×5점 100점 환산, 모멘텀 계열 37.5%)"
+    },
+    {
+      "etf": "XLF",
+      "name": "Financials",
+      "score": 50,
+      "maxScore": 100,
+      "rawScore": 20,
+      "rawMax": 40,
+      "verdict": "N",
+      "parts": [
+        {
+          "key": "macro",
+          "label": "매크로 적합도",
+          "score": 2,
+          "max": 5,
+          "note": "국면 선호 섹터 아님 (중립)"
+        },
+        {
+          "key": "sentiment",
+          "label": "센티먼트 정합성",
+          "score": 3,
+          "max": 5,
+          "note": "Neutral 구간(45)"
+        },
+        {
+          "key": "momentum",
+          "label": "상대 모멘텀 합성",
+          "score": 1,
+          "max": 5,
+          "note": "SPY 대비 합성 -6.0%p (1M/3M/6M)"
+        },
+        {
+          "key": "high52w",
+          "label": "52주 고점 근접",
+          "score": 4,
+          "max": 5,
+          "note": "52주 고점 대비 -6.1%"
+        },
+        {
+          "key": "accel",
+          "label": "추세 가속",
+          "score": 0,
+          "max": 5,
+          "note": "3M 가속도 -12.1%p"
+        },
+        {
+          "key": "valuation",
+          "label": "밸류에이션 매력도",
+          "score": 5,
+          "max": 5,
+          "note": "PE 15.6 vs 중앙값 25.0 (0.62배)"
+        },
+        {
+          "key": "lowvol",
+          "label": "저변동·하방 방어",
+          "score": 4,
+          "max": 5,
+          "note": "실현변동성 12.2% (60일 연율) · MDD -14.8%"
+        },
+        {
+          "key": "riskonoff",
+          "label": "리스크 온/오프 정합성",
+          "score": 1,
+          "max": 5,
+          "note": "리스크온 (VIX 15.21 · HY 안정) — 고베타 우위 (β 0.61)"
+        }
+      ],
+      "source": "결정론적 산출 (퀀트 팩터 스코어카드 v2 — 8항목×5점 100점 환산, 모멘텀 계열 37.5%)"
+    },
+    {
+      "etf": "XLY",
+      "name": "Consumer Discretionary",
+      "score": 52,
+      "maxScore": 100,
+      "rawScore": 21,
+      "rawMax": 40,
+      "verdict": "N",
+      "parts": [
+        {
+          "key": "macro",
+          "label": "매크로 적합도",
+          "score": 2,
+          "max": 5,
+          "note": "국면 선호 섹터 아님 (중립)"
+        },
+        {
+          "key": "sentiment",
+          "label": "센티먼트 정합성",
+          "score": 3,
+          "max": 5,
+          "note": "Neutral 구간(45)"
+        },
+        {
+          "key": "momentum",
+          "label": "상대 모멘텀 합성",
+          "score": 1,
+          "max": 5,
+          "note": "SPY 대비 합성 -8.1%p (1M/3M/6M)"
+        },
+        {
+          "key": "high52w",
+          "label": "52주 고점 근접",
+          "score": 3,
+          "max": 5,
+          "note": "52주 고점 대비 -9.2%"
+        },
+        {
+          "key": "accel",
+          "label": "추세 가속",
+          "score": 2,
+          "max": 5,
+          "note": "3M 가속도 -4.4%p"
+        },
+        {
+          "key": "valuation",
+          "label": "밸류에이션 매력도",
+          "score": 3,
+          "max": 5,
+          "note": "PE 24.8 vs 중앙값 25.0 (0.99배)"
+        },
+        {
+          "key": "lowvol",
+          "label": "저변동·하방 방어",
+          "score": 2,
+          "max": 5,
+          "note": "실현변동성 18.9% (60일 연율) · MDD -15.0%"
+        },
+        {
+          "key": "riskonoff",
+          "label": "리스크 온/오프 정합성",
+          "score": 5,
+          "max": 5,
+          "note": "리스크온 (VIX 15.21 · HY 안정) — 고베타 우위 (β 1.16)"
+        }
+      ],
+      "source": "결정론적 산출 (퀀트 팩터 스코어카드 v2 — 8항목×5점 100점 환산, 모멘텀 계열 37.5%)"
+    },
+    {
+      "etf": "XLRE",
+      "name": "Real Estate",
+      "score": 42,
+      "maxScore": 100,
+      "rawScore": 17,
+      "rawMax": 40,
+      "verdict": "N",
+      "parts": [
+        {
+          "key": "macro",
+          "label": "매크로 적합도",
+          "score": 2,
+          "max": 5,
+          "note": "국면 선호 섹터 아님 (중립)"
+        },
+        {
+          "key": "sentiment",
+          "label": "센티먼트 정합성",
+          "score": 3,
+          "max": 5,
+          "note": "Neutral 구간(45)"
+        },
+        {
+          "key": "momentum",
+          "label": "상대 모멘텀 합성",
+          "score": 1,
+          "max": 5,
+          "note": "SPY 대비 합성 -9.2%p (1M/3M/6M)"
+        },
+        {
+          "key": "high52w",
+          "label": "52주 고점 근접",
+          "score": 3,
+          "max": 5,
+          "note": "52주 고점 대비 -8.3%"
+        },
+        {
+          "key": "accel",
+          "label": "추세 가속",
+          "score": 1,
+          "max": 5,
+          "note": "3M 가속도 -8.7%p"
+        },
+        {
+          "key": "valuation",
+          "label": "밸류에이션 매력도",
+          "score": 1,
+          "max": 5,
+          "note": "PE 29.9 vs 중앙값 25.0 (1.20배)"
+        },
+        {
+          "key": "lowvol",
+          "label": "저변동·하방 방어",
+          "score": 5,
+          "max": 5,
+          "note": "실현변동성 12.6% (60일 연율) · MDD -11.1% (중앙값보다 얕음)"
+        },
+        {
+          "key": "riskonoff",
+          "label": "리스크 온/오프 정합성",
+          "score": 1,
+          "max": 5,
+          "note": "리스크온 (VIX 15.21 · HY 안정) — 고베타 우위 (β 0.29)"
+        }
+      ],
+      "source": "결정론적 산출 (퀀트 팩터 스코어카드 v2 — 8항목×5점 100점 환산, 모멘텀 계열 37.5%)"
+    },
+    {
+      "etf": "XBI",
+      "name": "Biotech",
+      "score": 35,
+      "maxScore": 100,
+      "rawScore": 14,
+      "rawMax": 40,
+      "verdict": "UW",
+      "parts": [
+        {
+          "key": "macro",
+          "label": "매크로 적합도",
+          "score": 2,
+          "max": 5,
+          "note": "국면 선호 섹터 아님 (중립)"
+        },
+        {
+          "key": "sentiment",
+          "label": "센티먼트 정합성",
+          "score": 3,
+          "max": 5,
+          "note": "Neutral 구간(45)"
+        },
+        {
+          "key": "momentum",
+          "label": "상대 모멘텀 합성",
+          "score": 1,
+          "max": 5,
+          "note": "SPY 대비 합성 -8.1%p (1M/3M/6M)"
+        },
+        {
+          "key": "high52w",
+          "label": "52주 고점 근접",
+          "score": 3,
+          "max": 5,
+          "note": "52주 고점 대비 -13.4%"
+        },
+        {
+          "key": "accel",
+          "label": "추세 가속",
+          "score": 0,
+          "max": 5,
+          "note": "3M 가속도 -20.3%p"
+        },
+        {
+          "key": "valuation",
+          "label": "밸류에이션 매력도",
+          "score": 2,
+          "max": 5,
+          "note": "ETF PE 미가용 (중립 2점)"
+        },
+        {
+          "key": "lowvol",
+          "label": "저변동·하방 방어",
+          "score": 0,
+          "max": 5,
+          "note": "실현변동성 29.5% (60일 연율) · MDD -13.4%"
+        },
+        {
+          "key": "riskonoff",
+          "label": "리스크 온/오프 정합성",
+          "score": 3,
+          "max": 5,
+          "note": "리스크온 (VIX 15.21 · HY 안정) — 고베타 우위 (β 1.07)"
+        }
+      ],
+      "source": "결정론적 산출 (퀀트 팩터 스코어카드 v2 — 8항목×5점 100점 환산, 모멘텀 계열 37.5%)"
+    },
+    {
+      "etf": "XLI",
+      "name": "Industrials",
+      "score": 57,
+      "maxScore": 100,
+      "rawScore": 23,
+      "rawMax": 40,
+      "verdict": "N",
+      "parts": [
+        {
+          "key": "macro",
+          "label": "매크로 적합도",
+          "score": 5,
+          "max": 5,
+          "note": "과열 국면 선호 섹터"
+        },
+        {
+          "key": "sentiment",
+          "label": "센티먼트 정합성",
+          "score": 3,
+          "max": 5,
+          "note": "Neutral 구간(45)"
+        },
+        {
+          "key": "momentum",
+          "label": "상대 모멘텀 합성",
+          "score": 1,
+          "max": 5,
+          "note": "SPY 대비 합성 -9.1%p (1M/3M/6M)"
+        },
+        {
+          "key": "high52w",
+          "label": "52주 고점 근접",
+          "score": 3,
+          "max": 5,
+          "note": "52주 고점 대비 -9.3%"
+        },
+        {
+          "key": "accel",
+          "label": "추세 가속",
+          "score": 1,
+          "max": 5,
+          "note": "3M 가속도 -9.9%p"
+        },
+        {
+          "key": "valuation",
+          "label": "밸류에이션 매력도",
+          "score": 2,
+          "max": 5,
+          "note": "PE 27.7 vs 중앙값 25.0 (1.11배)"
+        },
+        {
+          "key": "lowvol",
+          "label": "저변동·하방 방어",
+          "score": 5,
+          "max": 5,
+          "note": "실현변동성 15.1% (60일 연율) · MDD -12.2% (중앙값보다 얕음)"
+        },
+        {
+          "key": "riskonoff",
+          "label": "리스크 온/오프 정합성",
+          "score": 3,
+          "max": 5,
+          "note": "리스크온 (VIX 15.21 · HY 안정) — 고베타 우위 (β 0.95)"
+        }
+      ],
+      "source": "결정론적 산출 (퀀트 팩터 스코어카드 v2 — 8항목×5점 100점 환산, 모멘텀 계열 37.5%)"
+    },
+    {
+      "etf": "XLU",
+      "name": "Utilities",
+      "score": 50,
+      "maxScore": 100,
+      "rawScore": 20,
+      "rawMax": 40,
+      "verdict": "N",
+      "parts": [
+        {
+          "key": "macro",
+          "label": "매크로 적합도",
+          "score": 2,
+          "max": 5,
+          "note": "국면 선호 섹터 아님 (중립)"
+        },
+        {
+          "key": "sentiment",
+          "label": "센티먼트 정합성",
+          "score": 3,
+          "max": 5,
+          "note": "Neutral 구간(45)"
+        },
+        {
+          "key": "momentum",
+          "label": "상대 모멘텀 합성",
+          "score": 0,
+          "max": 5,
+          "note": "SPY 대비 합성 -10.8%p (1M/3M/6M)"
+        },
+        {
+          "key": "high52w",
+          "label": "52주 고점 근접",
+          "score": 3,
+          "max": 5,
+          "note": "52주 고점 대비 -10.4%"
+        },
+        {
+          "key": "accel",
+          "label": "추세 가속",
+          "score": 2,
+          "max": 5,
+          "note": "3M 가속도 -4.8%p"
+        },
+        {
+          "key": "valuation",
+          "label": "밸류에이션 매력도",
+          "score": 5,
+          "max": 5,
+          "note": "PE 19.0 vs 중앙값 25.0 (0.76배)"
         },
         {
           "key": "lowvol",
@@ -1194,9 +1194,9 @@
         {
           "key": "riskonoff",
           "label": "리스크 온/오프 정합성",
-          "score": 3,
+          "score": 1,
           "max": 5,
-          "note": "중립 (VIX 14.84 · HY 확대)"
+          "note": "리스크온 (VIX 15.21 · HY 안정) — 고베타 우위 (β 0.15)"
         }
       ],
       "source": "결정론적 산출 (퀀트 팩터 스코어카드 v2 — 8항목×5점 100점 환산, 모멘텀 계열 37.5%)"
@@ -1206,15 +1206,15 @@
     {
       "name": "Energy",
       "etf": "XLE",
-      "rationale": "과열 국면 선호 섹터로, 52주 고점 근접 및 밸류에이션 매력이 돋보여 OW 판정.",
+      "rationale": "과열 국면 선호 섹터로서 매크로 적합도가 매우 높으며, 52주 고점 근접 및 강력한 상대 모멘텀을 보유하고 있어 OW 판정을 유지합니다.",
       "recommend": "OW",
-      "score": 78,
+      "score": 72,
       "maxScore": 100
     },
     {
-      "name": "Healthcare",
-      "etf": "XLV",
-      "rationale": "국면 선호 섹터는 아니나, 상대 모멘텀이 양호하고 하방 방어력이 확보되어 중립 의견 유지.",
+      "name": "Materials",
+      "etf": "XLB",
+      "rationale": "과열 국면 선호 섹터로 매크로 적합도는 높으나, 상대 모멘텀이 다소 부진하여 N 판정을 유지합니다.",
       "recommend": "N",
       "score": 60,
       "maxScore": 100
@@ -1222,89 +1222,89 @@
     {
       "name": "Technology",
       "etf": "XLK",
-      "rationale": "밸류에이션 부담과 추세 가속도 둔화로 인해 상승 탄력이 제한적임.",
+      "rationale": "강한 상대 모멘텀을 보유하고 있으나, 높은 밸류에이션과 변동성으로 인해 N 판정을 유지합니다.",
       "recommend": "N",
-      "score": 45,
+      "score": 52,
+      "maxScore": 100
+    },
+    {
+      "name": "Healthcare",
+      "etf": "XLV",
+      "rationale": "방어적 특성을 갖추고 있으나, 밸류에이션 부담이 존재하여 N 판정을 유지합니다.",
+      "recommend": "N",
+      "score": 52,
       "maxScore": 100
     },
     {
       "name": "Consumer Staples",
       "etf": "XLP",
-      "rationale": "저변동성 및 하방 방어력은 우수하나, 상대 모멘텀이 약해 중립 의견.",
+      "rationale": "저변동성 및 하방 방어력이 우수하여 시장 불안기에 적합하나, 모멘텀 부족으로 N 판정을 유지합니다.",
       "recommend": "N",
-      "score": 60,
-      "maxScore": 100
-    },
-    {
-      "name": "Communication Services",
-      "etf": "XLC",
-      "rationale": "밸류에이션 매력은 높으나 상대 모멘텀이 부진하여 중립 의견.",
-      "recommend": "N",
-      "score": 62,
+      "score": 55,
       "maxScore": 100
     },
     {
       "name": "Semiconductors",
       "etf": "SMH",
-      "rationale": "밸류에이션 부담과 높은 변동성, 추세 가속도 급락으로 인해 하방 리스크가 커 UW 판정.",
-      "recommend": "UW",
-      "score": 38,
+      "rationale": "높은 변동성과 추세 가속도 둔화, 밸류에이션 부담으로 인해 N 판정을 유지합니다.",
+      "recommend": "N",
+      "score": 45,
+      "maxScore": 100
+    },
+    {
+      "name": "Communication Services",
+      "etf": "XLC",
+      "rationale": "밸류에이션 매력도는 높으나, 상대 모멘텀이 약해 N 판정을 유지합니다.",
+      "recommend": "N",
+      "score": 55,
       "maxScore": 100
     },
     {
       "name": "Financials",
       "etf": "XLF",
-      "rationale": "밸류에이션은 매력적이나 상대 모멘텀이 약해 중립 의견.",
+      "rationale": "밸류에이션은 매력적이나, 상대 모멘텀과 추세 가속도가 부진하여 N 판정을 유지합니다.",
       "recommend": "N",
-      "score": 55,
-      "maxScore": 100
-    },
-    {
-      "name": "Materials",
-      "etf": "XLB",
-      "rationale": "과열 국면 선호 섹터이나 상대 모멘텀이 부진하여 중립 의견.",
-      "recommend": "N",
-      "score": 62,
-      "maxScore": 100
-    },
-    {
-      "name": "Biotech",
-      "etf": "XBI",
-      "rationale": "높은 변동성과 추세 가속도 둔화로 인해 중립 의견.",
-      "recommend": "N",
-      "score": 40,
+      "score": 50,
       "maxScore": 100
     },
     {
       "name": "Consumer Discretionary",
       "etf": "XLY",
-      "rationale": "상대 모멘텀이 약하고 추세 가속도가 낮아 중립 의견.",
+      "rationale": "고베타 섹터로서 시장 변동성에 민감하며, 모멘텀이 약해 N 판정을 유지합니다.",
       "recommend": "N",
-      "score": 48,
+      "score": 52,
       "maxScore": 100
     },
     {
       "name": "Real Estate",
       "etf": "XLRE",
-      "rationale": "하방 방어력은 있으나 밸류에이션 부담과 모멘텀 부재로 중립 의견.",
+      "rationale": "하방 방어력은 있으나, 밸류에이션 부담과 모멘텀 부재로 N 판정을 유지합니다.",
       "recommend": "N",
-      "score": 48,
+      "score": 42,
+      "maxScore": 100
+    },
+    {
+      "name": "Biotech",
+      "etf": "XBI",
+      "rationale": "상대 모멘텀이 매우 약하고 변동성이 커 UW 판정을 유지합니다.",
+      "recommend": "UW",
+      "score": 35,
       "maxScore": 100
     },
     {
       "name": "Industrials",
       "etf": "XLI",
-      "rationale": "과열 국면 선호 섹터이나 상대 모멘텀이 부진하여 중립 의견.",
+      "rationale": "과열 국면 선호 섹터이나, 모멘텀과 추세 가속도가 부진하여 N 판정을 유지합니다.",
       "recommend": "N",
-      "score": 55,
+      "score": 57,
       "maxScore": 100
     },
     {
       "name": "Utilities",
       "etf": "XLU",
-      "rationale": "밸류에이션 매력은 있으나 상대 모멘텀이 매우 부진하여 중립 의견.",
+      "rationale": "밸류에이션 매력은 있으나, 모멘텀이 약해 N 판정을 유지합니다.",
       "recommend": "N",
-      "score": 52,
+      "score": 50,
       "maxScore": 100
     }
   ],
@@ -1313,24 +1313,32 @@
       "usTheme": "에너지",
       "usSymbols": [
         "COP",
-        "XOM",
         "EOG",
         "CVX",
+        "XOM",
         "SLB"
       ],
       "krTheme": "정유·에너지",
-      "rationale": "중동 지정학적 리스크로 인한 국제유가 상승세가 국내 정유·에너지 관련주에 대한 투자 심리를 자극할 것으로 예상됨.",
+      "rationale": "미국 에너지 섹터(XLE)가 1.8% 상승하며 강세를 보였고, 이는 국내 정유·에너지 관련주의 동조화 흐름을 견인할 것으로 기대됨.",
       "direction": "up",
       "etf": "XLE",
       "industryReports": [
+        {
+          "category": "석유화학",
+          "title": "정유화학 Weekly - 디젤 공급난이 흔드는 미국 시장",
+          "broker": "유진투자증권",
+          "date": "2026-10-13",
+          "url": "https://stock.naver.com/research/industry/46444",
+          "pdfUrl": "",
+          "summary": "주간 주요 제품 가격변화 - 정유:WTI(-1.3%), 휘발유(+1.4%), 등유(+1.0%), 경유(-2.6%), 고유황중유(+5.8%) - 화학: 납사(+8.0%), 에탄(+7.7%), TPA(+6.9%), 프로판(+6.7%), 프로필렌(-5.5%) - 태양광: 알루미늄(-1.7%), 메탈실리콘(+0.0%), 모듈(-0.0%"
+        },
         {
           "category": "에너지",
           "title": "러시아 디젤 수입마저 허용한 미국",
           "broker": "하나증권",
           "date": "2026-10-12",
           "url": "https://stock.naver.com/research/industry/46433",
-          "pdfUrl": "",
-          "summary": "Weekly Issue: 러시아 디젤 수입마저 허용한 미국 ▶ 총평 - WTI 91.9$(+0.8%), Dubai 108.5$ (-0.3%). 정제마진 37.1$(WoW -0.3$) - 석유화학 강세. 프로필렌/벤젠 +6%, PP/PX +5%, LDPE/LLDPE/PTA +4% 등이 눈에 띔 - Top Picks: SK이노베이션, S-Oil, OCI홀딩스, 한화솔루션"
+          "pdfUrl": ""
         },
         {
           "category": "에너지",
@@ -1339,246 +1347,238 @@
           "date": "2026-10-12",
           "url": "https://stock.naver.com/research/industry/46428",
           "pdfUrl": "",
-          "llmSummary": "국내 재생에너지 100GW 달성을 위한 연도별 목표치가 처음 제시되었으며, 10년간 1,000조 원 투입 및 공급망 지원이 추진됩니다. 미국 등 주요국은 중국산 태양광 패널의 과잉생산에 공동 대응하기로 합의했으나, 미국 내 태양광 증설 계획의 상당수는 자금 미확보로 좌초 위기에 처해 있습니다."
-        },
-        {
-          "category": "에너지",
-          "title": "Next Energy(Power & Battery Weekly) - ESS, 가스 발전의 경제성을 앞서기 시작",
-          "broker": "유진투자증권",
-          "date": "2026-10-12",
-          "url": "https://stock.naver.com/research/industry/46414",
-          "pdfUrl": ""
+          "llmSummary": "국내 재생에너지 100GW 달성을 위한 연도별 목표가 처음 제시되었으며, K-GX를 통해 공급망 지원이 강화될 전망이다. 태양광 분야는 중국산 공급과잉에 대응하기 위한 주요국 간 공조가 확대되는 추세이며, 미국 내 태양광 제조는 발표된 증설 계획 대비 실제 생산 역량이 부족한 상황이다."
         }
       ],
       "stocks": [
         {
-          "code": "078930",
-          "name": "GS",
-          "market": "KOSPI",
-          "per": 4.07,
-          "pbr": 0.58,
-          "roe": 13.3,
-          "revGrowth": 24.9,
-          "beta": 0.56,
-          "debtToEquity": 39.4,
-          "marketCap": 9543256899584,
-          "ret1M": -16.06,
-          "ret3M": 33.16,
-          "ret6M": 65.61,
-          "tradingValue20": 44920454480,
-          "price": 104000,
-          "from52WHigh": -21.9,
-          "analystCount": 6,
-          "targetUpside": 36.4,
-          "estPer": 3.77,
-          "industryPer": 9.03,
-          "industryChangePct": -4.22,
-          "dividendYield": 2.99,
-          "targetSource": "야후 애널리스트 6명 평균",
-          "opGrowth": 253.39,
-          "epsGrowth": 2684.56,
-          "opMargin": 23.17,
-          "interestCoverage": 7.68,
-          "rel1M": -15.14,
-          "rel3M": 50.86,
-          "rel6M": 39.02,
-          "researchCount": 0,
-          "flowFrgn5": 0.18,
-          "flowFrgn20": 1.906,
-          "flowInst5": -0.261,
-          "flowInst20": -1.735,
-          "qScore": 72,
-          "qParts": {
-            "momentum": 62,
-            "valuation": 98,
-            "growth": 90,
-            "health": 79,
-            "sentiment": 0,
-            "flow": 48
-          },
-          "recentFiling": {
-            "date": "2026-10-08",
-            "title": "증권신고서(채무증권)",
-            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261008000679"
-          },
-          "point": "낮은 PER과 높은 영업이익률로 밸류에이션 매력 부각.",
-          "risk": "유가 변동성에 따른 실적 가변성 존재."
-        },
-        {
-          "code": "010950",
-          "name": "S-Oil",
-          "market": "KOSPI",
-          "per": 12.23,
-          "pbr": 1.84,
-          "roe": 16.3,
-          "revGrowth": 40.9,
-          "beta": 0.8,
-          "debtToEquity": 90.0,
-          "marketCap": 18522524614656,
-          "ret1M": 7.25,
-          "ret3M": 45.13,
-          "ret6M": 59.8,
-          "tradingValue20": 62812845565,
-          "price": 168700,
-          "from52WHigh": -4.7,
-          "analystCount": 18,
-          "targetUpside": 7.5,
-          "estPer": 5.86,
-          "industryPer": 9.03,
-          "industryChangePct": -4.22,
-          "dividendYield": 0.21,
-          "targetSource": "야후 애널리스트 18명 평균",
-          "opGrowth": -44.19,
-          "epsGrowth": -54.91,
-          "opMargin": 8.51,
-          "interestCoverage": 0.85,
-          "rel1M": 8.17,
-          "rel3M": 62.83,
-          "rel6M": 33.21,
-          "researchCount": 1,
-          "flowFrgn5": 0.071,
-          "flowFrgn20": 0.518,
-          "flowInst5": 0.163,
-          "flowInst20": 0.007,
-          "qScore": 59,
-          "qParts": {
-            "momentum": 88,
-            "valuation": 60,
-            "growth": 33,
-            "health": 46,
-            "sentiment": 25,
-            "flow": 62
-          },
-          "recentFiling": {
-            "date": "2026-10-06",
-            "title": "임원ㆍ주요주주특정증권등소유상황보고서",
-            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261006000181"
-          },
-          "point": "국제유가 상승에 따른 정제마진 개선 기대.",
-          "risk": "EPS 성장률 둔화 및 업황 사이클 민감도."
-        },
-        {
-          "code": "096770",
-          "name": "SK이노베이션",
-          "market": "KOSPI",
-          "per": null,
-          "pbr": 0.99,
-          "roe": -8.0,
-          "revGrowth": 49.9,
-          "beta": 1.41,
-          "debtToEquity": 105.0,
-          "marketCap": 26001870422016,
-          "ret1M": 16.34,
-          "ret3M": 66.74,
-          "ret6M": 39.31,
-          "tradingValue20": 152025039490,
-          "price": 160900,
-          "from52WHigh": -2.3,
-          "analystCount": 19,
-          "targetUpside": 13.5,
-          "estPer": 7.87,
-          "industryPer": 9.03,
-          "industryChangePct": -4.22,
-          "targetSource": "야후 애널리스트 19명 평균",
-          "opGrowth": -95.08,
-          "epsGrowth": -83.94,
-          "opMargin": 11.96,
-          "interestCoverage": 9.26,
-          "fwdPer": 9.8,
-          "rel1M": 17.26,
-          "rel3M": 84.44,
-          "rel6M": 12.72,
-          "researchCount": 7,
-          "flowFrgn5": 0.205,
-          "flowFrgn20": 1.21,
-          "flowInst5": 0.51,
-          "flowInst20": 0.533,
-          "qScore": 69,
-          "qParts": {
-            "momentum": 87,
-            "valuation": 72,
-            "growth": 33,
-            "health": 53,
-            "sentiment": 100,
-            "flow": 87
-          },
-          "recentFiling": {
-            "date": "2026-10-12",
-            "title": "[기재정정]단일판매ㆍ공급계약체결(자회사의 주요경영사항)              ",
-            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261012800752"
-          },
-          "point": "에너지 사업부의 견조한 수익성 및 신사업 확장.",
-          "risk": "높은 부채 비율 및 자회사 경영 리스크."
-        },
-        {
           "code": "047050",
           "name": "포스코인터내셔널",
           "market": "KOSPI",
-          "per": 11.64,
-          "pbr": 1.34,
+          "per": 11.91,
+          "pbr": 1.37,
           "roe": 11.9,
           "revGrowth": 18.4,
           "beta": 1.55,
           "debtToEquity": 100.0,
-          "marketCap": 9340357443584,
-          "ret1M": 4.39,
-          "ret3M": 17.4,
-          "ret6M": -26.16,
-          "tradingValue20": 30740559300,
-          "price": 57100,
-          "from52WHigh": -37.4,
+          "marketCap": 9647157149696,
+          "ret1M": 4.24,
+          "ret3M": 19.36,
+          "ret6M": -27.81,
+          "tradingValue20": 29190382330,
+          "price": 56600,
+          "from52WHigh": -37.9,
           "analystCount": 10,
-          "targetUpside": 53.6,
-          "estPer": 10.3,
-          "industryPer": 13.61,
-          "industryChangePct": -3.11,
-          "dividendYield": 3.38,
+          "targetUpside": 54.9,
+          "estPer": 10.49,
+          "industryPer": 13.2,
+          "industryChangePct": 1.49,
+          "dividendYield": 3.3,
           "targetSource": "야후 애널리스트 10명 평균",
           "opGrowth": 26.89,
           "epsGrowth": 165.48,
           "opMargin": 4.46,
           "interestCoverage": 4.94,
-          "rel1M": 5.31,
-          "rel3M": 35.1,
-          "rel6M": -52.75,
-          "researchCount": 7,
-          "flowFrgn5": 0.041,
-          "flowFrgn20": -0.711,
-          "flowInst5": 0.134,
-          "flowInst20": 0.812,
-          "qScore": 61,
+          "rel1M": 12.98,
+          "rel3M": 35.97,
+          "rel6M": -46.54,
+          "researchCount": 8,
+          "flowFrgn5": -0.018,
+          "flowFrgn20": -0.798,
+          "flowInst5": 0.208,
+          "flowInst20": 0.753,
+          "qScore": 62,
           "qParts": {
-            "momentum": 39,
-            "valuation": 87,
+            "momentum": 44,
+            "valuation": 85,
             "growth": 75,
             "health": 48,
             "sentiment": 100,
-            "flow": 56
+            "flow": 54
           },
           "recentFiling": {
             "date": "2026-10-02",
             "title": "[기재정정]타인에대한채무보증결정              ",
             "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261002800003"
           },
-          "point": "에너지 사업 다각화 및 높은 목표가 괴리율.",
-          "risk": "지정학적 리스크에 따른 공급망 불안."
+          "point": "에너지 사업 확장 및 밸류에이션 매력 보유",
+          "risk": "52주 고점 대비 큰 폭의 하락세 지속"
+        },
+        {
+          "code": "096770",
+          "name": "SK이노베이션",
+          "market": "KOSPI",
+          "per": null,
+          "pbr": 1.01,
+          "roe": -8.0,
+          "revGrowth": 49.9,
+          "beta": 1.41,
+          "debtToEquity": 105.0,
+          "marketCap": 26682547240960,
+          "ret1M": 13.62,
+          "ret3M": 57.11,
+          "ret6M": 27.27,
+          "tradingValue20": 144064219070,
+          "price": 156800,
+          "from52WHigh": -4.8,
+          "analystCount": 19,
+          "targetUpside": 17.5,
+          "estPer": 7.82,
+          "industryPer": 8.67,
+          "industryChangePct": -2.69,
+          "targetSource": "야후 애널리스트 19명 평균",
+          "opGrowth": -95.08,
+          "epsGrowth": -83.94,
+          "opMargin": 11.96,
+          "interestCoverage": 9.26,
+          "fwdPer": 10.05,
+          "rel1M": 22.36,
+          "rel3M": 73.72,
+          "rel6M": 8.54,
+          "researchCount": 7,
+          "flowFrgn5": -0.128,
+          "flowFrgn20": 0.803,
+          "flowInst5": 0.588,
+          "flowInst20": 0.422,
+          "qScore": 67,
+          "qParts": {
+            "momentum": 87,
+            "valuation": 72,
+            "growth": 33,
+            "health": 53,
+            "sentiment": 100,
+            "flow": 75
+          },
+          "recentFiling": {
+            "date": "2026-10-12",
+            "title": "[기재정정]단일판매ㆍ공급계약체결(자회사의 주요경영사항)              ",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261012800752"
+          },
+          "point": "영업이익률 개선 및 공급 계약 모멘텀",
+          "risk": "EPS 성장률 둔화 및 변동성 확대"
+        },
+        {
+          "code": "078930",
+          "name": "GS",
+          "market": "KOSPI",
+          "per": 4.02,
+          "pbr": 0.57,
+          "roe": 13.3,
+          "revGrowth": 24.9,
+          "beta": 0.56,
+          "debtToEquity": 39.4,
+          "marketCap": 9420179243008,
+          "ret1M": -20.08,
+          "ret3M": 26.59,
+          "ret6M": 51.68,
+          "tradingValue20": 42146038110,
+          "price": 99500,
+          "from52WHigh": -25.3,
+          "analystCount": 6,
+          "targetUpside": 42.5,
+          "estPer": 3.72,
+          "industryPer": 8.67,
+          "industryChangePct": -2.69,
+          "dividendYield": 3.02,
+          "targetSource": "야후 애널리스트 6명 평균",
+          "opGrowth": 253.39,
+          "epsGrowth": 2684.56,
+          "opMargin": 23.17,
+          "interestCoverage": 7.68,
+          "rel1M": -11.34,
+          "rel3M": 43.2,
+          "rel6M": 32.95,
+          "researchCount": 0,
+          "flowFrgn5": 0.103,
+          "flowFrgn20": 1.546,
+          "flowInst5": -0.134,
+          "flowInst20": -1.385,
+          "qScore": 72,
+          "qParts": {
+            "momentum": 62,
+            "valuation": 100,
+            "growth": 90,
+            "health": 79,
+            "sentiment": 0,
+            "flow": 49
+          },
+          "recentFiling": {
+            "date": "2026-10-08",
+            "title": "증권신고서(채무증권)",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261008000679"
+          },
+          "point": "높은 영업이익률과 저평가된 밸류에이션",
+          "risk": "기관 수급 이탈 및 시장 변동성"
+        },
+        {
+          "code": "010950",
+          "name": "S-Oil",
+          "market": "KOSPI",
+          "per": 12.07,
+          "pbr": 1.82,
+          "roe": 16.3,
+          "revGrowth": 40.9,
+          "beta": 0.8,
+          "debtToEquity": 90.0,
+          "marketCap": 18429387997184,
+          "ret1M": -0.69,
+          "ret3M": 20.97,
+          "ret6M": 34.8,
+          "tradingValue20": 60483836560,
+          "price": 158300,
+          "from52WHigh": -10.6,
+          "analystCount": 18,
+          "targetUpside": 15.6,
+          "estPer": 5.76,
+          "industryPer": 8.67,
+          "industryChangePct": -2.69,
+          "dividendYield": 0.21,
+          "targetSource": "야후 애널리스트 18명 평균",
+          "opGrowth": -44.19,
+          "epsGrowth": -54.91,
+          "opMargin": 8.51,
+          "interestCoverage": 0.85,
+          "rel1M": 8.05,
+          "rel3M": 37.58,
+          "rel6M": 16.07,
+          "researchCount": 1,
+          "flowFrgn5": -0.117,
+          "flowFrgn20": 0.415,
+          "flowInst5": 0.168,
+          "flowInst20": -0.001,
+          "qScore": 56,
+          "qParts": {
+            "momentum": 79,
+            "valuation": 63,
+            "growth": 33,
+            "health": 46,
+            "sentiment": 25,
+            "flow": 56
+          },
+          "recentFiling": {
+            "date": "2026-10-06",
+            "title": "임원ㆍ주요주주특정증권등소유상황보고서",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261006000181"
+          },
+          "point": "높은 ROE와 에너지 섹터 동조화",
+          "risk": "EPS 성장률 하락 및 업황 둔화 우려"
         }
       ],
       "etfReturns": {
-        "ret1W": 4.03,
-        "ret1M": 1.94,
-        "ret3M": 16.6,
-        "ret6M": 17.11,
-        "retYTD": 47.47
+        "ret1W": 5.41,
+        "ret1M": 4.76,
+        "ret3M": 19.65,
+        "ret6M": 21.69,
+        "retYTD": 50.12
       },
       "etfRank": 1,
       "etfRankOf": 13,
       "scorecard": {
         "etf": "XLE",
         "name": "Energy",
-        "score": 78,
+        "score": 72,
         "maxScore": 100,
-        "rawScore": 31,
+        "rawScore": 29,
         "rawMax": 40,
         "verdict": "OW",
         "parts": [
@@ -1594,14 +1594,14 @@
             "label": "센티먼트 정합성",
             "score": 3,
             "max": 5,
-            "note": "Neutral 구간(46)"
+            "note": "Neutral 구간(45)"
           },
           {
             "key": "momentum",
             "label": "상대 모멘텀 합성",
             "score": 5,
             "max": 5,
-            "note": "SPY 대비 합성 +7.2%p (1M/3M/6M)"
+            "note": "SPY 대비 합성 +11.0%p (1M/3M/6M)"
           },
           {
             "key": "high52w",
@@ -1615,301 +1615,317 @@
             "label": "추세 가속",
             "score": 5,
             "max": 5,
-            "note": "3M 가속도 +16.1%p"
+            "note": "3M 가속도 +17.6%p"
           },
           {
             "key": "valuation",
             "label": "밸류에이션 매력도",
             "score": 5,
             "max": 5,
-            "note": "PE 18.3 vs 중앙값 25.0 (0.73배)"
+            "note": "PE 19.1 vs 중앙값 25.0 (0.76배)"
           },
           {
             "key": "lowvol",
             "label": "저변동·하방 방어",
             "score": 0,
             "max": 5,
-            "note": "실현변동성 21.0% (60일 연율) · MDD -15.0%"
+            "note": "실현변동성 21.3% (60일 연율) · MDD -15.0%"
           },
           {
             "key": "riskonoff",
             "label": "리스크 온/오프 정합성",
-            "score": 3,
+            "score": 1,
             "max": 5,
-            "note": "중립 (VIX 14.84 · HY 확대)"
+            "note": "리스크온 (VIX 15.21 · HY 안정) — 고베타 우위 (β -0.38)"
           }
         ],
         "source": "결정론적 산출 (퀀트 팩터 스코어카드 v2 — 8항목×5점 100점 환산, 모멘텀 계열 37.5%)"
       },
-      "summary": "중동 지정학적 리스크로 인한 유가 상승이 국내 정유주에 긍정적 모멘텀을 제공하고 있습니다. 미국 에너지 섹터의 강세와 맞물려 국내 관련주들의 밸류에이션 매력이 부각되는 시점입니다. 다만, 유가 변동성에 따른 실적 가변성을 관전 포인트로 삼아야 합니다."
+      "summary": "미국 에너지 섹터(XLE)의 강세는 글로벌 공급난과 인플레이션 헤지 수요를 반영합니다. 국내 정유·에너지 기업들은 이러한 동조화 흐름 속에서 실적 개선 기대감이 유효합니다. 밸류에이션 매력과 모멘텀을 동시에 보유하고 있어 포트폴리오의 핵심 방어주로 활용 가능합니다."
     },
     {
-      "usTheme": "헬스케어",
+      "usTheme": "소재",
       "usSymbols": [
-        "ABBV",
-        "JNJ",
-        "PFE",
-        "LLY",
-        "UNH"
+        "APD",
+        "NEM",
+        "SHW",
+        "FCX",
+        "LIN"
       ],
-      "krTheme": "헬스케어",
-      "rationale": "미국 헬스케어 섹터의 견조한 흐름과 더불어 국내 제약·바이오 기업들의 기술 수출 및 신약 허가 모멘텀이 맞물려 수급 유입 기대.",
+      "krTheme": "소재·화학",
+      "rationale": "글로벌 철강 수요 전망 하향에도 불구하고 미국 소재 섹터가 상승세를 보이며 국내 소재·화학 기업들의 밸류에이션 방어에 긍정적 영향을 줄 수 있음.",
       "direction": "up",
-      "etf": "XLV",
+      "etf": "XLB",
       "industryReports": [
         {
-          "category": "제약",
-          "title": "Kiwoom Healthcare 종합정리 (10/12)",
-          "broker": "키움증권",
+          "category": "철강금속",
+          "title": "2027 WSA 철강 수요전망",
+          "broker": "유진투자증권",
+          "date": "2026-10-13",
+          "url": "https://stock.naver.com/research/industry/46446",
+          "pdfUrl": "",
+          "summary": "글로벌 +1.7% 성장, 중국 -1% 역성장, 중국 외 지역 +4% 성장 전망 12 일 세계철강협회(WSA)는 2027 년 글로벌 철강 수요 성장률을 기존 +2.2%에서 +1.7%로 하향 조정했다. 주된 원인은 예상보다 부진한 중국 수요다. 지난 4월에는 중국 철강수요가 2026년 -1.5% 역성장한 이후, 2027 년 정체할 것으로 전망했으나 이번에는 2026년 -2.0%, 2027년 -1.0% 감소할 것으로 내다봤다. 부동산 회복이 지연되고, 성장을 기대했던 인프라 투자도 부진했기 때문이다. 이에 더해, 인프라 투자처가 도로·수리·공공시설 같은 전통 토목에서 철강 원단위가 낮은 전력·디지털 분야로 옮겨가며 철강 수요 공백이 심화되고 있다. 중국 외 지역은 +4% 성장할 것으로 전망했다. 선진국은 AI 관",
+          "llmSummary": "세계철강협회는 중국의 부동산 및 인프라 투자 부진을 이유로 2027년 글로벌 철강 수요 성장률 전망치를 하향 조정했다. 중국 외 지역은 AI 투자와 에너지 전환 등으로 수요가 견조할 것으로 예상되나, 중국의 철강 공급 조정 속도가 향후 글로벌 수급 개선의 핵심 변수가 될 전망이다."
+        },
+        {
+          "category": "철강금속",
+          "title": "8월 미국 철강 수입 15개월만에 최고치 기록",
+          "broker": "하나증권",
           "date": "2026-10-12",
-          "url": "https://stock.naver.com/research/industry/46403",
+          "url": "https://stock.naver.com/research/industry/46435",
           "pdfUrl": "",
-          "summary": "▶ 제약/바이오 - 머크, 유럽 8개국에서 Keytruda SC 판매·제조 중단 명령 받아(10/8) 네덜란드 특허법원은 Merck가 Halozyme의 MDASE 특허 EP622를 침해했다고 판단하고 Keytruda SC의 제조·판매 등을 금지 적용 국가는 벨기에·덴마크·프랑스·아일랜드·이탈리아·스웨덴·스위스·네덜란드 등 8개국 - 펩트론, 릴리 기술평가 종료…\"후속 계약 미정, 협력 가능성 종료 아냐\"(10/7) 릴리와 약 2년간 진행해 온 장기지속형 약물전달 플랫폼 '스마트데포' 기술평가가 7일 종료 향후 양사 간 사업화 협력 가능성의 종료를 의미하는 것은 아니다\"라고 강조 - 한미약품, ‘에페’ 국내 시판허가…GLP-1 비만신약 시장 ‘3파전’ 예고(10/7) 에페, 7일 식품의약품안전처 허가…국내 제",
-          "llmSummary": "머크의 키트루다 SC가 유럽 8개국에서 특허 침해 판결로 판매 중단 명령을 받았으며, 한미약품은 국내 제약사 최초로 GLP-1 비만 신약 '에페'의 시판 허가를 획득했습니다. 알테오젠은 생산시설 건설을 위해 2,000억 원의 투자를 유치했고, 릴리와 펩트론의 기술평가는 종료되었으나 향후 협력 가능성은 열려 있습니다."
+          "llmSummary": "국내 철강 유통가격은 수요 부진으로 보합세를 유지하고 있으나, 공급 감소 영향으로 향후 반등 가능성이 존재한다. 산업용 금속은 미국의 금리 인상 가능성 축소와 칠레 광산 파업 등 공급 이슈가 맞물리며 가격 변동성을 보이고 있다."
         },
         {
-          "category": "제약",
-          "title": "ABCD 2.0 (AI with Bio, Concluded by Data)",
+          "category": "철강금속",
+          "title": "Steel Weekly (10월 2주차)",
           "broker": "iM증권",
-          "date": "2026-10-08",
-          "url": "https://stock.naver.com/research/industry/46385",
-          "pdfUrl": "",
-          "llmSummary": "모더나와 MSD가 공동 개발한 AI 설계 기반 mRNA 암백신 '인티스메란'이 임상 3상에서 성공하며 맞춤형 치료의 본격화를 알렸습니다. 임상 결과 병용요법이 단독요법 대비 재발 및 사망 위험을 절반 가까이 낮추는 효과를 입증하며 AI의 약물 설계 능력을 확인했습니다."
-        },
-        {
-          "category": "제약",
-          "title": "Kiwoom Healthcare 종합정리 (10/06)",
-          "broker": "키움증권",
-          "date": "2026-10-06",
-          "url": "https://stock.naver.com/research/industry/46312",
-          "pdfUrl": "",
-          "llmSummary": "HLB의 담관암 신약 '리픽투'가 국내 항암제 최초로 FDA 직접 허가를 획득했으며, 사노피와 리제네론은 최대 80억 달러 규모의 면역질환 항체 협력을 확대했습니다. 릴리는 비만 치료 병용요법으로 23.3%의 체중 감소 효과를 확인했으나, 아리바이오의 합병은 주식매수청구권 부담으로 무산되었습니다."
+          "date": "2026-10-12",
+          "url": "https://stock.naver.com/research/industry/46407",
+          "pdfUrl": ""
         }
       ],
       "stocks": [
         {
-          "code": "128940",
-          "name": "한미약품",
+          "code": "011170",
+          "name": "롯데케미칼",
           "market": "KOSPI",
-          "per": 27.54,
-          "pbr": 4.22,
-          "roe": 16.4,
-          "revGrowth": 29.3,
-          "beta": 0.53,
-          "debtToEquity": 26.3,
-          "marketCap": 6020983160832,
-          "ret1M": 1.48,
-          "ret3M": 13.59,
-          "ret6M": -4.85,
-          "tradingValue20": 57740074700,
-          "price": 480500,
-          "from52WHigh": -25.7,
-          "analystCount": 11,
-          "targetUpside": 38.3,
-          "estPer": 21.79,
-          "industryPer": 35.17,
-          "industryChangePct": -2.36,
-          "dividendYield": 0.43,
-          "targetSource": "야후 애널리스트 11명 평균",
-          "opGrowth": 116.9,
-          "epsGrowth": 115.25,
-          "opMargin": 28.06,
-          "interestCoverage": 39.08,
-          "rel1M": 2.4,
-          "rel3M": 31.29,
-          "rel6M": -31.44,
-          "researchCount": 8,
-          "flowFrgn5": -0.972,
-          "flowFrgn20": -1.923,
-          "flowInst5": 0.117,
-          "flowInst20": 2.397,
-          "qScore": 68,
-          "qParts": {
-            "momentum": 46,
-            "valuation": 66,
-            "growth": 93,
-            "health": 88,
-            "sentiment": 100,
-            "flow": 40
-          },
-          "recentFiling": {
-            "date": "2026-10-07",
-            "title": "투자판단관련주요경영사항              (에페오토인젝터주(에페글레나타이드) 식품의약품안전처 품목허가 승인)",
-            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261007800667"
-          },
-          "point": "비만 신약 품목 허가 승인으로 인한 성장 모멘텀 확보.",
-          "risk": "높은 PER 수준에 따른 밸류에이션 부담."
-        },
-        {
-          "code": "207940",
-          "name": "삼성바이오로직스",
-          "market": "KOSPI",
-          "per": 33.31,
-          "pbr": 6.67,
-          "roe": 18.5,
-          "revGrowth": 30.2,
-          "beta": 0.19,
-          "debtToEquity": 14.8,
-          "marketCap": 55910693076992,
-          "ret1M": -15.76,
-          "ret3M": -13.24,
-          "ret6M": -23.09,
-          "tradingValue20": 59100669304,
-          "price": 1219000,
-          "from52WHigh": -38.7,
-          "analystCount": 26,
-          "targetUpside": 55.8,
-          "estPer": 29.48,
-          "industryPer": 35.17,
-          "industryChangePct": -2.36,
-          "targetSource": "야후 애널리스트 26명 평균",
-          "opGrowth": 22.89,
-          "epsGrowth": 104.12,
-          "opMargin": 44.4,
-          "interestCoverage": 66.83,
-          "rel1M": -14.84,
-          "rel3M": 4.46,
-          "rel6M": -49.68,
-          "researchCount": 8,
-          "flowFrgn5": -0.248,
-          "flowFrgn20": -0.164,
-          "flowInst5": -0.03,
-          "flowInst20": -0.162,
-          "qScore": 53,
-          "qParts": {
-            "momentum": 13,
-            "valuation": 52,
-            "growth": 81,
-            "health": 91,
-            "sentiment": 100,
-            "flow": 39
-          },
-          "recentFiling": {
-            "date": "2026-10-07",
-            "title": "결산실적공시예고(안내공시)              ",
-            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261007800351"
-          },
-          "point": "글로벌 위탁생산 수요 증가 및 높은 영업이익률.",
-          "risk": "대규모 설비 투자에 따른 비용 부담."
-        },
-        {
-          "code": "326030",
-          "name": "에스케이바이오팜",
-          "market": "KOSPI",
-          "per": 13.83,
-          "pbr": 5.43,
-          "roe": 47.9,
-          "revGrowth": 40.3,
-          "beta": 0.7,
-          "debtToEquity": 4.8,
-          "marketCap": 5560240439296,
-          "ret1M": -16.05,
-          "ret3M": -13.45,
-          "ret6M": -22.91,
-          "tradingValue20": 8657713525,
-          "price": 72700,
-          "from52WHigh": -49.5,
-          "analystCount": 12,
-          "targetUpside": 79.5,
-          "estPer": 16.73,
-          "industryPer": 35.17,
-          "industryChangePct": -2.36,
-          "targetSource": "야후 애널리스트 12명 평균",
-          "opGrowth": 56.85,
-          "epsGrowth": 158.43,
-          "opMargin": 39.24,
-          "interestCoverage": 77.16,
-          "rel1M": -15.13,
-          "rel3M": 4.25,
-          "rel6M": -49.5,
-          "researchCount": 8,
-          "flowFrgn5": -0.156,
-          "flowFrgn20": -0.469,
-          "flowInst5": -0.021,
-          "flowInst20": -0.112,
-          "qScore": 62,
-          "qParts": {
-            "momentum": 12,
-            "valuation": 77,
-            "growth": 100,
-            "health": 99,
-            "sentiment": 100,
-            "flow": 38
-          },
-          "recentFiling": {
-            "date": "2026-09-23",
-            "title": "단일판매ㆍ공급계약체결              ",
-            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260923800342"
-          },
-          "point": "신약 파이프라인 가치 및 높은 EPS 성장률.",
-          "risk": "임상 실패 시 주가 급락 가능성."
-        },
-        {
-          "code": "000100",
-          "name": "유한양행",
-          "market": "KOSPI",
-          "per": 24.43,
-          "pbr": 2.24,
-          "roe": 9.5,
-          "revGrowth": 10.4,
-          "beta": 0.43,
-          "debtToEquity": 14.3,
-          "marketCap": 5383016415232,
-          "ret1M": -10.2,
-          "ret3M": 5.03,
-          "ret6M": -21.31,
-          "tradingValue20": 15402357755,
-          "price": 73100,
-          "from52WHigh": -43.4,
+          "per": null,
+          "pbr": 0.18,
+          "roe": -8.2,
+          "revGrowth": 35.5,
+          "beta": 1.25,
+          "debtToEquity": 67.8,
+          "marketCap": 2416177577984,
+          "ret1M": -0.17,
+          "ret3M": -4.81,
+          "ret6M": -30.88,
+          "tradingValue20": 9911452280,
+          "price": 57300,
+          "from52WHigh": -52.1,
           "analystCount": 17,
-          "targetUpside": 53.3,
-          "estPer": 34.23,
-          "industryPer": 35.17,
-          "industryChangePct": -2.36,
-          "dividendYield": 0.84,
+          "targetUpside": 49.2,
+          "estPer": null,
+          "industryPer": null,
+          "industryChangePct": 0.0,
+          "dividendYield": 1.77,
           "targetSource": "야후 애널리스트 17명 평균",
-          "opGrowth": 34.11,
-          "epsGrowth": 55.32,
-          "opMargin": 10.46,
-          "interestCoverage": 17.19,
-          "rel1M": -9.28,
-          "rel3M": 22.73,
-          "rel6M": -47.9,
-          "researchCount": 1,
-          "flowFrgn5": 0.134,
-          "flowFrgn20": 0.066,
-          "flowInst5": -0.181,
-          "flowInst20": -0.359,
-          "qScore": 54,
+          "dataWarnings": [
+            "추정PER 이상치(-12.26) 제외",
+            "업종PER 이상치(6283.46) 제외"
+          ],
+          "epsGrowth": -95.38,
+          "opMargin": 1.94,
+          "interestCoverage": 0.8,
+          "rel1M": 8.57,
+          "rel3M": 11.8,
+          "rel6M": -49.61,
+          "researchCount": 0,
+          "flowFrgn5": 0.027,
+          "flowFrgn20": -1.577,
+          "flowInst5": -0.091,
+          "flowInst20": 1.354,
+          "qScore": 45,
           "qParts": {
-            "momentum": 27,
-            "valuation": 77,
-            "growth": 73,
-            "health": 76,
-            "sentiment": 25,
-            "flow": 45
+            "momentum": 31,
+            "valuation": 100,
+            "growth": 46,
+            "health": 27,
+            "sentiment": 0,
+            "flow": 48
           },
           "recentFiling": {
-            "date": "2026-10-02",
-            "title": "임원ㆍ주요주주특정증권등소유상황보고서",
-            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261002000286"
+            "date": "2026-09-30",
+            "title": "풍문또는보도에대한해명(미확정)              ",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260930801139"
           },
-          "point": "신약 개발 성과 가시화 및 안정적인 재무 구조.",
-          "risk": "연구개발비 증가에 따른 수익성 변동."
+          "point": "낮은 PBR을 통한 밸류에이션 매력",
+          "risk": "지속적인 실적 부진 및 외국인 수급 이탈"
+        },
+        {
+          "code": "051910",
+          "name": "LG화학",
+          "market": "KOSPI",
+          "per": null,
+          "pbr": 0.57,
+          "roe": -5.7,
+          "revGrowth": 19.0,
+          "beta": 1.5,
+          "debtToEquity": 82.5,
+          "marketCap": 20508076670976,
+          "ret1M": -2.96,
+          "ret3M": 2.75,
+          "ret6M": -17.35,
+          "tradingValue20": 59800094450,
+          "price": 262000,
+          "from52WHigh": -40.1,
+          "analystCount": 24,
+          "targetUpside": 50.7,
+          "estPer": null,
+          "industryPer": null,
+          "industryChangePct": 0.0,
+          "dividendYield": 0.77,
+          "targetSource": "야후 애널리스트 24명 평균",
+          "dataWarnings": [
+            "추정PER 이상치(-93.7) 제외",
+            "업종PER 이상치(6283.46) 제외"
+          ],
+          "opGrowth": 25.76,
+          "epsGrowth": -27.5,
+          "opMargin": 4.23,
+          "interestCoverage": 1.42,
+          "fwdPer": 13.76,
+          "rel1M": 5.78,
+          "rel3M": 19.36,
+          "rel6M": -36.08,
+          "researchCount": 0,
+          "flowFrgn5": -0.061,
+          "flowFrgn20": -0.534,
+          "flowInst5": 0.14,
+          "flowInst20": 0.45,
+          "qScore": 44,
+          "qParts": {
+            "momentum": 34,
+            "valuation": 91,
+            "growth": 41,
+            "health": 30,
+            "sentiment": 0,
+            "flow": 51
+          },
+          "recentFiling": {
+            "date": "2026-10-08",
+            "title": "[기재정정]생산중단              ",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261008800790"
+          },
+          "point": "글로벌 소재 섹터 동조화 기대",
+          "risk": "생산 중단 이슈 및 실적 회복 지연"
+        },
+        {
+          "code": "003670",
+          "name": "포스코퓨처엠",
+          "market": "KOSPI",
+          "per": 354.15,
+          "pbr": 3.8,
+          "roe": 1.4,
+          "revGrowth": 2.8,
+          "beta": 1.85,
+          "debtToEquity": 88.1,
+          "marketCap": 15761263296512,
+          "ret1M": -1.88,
+          "ret3M": 22.46,
+          "ret6M": -16.02,
+          "tradingValue20": 68113851450,
+          "price": 177200,
+          "from52WHigh": -40.8,
+          "analystCount": 26,
+          "targetUpside": 4.3,
+          "estPer": null,
+          "industryPer": null,
+          "industryChangePct": 0.0,
+          "dividendYield": 0.14,
+          "targetSource": "야후 애널리스트 26명 평균",
+          "dataWarnings": [
+            "추정PER 이상치(507.65) 제외",
+            "업종PER 이상치(6283.46) 제외"
+          ],
+          "opGrowth": 2045.58,
+          "epsGrowth": -75.71,
+          "opMargin": 2.44,
+          "interestCoverage": 1.05,
+          "rel1M": 6.86,
+          "rel3M": 39.07,
+          "rel6M": -34.75,
+          "researchCount": 1,
+          "flowFrgn5": -0.182,
+          "flowFrgn20": -0.511,
+          "flowInst5": -0.133,
+          "flowInst20": 0.0,
+          "qScore": 35,
+          "qParts": {
+            "momentum": 39,
+            "valuation": 28,
+            "growth": 42,
+            "health": 31,
+            "sentiment": 25,
+            "flow": 36
+          },
+          "recentFiling": {
+            "date": "2026-10-13",
+            "title": "최대주주등소유주식변동신고서              ",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261013800391"
+          },
+          "point": "성장성 기반의 시장 관심 지속",
+          "risk": "매우 높은 PER 및 실적 성장 둔화"
+        },
+        {
+          "code": "011780",
+          "name": "금호석유화학",
+          "market": "KOSPI",
+          "per": 6.52,
+          "pbr": 0.43,
+          "roe": 7.9,
+          "revGrowth": 27.9,
+          "beta": 1.05,
+          "debtToEquity": 12.8,
+          "marketCap": 2911104925696,
+          "ret1M": -7.43,
+          "ret3M": 1.87,
+          "ret6M": -5.21,
+          "tradingValue20": 7342340535,
+          "price": 114600,
+          "from52WHigh": -29.4,
+          "analystCount": 15,
+          "targetUpside": 45.1,
+          "estPer": 5.93,
+          "industryPer": null,
+          "industryChangePct": 0.0,
+          "dividendYield": 1.49,
+          "targetSource": "야후 애널리스트 15명 평균",
+          "dataWarnings": [
+            "업종PER 이상치(6283.46) 제외"
+          ],
+          "opGrowth": 419.7,
+          "epsGrowth": 444.88,
+          "opMargin": 14.95,
+          "interestCoverage": 32.26,
+          "rel1M": 1.31,
+          "rel3M": 18.48,
+          "rel6M": -23.94,
+          "researchCount": 0,
+          "flowFrgn5": 0.027,
+          "flowFrgn20": 0.141,
+          "flowInst5": -0.034,
+          "flowInst20": -0.612,
+          "qScore": 64,
+          "qParts": {
+            "momentum": 38,
+            "valuation": 99,
+            "growth": 92,
+            "health": 80,
+            "sentiment": 0,
+            "flow": 44
+          },
+          "recentFiling": {
+            "date": "2026-09-29",
+            "title": "[첨부정정]주요사항보고서(자기주식취득신탁계약해지결정)",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260929000219"
+          },
+          "point": "높은 영업이익률과 저평가 매력",
+          "risk": "기관 수급 부진 및 화학 업황 불확실성"
         }
       ],
       "etfReturns": {
-        "ret1W": 2.76,
-        "ret1M": 4.41,
-        "ret3M": 9.07,
-        "ret6M": 17.19,
-        "retYTD": 11.97
+        "ret1W": -0.02,
+        "ret1M": -1.07,
+        "ret3M": -1.09,
+        "ret6M": -3.6,
+        "retYTD": 9.19
       },
-      "etfRank": 2,
+      "etfRank": 7,
       "etfRankOf": 13,
       "scorecard": {
-        "etf": "XLV",
-        "name": "Healthcare",
+        "etf": "XLB",
+        "name": "Materials",
         "score": 60,
         "maxScore": 100,
         "rawScore": 24,
@@ -1919,332 +1935,338 @@
           {
             "key": "macro",
             "label": "매크로 적합도",
-            "score": 2,
+            "score": 5,
             "max": 5,
-            "note": "국면 선호 섹터 아님 (중립)"
+            "note": "과열 국면 선호 섹터"
           },
           {
             "key": "sentiment",
             "label": "센티먼트 정합성",
             "score": 3,
             "max": 5,
-            "note": "Neutral 구간(46)"
+            "note": "Neutral 구간(45)"
           },
           {
             "key": "momentum",
             "label": "상대 모멘텀 합성",
-            "score": 4,
+            "score": 1,
             "max": 5,
-            "note": "SPY 대비 합성 +4.1%p (1M/3M/6M)"
+            "note": "SPY 대비 합성 -7.2%p (1M/3M/6M)"
           },
           {
             "key": "high52w",
             "label": "52주 고점 근접",
-            "score": 5,
+            "score": 4,
             "max": 5,
-            "note": "52주 고점 대비 -1.7%"
+            "note": "52주 고점 대비 -6.9%"
           },
           {
             "key": "accel",
             "label": "추세 가속",
             "score": 3,
             "max": 5,
-            "note": "3M 가속도 +0.9%p"
+            "note": "3M 가속도 +1.4%p"
           },
           {
             "key": "valuation",
             "label": "밸류에이션 매력도",
-            "score": 1,
+            "score": 4,
             "max": 5,
-            "note": "PE 30.7 vs 중앙값 25.0 (1.23배)"
+            "note": "PE 23.2 vs 중앙값 25.0 (0.93배)"
           },
           {
             "key": "lowvol",
             "label": "저변동·하방 방어",
             "score": 3,
             "max": 5,
-            "note": "실현변동성 16.3% (60일 연율) · MDD -10.5% (중앙값보다 얕음)"
+            "note": "실현변동성 16.3% (60일 연율) · MDD -12.4% (중앙값보다 얕음)"
           },
           {
             "key": "riskonoff",
             "label": "리스크 온/오프 정합성",
-            "score": 3,
+            "score": 1,
             "max": 5,
-            "note": "중립 (VIX 14.84 · HY 확대)"
+            "note": "리스크온 (VIX 15.21 · HY 안정) — 고베타 우위 (β 0.73)"
           }
         ],
         "source": "결정론적 산출 (퀀트 팩터 스코어카드 v2 — 8항목×5점 100점 환산, 모멘텀 계열 37.5%)"
       },
-      "summary": "미국 헬스케어 섹터의 견조한 흐름과 국내 기업들의 기술 수출 성과가 맞물려 투자 심리가 개선되고 있습니다. 신약 허가 및 임상 성공 소식이 주가 상승의 핵심 동력으로 작용하고 있습니다. 다만, 개별 기업의 임상 결과에 따른 변동성 확대 가능성을 유의해야 합니다."
+      "summary": "미국 소재 섹터(XLB)의 견조한 흐름은 국내 소재·화학 기업들의 밸류에이션 방어에 긍정적입니다. 중국의 철강 수요 부진이라는 대외 리스크가 존재하나, 공급 조정이 가시화될 경우 수급 개선이 기대됩니다. 펀더멘털 중심의 선별적 접근이 필요합니다."
     },
     {
-      "usTheme": "금융",
+      "usTheme": "임의소비재",
       "usSymbols": [
-        "BAC",
-        "JPM",
-        "WFC",
-        "GS",
-        "MS"
+        "HD",
+        "TSLA",
+        "AMZN",
+        "MCD",
+        "NKE"
       ],
-      "krTheme": "은행·증권",
-      "rationale": "미국 금융주가 금리 변동성 환경 속에서 상대적 강세를 보임에 따라 국내 은행·증권주 역시 하방 경직성을 확보할 것으로 판단됨.",
+      "krTheme": "소비재·유통",
+      "rationale": "미국 임의소비재 섹터의 소폭 상승은 국내 소비재·유통 섹터의 실적 모멘텀을 확인하려는 투자자들에게 제한적인 안도감을 제공할 수 있음.",
       "direction": "up",
-      "etf": "XLF",
+      "etf": "XLY",
       "industryReports": [
         {
-          "category": "은행",
-          "title": "단기 모멘텀 크지 않지만 하방리스크는 제한적",
+          "category": "화장품",
+          "title": "Weekly Retail-Cos. Letter: 수출과 유사해진 ODM 실적 흐름",
           "broker": "하나증권",
-          "date": "2026-10-12",
-          "url": "https://stock.naver.com/research/industry/46437",
+          "date": "2026-10-13",
+          "url": "https://stock.naver.com/research/industry/46454",
           "pdfUrl": "",
-          "summary": "전주 주요 뉴스 기사 정리 - 이달초 금융권을 겨냥한 연쇄 해킹사태가 발생한 이후 5대 은행의 요구불예금이 3영업일만에 16조원 가까이 급감. 다만 월초에는 급여·법인자금 등의 이동으로 요구불예금 변동성이 큰데다 주식·부동산이나 고금리 금융상품으로의 자금 이동 경향이 큼 - 은행권에서 동시다발적으로 발생한 개인정보 유출 사고와 관련해 피해자들이 집단소송에 나서는 흐름. 신한은행 개인정보 유출 피해자를 대상으로 원고 모집이 완료되면 로펌측은 손해배상 소송을 제기할 예정. 1인당 청구액은 10~30만원 수준 예상 - 올해 4분기 금리 변동을 앞둔 은행권 주택담보대출 잔액이 165조원에 달하는 것으로 나타남. 3분기보다 21조원 늘어난 규모로 코로나당시 저금리로 주택을 구매한 차주들의 금리 재산정 시기와 금리 상",
-          "llmSummary": "금융권 해킹 사태로 인한 예금 급감과 개인정보 유출 관련 집단소송 움직임이 나타나고 있으며, 금리 상승에 따른 가계의 원리금 상환 부담이 우려됩니다. 부동산 PF 부실 정리가 하반기 최대 과제로 부상하면서 2금융권의 부실 부담이 시중은행으로 전이될 가능성이 제기되고 있습니다."
+          "summary": "1. 화장품 3분기 실적 전망(3): 펌텍코리아/동국제약 1) 동국제약: 화장품 수출 B2B 확대 중 - 3분기 매출과 영업이익은 각각 전년 동기 대비 12%, 5% 증가한 2,540억원과 260억원(OPM 10.2%)으로 거의 2분기와 유사할 수준이 될 것으로 보인다. 시장 기대치(OP 272억원)에는 다소 못미칠 것으로 예상되는데, 아마존 프라임데이 매출에도 불구하고 헬스케어 매출이 QoQ로 감소하고, 동국생명과학 실적 부진이 지속되고 있기 때문이다. 동국제약 본사의 경우 OTC와 ETC 매출이 YoY 5%, 헬스케어 부문 매출이 YoY 29% 증가하면서 실적 개선을 견인할 전망이다. 헬스케어 부문 매출에서 화장품 비중은 80%이다. 화장품 수출 600억원을 목표로 시작했는데, 2분기에만 500억원 가까",
+          "llmSummary": "동국제약은 헬스케어 부문의 화장품 수출 확대에 힘입어 성장세를 이어가고 있으나, 진단장비 부문의 부진으로 시장 기대치에는 다소 미치지 못할 전망이다. 미국과 일본 등 해외 시장에서의 B2B 채널 확장과 리오더 발생은 향후 실적 개선의 긍정적 요인이다."
         },
         {
-          "category": "보험",
-          "title": "3Q26 Preview: 보험은 좋아지고 투자는 나쁘다",
-          "broker": "한화투자증권",
-          "date": "2026-10-12",
-          "url": "https://stock.naver.com/research/industry/46426",
+          "category": "음식료",
+          "title": "주류 업체 3Q26 분위기 점검",
+          "broker": "하나증권",
+          "date": "2026-10-13",
+          "url": "https://stock.naver.com/research/industry/46450",
           "pdfUrl": "",
-          "llmSummary": "손해보험사의 3분기 합산 이익은 투자 부문의 평가손실로 인해 시장 컨센서스를 하회할 전망이나, 자동차보험 수익성 개선으로 보험손익은 증가할 것으로 보입니다. 신계약 판매 부진과 계리가정 가이드 적용으로 신계약 CSM은 전분기 대비 감소세를 보일 것으로 추정됩니다."
+          "llmSummary": "주류 시장은 전반적인 소비 부진이 지속되는 가운데, 오비맥주가 소주 시장에 본격 진출하며 경쟁 강도가 심화될 것으로 보인다. 하이트진로와 롯데칠성은 수익성 방어를 위해 마케팅 비용 효율화를 추진 중이나, 연말부터 주류 업계 내 경쟁은 더욱 치열해질 전망이다."
         },
         {
-          "category": "은행",
-          "title": "3Q26 Pre: 금리 인상기 여전히 선호 업종",
-          "broker": "유안타증권",
-          "date": "2026-10-07",
-          "url": "https://stock.naver.com/research/industry/46369",
+          "category": "유통",
+          "title": "3Q26 Preview: 4Q 이후 모멘텀에 주목",
+          "broker": "키움증권",
+          "date": "2026-10-13",
+          "url": "https://stock.naver.com/research/industry/46443",
           "pdfUrl": "",
-          "llmSummary": "기준금리 추가 인상이 예상됨에 따라 은행업종의 수익성 개선과 지수 상승이 기대되는 상황입니다. 경기 악화로 금리 인상이 어렵더라도 주주환원율 상승 구간에서 경기 방어주로서 양호한 주가 흐름을 이어갈 것으로 판단됩니다."
+          "llmSummary": "유통업계는 매출 성장 둔화로 3분기 실적이 컨센서스에 부합하거나 소폭 하회할 것으로 예상되나, 전년 대비 증익 흐름은 유지될 전망이다. 백화점은 가전·명품 수요 둔화로 성장세가 주춤한 반면, 할인점은 기저효과와 구조조정 수혜로 큰 폭의 개선이 기대된다."
         }
       ],
       "stocks": [
         {
-          "code": "016360",
-          "name": "삼성증권",
+          "code": "004170",
+          "name": "신세계",
           "market": "KOSPI",
-          "per": 5.06,
-          "pbr": 0.86,
-          "roe": 18.1,
-          "revGrowth": 159.1,
-          "beta": 0.92,
-          "debtToEquity": 421.5,
-          "marketCap": 7394039955456,
-          "ret1M": -1.27,
-          "ret3M": -29.35,
-          "ret6M": -7.45,
-          "tradingValue20": 25761680535,
-          "price": 85700,
-          "from52WHigh": -47.4,
-          "analystCount": 14,
-          "targetUpside": 68.6,
-          "estPer": 4.46,
-          "industryPer": 4.93,
-          "industryChangePct": -2.24,
-          "dividendYield": 4.83,
-          "targetSource": "야후 애널리스트 14명 평균",
-          "opGrowth": 118.95,
-          "epsGrowth": 108.07,
-          "opMargin": 6.99,
-          "rel1M": -0.35,
-          "rel3M": -11.65,
-          "rel6M": -34.04,
-          "researchCount": 2,
-          "flowFrgn5": -0.317,
-          "flowFrgn20": 0.006,
-          "flowInst5": 0.255,
-          "flowInst20": 0.362,
-          "qScore": 53,
+          "per": 16.72,
+          "pbr": 0.48,
+          "roe": 3.3,
+          "revGrowth": 5.1,
+          "beta": 1.16,
+          "debtToEquity": 66.0,
+          "marketCap": 2586465796096,
+          "ret1M": -27.07,
+          "ret3M": -52.66,
+          "ret6M": -8.3,
+          "tradingValue20": 24455624425,
+          "price": 295000,
+          "from52WHigh": -62.8,
+          "analystCount": 19,
+          "targetUpside": 132.6,
+          "estPer": 6.66,
+          "industryPer": 18.15,
+          "industryChangePct": -1.84,
+          "dividendYield": 1.77,
+          "targetSource": "야후 애널리스트 19명 평균",
+          "opGrowth": 121.84,
+          "epsGrowth": -86.84,
+          "opMargin": 9.39,
+          "interestCoverage": 3.52,
+          "rel1M": -18.33,
+          "rel3M": -36.05,
+          "rel6M": -27.03,
+          "researchCount": 4,
+          "flowFrgn5": 0.394,
+          "flowFrgn20": 1.963,
+          "flowInst5": -0.267,
+          "flowInst20": -2.894,
+          "qScore": 41,
           "qParts": {
-            "momentum": 11,
-            "valuation": 90,
-            "growth": 100,
-            "health": 39,
-            "sentiment": 50,
+            "momentum": 0,
+            "valuation": 85,
+            "growth": 43,
+            "health": 48,
+            "sentiment": 100,
             "flow": 53
           },
           "recentFiling": {
             "date": "2026-10-08",
-            "title": "증권발행실적보고서",
-            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261008000616"
+            "title": "영업(잠정)실적(공정공시)              ",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261008800651"
           },
-          "point": "높은 ROE와 주주환원 정책 강화 기대.",
-          "risk": "증권업황 부진에 따른 수수료 수익 감소."
+          "point": "높은 목표가 괴리율과 밸류에이션 매력",
+          "risk": "EPS 성장률 급락 및 기관 매도세"
         },
         {
-          "code": "055550",
-          "name": "신한지주",
+          "code": "008770",
+          "name": "호텔신라",
           "market": "KOSPI",
-          "per": 8.96,
-          "pbr": 0.78,
-          "roe": 8.9,
-          "revGrowth": 5.7,
-          "beta": 0.67,
-          "debtToEquity": null,
-          "marketCap": 47321865781248,
-          "ret1M": -9.79,
-          "ret3M": -6.93,
-          "ret6M": 10.12,
-          "tradingValue20": 107759997855,
-          "price": 99500,
-          "from52WHigh": -14.6,
-          "analystCount": 20,
-          "targetUpside": 33.5,
-          "estPer": 8.03,
-          "industryPer": 8.38,
-          "industryChangePct": -0.07,
-          "dividendYield": 2.59,
-          "targetSource": "야후 애널리스트 20명 평균",
-          "opGrowth": 22.94,
-          "epsGrowth": 23.18,
-          "opMargin": 16.48,
-          "rel1M": -8.87,
-          "rel3M": 10.77,
-          "rel6M": -16.47,
-          "researchCount": 2,
-          "flowFrgn5": -0.113,
-          "flowFrgn20": -0.478,
-          "flowInst5": 0.088,
-          "flowInst20": 0.413,
-          "qScore": 54,
-          "qParts": {
-            "momentum": 37,
-            "valuation": 84,
-            "growth": 51,
-            "health": 67,
-            "sentiment": 50,
-            "flow": 49
-          },
-          "recentFiling": {
-            "date": "2026-10-12",
-            "title": "기업설명회(IR)개최(안내공시)              ",
-            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261012800533"
-          },
-          "point": "금리 인상기 순이자마진(NIM) 개선 기대.",
-          "risk": "부동산 PF 부실에 따른 대손충당금 증가."
-        },
-        {
-          "code": "086790",
-          "name": "하나금융지주",
-          "market": "KOSPI",
-          "per": 8.39,
-          "pbr": 0.7,
-          "roe": 9.0,
-          "revGrowth": 18.4,
-          "beta": 0.72,
-          "debtToEquity": null,
-          "marketCap": 33228142411776,
-          "ret1M": -7.45,
-          "ret3M": 0.47,
-          "ret6M": 14.59,
-          "tradingValue20": 87927389115,
-          "price": 124300,
-          "from52WHigh": -12.8,
-          "analystCount": 22,
-          "targetUpside": 31.1,
-          "estPer": 7.72,
-          "industryPer": 8.38,
-          "industryChangePct": -0.07,
-          "dividendYield": 3.32,
-          "targetSource": "야후 애널리스트 22명 평균",
-          "opGrowth": 6.77,
-          "epsGrowth": 5.89,
-          "opMargin": 5.85,
-          "rel1M": -6.53,
-          "rel3M": 18.17,
-          "rel6M": -12.0,
-          "researchCount": 2,
-          "flowFrgn5": 0.035,
-          "flowFrgn20": 0.046,
-          "flowInst5": -0.051,
-          "flowInst20": -0.142,
-          "qScore": 52,
-          "qParts": {
-            "momentum": 46,
-            "valuation": 84,
-            "growth": 44,
-            "health": 45,
-            "sentiment": 50,
-            "flow": 48
-          },
-          "recentFiling": {
-            "date": "2026-10-08",
-            "title": "주식등의대량보유상황보고서(약식)",
-            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261008000058"
-          },
-          "point": "안정적인 이익 창출 능력 및 배당 매력.",
-          "risk": "경기 침체 시 대출 자산 건전성 악화."
-        },
-        {
-          "code": "105560",
-          "name": "KB금융",
-          "market": "KOSPI",
-          "per": 9.69,
-          "pbr": 0.94,
-          "roe": 10.2,
-          "revGrowth": 18.5,
-          "beta": 0.65,
-          "debtToEquity": null,
-          "marketCap": 57160075575296,
-          "ret1M": -5.35,
-          "ret3M": -4.09,
-          "ret6M": 12.69,
-          "tradingValue20": 155266926495,
-          "price": 162800,
-          "from52WHigh": -16.3,
-          "analystCount": 21,
-          "targetUpside": 32.6,
-          "estPer": 8.82,
-          "industryPer": 8.38,
-          "industryChangePct": -0.07,
-          "dividendYield": 2.69,
-          "targetSource": "야후 애널리스트 21명 평균",
-          "opGrowth": 27.17,
-          "epsGrowth": 22.11,
-          "opMargin": 8.55,
-          "rel1M": -4.43,
-          "rel3M": 13.61,
-          "rel6M": -13.9,
+          "per": null,
+          "pbr": 1.24,
+          "roe": -11.5,
+          "revGrowth": -5.2,
+          "beta": 0.87,
+          "debtToEquity": 133.7,
+          "marketCap": 1417528213504,
+          "ret1M": -11.16,
+          "ret3M": -27.38,
+          "ret6M": -14.9,
+          "tradingValue20": 6751885440,
+          "price": 37400,
+          "from52WHigh": -46.8,
+          "analystCount": 16,
+          "targetUpside": 63.6,
+          "estPer": 13.66,
+          "industryPer": 18.15,
+          "industryChangePct": -1.84,
+          "targetSource": "야후 애널리스트 16명 평균",
+          "opGrowth": 606.0,
+          "opMargin": 6.29,
+          "interestCoverage": 4.72,
+          "fwdPer": 10.07,
+          "rel1M": -2.42,
+          "rel3M": -10.77,
+          "rel6M": -33.63,
           "researchCount": 3,
-          "flowFrgn5": -0.123,
-          "flowFrgn20": -0.485,
-          "flowInst5": 0.109,
-          "flowInst20": 0.437,
-          "qScore": 56,
+          "flowFrgn5": -0.213,
+          "flowFrgn20": -1.858,
+          "flowInst5": -0.096,
+          "flowInst20": -0.702,
+          "qScore": 41,
           "qParts": {
-            "momentum": 41,
-            "valuation": 81,
-            "growth": 62,
-            "health": 52,
+            "momentum": 11,
+            "valuation": 93,
+            "growth": 55,
+            "health": 31,
             "sentiment": 75,
-            "flow": 49
+            "flow": 21
           },
           "recentFiling": {
-            "date": "2026-10-07",
-            "title": "증권발행실적보고서",
-            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261007000298"
+            "date": "2026-10-06",
+            "title": "[기재정정]주요사항보고서(자기주식처분결정)",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261006000311"
           },
-          "point": "금융지주사 중 가장 견조한 펀더멘털 보유.",
-          "risk": "가계부채 부담에 따른 대출 성장 제한."
+          "point": "자기주식 처분 등 주주가치 제고 노력",
+          "risk": "실적 부진 및 외국인 수급 이탈"
+        },
+        {
+          "code": "383220",
+          "name": "F&F",
+          "market": "KOSPI",
+          "per": 5.26,
+          "pbr": 1.31,
+          "roe": 28.4,
+          "revGrowth": 5.5,
+          "beta": 0.54,
+          "debtToEquity": 10.1,
+          "marketCap": 2747399405568,
+          "ret1M": 10.56,
+          "ret3M": -8.6,
+          "ret6M": 20.56,
+          "tradingValue20": 3425387165,
+          "price": 73300,
+          "from52WHigh": -17.6,
+          "analystCount": 11,
+          "targetUpside": 35.6,
+          "estPer": 5.67,
+          "industryPer": 7.32,
+          "industryChangePct": -0.9,
+          "dividendYield": 3.76,
+          "targetSource": "야후 애널리스트 11명 평균",
+          "opGrowth": 2.94,
+          "epsGrowth": 16.19,
+          "opMargin": 21.64,
+          "interestCoverage": 32.6,
+          "rel1M": 19.3,
+          "rel3M": 8.01,
+          "rel6M": 1.83,
+          "researchCount": 0,
+          "flowFrgn5": 0.139,
+          "flowFrgn20": 0.024,
+          "flowInst5": 0.065,
+          "flowInst20": 0.317,
+          "qScore": 64,
+          "qParts": {
+            "momentum": 61,
+            "valuation": 91,
+            "growth": 38,
+            "health": 98,
+            "sentiment": 0,
+            "flow": 59
+          },
+          "recentFiling": {
+            "date": "2026-08-14",
+            "title": "반기보고서 (2026.06)",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814004123"
+          },
+          "point": "높은 ROE와 안정적인 영업이익률",
+          "risk": "소비 둔화에 따른 성장성 제한"
+        },
+        {
+          "code": "139480",
+          "name": "이마트",
+          "market": "KOSPI",
+          "per": 93.5,
+          "pbr": 0.15,
+          "roe": 0.9,
+          "revGrowth": -1.8,
+          "beta": 0.39,
+          "debtToEquity": 80.8,
+          "marketCap": 1942155558912,
+          "ret1M": -4.48,
+          "ret3M": -10.6,
+          "ret6M": -20.42,
+          "tradingValue20": 6931722425,
+          "price": 72500,
+          "from52WHigh": -46.8,
+          "analystCount": 12,
+          "targetUpside": 54.6,
+          "estPer": null,
+          "industryPer": 18.15,
+          "industryChangePct": -1.84,
+          "dividendYield": 3.48,
+          "targetSource": "야후 애널리스트 12명 평균",
+          "dataWarnings": [
+            "추정PER 이상치(-154.29) 제외"
+          ],
+          "opGrowth": 584.83,
+          "epsGrowth": -34.47,
+          "opMargin": -0.62,
+          "interestCoverage": 0.62,
+          "rel1M": 4.26,
+          "rel3M": 6.01,
+          "rel6M": -39.15,
+          "researchCount": 4,
+          "flowFrgn5": 0.253,
+          "flowFrgn20": -0.681,
+          "flowInst5": 0.177,
+          "flowInst20": 0.361,
+          "qScore": 40,
+          "qParts": {
+            "momentum": 25,
+            "valuation": 50,
+            "growth": 39,
+            "health": 28,
+            "sentiment": 100,
+            "flow": 57
+          },
+          "recentFiling": {
+            "date": "2026-10-13",
+            "title": "영업(잠정)실적(공정공시)              ",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261013800181"
+          },
+          "point": "구조조정 수혜 및 기저효과 기대",
+          "risk": "영업이익률 마이너스 및 실적 불확실성"
         }
       ],
       "etfReturns": {
-        "ret1W": 2.17,
-        "ret1M": -3.5,
-        "ret3M": -1.66,
-        "ret6M": 7.31,
-        "retYTD": 1.44
+        "ret1W": 0.57,
+        "ret1M": -0.21,
+        "ret3M": -3.75,
+        "ret6M": -3.1,
+        "retYTD": -4.47
       },
-      "etfRank": 7,
+      "etfRank": 9,
       "etfRankOf": 13,
       "scorecard": {
-        "etf": "XLF",
-        "name": "Financials",
-        "score": 55,
+        "etf": "XLY",
+        "name": "Consumer Discretionary",
+        "score": 52,
         "maxScore": 100,
-        "rawScore": 22,
+        "rawScore": 21,
         "rawMax": 40,
         "verdict": "N",
         "parts": [
@@ -2260,327 +2282,336 @@
             "label": "센티먼트 정합성",
             "score": 3,
             "max": 5,
-            "note": "Neutral 구간(46)"
+            "note": "Neutral 구간(45)"
           },
           {
             "key": "momentum",
             "label": "상대 모멘텀 합성",
             "score": 1,
             "max": 5,
-            "note": "SPY 대비 합성 -5.8%p (1M/3M/6M)"
+            "note": "SPY 대비 합성 -8.1%p (1M/3M/6M)"
           },
           {
             "key": "high52w",
             "label": "52주 고점 근접",
-            "score": 4,
+            "score": 3,
             "max": 5,
-            "note": "52주 고점 대비 -5.7%"
+            "note": "52주 고점 대비 -9.2%"
           },
           {
             "key": "accel",
             "label": "추세 가속",
-            "score": 0,
+            "score": 2,
             "max": 5,
-            "note": "3M 가속도 -10.6%p"
+            "note": "3M 가속도 -4.4%p"
           },
           {
             "key": "valuation",
             "label": "밸류에이션 매력도",
-            "score": 5,
+            "score": 3,
             "max": 5,
-            "note": "PE 15.6 vs 중앙값 25.0 (0.62배)"
+            "note": "PE 24.8 vs 중앙값 25.0 (0.99배)"
           },
           {
             "key": "lowvol",
             "label": "저변동·하방 방어",
-            "score": 4,
+            "score": 2,
             "max": 5,
-            "note": "실현변동성 12.2% (60일 연율) · MDD -14.8%"
+            "note": "실현변동성 18.9% (60일 연율) · MDD -15.0%"
           },
           {
             "key": "riskonoff",
             "label": "리스크 온/오프 정합성",
-            "score": 3,
+            "score": 5,
             "max": 5,
-            "note": "중립 (VIX 14.84 · HY 확대)"
+            "note": "리스크온 (VIX 15.21 · HY 안정) — 고베타 우위 (β 1.16)"
           }
         ],
         "source": "결정론적 산출 (퀀트 팩터 스코어카드 v2 — 8항목×5점 100점 환산, 모멘텀 계열 37.5%)"
       },
-      "summary": "금리 변동성 환경 속에서 미국 금융주의 상대적 강세가 국내 은행·증권주에 하방 경직성을 제공하고 있습니다. 금리 인상기 수익성 개선 기대감이 주가 하단을 지지하는 모습입니다. 다만, 부동산 PF 부실 전이 가능성 등 리스크 요인을 지속적으로 모니터링해야 합니다."
+      "summary": "미국 임의소비재 섹터의 안정적인 흐름은 국내 소비재·유통 기업들에게 제한적인 안도감을 제공합니다. 3분기 실적은 컨센서스에 부합할 것으로 예상되나, 4분기 이후의 모멘텀 확인이 중요합니다. 할인점과 구조조정 수혜주 위주의 선별적 대응이 필요합니다."
     },
     {
-      "usTheme": "반도체",
+      "usTheme": "바이오",
       "usSymbols": [
-        "MU",
-        "INTC",
-        "AMD",
-        "TSM",
-        "AVGO"
+        "VRTX",
+        "GILD",
+        "REGN",
+        "MRNA",
+        "AMGN"
       ],
-      "krTheme": "반도체 소부장",
-      "rationale": "미국 반도체 섹터의 급락과 중국 CXMT의 기술 추격 우려가 국내 반도체 소부장 기업들의 투자 심리에 직접적인 악재로 작용할 전망.",
+      "krTheme": "제약·바이오",
+      "rationale": "미국 바이오 섹터가 3.04% 급락하며 투자 심리가 악화되었고, 이는 국내 제약·바이오 섹터의 단기 변동성을 확대하는 요인으로 작용할 것임.",
       "direction": "down",
-      "etf": "SMH",
+      "etf": "XBI",
       "industryReports": [
         {
-          "category": "반도체",
-          "title": "답답해도 본질에 주목해야 할 때",
-          "broker": "하나증권",
-          "date": "2026-10-12",
-          "url": "https://stock.naver.com/research/industry/46436",
+          "category": "제약",
+          "title": "심리는 바닥 체력은 탄탄",
+          "broker": "키움증권",
+          "date": "2026-10-13",
+          "url": "https://stock.naver.com/research/industry/46440",
           "pdfUrl": "",
-          "summary": "데이터 포인트 및 주간 리뷰: 지속되는 소부장 강세 - 삼성전자의 잠정 실적은 환율 영향으로 인해 최근 낮아진 컨센서스에 부합했다. 메모리 가격은 예상치를 상회, B/G는 기존 가정을 하회한 것으로 파악된다. 공급 물량 및 장기 공급 계약으로 인해 메모리 가격의 상승 탄력이 제한된 가운데, 메모리 가격이 예상치를 상회하는 것은 중요하다. 고객사들의 가격 부담 이상으로 공급 부족이 심하다는 방증이기 때문이다. 하나증권은 LPDDR 공급 부족이 가장 심각한 수준으로 분석하고 있고, 해당 제품의 가격이 시장 예상치를 상회하는 주요 원인이 될 것으로 예상한다. 향후 해당 제품의 동향에 주목할 필요가 있다. - 코스피 지수는 5.4% 하락하며 2주 연속 하락했다. 국내 메모리 업체들 주가도 모두 하락했는데, 삼성전자",
-          "llmSummary": "삼성전자의 메모리 가격이 예상치를 상회하며 공급 부족 상황을 입증했으나, 수급 이슈로 인해 메모리 업체들의 주가는 부진한 흐름을 보였습니다. 반면 소부장 섹터에서는 후공정 업체를 중심으로 강세가 지속되고 있으며, 전반적인 투자 아이디어는 여전히 유효합니다."
+          "summary": "▶ 데이터로 살펴본 견고해진 펀더멘털 ▶ 올해 비우호적인 금리와 수급의 대외환경, 각 종 노이즈 등으로 섹터의 투자심리 매우 약한 상황. 기대감보다는 우려가 민감하게 반영되고 있어 과매도 진입으로 판단. 반면, 수치로 보면 기업들의 펀더멘털은 개선되고 있음을 확인. - 당사 집계 기준, 국내 제약·바이오 업체의 주요 글로벌 기술이전 최대 마일스톤 금액의 연도별 합산을 살펴보면 올해 기술이전 금액은 $13.97bn으로 2025년 $13.65bn을 이미 뛰어넘었음. - 학회 구두발표 건 수 또한 지난해 대비 높아, 점차 글로벌 주요 학회에서",
+          "llmSummary": "제약·바이오 섹터는 대외 환경 악화로 투자 심리가 위축되어 과매도 구간에 진입했으나, 기업들의 펀더멘털은 기술이전 금액 증가 등 수치상으로 개선되고 있다. 글로벌 학회에서의 구두 발표 건수 증가 등 연구개발 성과가 가시화되고 있어 펀더멘털 회복에 주목할 필요가 있다."
         },
         {
-          "category": "반도체",
-          "title": "[IBKS 반도체 In-Depth] 올 가을 단풍은 이천이 평택보다 더 곱다",
-          "broker": "IBK투자증권",
+          "category": "제약",
+          "title": "Kiwoom Healthcare 종합정리 (10/12)",
+          "broker": "키움증권",
           "date": "2026-10-12",
-          "url": "https://stock.naver.com/research/industry/46401",
+          "url": "https://stock.naver.com/research/industry/46403",
           "pdfUrl": "",
-          "llmSummary": "AI 투자 확대로 인해 삼성전자와 SK하이닉스를 포함한 메모리 기업들의 주주환원 규모가 사상 최대 수준으로 급증할 전망입니다. 안정적인 주주환원 정책이 검증된다면 자사주 매입과 배당을 통해 기업 가치와 밸류에이션이 단계적으로 제고될 것으로 확신합니다."
+          "llmSummary": "제약·바이오 업계는 머크의 특허 침해 판결, 펩트론의 기술평가 종료 등 개별 이슈가 발생했으나, 한미약품의 비만 신약 허가와 알테오젠의 대규모 투자 유치 등 긍정적 모멘텀도 공존한다. 글로벌 제약사들과의 협력 확대 및 신약 개발 성과가 지속적으로 확인되고 있다."
         },
         {
-          "category": "전기전자",
-          "title": "Same But Differ (7): 3Q26 Preview - 가격을 쥔 자, 방향을 쥘 것",
-          "broker": "유안타증권",
+          "category": "제약",
+          "title": "ABCD 2.0 (AI with Bio, Concluded by Data)",
+          "broker": "iM증권",
           "date": "2026-10-08",
-          "url": "https://stock.naver.com/research/industry/46397",
+          "url": "https://stock.naver.com/research/industry/46385",
           "pdfUrl": "",
-          "llmSummary": "전기전자 섹터는 환율 하락에 따른 실적 우려에도 불구하고 AI 에이전트 등장으로 기판 수요가 서버 CPU까지 확장되며 반등세를 보이고 있습니다. 개별 종목에서 시작된 반등이 부품 단위로 확산되는 단계이며, 향후 3분기 실적이 추가 확산의 핵심 변수가 될 것입니다."
+          "llmSummary": "모더나와 MSD의 암백신 임상 3상 성공은 AI가 약물 설계에 핵심적인 역할을 수행했음을 입증하며 맞춤형 치료제 시장의 본격화를 알렸다. 이번 결과는 대규모 환자군에서 재발 및 사망 위험 감소 효과를 재확인한 것으로, 향후 AI 기반 신약 개발의 중요성이 더욱 커질 전망이다."
         }
       ],
       "stocks": [
         {
-          "code": "058470",
-          "name": "리노공업",
+          "code": "214150",
+          "name": "클래시스",
           "market": "KOSDAQ",
-          "per": 31.36,
-          "pbr": 7.55,
-          "roe": 18.6,
-          "revGrowth": -3.0,
-          "beta": 0.32,
-          "debtToEquity": null,
-          "marketCap": 5927446511616,
-          "ret1M": 31.98,
-          "ret3M": 17.36,
-          "ret6M": -11.3,
-          "tradingValue20": 77296889710,
-          "price": 87900,
-          "from52WHigh": -31.9,
-          "analystCount": 13,
-          "targetUpside": 13.2,
-          "estPer": 30.69,
-          "industryPer": 8.84,
-          "industryChangePct": -4.48,
-          "dividendYield": 1.04,
-          "targetSource": "야후 애널리스트 13명 평균",
-          "opGrowth": 37.55,
-          "epsGrowth": 60.36,
-          "opMargin": 51.34,
-          "interestCoverage": 31175.25,
-          "rel1M": 22.3,
-          "rel3M": 12.02,
-          "rel6M": 4.23,
+          "per": 13.26,
+          "pbr": 3.31,
+          "roe": 25.6,
+          "revGrowth": 26.7,
+          "beta": 0.62,
+          "debtToEquity": 26.7,
+          "marketCap": 1806585561088,
+          "ret1M": -11.64,
+          "ret3M": -41.81,
+          "ret6M": -45.36,
+          "tradingValue20": 4526237702,
+          "price": 27700,
+          "from52WHigh": -64.3,
+          "analystCount": 19,
+          "targetUpside": 120.0,
+          "estPer": 11.96,
+          "industryPer": 146.48,
+          "industryChangePct": -2.31,
+          "dividendYield": 3.58,
+          "targetSource": "야후 애널리스트 19명 평균",
+          "dataWarnings": [
+            "업종PER 이상치(-43.92) 제외"
+          ],
+          "opGrowth": 2.16,
+          "epsGrowth": 7.6,
+          "opMargin": 41.64,
+          "interestCoverage": 14.65,
+          "rel1M": -14.92,
+          "rel3M": -43.97,
+          "rel6M": -25.19,
           "researchCount": 3,
-          "flowFrgn5": -2.449,
-          "flowFrgn20": -7.198,
-          "flowInst5": 1.942,
-          "flowInst20": 5.733,
-          "qScore": 59,
+          "flowFrgn5": -0.053,
+          "flowFrgn20": -0.22,
+          "flowInst5": -0.114,
+          "flowInst20": -0.116,
+          "qScore": 47,
           "qParts": {
-            "momentum": 58,
-            "valuation": 19,
-            "growth": 65,
-            "health": 90,
+            "momentum": 0,
+            "valuation": 85,
+            "growth": 48,
+            "health": 94,
             "sentiment": 75,
-            "flow": 50
-          },
-          "recentFiling": {
-            "date": "2026-10-07",
-            "title": "주식등의대량보유상황보고서(약식)",
-            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261007000297"
-          },
-          "point": "높은 영업이익률과 기술적 해자 보유.",
-          "risk": "외국인 수급 이탈 및 밸류에이션 부담."
-        },
-        {
-          "code": "000660",
-          "name": "SK하이닉스",
-          "market": "KOSPI",
-          "per": 7.16,
-          "pbr": 4.35,
-          "roe": 92.7,
-          "revGrowth": 256.8,
-          "beta": 2.39,
-          "debtToEquity": 8.0,
-          "marketCap": 1141276158197760,
-          "ret1M": 2.06,
-          "ret3M": -28.24,
-          "ret6M": 102.61,
-          "tradingValue20": 5671199311200,
-          "price": 1681000,
-          "from52WHigh": -43.7,
-          "analystCount": 38,
-          "targetUpside": 86.9,
-          "estPer": 4.53,
-          "industryPer": 8.84,
-          "industryChangePct": -4.48,
-          "dividendYield": 0.19,
-          "targetSource": "야후 애널리스트 38명 평균",
-          "opGrowth": 557.15,
-          "epsGrowth": 1269.6,
-          "opMargin": 76.33,
-          "interestCoverage": 392.28,
-          "rel1M": 2.98,
-          "rel3M": -10.54,
-          "rel6M": 76.02,
-          "researchCount": 8,
-          "flowFrgn5": -0.415,
-          "flowFrgn20": -1.464,
-          "flowInst5": -0.012,
-          "flowInst20": -0.047,
-          "qScore": 70,
-          "qParts": {
-            "momentum": 39,
-            "valuation": 80,
-            "growth": 100,
-            "health": 99,
-            "sentiment": 100,
-            "flow": 26
+            "flow": 42
           },
           "recentFiling": {
             "date": "2026-10-06",
-            "title": "동일인등출자계열회사와의상품ㆍ용역거래변경",
-            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261006000253"
+            "title": "기업설명회(IR)개최              ",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261006900180"
           },
-          "point": "AI 메모리 수요 급증에 따른 실적 개선.",
-          "risk": "높은 베타값으로 인한 시장 변동성 노출."
+          "point": "높은 영업이익률과 성장성",
+          "risk": "52주 고점 대비 큰 폭의 하락"
         },
         {
-          "code": "005930",
-          "name": "삼성전자",
-          "market": "KOSPI",
-          "per": 11.26,
-          "pbr": 2.92,
-          "roe": 30.8,
-          "revGrowth": 130.0,
-          "beta": 1.54,
-          "debtToEquity": 3.9,
-          "marketCap": 1644924155985920,
-          "ret1M": 2.54,
-          "ret3M": -17.61,
-          "ret6M": 47.02,
-          "tradingValue20": 4503714408250,
-          "price": 262000,
-          "from52WHigh": -30.0,
-          "analystCount": 36,
-          "targetUpside": 82.8,
-          "estPer": 5.53,
-          "industryPer": 8.84,
-          "industryChangePct": -4.48,
-          "dividendYield": 0.67,
-          "targetSource": "야후 애널리스트 36명 평균",
-          "opGrowth": 1813.84,
-          "epsGrowth": 1363.13,
-          "opMargin": 52.18,
-          "interestCoverage": 454.27,
-          "rel1M": 3.46,
-          "rel3M": 0.09,
-          "rel6M": 20.43,
-          "researchCount": 8,
-          "flowFrgn5": -0.096,
-          "flowFrgn20": -0.489,
-          "flowInst5": -0.099,
-          "flowInst20": 0.002,
-          "qScore": 74,
-          "qParts": {
-            "momentum": 50,
-            "valuation": 75,
-            "growth": 100,
-            "health": 100,
-            "sentiment": 100,
-            "flow": 39
-          },
-          "recentFiling": {
-            "date": "2026-10-12",
-            "title": "자기주식취득결과보고서",
-            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261012000421"
-          },
-          "point": "메모리 가격 상승 및 주주환원 정책 강화.",
-          "risk": "파운드리 경쟁력 약화 및 수급 불균형."
-        },
-        {
-          "code": "240810",
-          "name": "원익IPS",
+          "code": "145020",
+          "name": "휴젤",
           "market": "KOSDAQ",
-          "per": 36.9,
-          "pbr": 5.9,
-          "roe": 17.5,
-          "revGrowth": -10.6,
-          "beta": 1.46,
-          "debtToEquity": 0.4,
-          "marketCap": 6369029652480,
-          "ret1M": 16.46,
-          "ret3M": 7.39,
-          "ret6M": 22.32,
-          "tradingValue20": 157052802415,
-          "price": 133700,
-          "from52WHigh": -28.8,
-          "analystCount": 14,
-          "targetUpside": 16.7,
-          "estPer": 28.8,
-          "industryPer": 8.84,
-          "industryChangePct": -4.48,
-          "dividendYield": 0.15,
-          "targetSource": "야후 애널리스트 14명 평균",
-          "opGrowth": -49.57,
-          "epsGrowth": 225.21,
-          "opMargin": 8.49,
-          "interestCoverage": -660.8,
-          "rel1M": 6.78,
-          "rel3M": 2.05,
-          "rel6M": 37.85,
-          "researchCount": 1,
-          "flowFrgn5": 0.369,
-          "flowFrgn20": -2.578,
-          "flowInst5": -1.792,
-          "flowInst20": 1.243,
-          "qScore": 44,
+          "per": 13.22,
+          "pbr": 1.74,
+          "roe": 16.5,
+          "revGrowth": 25.1,
+          "beta": 0.56,
+          "debtToEquity": 2.6,
+          "marketCap": 1835479334912,
+          "ret1M": -28.61,
+          "ret3M": -29.06,
+          "ret6M": -28.46,
+          "tradingValue20": 12825792140,
+          "price": 169900,
+          "from52WHigh": -44.9,
+          "analystCount": 17,
+          "targetUpside": 89.9,
+          "estPer": 13.25,
+          "industryPer": 146.48,
+          "industryChangePct": -3.8,
+          "targetSource": "야후 애널리스트 17명 평균",
+          "dataWarnings": [
+            "업종PER 이상치(-75.84) 제외"
+          ],
+          "opGrowth": -1.13,
+          "epsGrowth": 20.38,
+          "opMargin": 40.63,
+          "interestCoverage": 537.0,
+          "rel1M": -31.89,
+          "rel3M": -31.22,
+          "rel6M": -8.29,
+          "researchCount": 5,
+          "flowFrgn5": 0.153,
+          "flowFrgn20": -1.472,
+          "flowInst5": 0.024,
+          "flowInst20": -0.357,
+          "qScore": 50,
           "qParts": {
-            "momentum": 57,
-            "valuation": 23,
-            "growth": 33,
-            "health": 56,
-            "sentiment": 25,
-            "flow": 47
+            "momentum": 4,
+            "valuation": 90,
+            "growth": 52,
+            "health": 91,
+            "sentiment": 100,
+            "flow": 37
           },
           "recentFiling": {
-            "date": "2026-10-07",
-            "title": "주식등의대량보유상황보고서(약식)",
-            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261007000302"
+            "date": "2026-09-30",
+            "title": "임원ㆍ주요주주특정증권등소유상황보고서",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260930000581"
           },
-          "point": "반도체 장비 국산화 수혜 기대.",
-          "risk": "전방 산업 투자 축소 시 실적 타격."
+          "point": "안정적인 영업이익률과 성장세",
+          "risk": "외국인 및 기관 동반 매도세"
+        },
+        {
+          "code": "141080",
+          "name": "리가켐바이오",
+          "market": "KOSDAQ",
+          "per": null,
+          "pbr": 5.99,
+          "roe": -36.5,
+          "revGrowth": -83.0,
+          "beta": 0.49,
+          "debtToEquity": 0.6,
+          "marketCap": 2413585235968,
+          "ret1M": -26.65,
+          "ret3M": -45.6,
+          "ret6M": -60.59,
+          "tradingValue20": 17140644680,
+          "price": 65500,
+          "from52WHigh": -70.9,
+          "analystCount": 5,
+          "targetUpside": null,
+          "dataWarnings": [
+            "목표가 괴리 이상치(217.6) 제외",
+            "목표가 괴리 이상치(235.9) 제외",
+            "영업이익률 이상치(-1300.88) 제외"
+          ],
+          "industryPer": 34.48,
+          "industryChangePct": -1.28,
+          "targetPrice": 220000,
+          "targetSource": "네이버 컨센서스",
+          "opMargin": null,
+          "rel1M": -29.93,
+          "rel3M": -47.76,
+          "rel6M": -40.42,
+          "researchCount": 0,
+          "flowFrgn5": -0.11,
+          "flowFrgn20": 0.525,
+          "flowInst5": -0.614,
+          "flowInst20": -1.932,
+          "qScore": 15,
+          "qParts": {
+            "momentum": 0,
+            "valuation": 27,
+            "growth": 0,
+            "health": 50,
+            "sentiment": 0,
+            "flow": 29
+          },
+          "recentFiling": {
+            "date": "2026-10-02",
+            "title": "주식등의대량보유상황보고서(약식)",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261002000208"
+          },
+          "point": "기술이전 모멘텀 보유",
+          "risk": "적자 지속 및 높은 변동성"
+        },
+        {
+          "code": "196170",
+          "name": "알테오젠",
+          "market": "KOSDAQ",
+          "per": 81.57,
+          "pbr": 29.17,
+          "roe": 35.6,
+          "revGrowth": 269.5,
+          "beta": 0.98,
+          "debtToEquity": 1.1,
+          "marketCap": 15637578514432,
+          "ret1M": -18.95,
+          "ret3M": -6.91,
+          "ret6M": -19.38,
+          "tradingValue20": 84604431975,
+          "price": 224500,
+          "from52WHigh": -48.7,
+          "analystCount": 6,
+          "targetUpside": 80.6,
+          "estPer": 51.31,
+          "industryPer": 146.48,
+          "industryChangePct": -3.8,
+          "dividendYield": 0.13,
+          "targetSource": "야후 애널리스트 6명 평균",
+          "dataWarnings": [
+            "업종PER 이상치(-75.84) 제외"
+          ],
+          "opGrowth": 320.8,
+          "epsGrowth": 124.77,
+          "opMargin": 49.61,
+          "interestCoverage": 8.66,
+          "rel1M": -22.23,
+          "rel3M": -9.07,
+          "rel6M": 0.79,
+          "researchCount": 8,
+          "flowFrgn5": 0.245,
+          "flowFrgn20": 0.652,
+          "flowInst5": -0.059,
+          "flowInst20": -0.421,
+          "qScore": 60,
+          "qParts": {
+            "momentum": 14,
+            "valuation": 49,
+            "growth": 100,
+            "health": 97,
+            "sentiment": 100,
+            "flow": 58
+          },
+          "recentFiling": {
+            "date": "2026-10-08",
+            "title": "기업설명회(IR)개최              ",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261008900645"
+          },
+          "point": "강력한 매출 성장 및 기술력",
+          "risk": "높은 PER 및 기관 수급 불안"
         }
       ],
       "etfReturns": {
-        "ret1W": -6.77,
-        "ret1M": 3.95,
-        "ret3M": -1.55,
-        "ret6M": 33.3,
-        "retYTD": 58.32
+        "ret1W": -2.72,
+        "ret1M": -6.85,
+        "ret3M": -6.03,
+        "ret6M": 8.27,
+        "retYTD": 20.92
       },
-      "etfRank": 6,
+      "etfRank": 11,
       "etfRankOf": 13,
       "scorecard": {
-        "etf": "SMH",
-        "name": "Semiconductors",
-        "score": 38,
+        "etf": "XBI",
+        "name": "Biotech",
+        "score": 35,
         "maxScore": 100,
-        "rawScore": 15,
+        "rawScore": 14,
         "rawMax": 40,
         "verdict": "UW",
         "parts": [
@@ -2596,69 +2627,79 @@
             "label": "센티먼트 정합성",
             "score": 3,
             "max": 5,
-            "note": "Neutral 구간(46)"
+            "note": "Neutral 구간(45)"
           },
           {
             "key": "momentum",
             "label": "상대 모멘텀 합성",
-            "score": 4,
+            "score": 1,
             "max": 5,
-            "note": "SPY 대비 합성 +2.7%p (1M/3M/6M)"
+            "note": "SPY 대비 합성 -8.1%p (1M/3M/6M)"
           },
           {
             "key": "high52w",
             "label": "52주 고점 근접",
             "score": 3,
             "max": 5,
-            "note": "52주 고점 대비 -11.6%"
+            "note": "52주 고점 대비 -13.4%"
           },
           {
             "key": "accel",
             "label": "추세 가속",
             "score": 0,
             "max": 5,
-            "note": "3M 가속도 -36.4%p"
+            "note": "3M 가속도 -20.3%p"
           },
           {
             "key": "valuation",
             "label": "밸류에이션 매력도",
-            "score": 0,
+            "score": 2,
             "max": 5,
-            "note": "PE 40.4 vs 중앙값 25.0 (1.62배)"
+            "note": "ETF PE 미가용 (중립 2점)"
           },
           {
             "key": "lowvol",
             "label": "저변동·하방 방어",
             "score": 0,
             "max": 5,
-            "note": "실현변동성 37.0% (60일 연율) · MDD -24.6%"
+            "note": "실현변동성 29.5% (60일 연율) · MDD -13.4%"
           },
           {
             "key": "riskonoff",
             "label": "리스크 온/오프 정합성",
             "score": 3,
             "max": 5,
-            "note": "중립 (VIX 14.84 · HY 확대)"
+            "note": "리스크온 (VIX 15.21 · HY 안정) — 고베타 우위 (β 1.07)"
           }
         ],
         "source": "결정론적 산출 (퀀트 팩터 스코어카드 v2 — 8항목×5점 100점 환산, 모멘텀 계열 37.5%)"
       },
-      "summary": "미국 반도체 섹터의 급락과 중국의 기술 추격 우려가 국내 소부장 기업들의 투자 심리를 위축시키고 있습니다. 메모리 가격 상승에도 불구하고 수급 이슈로 인한 주가 부진이 이어지고 있습니다. 향후 3분기 실적 발표를 통해 펀더멘털을 재확인하는 과정이 필요합니다."
+      "summary": "미국 바이오 섹터(XBI)의 급락은 국내 제약·바이오 섹터의 투자 심리를 위축시키고 있습니다. 단기 변동성 확대가 불가피하나, 기술이전 등 펀더멘털 성과는 지속되고 있습니다. 과매도 구간에서의 기술적 반등과 개별 기업의 임상 성과에 주목해야 합니다."
     },
     {
-      "usTheme": "바이오",
+      "usTheme": "헬스케어",
       "usSymbols": [
-        "MRNA",
-        "REGN",
-        "AMGN",
-        "VRTX",
-        "GILD"
+        "JNJ",
+        "ABBV",
+        "LLY",
+        "UNH",
+        "PFE"
       ],
-      "krTheme": "제약·바이오",
-      "rationale": "미국 바이오 섹터의 약세와 더불어 국내 주요 제약·바이오 종목들의 최근 주가 변동성이 확대되며 차익 실현 매물이 출회될 가능성.",
+      "krTheme": "헬스케어",
+      "rationale": "헬스케어 대장주들의 실적 발표 속에서도 섹터 전반이 1.35% 하락하며 국내 관련주들의 차익 실현 매물을 자극할 가능성이 있음.",
       "direction": "down",
-      "etf": "XBI",
+      "etf": "XLV",
       "industryReports": [
+        {
+          "category": "제약",
+          "title": "Kiwoom Healthcare 종합정리 (10/06)",
+          "broker": "키움증권",
+          "date": "2026-10-06",
+          "url": "https://stock.naver.com/research/industry/46312",
+          "pdfUrl": "",
+          "summary": "▶ 제약/바이오 - Sanofi-Regeneron, 최대 $8B 규모 계약으로 차세대 면역질환 항체 협력 확대(10/2) 사노피가 리제네론에 선급금 $1B, 마일스톤 최대 $7B 지급. IL-13, IL-4/IL-13 이중항체 등 포함 지속형 항체 4종 공동 개발 양사는 개발비와 향후 이익을 50:50으로 분담. 아토피피부염 치료제 REGN20423은 1상이며 나머지 3종은 2027년 임상 진입 예정 - 에이프릴 파트너사 에보뮨, 아토피 치료제 후보 2a상 유의미한 치료효과 확인(10/1) ‘2회’ 투여만으로 12주차 EASI 55% 개선…위약군 22% 대비 유의한 효과 다양한 염증 경로 조절 확인…2027년 글로벌 임상2b상 진입 예정 - Lilly, 아밀린+tirzepatide 병용으로 당뇨 동반 비만 ",
+          "llmSummary": "글로벌 제약사들의 항체 치료제 협력 확대와 비만 치료제 임상 성과가 이어지며 신약 개발 모멘텀이 지속되고 있다. 국내 기업들 또한 HLB의 항암 신약 FDA 승인 등 글로벌 시장에서 유의미한 성과를 거두고 있으나, 일부 기업의 임상 중단이나 합병 무산 등 리스크 요인도 상존한다."
+        },
         {
           "category": "바이오",
           "title": "하나 Biweekly 제약/바이오(10월 초)",
@@ -2666,8 +2707,7 @@
           "date": "2026-10-02",
           "url": "https://stock.naver.com/research/industry/46303",
           "pdfUrl": "",
-          "summary": "기대할 것이 많은 4분기 진입 1) 2026년 10월 제약/바이오 산업 Preview - 모두가 아는 악재는 악재가 아니다, L/O 성수기 진입 10월부터 3Q26 실적 발표가 시작된다. 2Q 평균 환율은 1,502원/달러였는데, 3Q 평균 환율은 1,423원/달러로 약 5% 감소하였다. 따라서 수출 비중이 높은 기업은 컨센서스가 하향될 가능성이 높다. 그런데 3Q의 환율 변동은 모두가 우려하며 지켜봤기에 실적이 -5% 이내 수준이라면 악재로 작용할 것 같지 않다. 환율을 희석할 이벤트가 있어서 컨센서스가 상향 되거나 부합할 기업을 주목할 필요가 있다. 실적이 중요한 기업 중 3Q26에서는 환율 영향이 희석될 가능성이 높아 보이는 기업으로는 삼성바이오로직스(록빌 공장으로부터 첫 매출 발생 vs. 노조 총파업",
-          "llmSummary": "4분기 제약/바이오 산업은 환율 하락 우려에도 불구하고 기술이전 성수기 진입과 주요 학회 발표 등 풍부한 모멘텀을 보유하고 있습니다. 삼성바이오로직스, 셀트리온 등은 환율 영향을 상쇄할 실적 이벤트가 기대되며, 코스닥 세그먼트 정책보다는 기업별 펀더멘털에 집중할 필요가 있습니다."
+          "llmSummary": "3분기 실적은 환율 하락 영향으로 수출 비중이 높은 기업들의 컨센서스 하향 가능성이 있으나, 이미 시장에 반영된 악재로 판단된다. 4분기는 기술이전 등 주요 이벤트가 집중되는 시기인 만큼, 환율 영향을 희석할 수 있는 기업과 펀더멘털 중심의 투자 전략이 유효하다."
         },
         {
           "category": "제약",
@@ -2676,251 +2716,237 @@
           "date": "2026-09-28",
           "url": "https://stock.naver.com/research/industry/46207",
           "pdfUrl": "",
-          "llmSummary": "제약/바이오 섹터는 그간의 악재 피로감이 지속되어 왔으나, 예정된 데이터 발표와 계약 종료 등의 이벤트가 오히려 불확실성을 해소하는 역할을 할 전망입니다. 한올바이오파마의 임상 발표와 펩트론의 기술평가 종료 등 남은 이벤트 결과에 따라 섹터 내 긴장이 완화될 것으로 기대됩니다."
-        },
-        {
-          "category": "제약",
-          "title": "제약/바이오/의료기기: Kiwoom Healthcare 종합정리 (9/21)",
-          "broker": "키움증권",
-          "date": "2026-09-21",
-          "url": "https://stock.naver.com/research/industry/46139",
-          "pdfUrl": "",
-          "llmSummary": "오름테라퓨틱이 BMS에 기술이전한 후보물질의 개발이 중단되었으나 계약금 반환 의무는 없으며, SK바이오팜은 4,308억 원 규모의 파킨슨병 신약 후보를 도입했습니다. 노보 노디스크는 AI 기반 경구용 치료제 계약을 체결했고, HLB는 담관암 치료제의 유럽 허가를 신청했습니다."
+          "llmSummary": "제약·바이오 섹터는 그간의 악재 피로감으로 인해 데이터 발표나 계약 종료 등 예상된 이벤트가 오히려 긴장을 완화하는 계기가 될 것으로 보인다. 향후 예정된 주요 임상 결과와 기술이전 성과들이 섹터 전반의 투자 심리 회복을 이끌지 주목된다."
         }
       ],
       "stocks": [
         {
-          "code": "141080",
-          "name": "리가켐바이오",
-          "market": "KOSDAQ",
-          "per": null,
-          "pbr": 6.28,
-          "roe": -36.5,
-          "revGrowth": -83.0,
-          "beta": 0.49,
-          "debtToEquity": 0.6,
-          "marketCap": 2546240323584,
-          "ret1M": -20.33,
-          "ret3M": -42.64,
-          "ret6M": -59.59,
-          "tradingValue20": 17493452005,
-          "price": 73300,
-          "from52WHigh": -67.4,
-          "analystCount": 5,
-          "targetUpside": 183.8,
-          "industryPer": 35.17,
-          "industryChangePct": -2.36,
-          "targetSource": "야후 애널리스트 5명 평균",
-          "opMargin": null,
-          "dataWarnings": [
-            "영업이익률 이상치(-1300.88) 제외"
-          ],
-          "rel1M": -30.01,
-          "rel3M": -47.98,
-          "rel6M": -44.06,
-          "researchCount": 0,
-          "flowFrgn5": -0.461,
-          "flowFrgn20": 0.599,
-          "flowInst5": -0.632,
-          "flowInst20": -2.206,
-          "qScore": 20,
+          "code": "128940",
+          "name": "한미약품",
+          "market": "KOSPI",
+          "per": 26.27,
+          "pbr": 4.02,
+          "roe": 16.4,
+          "revGrowth": 29.3,
+          "beta": 0.53,
+          "debtToEquity": 26.3,
+          "marketCap": 5748167278592,
+          "ret1M": -3.82,
+          "ret3M": 10.76,
+          "ret6M": -9.4,
+          "tradingValue20": 56766373050,
+          "price": 453000,
+          "from52WHigh": -30.0,
+          "analystCount": 11,
+          "targetUpside": 46.7,
+          "estPer": 20.15,
+          "industryPer": 34.48,
+          "industryChangePct": -1.28,
+          "dividendYield": 0.45,
+          "targetSource": "야후 애널리스트 11명 평균",
+          "opGrowth": 116.9,
+          "epsGrowth": 115.25,
+          "opMargin": 28.06,
+          "interestCoverage": 39.08,
+          "rel1M": 4.92,
+          "rel3M": 27.37,
+          "rel6M": -28.13,
+          "researchCount": 8,
+          "flowFrgn5": -0.747,
+          "flowFrgn20": -1.675,
+          "flowInst5": 0.035,
+          "flowInst20": 2.129,
+          "qScore": 68,
           "qParts": {
-            "momentum": 0,
-            "valuation": 61,
-            "growth": 0,
-            "health": 50,
-            "sentiment": 0,
-            "flow": 21
+            "momentum": 44,
+            "valuation": 69,
+            "growth": 93,
+            "health": 88,
+            "sentiment": 100,
+            "flow": 38
           },
           "recentFiling": {
-            "date": "2026-10-02",
-            "title": "주식등의대량보유상황보고서(약식)",
-            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261002000208"
+            "date": "2026-10-07",
+            "title": "투자판단관련주요경영사항              (에페오토인젝터주(에페글레나타이드) 식품의약품안전처 품목허가 승인)",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261007800667"
           },
-          "point": "ADC 기술 플랫폼의 글로벌 경쟁력.",
-          "risk": "적자 지속 및 높은 주가 변동성."
+          "point": "신약 허가 승인 및 높은 영업이익률",
+          "risk": "외국인 수급 이탈"
         },
         {
-          "code": "196170",
-          "name": "알테오젠",
-          "market": "KOSDAQ",
-          "per": 83.58,
-          "pbr": 29.88,
-          "roe": 35.6,
-          "revGrowth": 269.5,
-          "beta": 0.98,
-          "debtToEquity": 1.1,
-          "marketCap": 16125164257280,
-          "ret1M": -16.46,
-          "ret3M": -5.35,
-          "ret6M": -10.99,
-          "tradingValue20": 92857334250,
-          "price": 241000,
-          "from52WHigh": -44.9,
-          "analystCount": 6,
-          "targetUpside": 68.3,
-          "estPer": 52.58,
-          "industryPer": 148.83,
-          "industryChangePct": -4.95,
-          "dividendYield": 0.13,
-          "targetSource": "야후 애널리스트 6명 평균",
-          "dataWarnings": [
-            "업종PER 이상치(-79.38) 제외"
-          ],
-          "opGrowth": 320.8,
-          "epsGrowth": 124.77,
-          "opMargin": 49.61,
-          "interestCoverage": 8.66,
-          "rel1M": -26.14,
-          "rel3M": -10.69,
-          "rel6M": 4.54,
-          "researchCount": 8,
-          "flowFrgn5": 0.078,
-          "flowFrgn20": 0.696,
-          "flowInst5": -0.129,
-          "flowInst20": -0.507,
-          "qScore": 59,
+          "code": "185750",
+          "name": "종근당",
+          "market": "KOSPI",
+          "per": 11.32,
+          "pbr": 0.85,
+          "roe": 8.2,
+          "revGrowth": 10.0,
+          "beta": 0.24,
+          "debtToEquity": 43.0,
+          "marketCap": 868302913536,
+          "ret1M": -2.8,
+          "ret3M": -5.32,
+          "ret6M": -25.87,
+          "tradingValue20": 1148501300,
+          "price": 65900,
+          "from52WHigh": -32.8,
+          "analystCount": 7,
+          "targetUpside": 56.1,
+          "estPer": 13.75,
+          "industryPer": 34.48,
+          "industryChangePct": -1.28,
+          "dividendYield": 0.77,
+          "targetSource": "야후 애널리스트 7명 평균",
+          "opGrowth": -21.28,
+          "epsGrowth": 4.87,
+          "opMargin": 3.89,
+          "interestCoverage": 7.06,
+          "rel1M": 5.94,
+          "rel3M": 11.29,
+          "rel6M": -44.6,
+          "researchCount": 1,
+          "flowFrgn5": 0.143,
+          "flowFrgn20": -0.198,
+          "flowInst5": -0.004,
+          "flowInst20": -0.046,
+          "qScore": 47,
           "qParts": {
-            "momentum": 15,
-            "valuation": 49,
-            "growth": 100,
-            "health": 97,
-            "sentiment": 100,
-            "flow": 51
+            "momentum": 34,
+            "valuation": 94,
+            "growth": 25,
+            "health": 58,
+            "sentiment": 25,
+            "flow": 50
           },
           "recentFiling": {
             "date": "2026-10-08",
-            "title": "기업설명회(IR)개최              ",
-            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261008900645"
+            "title": "최대주주등소유주식변동신고서              ",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261008800916"
           },
-          "point": "기술 수출 성과 및 높은 EPS 성장률.",
-          "risk": "과도한 밸류에이션 프리미엄."
+          "point": "안정적인 밸류에이션",
+          "risk": "성장성 둔화 및 기관 수급 부진"
         },
         {
-          "code": "068270",
-          "name": "셀트리온",
+          "code": "000100",
+          "name": "유한양행",
           "market": "KOSPI",
-          "per": 27.45,
-          "pbr": 2.3,
-          "roe": 9.1,
-          "revGrowth": 45.0,
-          "beta": 0.28,
-          "debtToEquity": 21.4,
-          "marketCap": 41135871361024,
-          "ret1M": -4.52,
-          "ret3M": 2.1,
-          "ret6M": -4.13,
-          "tradingValue20": 69349333140,
-          "price": 179600,
-          "from52WHigh": -24.9,
-          "analystCount": 22,
-          "targetUpside": 49.1,
-          "estPer": 26.43,
-          "industryPer": 35.17,
-          "industryChangePct": -2.36,
-          "dividendYield": 0.4,
-          "targetSource": "야후 애널리스트 22명 평균",
-          "opGrowth": 86.33,
-          "epsGrowth": 530.95,
-          "opMargin": 32.42,
-          "interestCoverage": 16.26,
-          "rel1M": -3.6,
-          "rel3M": 19.8,
-          "rel6M": -30.72,
-          "researchCount": 3,
-          "flowFrgn5": -0.052,
-          "flowFrgn20": 0.038,
-          "flowInst5": -0.01,
-          "flowInst20": -0.242,
-          "qScore": 67,
+          "per": 24.46,
+          "pbr": 2.24,
+          "roe": 9.5,
+          "revGrowth": 10.4,
+          "beta": 0.43,
+          "debtToEquity": 14.3,
+          "marketCap": 5442827714560,
+          "ret1M": -7.96,
+          "ret3M": 5.35,
+          "ret6M": -20.7,
+          "tradingValue20": 15441079305,
+          "price": 72800,
+          "from52WHigh": -43.7,
+          "analystCount": 17,
+          "targetUpside": 53.9,
+          "estPer": 34.27,
+          "industryPer": 34.48,
+          "industryChangePct": -1.28,
+          "dividendYield": 0.84,
+          "targetSource": "야후 애널리스트 17명 평균",
+          "opGrowth": 34.11,
+          "epsGrowth": 55.32,
+          "opMargin": 10.46,
+          "interestCoverage": 17.19,
+          "rel1M": 0.78,
+          "rel3M": 21.96,
+          "rel6M": -39.43,
+          "researchCount": 1,
+          "flowFrgn5": 0.171,
+          "flowFrgn20": 0.088,
+          "flowInst5": -0.104,
+          "flowInst20": -0.332,
+          "qScore": 56,
           "qParts": {
-            "momentum": 39,
-            "valuation": 73,
-            "growth": 100,
-            "health": 84,
-            "sentiment": 75,
-            "flow": 46
+            "momentum": 33,
+            "valuation": 77,
+            "growth": 73,
+            "health": 76,
+            "sentiment": 25,
+            "flow": 49
           },
           "recentFiling": {
-            "date": "2026-10-12",
-            "title": "연결재무제표기준영업(잠정)실적(공정공시)              ",
-            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261012800004"
+            "date": "2026-10-02",
+            "title": "임원ㆍ주요주주특정증권등소유상황보고서",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261002000286"
           },
-          "point": "바이오시밀러 시장 점유율 확대.",
-          "risk": "경쟁 심화에 따른 판가 하락 압력."
+          "point": "신약 개발 모멘텀 지속",
+          "risk": "실적 컨센서스 하향 가능성"
         },
         {
-          "code": "214150",
-          "name": "클래시스",
-          "market": "KOSDAQ",
-          "per": 14.0,
-          "pbr": 3.49,
-          "roe": 25.6,
-          "revGrowth": 26.7,
-          "beta": 0.62,
-          "debtToEquity": 26.7,
-          "marketCap": 1927242055680,
-          "ret1M": -4.56,
-          "ret3M": -33.15,
-          "ret6M": -41.97,
-          "tradingValue20": 4450377760,
-          "price": 30350,
-          "from52WHigh": -60.9,
-          "analystCount": 19,
-          "targetUpside": 103.9,
-          "estPer": 12.63,
-          "industryPer": 148.83,
-          "industryChangePct": -1.86,
-          "dividendYield": 3.4,
-          "targetSource": "야후 애널리스트 19명 평균",
-          "dataWarnings": [
-            "업종PER 이상치(-45.13) 제외"
-          ],
-          "opGrowth": 2.16,
-          "epsGrowth": 7.6,
-          "opMargin": 41.64,
-          "interestCoverage": 14.65,
-          "rel1M": -14.24,
-          "rel3M": -38.49,
-          "rel6M": -26.44,
-          "researchCount": 5,
-          "flowFrgn5": -0.017,
-          "flowFrgn20": -0.218,
-          "flowInst5": -0.129,
-          "flowInst20": -0.098,
-          "qScore": 48,
+          "code": "207940",
+          "name": "삼성바이오로직스",
+          "market": "KOSPI",
+          "per": 33.54,
+          "pbr": 6.71,
+          "roe": 18.5,
+          "revGrowth": 30.2,
+          "beta": 0.19,
+          "debtToEquity": 14.8,
+          "marketCap": 56143460171776,
+          "ret1M": -16.25,
+          "ret3M": -11.52,
+          "ret6M": -22.44,
+          "tradingValue20": 62449646604,
+          "price": 1206000,
+          "from52WHigh": -39.3,
+          "analystCount": 26,
+          "targetUpside": 57.5,
+          "estPer": 29.67,
+          "industryPer": 34.48,
+          "industryChangePct": -1.28,
+          "targetSource": "야후 애널리스트 26명 평균",
+          "opGrowth": 22.89,
+          "epsGrowth": 104.12,
+          "opMargin": 44.4,
+          "interestCoverage": 66.83,
+          "rel1M": -7.51,
+          "rel3M": 5.09,
+          "rel6M": -41.17,
+          "researchCount": 8,
+          "flowFrgn5": -0.186,
+          "flowFrgn20": -0.175,
+          "flowInst5": -0.004,
+          "flowInst20": -0.129,
+          "qScore": 55,
           "qParts": {
-            "momentum": 0,
-            "valuation": 84,
-            "growth": 48,
-            "health": 94,
+            "momentum": 18,
+            "valuation": 51,
+            "growth": 81,
+            "health": 91,
             "sentiment": 100,
-            "flow": 42
+            "flow": 41
           },
           "recentFiling": {
-            "date": "2026-10-06",
-            "title": "기업설명회(IR)개최              ",
-            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261006900180"
+            "date": "2026-10-07",
+            "title": "결산실적공시예고(안내공시)              ",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261007800351"
           },
-          "point": "미용 의료기기 시장 성장 및 높은 영업이익률.",
-          "risk": "신규 경쟁자 진입 및 마케팅 비용 증가."
+          "point": "높은 영업이익률과 성장성",
+          "risk": "외국인 및 기관 수급 동반 이탈"
         }
       ],
       "etfReturns": {
-        "ret1W": -3.07,
-        "ret1M": -3.07,
-        "ret3M": -2.61,
-        "ret6M": 14.77,
-        "retYTD": 24.71
+        "ret1W": 1.54,
+        "ret1M": 1.53,
+        "ret3M": 7.59,
+        "ret6M": 14.94,
+        "retYTD": 10.45
       },
-      "etfRank": 9,
+      "etfRank": 3,
       "etfRankOf": 13,
       "scorecard": {
-        "etf": "XBI",
-        "name": "Biotech",
-        "score": 40,
+        "etf": "XLV",
+        "name": "Healthcare",
+        "score": 52,
         "maxScore": 100,
-        "rawScore": 16,
+        "rawScore": 21,
         "rawMax": 40,
         "verdict": "N",
         "parts": [
@@ -2936,325 +2962,323 @@
             "label": "센티먼트 정합성",
             "score": 3,
             "max": 5,
-            "note": "Neutral 구간(46)"
+            "note": "Neutral 구간(45)"
           },
           {
             "key": "momentum",
             "label": "상대 모멘텀 합성",
-            "score": 2,
+            "score": 4,
             "max": 5,
-            "note": "SPY 대비 합성 -4.3%p (1M/3M/6M)"
+            "note": "SPY 대비 합성 +2.5%p (1M/3M/6M)"
           },
           {
             "key": "high52w",
             "label": "52주 고점 근접",
-            "score": 3,
+            "score": 4,
             "max": 5,
-            "note": "52주 고점 대비 -10.7%"
+            "note": "52주 고점 대비 -3.1%"
           },
           {
             "key": "accel",
             "label": "추세 가속",
-            "score": 0,
+            "score": 3,
             "max": 5,
-            "note": "3M 가속도 -20.0%p"
+            "note": "3M 가속도 +0.2%p"
           },
           {
             "key": "valuation",
             "label": "밸류에이션 매력도",
-            "score": 2,
+            "score": 1,
             "max": 5,
-            "note": "ETF PE 미가용 (중립 2점)"
+            "note": "PE 30.3 vs 중앙값 25.0 (1.21배)"
           },
           {
             "key": "lowvol",
             "label": "저변동·하방 방어",
-            "score": 1,
+            "score": 3,
             "max": 5,
-            "note": "실현변동성 29.2% (60일 연율) · MDD -11.9% (중앙값보다 얕음)"
+            "note": "실현변동성 16.4% (60일 연율) · MDD -10.5% (중앙값보다 얕음)"
           },
           {
             "key": "riskonoff",
             "label": "리스크 온/오프 정합성",
-            "score": 3,
+            "score": 1,
             "max": 5,
-            "note": "중립 (VIX 14.84 · HY 확대)"
+            "note": "리스크온 (VIX 15.21 · HY 안정) — 고베타 우위 (β 0.27)"
           }
         ],
         "source": "결정론적 산출 (퀀트 팩터 스코어카드 v2 — 8항목×5점 100점 환산, 모멘텀 계열 37.5%)"
       },
-      "summary": "미국 바이오 섹터의 약세와 국내 주요 종목들의 변동성 확대로 인해 차익 실현 매물이 출회되고 있습니다. 기술 이전 성수기 진입에도 불구하고 불확실성 해소 과정에서 주가 조정이 나타날 수 있습니다. 기업별 펀더멘털에 집중하며 보수적인 접근이 필요합니다."
+      "summary": "미국 헬스케어 섹터(XLV)의 하락세는 국내 관련주들의 차익 실현 매물을 자극하고 있습니다. 글로벌 제약사들과의 협력 및 신약 개발 모멘텀은 유효하나, 환율 영향과 실적 컨센서스 하향 가능성을 경계해야 합니다. 펀더멘털 중심의 보수적 접근이 필요합니다."
     },
     {
-      "usTheme": "기술",
+      "usTheme": "반도체",
       "usSymbols": [
-        "ORCL",
-        "CRM",
-        "ADBE",
-        "AAPL",
-        "MSFT"
+        "MU",
+        "AMD",
+        "ASML",
+        "INTC",
+        "NVDA"
       ],
-      "krTheme": "IT·플랫폼",
-      "rationale": "미국 기술주 전반의 투자 심리 악화와 AI 서비스 성장성에 대한 의구심이 국내 IT·플랫폼 기업들의 밸류에이션 부담을 가중시킬 수 있음.",
+      "krTheme": "반도체 소부장",
+      "rationale": "마이크론의 급락과 반도체 업황에 대한 경계감이 국내 반도체 소부장 섹터 전반에 걸쳐 투자 심리 위축과 하방 압력을 가할 것으로 예상됨.",
       "direction": "down",
-      "etf": "XLK",
+      "etf": "SMH",
       "industryReports": [
         {
-          "category": "미디어",
-          "title": "희로애락",
-          "broker": "유진투자증권",
-          "date": "2026-10-12",
-          "url": "https://stock.naver.com/research/industry/46419",
+          "category": "반도체",
+          "title": "Rubin의 출하 확대, HBM4 성장의 시작",
+          "broker": "한화투자증권",
+          "date": "2026-10-13",
+          "url": "https://stock.naver.com/research/industry/46457",
           "pdfUrl": "",
-          "summary": "\" [CJ ENM] 3분기 매출액은 1조 1,501억원(-7.7%yoy), 영업이익은 189억원(+7.6%yoy)으로 시장 컨센서스 하회 전망 \" 미디어플랫폼은 여전히 TV 광고매출 역성장 불가피할 것으로 예상하는 가운데, 티빙 오리지널 시리즈 공백 영향으로 전분기 대비 수익성 부진할 것으로 전망. 영화드라마는 피프스시즌의 TV 시리즈 딜리버리 공백 지속되는 가운데 스튜디오드래곤과 스튜디오스의 견조한 콘텐츠 판매매출 반영되며 전분기 대비 수익성 개선될 것으로 전망. 음악은 콘텐츠 제작비 및 엠넷플러스 투자 지속되는 가운데 신인 아티스트 데뷔비용 반영되며 다소 부진한 수익성 이어갈 것으로 예상하며, 커머스도 계절적 비수기에 더해 투자 확대 영향으로 수익성 소폭 부진할 것으로 전망 \" 부진한 TV 광고 업황 이",
-          "llmSummary": "CJ ENM은 광고 업황 부진으로 3분기 실적이 컨센서스를 하회할 전망이나 티빙과 피프스시즌의 내년 수익성 개선이 기대됩니다. 스튜디오드래곤은 넷플릭스 오리지널 대작 반영으로 3분기 어닝 서프라이즈가 예상되며, 제작비 효율화와 글로벌 성과 가시화가 긍정적입니다."
+          "summary": "NVIDIA 의 차세대 AI 플랫폼 Vera Rubin 이 초기 상용화 단계에 진입했다. 2026 년 하반기 생산 출하가 시작된 이후 주요 클라우드 사업자를 중심으로 고객 인도가 진행되고 있으며, CoreWeave 는 9 월 말 Rubin NVL72 기반 서비스를 상용화했다. AI 코딩 에이전트 개발사 Cognition 역시 Rubin 기반 인프라에서 실제 추론 워크로드를 운영하기 시작했다. 차세대 GPU 가 제품 발표와 성능 검증을 넘어 실제 고객 환경에서 활용되기 시작했다는 점은 향후 생산량 확대를 기대할 수 있는 중요한 변화다. Rubin 의 고객 기반도 확대되고 있다. NVIDIA 는 AWS, Microsoft, Google, Oracle 등 글로벌 클라우드 사업자를 Rubin 생태계에 포함했으며, ",
+          "llmSummary": "엔비디아의 차세대 AI 플랫폼 '루빈'이 상용화 단계에 진입하며 2027년부터 본격적인 출하량 확대가 예상된다. 루빈은 메모리와 GPU 간 통신 구조를 개선하여 AI 추론 성능을 대폭 향상시켰으며, 이는 HBM4 수요를 견인하여 국내 메모리 업체의 핵심 성장 동력이 될 전망이다."
         },
         {
-          "category": "미디어",
-          "title": "신한 플랫폼팀 Weekly: 돈이 되는 오지랖(10월 2주차)",
-          "broker": "신한투자증권",
-          "date": "2026-10-12",
-          "url": "https://stock.naver.com/research/industry/46416",
+          "category": "반도체",
+          "title": "후공정도 멀리 봐도 된다",
+          "broker": "대신증권",
+          "date": "2026-10-13",
+          "url": "https://stock.naver.com/research/industry/46448",
           "pdfUrl": "",
-          "llmSummary": "미디어 분야에서는 파라마운트와 워너브라더스의 합병 법인 출범과 티빙의 MAU 2위 탈환이 주목받고 있습니다. 레저 부문은 외국인 관광객 소비가 역대 최대를 기록 중이며, 엔터 부문은 하이브의 인도 시장 공략과 디어유의 신규 아티스트 입점 효과로 활기를 띠고 있습니다."
+          "llmSummary": "AI 반도체 양산에서 후공정의 전략적 중요성이 커지며 관련 투자가 활성화되고 있다. 특히 메모리 반도체의 후공정 전환 투자가 늘어남에 따라 국내 후공정 밸류체인의 수혜가 예상되며, 디아이와 엑시콘이 주요 수혜주로 꼽힌다."
         },
         {
-          "category": "게임",
-          "title": "[IBKS Daily] 인터넷/게임",
-          "broker": "IBK투자증권",
+          "category": "반도체",
+          "title": "답답해도 본질에 주목해야 할 때",
+          "broker": "하나증권",
           "date": "2026-10-12",
-          "url": "https://stock.naver.com/research/industry/46404",
-          "pdfUrl": ""
+          "url": "https://stock.naver.com/research/industry/46436",
+          "pdfUrl": "",
+          "llmSummary": "메모리 반도체는 공급 부족 현상이 지속되며 가격이 예상치를 상회하고 있으나, 매크로 이슈와 수급 영향으로 주가는 부진한 흐름을 보이고 있다. 전공정 대비 후공정 소부장 기업에 대한 선호도가 높으며, 업황 회복과 펀더멘털에 기반한 투자 아이디어는 여전히 유효하다."
         }
       ],
       "stocks": [
         {
-          "code": "293490",
-          "name": "카카오게임즈",
-          "market": "KOSDAQ",
-          "per": null,
-          "pbr": 0.77,
-          "roe": -12.3,
-          "revGrowth": -35.2,
-          "beta": 0.6,
-          "debtToEquity": 79.7,
-          "marketCap": 1024547815424,
-          "ret1M": 3.54,
-          "ret3M": 21.11,
-          "ret6M": -21.1,
-          "tradingValue20": 3290039910,
-          "price": 9350,
-          "from52WHigh": -49.3,
-          "analystCount": 9,
-          "targetUpside": 0.8,
-          "estPer": null,
-          "industryPer": 10.83,
-          "industryChangePct": -1.17,
-          "targetSource": "야후 애널리스트 9명 평균",
-          "dataWarnings": [
-            "추정PER 이상치(-7.93) 제외"
-          ],
-          "opGrowth": -74.6,
-          "opMargin": -30.69,
-          "interestCoverage": 0.35,
-          "fwdPer": 135.31,
-          "rel1M": -6.14,
-          "rel3M": 15.77,
-          "rel6M": -5.57,
-          "researchCount": 1,
-          "flowFrgn5": 0.059,
-          "flowFrgn20": 0.284,
-          "flowInst5": 0.128,
-          "flowInst20": -0.105,
-          "qScore": 24,
-          "qParts": {
-            "momentum": 31,
-            "valuation": 30,
-            "growth": 0,
-            "health": 16,
-            "sentiment": 25,
-            "flow": 57
-          },
-          "recentFiling": {
-            "date": "2026-09-15",
-            "title": "타법인주식및출자증권취득결정              ",
-            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260915900505"
-          },
-          "point": "신작 출시를 통한 실적 반등 기대.",
-          "risk": "지속적인 영업 적자 및 성장성 둔화."
-        },
-        {
-          "code": "259960",
-          "name": "크래프톤",
+          "code": "000660",
+          "name": "SK하이닉스",
           "market": "KOSPI",
-          "per": 10.6,
-          "pbr": 1.13,
-          "roe": 11.7,
-          "revGrowth": 94.9,
-          "beta": 0.74,
-          "debtToEquity": 7.3,
-          "marketCap": 8244069662720,
-          "ret1M": -13.67,
-          "ret3M": -20.3,
-          "ret6M": -24.48,
-          "tradingValue20": 15706755100,
-          "price": 186900,
-          "from52WHigh": -38.4,
-          "analystCount": 24,
-          "targetUpside": 84.4,
-          "estPer": 9.83,
-          "industryPer": 10.83,
-          "industryChangePct": -1.17,
-          "dividendYield": 1.19,
-          "targetSource": "야후 애널리스트 24명 평균",
-          "opGrowth": 67.0,
-          "epsGrowth": -43.16,
-          "opMargin": 31.85,
-          "interestCoverage": 90.54,
-          "rel1M": -12.75,
-          "rel3M": -2.6,
-          "rel6M": -51.07,
-          "researchCount": 3,
-          "flowFrgn5": 0.082,
-          "flowFrgn20": 0.244,
-          "flowInst5": -0.133,
-          "flowInst20": -0.434,
-          "qScore": 54,
+          "per": 6.49,
+          "pbr": 3.95,
+          "roe": 92.7,
+          "revGrowth": 256.8,
+          "beta": 2.39,
+          "debtToEquity": 8.0,
+          "marketCap": 1026081981202432,
+          "ret1M": -19.52,
+          "ret3M": -30.48,
+          "ret6M": 62.93,
+          "tradingValue20": 5614088843950,
+          "price": 1443000,
+          "from52WHigh": -51.7,
+          "analystCount": 38,
+          "targetUpside": 117.7,
+          "estPer": 4.11,
+          "industryPer": 8.44,
+          "industryChangePct": -7.38,
+          "dividendYield": 0.21,
+          "targetSource": "야후 애널리스트 38명 평균",
+          "opGrowth": 557.15,
+          "epsGrowth": 1269.6,
+          "opMargin": 76.33,
+          "interestCoverage": 392.28,
+          "rel1M": -10.78,
+          "rel3M": -13.87,
+          "rel6M": 44.2,
+          "researchCount": 8,
+          "flowFrgn5": -0.607,
+          "flowFrgn20": -1.631,
+          "flowInst5": 0.037,
+          "flowInst20": 0.003,
+          "qScore": 67,
           "qParts": {
-            "momentum": 10,
-            "valuation": 86,
-            "growth": 67,
-            "health": 88,
-            "sentiment": 75,
-            "flow": 46
-          },
-          "recentFiling": {
-            "date": "2026-09-30",
-            "title": "주식소각결정              ",
-            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260930800878"
-          },
-          "point": "배틀그라운드 IP의 견조한 수익성.",
-          "risk": "신작 흥행 실패 시 주가 하방 압력."
-        },
-        {
-          "code": "018260",
-          "name": "삼성에스디에스",
-          "market": "KOSPI",
-          "per": 23.03,
-          "pbr": 1.45,
-          "roe": 6.5,
-          "revGrowth": 5.9,
-          "beta": 1.28,
-          "debtToEquity": 18.2,
-          "marketCap": 15114225844224,
-          "ret1M": -17.94,
-          "ret3M": 1.03,
-          "ret6M": 29.68,
-          "tradingValue20": 31624931435,
-          "price": 195300,
-          "from52WHigh": -49.7,
-          "analystCount": 16,
-          "targetUpside": 40.7,
-          "estPer": 21.6,
-          "industryPer": 26.33,
-          "industryChangePct": -2.85,
-          "dividendYield": 1.65,
-          "targetSource": "야후 애널리스트 16명 평균",
-          "opGrowth": 0.71,
-          "epsGrowth": 4.96,
-          "opMargin": 6.24,
-          "interestCoverage": 11.92,
-          "rel1M": -17.02,
-          "rel3M": 18.73,
-          "rel6M": 3.09,
-          "researchCount": 5,
-          "flowFrgn5": 0.082,
-          "flowFrgn20": 0.483,
-          "flowInst5": -0.223,
-          "flowInst20": -0.519,
-          "qScore": 50,
-          "qParts": {
-            "momentum": 32,
-            "valuation": 78,
-            "growth": 32,
-            "health": 69,
+            "momentum": 28,
+            "valuation": 83,
+            "growth": 100,
+            "health": 99,
             "sentiment": 100,
-            "flow": 46
+            "flow": 26
           },
           "recentFiling": {
             "date": "2026-10-06",
-            "title": "최대주주등소유주식변동신고서              ",
-            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261006800240"
+            "title": "동일인등출자계열회사와의상품ㆍ용역거래변경",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261006000253"
           },
-          "point": "클라우드 및 물류 사업의 안정적 성장.",
-          "risk": "IT 서비스 수요 둔화."
+          "point": "HBM 수요 견인 및 압도적 영업이익률",
+          "risk": "외국인 대규모 매도세 및 업황 불확실성"
         },
         {
-          "code": "035420",
-          "name": "NAVER",
+          "code": "005930",
+          "name": "삼성전자",
           "market": "KOSPI",
-          "per": 13.95,
-          "pbr": 0.91,
-          "roe": 6.4,
-          "revGrowth": 16.2,
-          "beta": 1.19,
-          "debtToEquity": 18.2,
-          "marketCap": 27039681740800,
+          "per": 10.5,
+          "pbr": 2.72,
+          "roe": 30.8,
+          "revGrowth": 130.0,
+          "beta": 1.54,
+          "debtToEquity": 3.9,
+          "marketCap": 1510766020657152,
           "ret1M": -13.91,
-          "ret3M": -6.51,
-          "ret6M": -6.13,
-          "tradingValue20": 129072228090,
-          "price": 183800,
-          "from52WHigh": -39.5,
-          "analystCount": 26,
-          "targetUpside": 59.5,
-          "estPer": 14.66,
-          "industryPer": 17.96,
-          "industryChangePct": -1.95,
-          "dividendYield": 1.46,
-          "targetSource": "야후 애널리스트 26명 평균",
-          "opGrowth": -0.24,
-          "epsGrowth": 44.34,
-          "opMargin": 15.35,
-          "interestCoverage": 20.31,
-          "rel1M": -12.99,
-          "rel3M": 11.19,
-          "rel6M": -32.72,
+          "ret3M": -16.4,
+          "ret6M": 20.28,
+          "tradingValue20": 4535428955900,
+          "price": 232000,
+          "from52WHigh": -38.1,
+          "analystCount": 36,
+          "targetUpside": 106.4,
+          "estPer": 5.14,
+          "industryPer": 8.44,
+          "industryChangePct": -7.38,
+          "dividendYield": 0.71,
+          "targetSource": "야후 애널리스트 36명 평균",
+          "opGrowth": 1813.84,
+          "epsGrowth": 1363.13,
+          "opMargin": 52.18,
+          "interestCoverage": 454.27,
+          "rel1M": -5.17,
+          "rel3M": 0.21,
+          "rel6M": 1.55,
           "researchCount": 8,
-          "flowFrgn5": -0.377,
-          "flowFrgn20": -0.747,
-          "flowInst5": -0.135,
-          "flowInst20": -1.485,
-          "qScore": 51,
+          "flowFrgn5": -0.178,
+          "flowFrgn20": -0.519,
+          "flowInst5": -0.089,
+          "flowInst20": -0.009,
+          "qScore": 67,
           "qParts": {
-            "momentum": 18,
-            "valuation": 88,
-            "growth": 58,
-            "health": 78,
+            "momentum": 27,
+            "valuation": 76,
+            "growth": 100,
+            "health": 100,
             "sentiment": 100,
-            "flow": 15
+            "flow": 37
+          },
+          "recentFiling": {
+            "date": "2026-10-13",
+            "title": "최대주주등소유주식변동신고서              ",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261013800651"
+          },
+          "point": "메모리 업황 회복 및 밸류에이션 매력",
+          "risk": "외국인 수급 이탈 및 주가 하방 압력"
+        },
+        {
+          "code": "095340",
+          "name": "ISC",
+          "market": "KOSDAQ",
+          "per": 50.45,
+          "pbr": 6.7,
+          "roe": 14.38,
+          "revGrowth": 41.17,
+          "beta": null,
+          "debtToEquity": null,
+          "marketCap": 3883868356608,
+          "ret1M": 0.38,
+          "ret3M": 33.7,
+          "ret6M": -23.46,
+          "tradingValue20": 34095977490,
+          "price": 183700,
+          "from52WHigh": -37.2,
+          "analystCount": 10,
+          "targetUpside": 40.4,
+          "estPer": 43.6,
+          "industryPer": 8.44,
+          "industryChangePct": -7.38,
+          "dividendYield": 0.46,
+          "targetSource": "야후 애널리스트 10명 평균",
+          "opGrowth": 55.48,
+          "epsGrowth": 67.74,
+          "opMargin": 29.23,
+          "interestCoverage": 1138.17,
+          "rel1M": -2.9,
+          "rel3M": 31.54,
+          "rel6M": -3.29,
+          "researchCount": 1,
+          "flowFrgn5": 0.088,
+          "flowFrgn20": -2.522,
+          "flowInst5": -0.237,
+          "flowInst20": 2.272,
+          "qScore": 59,
+          "qParts": {
+            "momentum": 42,
+            "valuation": 29,
+            "growth": 100,
+            "health": 87,
+            "sentiment": 25,
+            "flow": 46
           },
           "recentFiling": {
             "date": "2026-10-07",
-            "title": "[기재정정]주식교환ㆍ이전결정(종속회사의주요경영사항)              ",
-            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261007800306"
+            "title": "주식등의대량보유상황보고서(약식)",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261007000292"
           },
-          "point": "AI 서비스 고도화 및 커머스 부문 성장.",
-          "risk": "플랫폼 경쟁 심화 및 광고 매출 부진."
+          "point": "후공정 투자 수혜 기대",
+          "risk": "외국인 매도세 및 높은 밸류에이션"
+        },
+        {
+          "code": "039030",
+          "name": "이오테크닉스",
+          "market": "KOSDAQ",
+          "per": 56.65,
+          "pbr": 8.22,
+          "roe": 16.0,
+          "revGrowth": 35.6,
+          "beta": 1.38,
+          "debtToEquity": 0.9,
+          "marketCap": 6085857509376,
+          "ret1M": 10.64,
+          "ret3M": 43.19,
+          "ret6M": 25.06,
+          "tradingValue20": 58855217500,
+          "price": 494000,
+          "from52WHigh": -20.7,
+          "analystCount": 4,
+          "targetUpside": 23.2,
+          "industryPer": 8.44,
+          "industryChangePct": -7.38,
+          "dividendYield": 0.24,
+          "targetSource": "야후 애널리스트 4명 평균",
+          "opGrowth": 51.36,
+          "epsGrowth": 1381.83,
+          "opMargin": 30.59,
+          "interestCoverage": 1098.08,
+          "rel1M": 7.36,
+          "rel3M": 41.03,
+          "rel6M": 45.23,
+          "researchCount": 1,
+          "flowFrgn5": 0.959,
+          "flowFrgn20": -1.448,
+          "flowInst5": -0.671,
+          "flowInst20": 2.155,
+          "qScore": 68,
+          "qParts": {
+            "momentum": 77,
+            "valuation": 17,
+            "growth": 97,
+            "health": 91,
+            "sentiment": 25,
+            "flow": 50
+          },
+          "recentFiling": {
+            "date": "2026-10-07",
+            "title": "주식등의대량보유상황보고서(약식)",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261007000310"
+          },
+          "point": "후공정 장비 수요 증가",
+          "risk": "외국인 수급 이탈 및 높은 PER"
         }
       ],
       "etfReturns": {
-        "ret1W": -2.27,
-        "ret1M": 4.75,
-        "ret3M": 7.06,
-        "ret6M": 35.17,
-        "retYTD": 36.57
+        "ret1W": -7.02,
+        "ret1M": 8.61,
+        "ret3M": -0.45,
+        "ret6M": 30.12,
+        "retYTD": 57.55
       },
-      "etfRank": 3,
+      "etfRank": 5,
       "etfRankOf": 13,
       "scorecard": {
-        "etf": "XLK",
-        "name": "Technology",
+        "etf": "SMH",
+        "name": "Semiconductors",
         "score": 45,
         "maxScore": 100,
         "rawScore": 18,
@@ -3273,67 +3297,66 @@
             "label": "센티먼트 정합성",
             "score": 3,
             "max": 5,
-            "note": "Neutral 구간(46)"
+            "note": "Neutral 구간(45)"
           },
           {
             "key": "momentum",
             "label": "상대 모멘텀 합성",
-            "score": 5,
+            "score": 4,
             "max": 5,
-            "note": "SPY 대비 합성 +7.6%p (1M/3M/6M)"
+            "note": "SPY 대비 합성 +4.0%p (1M/3M/6M)"
           },
           {
             "key": "high52w",
             "label": "52주 고점 근접",
-            "score": 5,
+            "score": 3,
             "max": 5,
-            "note": "52주 고점 대비 -2.8%"
+            "note": "52주 고점 대비 -12.1%"
           },
           {
             "key": "accel",
             "label": "추세 가속",
             "score": 0,
             "max": 5,
-            "note": "3M 가속도 -21.1%p"
+            "note": "3M 가속도 -31.0%p"
           },
           {
             "key": "valuation",
             "label": "밸류에이션 매력도",
-            "score": 0,
+            "score": 1,
             "max": 5,
-            "note": "PE 34.8 vs 중앙값 25.0 (1.39배)"
+            "note": "PE 31.4 vs 중앙값 25.0 (1.26배)"
           },
           {
             "key": "lowvol",
             "label": "저변동·하방 방어",
             "score": 0,
             "max": 5,
-            "note": "실현변동성 24.9% (60일 연율) · MDD -15.9%"
+            "note": "실현변동성 37.0% (60일 연율) · MDD -24.6%"
           },
           {
             "key": "riskonoff",
             "label": "리스크 온/오프 정합성",
-            "score": 3,
+            "score": 5,
             "max": 5,
-            "note": "중립 (VIX 14.84 · HY 확대)"
+            "note": "리스크온 (VIX 15.21 · HY 안정) — 고베타 우위 (β 2.36)"
           }
         ],
         "source": "결정론적 산출 (퀀트 팩터 스코어카드 v2 — 8항목×5점 100점 환산, 모멘텀 계열 37.5%)"
       },
-      "summary": "미국 기술주 전반의 투자 심리 악화와 AI 서비스 성장성에 대한 의구심이 국내 IT·플랫폼 기업들의 밸류에이션 부담을 가중시키고 있습니다. 광고 업황 부진과 실적 컨센서스 하회 우려가 주가 상승을 제한하고 있습니다. 글로벌 성과 가시화 여부를 관전 포인트로 삼아야 합니다."
+      "summary": "미국 반도체 섹터(SMH)의 급락은 국내 반도체 소부장 섹터 전반에 하방 압력을 가하고 있습니다. AI 플랫폼 상용화와 HBM 수요는 장기적 성장 동력이지만, 단기적으로는 매크로 이슈와 수급 불균형으로 인한 주가 부진이 예상됩니다. 후공정 밸류체인 위주의 선별적 대응이 필요합니다."
     }
   ],
-  "strategy": "과열 국면에서는 에너지 및 산업재 등 매크로 적합도가 높은 섹터 위주로 포트폴리오를 구성하되, 센티먼트가 중립 구간에 머물러 있으므로 공격적인 비중 확대보다는 리스크 관리를 병행해야 합니다. 특히 반도체 및 기술주 등 하방 압력이 강한 섹터는 비중을 축소하고, 밸류에이션 매력이 높은 종목 위주로 선별적 접근이 필요합니다.",
+  "strategy": "과열 국면과 Fear 센티먼트를 고려하여, 에너지 및 소재 섹터와 같은 인플레이션 헤지 자산에 비중을 두는 전략이 유효합니다. 반도체 및 바이오 등 고베타 섹터는 단기적인 하방 압력이 강하므로, 펀더멘털이 검증된 종목 위주로 선별적 접근을 하거나 리스크 관리를 강화해야 합니다.",
   "risks": [
-    "금리 상승 지속에 따른 밸류에이션 멀티플 압박.",
-    "지정학적 리스크 확대에 따른 유가 및 원자재 가격 변동성.",
-    "부동산 PF 부실 전이 등 금융권 잠재 리스크.",
-    "기술주 및 반도체 섹터의 수급 이탈 가속화."
+    "10년물 국채금리 상승에 따른 밸류에이션 부담",
+    "인플레이션 지속에 따른 금리 인하 기대감 후퇴",
+    "시장 센티먼트가 'Fear'에서 'Extreme Fear'로 악화될 가능성"
   ],
   "sources": [
     "FRED (api.stlouisfed.org) — FEDFUNDS, DGS10, DGS2, T10Y2Y, CPIAUCSL, CPILFESL, UNRATE, INDPRO, VIXCLS, BAMLH0A0HYM2",
     "Yahoo Finance — 섹터 ETF 13종+SPY 벤치마크, ETF PE, 테마 종목 재무·목표주가 컨센서스",
-    "CNN Fear & Greed Index, 2026-10-13",
+    "CNN Fear & Greed Index, 2026-10-14",
     "DART OpenAPI — 테마 종목 최근 공시"
   ],
   "disclaimer": "본 리포트는 퀀트 모델 기반 참고 자료이며 투자 권유가 아닙니다. 최종 투자 판단은 자격을 갖춘 전문가와 검토하십시오."
