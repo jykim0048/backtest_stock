@@ -42,3 +42,27 @@ BORROW_RATE = _f("SWING_BORROW_RATE", 0.04)                  # 대차수수료 �
 MAIN_RAW_BASE = os.environ.get(
     "SWING_MAIN_RAW_BASE",
     "https://raw.githubusercontent.com/jykim0048/backtest_stock/main")
+
+# KIS 허브(vi_limit_monitor) HTTP — 수급·공매도·대차 /flow (스킬 collect 와 같은 기본값)
+FLOW_API_BASE = os.environ.get("FLOW_API_BASE", "https://tradingstrategies-production-09d4.up.railway.app")
+
+# 업종별 종목 수급 모멘텀 유니버스(2026-10-13, swing/universe.py · PLAN_UNIVERSE.md). 관찰 모드 — 후보 미연결
+UNIVERSE_ENABLED = os.environ.get("SWING_UNIVERSE", "1") != "0"
+UNI_TOPK_TV = _i("SWING_UNI_TOPK_TV", 15)          # 1차 컷: 업종별 당일 거래대금 상위
+UNI_TOPK_CAP = _i("SWING_UNI_TOPK_CAP", 5)         # 1차 컷: ∪ 시총 상위
+UNI_TOPN = _i("SWING_UNI_TOPN", 10)                # 업종별 Top N
+UNI_MIN_TV_EOK = _f("SWING_UNI_MIN_TV_EOK", 20)    # 유동성 하한: 20일 평균 거래대금(억)
+UNI_FLOW_PER_SECTOR = _i("SWING_UNI_FLOW_PER_SECTOR", 12)   # KIS 허브 /flow 보강 대상(업종별 예비 상위)
+UNI_CAND_MIN = _i("SWING_UNI_CAND_MIN", 2)         # '후보' 표시 최소 점수
+UNI_COOLDOWN_DAYS = _i("SWING_UNI_COOLDOWN_DAYS", 3)   # 최근 N영업일 entry 판단 있으면 ✓ 표시
+# 점수 임계값 — 거래대금 가속(1W/4W−1), 수급/시총(bp), 공매도 비중 Δ(pp), 대차 Δ(bp), 공매도 비중 높음(%)
+UNI_TV_HI, UNI_TV_LO = _f("SWING_UNI_TV_HI", 0.40), _f("SWING_UNI_TV_LO", 0.15)
+UNI_FLOW_HI, UNI_FLOW_LO = _f("SWING_UNI_FLOW_HI", 20), _f("SWING_UNI_FLOW_LO", 6)
+UNI_SHORT_DELTA = _f("SWING_UNI_SHORT_DELTA", 0.6)
+UNI_LOAN_BP = _f("SWING_UNI_LOAN_BP", 12)
+UNI_SHORT_HIGH = _f("SWING_UNI_SHORT_HIGH", 5.0)
+# DB증권 응답 단위 → 억원 나눗셈(1차 실측 전 추정: 거래대금 원, 투자자 매수·매도 금액 천원, Avls 100만원).
+# /api/swing/universe 의 diag.rawSample 로 확인 후 조정
+UNI_TV_DIV = _f("SWING_UNI_TV_DIV", 1e8)
+UNI_FLOW_DIV = _f("SWING_UNI_FLOW_DIV", 1e5)
+UNI_CAP_DIV = _f("SWING_UNI_CAP_DIV", 100)

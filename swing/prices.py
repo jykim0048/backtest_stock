@@ -61,11 +61,16 @@ class YFinancePrices:
                 with open(os.path.join(_ROOT, "public", "assets", "krx_companies.json"),
                           encoding="utf-8") as f:
                     for e in json.load(f):
-                        self._mkt[str(e.get("code")).zfill(6)] = e.get("market")
+                        # krx_companies 의 market 값은 "코스닥"/"유가"/"코넥스"(한글), ticker 는
+                        # "005930.KS"/"477850.KQ" — 접미사를 우선 쓴다. 종전 "KOSDAQ" 비교는
+                        # 어떤 종목에도 맞지 않아 전 종목이 .KS 로 판정되던 버그(2026-10-13 수정).
+                        tk = str(e.get("ticker") or "")
+                        suf = tk.rsplit(".", 1)[-1].upper() if "." in tk else ""
+                        self._mkt[str(e.get("code")).zfill(6)] = suf or str(e.get("market") or "")
             except Exception:
                 pass
-        m = self._mkt.get(code) or self._mkt.get(code[:5] + "0")
-        return "KQ" if str(m or "").upper().startswith("KOSDAQ") else "KS"
+        m = str(self._mkt.get(code) or self._mkt.get(code[:5] + "0") or "").upper()
+        return "KQ" if (m == "KQ" or m.startswith("KOSDAQ") or "코스닥" in m) else "KS"
 
     def daily_bars(self, codes, date):
         import yfinance as yf

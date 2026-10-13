@@ -1077,16 +1077,187 @@
     if (b) openDecision(b.getAttribute("data-key"));
   });
 
+  // ── 유니버스(2026-10-13) — 업종별 종목 수급 모멘텀, 관찰 모드(후보 미연결). /api/swing/universe?date= ──
+  var UN = { doc: null, dir: "all", sec: null };
+  var UN_SIGC = { "동반강세": "var(--sig-strong)", "수급유입": "var(--sig-inflow)", "수급이탈": "var(--sig-outflow)", "동반약세": "var(--sig-weak)" };
+  function unC(s) { return UN_SIGC[s] || "#64748b"; }
+  function fmtEok(v) { return v == null ? "—" : Math.round(v).toLocaleString("ko-KR") + "억"; }
+  function sgn(v, d, unit) { return v == null ? "—" : (v > 0 ? "+" : v < 0 ? "−" : "") + Math.abs(v).toFixed(d == null ? 0 : d) + (unit || ""); }
+  function cls(v, inv) { if (v == null || v === 0) return ""; return (inv ? v < 0 : v > 0) ? "up" : "down"; }
+  function sbar(sc) {
+    if (sc == null) return '<span class="sc muted">—</span>';
+    return '<span class="sbar"><i class="' + (sc >= 0 ? "l" : "s") + '" style="width:' + (Math.abs(sc) / 5 * 50) + '%"></i></span> ' +
+      '<span class="sc ' + (sc > 0 ? "up" : sc < 0 ? "down" : "muted") + '">' + (sc > 0 ? "+" : "") + sc + "</span>";
+  }
+  function unHeld(x) { return x.held || S.held[x.code] || S.heldShort[x.code]; }
+  function unFlags(x) {
+    var h = "";
+    if (unHeld(x)) h += '<span class="flag held">● 보유</span>';
+    if (x.pending) h += '<span class="flag pend">대기</span>';
+    if (x.hasStockFuture) h += '<span class="flag fut">F</span>';
+    if (x.shortHigh) h += '<span class="flag short-top">공매도↑</span>';
+    if (x.done) h += '<span class="flag done">✓ ' + esc(String(x.done).slice(5)) + "</span>";
+    return h;
+  }
+  function unMin() { return (UN.doc && UN.doc.knobs && UN.doc.knobs.candMin) || 2; }
+  function unState(x, s) {
+    if (!s.dir) return '<span class="state x">관찰</span>';
+    if (unHeld(x)) return '<span class="state hold">보유 중</span>';
+    if (x.pending) return '<span class="state q">주문 대기</span>';
+    return x.score >= unMin() ? '<span class="state cand">후보</span>' : '<span class="state x">점수 미달</span>';
+  }
+  function unAll(doc, side) {
+    var out = [];
+    (doc.sectors || []).forEach(function (s) {
+      if (s.dir !== side) return;
+      (s.top || []).forEach(function (x) { out.push(Object.assign({ sector: s.name, signal: s.signal, _s: s }, x)); });
+    });
+    out.sort(function (a, b) { return (b.score - a.score) || ((b.tv1w || 0) - (a.tv1w || 0)); });
+    return out;
+  }
+  function unTopRows(arr) {
+    if (!arr.length) return '<div class="mx-empty">해당 방향 업종 없음</div>';
+    var h = '<div class="tr h"><span>#</span><span>종목 · 업종</span><span style="text-align:right">점수</span><span class="v c4">거래대금Δ</span>' +
+      '<span class="v c5">외+기</span><span class="v c6">공매도Δ</span><span class="fl">플래그 · 상태</span></div>';
+    arr.slice(0, 10).forEach(function (x, i) {
+      var fo = (x.frgn1w || 0) + (x.orgn1w || 0);
+      h += '<div class="tr"><span class="rk">' + (i + 1) + '</span><span class="nm">' + esc(x.name) + "<small>" + esc(x.sector) + " · " + sig(x.signal) + "</small></span>" +
+        '<span style="text-align:right">' + sbar(x.score) + "</span>" +
+        '<span class="v c4 ' + cls(x.tvMom) + '">' + (x.tvMom == null ? "—" : sgn(x.tvMom * 100, 0, "%")) + "<small>" + fmtEok(x.tv1w) + "</small></span>" +
+        '<span class="v c5 ' + cls(fo) + '">' + sgn(fo, 0, "억") + "<small>" + sgn(x.flowBp, 0, "bp") + "</small></span>" +
+        '<span class="v c6 ' + cls(x.shortMom, true) + '">' + sgn(x.shortMom, 1, "pp") + "<small>" + (x.shortRlim1w == null ? "—" : x.shortRlim1w.toFixed(1) + "%") + "</small></span>" +
+        '<span class="fl">' + unFlags(x) + "<div>" + unState(x, x._s) + "</div></span></div>";
+    });
+    return h;
+  }
+  function renderUniverse(res) {
+    var doc = res && res.universe;
+    UN.doc = doc; UN.sec = null;
+    setCount("cnt-universe", doc ? doc.summary.top : 0);
+    if (!doc) {
+      ["un-chips", "un-kpis", "un-strip", "un-score-rules", "un-knobs", "un-log", "un-foot"].forEach(function (id) { $(id).innerHTML = ""; });
+      $("un-top-long").innerHTML = $("un-top-short").innerHTML = '<div class="mx-empty">유니버스 미산출 — 16:30 크론 이후 표시</div>';
+      $("un-table").innerHTML = '<tbody><tr class="empty"><td>이 날 유니버스 없음</td></tr></tbody>';
+      $("un-log-sub").textContent = "";
+      return;
+    }
+    var sm = doc.summary || {}, dg = doc.diag || {}, kn = doc.knobs || {}, calls = dg.calls || {};
+    $("un-chips").innerHTML = [["기준", doc.date + " " + String(doc.asof || "").slice(11, 16)], ["주간 브리핑", String(doc.wbAsof || "—").slice(0, 16)],
+      ["거래대금·투자자", "DB증권"], ["공매도·대차", "KIS T+1"], ["모드", "관찰 · 후보 미연결"]]
+      .map(function (c) { return '<span class="chip">' + c[0] + " <b>" + esc(c[1]) + "</b></span>"; }).join("");
+    var kp = [["업종", sm.sectors, "신호 " + sm.signaled + " · 혼조 " + sm.mixed + " · 대분류 제외 " + sm.big],
+      ["1차 컷 → Top", sm.cut + "<small> → " + sm.top + "</small>", "거래대금 상위 " + kn.topkTv + " ∪ 시총 " + kn.topkCap],
+      ["Long 후보", sm.long, "점수 ≥ +" + kn.candMin + " · 상방 업종", "long"],
+      ["Short 후보", sm.short, "선물 상장 " + sm.shortFut + " · 하방 업종", "short"],
+      ["보유 겹침", sm.heldOverlap, "Top 안의 보유 종목"],
+      ["산출", (dg.secs || 0) + "s", "DB " + (calls.db || 0) + "콜 · 허브 " + (calls.hub || 0) + "콜"]];
+    $("un-kpis").innerHTML = kp.map(function (k) {
+      return '<div class="kpi"><div class="kpi-lbl">' + k[0] + '</div><div class="kpi-val ' + (k[3] || "") + '">' + k[1] + '</div><div class="kpi-sub">' + k[2] + "</div></div>";
+    }).join("");
+    $("un-strip").innerHTML = (doc.sectors || []).map(function (s, i) {
+      var mom = s.secTvMom, pct = mom == null ? 0 : Math.round(Math.min(1, Math.max(0, (mom + 0.4) / 0.9)) * 100);
+      return '<div class="ss" data-i="' + i + '" style="--c:' + unC(s.signal) + '"><div class="n"><span>' + esc(s.name) + "</span><i></i></div>" +
+        '<div class="m"><span>거래대금</span><b class="' + cls(mom) + '">' + (mom == null ? "—" : sgn(mom * 100, 0, "%")) + "</b></div>" +
+        '<div class="bar"><i style="width:' + pct + "%;background:" + (mom > 0 ? "var(--up-red)" : "var(--down-blue)") + '"></i></div></div>';
+    }).join("");
+    $("un-strip").querySelectorAll(".ss").forEach(function (el) {
+      el.addEventListener("click", function () { var i = +el.dataset.i; UN.sec = UN.sec === i ? null : i; renderUniverseTable(); });
+    });
+    $("un-top-long").innerHTML = unTopRows(unAll(doc, "long"));
+    $("un-top-short").innerHTML = unTopRows(unAll(doc, "short"));
+    $("un-score-rules").innerHTML = [["거래대금 가속 (1W ÷ 4W 평균 − 1)", "±2"], ["외인+기관 순매수 ÷ 시총 (bp)", "±2"],
+      ["공매도 비중 Δ (Long 감소 · Short 증가)", "±1"], ["대차잔고 주간 증감", "±1"], ["1W 가격 방향 일치", "+1"], ["공매도 비중 높음 (Short 만)", "+1"]]
+      .map(function (r) { return '<div class="rule lg"><span>' + r[0] + "</span><span>" + r[1] + "</span></div>"; }).join("");
+    $("un-knobs").innerHTML = [["1차 컷", "거래대금 " + kn.topkTv + " ∪ 시총 " + kn.topkCap], ["유동성 하한", "20일 평균 ≥ " + kn.minTvEok + "억"],
+      ["업종별 Top", kn.topN], ["허브 보강", "예비 상위 " + kn.flowPerSector], ["방향", "상방→Long · 하방→Short · 혼조→미산출"],
+      ["대분류(제조·금융)", "제외 — 중분류와 중복"], ["후보 표시", "점수 ≥ +" + kn.candMin + " · 연결 보류"], ["단위 나눗셈", "거래대금 " + kn.tvDiv + " · 수급 " + kn.flowDiv]]
+      .map(function (r) { return '<div class="rule"><span>' + r[0] + "</span><span>" + esc(String(r[1])) + "</span></div>"; }).join("");
+    var L = ["<div>" + esc(doc.date) + " 산출 " + esc(String(doc.asof || "").slice(11, 19)) + " · " + (dg.secs || 0) + "s</div>",
+      "<div>업종 " + sm.sectors + " 조인 · 미매칭 " + (dg.unmatched || []).length +
+      ((dg.unmatched || []).length ? " (" + esc(dg.unmatched.slice(0, 6).join(", ")) + ")" : "") + "</div>",
+      "<div>1차 컷 " + sm.cut + " → Top " + sm.top + " · Long 후보 " + sm.long + " · Short 후보 " + sm.short + "</div>",
+      '<div class="dim">DB증권 ' + (calls.db || 0) + "콜 · KIS 허브 " + (calls.hub || 0) + "콜</div>"];
+    (dg.errors || []).slice(0, 8).forEach(function (e) { L.push('<div class="warn">⚠ ' + esc(e) + "</div>"); });
+    if ((dg.errors || []).length > 8) L.push('<div class="warn">… 오류 ' + dg.errors.length + "건</div>");
+    $("un-log").innerHTML = L.join("");
+    $("un-log-sub").textContent = "16:30 크론 · 관찰 모드";
+    var b = doc.basis || {};
+    $("un-foot").textContent = [b.tv, b.flow, b.short, b.loan].filter(Boolean).join(" · ") + " · 리츠·ETF·우선주 제외 · 관찰 우선순위이며 매매 권유 아님";
+    renderUniverseTable();
+  }
+  function renderUniverseTable() {
+    var doc = UN.doc, tbl = $("un-table");
+    if (!doc) return;
+    var exHeld = $("un-ex-held").checked, futOnly = $("un-fut-only").checked, sortK = $("un-sort").value;
+    $("un-strip").querySelectorAll(".ss").forEach(function (e) {
+      var i = +e.dataset.i, s = doc.sectors[i], on = (UN.sec == null || UN.sec === i) && (UN.dir === "all" || s.dir === UN.dir);
+      e.classList.toggle("sel", UN.sec === i); e.classList.toggle("off", !on);
+    });
+    var list = doc.sectors.map(function (s, i) { return { s: s, i: i }; })
+      .filter(function (o) { return (UN.sec == null || UN.sec === o.i) && (UN.dir === "all" || o.s.dir === UN.dir); });
+    var head = "<thead><tr><th>#</th><th>종목</th><th>방향</th><th>점수</th>" +
+      '<th class="r">거래대금 1W<small>Δ 4주평균</small></th><th class="r">외인 1W</th><th class="r">기관 1W</th><th class="r">수급/시총</th>' +
+      '<th class="r">공매도 비중<small>Δ pp</small></th><th class="r">대차 Δ</th><th class="r">1W</th><th>플래그</th><th>상태</th></tr></thead>';
+    var open = UN.sec != null ? 99 : 5, h = "";
+    list.forEach(function (o, k) {
+      var s = o.s, closed = k >= open;
+      var rows = (s.top || []).filter(function (x) { return !(exHeld && (unHeld(x) || x.pending)) && !(futOnly && !x.hasStockFuture); });
+      if (s.dir && sortK !== "score") {
+        rows = rows.slice().sort(function (a, b) {
+          var av = a[sortK], bv = b[sortK];
+          if (sortK === "shortMom" && s.dir === "long") { av = -av; bv = -bv; }
+          if (sortK === "flowBp" && s.dir === "short") { av = -av; bv = -bv; }
+          return (bv == null ? -1e9 : bv) - (av == null ? -1e9 : av);
+        });
+      }
+      var nC = (s.top || []).filter(function (x) { return x.score >= unMin(); }).length;
+      h += '<tr class="sec' + (closed ? " closed" : "") + '" data-k="' + k + '" style="--c:' + unC(s.signal) + '"><td colspan="13"><span class="sn">' + esc(s.name) + " " + sig(s.signal) + "</span>" +
+        '<span class="st">1W <b class="' + cls(s.chgPct) + '">' + sgn(s.chgPct, 2, "%") + "</b> · 거래대금 <b>" + fmtEok(s.secTv1w != null ? s.secTv1w : s.secTvDay) + "</b> " +
+        '<b class="' + cls(s.secTvMom) + '">' + (s.secTvMom == null ? "" : sgn(s.secTvMom * 100, 0, "%")) + "</b> · 외+기 <b>" + sgn((s.frgn || 0) + (s.orgn || 0), 0, "억") + "</b> · " +
+        (s.dir ? "후보 <b>" + nC + "</b> / Top" + (s.top || []).length : s.big ? "대분류 — 산출 제외" : "혼조 — 관찰만") +
+        (s.error ? ' · <span class="up">' + esc(s.error) + "</span>" : "") + '</span><span class="more">' + (closed ? "펼치기" : "접기") + "</span></td></tr>";
+      rows.forEach(function (x) {
+        h += '<tr class="row' + (closed ? " hide" : "") + '" data-k="' + k + '"><td class="num">' + x.rank + "</td><td>" + stock(x.name, x.code) + "</td><td>" +
+          (x.side ? '<span class="side-tag ' + x.side + '">' + x.side.toUpperCase() + "</span>" : '<span class="muted">—</span>') + "</td><td>" + sbar(x.score) + "</td>" +
+          '<td class="num r">' + fmtEok(x.tv1w != null ? x.tv1w : x.tvDay) + '<small class="' + cls(x.tvMom) + '">' + (x.tvMom == null ? "" : sgn(x.tvMom * 100, 0, "%")) + "</small></td>" +
+          '<td class="num r ' + cls(x.frgn1w) + '">' + sgn(x.frgn1w, 0) + '</td><td class="num r ' + cls(x.orgn1w) + '">' + sgn(x.orgn1w, 0) + "</td>" +
+          '<td class="num r ' + cls(x.flowBp) + '">' + sgn(x.flowBp, 0, "bp") + "</td>" +
+          '<td class="num r">' + (x.shortRlim1w == null ? "—" : x.shortRlim1w.toFixed(1) + "%") + '<small class="' + cls(x.shortMom, true) + '">' + sgn(x.shortMom, 1) + "</small></td>" +
+          '<td class="num r ' + cls(x.loanChg, true) + '">' + sgn(x.loanChg, 0) + '</td><td class="num r ' + cls(x.ret1w) + '">' + sgn(x.ret1w, 1, "%") + "</td>" +
+          "<td>" + unFlags(x) + "</td><td>" + unState(x, s) + "</td></tr>";
+      });
+      if (!rows.length) h += '<tr class="row' + (closed ? " hide" : "") + '" data-k="' + k + '"><td colspan="13" class="muted" style="text-align:center">표시할 종목 없음</td></tr>';
+    });
+    if (!list.length) h = '<tr class="empty"><td colspan="13">조건에 맞는 업종 없음</td></tr>';
+    tbl.innerHTML = head + "<tbody>" + h + "</tbody>";
+    tbl.querySelectorAll("tr.sec").forEach(function (tr) {
+      tr.addEventListener("click", function () {
+        var k = tr.dataset.k, c = tr.classList.toggle("closed");
+        tr.querySelector(".more").textContent = c ? "펼치기" : "접기";
+        tbl.querySelectorAll('tr.row[data-k="' + k + '"]').forEach(function (r) { r.classList.toggle("hide", c); });
+      });
+    });
+  }
+  $("un-dir").querySelectorAll("button").forEach(function (b) {
+    b.addEventListener("click", function () {
+      $("un-dir").querySelectorAll("button").forEach(function (x) { x.classList.toggle("active", x === b); });
+      UN.dir = b.dataset.v; renderUniverseTable();
+    });
+  });
+  ["un-ex-held", "un-fut-only", "un-sort"].forEach(function (id) { $(id).addEventListener("change", renderUniverseTable); });
+
   // ── 기준일 로드 ──
   function loadDate(date) {
     var enc = encodeURIComponent(date);
     return Promise.all([
       api("/api/swing/runs?date=" + enc).catch(function () { return null; }),
       api("/api/swing/orders?date=" + enc),
-      api("/api/swing/signals?date=" + enc).catch(function () { return null; })
+      api("/api/swing/signals?date=" + enc).catch(function () { return null; }),
+      api("/api/swing/universe?date=" + enc).catch(function () { return null; })
     ]).then(function (r) {
       renderRun(r[0], r[1]);
       renderSignals(r[2]);
+      renderUniverse(r[3]);
     });
   }
 
@@ -1105,7 +1276,7 @@
     sel.innerHTML = dates.length ? dates.map(function (d) { return "<option>" + d + "</option>"; }).join("") : "<option>—</option>";
     sel.addEventListener("change", function () { loadDate(sel.value); });
     if (dates.length) loadDate(dates[0]);
-    else { renderRun(null, {}); renderSignals(null); }
+    else { renderRun(null, {}); renderSignals(null); renderUniverse(null); }
     var t;
     window.addEventListener("resize", function () { clearTimeout(t); t = setTimeout(function () { renderEquity(S.equity, S.summary.capital0); renderReport(); }, 150); });
   }).catch(function (e) {

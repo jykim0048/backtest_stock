@@ -10,6 +10,7 @@
   GET /api/swing/runs[?date=]         런 날짜 목록 / 그날 런 로그
   GET /api/swing/decision?key=        trading_agent 판단 원문(decision/<date>/<code>/<purpose>)
   GET /api/swing/signals?date=        그날 주간 브리핑 신호(섹터 신호·종목 관찰 4칸 축약본)
+  GET /api/swing/universe[?date=]     업종별 종목 수급 모멘텀 유니버스(universe/<date>, 없으면 최신) + 날짜 목록
   GET /api/swing/config               운용 규칙(자본·보유일·세금·비중·신호/등급 조건)
   GET /api/swing/export               전체 문서 JSON(백업)
   GET /api/prices?codes=              장중 시세 — SWING_PRICES_PROXY(main 대시보드) 중계, 표시 전용
@@ -112,6 +113,20 @@ def api_signals(q):
     return {"date": d, "signals": STORE.get(f"signals/{d}") if d else None}
 
 
+def _universe_dates():
+    return [k.split("/", 1)[1] for k in STORE.keys("universe/") if len(k) == len("universe/2026-01-01")]
+
+
+def api_universe(q):
+    """{date, dates, universe} — date 없거나 그날 문서가 없으면 그 날짜 이하 최신본."""
+    ds = _universe_dates()
+    d = q.get("date")
+    if d not in ds:
+        older = [x for x in ds if not d or x <= d]
+        d = older[-1] if older else (ds[-1] if ds else None)
+    return {"date": d, "dates": ds, "universe": STORE.get(f"universe/{d}") if d else None}
+
+
 def api_progress(q):
     """실행 진행률(daily.Progress) — 없으면 None."""
     return STORE.get("progress")
@@ -136,7 +151,7 @@ ROUTES = {"/api/swing/summary": api_summary, "/api/swing/progress": api_progress
           "/api/swing/orders": api_orders, "/api/swing/trades": api_trades,
           "/api/swing/equity": lambda q: _ledger()["equity"],
           "/api/swing/runs": api_runs, "/api/swing/decision": api_decision,
-          "/api/swing/signals": api_signals, "/api/swing/config": api_config,
+          "/api/swing/signals": api_signals, "/api/swing/universe": api_universe, "/api/swing/config": api_config,
           "/api/swing/export": api_export}
 
 

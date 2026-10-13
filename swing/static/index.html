@@ -49,6 +49,7 @@
     <div class="board-container">
       <div class="main-tabs-row" role="tablist">
         <button class="main-tab active" data-tab="signals">섹터 시그널</button>
+        <button class="main-tab" data-tab="universe">유니버스 <span class="tab-count" id="cnt-universe"></span></button>
         <button class="main-tab tab-long" data-tab="long">Long <span class="tab-count" id="cnt-long"></span></button>
         <button class="main-tab tab-short" data-tab="short">Short <span class="tab-count" id="cnt-short"></span></button>
         <button class="main-tab" data-tab="pf">Long·Short PF <span class="tab-count" id="cnt-pf"></span></button>
@@ -66,6 +67,50 @@
           <span class="board-subtitle">동반강세·수급유입 = Long 후보·Short 보유 시 환매 검토 · 수급이탈·동반약세 = Short 후보·Long 보유 시 매도 검토 · ● 보유 중</span>
         </div>
         <div class="matrix" id="matrix"></div>
+      </div>
+
+
+      <!-- 유니버스(2026-10-13): 업종별 종목 수급 모멘텀 — 관찰 모드(후보 미연결). 순서: KPI → 업종 스트립(=필터) →
+           통합 상위 10 → 업종 그룹 표 → 점수 구성·노브·산출 로그 -->
+      <div class="tab-pane" id="pane-universe">
+        <div class="un-head">
+          <h2 style="font-size:18px;display:flex;align-items:center;gap:10px"><span style="width:4px;height:18px;background:var(--kospi-blue);border-radius:2px;display:block"></span>업종별 종목 수급 모멘텀<span class="un-tag">UNIVERSE</span></h2>
+          <div class="chips" id="un-chips"></div>
+          <div class="seg" id="un-dir" role="group" aria-label="방향">
+            <button type="button" class="active" data-v="all">전체</button>
+            <button type="button" data-v="long">Long</button>
+            <button type="button" data-v="short">Short</button>
+          </div>
+        </div>
+        <div class="un-kpis" id="un-kpis"></div>
+        <div class="board-header mt">
+          <h2>업종 스트립</h2>
+          <span class="board-subtitle">막대 = 주간 거래대금 ÷ 직전 4주 평균 · 점 = 섹터 신호 · <b style="color:var(--kospi-blue)">클릭 = 아래 표 필터</b>(다시 클릭하면 해제)</span>
+        </div>
+        <div class="un-strip" id="un-strip"></div>
+        <div class="board-header mt">
+          <h2>전 업종 통합 상위 10</h2>
+          <span class="board-subtitle">● 보유 · 대기 = 주문 대기 · F 주식선물 상장 · ✓ 최근 판단 · 관찰 모드(후보 연결 보류) — 매매 권유 아님</span>
+        </div>
+        <div class="un-two">
+          <div class="top-col" style="--c:var(--up-red)"><h4>▲ Long 모멘텀 상위 <small>거래대금 가속 + 외인·기관 순매수 + 공매도 비중 감소</small></h4><div id="un-top-long"></div></div>
+          <div class="top-col" style="--c:var(--down-blue)"><h4>▼ Short 모멘텀 상위 <small>거래대금 가속 + 순매도 + 공매도 비중 증가</small></h4><div id="un-top-short"></div></div>
+        </div>
+        <div class="board-header mt">
+          <h2>업종별 Top10</h2>
+          <div class="un-filters">
+            <label><input type="checkbox" id="un-ex-held"> 보유·대기 제외</label>
+            <label><input type="checkbox" id="un-fut-only"> 주식선물 상장만</label>
+            <select id="un-sort" aria-label="정렬"><option value="score">정렬: 점수</option><option value="tvMom">거래대금 가속</option><option value="flowBp">수급/시총</option><option value="shortMom">공매도 Δ</option></select>
+          </div>
+        </div>
+        <div class="table-wrap"><table class="stocks-table compact gtbl" id="un-table"></table></div>
+        <div class="un-bottom">
+          <div class="un-box"><h3>🧮 점수 구성 <span class="board-subtitle">방향별 −5 ~ +5</span></h3><div id="un-score-rules"></div></div>
+          <div class="un-box"><h3>⚙️ 노브</h3><div id="un-knobs"></div></div>
+          <div class="un-box"><h3>🧾 산출 로그 <span class="board-subtitle" id="un-log-sub"></span></h3><div class="logs-box" id="un-log"></div></div>
+        </div>
+        <div class="un-foot" id="un-foot"></div>
       </div>
 
       <!-- Long: 보유 → 매도 검토 → 신규 후보·주문 → 체결 결과 -->

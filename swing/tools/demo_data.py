@@ -32,7 +32,10 @@ def build(rebuild=False, log=print):
     dsn = os.environ.pop("DATABASE_URL", None)      # 데모는 항상 로컬 파일(DB 에 쓰지 않음)
     try:
         run_daily.main(["--from", FROM, "--to", TO, "--wb-dir", os.path.join(_ROOT, "swing", "data", "wb_history"),
-                        "--agent", "mock", "--prices", "mock", "--store", "file:" + DEMO_DIR])
+                        "--agent", "mock", "--prices", "mock", "--store", "file:" + DEMO_DIR, "--universe", "off"])
+        # 유니버스(2026-10-13)는 마지막 날만 mock 으로 산출 — 탭 확인용
+        run_daily.main(["--date", TO, "--wb-dir", os.path.join(_ROOT, "swing", "data", "wb_history"),
+                        "--store", "file:" + DEMO_DIR, "--universe", "mock", "--universe-only"])
     finally:
         if dsn is not None:
             os.environ["DATABASE_URL"] = dsn

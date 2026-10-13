@@ -4,6 +4,10 @@
   python -m swing.run_daily --date 2026-09-28
   python -m swing.run_daily --from 2026-09-07 --to 2026-09-28 --wb-dir swing/data/wb_history
   python -m swing.run_daily --agent mock --prices mock --store file:swing/data/local  # 오프라인
+  python -m swing.run_daily --universe-only                                        # 유니버스만 다시 산출
+
+하루 처리 뒤 업종별 종목 수급 모멘텀 유니버스(swing/universe.py)를 산출해 universe/<date> 에 저장한다
+(SWING_UNIVERSE=0 이면 생략, --universe mock 은 오프라인 mock). 실패해도 원장·런 로그는 영향 없음.
 
 --agent trading_agent = swing/agent(homework trading_agent 헤드리스 이식, HANDOFF_P1).
 """
@@ -18,7 +22,7 @@ _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _ROOT not in sys.path:
     sys.path.insert(0, _ROOT)
 
-from swing import agent_iface, config, daily, prices, store, tradedays  # noqa: E402
+from swing import agent_iface, config, daily, prices, store, tradedays, universe  # noqa: E402
 
 KST = datetime.timezone(datetime.timedelta(hours=9))
 
@@ -77,6 +81,9 @@ def main(argv=None):
     ap.add_argument("--prices", default=os.environ.get("SWING_PRICES", "yfinance"))
     ap.add_argument("--store", default=os.environ.get("SWING_STORE", "env"))
     ap.add_argument("--force", action="store_true")
+    ap.add_argument("--universe", default=os.environ.get("SWING_UNIVERSE_SOURCE", "live"),
+                    help="live(DB증권+KIS 허브) | mock(오프라인) | off")
+    ap.add_argument("--universe-only", action="store_true", help="하루 처리 없이 유니버스만 산출")
     a = ap.parse_args(argv)
 
     if a.start:
@@ -92,6 +99,9 @@ def main(argv=None):
         except Exception as ex:
             print(f"[swing] {d} 주간 브리핑 로드 실패: {ex}", file=sys.stderr)
             wb = None
+        if a.universe_only:
+            _universe(d, st, wb, a)
+            continue
         try:
             run = daily.run_day(d, st, ag, px, wb, force=a.force)
         except Exception as ex:
@@ -106,7 +116,28 @@ def main(argv=None):
             print(f"[swing] {d} 건너뜀: {run['skip']}")
         for n in run.get("notes", []):
             print(f"[swing] {d} {n}")
+        if not run.get("skip") or run.get("skip") != "휴장일":
+            _universe(d, st, wb, a)
     return rc
+
+
+def _universe(d, st, wb, a):
+    """유니버스 산출 — 하루 처리와 독립(실패해도 종료 코드에 영향 없음)."""
+    if a.universe == "off" or not config.UNIVERSE_ENABLED:
+        return
+    kw = {}
+    if a.universe == "mock":
+        from swing import universe_mock
+        kw = {"dbq": universe_mock.MockDbQuote(), "hub": universe_mock.MockHubFlow()}
+    try:
+        r = universe.run_universe(d, st, wb, force=a.force or a.universe_only, **kw)
+    except Exception as ex:
+        print(f"[swing] {d} 유니버스 실패: {type(ex).__name__}: {ex}", file=sys.stderr)
+        return
+    if r.get("skip"):
+        print(f"[swing] {d} 유니버스 건너뜀: {r['skip']}")
+    elif r.get("error"):
+        print(f"[swing] {d} 유니버스 오류: {r['error']}", file=sys.stderr)
 
 
 if __name__ == "__main__":

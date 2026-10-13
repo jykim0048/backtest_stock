@@ -1,0 +1,522 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>업종별 종목 수급 모멘텀 — 디자인 미리보기</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Noto+Sans+KR:wght@300;400;700&display=swap" rel="stylesheet">
+<style>
+/* ── QUANT ANTIGRAVITY 디자인 토큰(main index.html · swing style.css 와 동일) ── */
+:root{--bg-dark:#070a13;--panel-bg:rgba(15,23,42,.55);--border-color:rgba(255,255,255,.08);--font-outfit:'Outfit',sans-serif;--font-kr:'Noto Sans KR',sans-serif;
+--kospi-blue:#00f0ff;--kospi-blue-dim:rgba(0,240,255,.15);--kosdaq-green:#10b981;--kosdaq-green-dim:rgba(16,185,129,.15);--up-red:#ef4444;--up-red-dim:rgba(239,68,68,.12);
+--down-blue:#3b82f6;--down-blue-dim:rgba(59,130,246,.12);--amber:#fbbf24;--text-main:#f8fafc;--text-muted:#94a3b8;
+--sig-strong:#f04452;--sig-inflow:#2dd4bf;--sig-outflow:#fbbf24;--sig-weak:#3182f6;--sig-mixed:#64748b}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg-dark);background-image:radial-gradient(at 0% 0%,rgba(30,58,138,.15) 0,transparent 50%),radial-gradient(at 100% 100%,rgba(16,185,129,.08) 0,transparent 50%);color:var(--text-main);font-family:var(--font-kr);min-height:100vh}
+::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-track{background:var(--bg-dark)}::-webkit-scrollbar-thumb{background:#1e293b;border-radius:4px}
+.app{max-width:1400px;margin:0 auto;padding:24px}
+.num{font-family:var(--font-outfit);font-variant-numeric:tabular-nums}
+.muted{color:var(--text-muted)}.up{color:var(--up-red)}.down{color:var(--down-blue)}
+header{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;padding-bottom:20px;border-bottom:1px solid var(--border-color);margin-bottom:20px}
+.logo{display:flex;align-items:center;gap:12px}
+.logo-symbol{width:32px;height:32px;border-radius:8px;display:grid;place-items:center;background:linear-gradient(135deg,var(--kospi-blue),var(--kosdaq-green));font-family:var(--font-outfit);font-weight:800;color:#000;font-size:16px;box-shadow:0 0 15px rgba(0,240,255,.3)}
+.logo h1{font-family:var(--font-outfit);font-weight:800;font-size:22px;letter-spacing:1px;background:linear-gradient(to right,#fff,var(--text-muted));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.logo span{font-size:11px;color:var(--kospi-blue);text-transform:uppercase;letter-spacing:2px;display:block;margin-top:-3px}
+.pill{display:flex;align-items:center;gap:14px;flex-wrap:wrap;max-width:100%;background:var(--panel-bg);border:1px solid var(--border-color);padding:8px 16px;border-radius:30px;font-size:13px}
+.mock{font-family:var(--font-outfit);font-size:10px;font-weight:800;letter-spacing:1px;color:var(--amber);border:1px dashed rgba(251,191,36,.6);border-radius:4px;padding:1px 6px}
+
+/* 미리보기 전환 */
+.switch{display:flex;gap:8px;margin-bottom:22px}
+.switch button{flex:1;background:rgba(255,255,255,.03);border:1px solid var(--border-color);border-radius:10px;padding:13px 8px;font:inherit;font-size:14px;font-weight:700;color:var(--text-muted);cursor:pointer}
+.switch button.active{background:var(--kospi-blue);color:#06121f;border-color:var(--kospi-blue);box-shadow:0 0 14px rgba(0,240,255,.25)}
+.view{display:none}.view.active{display:block}
+.design-note{background:rgba(0,240,255,.05);border:1px solid rgba(0,240,255,.2);border-radius:12px;padding:12px 14px;font-size:12.5px;line-height:1.65;margin-bottom:16px;color:#cbd5e1}
+.design-note b{color:var(--kospi-blue)}
+
+/* 공통 컴포넌트 */
+.panel{background:var(--panel-bg);border:1px solid var(--border-color);border-radius:20px;padding:22px;backdrop-filter:blur(10px)}
+.bh{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.bh h2{font-size:18px;font-weight:700;display:flex;align-items:center;gap:10px}
+.bh h2::before{content:'';display:block;width:4px;height:18px;background:var(--kospi-blue);border-radius:2px}
+.bh.mt{margin-top:24px}
+.sub{font-size:12px;color:var(--text-muted)}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{font-size:11px;padding:2px 9px;border-radius:20px;border:1px solid var(--border-color);background:rgba(255,255,255,.03);color:var(--text-muted);white-space:nowrap}
+.chip b{color:var(--text-main);font-family:var(--font-outfit);font-weight:600}
+.sig{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;border:1px solid;white-space:nowrap}
+.sig::before{content:'';width:6px;height:6px;border-radius:50%;background:currentColor}
+.sig.s-동반강세{color:var(--sig-strong);border-color:rgba(240,68,82,.35);background:rgba(240,68,82,.1)}
+.sig.s-수급유입{color:var(--sig-inflow);border-color:rgba(45,212,191,.35);background:rgba(45,212,191,.1)}
+.sig.s-수급이탈{color:var(--sig-outflow);border-color:rgba(251,191,36,.35);background:rgba(251,191,36,.1)}
+.sig.s-동반약세{color:var(--sig-weak);border-color:rgba(49,130,246,.35);background:rgba(49,130,246,.1)}
+.sig.s-혼조{color:var(--sig-mixed);border-color:rgba(100,116,139,.4);background:rgba(100,116,139,.12)}
+.side-tag{font-family:var(--font-outfit);font-size:11px;font-weight:700;padding:1px 7px;border-radius:4px;letter-spacing:.5px}
+.side-tag.long{color:var(--up-red);background:var(--up-red-dim)}.side-tag.short{color:var(--down-blue);background:var(--down-blue-dim)}
+/* 양방향 점수 막대 */
+.sbar{position:relative;width:88px;height:8px;background:rgba(255,255,255,.05);border-radius:4px;display:inline-block;vertical-align:middle}
+.sbar::after{content:'';position:absolute;left:50%;top:-2px;bottom:-2px;width:1px;background:rgba(148,163,184,.5)}
+.sbar i{position:absolute;top:0;bottom:0;border-radius:4px}
+.sbar i.l{left:50%;background:var(--up-red)}.sbar i.s{right:50%;background:var(--down-blue)}
+.sc{font-family:var(--font-outfit);font-weight:800;font-size:13px;min-width:26px;display:inline-block;text-align:right}
+/* 미니 막대(단방향) */
+.mb{display:inline-block;height:5px;border-radius:3px;background:rgba(148,163,184,.35);vertical-align:middle}
+.flag{font-family:var(--font-outfit);font-size:10px;font-weight:700;padding:0 5px;border-radius:4px;background:rgba(255,255,255,.06);color:var(--text-muted);margin-right:3px}
+.flag.held{color:var(--kospi-blue);background:var(--kospi-blue-dim)}
+.flag.fut{color:#c4b5fd;background:rgba(139,92,246,.14)}
+.flag.cool{color:var(--amber);background:rgba(251,191,36,.12)}
+.flag.done{color:var(--kosdaq-green);background:var(--kosdaq-green-dim)}
+.flag.short-top{color:var(--sig-outflow);background:rgba(251,191,36,.12)}
+
+/* ── A. 메인 대시보드: 주간 브리핑 섹션 ── */
+.wb-card{background:rgba(15,23,42,.55);border:1px solid var(--border-color);border-radius:16px;padding:14px 18px;margin-bottom:12px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.wb-card h3{font-size:15px;font-weight:700}
+.wb-card .tag{font-size:10px;font-weight:800;letter-spacing:1px;padding:2px 7px;border-radius:4px;background:var(--kospi-blue-dim);color:var(--kospi-blue);font-family:var(--font-outfit)}
+.wb-card .seg{margin-left:auto}
+.seg{display:inline-flex;background:rgba(255,255,255,.03);border:1px solid var(--border-color);border-radius:20px;padding:2px}
+.seg button{background:none;border:0;color:var(--text-muted);font:inherit;font-size:12px;font-weight:600;padding:4px 12px;border-radius:16px;cursor:pointer}
+.seg button.active{background:var(--kospi-blue-dim);color:var(--kospi-blue)}
+.sec-strip{display:flex;gap:8px;overflow-x:auto;padding:4px 2px 10px;margin-bottom:6px}
+.sec-strip::-webkit-scrollbar{height:6px}
+.ss{flex:0 0 auto;min-width:118px;border:1px solid var(--border-color);border-radius:12px;padding:8px 10px;background:rgba(7,10,19,.45);cursor:pointer;border-top:3px solid var(--c)}
+.ss:hover,.ss.sel{border-color:var(--kospi-blue);box-shadow:0 0 0 1px rgba(0,240,255,.25)}
+.ss .n{font-size:12.5px;font-weight:700;display:flex;justify-content:space-between;gap:6px}
+.ss .n i{font-style:normal;width:7px;height:7px;border-radius:50%;background:var(--c);margin-top:5px}
+.ss .m{font-family:var(--font-outfit);font-size:11px;color:var(--text-muted);margin-top:3px;display:flex;justify-content:space-between}
+.ss .m b{font-weight:700}
+.ss .bar{height:4px;border-radius:2px;background:rgba(255,255,255,.06);margin-top:6px;overflow:hidden}
+.ss .bar i{display:block;height:100%}
+.two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.top-col{background:rgba(7,10,19,.4);border:1px solid var(--border-color);border-radius:14px;padding:12px 14px;border-top:3px solid var(--c)}
+.top-col h4{font-size:14px;color:var(--c);display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:4px}
+.top-col h4 small{color:var(--text-muted);font-weight:500;font-size:11px}
+.tr{display:grid;grid-template-columns:22px minmax(0,1.3fr) 92px 60px 60px 56px;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.04);font-size:12.5px}
+.tr.h{color:var(--text-muted);font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border-color)}
+.tr .rk{font-family:var(--font-outfit);color:var(--text-muted);font-weight:600}
+.tr .nm{font-weight:700;cursor:pointer}.tr .nm:hover{color:var(--kospi-blue)}
+.tr .nm small{display:block;font-weight:400;font-size:10.5px;color:var(--text-muted)}
+.tr .v{font-family:var(--font-outfit);text-align:right;font-variant-numeric:tabular-nums}
+.tr .v small{display:block;font-size:10px;color:var(--text-muted)}
+.sec-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:4px}
+.sc-card{background:rgba(7,10,19,.4);border:1px solid var(--border-color);border-radius:14px;padding:12px 14px;border-top:3px solid var(--c)}
+.sc-card.dim{opacity:.55}
+.sc-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px}
+.sc-head h4{font-size:14px;font-weight:700}
+.sc-stat{display:flex;gap:12px;font-family:var(--font-outfit);font-size:11px;color:var(--text-muted);margin-bottom:8px;flex-wrap:wrap}
+.sc-stat b{color:var(--text-main);font-weight:600}
+.sr{display:grid;grid-template-columns:16px minmax(0,1fr) 88px 46px 46px 44px;gap:6px;align-items:center;font-size:12px;padding:3px 0}
+.sr.h{font-size:10px;color:var(--text-muted);letter-spacing:.3px;border-bottom:1px solid rgba(255,255,255,.06);padding-bottom:4px;margin-bottom:2px}
+.sr .rk{font-family:var(--font-outfit);color:var(--text-muted);font-size:11px}
+.sr .nm{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}.sr .nm:hover{color:var(--kospi-blue)}
+.sr .v{font-family:var(--font-outfit);text-align:right;font-size:11.5px;font-variant-numeric:tabular-nums}
+.foot{font-size:10.5px;color:var(--text-muted);opacity:.75;margin-top:10px;line-height:1.6}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:11.5px;color:var(--text-muted);margin-top:8px}
+.legend b{font-family:var(--font-outfit);color:var(--text-main);font-weight:600}
+
+/* ── B. Swing 대시보드: 유니버스 탭 ── */
+.tabs{display:flex;gap:8px;margin-bottom:20px}
+.tab{flex:1;background:rgba(255,255,255,.03);border:1px solid var(--border-color);border-radius:10px;padding:12px 8px;font-size:14px;font-weight:700;color:var(--text-muted);text-align:center;white-space:nowrap}
+.tab.active{background:var(--kospi-blue);color:#06121f;border-color:var(--kospi-blue);box-shadow:0 0 14px rgba(0,240,255,.25)}
+.tab .cnt{font-family:var(--font-outfit);font-size:12px;font-weight:600;opacity:.75;margin-left:4px}
+.kpis{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;margin-bottom:14px}
+.kpi{background:rgba(7,10,19,.45);border:1px solid var(--border-color);border-radius:14px;padding:12px 14px}
+.kpi .l{font-size:11.5px;color:var(--text-muted);font-weight:600}
+.kpi .v{font-family:var(--font-outfit);font-size:24px;font-weight:800;margin:3px 0 4px;line-height:1.1}
+.kpi .s{font-family:var(--font-outfit);font-size:11.5px;color:var(--text-muted)}
+.kpi .v.long{color:var(--up-red)}.kpi .v.short{color:var(--down-blue)}
+.filters{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px;font-size:12.5px}
+.filters select,.filters label{background:rgba(255,255,255,.03);border:1px solid var(--border-color);color:var(--text-main);border-radius:16px;padding:5px 12px;font:inherit;font-size:12.5px}
+.filters label{display:inline-flex;align-items:center;gap:6px;cursor:pointer}
+.filters select option{background:#0f172a}
+.filters .sp{flex:1}
+.tbl{width:100%;border-collapse:collapse}
+.tbl th{color:var(--text-muted);font-size:11.5px;font-weight:600;padding:10px 8px;white-space:nowrap;border-bottom:1px solid var(--border-color);text-transform:uppercase;letter-spacing:.4px;text-align:left}
+.tbl th.r,.tbl td.r{text-align:right}
+.tbl td{padding:9px 8px;font-size:13px;vertical-align:middle;white-space:nowrap;border-bottom:1px solid rgba(255,255,255,.03)}
+.tbl tbody tr.row:hover{background:rgba(255,255,255,.04);box-shadow:inset 4px 0 0 0 var(--kospi-blue);cursor:pointer}
+.tbl tr.sec td{background:rgba(255,255,255,.025);padding:9px 8px;border-top:1px solid var(--border-color);font-size:13px}
+.tbl tr.sec .sn{font-weight:700;display:inline-flex;align-items:center;gap:8px}
+.tbl tr.sec .sn::before{content:'▾';color:var(--kospi-blue);font-size:11px}
+.tbl tr.sec .st{font-family:var(--font-outfit);font-size:11.5px;color:var(--text-muted);margin-left:14px}
+.tbl tr.sec .st b{color:var(--text-main);font-weight:600}
+.tbl td.num{font-family:var(--font-outfit);font-variant-numeric:tabular-nums}
+.tbl td small{display:block;font-size:10.5px;color:var(--text-muted);font-family:var(--font-outfit)}
+.tbl .nm{font-weight:700}.tbl .cd{font-family:var(--font-outfit);font-size:11px;color:var(--text-muted)}
+.state{font-size:11.5px;font-weight:700;padding:2px 8px;border-radius:6px;background:rgba(255,255,255,.05);color:var(--text-muted)}
+.state.q{color:var(--kospi-blue);background:var(--kospi-blue-dim)}.state.ord{color:var(--kosdaq-green);background:var(--kosdaq-green-dim)}
+.state.x{color:var(--text-muted)}.state.hold{color:var(--amber);background:rgba(251,191,36,.12)}
+.bottom{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:16px;margin-top:16px}
+.box{background:rgba(7,10,19,.35);border:1px solid var(--border-color);border-radius:14px;padding:14px 16px}
+.box h3{font-size:14px;font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.rule{display:flex;justify-content:space-between;gap:10px;font-size:12.5px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.04)}
+.rule span:first-child{color:var(--text-muted)}.rule span:last-child{font-family:var(--font-outfit);font-weight:600;color:var(--kospi-blue);text-align:right}
+.steps{display:flex;flex-direction:column;gap:6px;font-family:'Courier New',monospace;font-size:11.5px;color:#10b981;background:rgba(7,10,19,.7);border:1px solid var(--border-color);border-radius:8px;padding:10px 12px;line-height:1.5}
+.steps .dim{color:var(--text-muted)}.steps .warn{color:var(--amber)}
+@media(max-width:1000px){.two{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:1100px){.sec-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.kpis{grid-template-columns:repeat(3,minmax(0,1fr))}.bottom{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:700px){.app{padding:16px}.two,.sec-grid{grid-template-columns:minmax(0,1fr)}.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.tr{grid-template-columns:20px minmax(0,1fr) 80px 54px}.tr .c5,.tr .c6{display:none}}
+/* ── C. 믹스 ── */
+.mx-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.mx-head h2{font-size:18px;font-weight:700;display:flex;align-items:center;gap:10px}
+.mx-head h2::before{content:'';display:block;width:4px;height:18px;background:var(--kospi-blue);border-radius:2px}
+.mx-head .tag{font-size:10px;font-weight:800;letter-spacing:1px;padding:2px 7px;border-radius:4px;background:var(--kospi-blue-dim);color:var(--kospi-blue);font-family:var(--font-outfit)}
+.tr.mx{grid-template-columns:22px minmax(0,1.3fr) 92px 60px 60px 56px 88px}
+.tr.mx .fl{text-align:right;white-space:nowrap}
+.gtbl tr.sec td{border-top:3px solid var(--c);background:rgba(7,10,19,.45);padding:10px 8px}
+.gtbl tr.sec .sn::before{content:'▾';color:var(--c)}
+.gtbl tr.sec.closed .sn::before{content:'▸'}
+.gtbl tr.sec{cursor:pointer}
+.gtbl tr.sec .more{float:right;font-family:var(--font-outfit);font-size:11.5px;color:var(--kospi-blue)}
+.gtbl tr.row.hide{display:none}
+.gtbl tr.row td:first-child{color:var(--text-muted)}
+.mx-bottom{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1.2fr);gap:14px;margin-top:16px}
+.lg-list{display:flex;flex-direction:column;gap:2px;font-size:12.5px}
+.lg-list div{display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.04)}
+.lg-list div span:first-child{color:var(--text-muted)}
+.lg-list b{font-family:var(--font-outfit);font-weight:700}
+.ss.off{opacity:.35}
+@media(max-width:1100px){.mx-bottom{grid-template-columns:minmax(0,1fr)}}
+body.wide .mx-bottom{grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1.2fr)!important}
+body.wide .tr.mx{grid-template-columns:22px minmax(0,1.3fr) 92px 60px 60px 56px 88px!important}
+
+/* 미리보기 전용: ?zoom= 로 열면 넓은 화면 레이아웃 강제 */
+body.wide .two{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+body.wide .sec-grid{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+body.wide .kpis{grid-template-columns:repeat(6,minmax(0,1fr))!important}
+body.wide .bottom{grid-template-columns:minmax(0,1.2fr) minmax(0,1fr)!important}
+body.wide .tr{grid-template-columns:22px minmax(0,1.3fr) 92px 60px 60px 56px!important}
+body.wide .tr .c5,body.wide .tr .c6{display:block!important}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="logo"><div class="logo-symbol">QA</div><div><h1>QUANT ANTIGRAVITY</h1><span>업종별 종목 수급 모멘텀 · 디자인 미리보기</span></div></div>
+    <div class="pill"><span class="mock">MOCK DATA</span><span class="muted">업종·신호·종목명은 2026-10-12 주간 브리핑 · 섹터 맵 실제값, <b style="color:#f8fafc">수치는 가상</b></span></div>
+  </header>
+
+  <div class="switch">
+    <button data-v="main">① backteststock — 주간 브리핑 안의 새 섹션</button>
+    <button data-v="swing">② swing-web — 새 탭 「유니버스」</button>
+    <button class="active" data-v="mix">③ 믹스 — 두 대시보드 공용 레이아웃</button>
+  </div>
+
+  <!-- ════════════ A. 메인 대시보드 ════════════ -->
+  <section class="view" id="v-main">
+    <div class="design-note"><b>의도</b> — 메인 대시보드는 '관찰·리서치' 화면이라 섹터 시그널 종목 관찰(4-Matrix) 바로 아래에 <b>업종 → 종목</b> 순서로 읽히는 섹션을 둔다.
+      ① 업종 스트립(가로 스크롤): 24업종을 신호색·주간 거래대금 가속으로 한눈에 → ② 전 업종 통합 Long/Short 상위 10 → ③ 업종 카드 그리드(업종별 Top10, 점수 막대 + 핵심 3지표).
+      종목명 클릭은 기존 딥리서치 팝업과 같은 동작. 기존 섹터×수급 매트릭스·4-Matrix 와 병합하지 않고 별도 섹션으로 둔다.</div>
+
+    <div class="wb-card">
+      <h3>📊 업종별 종목 수급 모멘텀</h3><span class="tag">UNIVERSE</span>
+      <span class="sub">2026-10-12 16:33 기준 · 5영업일(10/06~10/12) · 거래대금·투자자 DB증권 / 공매도·대차 KIS(T+1)</span>
+      <div class="seg"><button class="active">Long</button><button>Short</button><button>전체</button></div>
+    </div>
+
+    <div class="panel">
+      <div class="bh"><h2>업종 스트립</h2><span class="sub">막대 = 주간 거래대금 ÷ 직전 4주 평균 · 점 = 섹터 신호 · 클릭하면 아래 카드로 이동</span></div>
+      <div class="sec-strip" id="strip"></div>
+
+      <div class="bh mt"><h2>전 업종 통합 상위 10</h2><div class="chips"><span class="chip">1차 컷 <b>480</b></span><span class="chip">업종 Top10 <b>240</b></span><span class="chip">Long 후보 <b id="nL">—</b></span><span class="chip">Short 후보 <b id="nS">—</b></span></div></div>
+      <div class="two">
+        <div class="top-col" style="--c:var(--up-red)"><h4>▲ Long 모멘텀 상위 <small>거래대금 가속 + 외인·기관 순매수 + 공매도 비중 감소</small></h4><div id="topL"></div></div>
+        <div class="top-col" style="--c:var(--down-blue)"><h4>▼ Short 모멘텀 상위 <small>거래대금 가속 + 순매도 + 공매도 비중 증가 · F = 주식선물 상장</small></h4><div id="topS"></div></div>
+      </div>
+
+      <div class="bh mt"><h2>업종별 Top10</h2><span class="sub">카드 윗선 = 섹터 신호색 · 점수 = 방향별 −5~+5 · 혼조 업종은 흐리게(후보 미산출, 관찰만)</span></div>
+      <div class="sec-grid" id="grid"></div>
+      <div class="legend"><span>점수 구성</span><span>거래대금 가속 <b>±2</b></span><span>외인+기관 순매수/시총 <b>±2</b></span><span>공매도 비중 변화 <b>±1</b></span><span>대차잔고 증감 <b>±1</b></span><span>1W 가격 방향 일치 <b>+1</b></span><span>공매도 상위 등재(Short) <b>+1</b></span></div>
+      <div class="foot">주간 거래대금 = DB증권 DAYSTOCKTJJ 5영업일 합, 가속 = 직전 4주 평균 대비. 외인·기관 = 같은 TR 매수−매도(억원). 공매도 비중 = KIS 일별 volRlim 1주 평균, Δ = 직전 4주 평균 대비(pp). 대차 = KIS 잔고 주간 증감(억). 유동성 하한 20일 평균 거래대금 20억 · 리츠·ETF·관리종목 제외 · 관찰 우선순위이며 매매 권유 아님.</div>
+    </div>
+  </section>
+
+  <!-- ════════════ B. Swing 대시보드 ════════════ -->
+  <section class="view" id="v-swing">
+    <div class="design-note"><b>의도</b> — swing-web 은 '실행' 화면이라 같은 데이터를 <b>후보 → 분석 → 주문</b> 흐름 위주로 보여준다.
+      탭 「유니버스」를 섹터 시그널과 Long 사이에 두고, KPI → 필터 → 업종 그룹 표(펼침/접힘) → 하단에 점수 규칙·실행 로그.
+      행 클릭은 기존처럼 판단 원문 팝업(분석 전이면 수집 메트릭만). 플래그로 보유(●)·주식선물(F)·쿨다운(⏳)·분석됨(✓)을 표시해 "왜 오늘 분석 안 하나"가 바로 보이게 한다.</div>
+
+    <div class="panel">
+      <div class="tabs"><div class="tab">섹터 시그널</div><div class="tab active">유니버스 <span class="cnt">240</span></div><div class="tab">Long <span class="cnt">7</span></div><div class="tab">Short <span class="cnt">3</span></div><div class="tab">Long·Short PF <span class="cnt">10</span></div><div class="tab">트레이딩 리포트 <span class="cnt">12</span></div></div>
+
+      <div class="bh"><h2>업종별 종목 수급 모멘텀</h2><span class="sub">2026-10-12 16:33 산출 · 소요 5m 12s · DB 512콜 · 허브 80콜 · 매일 16:30 크론 U1~U6</span></div>
+      <div class="kpis">
+        <div class="kpi"><div class="l">업종</div><div class="v">24</div><div class="s">신호 있음 16 · 혼조 8</div></div>
+        <div class="kpi"><div class="l">1차 컷(거래대금 상위 15)</div><div class="v">480</div><div class="s">유동성 하한 통과 452</div></div>
+        <div class="kpi"><div class="l">Long 후보</div><div class="v long" id="kL">—</div><div class="s">동반강세·수급유입 업종</div></div>
+        <div class="kpi"><div class="l">Short 후보</div><div class="v short" id="kS">—</div><div class="s">동반약세·수급이탈 · 선물 상장 <span id="kF">—</span></div></div>
+        <div class="kpi"><div class="l">오늘 신규 분석</div><div class="v">3<small style="font-size:13px;color:var(--text-muted)"> / 5</small></div><div class="s">SWING_UNI_NEW_PER_DAY</div></div>
+        <div class="kpi"><div class="l">쿨다운 제외</div><div class="v">11</div><div class="s">최근 3영업일 판단 있음</div></div>
+      </div>
+
+      <div class="filters">
+        <div class="seg"><button class="active">전체</button><button>Long</button><button>Short</button></div>
+        <select><option>업종 전체</option><option>운송·창고</option><option>전기·전자</option><option>기계·장비</option></select>
+        <label><input type="checkbox" checked> 보유·대기 제외</label>
+        <label><input type="checkbox"> 주식선물 상장만</label>
+        <select><option>정렬: 점수</option><option>거래대금 가속</option><option>수급/시총</option><option>공매도 Δ</option></select>
+        <span class="sp"></span>
+        <span class="sub">업종 행 클릭 = 접기/펼치기 · 종목 행 클릭 = 메트릭·판단 원문</span>
+      </div>
+
+      <div style="overflow-x:auto"><table class="tbl" id="utbl">
+        <thead><tr><th>#</th><th>종목</th><th>방향</th><th>점수</th><th class="r">거래대금 1W<small>Δ 4주평균</small></th><th class="r">외인 1W</th><th class="r">기관 1W</th><th class="r">수급/시총</th><th class="r">공매도 비중<small>Δ pp</small></th><th class="r">대차 Δ</th><th class="r">1W</th><th>플래그</th><th>상태</th></tr></thead>
+        <tbody></tbody>
+      </table></div>
+
+      <div class="bottom">
+        <div class="box"><h3>⚙️ 점수 규칙 · 노브</h3>
+          <div class="rule"><span>1차 컷</span><span>업종별 거래대금 상위 15 ∪ 시총 상위 5</span></div>
+          <div class="rule"><span>유동성 하한</span><span>20일 평균 거래대금 ≥ 20억</span></div>
+          <div class="rule"><span>거래대금 가속</span><span>1W ÷ 4W 평균 − 1 → 상위 분위 +2 / +1 · 급감 −1</span></div>
+          <div class="rule"><span>수급</span><span>(외인+기관 1W) ÷ 시총 bp → ±2 / ±1</span></div>
+          <div class="rule"><span>공매도</span><span>volRlim 1W − 4W 평균(pp) → Long 감소 + / Short 증가 +</span></div>
+          <div class="rule"><span>방향</span><span>섹터 신호 상방 → Long만 · 하방 → Short만 · 혼조 → 미산출</span></div>
+          <div class="rule"><span>업종별 Top</span><span>10 · 일 신규 분석 5 · 쿨다운 3영업일 · 섹터 노출 ≤ 25%</span></div>
+          <div class="rule"><span>Short 실주문 전제</span><span>주식선물 상장(F) 종목만 · 현 모의는 제약 없음</span></div>
+        </div>
+        <div class="box"><h3>🧾 실행 로그 <span class="sub" style="font-weight:400">16:30 크론</span></h3>
+          <div class="steps">
+            <div><span class="dim">16:30:04</span> U1 업종 목록 USTOCKCOND K → 32 (sectorFlow 조인 24 · 미매칭 8 혼조 취급)</div>
+            <div><span class="dim">16:30:31</span> U2 구성종목 스냅샷 USTOCKCONDLIST sort=42 × 24 → 1,312 종목 · store universe/snap/2026-10-12</div>
+            <div><span class="dim">16:30:33</span> U3 1차 컷 거래대금 상위 15 ∪ 시총 5 → 480 · 유동성 하한 탈락 28</div>
+            <div><span class="dim">16:34:40</span> U4 DAYSTOCKTJJ 452콜 @2TPS → 주간 거래대금·외인·기관 (단위 검증 OK)</div>
+            <div><span class="dim">16:34:48</span> U5 KIS /short-rank 3콜 → 1주 공매도 상위 90 · /flow 80콜(업종 Top10 후보만)</div>
+            <div><span class="dim">16:35:16</span> U6 점수 → Long 38 · Short 27 · 업종 Top10 240 · store universe/2026-10-12</div>
+            <div class="warn"><span class="dim">16:35:16</span> U7 후보 → 쿨다운 11 제외 · 섹터 노출 상한 2 제외 · 신규 분석 3 (상한 5) → trading_agent</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+  <!-- ════════════ C. 믹스 ════════════ -->
+  <section class="view active" id="v-mix">
+    <div class="design-note"><b>의도</b> — ①의 '업종 → 종목' 읽기 순서와 ②의 '후보 → 분석 → 주문' 실행 정보를 한 레이아웃에 합쳤다. 두 대시보드가 같은 디자인 토큰을 쓰므로
+      <b>같은 컴포넌트를 양쪽에 그대로 올리고</b>, 메인에서는 플래그·상태 열과 실행 로그를 숨기면 되고(관찰 모드) swing 에서는 전부 보인다(실행 모드).
+      순서: KPI 띠 → 업종 스트립(= 필터, 클릭하면 아래 표가 그 업종만) → 전 업종 통합 상위 10(플래그·상태 포함) → 업종 그룹 표(접기/펼치기) → 점수 구성·노브·실행 로그.</div>
+
+    <div class="panel">
+      <div class="mx-head">
+        <h2>업종별 종목 수급 모멘텀 <span class="tag">UNIVERSE</span></h2>
+        <div class="chips"><span class="chip">기준 <b>2026-10-12 16:33</b></span><span class="chip">5영업일 <b>10/06~10/12</b></span><span class="chip">거래대금·투자자 <b>DB증권</b></span><span class="chip">공매도·대차 <b>KIS T+1</b></span></div>
+        <div class="seg" id="mxSeg"><button class="active" data-d="all">전체</button><button data-d="long">Long</button><button data-d="short">Short</button></div>
+      </div>
+
+      <div class="kpis">
+        <div class="kpi"><div class="l">업종</div><div class="v">24</div><div class="s">신호 16 · 혼조 6 · 대분류 제외 2</div></div>
+        <div class="kpi"><div class="l">1차 컷 → Top10</div><div class="v">480<small style="font-size:13px;color:var(--text-muted)"> → 240</small></div><div class="s">거래대금 상위 15 ∪ 시총 5</div></div>
+        <div class="kpi"><div class="l">Long 후보</div><div class="v long" id="mL">—</div><div class="s">점수 ≥ +2 · 상방 업종</div></div>
+        <div class="kpi"><div class="l">Short 후보</div><div class="v short" id="mS">—</div><div class="s">점수 ≥ +2 · 선물 상장 <span id="mF">—</span></div></div>
+        <div class="kpi"><div class="l">오늘 신규 분석</div><div class="v">3<small style="font-size:13px;color:var(--text-muted)"> / 5</small></div><div class="s">쿨다운 제외 11 · 섹터 상한 2</div></div>
+        <div class="kpi"><div class="l">산출</div><div class="v" style="font-size:20px">5m 12s</div><div class="s">DB 512콜 · 허브 80콜</div></div>
+      </div>
+
+      <div class="bh mt"><h2>업종 스트립</h2><span class="sub">막대 = 주간 거래대금 ÷ 직전 4주 평균 · 점 = 섹터 신호 · <b style="color:var(--kospi-blue)">클릭 = 아래 표 필터</b>(다시 클릭하면 해제)</span></div>
+      <div class="sec-strip" id="mxStrip"></div>
+
+      <div class="bh mt"><h2>전 업종 통합 상위 10</h2><span class="sub">● 보유 · F 주식선물 상장 · ⏳ 쿨다운 · ✓ 최근 판단 — 상태 열은 swing 에서만, 메인은 숨김</span></div>
+      <div class="two">
+        <div class="top-col" style="--c:var(--up-red)"><h4>▲ Long 모멘텀 상위 <small>거래대금 가속 + 외인·기관 순매수 + 공매도 비중 감소</small></h4><div id="mxTopL"></div></div>
+        <div class="top-col" style="--c:var(--down-blue)"><h4>▼ Short 모멘텀 상위 <small>거래대금 가속 + 순매도 + 공매도 비중 증가</small></h4><div id="mxTopS"></div></div>
+      </div>
+
+      <div class="bh mt"><h2>업종별 Top10</h2><div class="filters" style="margin:0"><label><input type="checkbox" checked> 보유·대기 제외</label><label><input type="checkbox"> 주식선물 상장만</label><select><option>정렬: 점수</option><option>거래대금 가속</option><option>수급/시총</option><option>공매도 Δ</option></select></div></div>
+      <div style="overflow-x:auto"><table class="tbl gtbl" id="mxTbl">
+        <thead><tr><th>#</th><th>종목</th><th>방향</th><th>점수</th><th class="r">거래대금 1W<small>Δ 4주평균</small></th><th class="r">외인 1W</th><th class="r">기관 1W</th><th class="r">수급/시총</th><th class="r">공매도 비중<small>Δ pp</small></th><th class="r">대차 Δ</th><th class="r">1W</th><th>플래그</th><th>상태</th></tr></thead>
+        <tbody></tbody>
+      </table></div>
+
+      <div class="mx-bottom">
+        <div class="box"><h3>🧮 점수 구성 <span class="sub" style="font-weight:400">방향별 −5 ~ +5</span></h3>
+          <div class="lg-list">
+            <div><span>거래대금 가속 (1W ÷ 4W 평균 − 1)</span><b>±2</b></div>
+            <div><span>외인+기관 순매수 ÷ 시총 (bp)</span><b>±2</b></div>
+            <div><span>공매도 비중 Δ (Long 감소 · Short 증가)</span><b>±1</b></div>
+            <div><span>대차잔고 주간 증감</span><b>±1</b></div>
+            <div><span>1W 가격 방향 일치</span><b>+1</b></div>
+            <div><span>공매도 상위 등재 (Short 만)</span><b>+1</b></div>
+          </div>
+        </div>
+        <div class="box"><h3>⚙️ 노브</h3>
+          <div class="rule"><span>1차 컷</span><span>거래대금 15 ∪ 시총 5</span></div>
+          <div class="rule"><span>유동성 하한</span><span>20일 평균 ≥ 20억</span></div>
+          <div class="rule"><span>업종별 Top</span><span>10</span></div>
+          <div class="rule"><span>방향</span><span>상방→Long · 하방→Short · 혼조→미산출</span></div>
+          <div class="rule"><span>대분류(제조·금융)</span><span>제외 — 중분류와 중복</span></div>
+          <div class="rule"><span>일 신규 분석 / 쿨다운</span><span>5 / 3영업일</span></div>
+          <div class="rule"><span>섹터 노출 상한</span><span>25%</span></div>
+          <div class="rule"><span>Short 실주문 전제</span><span>주식선물 상장(F)</span></div>
+        </div>
+        <div class="box"><h3>🧾 실행 로그 <span class="sub" style="font-weight:400">16:30 크론 · swing 전용</span></h3>
+          <div class="steps">
+            <div><span class="dim">16:30:04</span> U1 업종 목록 32 → sectorFlow 조인 24</div>
+            <div><span class="dim">16:30:31</span> U2 구성종목 스냅샷 1,312 · universe/snap/10-12</div>
+            <div><span class="dim">16:30:33</span> U3 1차 컷 480 · 유동성 탈락 28</div>
+            <div><span class="dim">16:34:40</span> U4 DAYSTOCKTJJ 452콜 → 주간 거래대금·외인·기관</div>
+            <div><span class="dim">16:34:48</span> U5 KIS /short-rank 3콜 · /flow 80콜</div>
+            <div><span class="dim">16:35:16</span> U6 점수 → Long 38 · Short 27 · Top10 240</div>
+            <div class="warn"><span class="dim">16:35:16</span> U7 쿨다운 11 · 섹터 상한 2 제외 → 신규 분석 3/5</div>
+          </div>
+        </div>
+      </div>
+      <div class="foot">주간 거래대금 = DB증권 DAYSTOCKTJJ 5영업일 합 · 외인·기관 = 매수−매도(억원) · 공매도 비중 = KIS 일별 volRlim 1주 평균 · 대차 = KIS 잔고 주간 증감 · 리츠·ETF·관리종목 제외 · 관찰 우선순위이며 매매 권유 아님.</div>
+    </div>
+  </section>
+
+<script>var zq=/[?&]zoom=([0-9.]+)/.exec(location.search);if(zq){document.body.style.zoom=zq[1];document.body.classList.add('wide')}</script>
+<script src="seed.js"></script>
+<script>
+// ── mock 산출(결정적 난수: 종목코드 해시) ──
+function h32(s){var h=2166136261;for(var i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619)}return h>>>0}
+function rnd(seed){var x=seed||1;return function(){x^=x<<13;x>>>=0;x^=x>>>17;x^=x<<5;x>>>=0;return (x>>>0)/4294967296}}
+var UP={"동반강세":1,"수급유입":1},DN={"동반약세":1,"수급이탈":1};
+var BIG={"제조":1,"금융":1};  // KIS 대분류 — 중분류(전기·전자 등)와 종목이 겹쳐 유니버스 산출에서 제외(관찰만)
+var SIGC={"동반강세":"var(--sig-strong)","수급유입":"var(--sig-inflow)","수급이탈":"var(--sig-outflow)","동반약세":"var(--sig-weak)","혼조":"var(--sig-mixed)"};
+var HELD={"011200":1,"064350":1,"005930":1};  // mock 보유
+var FUT={"011200":1,"086280":1,"003490":1,"005930":1,"000660":1,"009150":1,"005380":1,"000270":1,"034020":1,"042700":1,"017670":1,"030200":1,"032640":1,"066570":1,"006400":1,"373220":1,"035420":1,"035720":1,"105560":1,"055550":1,"005490":1,"010130":1,"096770":1,"051910":1,"207940":1,"068270":1,"012450":1,"329180":1,"012330":1,"042660":1,"010140":1,"047810":1,"000720":1,"047040":1,"033780":1,"003230":1,"032830":1,"000810":1,"028260":1,"018260":1,"259960":1,"036570":1,"090430":1};
+var COOL={"086280":"D-2","000660":"D-1","042700":"D-3","035420":"D-1"};
+var DONE={"003490":"10-10 Hold","009150":"10-09 Sell"};
+function fmt(n,d){return (n<0?"−":"")+Math.abs(n).toLocaleString("ko-KR",{maximumFractionDigits:d==null?0:d,minimumFractionDigits:d==null?0:d})}
+function sgn(n,d,unit){return (n>0?"+":n<0?"−":"")+Math.abs(n).toFixed(d==null?0:d)+(unit||"")}
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
+
+var SECTORS=SEED.sectors.map(function(s){
+  var r=rnd(h32(s.name)); var dir=BIG[s.name]?null:UP[s.signal]?"long":DN[s.signal]?"short":null;
+  var stocks=s.stocks.map(function(st){
+    var g=rnd(h32(st[0]+s.name)); var cap=st[2];
+    var tv1w=Math.max(8,Math.round(cap*(0.012+g()*0.05)));            // 억
+    var tvMom=(g()-0.42)*0.9; if(g()<0.2) tvMom=Math.abs(tvMom)+0.15;  // 가속 편향
+    var flowBp=(g()-0.5)*60; if(dir==="long") flowBp+=5; if(dir==="short") flowBp-=5;
+    var frgn=Math.round(cap*flowBp/10000*(0.4+g()*0.4)); var orgn=Math.round(cap*flowBp/10000)-frgn;
+    var shortRlim=1+g()*6; var shortMom=(g()-0.5)*2.4; if(dir==="short") shortMom+=0.2; if(dir==="long") shortMom-=0.2;
+    var loanChg=Math.round((g()-0.5)*cap*0.004); var ret1w=(g()-0.5)*12+(dir==="long"?1:dir==="short"?-1:0);
+    var sc=0; sc+= tvMom>0.4?2:tvMom>0.15?1:tvMom<-0.25?-1:0;
+    var f=dir==="short"?-flowBp:flowBp; sc+= f>20?2:f>6?1:f<-10?-1:0;
+    var sm=dir==="short"?shortMom:-shortMom; sc+= sm>0.6?1:sm<-0.6?-1:0;
+    var lm=dir==="short"?loanChg:-loanChg; sc+= lm>cap*0.0012?1:lm<-cap*0.0012?-1:0;
+    sc+= ((dir==="long"&&ret1w>0)||(dir==="short"&&ret1w<0))?1:0;
+    var shortTop=dir==="short"&&shortRlim>4.5; if(shortTop) sc+=1;
+    sc=Math.max(-5,Math.min(5,sc));
+    return {code:st[0],name:st[1],cap:cap,tv1w:tv1w,tvMom:tvMom,frgn:frgn,orgn:orgn,flowBp:flowBp,shortRlim:shortRlim,shortMom:shortMom,loanChg:loanChg,ret1w:ret1w,score:dir?sc:null,dir:dir,shortTop:shortTop,fut:!!FUT[st[0]],held:!!HELD[st[0]],cool:COOL[st[0]],done:DONE[st[0]]};
+  });
+  stocks.sort(function(a,b){return (b.score==null?-9:b.score)-(a.score==null?-9:a.score)||b.tv1w-a.tv1w});
+  var top=stocks.slice(0,10); top.forEach(function(x,i){x.rank=i+1});
+  var secTv=stocks.reduce(function(a,x){return a+x.tv1w},0), secMom=0.35*(r()-0.45)+(dir==="long"?0.18:dir==="short"?0.12:0);
+  return {name:s.name,signal:s.signal,dir:dir,big:!!BIG[s.name],chgPct:s.chgPct,frgn:s.frgn,orgn:s.orgn,top:top,secTv:secTv,secMom:secMom,n:stocks.length};
+});
+var allL=[],allS=[];SECTORS.forEach(function(s){s.top.forEach(function(x){if(x.dir==="long")allL.push(x);if(x.dir==="short")allS.push(x);x.sector=s.name;x.signal=s.signal})});
+allL.sort(function(a,b){return b.score-a.score||b.tv1w-a.tv1w});allS.sort(function(a,b){return b.score-a.score||b.tv1w-a.tv1w});
+var candL=allL.filter(function(x){return x.score>=2}),candS=allS.filter(function(x){return x.score>=2});
+document.getElementById("nL").textContent=candL.length;document.getElementById("nS").textContent=candS.length;
+document.getElementById("kL").textContent=candL.length;document.getElementById("kS").textContent=candS.length;
+document.getElementById("kF").textContent=candS.filter(function(x){return x.fut}).length;
+
+function sbar(sc){var w=Math.abs(sc)/5*50;return '<span class="sbar"><i class="'+(sc>=0?"l":"s")+'" style="width:'+w+'%"></i></span>'}
+function scoreCell(sc){if(sc==null)return '<span class="sc muted">—</span>';return sbar(sc)+' <span class="sc '+(sc>0?"up":sc<0?"down":"muted")+'">'+(sc>0?"+":"")+sc+'</span>'}
+function flags(x){var h="";if(x.held)h+='<span class="flag held">● 보유</span>';if(x.fut)h+='<span class="flag fut">F</span>';if(x.shortTop)h+='<span class="flag short-top">공매도↑</span>';if(x.cool)h+='<span class="flag cool">⏳ '+x.cool+'</span>';if(x.done)h+='<span class="flag done">✓ '+x.done+'</span>';return h}
+
+// ── A: 업종 스트립 ──
+var strip=document.getElementById("strip");
+SECTORS.forEach(function(s,i){
+  var pct=Math.round(Math.min(1,Math.max(0,(s.secMom+0.4)/0.9))*100);
+  var el=document.createElement("div");el.className="ss"+(i===0?" sel":"");el.style.setProperty("--c",SIGC[s.signal]);
+  el.innerHTML='<div class="n"><span>'+esc(s.name)+'</span><i></i></div><div class="m"><span>거래대금</span><b class="'+(s.secMom>0?"up":"down")+'">'+sgn(s.secMom*100,0,"%")+'</b></div><div class="bar"><i style="width:'+pct+'%;background:'+(s.secMom>0?"var(--up-red)":"var(--down-blue)")+'"></i></div>';
+  el.onclick=function(){document.querySelectorAll(".ss").forEach(function(e){e.classList.remove("sel")});el.classList.add("sel");var c=document.getElementById("card-"+i);if(c)c.scrollIntoView({behavior:"smooth",block:"center"})};
+  strip.appendChild(el);
+});
+// ── A: 통합 상위 10 ──
+function topRows(arr,long){
+  var h='<div class="tr h"><span>#</span><span>종목 · 업종</span><span style="text-align:right">점수</span><span class="v c4">거래대금Δ</span><span class="v c5">'+(long?"외+기":"외+기")+'</span><span class="v c6">공매도Δ</span></div>';
+  arr.slice(0,10).forEach(function(x,i){
+    var fl=x.fut?' <span class="flag fut">F</span>':'';
+    h+='<div class="tr"><span class="rk">'+(i+1)+'</span><span class="nm">'+esc(x.name)+(x.held?' <span class="flag held">●</span>':'')+fl+'<small>'+esc(x.sector)+' · <span class="sig s-'+esc(x.signal)+'" style="padding:0 6px;font-size:10px">'+esc(x.signal)+'</span></small></span>'
+      +'<span style="text-align:right">'+scoreCell(x.score)+'</span><span class="v c4 '+(x.tvMom>0?"up":"down")+'">'+sgn(x.tvMom*100,0,"%")+'<small>'+fmt(x.tv1w)+'억</small></span>'
+      +'<span class="v c5 '+((x.frgn+x.orgn)>0?"up":"down")+'">'+sgn(x.frgn+x.orgn,0,"억")+'<small>'+sgn(x.flowBp,0,"bp")+'</small></span>'
+      +'<span class="v c6 '+(x.shortMom>0?"down":"up")+'">'+sgn(x.shortMom,1,"pp")+'<small>'+x.shortRlim.toFixed(1)+'%</small></span></div>';
+  });return h}
+document.getElementById("topL").innerHTML=topRows(allL,true);document.getElementById("topS").innerHTML=topRows(allS,false);
+// ── A: 업종 카드 ──
+var grid=document.getElementById("grid");
+SECTORS.forEach(function(s,i){
+  var el=document.createElement("div");el.className="sc-card"+(s.dir?"":" dim");el.id="card-"+i;el.style.setProperty("--c",SIGC[s.signal]);
+  var rows='<div class="sr h"><span>#</span><span>종목</span><span style="text-align:right">점수</span><span class="v">대금Δ</span><span class="v">외+기</span><span class="v">공매Δ</span></div>';
+  s.top.forEach(function(x){
+    rows+='<div class="sr"><span class="rk">'+x.rank+'</span><span class="nm" title="'+esc(x.code)+'">'+esc(x.name)+(x.held?' <span class="flag held">●</span>':'')+'</span><span style="text-align:right">'+scoreCell(x.score)+'</span>'
+      +'<span class="v '+(x.tvMom>0?"up":"down")+'">'+sgn(x.tvMom*100,0,"%")+'</span><span class="v '+((x.frgn+x.orgn)>0?"up":"down")+'">'+sgn((x.frgn+x.orgn),0)+'</span><span class="v '+(x.shortMom>0?"down":"up")+'">'+sgn(x.shortMom,1)+'</span></div>';
+  });
+  el.innerHTML='<div class="sc-head"><h4>'+esc(s.name)+' <span class="muted" style="font-weight:400;font-size:11px">'+s.n+'종목</span></h4><span class="sig s-'+esc(s.signal)+'">'+esc(s.signal)+'</span></div>'
+    +'<div class="sc-stat"><span>1W <b class="'+(s.chgPct>0?"up":"down")+'">'+sgn(s.chgPct,2,"%")+'</b></span><span>거래대금 <b>'+fmt(s.secTv)+'억</b> <b class="'+(s.secMom>0?"up":"down")+'">'+sgn(s.secMom*100,0,"%")+'</b></span><span>외+기 <b class="'+((s.frgn+s.orgn)>0?"up":"down")+'">'+sgn(s.frgn+s.orgn,0,"억")+'</b></span></div>'+rows
+    +(s.dir?'':'<div class="foot" style="margin-top:6px">'+(s.big?'대분류(제조·금융) — 중분류와 종목 중복, 산출 제외(관찰만)':'혼조 업종 — 방향 미정, 후보 미산출(관찰만)')+'</div>');
+  grid.appendChild(el);
+});
+// ── B: 유니버스 표 ──
+var tb=document.querySelector("#utbl tbody"),hb="";
+// 표시 순서: Long 업종(점수순) 4 → Short 업종(점수순) 3 → 혼조/대분류 1 (나머지는 접힘)
+function mx(s){return Math.max.apply(null,s.top.map(function(x){return x.score||0}))}
+var bySc=SECTORS.slice().sort(function(a,b){return mx(b)-mx(a)});
+var order=bySc.filter(function(s){return s.dir==="long"}).slice(0,4).concat(bySc.filter(function(s){return s.dir==="short"}).slice(0,3),bySc.filter(function(s){return !s.dir}).slice(0,1));
+order.forEach(function(s){
+  var nC=s.top.filter(function(x){return x.score>=2}).length;
+  hb+='<tr class="sec"><td colspan="13"><span class="sn">'+esc(s.name)+' <span class="sig s-'+esc(s.signal)+'">'+esc(s.signal)+'</span></span><span class="st">1W <b class="'+(s.chgPct>0?"up":"down")+'">'+sgn(s.chgPct,2,"%")+'</b> · 거래대금 <b>'+fmt(s.secTv)+'억</b> <b class="'+(s.secMom>0?"up":"down")+'">'+sgn(s.secMom*100,0,"%")+'</b> · 외+기 <b>'+sgn(s.frgn+s.orgn,0,"억")+'</b> · 후보 <b>'+nC+'</b> / Top10</span></td></tr>';
+  s.top.slice(0,s.dir?6:3).forEach(function(x){
+    var st=!s.dir?'<span class="state x">관찰</span>':x.held?'<span class="state hold">보유 중</span>':x.cool?'<span class="state x">쿨다운</span>':x.done?'<span class="state x">판단 '+esc(x.done.split(" ")[1])+'</span>':x.score>=3?'<span class="state ord">주문 예정</span>':x.score>=2?'<span class="state q">분석 대기</span>':'<span class="state x">점수 미달</span>';
+    hb+='<tr class="row"><td class="num muted">'+x.rank+'</td><td><span class="nm">'+esc(x.name)+'</span> <span class="cd">'+esc(x.code)+'</span></td><td>'+(x.dir?'<span class="side-tag '+x.dir+'">'+x.dir.toUpperCase()+'</span>':'<span class="muted">—</span>')+'</td><td>'+scoreCell(x.score)+'</td>'
+      +'<td class="num r">'+fmt(x.tv1w)+'억<small class="'+(x.tvMom>0?"up":"down")+'">'+sgn(x.tvMom*100,0,"%")+'</small></td><td class="num r '+(x.frgn>0?"up":"down")+'">'+sgn(x.frgn,0)+'</td><td class="num r '+(x.orgn>0?"up":"down")+'">'+sgn(x.orgn,0)+'</td><td class="num r '+(x.flowBp>0?"up":"down")+'">'+sgn(x.flowBp,0,"bp")+'</td>'
+      +'<td class="num r">'+x.shortRlim.toFixed(1)+'%<small class="'+(x.shortMom>0?"down":"up")+'">'+sgn(x.shortMom,1)+'</small></td><td class="num r '+(x.loanChg>0?"down":"up")+'">'+sgn(x.loanChg,0)+'</td><td class="num r '+(x.ret1w>0?"up":"down")+'">'+sgn(x.ret1w,1,"%")+'</td><td>'+flags(x)+'</td><td>'+st+'</td></tr>';
+  });
+});
+hb+='<tr><td colspan="13" style="text-align:center;color:var(--text-muted);padding:14px">… 나머지 16개 업종(접힘) — 더보기</td></tr>';
+tb.innerHTML=hb;
+// ── C: 믹스 ──
+var MX={dir:"all",sec:null};
+function stateOf(x,s){return !s.dir?'<span class="state x">관찰</span>':x.held?'<span class="state hold">보유 중</span>':x.cool?'<span class="state x">쿨다운</span>':x.done?'<span class="state x">판단 '+esc(x.done.split(" ")[1])+'</span>':x.score>=3?'<span class="state ord">주문 예정</span>':x.score>=2?'<span class="state q">분석 대기</span>':'<span class="state x">점수 미달</span>'}
+function secByName(n){for(var i=0;i<SECTORS.length;i++)if(SECTORS[i].name===n)return SECTORS[i];return {}}
+function mxTopRows(arr){
+  var h='<div class="tr h mx"><span>#</span><span>종목 · 업종</span><span style="text-align:right">점수</span><span class="v c4">거래대금Δ</span><span class="v c5">외+기</span><span class="v c6">공매도Δ</span><span class="fl">플래그 · 상태</span></div>';
+  arr.slice(0,10).forEach(function(x,i){
+    h+='<div class="tr mx"><span class="rk">'+(i+1)+'</span><span class="nm">'+esc(x.name)+'<small>'+esc(x.sector)+' · <span class="sig s-'+esc(x.signal)+'" style="padding:0 6px;font-size:10px">'+esc(x.signal)+'</span></small></span>'
+      +'<span style="text-align:right">'+scoreCell(x.score)+'</span><span class="v c4 '+(x.tvMom>0?"up":"down")+'">'+sgn(x.tvMom*100,0,"%")+'<small>'+fmt(x.tv1w)+'억</small></span>'
+      +'<span class="v c5 '+((x.frgn+x.orgn)>0?"up":"down")+'">'+sgn(x.frgn+x.orgn,0,"억")+'<small>'+sgn(x.flowBp,0,"bp")+'</small></span>'
+      +'<span class="v c6 '+(x.shortMom>0?"down":"up")+'">'+sgn(x.shortMom,1,"pp")+'<small>'+x.shortRlim.toFixed(1)+'%</small></span>'
+      +'<span class="fl">'+flags(x)+'<div style="margin-top:3px">'+stateOf(x,secByName(x.sector))+'</div></span></div>';
+  });return h}
+document.getElementById("mxTopL").innerHTML=mxTopRows(allL);document.getElementById("mxTopS").innerHTML=mxTopRows(allS);
+document.getElementById("mL").textContent=candL.length;document.getElementById("mS").textContent=candS.length;document.getElementById("mF").textContent=candS.filter(function(x){return x.fut}).length;
+
+var mxStrip=document.getElementById("mxStrip");
+SECTORS.forEach(function(s,i){
+  var pct=Math.round(Math.min(1,Math.max(0,(s.secMom+0.4)/0.9))*100);
+  var el=document.createElement("div");el.className="ss";el.style.setProperty("--c",SIGC[s.signal]);el.dataset.i=i;
+  el.innerHTML='<div class="n"><span>'+esc(s.name)+'</span><i></i></div><div class="m"><span>거래대금</span><b class="'+(s.secMom>0?"up":"down")+'">'+sgn(s.secMom*100,0,"%")+'</b></div><div class="bar"><i style="width:'+pct+'%;background:'+(s.secMom>0?"var(--up-red)":"var(--down-blue)")+'"></i></div>';
+  el.onclick=function(){MX.sec=(MX.sec===i)?null:i;mxRender()};
+  mxStrip.appendChild(el);
+});
+document.querySelectorAll("#mxSeg button").forEach(function(b){b.onclick=function(){document.querySelectorAll("#mxSeg button").forEach(function(x){x.classList.remove("active")});b.classList.add("active");MX.dir=b.dataset.d;mxRender()}});
+
+function mxRender(){
+  document.querySelectorAll("#mxStrip .ss").forEach(function(e){var i=+e.dataset.i,s=SECTORS[i];var on=(MX.sec==null||MX.sec===i)&&(MX.dir==="all"||s.dir===MX.dir);e.classList.toggle("sel",MX.sec===i);e.classList.toggle("off",!on)});
+  var list=SECTORS.map(function(s,i){return {s:s,i:i}}).filter(function(o){return (MX.sec==null||MX.sec===o.i)&&(MX.dir==="all"||o.s.dir===MX.dir)});
+  list.sort(function(a,b){return (b.s.dir?1:0)-(a.s.dir?1:0)||mx(b.s)-mx(a.s)});
+  var open=MX.sec!=null?99:5, h="";
+  list.forEach(function(o,k){
+    var s=o.s,nC=s.top.filter(function(x){return x.score>=2}).length,closed=k>=open;
+    h+='<tr class="sec'+(closed?" closed":"")+'" data-k="'+k+'" style="--c:'+SIGC[s.signal]+'"><td colspan="13"><span class="sn">'+esc(s.name)+' <span class="sig s-'+esc(s.signal)+'">'+esc(s.signal)+'</span></span>'
+      +'<span class="st">1W <b class="'+(s.chgPct>0?"up":"down")+'">'+sgn(s.chgPct,2,"%")+'</b> · 거래대금 <b>'+fmt(s.secTv)+'억</b> <b class="'+(s.secMom>0?"up":"down")+'">'+sgn(s.secMom*100,0,"%")+'</b> · 외+기 <b>'+sgn(s.frgn+s.orgn,0,"억")+'</b> · '+(s.dir?'후보 <b>'+nC+'</b> / Top10':(s.big?'대분류 — 산출 제외':'혼조 — 관찰만'))+'</span><span class="more">'+(closed?"펼치기":"접기")+'</span></td></tr>';
+    s.top.slice(0,s.dir?(MX.sec!=null?10:5):3).forEach(function(x){
+      h+='<tr class="row'+(closed?" hide":"")+'" data-k="'+k+'"><td class="num">'+x.rank+'</td><td><span class="nm">'+esc(x.name)+'</span> <span class="cd">'+esc(x.code)+'</span></td><td>'+(x.dir?'<span class="side-tag '+x.dir+'">'+x.dir.toUpperCase()+'</span>':'<span class="muted">—</span>')+'</td><td>'+scoreCell(x.score)+'</td>'
+        +'<td class="num r">'+fmt(x.tv1w)+'억<small class="'+(x.tvMom>0?"up":"down")+'">'+sgn(x.tvMom*100,0,"%")+'</small></td><td class="num r '+(x.frgn>0?"up":"down")+'">'+sgn(x.frgn,0)+'</td><td class="num r '+(x.orgn>0?"up":"down")+'">'+sgn(x.orgn,0)+'</td><td class="num r '+(x.flowBp>0?"up":"down")+'">'+sgn(x.flowBp,0,"bp")+'</td>'
+        +'<td class="num r">'+x.shortRlim.toFixed(1)+'%<small class="'+(x.shortMom>0?"down":"up")+'">'+sgn(x.shortMom,1)+'</small></td><td class="num r '+(x.loanChg>0?"down":"up")+'">'+sgn(x.loanChg,0)+'</td><td class="num r '+(x.ret1w>0?"up":"down")+'">'+sgn(x.ret1w,1,"%")+'</td><td>'+flags(x)+'</td><td>'+stateOf(x,s)+'</td></tr>';
+    });
+  });
+  if(!list.length) h='<tr><td colspan="13" style="text-align:center;color:var(--text-muted);padding:18px">조건에 맞는 업종 없음</td></tr>';
+  var body=document.querySelector("#mxTbl tbody");body.innerHTML=h;
+  body.querySelectorAll("tr.sec").forEach(function(tr){tr.onclick=function(){var k=tr.dataset.k,c=tr.classList.toggle("closed");tr.querySelector(".more").textContent=c?"펼치기":"접기";body.querySelectorAll('tr.row[data-k="'+k+'"]').forEach(function(r){r.classList.toggle("hide",c)})}});
+}
+mxRender();
+
+// ── 전환 ──
+document.querySelectorAll(".switch button").forEach(function(b){b.onclick=function(){document.querySelectorAll(".switch button").forEach(function(x){x.classList.remove("active")});b.classList.add("active");document.querySelectorAll(".view").forEach(function(v){v.classList.toggle("active",v.id==="v-"+b.dataset.v)});window.scrollTo(0,0)}});
+</script>
+</body>
+</html>
