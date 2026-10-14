@@ -406,6 +406,7 @@ def build_universe(date, wb, *, dbq, hub, ledger=None, decided=None, log=print, 
     start = (datetime.date.fromisoformat(date) - datetime.timedelta(days=45)).isoformat()
     tdays = [d for d in tradedays.trading_days(start, date)]
     d1 = tdays[-25] if len(tdays) >= 25 else tdays[0]
+    pxc = PriceCache(store, dbq, log=log)
 
     out_secs, n_cut, n_top, n_long, n_short, n_fut = [], 0, 0, 0, 0, 0
     for s in sectors:
@@ -472,6 +473,8 @@ def build_universe(date, wb, *, dbq, hub, ledger=None, decided=None, log=print, 
         scored = []
         for x in pre:
             x.update(short_loan_metrics(flows.get(x["code"]), x["cap"]))
+            pd_, pc_ = pxc.closes(x["code"], date)                   # 멀티기간 수익률(2026-10-14)
+            x.update(period_returns(pd_, pc_, date))
             sc, hi, why = score_stock(x, s["dir"])
             flags = []
             if x["code"] in held:
@@ -503,15 +506,18 @@ def build_universe(date, wb, *, dbq, hub, ledger=None, decided=None, log=print, 
     order = {"long": 0, "short": 1, None: 2}
     out_secs.sort(key=lambda x: (order[x.get("dir")], -max([y.get("score") or -9 for y in x["top"]] or [-9]),
                                  -(x.get("secTvMom") or -9)))
+    annotate_composite(out_secs)                                   # 주가·유동성·수급·종합 점수(방향 풀 백분위)
     rank_long, rank_short = integrated_rank(out_secs, "long"), integrated_rank(out_secs, "short")
-    diag["calls"].update(db=dbq.calls, hub=hub.calls)
+    diag["calls"].update(db=dbq.calls, hub=hub.calls, px=pxc.calls)
     diag["secs"] = round(time.time() - t0, 1)
     doc = {"date": date, "asof": (now or datetime.datetime.now()).isoformat(timespec="seconds"),
            "wbAsof": (wb or {}).get("asof"), "mode": "observe",
            "basis": {"tv": "DB증권 DAYSTOCKTJJ 거래대금 5영업일 합(억, AcmlTrPbmn 비면 거래량×종가) · Δ = 직전 4주 주평균 대비",
                      "flow": "DB증권 DAYSTOCKTJJ 외국인·기관계 매수−매도(억) · bp = ÷시총",
                      "short": "KIS /flow 공매도 volRlim 1W 평균(%) · Δ = 직전 4주 평균 대비(pp)",
-                     "loan": "KIS /flow 대차잔고(억) 5영업일 증감", "cap": "DB증권 Avls(시총)"},
+                     "loan": "KIS /flow 대차잔고(억) 5영업일 증감", "cap": "DB증권 Avls(시총)",
+                     "composite": f"주가·유동성·수급 점수 = 같은 방향 Top 풀 안 백분위(0~100) · 종합 = {config.UNI_W_PX:.2f}·주가 + {config.UNI_W_FLOW:.2f}·수급 · "
+                                  f"유동성점수 < {config.UNI_LIQ_GATE:.0f} 이면 종합 공란 · 수익률 = DB증권 CHARTDAY 종가(1M 21·3M 63·6M 126·12M 252영업일, YTD 전년말)"},
            "knobs": knobs,
            "summary": {"sectors": len(out_secs), "signaled": sum(1 for x in out_secs if x.get("dir")),
                        "mixed": sum(1 for x in out_secs if not x.get("dir") and not x.get("big")),
@@ -526,7 +532,8 @@ def build_universe(date, wb, *, dbq, hub, ledger=None, decided=None, log=print, 
 
 
 RANK_KEYS = ("code", "name", "rank", "score", "reason", "cap", "tv1w", "tvMom", "frgn1w", "orgn1w", "flowBp",
-             "shortRlim1w", "shortMom", "loanChg", "ret1w", "hasStockFuture", "shortHigh", "held", "pending", "done", "flags")
+             "shortRlim1w", "shortMom", "loanChg", "ret1w", "hasStockFuture", "shortHigh", "held", "pending", "done", "flags",
+             "tv20d", "ret1m", "ret3m", "ret6m", "ret12m", "retYtd", "pxScore", "liqScore", "flowScore", "totalScore", "liqGate")
 
 
 def integrated_rank(sectors, side, n=None):
@@ -813,7 +820,9 @@ def universe_candidates(doc, side, exclude=(), decided=None, fut_only=False, mod
                     "score": x["score"], "source": "universe", "rankAll": x.get("rankAll"), "pickMode": mode,
                     "reason": how + f" · 모멘텀 {x['score']:+d}/5" + (f"({x.get('reason')})" if x.get("reason") else ""),
                     "metrics": {k: x.get(k) for k in ("tv1w", "tvMom", "frgn1w", "orgn1w", "flowBp", "shortRlim1w",
-                                                      "shortMom", "loanChg", "ret1w", "shortHigh", "cap", "hasStockFuture")}})
+                                                      "shortMom", "loanChg", "ret1w", "shortHigh", "cap", "hasStockFuture",
+                                                      "ret1m", "ret3m", "ret6m", "ret12m", "retYtd", "pxScore", "liqScore",
+                                                      "flowScore", "totalScore")}})
     return out
 
 
@@ -855,3 +864,128 @@ class UniverseRunner:
         if not cands:
             return cands
         return attach_scores(cands, side, date, dbq=self.dbq, hub=self.hub, caps=self.caps(date), log=self.log)
+
+
+# ─────────────────────────── 멀티기간 수익률 · 백분위 점수(2026-10-14, 브레인 리포트 양식 반영) ───────────────────────────
+HORIZONS = (("ret1m", 21), ("ret3m", 63), ("ret6m", 126), ("ret12m", 252))
+
+
+def _iso(d8):
+    d8 = str(d8 or "").strip()
+    return f"{d8[:4]}-{d8[4:6]}-{d8[6:8]}" if len(d8) == 8 and d8.isdigit() else d8[:10]
+
+
+class PriceCache:
+    """종목별 종가 이력 — store `uni_cache/px/<code>` {dates[], closes[]} 에 두고 CHARTDAY 로 증분 조회(마지막 날짜 이후만).
+    첫 조회는 keep 영업일(≈15개월) 범위 1콜, 이후 매일 1콜(수 행). store 가 없으면 메모리만."""
+
+    def __init__(self, store, dbq, *, keep=None, log=print):
+        self.store, self.dbq, self.keep, self.log = store, dbq, keep or config.UNI_PX_KEEP, log
+        self._mem, self.calls = {}, 0
+
+    def _get(self, code):
+        if code in self._mem:
+            return self._mem[code]
+        doc = (self.store.get(f"uni_cache/px/{code}") if self.store is not None else None) or {"dates": [], "closes": []}
+        self._mem[code] = doc
+        return doc
+
+    def closes(self, code, date):
+        """→ (dates, closes) — date 이하, 오름차순. 조회 실패 시 캐시된 범위만."""
+        doc = self._get(code)
+        last = doc["dates"][-1] if doc["dates"] else None
+        if last is None or last < date:
+            d1 = ((datetime.date.fromisoformat(last) + datetime.timedelta(days=1)).isoformat() if last
+                  else (datetime.date.fromisoformat(date) - datetime.timedelta(days=int(self.keep * 1.6))).isoformat())
+            try:
+                rows = self.dbq.chart_day(code, d1, date)
+                self.calls += 1
+            except Exception as e:
+                self.log(f"[swing] px {code} CHARTDAY 실패: {str(e)[:60]}")
+                rows = None
+            if rows is not None:
+                m = dict(zip(doc["dates"], doc["closes"]))
+                for r in rows:
+                    d, c = _iso(r.get("Date")), _num(r.get("Prpr"))
+                    if len(d) == 10 and c:
+                        m[d] = c
+                ds = sorted(m)[-self.keep:]
+                doc = {"dates": ds, "closes": [m[d] for d in ds], "asof": date}
+                self._mem[code] = doc
+                if self.store is not None:
+                    try:
+                        self.store.put(f"uni_cache/px/{code}", doc)
+                    except Exception as e:
+                        self.log(f"[swing] px {code} 캐시 저장 실패: {str(e)[:60]}")
+        n = sum(1 for d in doc["dates"] if d <= date)
+        return doc["dates"][:n], doc["closes"][:n]
+
+
+def period_returns(dates, closes, date):
+    """as-of date 멀티기간 수익률(%) — 1M=21·3M=63·6M=126·12M=252 영업일 전 종가 대비, YTD=전년 마지막 종가 대비. 부족하면 None."""
+    out = {k: None for k, _ in HORIZONS}
+    out["retYtd"] = None
+    n = sum(1 for d in dates if d <= date)
+    if n < 2 or not closes[n - 1]:
+        return out
+    last = closes[n - 1]
+    for k, lag in HORIZONS:
+        if n - 1 - lag >= 0 and closes[n - 1 - lag]:
+            out[k] = round((last / closes[n - 1 - lag] - 1) * 100, 1)
+    y = date[:4]
+    prev = [i for i in range(n) if dates[i] < f"{y}-01-01"]
+    if prev and closes[prev[-1]]:
+        out["retYtd"] = round((last / closes[prev[-1]] - 1) * 100, 1)
+    return out
+
+
+def percentile(values, v):
+    """0~100 — values 중 v 보다 작은 비율(동률 절반). 단일 값이면 50."""
+    xs = [x for x in values if x is not None]
+    if v is None or not xs:
+        return None
+    if len(xs) == 1:
+        return 50.0
+    lt = sum(1 for x in xs if x < v)
+    eq = sum(1 for x in xs if x == v)
+    return round((lt + 0.5 * eq) / len(xs) * 100, 1)
+
+
+def annotate_composite(sectors, *, w_px=None, w_flow=None, liq_gate=None):
+    """업종 Top 종목에 주가·유동성·수급·종합 점수(0~100, 같은 방향 풀 안 백분위)를 붙인다(제자리).
+    주가점수 = 1M/3M/6M/12M 수익률 백분위 평균(방향 부호 반영: Short 은 하락이 높게, 2개 이상 기간 필요)
+    유동성점수 = 20일 평균 거래대금 백분위 · 수급점수 = (수급/시총, −공매도 비중Δ, −대차Δ, 거래대금 가속) 백분위 평균(방향 부호)
+    종합점수 = w_px·주가 + w_flow·수급 (이미지 역산 0.55/0.45) — 유동성점수 < liq_gate(30) 면 공란(None)."""
+    w_px = config.UNI_W_PX if w_px is None else w_px
+    w_flow = config.UNI_W_FLOW if w_flow is None else w_flow
+    liq_gate = config.UNI_LIQ_GATE if liq_gate is None else liq_gate
+    for side in ("long", "short"):
+        sg = 1 if side == "long" else -1
+        pool = [x for s in sectors if s.get("dir") == side for x in (s.get("top") or []) if x.get("score") is not None]
+        if not pool:
+            continue
+        ret_cols = {k: [None if x.get(k) is None else sg * x[k] for x in pool] for k, _ in HORIZONS}
+        liq_col = [x.get("tv20d") for x in pool]
+        flow_cols = {"flowBp": [None if x.get("flowBp") is None else sg * x["flowBp"] for x in pool],
+                     "shortMom": [None if x.get("shortMom") is None else -sg * x["shortMom"] for x in pool],
+                     "loanBp": [None if x.get("loanBp") is None else -sg * x["loanBp"] for x in pool],
+                     "tvMom": [x.get("tvMom") for x in pool]}
+        for x in pool:
+            ps = [percentile(ret_cols[k], None if x.get(k) is None else sg * x[k]) for k, _ in HORIZONS]
+            ps = [p for p in ps if p is not None]
+            x["pxScore"] = round(sum(ps) / len(ps), 1) if len(ps) >= 2 else None
+            x["liqScore"] = percentile(liq_col, x.get("tv20d"))
+            fs = [percentile(flow_cols["flowBp"], None if x.get("flowBp") is None else sg * x["flowBp"]),
+                  percentile(flow_cols["shortMom"], None if x.get("shortMom") is None else -sg * x["shortMom"]),
+                  percentile(flow_cols["loanBp"], None if x.get("loanBp") is None else -sg * x["loanBp"]),
+                  percentile(flow_cols["tvMom"], x.get("tvMom"))]
+            fs = [p for p in fs if p is not None]
+            x["flowScore"] = round(sum(fs) / len(fs), 1) if fs else None
+            ok = (x["pxScore"] is not None and x["flowScore"] is not None and x["liqScore"] is not None
+                  and x["liqScore"] >= liq_gate)
+            x["totalScore"] = round(w_px * x["pxScore"] + w_flow * x["flowScore"], 1) if ok else None
+            x["liqGate"] = bool(x["liqScore"] is not None and x["liqScore"] < liq_gate)
+    return sectors
+
+
+COMPOSITE_KEYS = ("ret1m", "ret3m", "ret6m", "ret12m", "retYtd", "pxScore", "liqScore", "flowScore", "totalScore", "liqGate", "tv20d")

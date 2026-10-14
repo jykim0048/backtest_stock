@@ -90,7 +90,7 @@
         <div class="un-strip" id="un-strip"></div>
         <div class="board-header mt">
           <h2>전 업종 통합 상위 10</h2>
-          <span class="board-subtitle" id="un-top-sub">점수(−5~+5) → 주간 거래대금 순 · 진입 후보는 <b>업종 라운드로빈</b>(업종당 1개씩 순환, 점수 ≥ +2, 보유·대기·매트릭스·쿨다운 제외) · 공매도 비중 = 거래량 대비, Δ = 직전 4주 평균 대비 %p · 플래그·상태는 아래 업종별 표에서</span>
+          <span class="board-subtitle" id="un-top-sub">점수(−5~+5) → 주간 거래대금 순 · 진입 후보는 <b>업종 라운드로빈</b>(업종당 1개씩 순환, 점수 ≥ +2, 보유·대기·매트릭스·쿨다운 제외) · 공매도 비중 = 거래량 대비, Δ = 직전 4주 평균 대비 %p · 그날 분석·주문 결과는 KPI·Long/Short 탭에서</span>
         </div>
         <div class="un-two">
           <div class="top-col" style="--c:var(--up-red)"><h4>▲ Long 모멘텀 상위 <small>거래대금 가속 + 외인·기관 순매수 + 공매도 비중 감소</small></h4><div id="un-top-long"></div></div>
@@ -101,7 +101,7 @@
           <div class="un-filters">
             <label><input type="checkbox" id="un-ex-held"> 보유·대기 제외</label>
             <label><input type="checkbox" id="un-fut-only"> 주식선물 상장만</label>
-            <select id="un-sort" aria-label="정렬"><option value="score">정렬: 점수</option><option value="tvMom">거래대금 가속</option><option value="flowBp">수급/시총</option><option value="shortMom">공매도 Δ</option></select>
+            <select id="un-sort" aria-label="정렬"><option value="score">정렬: 점수</option><option value="totalScore">종합점수</option><option value="pxScore">주가점수</option><option value="tvMom">거래대금 가속</option><option value="flowBp">수급/시총</option><option value="shortMom">공매도 Δ</option></select>
           </div>
         </div>
         <div class="table-wrap"><table class="stocks-table compact gtbl" id="un-table"></table></div>

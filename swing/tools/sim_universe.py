@@ -182,8 +182,25 @@ def gather(p, dates, dbq, hub, sig, *, log=print, progress=None, store=None, sec
     except Exception as e:
         fut = set()
         log(f"[sim] FCODES 실패: {e}")
+    # 종가 이력(멀티기간 수익률용) — 풀 전 종목 CHARTDAY 1콜(≈15개월)
+    px = {}
+    px_from = (datetime.date.fromisoformat(dates[0]) - datetime.timedelta(days=int(config.UNI_PX_KEEP * 1.6))).isoformat()
+    for i, c in enumerate(codes):
+        try:
+            rows = dbq.chart_day(c, px_from, dates[-1])
+        except Exception as e:
+            continue
+        m = {}
+        for r in rows:
+            d, cl = U._iso(r.get("Date")), U._num(r.get("Prpr"))
+            if len(d) == 10 and cl:
+                m[d] = cl
+        ds = sorted(m)
+        px[c] = (ds, [m[d] for d in ds])
+        if progress and i % 100 == 0:
+            progress(f"종가 이력 {i}/{len(codes)}")
     diag["calls"] = {"db": getattr(dbq, "calls", None), "hub": getattr(hub, "calls", None)}
-    return {"sig": sig_by_date, "src": src_by_date, "comps": comps, "names": names, "inv": inv, "flows": flows, "fut": fut, "diag": diag}
+    return {"sig": sig_by_date, "src": src_by_date, "comps": comps, "names": names, "inv": inv, "flows": flows, "fut": fut, "diag": diag, "px": px}
 
 
 def _ymd(s):
@@ -234,6 +251,8 @@ def build_day(p, date, data):
             if not m or (m["tv20d"] or 0) < p["minTvEok"]:
                 continue
             m.update(U.short_loan_metrics(_asof_flow(data["flows"].get(x["code"]), date), x["cap"]))
+            pd_, pc_ = (data.get("px") or {}).get(x["code"]) or ([], [])
+            m.update(U.period_returns(pd_, pc_, date))
             sc, hi, why = U.score_stock(m, d)
             scored.append({"code": x["code"], "name": x["name"], "cap": x["cap"], **m, "score": sc, "shortHigh": hi, "reason": why,
                            "hasStockFuture": x["code"] in data["fut"]})
@@ -242,6 +261,7 @@ def build_day(p, date, data):
         for i, x in enumerate(top):
             x["rank"] = i + 1
         secs.append({"name": name, "signal": r.get("signal"), "dir": d, "top": top})
+    U.annotate_composite(secs)
     return {"sectors": secs, "rankLong": U.integrated_rank(secs, "long", 200), "rankShort": U.integrated_rank(secs, "short", 200)}
 
 

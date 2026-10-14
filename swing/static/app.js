@@ -1225,6 +1225,17 @@
     $("un-foot").textContent = [b.tv, b.flow, b.short, b.loan].filter(Boolean).join(" · ") + " · 리츠·ETF·우선주 제외 · 관찰 우선순위이며 매매 권유 아님";
     renderUniverseTable();
   }
+  // 히트맵(수익률, 한국식 빨강=상승·파랑=하락) · 점수 막대(0~100, 파랑 / 종합은 보라) — 2026-10-14 브레인 리포트 양식
+  function heat(v) {
+    if (v == null) return '<td class="num r muted">—</td>';
+    var a = Math.min(Math.abs(v), 50) / 50 * 0.45;
+    var bg = v > 0 ? "rgba(239,68,68," + a + ")" : v < 0 ? "rgba(59,130,246," + a + ")" : "transparent";
+    return '<td class="num r heat ' + cls(v) + '" style="background:' + bg + '">' + sgn(v, 1, "%") + "</td>";
+  }
+  function scoreBar(v, kind) {
+    if (v == null) return '<td class="num r muted">—</td>';
+    return '<td class="num r"><span class="sbar1' + (kind ? " " + kind : "") + '"><i style="width:' + Math.max(0, Math.min(100, v)) + '%"></i></span>' + v.toFixed(1) + "</td>";
+  }
   function renderUniverseTable() {
     var doc = UN.doc, tbl = $("un-table");
     if (!doc) return;
@@ -1236,7 +1247,10 @@
     var list = doc.sectors.map(function (s, i) { return { s: s, i: i }; })
       .filter(function (o) { return (UN.sec == null || UN.sec === o.i) && (UN.dir === "all" || o.s.dir === UN.dir); });
     var COLS = [["#"], ["종목"], ["방향"], ["점수"], ["거래대금 1W", "r", "Δ 4주평균"], ["외인 1W", "r"], ["기관 1W", "r"], ["수급/시총", "r"],
-      ["공매도 비중", "r", "거래량 대비 · Δ %p"], ["대차 Δ", "r"], ["1W", "r"], ["플래그"], ["상태"]];
+      ["공매도 비중", "r", "거래량 대비 · Δ %p"], ["대차 Δ", "r"], ["1W", "r"],
+      ["시총", "r", "억"], ["1M", "r"], ["3M", "r"], ["6M", "r"], ["12M", "r"], ["YTD", "r"],
+      ["주가점수", "r", "백분위"], ["20일 거래대금", "r", "억"], ["유동성점수", "r", "백분위"], ["수급점수", "r", "백분위"], ["종합점수", "r", "0.55주가+0.45수급"]];
+    var NCOL = COLS.length;
     var head = "<thead><tr>" + COLS.map(function (c) { return '<th class="' + (c[1] || "") + '">' + c[0] + (c[2] ? "<small>" + c[2] + "</small>" : "") + "</th>"; }).join("") + "</tr></thead>";
     // 업종을 펼쳤을 때 어느 열인지 보이도록 업종 머리줄 아래에 열 제목을 반복(2026-10-14)
     var colRow = function (k, closed) {
@@ -1251,12 +1265,13 @@
         rows = rows.slice().sort(function (a, b) {
           var av = a[sortK], bv = b[sortK];
           if (sortK === "shortMom" && s.dir === "long") { av = -av; bv = -bv; }
+          if (sortK === "totalScore" || sortK === "pxScore") { av = av == null ? -1 : av; bv = bv == null ? -1 : bv; }
           if (sortK === "flowBp" && s.dir === "short") { av = -av; bv = -bv; }
           return (bv == null ? -1e9 : bv) - (av == null ? -1e9 : av);
         });
       }
       var nC = (s.top || []).filter(function (x) { return x.score >= unMin(); }).length;
-      h += '<tr class="sec' + (closed ? " closed" : "") + '" data-k="' + k + '" style="--c:' + unC(s.signal) + '"><td colspan="13"><span class="sn">' + esc(s.name) + " " + sig(s.signal) + "</span>" +
+      h += '<tr class="sec' + (closed ? " closed" : "") + '" data-k="' + k + '" style="--c:' + unC(s.signal) + '"><td colspan="' + NCOL + '"><span class="sn">' + esc(s.name) + " " + sig(s.signal) + "</span>" +
         '<span class="st">1W <b class="' + cls(s.chgPct) + '">' + sgn(s.chgPct, 2, "%") + "</b> · 거래대금 <b>" + fmtEok(s.secTv1w != null ? s.secTv1w : s.secTvDay) + "</b> " +
         '<b class="' + cls(s.secTvMom) + '">' + (s.secTvMom == null ? "" : sgn(s.secTvMom * 100, 0, "%")) + "</b> · 외+기 <b>" + sgn((s.frgn || 0) + (s.orgn || 0), 0, "억") + "</b> · " +
         (s.dir ? "후보 <b>" + nC + "</b> / Top" + (s.top || []).length : s.big ? "대분류 — 산출 제외" : "혼조 — 관찰만") +
@@ -1270,11 +1285,16 @@
           '<td class="num r ' + cls(x.flowBp) + '">' + sgn(x.flowBp, 0, "bp") + "</td>" +
           '<td class="num r">' + (x.shortRlim1w == null ? "—" : x.shortRlim1w.toFixed(1) + "%") + '<small class="' + cls(x.shortMom, true) + '">' + sgn(x.shortMom, 1) + "</small></td>" +
           '<td class="num r ' + cls(x.loanChg, true) + '">' + sgn(x.loanChg, 0) + '</td><td class="num r ' + cls(x.ret1w) + '">' + sgn(x.ret1w, 1, "%") + "</td>" +
-          "<td>" + unFlags(x) + "</td><td>" + unState(x, s) + "</td></tr>";
+          '<td class="num r">' + (x.cap ? Math.round(x.cap).toLocaleString("ko-KR") : "—") + "</td>" +
+          heat(x.ret1m) + heat(x.ret3m) + heat(x.ret6m) + heat(x.ret12m) + heat(x.retYtd) +
+          scoreBar(x.pxScore) + '<td class="num r">' + (x.tv20d == null ? "—" : Math.round(x.tv20d).toLocaleString("ko-KR")) + "</td>" +
+          scoreBar(x.liqScore, x.liqGate ? "gate" : "") + scoreBar(x.flowScore) +
+          (x.totalScore == null ? '<td class="num r muted" title="' + (x.liqGate ? "유동성점수 미달(게이트)" : "데이터 부족") + '">' + (x.liqGate ? "게이트" : "—") + "</td>" : scoreBar(x.totalScore, "total")) +
+          "</tr>";
       });
-      if (!rows.length) h += '<tr class="row' + (closed ? " hide" : "") + '" data-k="' + k + '"><td colspan="13" class="muted" style="text-align:center">표시할 종목 없음</td></tr>';
+      if (!rows.length) h += '<tr class="row' + (closed ? " hide" : "") + '" data-k="' + k + '"><td colspan="' + NCOL + '" class="muted" style="text-align:center">표시할 종목 없음</td></tr>';
     });
-    if (!list.length) h = '<tr class="empty"><td colspan="13">조건에 맞는 업종 없음</td></tr>';
+    if (!list.length) h = '<tr class="empty"><td colspan="' + NCOL + '">조건에 맞는 업종 없음</td></tr>';
     tbl.innerHTML = head + "<tbody>" + h + "</tbody>";
     tbl.querySelectorAll("tr.sec").forEach(function (tr) {
       tr.addEventListener("click", function () {

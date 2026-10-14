@@ -631,3 +631,9 @@ details.stage > summary .muted { font-weight: 500; font-size: 11px; margin-left:
 @media (max-width: 1000px) { .un-two { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 700px) { .un-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } .tr, .tr.top { grid-template-columns: 20px minmax(0, 1fr) 80px 54px; } .tr .c5, .tr .c6, .tr .fl { display: none; } }
 .flag.uni { color: var(--kospi-blue); background: var(--kospi-blue-dim); }
+/* 유니버스 표 — 멀티기간 수익률 히트맵 · 점수 막대(2026-10-14) */
+.gtbl td.heat { font-weight: 600; }
+.sbar1 { display: inline-block; width: 44px; height: 7px; border-radius: 4px; background: rgba(255, 255, 255, .06); vertical-align: middle; margin-right: 6px; overflow: hidden; }
+.sbar1 i { display: block; height: 100%; background: var(--down-blue); border-radius: 4px; }
+.sbar1.total i { background: #a78bfa; }
+.sbar1.gate i { background: rgba(148, 163, 184, .6); }

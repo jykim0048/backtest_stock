@@ -96,6 +96,11 @@ def _momentum_line(req):
         parts.append(f"대차잔고 {m['loanChg']:+,.0f}억")
     if m.get("ret1w") is not None:
         parts.append(f"1주 등락 {m['ret1w']:+.1f}%")
+    rs = [f"{lbl} {m[k]:+.1f}%" for k, lbl in (("ret1m", "1M"), ("ret3m", "3M"), ("ret6m", "6M"), ("ret12m", "12M"), ("retYtd", "YTD")) if m.get(k) is not None]
+    if rs:
+        parts.append("기간 수익률 " + "·".join(rs))
+    if m.get("totalScore") is not None:
+        parts.append(f"종합점수 {m['totalScore']:.0f}(주가 {m.get('pxScore') or 0:.0f}·수급 {m.get('flowScore') or 0:.0f}·유동성 {m.get('liqScore') or 0:.0f})")
     return f" 후보 소스: {src}. 수급 모멘텀 점수 {sc:+d}/5" + (" — " + ", ".join(parts) if parts else "") + "."
 
 
