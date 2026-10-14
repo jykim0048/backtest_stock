@@ -1263,6 +1263,8 @@
       var i = +e.dataset.i, s = doc.sectors[i], on = (UN.sec == null || UN.sec === i) && (UN.dir === "all" || s.dir === UN.dir);
       e.classList.toggle("sel", UN.sec === i); e.classList.toggle("off", !on);
     });
+    // 업종을 고르면 통합 상위 10 은 숨기고 그 업종 표만(2026-10-14)
+    $("un-top-head").style.display = $("un-top-body").style.display = UN.sec == null ? "" : "none";
     var list = doc.sectors.map(function (s, i) { return { s: s, i: i }; })
       .filter(function (o) { return (UN.sec == null || UN.sec === o.i) && (UN.dir === "all" || o.s.dir === UN.dir); });
     // 열 = 점수 구성 단위로 묶음(2026-10-14): 기본 → 주가(1W·1M~YTD → 주가점수) → 유동성(20일 거래대금 → 유동성점수)
