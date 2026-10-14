@@ -186,12 +186,17 @@ def gather(p, dates, dbq, hub, sig, *, log=print, progress=None, store=None, sec
     return {"sig": sig_by_date, "src": src_by_date, "comps": comps, "names": names, "inv": inv, "flows": flows, "fut": fut, "diag": diag}
 
 
+def _ymd(s):
+    return str(s or "").replace("-", "")[:8]
+
+
 def _asof_flow(flow, date):
-    """/flow 행(최신순) 중 date 이전(T+1 공표 가정) 행만, 최신순 유지."""
+    """/flow 행(최신순) 중 date 이전(T+1 공표 가정) 행만, 최신순 유지. 허브 날짜는 YYYYMMDD(2026-10-14 실측) — ISO 와 섞이지 않게 정규화."""
     if not flow:
         return None
-    return {"shorts": [x for x in flow.get("shorts") or [] if str(x.get("date", ""))[:10] < date],
-            "loans": [x for x in flow.get("loans") or [] if str(x.get("date", ""))[:10] < date]}
+    d = _ymd(date)
+    return {"shorts": [x for x in flow.get("shorts") or [] if _ymd(x.get("date")) < d],
+            "loans": [x for x in flow.get("loans") or [] if _ymd(x.get("date")) < d]}
 
 
 def build_day(p, date, data):
@@ -215,7 +220,7 @@ def build_day(p, date, data):
             day = next((q for q in rows if str(q.get("Date") or "").strip() == ymd), None)
             if not day:
                 continue
-            rows_day.append({**x, "tvDay": (U._num(day.get("AcmlTrPbmn"), 0.0) or 0.0) / config.UNI_TV_DIV, "_rows": rows})
+            rows_day.append({**x, "tvDay": U.day_tv(day) / config.UNI_TV_DIV, "_rows": rows})
         by_tv = sorted(rows_day, key=lambda x: -x["tvDay"])[:p["topkTv"]]
         by_cap = sorted(rows_day, key=lambda x: -x["cap"])[:p["topkCap"]]
         cut, seen = [], set()

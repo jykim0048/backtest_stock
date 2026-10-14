@@ -43,6 +43,15 @@ class TestSelect(unittest.TestCase):
         self.assertEqual([x["code"] for x in S.select_A(self.d, "short", self.p, set(), set())], ["S1"])
 
 
+class TestAsof(unittest.TestCase):
+    def test_asof_flow_date_formats(self):
+        f = {"shorts": [{"date": "20260915", "volRlim": 1}, {"date": "2026-09-14", "volRlim": 2}, {"date": "20260913", "volRlim": 3}],
+             "loans": [{"date": "20260915", "rmndAmt": 1}]}
+        r = S._asof_flow(f, "2026-09-15")
+        self.assertEqual([x["volRlim"] for x in r["shorts"]], [2, 3])
+        self.assertEqual(r["loans"], [])
+
+
 class TestRun(unittest.TestCase):
     def test_mock_run_structure(self):
         st = store.FileStore(tempfile.mkdtemp())

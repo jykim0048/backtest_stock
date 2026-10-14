@@ -251,6 +251,15 @@ def direction_of(signal, name):
     return None
 
 
+def day_tv(row):
+    """DAYSTOCKTJJ 행의 거래대금(원) — 2026-10-14 실측: `AcmlTrPbmn` 이 빈 문자열로 옴 → 거래량(AcmlVol) × 종가(Prpr) 로 대체."""
+    v = _num(row.get("AcmlTrPbmn"), 0.0) or 0.0
+    if v > 0:
+        return v
+    vol, px = _num(row.get("AcmlVol"), 0.0) or 0.0, _num(row.get("Prpr"), 0.0) or 0.0
+    return vol * px
+
+
 def weekly_metrics(rows, date, cap_eok, *, tv_div, flow_div):
     """DAYSTOCKTJJ 행 → 1W/4W 지표(억원). rows 는 날짜 혼합 순서여도 됨. 거래일 5개 미만이면 None."""
     by = {}
@@ -264,7 +273,7 @@ def weekly_metrics(rows, date, cap_eok, *, tv_div, flow_div):
     w1, w4 = days[-5:], days[-25:-5]
 
     def tv(d):
-        return (_num(by[d].get("AcmlTrPbmn"), 0.0) or 0.0) / tv_div
+        return day_tv(by[d]) / tv_div
 
     def net(d, who):
         buy = _num(by[d].get(f"{who}ShnuTrPbmn"), 0.0) or 0.0
@@ -498,7 +507,7 @@ def build_universe(date, wb, *, dbq, hub, ledger=None, decided=None, log=print, 
     diag["secs"] = round(time.time() - t0, 1)
     doc = {"date": date, "asof": (now or datetime.datetime.now()).isoformat(timespec="seconds"),
            "wbAsof": (wb or {}).get("asof"), "mode": "observe",
-           "basis": {"tv": "DB증권 DAYSTOCKTJJ AcmlTrPbmn 5영업일 합(억) · Δ = 직전 4주 주평균 대비",
+           "basis": {"tv": "DB증권 DAYSTOCKTJJ 거래대금 5영업일 합(억, AcmlTrPbmn 비면 거래량×종가) · Δ = 직전 4주 주평균 대비",
                      "flow": "DB증권 DAYSTOCKTJJ 외국인·기관계 매수−매도(억) · bp = ÷시총",
                      "short": "KIS /flow 공매도 volRlim 1W 평균(%) · Δ = 직전 4주 평균 대비(pp)",
                      "loan": "KIS /flow 대차잔고(억) 5영업일 증감", "cap": "DB증권 Avls(시총)"},

@@ -69,7 +69,7 @@ class MockDbQuote:
             fb, fs = tv * (0.25 + bias) / 1000, tv * (0.25 - bias) / 1000       # 천원
             ob, os_ = tv * (0.2 + bias * 0.6) / 1000, tv * (0.2 - bias * 0.6) / 1000
             rows.append({"Date": d.replace("-", ""), "Prpr": f"{px:.0f}", "PrdyCtrt": "0", "AcmlVol": f"{tv / px:.0f}",
-                         "AcmlTrPbmn": f"{tv:.0f}", "FrgnRegShnuTrPbmn": f"{fb:.0f}", "FrgnRegSelnTrPbmn": f"{fs:.0f}",
+                         "AcmlTrPbmn": "", "FrgnRegShnuTrPbmn": f"{fb:.0f}", "FrgnRegSelnTrPbmn": f"{fs:.0f}",
                          "OrgnShnuTrPbmn": f"{ob:.0f}", "OrgnSelnTrPbmn": f"{os_:.0f}",
                          "PrsnShnuTrPbmn": f"{tv * 0.3 / 1000:.0f}", "PrsnSelnTrPbmn": f"{tv * 0.3 / 1000:.0f}"})
         return rows[::-1]                                                     # 최신순(순서 무관 처리 확인용)
@@ -120,7 +120,7 @@ class MockHubFlow:
         d0 = datetime.date.fromisoformat(self.d0)
         shorts, loans, amt = [], [], 100 + g.random() * 2000
         for i in range(self.n):
-            d = (d0 - datetime.timedelta(days=i)).isoformat()
+            d = (d0 - datetime.timedelta(days=i)).strftime("%Y%m%d")      # 허브 실측 형식
             shorts.append({"date": d, "qty": int(g.random() * 1e6), "volRlim": round(max(0.1, base + step * (10 - i) / 10 + (g.random() - 0.5)), 2),
                            "pbmn": round(g.random() * 100, 1), "pbmnRlim": 0})
             loans.append({"date": d, "rmndAmt": round(amt, 1), "rmndChg": 0})

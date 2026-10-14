@@ -42,9 +42,11 @@ class TestPure(unittest.TestCase):
         self.assertGreater(m["tv1w"], 0)
         self.assertIsNotNone(m["tvMom"])
         self.assertIsNotNone(m["flowBp"])
-        # 원→억: 행 합과 일치
+        # 원→억: AcmlTrPbmn 이 비면 거래량×종가 (2026-10-14 실측 폴백)
         last5 = sorted(rows, key=lambda r: r["Date"])[-5:]
-        self.assertAlmostEqual(m["tv1w"], round(sum(float(r["AcmlTrPbmn"]) for r in last5) / 1e8), delta=1)
+        self.assertAlmostEqual(m["tv1w"], round(sum(U.day_tv(r) for r in last5) / 1e8), delta=1)
+        self.assertEqual(U.day_tv({"AcmlTrPbmn": "", "AcmlVol": "100", "Prpr": "5000"}), 500000.0)
+        self.assertEqual(U.day_tv({"AcmlTrPbmn": "777", "AcmlVol": "100", "Prpr": "5000"}), 777.0)
         self.assertIsNone(U.weekly_metrics(rows[:3], DATE, 100, tv_div=1e8, flow_div=1e5))   # 5일 미만
 
     def test_score_direction_symmetry(self):
