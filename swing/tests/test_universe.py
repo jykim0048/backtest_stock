@@ -115,14 +115,21 @@ class TestBuild(unittest.TestCase):
         self.assertEqual(by["통신"]["dir"], "short")
         self.assertIsNone(by["보험"]["dir"])
         self.assertTrue(by["제조"]["big"])
-        self.assertEqual(len(by["제조"]["top"]), 3)               # 대분류는 관찰 3개, 지표 없음
-        self.assertIsNone(by["제조"]["top"][0]["score"])
-        self.assertIsNone(by["제조"].get("secTvMom"))
-        # 혼조: 점수·후보 없이 관찰 3개 + 업종 거래대금 가속은 채운다(2026-10-14)
-        self.assertEqual(len(by["보험"]["top"]), 3)
-        self.assertIsNone(by["보험"]["top"][0]["score"])
-        self.assertIsNotNone(by["보험"]["secTvMom"])
-        self.assertIsNotNone(by["보험"]["top"][0].get("tv1w"))
+        # 2026-10-14(사용자 요청): 대분류·혼조도 방향 업종과 같은 계산으로 Top N — 관찰 전용(dir None·observe, 후보·순위·풀 제외)
+        for nm in ("제조", "보험"):
+            top = by[nm]["top"]
+            self.assertIsNone(by[nm]["dir"])
+            self.assertGreater(len(top), 3)
+            self.assertLessEqual(len(top), config.UNI_TOPN)
+            self.assertTrue(all(x["observe"] and "observe" in x["flags"] for x in top))
+            self.assertTrue(all(x["score"] is not None and x["side"] in ("long", "short") for x in top))
+            self.assertTrue(any(x.get("tv1w") is not None and x.get("flowBp") is not None for x in top))
+            self.assertFalse(any(U.is_candidate(x) for x in top))
+        self.assertIsNotNone(by["제조"].get("secTvMom"))
+        obs_codes = {x["code"] for nm in ("제조", "보험") for x in by[nm]["top"]}
+        direct = {x["code"] for s in doc["sectors"] if s.get("dir") for x in s["top"]}
+        ranked = {x["code"] for x in doc["rankLong"] + doc["rankShort"]}
+        self.assertFalse((obs_codes - direct) & ranked)                 # 관찰 전용 종목은 통합 순위에 없음
         # 방향 업종: Top ≤ 10, 점수 내림차순, 플래그
         top = by["운송·창고"]["top"]
         self.assertLessEqual(len(top), config.UNI_TOPN)

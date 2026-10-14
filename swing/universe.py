@@ -441,12 +441,11 @@ def build_universe(date, wb, *, dbq, hub, ledger=None, decided=None, log=print, 
         sec["nCut"] = len(cut)
         n_cut += len(cut)
         sec["secTvDay"] = _r(sum(x["tvDay"] or 0 for x in stocks), 0)
-        if s.get("big"):
-            # 대분류(제조·금융): 산출 제외 — 당일 거래대금 상위 3 을 지표 없이 남긴다
-            for i, x in enumerate(by_tv[:3]):
-                sec["top"].append({**x, "rank": i + 1, "side": None, "score": None, "flags": [], "reason": ""})
-            out_secs.append(sec)
-            continue
+        # 대분류(제조·금융)·혼조는 2026-10-14(사용자 요청)부터 방향 업종과 같은 계산으로 Top N 을 채운다 — 단 관찰 전용:
+        # sec.dir = None 이라 후보·통합 순위·백분위 풀에서 빠지고, 점수는 같은 방향 풀 기준 "상당" 값(annotate_composite)
+        observe = not s.get("dir")
+        obs_dir = ("long" if s.get("signal") in UP_SIGNALS else "short" if s.get("signal") in DOWN_SIGNALS else None) \
+            if observe else None
         # U4 종목 일별 — 혼조 업종도 조회해 업종 거래대금 가속은 채운다(2026-10-14, 종목 점수·후보는 방향 업종만)
         rows_m = []
         for x in cut:
@@ -466,16 +465,13 @@ def build_universe(date, wb, *, dbq, hub, ledger=None, decided=None, log=print, 
         sec["secTv1w"] = _r(sum(x["tv1w"] or 0 for x in rows_m), 0)
         tv4 = [x["tv4w"] for x in rows_m if x.get("tv4w")]
         sec["secTvMom"] = _r(sum(x["tv1w"] for x in rows_m if x.get("tv4w")) / sum(tv4) - 1, 3) if tv4 else None
-        if not s["dir"]:
-            # 혼조: 관찰만 — 주간 거래대금 상위 3(주간 지표 포함), 점수·후보 없음
-            obs = sorted(rows_m, key=lambda x: -(x["tv1w"] or 0))[:3] or by_tv[:3]
-            for i, x in enumerate(obs):
-                sec["top"].append({**x, "rank": i + 1, "side": None, "score": None, "flags": [], "reason": ""})
-            out_secs.append(sec)
-            continue
-        # U5 허브 보강(예비 상위 N)
-        rows_m.sort(key=lambda x: (-prelim_score(x, s["dir"]), -(x["tv1w"] or 0)))
-        pre = rows_m if by_total else rows_m[:config.UNI_FLOW_PER_SECTOR]   # 종합 기준 = 1차 컷 전 종목(시뮬 T2)
+        # U5 허브 보강(예비 상위 N) — 관찰 업종은 1차 컷 전 종목
+        pdir = s["dir"] or obs_dir
+        if pdir:
+            rows_m.sort(key=lambda x: (-prelim_score(x, pdir), -(x["tv1w"] or 0)))
+        else:
+            rows_m.sort(key=lambda x: -(x["tv1w"] or 0))
+        pre = rows_m if (by_total or observe) else rows_m[:config.UNI_FLOW_PER_SECTOR]   # 종합 기준 = 1차 컷 전 종목(시뮬 T2)
         flows, errs = hub.many([x["code"] for x in pre])
         diag["errors"].extend(f"{s['name']} /flow {e}" for e in errs[:3])
         # U6 점수
@@ -484,8 +480,15 @@ def build_universe(date, wb, *, dbq, hub, ledger=None, decided=None, log=print, 
             x.update(short_loan_metrics(flows.get(x["code"]), x["cap"]))
             pd_, pc_ = pxc.closes(x["code"], date)                   # 멀티기간 수익률(2026-10-14)
             x.update(period_returns(pd_, pc_, date))
-            sc, hi, why = score_stock(x, s["dir"])
-            flags = []
+            side = s["dir"] or obs_dir
+            if side:
+                sc, hi, why = score_stock(x, side)
+            else:                                                  # 혼조: 종목별로 점수가 높은 방향(동점이면 1W 부호)
+                sl, ss = score_stock(x, "long"), score_stock(x, "short")
+                pick_long = sl[0] > ss[0] or (sl[0] == ss[0] and (x.get("ret1w") or 0) >= 0)
+                side = "long" if pick_long else "short"
+                sc, hi, why = sl if pick_long else ss
+            flags = ["observe"] if observe else []
             if x["code"] in held:
                 flags.append("held")
             if x["code"] in pend:
@@ -496,11 +499,12 @@ def build_universe(date, wb, *, dbq, hub, ledger=None, decided=None, log=print, 
                 flags.append("shortHigh")
             if x["code"] in decided:
                 flags.append("done")
-            x.update(side=s["dir"], score=sc, shortHigh=hi, reason=why, hasStockFuture=x["code"] in fut,
-                     held=x["code"] in held, pending=x["code"] in pend, done=decided.get(x["code"]), flags=flags)
+            x.update(side=side, score=sc, shortHigh=hi, reason=why, hasStockFuture=x["code"] in fut,
+                     held=x["code"] in held, pending=x["code"] in pend, done=decided.get(x["code"]), flags=flags,
+                     observe=observe)
             scored.append(x)
         scored.sort(key=lambda x: (-x["score"], -(x["tv1w"] or 0)))
-        if by_total:
+        if by_total or observe:
             sec["top"] = scored                                    # 전 종목 — 종합 채점 후 Top N 으로 자름
         else:
             for i, x in enumerate(scored[:config.UNI_TOPN]):
@@ -512,13 +516,19 @@ def build_universe(date, wb, *, dbq, hub, ledger=None, decided=None, log=print, 
     annotate_composite(out_secs)
     basis = config.UNI_RANK_BASIS
     for sec in out_secs:
-        if not sec.get("dir"):
-            continue
+        obs_sec = not sec.get("dir")
+        if obs_sec and not any(x.get("observe") for x in sec["top"]):
+            continue                                               # 구성종목 조회 실패 등
         if by_total:
             sec["top"].sort(key=lambda x: (x.get("totalScore") is None, -(x.get("totalScore") or 0), -(x.get("score") or 0)))
+        elif obs_sec:
+            sec["top"].sort(key=lambda x: (-(x.get("score") or 0), -(x.get("tv1w") or 0)))
+        if by_total or obs_sec:
             sec["top"] = sec["top"][:config.UNI_TOPN]
             for i, x in enumerate(sec["top"]):
                 x["rank"] = i + 1
+        if obs_sec:
+            continue
         n_top += len(sec["top"])
         c = [x for x in sec["top"] if is_candidate(x)]
         if sec["dir"] == "long":
@@ -569,7 +579,7 @@ def basis_value(x, basis):
 def is_candidate(x, basis=None):
     """후보 적격 점수 — total: 종합 ≥ UNI_TOTAL_MIN(게이트 통과), score: 모멘텀 ≥ UNI_CAND_MIN."""
     basis = basis or config.UNI_RANK_BASIS
-    if x.get("score") is None:
+    if x.get("score") is None or x.get("observe"):
         return False
     if basis == "total":
         return x.get("totalScore") is not None and x["totalScore"] >= config.UNI_TOTAL_MIN
@@ -1016,6 +1026,9 @@ def annotate_composite(sectors, *, w_px=None, w_flow=None, liq_gate=None, liq_po
     for side in ("long", "short"):
         sg = 1 if side == "long" else -1
         pool = [x for s in sectors if s.get("dir") == side for x in (s.get("top") or []) if x.get("score") is not None]
+        # 관찰 업종(대분류·혼조, dir None) 종목 — 같은 방향 풀 기준으로 채점만(풀에는 넣지 않음 → 다른 종목 점수 불변)
+        extra = [x for s in sectors if not s.get("dir") for x in (s.get("top") or [])
+                 if x.get("side") == side and x.get("score") is not None]
         if not pool:
             continue
         ret_cols = {k: [None if x.get(k) is None else sg * x[k] for x in pool] for k, _ in HORIZONS}
@@ -1024,7 +1037,7 @@ def annotate_composite(sectors, *, w_px=None, w_flow=None, liq_gate=None, liq_po
                      "shortMom": [None if x.get("shortMom") is None else -sg * x["shortMom"] for x in pool],
                      "loanBp": [None if x.get("loanBp") is None else -sg * x["loanBp"] for x in pool],
                      "tvMom": [x.get("tvMom") for x in pool]}
-        for x in pool:
+        for x in pool + extra:
             ps = [percentile(ret_cols[k], None if x.get(k) is None else sg * x[k]) for k, _ in HORIZONS]
             ps = [p for p in ps if p is not None]
             x["pxScore"] = round(sum(ps) / len(ps), 1) if len(ps) >= 2 else None

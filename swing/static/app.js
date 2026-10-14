@@ -1209,7 +1209,7 @@
     // 2026-10-14 섹터 시그널 종목 관찰과 같은 구분 — 1열 4행(동반강세·수급유입·수급이탈·동반약세), 행 안은 업종 칩(이름·막대·거래대금 Δ4주). 혼조·대분류는 스트립 제외(표에는 유지)
     function ssCard(s, i) {
       var mom = s.secTvMom, pct = mom == null ? 0 : Math.round(Math.min(1, Math.max(0, (mom + 0.4) / 0.9)) * 100);
-      return '<div class="ss" data-i="' + i + '" style="--c:' + unC(s.signal) + '"><span class="n">' + esc(s.name) + (s.big ? ' <em title="대분류 — 산출 제외">大</em>' : "") + "</span>" +
+      return '<div class="ss" data-i="' + i + '" style="--c:' + unC(s.signal) + '"><span class="n">' + esc(s.name) + (s.big ? ' <em title="대분류 — 관찰(후보 제외 · 중분류와 종목 중복)">大</em>' : "") + "</span>" +
         '<span class="bar"><i style="width:' + pct + "%;background:" + (mom > 0 ? "var(--up-red)" : "var(--down-blue)") + '"></i></span>' +
         '<b class="v ' + cls(mom) + '">' + (mom == null ? "—" : sgn(mom * 100, 0, "%")) + "</b></div>";
     }
@@ -1234,7 +1234,7 @@
     var pmTxt = { roundrobin: "업종 라운드로빈(업종당 1개씩 순환)", rank: "통합 순위 상위", sectorcap: "통합 순위 + 업종당 " + ((S.config && S.config.uniSectorCap) || 2) }[pm] || pm;
     $("un-knobs").innerHTML = [["선정 방식", pmTxt], ["1차 컷", "거래대금 " + kn.topkTv + " ∪ 시총 " + kn.topkCap], ["유동성 하한", "20일 평균 ≥ " + kn.minTvEok + "억"],
       ["업종별 Top", kn.topN], ["허브 보강", "예비 상위 " + kn.flowPerSector], ["방향", "상방→Long · 하방→Short · 혼조→관찰(거래대금 가속만)"],
-      ["대분류(제조·금융)", "제외 — 중분류와 중복"], ["후보", unCandTxt(kn) + " · 보유·대기·매트릭스·쿨다운 제외"], ["선정 기준", kn.rankBasis === "total" ? "종합점수(업종 Top·후보·순서) — 시뮬 T2" : "모멘텀 점수"], ["단위 나눗셈", "거래대금 " + kn.tvDiv + " · 수급 " + kn.flowDiv]]
+      ["대분류(제조·금융)·혼조", "Top10 계산·표시 · 후보·순위·백분위 풀 제외(점수는 같은 방향 풀 기준 상당값)"], ["후보", unCandTxt(kn) + " · 보유·대기·매트릭스·쿨다운 제외"], ["선정 기준", kn.rankBasis === "total" ? "종합점수(업종 Top·후보·순서) — 시뮬 T2" : "모멘텀 점수"], ["단위 나눗셈", "거래대금 " + kn.tvDiv + " · 수급 " + kn.flowDiv]]
       .map(function (r) { return '<div class="rule"><span>' + r[0] + "</span><span>" + esc(String(r[1])) + "</span></div>"; }).join("");
     var L = ["<div>" + esc(doc.date) + " 산출 " + esc(String(doc.asof || "").slice(11, 19)) + " · " + (dg.secs || 0) + "s</div>",
       "<div>업종 " + sm.sectors + " 조인 · 미매칭 " + (dg.unmatched || []).length +
@@ -1315,7 +1315,7 @@
       h += '<tr class="sec' + (closed ? " closed" : "") + '" data-k="' + k + '" style="--c:' + unC(s.signal) + '"><td colspan="' + NCOL + '"><span class="sn">' + esc(s.name) + " " + sig(s.signal) + "</span>" +
         '<span class="st">1W <b class="' + cls(s.chgPct) + '">' + sgn(s.chgPct, 2, "%") + "</b> · 거래대금 <b>" + fmtEok(s.secTv1w != null ? s.secTv1w : s.secTvDay) + "</b> " +
         '<b class="' + cls(s.secTvMom) + '">' + (s.secTvMom == null ? "" : sgn(s.secTvMom * 100, 0, "%")) + "</b> · 외+기 <b>" + sgn((s.frgn || 0) + (s.orgn || 0), 0, "억") + "</b> · " +
-        (s.dir ? "후보 <b>" + nC + "</b> / Top" + (s.top || []).length : s.big ? "대분류 — 산출 제외" : "혼조 — 관찰만") +
+        (s.dir ? "후보 <b>" + nC + "</b> / Top" + (s.top || []).length : s.big ? "대분류 — 관찰(후보 제외 · 중분류와 종목 중복)" : "혼조 — 관찰(후보 제외)") +
         (s.error ? ' · <span class="up">' + esc(s.error) + "</span>" : "") + '</span><span class="more">' + (closed ? "펼치기" : "접기") + "</span></td></tr>";
       if (rows.length) h += colRow(k, closed);
       rows.forEach(function (x) {
@@ -1328,7 +1328,7 @@
           // 유동성
           '<td class="num r g-liq">' + (x.tv20d == null ? "—" : Math.round(x.tv20d).toLocaleString("ko-KR")) + "</td>" + scoreBar(x.liqScore, x.liqGate ? "gate" : "", "g-liq s") +
           // 수급
-          '<td class="num r g-flow">' + fmtEok(x.tv1w != null ? x.tv1w : x.tvDay) + '<small class="' + cls(x.tvMom) + '">' + (x.tvMom == null ? "" : sgn(x.tvMom * 100, 0, "%")) + "</small></td>" +
+          '<td class="num r g-flow">' + fmtEok(x.tv1w != null ? x.tv1w : x.tvDay) + '<small class="' + cls(x.tvMom) + '">' + (x.tv1w == null && x.tvDay != null ? "당일" : x.tvMom == null ? "" : sgn(x.tvMom * 100, 0, "%")) + "</small></td>" +
           '<td class="num r g-flow ' + cls(x.frgn1w) + '">' + sgn(x.frgn1w, 0) + '</td><td class="num r g-flow ' + cls(x.orgn1w) + '">' + sgn(x.orgn1w, 0) + "</td>" +
           '<td class="num r g-flow ' + cls(x.flowBp) + '">' + sgn(x.flowBp, 0, "bp") + "</td>" +
           '<td class="num r g-flow">' + (x.shortRlim1w == null ? "—" : x.shortRlim1w.toFixed(1) + "%") + '<small class="' + cls(x.shortMom, true) + '">' + sgn(x.shortMom, 1) + "</small></td>" +

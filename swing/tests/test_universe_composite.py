@@ -61,6 +61,20 @@ class TestComposite(unittest.TestCase):
         self.assertEqual(alls["S1"]["liqScore"], alls["L6"]["liqScore"])   # 같은 금액이면 방향 무관 같은 점수
         self.assertTrue(alls["L0"]["liqGate"])
 
+    def test_observe_sectors_scored_without_entering_pool(self):
+        """관찰 업종(대분류·혼조, dir None) 종목은 같은 방향 풀 기준으로 채점만 — 풀 종목 점수는 그대로."""
+        base = {x["code"]: x for s in U.annotate_composite(self._sectors()) for x in s["top"]}
+        secs = self._sectors()
+        secs.append({"name": "제조", "dir": None, "big": True, "top": [
+            {"code": "B1", "score": 2, "side": "long", "observe": True, "tv20d": 9999, "ret1m": 99, "ret3m": 99, "ret6m": 99,
+             "ret12m": 99, "flowBp": 999, "shortMom": -9, "loanBp": -99, "tvMom": 9}]})
+        got = {x["code"]: x for s in U.annotate_composite(secs) for x in s["top"]}
+        for c in ("L1", "L2", "L3", "S1", "S2"):
+            self.assertEqual((got[c]["pxScore"], got[c]["flowScore"], got[c]["liqScore"], got[c]["totalScore"]),
+                             (base[c]["pxScore"], base[c]["flowScore"], base[c]["liqScore"], base[c]["totalScore"]))
+        self.assertGreaterEqual(got["B1"]["pxScore"], 90)                 # 풀 최상위보다 높으면 ~100 상당
+        self.assertIsNotNone(got["B1"]["totalScore"])
+
     def test_liq_modes(self):
         """유동성 반영 방식(2026-10-14 시뮬 비교): gate 공란 / weight 가중합 / soft 비례 감점."""
         g = {x["code"]: x for s in U.annotate_composite(self._sectors(), liq_mode="gate", liq_gate=30) for x in s["top"]}
