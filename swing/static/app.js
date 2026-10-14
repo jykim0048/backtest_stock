@@ -1226,15 +1226,18 @@
     renderUniverseTable();
   }
   // 히트맵(수익률, 한국식 빨강=상승·파랑=하락) · 점수 막대(0~100, 파랑 / 종합은 보라) — 2026-10-14 브레인 리포트 양식
-  function heat(v) {
-    if (v == null) return '<td class="num r muted">—</td>';
+  function heat(v, g) {
+    if (v == null) return '<td class="num r muted ' + (g || "") + '">—</td>';
     var a = Math.min(Math.abs(v), 50) / 50 * 0.45;
     var bg = v > 0 ? "rgba(239,68,68," + a + ")" : v < 0 ? "rgba(59,130,246," + a + ")" : "transparent";
-    return '<td class="num r heat ' + cls(v) + '" style="background:' + bg + '">' + sgn(v, 1, "%") + "</td>";
+    return '<td class="num r heat ' + cls(v) + " " + (g || "") + '" style="background:' + bg + '">' + sgn(v, 1, "%") + "</td>";
   }
-  function scoreBar(v, kind) {
-    if (v == null) return '<td class="num r muted">—</td>';
-    return '<td class="num r"><span class="sbar1' + (kind ? " " + kind : "") + '"><i style="width:' + Math.max(0, Math.min(100, v)) + '%"></i></span>' + v.toFixed(1) + "</td>";
+  // 점수 셀 = 숫자 + 뒤쪽 채움색(0~100 비례, 이미지 양식) — 막대 없음(폭 절약, 2026-10-14)
+  var FILL = { "": "rgba(96,165,250,.38)", total: "rgba(167,139,250,.45)", gate: "rgba(148,163,184,.35)" };
+  function scoreBar(v, kind, g) {
+    if (v == null) return '<td class="num r muted ' + (g || "") + '">—</td>';
+    var w = Math.max(0, Math.min(100, v)), c = FILL[kind || ""] || FILL[""];
+    return '<td class="num r sfill ' + (g || "") + '" style="background-image:linear-gradient(90deg,' + c + " " + w + "%,transparent " + w + '%)">' + v.toFixed(1) + "</td>";
   }
   function renderUniverseTable() {
     var doc = UN.doc, tbl = $("un-table");
@@ -1246,16 +1249,23 @@
     });
     var list = doc.sectors.map(function (s, i) { return { s: s, i: i }; })
       .filter(function (o) { return (UN.sec == null || UN.sec === o.i) && (UN.dir === "all" || o.s.dir === UN.dir); });
-    var COLS = [["#"], ["종목"], ["방향"], ["점수"], ["거래대금 1W", "r", "Δ 4주평균"], ["외인 1W", "r"], ["기관 1W", "r"], ["수급/시총", "r"],
-      ["공매도 비중", "r", "거래량 대비 · Δ %p"], ["대차 Δ", "r"], ["1W", "r"],
-      ["시총", "r", "억"], ["1M", "r"], ["3M", "r"], ["6M", "r"], ["12M", "r"], ["YTD", "r"],
-      ["주가점수", "r", "백분위"], ["20일 거래대금", "r", "억"], ["유동성점수", "r", "백분위"], ["수급점수", "r", "백분위"], ["종합점수", "r", "0.55주가+0.45수급"]];
+    // 열 = 점수 구성 단위로 묶음(2026-10-14): 기본 → 주가(1W·1M~YTD → 주가점수) → 유동성(20일 거래대금 → 유동성점수)
+    // → 수급(거래대금 1W·Δ, 외인, 기관, 수급/시총, 공매도 Δ, 대차 Δ → 수급점수) → 종합. 4번째 항목 = 그룹 클래스
+    var COLS = [["#"], ["종목"], ["방향"], ["점수", "r"], ["시총", "r", "억"],
+      ["1W", "r", "", "g-px"], ["1M", "r", "", "g-px"], ["3M", "r", "", "g-px"], ["6M", "r", "", "g-px"], ["12M", "r", "", "g-px"], ["YTD", "r", "", "g-px"], ["주가", "r", "점수", "g-px s"],
+      ["20일대금", "r", "억", "g-liq"], ["유동성", "r", "점수", "g-liq s"],
+      ["대금 1W", "r", "Δ4주", "g-flow"], ["외인 1W", "r", "억", "g-flow"], ["기관 1W", "r", "억", "g-flow"], ["수급/시총", "r", "bp", "g-flow"],
+      ["공매도", "r", "비중 · Δ%p", "g-flow"], ["대차 Δ", "r", "억", "g-flow"], ["수급", "r", "점수", "g-flow s"],
+      ["종합", "r", "점수", "g-total s"]];
+    var UN_GROUPS = [["모멘텀 점수 −5~+5 · 시총(억)", 5], ["주가 — 1M·3M·6M·12M 백분위 평균 (1W·YTD 표시만)", 7, "g-px"], ["유동성 — 20일 평균 거래대금 백분위 · 30 미만 게이트", 2, "g-liq"],
+      ["수급 — 수급/시총 · −공매도 비중Δ(거래량 대비) · −대차Δ · 거래대금 가속 백분위 평균", 7, "g-flow"], ["종합 0.55주가+0.45수급", 1, "g-total"]];
     var NCOL = COLS.length;
-    var head = "<thead><tr>" + COLS.map(function (c) { return '<th class="' + (c[1] || "") + '">' + c[0] + (c[2] ? "<small>" + c[2] + "</small>" : "") + "</th>"; }).join("") + "</tr></thead>";
+    var th = function (c, tag) { return "<" + tag + ' class="' + (c[1] || "") + (c[3] ? " " + c[3] : "") + '">' + c[0] + (c[2] ? "<small>" + c[2] + "</small>" : "") + "</" + tag + ">"; };
+    var head = '<thead><tr class="grp">' + UN_GROUPS.map(function (g) { return '<th colspan="' + g[1] + '" class="' + (g[2] || "") + '">' + g[0] + "</th>"; }).join("") + "</tr><tr>" +
+      COLS.map(function (c) { return th(c, "th"); }).join("") + "</tr></thead>";
     // 업종을 펼쳤을 때 어느 열인지 보이도록 업종 머리줄 아래에 열 제목을 반복(2026-10-14)
     var colRow = function (k, closed) {
-      return '<tr class="row colhead' + (closed ? " hide" : "") + '" data-k="' + k + '">' +
-        COLS.map(function (c) { return '<td class="' + (c[1] || "") + '">' + c[0] + (c[2] ? "<small>" + c[2] + "</small>" : "") + "</td>"; }).join("") + "</tr>";
+      return '<tr class="row colhead' + (closed ? " hide" : "") + '" data-k="' + k + '">' + COLS.map(function (c) { return th(c, "td"); }).join("") + "</tr>";
     };
     var open = UN.sec != null ? 99 : 5, h = "";
     list.forEach(function (o, k) {
@@ -1279,17 +1289,21 @@
       if (rows.length) h += colRow(k, closed);
       rows.forEach(function (x) {
         h += '<tr class="row' + (closed ? " hide" : "") + '" data-k="' + k + '"><td class="num">' + x.rank + "</td><td>" + stock(x.name, x.code) + "</td><td>" +
-          (x.side ? '<span class="side-tag ' + x.side + '">' + x.side.toUpperCase() + "</span>" : '<span class="muted">—</span>') + "</td><td>" + sbar(x.score) + "</td>" +
-          '<td class="num r">' + fmtEok(x.tv1w != null ? x.tv1w : x.tvDay) + '<small class="' + cls(x.tvMom) + '">' + (x.tvMom == null ? "" : sgn(x.tvMom * 100, 0, "%")) + "</small></td>" +
-          '<td class="num r ' + cls(x.frgn1w) + '">' + sgn(x.frgn1w, 0) + '</td><td class="num r ' + cls(x.orgn1w) + '">' + sgn(x.orgn1w, 0) + "</td>" +
-          '<td class="num r ' + cls(x.flowBp) + '">' + sgn(x.flowBp, 0, "bp") + "</td>" +
-          '<td class="num r">' + (x.shortRlim1w == null ? "—" : x.shortRlim1w.toFixed(1) + "%") + '<small class="' + cls(x.shortMom, true) + '">' + sgn(x.shortMom, 1) + "</small></td>" +
-          '<td class="num r ' + cls(x.loanChg, true) + '">' + sgn(x.loanChg, 0) + '</td><td class="num r ' + cls(x.ret1w) + '">' + sgn(x.ret1w, 1, "%") + "</td>" +
+          (x.side ? '<span class="side-tag ' + x.side + '">' + x.side.toUpperCase() + "</span>" : '<span class="muted">—</span>') + "</td>" +
+          '<td class="r">' + (x.score == null ? '<span class="sc muted">—</span>' : '<span class="sc ' + (x.score > 0 ? "up" : x.score < 0 ? "down" : "muted") + '">' + (x.score > 0 ? "+" : "") + x.score + "</span>") + "</td>" +
           '<td class="num r">' + (x.cap ? Math.round(x.cap).toLocaleString("ko-KR") : "—") + "</td>" +
-          heat(x.ret1m) + heat(x.ret3m) + heat(x.ret6m) + heat(x.ret12m) + heat(x.retYtd) +
-          scoreBar(x.pxScore) + '<td class="num r">' + (x.tv20d == null ? "—" : Math.round(x.tv20d).toLocaleString("ko-KR")) + "</td>" +
-          scoreBar(x.liqScore, x.liqGate ? "gate" : "") + scoreBar(x.flowScore) +
-          (x.totalScore == null ? '<td class="num r muted" title="' + (x.liqGate ? "유동성점수 미달(게이트)" : "데이터 부족") + '">' + (x.liqGate ? "게이트" : "—") + "</td>" : scoreBar(x.totalScore, "total")) +
+          // 주가
+          heat(x.ret1w, "g-px") + heat(x.ret1m, "g-px") + heat(x.ret3m, "g-px") + heat(x.ret6m, "g-px") + heat(x.ret12m, "g-px") + heat(x.retYtd, "g-px") + scoreBar(x.pxScore, "", "g-px s") +
+          // 유동성
+          '<td class="num r g-liq">' + (x.tv20d == null ? "—" : Math.round(x.tv20d).toLocaleString("ko-KR")) + "</td>" + scoreBar(x.liqScore, x.liqGate ? "gate" : "", "g-liq s") +
+          // 수급
+          '<td class="num r g-flow">' + fmtEok(x.tv1w != null ? x.tv1w : x.tvDay) + '<small class="' + cls(x.tvMom) + '">' + (x.tvMom == null ? "" : sgn(x.tvMom * 100, 0, "%")) + "</small></td>" +
+          '<td class="num r g-flow ' + cls(x.frgn1w) + '">' + sgn(x.frgn1w, 0) + '</td><td class="num r g-flow ' + cls(x.orgn1w) + '">' + sgn(x.orgn1w, 0) + "</td>" +
+          '<td class="num r g-flow ' + cls(x.flowBp) + '">' + sgn(x.flowBp, 0, "bp") + "</td>" +
+          '<td class="num r g-flow">' + (x.shortRlim1w == null ? "—" : x.shortRlim1w.toFixed(1) + "%") + '<small class="' + cls(x.shortMom, true) + '">' + sgn(x.shortMom, 1) + "</small></td>" +
+          '<td class="num r g-flow ' + cls(x.loanChg, true) + '">' + sgn(x.loanChg, 0) + "</td>" + scoreBar(x.flowScore, "", "g-flow s") +
+          // 종합
+          (x.totalScore == null ? '<td class="num r muted g-total s" title="' + (x.liqGate ? "유동성점수 미달(게이트)" : "데이터 부족") + '">' + (x.liqGate ? "게이트" : "—") + "</td>" : scoreBar(x.totalScore, "total", "g-total s")) +
           "</tr>";
       });
       if (!rows.length) h += '<tr class="row' + (closed ? " hide" : "") + '" data-k="' + k + '"><td colspan="' + NCOL + '" class="muted" style="text-align:center">표시할 종목 없음</td></tr>';
