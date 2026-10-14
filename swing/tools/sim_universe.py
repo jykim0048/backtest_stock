@@ -31,7 +31,11 @@ if _ROOT not in sys.path:
 from swing import config, signals, store as store_mod, tradedays, universe as U  # noqa: E402
 
 METHODS = ("A", "B", "C")
-METHOD_DESC = {"A": "업종 라운드로빈(업종당 1개씩 순환)", "B": "전 업종 통합 모멘텀 순위 상위 N", "C": "통합 순위 + 업종당 최대 2"}
+METHOD_DESC = {"A": "업종 라운드로빈(업종당 1개씩 순환)", "B": "전 업종 통합 모멘텀 순위 상위 N", "C": "통합 순위 + 업종당 최대 2",
+               # 2026-10-14 선정 기준 비교 — 모두 업종 라운드로빈, 기준 점수만 다름
+               "T1": "라운드로빈 · Top10 풀(모멘텀) 그대로, 종합점수 ≥ totalMin·종합순",
+               "T2": "라운드로빈 · 업종 Top10 자체를 종합점수로 선정, 종합 ≥ totalMin·종합순"}
+TOTAL_METHODS = ("A", "T1", "T2")   # --methods total
 WB_HISTORY = os.path.join(_ROOT, "swing", "data", "wb_history")
 
 
@@ -39,7 +43,7 @@ def default_params(**kw):
     p = {"capLong": 10, "capShort": 10, "hold": 5, "stopPct": 0.05, "weight": 0.05, "sectorCapC": 2,
          "cooldown": config.UNI_COOLDOWN_DAYS, "poolPerSector": 40, "tax": config.SELL_TAX, "borrow": config.BORROW_RATE,
          "candMin": config.UNI_CAND_MIN, "topkTv": config.UNI_TOPK_TV, "topkCap": config.UNI_TOPK_CAP, "topN": config.UNI_TOPN,
-         "minTvEok": config.UNI_MIN_TV_EOK}
+         "minTvEok": config.UNI_MIN_TV_EOK, "totalMin": 50}
     p.update({k: v for k, v in kw.items() if v is not None})
     return p
 
@@ -260,9 +264,21 @@ def build_day(p, date, data):
         top = scored[:p["topN"]]
         for i, x in enumerate(top):
             x["rank"] = i + 1
-        secs.append({"name": name, "signal": r.get("signal"), "dir": d, "top": top})
+        secs.append({"name": name, "signal": r.get("signal"), "dir": d, "top": top, "_all": scored})
+    # 종합점수 기준(T2): 업종의 1차 컷 통과 전 종목을 같은 방향 풀 백분위로 채점 → 종합순 Top N
+    full = [{"name": x["name"], "signal": x["signal"], "dir": x["dir"],
+             "top": [dict(y) for y in x["_all"]]} for x in secs]
+    U.annotate_composite(full)
+    for x in full:
+        x["top"].sort(key=lambda y: (y.get("totalScore") is None, -(y.get("totalScore") or 0), -(y.get("tv1w") or 0)))
+        x["top"] = x["top"][:p["topN"]]
+        for i, y in enumerate(x["top"]):
+            y["rank"] = i + 1
+    for x in secs:
+        x.pop("_all", None)
     U.annotate_composite(secs)
-    return {"sectors": secs, "rankLong": U.integrated_rank(secs, "long", 200), "rankShort": U.integrated_rank(secs, "short", 200)}
+    return {"sectors": secs, "rankLong": U.integrated_rank(secs, "long", 200), "rankShort": U.integrated_rank(secs, "short", 200),
+            "byTotal": {"sectors": full}}
 
 
 # ─────────────────────────── 선정 방식 ───────────────────────────
@@ -280,7 +296,34 @@ def _sel(mode):
 select_A, select_B, select_C = _sel("roundrobin"), _sel("rank"), _sel("sectorcap")
 
 
-SELECT = {"A": select_A, "B": select_B, "C": select_C}   # = universe.pick 의 roundrobin / rank / sectorcap
+def _rr_total(use_total_pool):
+    """종합점수 라운드로빈 — 업종 순서 = 첫 적격 종목 종합점수, 업종 안 종합순, 업종당 1개씩 돌고 남으면 2바퀴째."""
+    def f(day, side, p, held, cool):
+        cap = p["capLong"] if side == "long" else p["capShort"]
+        secs = (day.get("byTotal") or {}).get("sectors") if use_total_pool else day.get("sectors")
+        lists = []
+        for sct in secs or []:
+            if sct.get("dir") != side:
+                continue
+            xs = [dict(x, sector=sct.get("name"), signal=sct.get("signal")) for x in (sct.get("top") or [])
+                  if x.get("totalScore") is not None and x["totalScore"] >= p["totalMin"]
+                  and x["code"] not in held and x["code"] not in cool]
+            xs.sort(key=lambda x: -x["totalScore"])
+            if xs:
+                lists.append(xs)
+        lists.sort(key=lambda xs: -xs[0]["totalScore"])
+        out, i = [], 0
+        while any(len(xs) > i for xs in lists) and len(out) < cap:
+            for xs in lists:
+                if len(xs) > i and len(out) < cap:
+                    out.append(xs[i])
+            i += 1
+        return out
+    return f
+
+
+SELECT = {"A": select_A, "B": select_B, "C": select_C,   # = universe.pick 의 roundrobin / rank / sectorcap
+          "T1": _rr_total(False), "T2": _rr_total(True)}
 
 
 # ─────────────────────────── 포트폴리오 시뮬 ───────────────────────────
@@ -458,7 +501,8 @@ def _by_sector(trades):
 
 
 # ─────────────────────────── 실행 ───────────────────────────
-def run(p, date_from, date_to, *, dbq, hub, sig, prices_fetch, store=None, log=print, progress=None, key=None, sector_map=None):
+def run(p, date_from, date_to, *, dbq, hub, sig, prices_fetch, store=None, log=print, progress=None, key=None, sector_map=None,
+        methods=METHODS):
     t0 = time.time()
     prog = progress or (lambda msg: None)
     dates = tradedays.trading_days(date_from, date_to)
@@ -477,7 +521,7 @@ def run(p, date_from, date_to, *, dbq, hub, sig, prices_fetch, store=None, log=p
     for d in dates:
         if not days[d]:
             continue
-        for m in METHODS:
+        for m in methods:
             for side in ("long", "short"):
                 for x in SELECT[m](days[d], side, p, set(), set())[: (p["capLong"] + p["capShort"]) * 2]:
                     needed.add(x["code"])
@@ -490,7 +534,7 @@ def run(p, date_from, date_to, *, dbq, hub, sig, prices_fetch, store=None, log=p
         px_to = nxt_of(px_to)
     prices = prices_fetch(sorted(needed), px_from, px_to)
     results = {}
-    for m in METHODS:
+    for m in methods:
         prog(f"시뮬 {m}")
         series, trades = simulate(p, dates, days, prices, m, nxt_of=nxt_of, log=log)
         corr = pairwise_corr(series, prices, trades, tradedays.trading_days(px_from, px_to))
@@ -515,10 +559,11 @@ def summary_text(doc):
             ("Short 기여 %", "shortCumPct"), ("평균 보유 종목", "avgOpen"), ("평균 보유 업종", "avgSectors"),
             ("업종 집중도 HHI", "avgHHI"), ("평균 총노출", "avgGross"), ("보유 종목간 상관", "pairCorr")]
     ms = doc["methods"]
+    mk = list(ms)
     out = [f"[sim] {doc['from']}~{doc['to']} 영업일 {doc['coverage']['days']}(유니버스 {doc['coverage']['daysWithUniverse']}) · "
-           f"풀 {doc['coverage']['pool']} · {doc['secs']}s", "{:<16}".format("지표") + "".join("{:>14}".format(m) for m in METHODS)]
+           f"풀 {doc['coverage']['pool']} · {doc['secs']}s", "{:<16}".format("지표") + "".join("{:>14}".format(m) for m in mk)]
     for lbl, k in rows:
-        out.append("{:<16}".format(lbl) + "".join("{:>14}".format("-" if ms[m]["metrics"][k] is None else ms[m]["metrics"][k]) for m in METHODS))
+        out.append("{:<16}".format(lbl) + "".join("{:>14}".format("-" if ms[m]["metrics"][k] is None else ms[m]["metrics"][k]) for m in mk))
     return "\n".join(out)
 
 
@@ -579,18 +624,22 @@ def main(argv=None):
     ap.add_argument("--store", default="none", help="none | env | file:<dir>")
     ap.add_argument("--out", help="결과 JSON 파일")
     ap.add_argument("--cap", type=int, default=10)
+    ap.add_argument("--methods", default="abc", help="abc = A/B/C 선정 방식 · total = A vs 종합점수 T1/T2")
+    ap.add_argument("--total-min", type=float, default=50)
     a = ap.parse_args(argv)
+    methods = TOTAL_METHODS if a.methods == "total" else METHODS
+    kp = "sim/universe_total" if a.methods == "total" else "sim/universe_abc"
     st = None if a.store == "none" else (store_mod.from_env() if a.store == "env" else store_mod.FileStore(a.store[5:]))
-    p = default_params(capLong=a.cap, capShort=a.cap)
+    p = default_params(capLong=a.cap, capShort=a.cap, totalMin=a.total_min)
     if a.mock:
         from swing import universe_mock as M
         dbq, hub = M.MockDbQuote(), M.MockHubFlow(d0=a.end, n=90)
         doc = run(p, a.start, a.end, dbq=dbq, hub=hub, sig=SignalSource(st, None), prices_fetch=M.mock_chart_prices(dbq),
-                  store=st, key=f"sim/universe_abc/{a.start}_{a.end}", sector_map=M.mock_sector_map())
+                  store=st, key=f"{kp}/{a.start}_{a.end}", sector_map=M.mock_sector_map(), methods=methods)
     else:
         dbq, hub = U.DbQuote(), U.HubFlow(rows=60)
         doc = run(p, a.start, a.end, dbq=dbq, hub=hub, sig=SignalSource(st, weekly_fetch_live), prices_fetch=chart_prices_live(dbq),
-                  store=st, key=f"sim/universe_abc/{a.start}_{a.end}")
+                  store=st, key=f"{kp}/{a.start}_{a.end}", methods=methods)
     if a.out:
         with open(a.out, "w", encoding="utf-8") as f:
             json.dump(doc, f, ensure_ascii=False, indent=1)

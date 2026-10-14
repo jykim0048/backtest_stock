@@ -75,6 +75,26 @@ class TestRun(unittest.TestCase):
         self.assertIsNotNone(st.get("sim/universe_abc/t"))
         self.assertIn("A", S.summary_text(doc))
 
+    def test_total_score_methods(self):
+        """2026-10-14 선정 기준 비교: T1(Top10 풀·종합순)·T2(업종 Top 자체를 종합순) — 종합 ≥ totalMin, 라운드로빈."""
+        d = day_doc()
+        tot = {"A1": 40, "A2": 80, "A3": 55, "B1": 90, "B2": None, "C1": 60, "C2": 70}
+        for s in d["sectors"]:
+            for x in s["top"]:
+                x["totalScore"] = tot.get(x["code"])
+        d["byTotal"] = {"sectors": d["sectors"]}
+        p = S.default_params(capLong=10, capShort=10, totalMin=50)
+        sel = [x["code"] for x in S.SELECT["T1"](d, "long", p, set(), set())]
+        self.assertEqual(sel, ["B1", "A2", "C2", "A3", "C1"])     # 업종 순서 = 첫 종목 종합(90·80·70), 40·None 제외
+        self.assertEqual([x["code"] for x in S.SELECT["T2"](d, "long", p, {"B1"}, set())], ["A2", "C2", "A3", "C1"])
+        st = store.FileStore(tempfile.mkdtemp())
+        dbq, hub = M.MockDbQuote(), M.MockHubFlow(d0=TO, n=90)
+        doc = S.run(S.default_params(), FROM, TO, dbq=dbq, hub=hub, sig=S.SignalSource(st, None),
+                    prices_fetch=M.mock_chart_prices(dbq), store=st, log=lambda *a: None, key="sim/universe_total/t",
+                    methods=S.TOTAL_METHODS)
+        self.assertEqual(list(doc["methods"]), ["A", "T1", "T2"])
+        self.assertTrue(all(doc["methods"][m]["metrics"]["trades"] > 0 for m in doc["methods"]))
+
     def test_sector_cap_c_in_run(self):
         from collections import Counter
         d = day_doc()
