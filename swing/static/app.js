@@ -225,7 +225,7 @@
     var dates = ["시작"].concat(rows.map(function (r) { return r.date.slice(5); }));
     var total = eq[eq.length - 1] / eq[0] - 1, ann = Math.pow(1 + total, 252 / n) - 1;
     return { n: n, sharpe: sd > 0 ? mean / sd * Math.sqrt(252) : null, sortino: dn > 0 ? mean / dn * Math.sqrt(252) : null,
-      vol: sd * Math.sqrt(252) * 100, mdd: mdd * 100, mddSpan: ddFrom == null ? "" : dates[ddFrom] + " → " + dates[ddTo],
+      vol: sd * Math.sqrt(252) * 100, mdd: mdd * 100, mddSpan: ddFrom == null ? "" : dates[ddFrom] + " 고점 → " + dates[ddTo] + " 저점",
       calmar: mdd < 0 ? ann / -mdd : null, curDD: (eq[eq.length - 1] / peak - 1) * 100 };
   }
   function renderPortfolio(s) {
@@ -839,13 +839,14 @@
     function cls(v) { return v > 0 ? "up" : v < 0 ? "down" : ""; }
     var lv = sum(L, val), sv = sum(Sh, val), ul = sum(L, unreal), us = sum(Sh, unreal);
     setCount("cnt-pf", ps.length);
-    $("pf-asof").textContent = "현재 보유 기준(" + (summary.asof || "—") + " 종가) · 비중 = 평가금액 ÷ 총자산 " + eok(total);
+    $("pf-asof").textContent = "현재 보유 기준(" + (summary.asof || "—") + " 종가) · 비중 = 평가금액 ÷ 총자산 " + won(total) + "원";
     var maxV = Math.max.apply(null, ps.map(val).concat([0]));
     var tiles = [
-      ["총자산", eok(total), "현금 " + eok(cash) + " · " + pc(cash)],
-      ["Long 노출", '<span class="up">' + eok(lv) + "</span>", L.length + "종목 · " + pc(lv)],
-      ["Short 노출", '<span class="down">' + eok(sv) + "</span>", Sh.length + "종목 · " + pc(sv)],
-      ["총노출 · 순노출", pc(lv + sv) + " · " + (lv - sv > 0 ? "+" : "") + pc(lv - sv), "Gross = L+S · Net = L−S"],
+      ["총자산", won(total) + "원", "현금 " + won(cash) + "원 · " + pc(cash)],
+      ["Long 노출", '<span class="up">' + won(lv) + "원</span>", L.length + "종목 · " + pc(lv)],
+      ["Short 노출", '<span class="down">' + won(sv) + "원</span>", Sh.length + "종목 · " + pc(sv)],
+      ["총노출 · 순노출", pc(lv + sv) + " · " + (lv - sv > 0 ? "+" : "") + pc(lv - sv),
+        "Gross " + won(lv + sv) + "원 · Net " + (lv - sv > 0 ? "+" : "") + won(lv - sv) + "원"],
       ["미실현 손익", '<span class="' + cls(ul + us) + '">' + sgn(ul + us) + "원</span>", "Long " + sgn(ul) + " · Short " + sgn(us)],
       ["보유 종목", ps.length + "종목", "Long " + L.length + " · Short " + Sh.length],
       ["최대 비중", ps.length ? pc(maxV) : "—", "종목당 상한 " + (((S.config && S.config.maxWeight) || 0.1) * 100) + "%"],
