@@ -63,6 +63,11 @@ UNI_RANK_N = _i("SWING_UNI_RANK_N", 50)             # 전 업종 통합 롱/숏 
 #   sectorcap = 통합 순위 + 업종당 UNI_SECTOR_CAP
 UNI_PICK_MODE = (os.environ.get("SWING_UNI_PICK_MODE", "roundrobin") or "roundrobin").strip().lower()
 UNI_SECTOR_CAP = _i("SWING_UNI_SECTOR_CAP", 2)
+# 유니버스 선정 기준 점수(2026-10-14 시뮬 A/T1/T2 후 사용자 결정 = total, T2):
+#   total = 업종 1차 컷 통과 전 종목을 종합점수(0.55·주가 + 0.45·수급, 유동성 게이트)로 채점 → 업종 Top N·후보·정렬 모두 종합순,
+#           후보 = 종합 ≥ UNI_TOTAL_MIN · score = 모멘텀 점수(−5~+5)로 종전 방식
+UNI_RANK_BASIS = (os.environ.get("SWING_UNI_RANK_BASIS", "total") or "total").strip().lower()
+UNI_TOTAL_MIN = _f("SWING_UNI_TOTAL_MIN", 50)
 UNI_SHORT_FUT_ONLY = os.environ.get("SWING_UNI_SHORT_FUT_ONLY", "0") == "1"   # Short 후보를 주식선물 상장 종목으로 한정
 # 점수 임계값 — 거래대금 가속(1W/4W−1), 수급/시총(bp), 공매도 비중 Δ(pp), 대차 Δ(bp), 공매도 비중 높음(%)
 UNI_TV_HI, UNI_TV_LO = _f("SWING_UNI_TV_HI", 0.40), _f("SWING_UNI_TV_LO", 0.15)

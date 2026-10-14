@@ -1104,6 +1104,17 @@
     return h;
   }
   function unMin() { return (UN.doc && UN.doc.knobs && UN.doc.knobs.candMin) || 2; }
+  // 후보 기준(2026-10-14 T2): 문서 knobs.rankBasis = total 이면 종합 ≥ totalMin, 아니면 모멘텀 ≥ candMin
+  function unByTotal() { return !!(UN.doc && UN.doc.knobs && UN.doc.knobs.rankBasis === "total"); }
+  function unIsCand(x) {
+    if (x.score == null) return false;
+    if (unByTotal()) return x.totalScore != null && x.totalScore >= ((UN.doc.knobs.totalMin != null) ? UN.doc.knobs.totalMin : 50);
+    return x.score >= unMin();
+  }
+  function unCandTxt(kn) {
+    kn = kn || {};
+    return kn.rankBasis === "total" ? "종합 ≥ " + (kn.totalMin != null ? kn.totalMin : 50) + "(게이트 통과)" : "점수 ≥ +" + (kn.candMin || 2);
+  }
   function unRunState(code) {
     var run = S.run || {}, all = (run.candidates || []).concat(run.shortCandidates || []);
     var c = all.filter(function (r) { return r.code === code; })[0];
@@ -1120,7 +1131,7 @@
     if (r) return r;
     if (x.pending) return '<span class="state q">주문 대기</span>';
     if (x.done) return '<span class="state x">쿨다운</span>';
-    return x.score >= unMin() ? '<span class="state cand">후보</span>' : '<span class="state x">점수 미달</span>';
+    return unIsCand(x) ? '<span class="state cand">후보</span>' : '<span class="state x">' + (unByTotal() ? "종합 미달" : "점수 미달") + "</span>";
   }
   function unAll(doc, side) {
     var bySec = {};
@@ -1184,11 +1195,11 @@
     }
     var sm = doc.summary || {}, dg = doc.diag || {}, kn = doc.knobs || {}, calls = dg.calls || {};
     $("un-chips").innerHTML = [["기준", doc.date + " " + String(doc.asof || "").slice(11, 16)], ["주간 브리핑", String(doc.wbAsof || "—").slice(0, 16)],
-      ["거래대금·투자자", "DB증권"], ["공매도·대차", "KIS T+1"], ["후보", "독립 소스 · 점수 ≥ +" + ((doc.knobs || {}).candMin || 2) + " · 하루 " + (S.config && S.config.uniNewPerDay != null ? S.config.uniNewPerDay : 5) + "/" + (S.config && S.config.uniNewShortPerDay != null ? S.config.uniNewShortPerDay : 5)]]
+      ["거래대금·투자자", "DB증권"], ["공매도·대차", "KIS T+1"], ["후보", "독립 소스 · " + unCandTxt(doc.knobs) + " · 하루 " + (S.config && S.config.uniNewPerDay != null ? S.config.uniNewPerDay : 5) + "/" + (S.config && S.config.uniNewShortPerDay != null ? S.config.uniNewShortPerDay : 5)]]
       .map(function (c) { return '<span class="chip">' + c[0] + " <b>" + esc(c[1]) + "</b></span>"; }).join("");
     var kp = [["업종", sm.sectors, "신호 " + sm.signaled + " · 혼조 " + sm.mixed + " · 대분류 제외 " + sm.big],
       ["1차 컷 → Top", sm.cut + "<small> → " + sm.top + "</small>", "거래대금 상위 " + kn.topkTv + " ∪ 시총 " + kn.topkCap + " · 20일 평균 거래대금 ≥ " + kn.minTvEok + "억"],
-      ["Long 후보", sm.long, "점수 ≥ +" + kn.candMin + " · 상방 업종", "long"],
+      ["Long 후보", sm.long, unCandTxt(kn) + " · 상방 업종", "long"],
       ["Short 후보", sm.short, "선물 상장 " + sm.shortFut + " · 하방 업종", "short"],
       ["보유 겹침", sm.heldOverlap, "Top 안의 보유 종목"],
       unRunKpi()];
@@ -1223,7 +1234,7 @@
     var pmTxt = { roundrobin: "업종 라운드로빈(업종당 1개씩 순환)", rank: "통합 순위 상위", sectorcap: "통합 순위 + 업종당 " + ((S.config && S.config.uniSectorCap) || 2) }[pm] || pm;
     $("un-knobs").innerHTML = [["선정 방식", pmTxt], ["1차 컷", "거래대금 " + kn.topkTv + " ∪ 시총 " + kn.topkCap], ["유동성 하한", "20일 평균 ≥ " + kn.minTvEok + "억"],
       ["업종별 Top", kn.topN], ["허브 보강", "예비 상위 " + kn.flowPerSector], ["방향", "상방→Long · 하방→Short · 혼조→관찰(거래대금 가속만)"],
-      ["대분류(제조·금융)", "제외 — 중분류와 중복"], ["후보", "점수 ≥ +" + kn.candMin + " · 보유·대기·매트릭스·쿨다운 제외"], ["단위 나눗셈", "거래대금 " + kn.tvDiv + " · 수급 " + kn.flowDiv]]
+      ["대분류(제조·금융)", "제외 — 중분류와 중복"], ["후보", unCandTxt(kn) + " · 보유·대기·매트릭스·쿨다운 제외"], ["선정 기준", kn.rankBasis === "total" ? "종합점수(업종 Top·후보·순서) — 시뮬 T2" : "모멘텀 점수"], ["단위 나눗셈", "거래대금 " + kn.tvDiv + " · 수급 " + kn.flowDiv]]
       .map(function (r) { return '<div class="rule"><span>' + r[0] + "</span><span>" + esc(String(r[1])) + "</span></div>"; }).join("");
     var L = ["<div>" + esc(doc.date) + " 산출 " + esc(String(doc.asof || "").slice(11, 19)) + " · " + (dg.secs || 0) + "s</div>",
       "<div>업종 " + sm.sectors + " 조인 · 미매칭 " + (dg.unmatched || []).length +
@@ -1298,7 +1309,7 @@
           return (bv == null ? -1e9 : bv) - (av == null ? -1e9 : av);
         });
       }
-      var nC = (s.top || []).filter(function (x) { return x.score >= unMin(); }).length;
+      var nC = (s.top || []).filter(unIsCand).length;
       h += '<tr class="sec' + (closed ? " closed" : "") + '" data-k="' + k + '" style="--c:' + unC(s.signal) + '"><td colspan="' + NCOL + '"><span class="sn">' + esc(s.name) + " " + sig(s.signal) + "</span>" +
         '<span class="st">1W <b class="' + cls(s.chgPct) + '">' + sgn(s.chgPct, 2, "%") + "</b> · 거래대금 <b>" + fmtEok(s.secTv1w != null ? s.secTv1w : s.secTvDay) + "</b> " +
         '<b class="' + cls(s.secTvMom) + '">' + (s.secTvMom == null ? "" : sgn(s.secTvMom * 100, 0, "%")) + "</b> · 외+기 <b>" + sgn((s.frgn || 0) + (s.orgn || 0), 0, "억") + "</b> · " +

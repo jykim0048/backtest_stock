@@ -371,7 +371,9 @@ def build_universe(date, wb, *, dbq, hub, ledger=None, decided=None, log=print, 
     diag = {"errors": [], "unmatched": [], "rawSample": {}, "calls": {}}
     knobs = {"topkTv": config.UNI_TOPK_TV, "topkCap": config.UNI_TOPK_CAP, "topN": config.UNI_TOPN,
              "minTvEok": config.UNI_MIN_TV_EOK, "flowPerSector": config.UNI_FLOW_PER_SECTOR,
-             "candMin": config.UNI_CAND_MIN, "tvDiv": config.UNI_TV_DIV, "flowDiv": config.UNI_FLOW_DIV}
+             "candMin": config.UNI_CAND_MIN, "tvDiv": config.UNI_TV_DIV, "flowDiv": config.UNI_FLOW_DIV,
+             "rankBasis": config.UNI_RANK_BASIS, "totalMin": config.UNI_TOTAL_MIN, "liqPool": config.UNI_LIQ_POOL}
+    by_total = config.UNI_RANK_BASIS == "total"
     sig = signals.sector_signals(wb)                       # {norm name: signal}
     sig_rows = {signals.norm_sec(r.get("name")): r for r in ((wb or {}).get("sectorFlow") or {}).get("rows") or []}
     ledger = ledger or engine.new_ledger()
@@ -473,7 +475,7 @@ def build_universe(date, wb, *, dbq, hub, ledger=None, decided=None, log=print, 
             continue
         # U5 허브 보강(예비 상위 N)
         rows_m.sort(key=lambda x: (-prelim_score(x, s["dir"]), -(x["tv1w"] or 0)))
-        pre = rows_m[:config.UNI_FLOW_PER_SECTOR]
+        pre = rows_m if by_total else rows_m[:config.UNI_FLOW_PER_SECTOR]   # 종합 기준 = 1차 컷 전 종목(시뮬 T2)
         flows, errs = hub.many([x["code"] for x in pre])
         diag["errors"].extend(f"{s['name']} /flow {e}" for e in errs[:3])
         # U6 점수
@@ -498,23 +500,36 @@ def build_universe(date, wb, *, dbq, hub, ledger=None, decided=None, log=print, 
                      held=x["code"] in held, pending=x["code"] in pend, done=decided.get(x["code"]), flags=flags)
             scored.append(x)
         scored.sort(key=lambda x: (-x["score"], -(x["tv1w"] or 0)))
-        for i, x in enumerate(scored[:config.UNI_TOPN]):
-            x["rank"] = i + 1
-            sec["top"].append(x)
+        if by_total:
+            sec["top"] = scored                                    # 전 종목 — 종합 채점 후 Top N 으로 자름
+        else:
+            for i, x in enumerate(scored[:config.UNI_TOPN]):
+                x["rank"] = i + 1
+                sec["top"].append(x)
+        out_secs.append(sec)
+
+    # 주가·유동성·수급·종합 점수 — 종합 기준이면 1차 컷 전 종목 풀에서 채점 후 종합순 Top N(시뮬 T2 와 같은 계산)
+    annotate_composite(out_secs)
+    basis = config.UNI_RANK_BASIS
+    for sec in out_secs:
+        if not sec.get("dir"):
+            continue
+        if by_total:
+            sec["top"].sort(key=lambda x: (x.get("totalScore") is None, -(x.get("totalScore") or 0), -(x.get("score") or 0)))
+            sec["top"] = sec["top"][:config.UNI_TOPN]
+            for i, x in enumerate(sec["top"]):
+                x["rank"] = i + 1
         n_top += len(sec["top"])
-        c = [x for x in sec["top"] if x["score"] >= config.UNI_CAND_MIN]
-        if s["dir"] == "long":
+        c = [x for x in sec["top"] if is_candidate(x)]
+        if sec["dir"] == "long":
             n_long += len(c)
         else:
             n_short += len(c)
-            n_fut += sum(1 for x in c if x["hasStockFuture"])
-        out_secs.append(sec)
-
+            n_fut += sum(1 for x in c if x.get("hasStockFuture"))
     order = {"long": 0, "short": 1, None: 2}
-    out_secs.sort(key=lambda x: (order[x.get("dir")], -max([y.get("score") or -9 for y in x["top"]] or [-9]),
+    out_secs.sort(key=lambda x: (order[x.get("dir")], -max([basis_value(y, basis) for y in x["top"]] or [-9]),
                                  -(x.get("secTvMom") or -9)))
-    annotate_composite(out_secs)                                   # 주가·유동성·수급·종합 점수(방향 풀 백분위)
-    rank_long, rank_short = integrated_rank(out_secs, "long"), integrated_rank(out_secs, "short")
+    rank_long, rank_short = integrated_rank(out_secs, "long", basis=basis), integrated_rank(out_secs, "short", basis=basis)
     diag["calls"].update(db=dbq.calls, hub=hub.calls, px=pxc.calls)
     diag["secs"] = round(time.time() - t0, 1)
     doc = {"date": date, "asof": (now or datetime.datetime.now()).isoformat(timespec="seconds"),
@@ -544,12 +559,29 @@ RANK_KEYS = ("code", "name", "rank", "score", "reason", "cap", "tv1w", "tvMom", 
              "tv20d", "ret1m", "ret3m", "ret6m", "ret12m", "retYtd", "pxScore", "liqScore", "flowScore", "totalScore", "liqGate")
 
 
-def integrated_rank(sectors, side, n=None):
-    """전 업종 통합 롱/숏 모멘텀 순위 — 방향 업종들의 Top 을 합쳐 점수 → 주간 거래대금 순(2026-10-13 사용자 결정:
-    유니버스 진입 후보는 업종별 풀이 아니라 이 통합 순위 상위에서). rankAll = 통합 순위, rank = 업종 내 순위."""
+def basis_value(x, basis):
+    """정렬 기준 값 — score(모멘텀 −5~+5) 또는 total(종합 0~100, 없으면 최하)."""
+    if basis == "total":
+        return x.get("totalScore") if x.get("totalScore") is not None else -9
+    return x.get("score") if x.get("score") is not None else -9
+
+
+def is_candidate(x, basis=None):
+    """후보 적격 점수 — total: 종합 ≥ UNI_TOTAL_MIN(게이트 통과), score: 모멘텀 ≥ UNI_CAND_MIN."""
+    basis = basis or config.UNI_RANK_BASIS
+    if x.get("score") is None:
+        return False
+    if basis == "total":
+        return x.get("totalScore") is not None and x["totalScore"] >= config.UNI_TOTAL_MIN
+    return x["score"] >= config.UNI_CAND_MIN
+
+
+def integrated_rank(sectors, side, n=None, basis="score"):
+    """전 업종 통합 롱/숏 순위 — 방향 업종들의 Top 을 합쳐 기준 점수(basis: score 모멘텀 · total 종합) → 주간 거래대금 순.
+    rankAll = 통합 순위, rank = 업종 내 순위."""
     xs = [dict({k: x.get(k) for k in RANK_KEYS}, sector=s.get("name"), signal=s.get("signal"))
          for s in sectors if s.get("dir") == side for x in (s.get("top") or []) if x.get("score") is not None]
-    xs.sort(key=lambda x: (-x["score"], -(x.get("tv1w") or 0)))
+    xs.sort(key=lambda x: (-basis_value(x, basis), -(x.get("tv1w") or 0)))
     xs = xs[:n or config.UNI_RANK_N]
     for i, x in enumerate(xs):
         x["rankAll"] = i + 1
@@ -753,7 +785,7 @@ def score_key(c):
     return (0 if s is not None else 1, -(s or 0), -((c.get("metrics") or {}).get("tv1w") or 0))
 
 
-def pick(doc, side, mode, ok, cap=None, sector_cap=None):
+def pick(doc, side, mode, ok, cap=None, sector_cap=None, basis="score"):
     """후보 선정 공통 함수(운용·시뮬 공용, 2026-10-14). doc = {sectors[], rankLong[], rankShort[]} (universe/<date> 또는 시뮬 as-of 문서).
     ok(x) = 종목 적격 판정(점수·보유·쿨다운 등). mode:
       rank       = 전 업종 통합 순위(rankLong/rankShort) 위에서부터
@@ -764,7 +796,7 @@ def pick(doc, side, mode, ok, cap=None, sector_cap=None):
     key = "rankLong" if side == "long" else "rankShort"
     ranked = doc.get(key)
     if ranked is None:
-        ranked = integrated_rank(doc.get("sectors") or [], side)
+        ranked = integrated_rank(doc.get("sectors") or [], side, basis=basis)
     rank_all = {str(x.get("code")).zfill(6): x.get("rankAll") for x in ranked}
     out = []
     if mode in ("rank", "sectorcap"):
@@ -788,7 +820,10 @@ def pick(doc, side, mode, ok, cap=None, sector_cap=None):
               for x in (s.get("top") or []) if ok(x)]
         if xs:
             lists.append(xs)
-    lists.sort(key=lambda xs: (-(xs[0].get("score") or 0), -(xs[0].get("tv1w") or 0)))   # 업종 순서 = 첫 적격 종목 점수
+    if basis == "total":                                           # 업종 안도 종합순(문서 Top 순서가 이미 종합순이지만 방어)
+        for xs in lists:
+            xs.sort(key=lambda x: -basis_value(x, basis))
+    lists.sort(key=lambda xs: (-basis_value(xs[0], basis), -(xs[0].get("tv1w") or 0)))   # 업종 순서 = 첫 적격 종목 기준 점수
     i = 0
     while any(len(xs) > i for xs in lists) and (cap is None or len(out) < cap):
         for xs in lists:
@@ -806,17 +841,18 @@ def universe_candidates(doc, side, exclude=(), decided=None, fut_only=False, mod
     보유·대기·매트릭스 후보(exclude)·최근 판단(decided, 쿨다운) 아님. 상한(UNI_NEW_PER_DAY)은 호출측이 자른다."""
     decided, seen = decided or {}, set(exclude)
     mode = mode or config.UNI_PICK_MODE
+    basis = ((doc or {}).get("knobs") or {}).get("rankBasis") or config.UNI_RANK_BASIS   # 문서를 만든 기준 우선
 
     def ok(x):
         code = str(x.get("code") or "").zfill(6)
-        if (x.get("score") is None or x["score"] < config.UNI_CAND_MIN or code in seen or code in decided
+        if (not is_candidate(x, basis) or code in seen or code in decided
                 or (fut_only and not x.get("hasStockFuture"))):
             return False
         seen.add(code)
         return True
     label = "롱" if side == "long" else "숏"
     out = []
-    for i, x in enumerate(pick(doc, side, mode, ok)):
+    for i, x in enumerate(pick(doc, side, mode, ok, basis=basis)):
         code = str(x.get("code") or "").zfill(6)
         if mode == "roundrobin":
             how = f"업종 라운드로빈 {i + 1}번째({x.get('rrRound')}바퀴 · 업종 {x.get('sector')} {x.get('signal')} {x.get('rank')}위 · 통합 {x.get('rankAll')}위)"
@@ -825,8 +861,10 @@ def universe_candidates(doc, side, exclude=(), decided=None, fut_only=False, mod
         else:
             how = f"전 업종 통합 {label} 모멘텀 {x.get('rankAll')}위(업종 {x.get('sector')} {x.get('signal')} {x.get('rank')}위)"
         out.append({"code": code, "name": x.get("name"), "sector": x.get("sector"), "signal": x.get("signal"),
-                    "score": x["score"], "source": "universe", "rankAll": x.get("rankAll"), "pickMode": mode,
-                    "reason": how + f" · 모멘텀 {x['score']:+d}/5" + (f"({x.get('reason')})" if x.get("reason") else ""),
+                    "score": x["score"], "source": "universe", "rankAll": x.get("rankAll"), "pickMode": mode, "rankBasis": basis,
+                    "reason": how + (f" · 종합 {x['totalScore']:.0f}(주가 {x.get('pxScore') or 0:.0f}·수급 {x.get('flowScore') or 0:.0f})"
+                                     if basis == "total" and x.get("totalScore") is not None else "")
+                              + f" · 모멘텀 {x['score']:+d}/5" + (f"({x.get('reason')})" if x.get("reason") else ""),
                     "metrics": {k: x.get(k) for k in ("tv1w", "tvMom", "frgn1w", "orgn1w", "flowBp", "shortRlim1w",
                                                       "shortMom", "loanChg", "ret1w", "shortHigh", "cap", "hasStockFuture",
                                                       "ret1m", "ret3m", "ret6m", "ret12m", "retYtd", "pxScore", "liqScore",

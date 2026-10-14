@@ -51,6 +51,13 @@ def runner(st, **kw):
 
 
 class TestCandidates(unittest.TestCase):
+    """종전 모멘텀 기준(UNI_RANK_BASIS=score) 동작 — 2026-10-14 기본은 total(T2), 종합 기준은 TestTotalBasis."""
+    def setUp(self):
+        self._basis, config.UNI_RANK_BASIS = config.UNI_RANK_BASIS, "score"
+
+    def tearDown(self):
+        config.UNI_RANK_BASIS = self._basis
+
     def test_universe_candidates_rules(self):
         st = store.FileStore(tempfile.mkdtemp())
         doc = runner(st).build_or_load(DATE, wb(), None)

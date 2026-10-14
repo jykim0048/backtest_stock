@@ -239,7 +239,8 @@ def api_config(q):
             "maxNewShortPerDay": config.MAX_NEW_SHORT_PER_DAY, "shortMaxGross": config.SHORT_MAX_GROSS,
             "borrowRate": config.BORROW_RATE,
             "universe": config.UNIVERSE_ENABLED, "uniNewPerDay": config.UNI_NEW_PER_DAY,
-            "uniNewShortPerDay": config.UNI_NEW_SHORT_PER_DAY, "uniCandMin": config.UNI_CAND_MIN,
+            "uniNewShortPerDay": config.UNI_NEW_SHORT_PER_DAY, "uniCandMin": config.UNI_CAND_MIN, "uniRankBasis": config.UNI_RANK_BASIS,
+            "uniTotalMin": config.UNI_TOTAL_MIN,
             "uniCooldownDays": config.UNI_COOLDOWN_DAYS, "uniPickMode": config.UNI_PICK_MODE, "uniSectorCap": config.UNI_SECTOR_CAP,
             "adminSimConfigured": bool((os.environ.get("SWING_ADMIN_TOKEN") or "").strip())}
 

@@ -96,6 +96,13 @@ class TestSectorResolve(unittest.TestCase):
 
 
 class TestBuild(unittest.TestCase):
+    """종전 모멘텀 기준(UNI_RANK_BASIS=score) 동작 — 2026-10-14 기본은 total(T2), 종합 기준은 TestTotalBasis."""
+    def setUp(self):
+        self._basis, config.UNI_RANK_BASIS = config.UNI_RANK_BASIS, "score"
+
+    def tearDown(self):
+        config.UNI_RANK_BASIS = self._basis
+
     def test_build_doc(self):
         dbq, hub = mocks()
         ledger = {"positions": [{"code": "011200", "side": "long"}], "orders": [{"code": "017670", "side": "short"}]}
@@ -174,6 +181,40 @@ class TestBuild(unittest.TestCase):
         self.assertEqual(bad["top"], [])
         self.assertTrue(any("USTOCKCONDLIST" in e for e in doc["diag"]["errors"]))
         self.assertGreater(sum(len(s["top"]) for s in doc["sectors"]), 0)
+
+
+class TestTotalBasis(unittest.TestCase):
+    """UNI_RANK_BASIS=total(T2, 2026-10-14 사용자 결정) — 1차 컷 전 종목 채점 → 업종 Top N·후보·통합 순위 모두 종합순."""
+    def setUp(self):
+        self._basis, config.UNI_RANK_BASIS = config.UNI_RANK_BASIS, "total"
+
+    def tearDown(self):
+        config.UNI_RANK_BASIS = self._basis
+
+    def test_total_basis_doc_and_candidates(self):
+        dbq, hub = mocks()
+        doc = U.build_universe(DATE, wb(), dbq=dbq, hub=hub, log=lambda *a: None)
+        self.assertEqual(doc["knobs"]["rankBasis"], "total")
+        for s in doc["sectors"]:
+            if not s.get("dir"):
+                continue
+            top = s["top"]
+            self.assertLessEqual(len(top), config.UNI_TOPN)
+            key = [(x.get("totalScore") is None, -(x.get("totalScore") or 0)) for x in top]
+            self.assertEqual(key, sorted(key))                                  # 종합순(없음은 뒤)
+            self.assertEqual([x["rank"] for x in top], list(range(1, len(top) + 1)))
+        tl = [x.get("totalScore") if x.get("totalScore") is not None else -9 for x in doc["rankLong"]]
+        self.assertEqual(tl, sorted(tl, reverse=True))
+        c = U.universe_candidates(doc, "long")
+        self.assertTrue(c)
+        self.assertTrue(all(x["metrics"]["totalScore"] >= config.UNI_TOTAL_MIN for x in c))
+        self.assertTrue(all(x["rankBasis"] == "total" and "종합 " in x["reason"] for x in c))
+        n_cand = sum(1 for s in doc["sectors"] if s.get("dir") == "long" for x in s["top"] if U.is_candidate(x, "total"))
+        self.assertEqual(doc["summary"]["long"], n_cand)
+        # 문서 기준 우선: score 로 만든 문서는 지금 설정이 total 이어도 모멘텀 기준으로 고른다
+        old = dict(doc, knobs=dict(doc["knobs"], rankBasis="score"))
+        self.assertTrue(all(x["rankBasis"] == "score" and x["score"] >= config.UNI_CAND_MIN
+                            for x in U.universe_candidates(old, "long")))
 
 
 class TestDbQuoteClient(unittest.TestCase):
