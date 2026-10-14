@@ -7128,7 +7128,7 @@
         // 후보 = 문서 선정 기준(2026-10-14 T2: 종합 ≥ totalMin, 종전: 모멘텀 ≥ +2)
         const top = s.top || [], nC = top.filter(x => x.score != null && (byTot ? (x.totalScore != null && x.totalScore >= tMin) : x.score >= 2)).length;
         const st = '1W <b class="' + cl(s.chgPct) + '">' + sg(s.chgPct, 2, "%") + "</b> · 거래대금 <b>" + eok(s.secTv1w != null ? s.secTv1w : s.secTvDay) + '억</b> <b class="' + cl(s.secTvMom) + '">' + (s.secTvMom == null ? "" : sg(s.secTvMom * 100, 0, "%")) + "</b>"
-          + " · 외+기 <b>" + sg((s.frgn || 0) + (s.orgn || 0), 0, "억") + "</b> · " + (s.dir ? "후보 <b>" + nC + "</b> / Top" + top.length : s.big ? "대분류 — 산출 제외" : "혼조 — 관찰만");
+          + " · 외+기 <b>" + sg((s.frgn || 0) + (s.orgn || 0), 0, "억") + "</b> · " + (s.dir ? "후보 <b>" + nC + "</b> / Top" + top.length : s.big ? "대분류 — 관찰(후보 제외 · 중분류와 종목 중복)" : "혼조 — 관찰(후보 제외)");
         let rows = "";
         for (const x of top) {
           rows += "<tr><td>" + (x.rank || "") + "</td><td><b>" + _wbuEsc(x.name || "") + "</b><small>" + _wbuEsc(x.code || "") + "</small></td>"
@@ -7137,7 +7137,7 @@
             + "<td>" + (x.cap ? eok(x.cap) : "—") + "</td>"
             + heat(x.ret1w) + heat(x.ret1m) + heat(x.ret3m) + heat(x.ret6m) + heat(x.ret12m) + heat(x.retYtd) + score(x.pxScore, "", "px s")
             + '<td class="liq">' + eok(x.tv20d) + "</td>" + score(x.liqScore, x.liqGate ? "gate" : "", "liq s")
-            + '<td class="flow">' + eok(x.tv1w != null ? x.tv1w : x.tvDay) + '<small class="' + cl(x.tvMom) + '">' + (x.tvMom == null ? "" : sg(x.tvMom * 100, 0, "%")) + "</small></td>"
+            + '<td class="flow">' + eok(x.tv1w != null ? x.tv1w : x.tvDay) + '<small class="' + cl(x.tvMom) + '">' + (x.tv1w == null && x.tvDay != null ? "당일" : x.tvMom == null ? "" : sg(x.tvMom * 100, 0, "%")) + "</small></td>"
             + '<td class="flow ' + cl(x.frgn1w) + '">' + sg(x.frgn1w, 0) + '</td><td class="flow ' + cl(x.orgn1w) + '">' + sg(x.orgn1w, 0) + "</td>"
             + '<td class="flow ' + cl(x.flowBp) + '">' + sg(x.flowBp, 0, "bp") + "</td>"
             + '<td class="flow">' + (x.shortRlim1w == null ? "—" : x.shortRlim1w.toFixed(1) + "%") + '<small class="' + cl(x.shortMom, true) + '">' + sg(x.shortMom, 1) + "</small></td>"
@@ -7176,7 +7176,7 @@
         const top = s.top || [];
         secRows.push([s.name || "", s.signal || "", num(s.chgPct), num(s.secTv1w != null ? s.secTv1w : s.secTvDay),
           s.secTvMom == null ? "" : Math.round(s.secTvMom * 1000) / 10, num(s.frgn), num(s.orgn),
-          top.filter(x => (x.score || 0) >= 2).length, top.length, s.dir ? "" : (s.big ? "대분류 — 산출 제외" : "혼조 — 관찰만")]);
+          top.filter(x => (x.score || 0) >= 2).length, top.length, s.dir ? "" : (s.big ? "대분류 — 관찰(후보 제외 · 중분류와 종목 중복)" : "혼조 — 관찰(후보 제외)")]);
         for (const x of top) {
           rows.push([s.name || "", s.signal || "", num(x.rank), x.name || "", x.code || "", (x.side || "").toUpperCase(), num(x.score), num(x.cap),
             num(x.ret1w), num(x.ret1m), num(x.ret3m), num(x.ret6m), num(x.ret12m), num(x.retYtd), num(x.pxScore),
