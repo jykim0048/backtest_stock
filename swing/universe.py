@@ -439,13 +439,13 @@ def build_universe(date, wb, *, dbq, hub, ledger=None, decided=None, log=print, 
         sec["nCut"] = len(cut)
         n_cut += len(cut)
         sec["secTvDay"] = _r(sum(x["tvDay"] or 0 for x in stocks), 0)
-        if not s["dir"]:
-            # 혼조·대분류: 관찰만 — 당일 거래대금 상위 3 을 지표 없이 남긴다
+        if s.get("big"):
+            # 대분류(제조·금융): 산출 제외 — 당일 거래대금 상위 3 을 지표 없이 남긴다
             for i, x in enumerate(by_tv[:3]):
                 sec["top"].append({**x, "rank": i + 1, "side": None, "score": None, "flags": [], "reason": ""})
             out_secs.append(sec)
             continue
-        # U4 종목 일별
+        # U4 종목 일별 — 혼조 업종도 조회해 업종 거래대금 가속은 채운다(2026-10-14, 종목 점수·후보는 방향 업종만)
         rows_m = []
         for x in cut:
             try:
@@ -464,6 +464,13 @@ def build_universe(date, wb, *, dbq, hub, ledger=None, decided=None, log=print, 
         sec["secTv1w"] = _r(sum(x["tv1w"] or 0 for x in rows_m), 0)
         tv4 = [x["tv4w"] for x in rows_m if x.get("tv4w")]
         sec["secTvMom"] = _r(sum(x["tv1w"] for x in rows_m if x.get("tv4w")) / sum(tv4) - 1, 3) if tv4 else None
+        if not s["dir"]:
+            # 혼조: 관찰만 — 주간 거래대금 상위 3(주간 지표 포함), 점수·후보 없음
+            obs = sorted(rows_m, key=lambda x: -(x["tv1w"] or 0))[:3] or by_tv[:3]
+            for i, x in enumerate(obs):
+                sec["top"].append({**x, "rank": i + 1, "side": None, "score": None, "flags": [], "reason": ""})
+            out_secs.append(sec)
+            continue
         # U5 허브 보강(예비 상위 N)
         rows_m.sort(key=lambda x: (-prelim_score(x, s["dir"]), -(x["tv1w"] or 0)))
         pre = rows_m[:config.UNI_FLOW_PER_SECTOR]

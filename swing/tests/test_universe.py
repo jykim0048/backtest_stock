@@ -108,8 +108,14 @@ class TestBuild(unittest.TestCase):
         self.assertEqual(by["통신"]["dir"], "short")
         self.assertIsNone(by["보험"]["dir"])
         self.assertTrue(by["제조"]["big"])
-        self.assertEqual(len(by["제조"]["top"]), 3)               # 대분류·혼조는 관찰 3개, 지표 없음
+        self.assertEqual(len(by["제조"]["top"]), 3)               # 대분류는 관찰 3개, 지표 없음
         self.assertIsNone(by["제조"]["top"][0]["score"])
+        self.assertIsNone(by["제조"].get("secTvMom"))
+        # 혼조: 점수·후보 없이 관찰 3개 + 업종 거래대금 가속은 채운다(2026-10-14)
+        self.assertEqual(len(by["보험"]["top"]), 3)
+        self.assertIsNone(by["보험"]["top"][0]["score"])
+        self.assertIsNotNone(by["보험"]["secTvMom"])
+        self.assertIsNotNone(by["보험"]["top"][0].get("tv1w"))
         # 방향 업종: Top ≤ 10, 점수 내림차순, 플래그
         top = by["운송·창고"]["top"]
         self.assertLessEqual(len(top), config.UNI_TOPN)

@@ -1189,11 +1189,21 @@
     $("un-kpis").innerHTML = kp.map(function (k) {
       return '<div class="kpi"><div class="kpi-lbl">' + k[0] + '</div><div class="kpi-val ' + (k[3] || "") + '">' + k[1] + '</div><div class="kpi-sub">' + k[2] + "</div></div>";
     }).join("");
-    $("un-strip").innerHTML = (doc.sectors || []).map(function (s, i) {
+    // 2026-10-14 섹터 시그널 종목 관찰과 같은 구분 — 1열 4행(동반강세·수급유입·수급이탈·동반약세), 행 안은 업종 칩(이름·막대·거래대금 Δ4주). 혼조·대분류는 스트립 제외(표에는 유지)
+    function ssCard(s, i) {
       var mom = s.secTvMom, pct = mom == null ? 0 : Math.round(Math.min(1, Math.max(0, (mom + 0.4) / 0.9)) * 100);
-      return '<div class="ss" data-i="' + i + '" style="--c:' + unC(s.signal) + '"><div class="n"><span>' + esc(s.name) + "</span><i></i></div>" +
-        '<div class="m"><span>거래대금</span><b class="' + cls(mom) + '">' + (mom == null ? "—" : sgn(mom * 100, 0, "%")) + "</b></div>" +
-        '<div class="bar"><i style="width:' + pct + "%;background:" + (mom > 0 ? "var(--up-red)" : "var(--down-blue)") + '"></i></div></div>';
+      return '<div class="ss" data-i="' + i + '" style="--c:' + unC(s.signal) + '"><span class="n">' + esc(s.name) + (s.big ? ' <em title="대분류 — 산출 제외">大</em>' : "") + "</span>" +
+        '<span class="bar"><i style="width:' + pct + "%;background:" + (mom > 0 ? "var(--up-red)" : "var(--down-blue)") + '"></i></span>' +
+        '<b class="v ' + cls(mom) + '">' + (mom == null ? "—" : sgn(mom * 100, 0, "%")) + "</b></div>";
+    }
+    var secs = (doc.sectors || []).map(function (s, i) { return { s: s, i: i }; });
+    var UN_QSUB = { "동반강세": "Long 산출", "수급유입": "Long 산출", "수급이탈": "Short 산출", "동반약세": "Short 산출" };
+    function quad(title, sub, xs, extra) {
+      return '<div class="ss-q' + (extra || "") + '"><div class="qh"><h4>' + title + "<small>" + xs.length + '업종</small></h4><div class="mx-tag">' + sub + "</div></div>" +
+        (xs.length ? '<div class="cards">' + xs.map(function (o) { return ssCard(o.s, o.i); }).join("") + "</div>" : '<div class="mx-empty">해당 업종 없음</div>') + "</div>";
+    }
+    $("un-strip").innerHTML = SIG_ORDER.map(function (k) {
+      return quad(k, UN_QSUB[k], secs.filter(function (o) { return o.s.dir != null && o.s.signal === k; }), '" style="--c:' + unC(k));
     }).join("");
     $("un-strip").querySelectorAll(".ss").forEach(function (el) {
       el.addEventListener("click", function () { var i = +el.dataset.i; UN.sec = UN.sec === i ? null : i; renderUniverseTable(); });
@@ -1206,7 +1216,7 @@
     var pm = (S.config && S.config.uniPickMode) || "roundrobin";
     var pmTxt = { roundrobin: "업종 라운드로빈(업종당 1개씩 순환)", rank: "통합 순위 상위", sectorcap: "통합 순위 + 업종당 " + ((S.config && S.config.uniSectorCap) || 2) }[pm] || pm;
     $("un-knobs").innerHTML = [["선정 방식", pmTxt], ["1차 컷", "거래대금 " + kn.topkTv + " ∪ 시총 " + kn.topkCap], ["유동성 하한", "20일 평균 ≥ " + kn.minTvEok + "억"],
-      ["업종별 Top", kn.topN], ["허브 보강", "예비 상위 " + kn.flowPerSector], ["방향", "상방→Long · 하방→Short · 혼조→미산출"],
+      ["업종별 Top", kn.topN], ["허브 보강", "예비 상위 " + kn.flowPerSector], ["방향", "상방→Long · 하방→Short · 혼조→관찰(거래대금 가속만)"],
       ["대분류(제조·금융)", "제외 — 중분류와 중복"], ["후보", "점수 ≥ +" + kn.candMin + " · 보유·대기·매트릭스·쿨다운 제외"], ["단위 나눗셈", "거래대금 " + kn.tvDiv + " · 수급 " + kn.flowDiv]]
       .map(function (r) { return '<div class="rule"><span>' + r[0] + "</span><span>" + esc(String(r[1])) + "</span></div>"; }).join("");
     var L = ["<div>" + esc(doc.date) + " 산출 " + esc(String(doc.asof || "").slice(11, 19)) + " · " + (dg.secs || 0) + "s</div>",
