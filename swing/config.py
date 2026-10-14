@@ -84,6 +84,10 @@ UNI_CAP_DIV = _f("SWING_UNI_CAP_DIV", 100)
 UNI_W_PX = _f("SWING_UNI_W_PX", 0.55)
 UNI_W_FLOW = _f("SWING_UNI_W_FLOW", 0.45)
 UNI_LIQ_GATE = _f("SWING_UNI_LIQ_GATE", 30)
+# 유동성 반영 방식(2026-10-14 시뮬 비교용 노브, 운용 기본 gate): gate = 유동성 < UNI_LIQ_GATE 면 종합 공란 ·
+#   weight = 종합 = w_px·주가 + w_flow·수급 + UNI_W_LIQ·유동성(게이트 없음) · soft = 유동성 < 게이트면 종합 × 유동성/게이트(공란 없음)
+UNI_LIQ_MODE = (os.environ.get("SWING_UNI_LIQ_MODE", "gate") or "gate").strip().lower()
+UNI_W_LIQ = _f("SWING_UNI_W_LIQ", 0.0)
 # 유동성 백분위 풀(2026-10-14 사용자 결정 = all): all = Long·Short 합산 풀 · side = 방향별 풀(종전 — Short 풀이 대형주 20종목뿐이라
 # 경계가 ~335억까지 올라 195~284억 종목까지 게이트에 걸리던 문제)
 UNI_LIQ_POOL = (os.environ.get("SWING_UNI_LIQ_POOL", "all") or "all").strip().lower()

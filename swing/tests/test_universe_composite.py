@@ -61,6 +61,22 @@ class TestComposite(unittest.TestCase):
         self.assertEqual(alls["S1"]["liqScore"], alls["L6"]["liqScore"])   # 같은 금액이면 방향 무관 같은 점수
         self.assertTrue(alls["L0"]["liqGate"])
 
+    def test_liq_modes(self):
+        """유동성 반영 방식(2026-10-14 시뮬 비교): gate 공란 / weight 가중합 / soft 비례 감점."""
+        g = {x["code"]: x for s in U.annotate_composite(self._sectors(), liq_mode="gate", liq_gate=30) for x in s["top"]}
+        w = {x["code"]: x for s in U.annotate_composite(self._sectors(), liq_mode="weight", w_px=0.5, w_flow=0.4, w_liq=0.1,
+                                                         liq_gate=30) for x in s["top"]}
+        s_ = {x["code"]: x for s in U.annotate_composite(self._sectors(), liq_mode="soft", liq_gate=30) for x in s["top"]}
+        L3g, L3w, L3s = g["L3"], w["L3"], s_["L3"]
+        self.assertIsNone(L3g["totalScore"])
+        self.assertTrue(L3g["liqGate"])
+        self.assertAlmostEqual(L3w["totalScore"], round(0.5 * L3w["pxScore"] + 0.4 * L3w["flowScore"] + 0.1 * L3w["liqScore"], 1))
+        self.assertFalse(L3w["liqGate"])
+        base = 0.55 * L3s["pxScore"] + 0.45 * L3s["flowScore"]
+        self.assertAlmostEqual(L3s["totalScore"], round(base * L3s["liqScore"] / 30, 1))
+        self.assertEqual(L3s["liqPenalty"], round(L3s["liqScore"] / 30, 3))
+        self.assertEqual(g["L1"]["totalScore"], s_["L1"]["totalScore"])     # 유동성 충분하면 gate·soft 같음
+
     def test_scores_and_gate(self):
         secs = U.annotate_composite(self._sectors(), w_px=0.55, w_flow=0.45, liq_gate=30)
         L = {x["code"]: x for x in secs[0]["top"]}

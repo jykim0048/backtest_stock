@@ -997,15 +997,20 @@ def percentile(values, v):
     return round((lt + 0.5 * eq) / len(xs) * 100, 1)
 
 
-def annotate_composite(sectors, *, w_px=None, w_flow=None, liq_gate=None, liq_pool=None):
+def annotate_composite(sectors, *, w_px=None, w_flow=None, liq_gate=None, liq_pool=None, liq_mode=None, w_liq=None):
     """업종 Top 종목에 주가·유동성·수급·종합 점수(0~100, 같은 방향 풀 안 백분위)를 붙인다(제자리).
     주가점수 = 1M/3M/6M/12M 수익률 백분위 평균(방향 부호 반영: Short 은 하락이 높게, 2개 이상 기간 필요)
     유동성점수 = 20일 평균 거래대금 백분위 — 풀은 config.UNI_LIQ_POOL(all = Long·Short 합산, side = 방향별) · 수급점수 = (수급/시총, −공매도 비중Δ, −대차Δ, 거래대금 가속) 백분위 평균(방향 부호)
-    종합점수 = w_px·주가 + w_flow·수급 (이미지 역산 0.55/0.45) — 유동성점수 < liq_gate(30) 면 공란(None)."""
+    종합점수 = w_px·주가 + w_flow·수급 (이미지 역산 0.55/0.45) — 유동성 반영(liq_mode, 기본 config.UNI_LIQ_MODE=gate):
+      gate   = 유동성점수 < liq_gate(30) 면 공란(None)
+      weight = w_px·주가 + w_flow·수급 + w_liq·유동성 (게이트 없음)
+      soft   = 유동성 < liq_gate 면 (w_px·주가 + w_flow·수급) × 유동성/liq_gate (공란 없음, 비례 감점)"""
     w_px = config.UNI_W_PX if w_px is None else w_px
     w_flow = config.UNI_W_FLOW if w_flow is None else w_flow
     liq_gate = config.UNI_LIQ_GATE if liq_gate is None else liq_gate
     liq_pool = (liq_pool or config.UNI_LIQ_POOL)
+    liq_mode = (liq_mode or config.UNI_LIQ_MODE)
+    w_liq = config.UNI_W_LIQ if w_liq is None else w_liq
     liq_all = [x.get("tv20d") for s in sectors if s.get("dir") in ("long", "short")
                for x in (s.get("top") or []) if x.get("score") is not None]
     for side in ("long", "short"):
@@ -1030,10 +1035,20 @@ def annotate_composite(sectors, *, w_px=None, w_flow=None, liq_gate=None, liq_po
                   percentile(flow_cols["tvMom"], x.get("tvMom"))]
             fs = [p for p in fs if p is not None]
             x["flowScore"] = round(sum(fs) / len(fs), 1) if fs else None
-            ok = (x["pxScore"] is not None and x["flowScore"] is not None and x["liqScore"] is not None
-                  and x["liqScore"] >= liq_gate)
-            x["totalScore"] = round(w_px * x["pxScore"] + w_flow * x["flowScore"], 1) if ok else None
-            x["liqGate"] = bool(x["liqScore"] is not None and x["liqScore"] < liq_gate)
+            have = x["pxScore"] is not None and x["flowScore"] is not None and x["liqScore"] is not None
+            low = bool(x["liqScore"] is not None and x["liqScore"] < liq_gate)
+            if not have:
+                tot = None
+            elif liq_mode == "weight":
+                tot = w_px * x["pxScore"] + w_flow * x["flowScore"] + w_liq * x["liqScore"]
+            elif liq_mode == "soft":
+                tot = (w_px * x["pxScore"] + w_flow * x["flowScore"]) * (min(1.0, x["liqScore"] / liq_gate) if liq_gate else 1.0)
+            else:
+                tot = None if low else w_px * x["pxScore"] + w_flow * x["flowScore"]
+            x["totalScore"] = None if tot is None else round(tot, 1)
+            x["liqGate"] = low and liq_mode == "gate"           # 게이트로 공란 처리된 경우만(표시용)
+            if low and liq_mode == "soft":
+                x["liqPenalty"] = round(x["liqScore"] / liq_gate, 3)
     return sectors
 
 

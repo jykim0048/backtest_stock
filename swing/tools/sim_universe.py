@@ -36,6 +36,12 @@ METHOD_DESC = {"A": "업종 라운드로빈(업종당 1개씩 순환)", "B": "�
                "T1": "라운드로빈 · Top10 풀(모멘텀) 그대로, 종합점수 ≥ totalMin·종합순",
                "T2": "라운드로빈 · 업종 Top10 자체를 종합점수로 선정, 종합 ≥ totalMin·종합순"}
 TOTAL_METHODS = ("A", "T1", "T2")   # --methods total
+# 유동성 반영 방식 비교(2026-10-14): 모두 T2(업종 Top·후보·순서 = 종합순, 종합 ≥ totalMin), 종합 계산만 다름
+METHOD_DESC.update({"T2W": "T2 · 종합 = 0.50주가+0.40수급+0.10유동성(게이트 없음)",
+                    "T2S": "T2 · 유동성 < 30 이면 종합 × 유동성/30(부드러운 게이트)"})
+LIQ_METHODS = ("T2", "T2W", "T2S")    # --methods liq
+LIQ_VARIANTS = {"byTotal": {}, "byTotalW": {"liq_mode": "weight", "w_px": 0.50, "w_flow": 0.40, "w_liq": 0.10},
+                "byTotalS": {"liq_mode": "soft"}}
 WB_HISTORY = os.path.join(_ROOT, "swing", "data", "wb_history")
 
 
@@ -265,20 +271,24 @@ def build_day(p, date, data):
         for i, x in enumerate(top):
             x["rank"] = i + 1
         secs.append({"name": name, "signal": r.get("signal"), "dir": d, "top": top, "_all": scored})
-    # 종합점수 기준(T2): 업종의 1차 컷 통과 전 종목을 같은 방향 풀 백분위로 채점 → 종합순 Top N
-    full = [{"name": x["name"], "signal": x["signal"], "dir": x["dir"],
-             "top": [dict(y) for y in x["_all"]]} for x in secs]
-    U.annotate_composite(full)
-    for x in full:
-        x["top"].sort(key=lambda y: (y.get("totalScore") is None, -(y.get("totalScore") or 0), -(y.get("tv1w") or 0)))
-        x["top"] = x["top"][:p["topN"]]
-        for i, y in enumerate(x["top"]):
-            y["rank"] = i + 1
+    # 종합점수 기준(T2 계열): 업종의 1차 컷 통과 전 종목을 같은 방향 풀 백분위로 채점 → 종합순 Top N.
+    # 변형마다 종합 계산(유동성 반영 방식)만 다르다 — 시뮬 비교라 운용 노브(UNI_LIQ_MODE)와 무관하게 명시
+    out = {}
+    for vk, kw in LIQ_VARIANTS.items():
+        full = [{"name": x["name"], "signal": x["signal"], "dir": x["dir"],
+                 "top": [dict(y) for y in x["_all"]]} for x in secs]
+        U.annotate_composite(full, **dict({"liq_mode": "gate", "w_px": 0.55, "w_flow": 0.45}, **kw))
+        for x in full:
+            x["top"].sort(key=lambda y: (y.get("totalScore") is None, -(y.get("totalScore") or 0), -(y.get("tv1w") or 0)))
+            x["top"] = x["top"][:p["topN"]]
+            for i, y in enumerate(x["top"]):
+                y["rank"] = i + 1
+        out[vk] = {"sectors": full}
     for x in secs:
         x.pop("_all", None)
-    U.annotate_composite(secs)
-    return {"sectors": secs, "rankLong": U.integrated_rank(secs, "long", 200), "rankShort": U.integrated_rank(secs, "short", 200),
-            "byTotal": {"sectors": full}}
+    U.annotate_composite(secs, liq_mode="gate", w_px=0.55, w_flow=0.45)
+    return dict({"sectors": secs, "rankLong": U.integrated_rank(secs, "long", 200),
+                 "rankShort": U.integrated_rank(secs, "short", 200)}, **out)
 
 
 # ─────────────────────────── 선정 방식 ───────────────────────────
@@ -296,11 +306,11 @@ def _sel(mode):
 select_A, select_B, select_C = _sel("roundrobin"), _sel("rank"), _sel("sectorcap")
 
 
-def _rr_total(use_total_pool):
+def _rr_total(use_total_pool, pool_key="byTotal"):
     """종합점수 라운드로빈 — 업종 순서 = 첫 적격 종목 종합점수, 업종 안 종합순, 업종당 1개씩 돌고 남으면 2바퀴째."""
     def f(day, side, p, held, cool):
         cap = p["capLong"] if side == "long" else p["capShort"]
-        secs = (day.get("byTotal") or {}).get("sectors") if use_total_pool else day.get("sectors")
+        secs = (day.get(pool_key) or {}).get("sectors") if use_total_pool else day.get("sectors")
         lists = []
         for sct in secs or []:
             if sct.get("dir") != side:
@@ -323,7 +333,8 @@ def _rr_total(use_total_pool):
 
 
 SELECT = {"A": select_A, "B": select_B, "C": select_C,   # = universe.pick 의 roundrobin / rank / sectorcap
-          "T1": _rr_total(False), "T2": _rr_total(True)}
+          "T1": _rr_total(False), "T2": _rr_total(True),
+          "T2W": _rr_total(True, "byTotalW"), "T2S": _rr_total(True, "byTotalS")}
 
 
 # ─────────────────────────── 포트폴리오 시뮬 ───────────────────────────
@@ -624,11 +635,11 @@ def main(argv=None):
     ap.add_argument("--store", default="none", help="none | env | file:<dir>")
     ap.add_argument("--out", help="결과 JSON 파일")
     ap.add_argument("--cap", type=int, default=10)
-    ap.add_argument("--methods", default="abc", help="abc = A/B/C 선정 방식 · total = A vs 종합점수 T1/T2")
+    ap.add_argument("--methods", default="abc", help="abc = A/B/C 선정 방식 · total = A vs 종합점수 T1/T2 · liq = 유동성 반영 T2/T2W/T2S")
     ap.add_argument("--total-min", type=float, default=50)
     a = ap.parse_args(argv)
-    methods = TOTAL_METHODS if a.methods == "total" else METHODS
-    kp = "sim/universe_total" if a.methods == "total" else "sim/universe_abc"
+    methods = {"total": TOTAL_METHODS, "liq": LIQ_METHODS}.get(a.methods, METHODS)
+    kp = {"total": "sim/universe_total", "liq": "sim/universe_liq"}.get(a.methods, "sim/universe_abc")
     st = None if a.store == "none" else (store_mod.from_env() if a.store == "env" else store_mod.FileStore(a.store[5:]))
     p = default_params(capLong=a.cap, capShort=a.cap, totalMin=a.total_min)
     if a.mock:
