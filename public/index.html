@@ -1558,11 +1558,10 @@
     .wbu-sec summary::before { content:"▸ "; opacity:.6; } .wbu-sec[open] summary::before { content:"▾ "; }
     .wbu-sec summary .st { font-weight:400; font-size:11px; opacity:.65; margin-left:6px; }
     .wbu-side { font-size:9.5px; font-weight:700; padding:0 5px; border-radius:4px; }
-    /* 열 폭(2026-10-14): 20일대금은 내용 폭만, 남는 폭은 주가·수급 점수 막대로 */
+    /* 열 폭(2026-10-14): 20일대금은 내용 폭만, 남는 폭은 점수 막대 4열에 균등 */
     .wbu-tbl th.liq:not(.s), .wbu-tbl td.liq:not(.s) { width:1%; }
-    .wbu-tbl th.liq.s, .wbu-tbl td.liq.s { width:58px; min-width:58px; max-width:58px; }
-    .wbu-tbl th.px.s, .wbu-tbl td.px.s, .wbu-tbl th.flow.s, .wbu-tbl td.flow.s { min-width:120px; width:14%; }
-    .wbu-tbl th.tot.s, .wbu-tbl td.tot.s { min-width:90px; }
+    /* 점수 4열(주가·유동성·수급·종합) 같은 폭 — 막대 길이를 열끼리 비교 가능하게 */
+    .wbu-tbl th.s, .wbu-tbl td.s { width:9%; min-width:104px; max-width:150px; }
     .wbu-xl { cursor:pointer; color:#fbbf24; margin-left:6px; }
     .wbu-xl:hover { color:#fcd34d; text-decoration:underline; }
     .wbu-side.long { color:#f04452; border:1px solid rgba(240,68,82,.4); } .wbu-side.short { color:#3182f6; border:1px solid rgba(49,130,246,.4); }
