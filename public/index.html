@@ -7117,7 +7117,7 @@
         ["20일대금", "liq", "억"], ["유동성", "liq s", "점수"],
         ["대금 1W", "flow", "Δ4주"], ["외인 1W", "flow", "억"], ["기관 1W", "flow", "억"], ["수급/시총", "flow", "bp"],
         ["공매도", "flow", "비중 · Δ%p"], ["대차 Δ", "flow", "억"], ["수급", "flow s", "점수"], ["종합", "tot s", "점수"]];
-      const GROUPS = [["모멘텀 점수 · 시총(억)", 5, ""], ["주가 — 1M·3M·6M·12M 백분위 평균 (1W·YTD 표시만)", 7, "px"], ["유동성 — 20일 대금 백분위 · 30↓ 게이트", 2, "liq"],
+      const GROUPS = [["모멘텀 점수 · 시총(억)", 5, ""], ["주가 — 1M·3M·6M·12M 백분위 평균 (1W·YTD 표시만)", 7, "px"], ["유동성 — 20일 대금 백분위 · 30 미만 종합 제외", 2, "liq"],
         ["수급 — 수급/시총 · −공매도 비중Δ · −대차Δ · 거래대금 가속 백분위 평균", 7, "flow"], ["종합 0.55주가+0.45수급", 1, "tot"]];
       const head = '<tr class="grp">' + GROUPS.map(g => '<th colspan="' + g[1] + '" class="' + g[2] + '">' + g[0] + "</th>").join("") + "</tr><tr>"
         + COLS.map(c => '<th class="' + (c[1] || "") + '">' + c[0] + (c[2] ? "<small>" + c[2] + "</small>" : "") + "</th>").join("") + "</tr>";
@@ -7142,7 +7142,7 @@
             + '<td class="flow ' + cl(x.flowBp) + '">' + sg(x.flowBp, 0, "bp") + "</td>"
             + '<td class="flow">' + (x.shortRlim1w == null ? "—" : x.shortRlim1w.toFixed(1) + "%") + '<small class="' + cl(x.shortMom, true) + '">' + sg(x.shortMom, 1) + "</small></td>"
             + '<td class="flow ' + cl(x.loanChg, true) + '">' + sg(x.loanChg, 0) + "</td>" + score(x.flowScore, "", "flow s")
-            + (x.totalScore == null ? '<td class="tot s mt" title="' + (x.liqGate ? "유동성점수 미달(게이트)" : "데이터 부족") + '">' + (x.liqGate ? "게이트" : "—") + "</td>" : score(x.totalScore, "total", "tot s")) + "</tr>";
+            + (x.totalScore == null ? '<td class="tot s mt" title="' + (x.liqGate ? "유동성 점수 " + (x.liqScore == null ? "—" : x.liqScore.toFixed(1)) + " < 30 — 종합 미산정" : "데이터 부족") + '">' + (x.liqGate ? "유동성 미달" : "—") + "</td>" : score(x.totalScore, "total", "tot s")) + "</tr>";
         }
         if (!rows) rows = '<tr><td colspan="' + COLS.length + '" class="mt" style="text-align:center">표시할 종목 없음</td></tr>';
         const col = C[s.signal] || "#94a3b8";
@@ -7182,11 +7182,11 @@
             num(x.ret1w), num(x.ret1m), num(x.ret3m), num(x.ret6m), num(x.ret12m), num(x.retYtd), num(x.pxScore),
             num(x.tv20d), num(x.liqScore), num(x.tv1w != null ? x.tv1w : x.tvDay), x.tvMom == null ? "" : Math.round(x.tvMom * 1000) / 10,
             num(x.frgn1w), num(x.orgn1w), num(x.flowBp), num(x.shortRlim1w), num(x.shortMom), num(x.loanChg), num(x.flowScore),
-            num(x.totalScore), x.totalScore == null ? (x.liqGate ? "유동성 게이트(<30)" : "데이터 부족") : ""]);
+            num(x.totalScore), x.totalScore == null ? (x.liqGate ? "유동성 미달(<30)" : "데이터 부족") : ""]);
         }
       }
       const SH = ["업종", "신호", "1W(%)", "거래대금 1W(억)", "거래대금 Δ4주(%)", "외인 1W(억)", "기관 1W(억)", "후보(≥+2)", "Top N", "비고"];
-      const note = "기준일 " + date + " · swing-web 유니버스(DB증권·KIS, 매 영업일 16:30 산출) · 종합 = 0.55·주가 + 0.45·수급, 유동성 점수 30 미만은 게이트 · 관찰 우선순위이며 매매 권유 아님";
+      const note = "기준일 " + date + " · swing-web 유니버스(DB증권·KIS, 매 영업일 16:30 산출) · 종합 = 0.55·주가 + 0.45·수급, 유동성 점수 30 미만은 유동성 미달(종합 미산정) · 관찰 우선순위이며 매매 권유 아님";
       function go() {
         const X = window.XLSX, wb = X.utils.book_new();
         const BG = "0B1020", HD = "1E293B";
