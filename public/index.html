@@ -1558,6 +1558,13 @@
     .wbu-sec summary::before { content:"▸ "; opacity:.6; } .wbu-sec[open] summary::before { content:"▾ "; }
     .wbu-sec summary .st { font-weight:400; font-size:11px; opacity:.65; margin-left:6px; }
     .wbu-side { font-size:9.5px; font-weight:700; padding:0 5px; border-radius:4px; }
+    /* 열 폭(2026-10-14): 20일대금은 내용 폭만, 남는 폭은 주가·수급 점수 막대로 */
+    .wbu-tbl th.liq:not(.s), .wbu-tbl td.liq:not(.s) { width:1%; }
+    .wbu-tbl th.liq.s, .wbu-tbl td.liq.s { width:58px; min-width:58px; max-width:58px; }
+    .wbu-tbl th.px.s, .wbu-tbl td.px.s, .wbu-tbl th.flow.s, .wbu-tbl td.flow.s { min-width:120px; width:14%; }
+    .wbu-tbl th.tot.s, .wbu-tbl td.tot.s { min-width:90px; }
+    .wbu-xl { cursor:pointer; color:#fbbf24; margin-left:6px; }
+    .wbu-xl:hover { color:#fcd34d; text-decoration:underline; }
     .wbu-side.long { color:#f04452; border:1px solid rgba(240,68,82,.4); } .wbu-side.short { color:#3182f6; border:1px solid rgba(49,130,246,.4); }
 
     /* Animations */
@@ -7111,7 +7118,7 @@
         ["20일대금", "liq", "억"], ["유동성", "liq s", "점수"],
         ["대금 1W", "flow", "Δ4주"], ["외인 1W", "flow", "억"], ["기관 1W", "flow", "억"], ["수급/시총", "flow", "bp"],
         ["공매도", "flow", "비중 · Δ%p"], ["대차 Δ", "flow", "억"], ["수급", "flow s", "점수"], ["종합", "tot s", "점수"]];
-      const GROUPS = [["모멘텀 점수 · 시총(억)", 5, ""], ["주가 — 1M·3M·6M·12M 백분위 평균 (1W·YTD 표시만)", 7, "px"], ["유동성 — 20일 평균 거래대금 백분위 · 30 미만 게이트", 2, "liq"],
+      const GROUPS = [["모멘텀 점수 · 시총(억)", 5, ""], ["주가 — 1M·3M·6M·12M 백분위 평균 (1W·YTD 표시만)", 7, "px"], ["유동성 — 20일 대금 백분위 · 30↓ 게이트", 2, "liq"],
         ["수급 — 수급/시총 · −공매도 비중Δ · −대차Δ · 거래대금 가속 백분위 평균", 7, "flow"], ["종합 0.55주가+0.45수급", 1, "tot"]];
       const head = '<tr class="grp">' + GROUPS.map(g => '<th colspan="' + g[1] + '" class="' + g[2] + '">' + g[0] + "</th>").join("") + "</tr><tr>"
         + COLS.map(c => '<th class="' + (c[1] || "") + '">' + c[0] + (c[2] ? "<small>" + c[2] + "</small>" : "") + "</th>").join("") + "</tr>";
@@ -7146,8 +7153,100 @@
       const sm = doc.summary || {}, b = doc.basis || {};
       const n = v => v == null ? "—" : v;
       return '<div style="font-size:11px;opacity:.7;margin-bottom:4px">기준일 <b>' + _wbuEsc(date || doc.date || "") + "</b> · 업종 " + n(sm.sectors != null ? sm.sectors : secs.length) + "(신호 " + n(sm.signaled) + " · 혼조 " + n(sm.mixed) + " · 대분류 제외 " + n(sm.big) + ") · 종목 점수(−5~+5) = 거래대금 가속 ±2 · 수급/시총 ±2 · 공매도 비중Δ ±1 · 대차 ±1 · 1W 방향 +1 · "
-        + '<a href="' + SWING_API_BASE + '/" target="_blank" rel="noopener" style="color:#fbbf24">swing-web 유니버스 탭 열기</a></div>' + out
+        + '<a href="' + SWING_API_BASE + '/" target="_blank" rel="noopener" style="color:#fbbf24">swing-web 유니버스 탭 열기</a>'
+        + '<span class="wbu-xl" onclick="wbUniExport();event.stopPropagation()" title="업종별 수급 모멘텀 Top10 을 엑셀(xlsx)로 다운로드">📥 엑셀</span></div>' + out
         + '<div style="opacity:.45;font-size:10.5px;margin-top:4px">' + _wbuEsc([b.tv, b.flow, b.short, b.loan, b.composite].filter(Boolean).join(" · ")) + " · 리츠·ETF·우선주 제외 · 관찰 우선순위이며 매매 권유 아님</div>";
+    }
+
+    // 업종별 수급 모멘텀 엑셀(2026-10-14) — 시트 ① 업종별 Top10(화면과 같은 열·히트맵·점수 막대 대신 값) ② 업종 요약.
+    // 주간 브리핑 엑셀과 같은 xlsx-js-style CDN, 차단 시 UTF-8 BOM CSV 폴백(①만).
+    function wbUniExport() {
+      const doc = _wbUni.doc;
+      if (!doc) { alert("유니버스 문서를 먼저 불러오세요(토글 펼치기)."); return; }
+      const date = _wbUni.date || doc.date || "";
+      const fname = "sector_flow_momentum_top10_" + date;
+      const num = v => (v == null || v === "" || isNaN(v)) ? "" : Number(v);
+      const H = ["업종", "신호", "순위", "종목", "코드", "방향", "모멘텀 점수(−5~+5)", "시총(억)",
+        "1W(%)", "1M(%)", "3M(%)", "6M(%)", "12M(%)", "YTD(%)", "주가 점수",
+        "20일 평균 거래대금(억)", "유동성 점수", "거래대금 1W(억)", "거래대금 Δ4주(%)", "외인 1W(억)", "기관 1W(억)",
+        "수급/시총(bp)", "공매도 비중(%)", "공매도 비중 Δ(%p)", "대차 Δ(억)", "수급 점수", "종합 점수", "비고"];
+      const rows = [], secRows = [];
+      for (const s of (doc.sectors || [])) {
+        const top = s.top || [];
+        secRows.push([s.name || "", s.signal || "", num(s.chgPct), num(s.secTv1w != null ? s.secTv1w : s.secTvDay),
+          s.secTvMom == null ? "" : Math.round(s.secTvMom * 1000) / 10, num(s.frgn), num(s.orgn),
+          top.filter(x => (x.score || 0) >= 2).length, top.length, s.dir ? "" : (s.big ? "대분류 — 산출 제외" : "혼조 — 관찰만")]);
+        for (const x of top) {
+          rows.push([s.name || "", s.signal || "", num(x.rank), x.name || "", x.code || "", (x.side || "").toUpperCase(), num(x.score), num(x.cap),
+            num(x.ret1w), num(x.ret1m), num(x.ret3m), num(x.ret6m), num(x.ret12m), num(x.retYtd), num(x.pxScore),
+            num(x.tv20d), num(x.liqScore), num(x.tv1w != null ? x.tv1w : x.tvDay), x.tvMom == null ? "" : Math.round(x.tvMom * 1000) / 10,
+            num(x.frgn1w), num(x.orgn1w), num(x.flowBp), num(x.shortRlim1w), num(x.shortMom), num(x.loanChg), num(x.flowScore),
+            num(x.totalScore), x.totalScore == null ? (x.liqGate ? "유동성 게이트(<30)" : "데이터 부족") : ""]);
+        }
+      }
+      const SH = ["업종", "신호", "1W(%)", "거래대금 1W(억)", "거래대금 Δ4주(%)", "외인 1W(억)", "기관 1W(억)", "후보(≥+2)", "Top N", "비고"];
+      const note = "기준일 " + date + " · swing-web 유니버스(DB증권·KIS, 매 영업일 16:30 산출) · 종합 = 0.55·주가 + 0.45·수급, 유동성 점수 30 미만은 게이트 · 관찰 우선순위이며 매매 권유 아님";
+      function go() {
+        const X = window.XLSX, wb = X.utils.book_new();
+        const BG = "0B1020", HD = "1E293B";
+        const base = { fill: { fgColor: { rgb: BG } }, font: { color: { rgb: "E2E8F0" }, sz: 10, name: "맑은 고딕" } };
+        const hdr = { fill: { fgColor: { rgb: HD } }, font: { bold: true, color: { rgb: "F8FAFC" }, sz: 10, name: "맑은 고딕" },
+          alignment: { horizontal: "center", vertical: "center", wrapText: true } };
+        const heat = v => {   // 대시보드 히트맵(빨강 상승·파랑 하락) — 다크 배경에 섞은 색
+          const a = Math.min(Math.abs(v), 50) / 50 * 0.45, c = v > 0 ? [240, 68, 82] : [49, 130, 246], b = [11, 16, 32];
+          return c.map((ch, i) => Math.round(b[i] + (ch - b[i]) * a).toString(16).padStart(2, "0")).join("").toUpperCase();
+        };
+        function sheet(title, head, body, pctCols, signCols, fmts, widths) {
+          const aoa = [[title], [note], [], head].concat(body);
+          const ws = X.utils.aoa_to_sheet(aoa);
+          const rng = X.utils.decode_range(ws["!ref"]);
+          for (let r = 0; r <= rng.e.r; r++) for (let c = 0; c < head.length; c++) {
+            const ref = X.utils.encode_cell({ r, c });
+            if (!ws[ref]) ws[ref] = { t: "s", v: "" };
+            const cell = ws[ref];
+            if (r === 0) cell.s = { fill: base.fill, font: { bold: true, sz: 13, color: { rgb: "FBBF24" }, name: "맑은 고딕" } };
+            else if (r === 1) cell.s = { fill: base.fill, font: { sz: 9, color: { rgb: "94A3B8" }, name: "맑은 고딕" } };
+            else if (r === 3) cell.s = hdr;
+            else {
+              const st = { fill: { fgColor: { rgb: BG } }, font: Object.assign({}, base.font), alignment: { horizontal: typeof cell.v === "number" ? "right" : "left" } };
+              if (typeof cell.v === "number") {
+                if (pctCols.includes(c)) st.fill = { fgColor: { rgb: heat(cell.v) } };
+                if (signCols.includes(c) && cell.v !== 0) st.font.color = { rgb: cell.v > 0 ? "F04452" : "3182F6" };
+                if (fmts[c]) cell.z = fmts[c];
+              }
+              cell.s = st;
+            }
+          }
+          ws["!cols"] = widths.map(w => ({ wch: w }));
+          ws["!merges"] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: head.length - 1 } }, { s: { r: 1, c: 0 }, e: { r: 1, c: head.length - 1 } }];
+          ws["!rows"] = [{ hpt: 22 }, { hpt: 16 }, { hpt: 6 }, { hpt: 30 }];
+          return ws;
+        }
+        const F1 = "0.0", F0 = "#,##0";
+        const fmtTop = { 6: "+0;-0;0", 7: F0, 8: F1, 9: F1, 10: F1, 11: F1, 12: F1, 13: F1, 14: F1, 15: F0, 16: F1, 17: F0, 18: "+0.0;-0.0;0",
+          19: "+#,##0;-#,##0;0", 20: "+#,##0;-#,##0;0", 21: "+0;-0;0", 22: F1, 23: "+0.0;-0.0;0", 24: "+#,##0;-#,##0;0", 25: F1, 26: F1 };
+        X.utils.book_append_sheet(wb, sheet("업종별 수급 모멘텀 Top10 — " + date, H, rows, [8, 9, 10, 11, 12, 13],
+          [6, 18, 19, 20, 21], fmtTop,
+          [14, 8, 5, 16, 8, 6, 10, 10, 7, 7, 7, 7, 7, 7, 8, 11, 8, 10, 10, 10, 10, 10, 10, 10, 10, 8, 8, 18]), "업종별 Top10");
+        X.utils.book_append_sheet(wb, sheet("업종 요약 — " + date, SH, secRows, [2], [4, 5, 6],
+          { 2: "+0.00;-0.00;0", 3: F0, 4: "+0.0;-0.0;0", 5: "+#,##0;-#,##0;0", 6: "+#,##0;-#,##0;0" },
+          [16, 8, 9, 13, 13, 11, 11, 9, 7, 18]), "업종 요약");
+        X.writeFile(wb, fname + ".xlsx");
+      }
+      if (window.XLSX && window.XLSX.__style) return go();
+      const sc = document.createElement("script");
+      sc.src = "https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.min.js";
+      sc.onload = () => { window.XLSX.__style = true; go(); };
+      sc.onerror = () => {   // CDN 차단(사내망) — UTF-8 BOM CSV 폴백(업종별 Top10 만, 무서식)
+        const csv = "﻿" + [H].concat(rows).map(r => r.map(c => {
+          c = String(c == null ? "" : c);
+          return /[",\n]/.test(c) ? '"' + c.replace(/"/g, '""') + '"' : c;
+        }).join(",")).join("\n");
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+        a.download = fname + ".csv"; a.click(); URL.revokeObjectURL(a.href);
+      };
+      document.head.appendChild(sc);
     }
 
     // ===== On-demand Deep Research (search box -> /api/research) =====
