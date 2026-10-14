@@ -1136,17 +1136,16 @@
   }
   function unTopRows(arr) {
     if (!arr.length) return '<div class="mx-empty">해당 방향 업종 없음</div>';
-    var h = '<div class="tr h"><span>#</span><span>종목 · 업종</span><span style="text-align:right">점수</span><span class="v c4">거래대금Δ</span>' +
-      '<span class="v c5">외+기</span><span class="v c6">공매도Δ</span><span class="fl">플래그 · 상태</span></div>';
+    var h = '<div class="tr top"><span>#</span><span>종목 · 업종</span><span style="text-align:right">점수</span><span class="v c4">거래대금Δ</span>' +
+      '<span class="v c5">외+기</span><span class="v c6">공매도 비중Δ</span></div>';
     arr.slice(0, 10).forEach(function (x, i) {
       var fo = (x.frgn1w || 0) + (x.orgn1w || 0);
-      h += '<div class="tr"><span class="rk">' + (x.rankAll || i + 1) + '</span><span class="nm">' + esc(x.name) + "<small>" + esc(x.sector) + " · " + sig(x.signal) +
+      h += '<div class="tr top"><span class="rk">' + (x.rankAll || i + 1) + '</span><span class="nm">' + esc(x.name) + "<small>" + esc(x.sector) + " · " + sig(x.signal) +
         (x.rank ? ' <span class="muted">업종 ' + x.rank + "위</span>" : "") + "</small></span>" +
         '<span style="text-align:right">' + sbar(x.score) + "</span>" +
         '<span class="v c4 ' + cls(x.tvMom) + '">' + (x.tvMom == null ? "—" : sgn(x.tvMom * 100, 0, "%")) + "<small>" + fmtEok(x.tv1w) + "</small></span>" +
         '<span class="v c5 ' + cls(fo) + '">' + sgn(fo, 0, "억") + "<small>" + sgn(x.flowBp, 0, "bp") + "</small></span>" +
-        '<span class="v c6 ' + cls(x.shortMom, true) + '">' + sgn(x.shortMom, 1, "pp") + "<small>" + (x.shortRlim1w == null ? "—" : x.shortRlim1w.toFixed(1) + "%") + "</small></span>" +
-        '<span class="fl">' + unFlags(x) + "<div>" + unState(x, x._s) + "</div></span></div>";
+        '<span class="v c6 ' + cls(x.shortMom, true) + '">' + sgn(x.shortMom, 1, "%p") + "<small>" + (x.shortRlim1w == null ? "—" : x.shortRlim1w.toFixed(1) + "%") + "</small></span></div>";
     });
     return h;
   }
@@ -1201,7 +1200,7 @@
     $("un-top-long").innerHTML = unTopRows(unAll(doc, "long"));
     $("un-top-short").innerHTML = unTopRows(unAll(doc, "short"));
     $("un-score-rules").innerHTML = [["거래대금 가속 (1W ÷ 4W 평균 − 1)", "±2"], ["외인+기관 순매수 ÷ 시총 (bp)", "±2"],
-      ["공매도 비중 Δ (Long 감소 · Short 증가)", "±1"], ["대차잔고 주간 증감", "±1"], ["1W 가격 방향 일치", "+1"], ["공매도 비중 높음 (Short 만)", "+1"]]
+      ["공매도 비중(거래량 대비) Δ %p (Long 감소 · Short 증가)", "±1"], ["대차잔고 주간 증감", "±1"], ["1W 가격 방향 일치", "+1"], ["공매도 비중 높음 (Short 만)", "+1"]]
       .map(function (r) { return '<div class="rule lg"><span>' + r[0] + "</span><span>" + r[1] + "</span></div>"; }).join("");
     var pm = (S.config && S.config.uniPickMode) || "roundrobin";
     var pmTxt = { roundrobin: "업종 라운드로빈(업종당 1개씩 순환)", rank: "통합 순위 상위", sectorcap: "통합 순위 + 업종당 " + ((S.config && S.config.uniSectorCap) || 2) }[pm] || pm;
@@ -1237,7 +1236,7 @@
       .filter(function (o) { return (UN.sec == null || UN.sec === o.i) && (UN.dir === "all" || o.s.dir === UN.dir); });
     var head = "<thead><tr><th>#</th><th>종목</th><th>방향</th><th>점수</th>" +
       '<th class="r">거래대금 1W<small>Δ 4주평균</small></th><th class="r">외인 1W</th><th class="r">기관 1W</th><th class="r">수급/시총</th>' +
-      '<th class="r">공매도 비중<small>Δ pp</small></th><th class="r">대차 Δ</th><th class="r">1W</th><th>플래그</th><th>상태</th></tr></thead>';
+      '<th class="r">공매도 비중<small>거래량 대비 · Δ %p</small></th><th class="r">대차 Δ</th><th class="r">1W</th><th>플래그</th><th>상태</th></tr></thead>';
     var open = UN.sec != null ? 99 : 5, h = "";
     list.forEach(function (o, k) {
       var s = o.s, closed = k >= open;

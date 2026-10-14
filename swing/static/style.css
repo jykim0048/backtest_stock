@@ -573,6 +573,8 @@ details.stage > summary .muted { font-weight: 500; font-size: 11px; margin-left:
 .tr .v small { display: block; font-size: 10px; color: var(--text-muted); }
 .tr .fl { text-align: right; white-space: nowrap; }
 .tr .fl .state { display: inline-block; margin-top: 3px; }
+.tr.top { grid-template-columns: 22px minmax(0, 1.4fr) 92px 64px 64px 60px; }   /* 통합 상위 10: 플래그·상태 열 없음(2026-10-14) */
+.tr.top:first-child { color: var(--text-muted); font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; border-bottom: 1px solid var(--border-color); }
 .top-col .mx-empty { color: var(--text-muted); font-size: 12px; padding: 8px 0; }
 /* 점수 막대(양방향) · 플래그 · 상태 */
 .sbar { position: relative; width: 88px; height: 8px; background: rgba(255, 255, 255, .05); border-radius: 4px; display: inline-block; vertical-align: middle; }
@@ -622,5 +624,5 @@ details.stage > summary .muted { font-weight: 500; font-size: 11px; margin-left:
 .un-foot { font-size: 10.5px; color: var(--text-muted); opacity: .75; margin-top: 10px; line-height: 1.6; }
 @media (max-width: 1100px) { .un-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); } .un-bottom { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 1000px) { .un-two { grid-template-columns: minmax(0, 1fr); } }
-@media (max-width: 700px) { .un-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } .tr { grid-template-columns: 20px minmax(0, 1fr) 80px 54px; } .tr .c5, .tr .c6, .tr .fl { display: none; } }
+@media (max-width: 700px) { .un-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } .tr, .tr.top { grid-template-columns: 20px minmax(0, 1fr) 80px 54px; } .tr .c5, .tr .c6, .tr .fl { display: none; } }
 .flag.uni { color: var(--kospi-blue); background: var(--kospi-blue-dim); }
