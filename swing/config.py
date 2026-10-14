@@ -57,7 +57,12 @@ UNI_CAND_MIN = _i("SWING_UNI_CAND_MIN", 2)         # '후보' 표시 최소 점�
 UNI_COOLDOWN_DAYS = _i("SWING_UNI_COOLDOWN_DAYS", 3)   # 최근 N영업일 entry 판단 있으면 유니버스 후보 제외(쿨다운)·✓ 표시
 UNI_NEW_PER_DAY = _i("SWING_UNI_NEW_PER_DAY", 10)     # 유니버스 소스 하루 신규 Long 분석 상한(= 통합 상위 10, 매트릭스와 별도)
 UNI_NEW_SHORT_PER_DAY = _i("SWING_UNI_NEW_SHORT_PER_DAY", 10)  # 유니버스 소스 하루 신규 Short 분석 상한(= 통합 상위 10)
-UNI_RANK_N = _i("SWING_UNI_RANK_N", 50)             # 전 업종 통합 롱/숏 순위 저장 길이(제외 뒤 채우기용, 표시는 10)
+UNI_RANK_N = _i("SWING_UNI_RANK_N", 50)             # 전 업종 통합 롱/숏 순위 저장 길이(표시 10)
+# 유니버스 후보 선정 방식(2026-10-14 A/B/C 시뮬 후 사용자 결정 = roundrobin):
+#   roundrobin = 업종 라운드로빈(상방/하방 업종을 1위 점수순으로 돌며 업종당 1개씩, 자리가 남으면 2바퀴째) · rank = 통합 순위 상위 ·
+#   sectorcap = 통합 순위 + 업종당 UNI_SECTOR_CAP
+UNI_PICK_MODE = (os.environ.get("SWING_UNI_PICK_MODE", "roundrobin") or "roundrobin").strip().lower()
+UNI_SECTOR_CAP = _i("SWING_UNI_SECTOR_CAP", 2)
 UNI_SHORT_FUT_ONLY = os.environ.get("SWING_UNI_SHORT_FUT_ONLY", "0") == "1"   # Short 후보를 주식선물 상장 종목으로 한정
 # 점수 임계값 — 거래대금 가속(1W/4W−1), 수급/시총(bp), 공매도 비중 Δ(pp), 대차 Δ(bp), 공매도 비중 높음(%)
 UNI_TV_HI, UNI_TV_LO = _f("SWING_UNI_TV_HI", 0.40), _f("SWING_UNI_TV_LO", 0.15)

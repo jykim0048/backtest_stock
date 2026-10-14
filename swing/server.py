@@ -208,7 +208,7 @@ def api_config(q):
             "borrowRate": config.BORROW_RATE,
             "universe": config.UNIVERSE_ENABLED, "uniNewPerDay": config.UNI_NEW_PER_DAY,
             "uniNewShortPerDay": config.UNI_NEW_SHORT_PER_DAY, "uniCandMin": config.UNI_CAND_MIN,
-            "uniCooldownDays": config.UNI_COOLDOWN_DAYS,
+            "uniCooldownDays": config.UNI_COOLDOWN_DAYS, "uniPickMode": config.UNI_PICK_MODE, "uniSectorCap": config.UNI_SECTOR_CAP,
             "adminSimConfigured": bool((os.environ.get("SWING_ADMIN_TOKEN") or "").strip())}
 
 

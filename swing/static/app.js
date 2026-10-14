@@ -390,7 +390,7 @@
       }), sd === "short" ? "환매 검토 대상 없음" : "매도 검토 대상 없음");
     table($(pre + "candidates"), [["종목"], ["신호"], ["PM"], ["Trader"], ["가격 레벨"], ["결과"]],
       cands.map(function (c) {
-        var srcTag = c.source === "universe" ? ' <span class="flag uni">유니버스' + (c.rankAll ? " " + c.rankAll + "위" : "") + "</span>" : "";
+        var srcTag = c.source === "universe" ? ' <span class="flag uni">유니버스' + (c.rankAll ? " 통합 " + c.rankAll + "위" : "") + "</span>" : "";
         var scTag = c.score != null ? ' <span class="num muted" title="공통 모멘텀 점수">' + (c.score > 0 ? "+" : "") + c.score + "</span>" : "";
         return { key: c.decisionKey, cells: [td(stock(c.name, c.code)), td('<span class="sec-name">' + esc(c.sector || "") + "</span>" + sig(c.signal) + srcTag + scTag),
           td(rating(c.rating, /판단 실패/.test(c.why || ""))), td(esc(c.action || "—")),
@@ -1188,7 +1188,9 @@
     $("un-score-rules").innerHTML = [["거래대금 가속 (1W ÷ 4W 평균 − 1)", "±2"], ["외인+기관 순매수 ÷ 시총 (bp)", "±2"],
       ["공매도 비중 Δ (Long 감소 · Short 증가)", "±1"], ["대차잔고 주간 증감", "±1"], ["1W 가격 방향 일치", "+1"], ["공매도 비중 높음 (Short 만)", "+1"]]
       .map(function (r) { return '<div class="rule lg"><span>' + r[0] + "</span><span>" + r[1] + "</span></div>"; }).join("");
-    $("un-knobs").innerHTML = [["1차 컷", "거래대금 " + kn.topkTv + " ∪ 시총 " + kn.topkCap], ["유동성 하한", "20일 평균 ≥ " + kn.minTvEok + "억"],
+    var pm = (S.config && S.config.uniPickMode) || "roundrobin";
+    var pmTxt = { roundrobin: "업종 라운드로빈(업종당 1개씩 순환)", rank: "통합 순위 상위", sectorcap: "통합 순위 + 업종당 " + ((S.config && S.config.uniSectorCap) || 2) }[pm] || pm;
+    $("un-knobs").innerHTML = [["선정 방식", pmTxt], ["1차 컷", "거래대금 " + kn.topkTv + " ∪ 시총 " + kn.topkCap], ["유동성 하한", "20일 평균 ≥ " + kn.minTvEok + "억"],
       ["업종별 Top", kn.topN], ["허브 보강", "예비 상위 " + kn.flowPerSector], ["방향", "상방→Long · 하방→Short · 혼조→미산출"],
       ["대분류(제조·금융)", "제외 — 중분류와 중복"], ["후보", "점수 ≥ +" + kn.candMin + " · 보유·대기·매트릭스·쿨다운 제외"], ["단위 나눗셈", "거래대금 " + kn.tvDiv + " · 수급 " + kn.flowDiv]]
       .map(function (r) { return '<div class="rule"><span>' + r[0] + "</span><span>" + esc(String(r[1])) + "</span></div>"; }).join("");

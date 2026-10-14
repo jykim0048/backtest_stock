@@ -250,44 +250,17 @@ def _ok(x, p, held, cool):
     return x.get("score") is not None and x["score"] >= p["candMin"] and x["code"] not in held and x["code"] not in cool
 
 
-def select_B(day, side, p, held, cool):
-    cap = p["capLong"] if side == "long" else p["capShort"]
-    return [x for x in day["rankLong" if side == "long" else "rankShort"] if _ok(x, p, held, cool)][:cap]
+def _sel(mode):
+    def f(day, side, p, held, cool):
+        cap = p["capLong"] if side == "long" else p["capShort"]
+        return U.pick(day, side, mode, lambda x: _ok(x, p, held, cool), cap=cap, sector_cap=p["sectorCapC"])
+    return f
 
 
-def select_C(day, side, p, held, cool):
-    cap, per = (p["capLong"] if side == "long" else p["capShort"]), p["sectorCapC"]
-    out, n = [], {}
-    for x in day["rankLong" if side == "long" else "rankShort"]:
-        if not _ok(x, p, held, cool) or n.get(x["sector"], 0) >= per:
-            continue
-        n[x["sector"]] = n.get(x["sector"], 0) + 1
-        out.append(x)
-        if len(out) >= cap:
-            break
-    return out
+select_A, select_B, select_C = _sel("roundrobin"), _sel("rank"), _sel("sectorcap")
 
 
-def select_A(day, side, p, held, cool):
-    cap = p["capLong"] if side == "long" else p["capShort"]
-    lists = []
-    for s in day["sectors"]:
-        if s["dir"] != side:
-            continue
-        xs = [dict(x, sector=s["name"], signal=s["signal"]) for x in s["top"] if _ok(x, p, held, cool)]
-        if xs:
-            lists.append(xs)
-    lists.sort(key=lambda xs: (-xs[0]["score"], -(xs[0]["tv1w"] or 0)))   # 업종 순서 = 1위 점수
-    out, i = [], 0
-    while len(out) < cap and any(len(xs) > i for xs in lists):
-        for xs in lists:
-            if len(xs) > i and len(out) < cap:
-                out.append(xs[i])
-        i += 1
-    return out
-
-
-SELECT = {"A": select_A, "B": select_B, "C": select_C}
+SELECT = {"A": select_A, "B": select_B, "C": select_C}   # = universe.pick 의 roundrobin / rank / sectorcap
 
 
 # ─────────────────────────── 포트폴리오 시뮬 ───────────────────────────

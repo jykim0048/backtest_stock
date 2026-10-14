@@ -1,5 +1,6 @@
 # PLAN_UNIVERSE — 섹터별 상위 10 종목 수급 모멘텀 유니버스 확장 (2026-10-13 초안 → 같은 날 swing 관찰 모드 구현)
 
+> 2026-10-14: A/B/C 시뮬(`tools/sim_universe.py`, 8/31~10/10) 결과 B(통합 순위) 가 업종 집중·변동성·MDD 최악, A≈C → **운용 선정 방식 = A 업종 라운드로빈**(`config.UNI_PICK_MODE`, `universe.pick`). 상세는 PROGRESS 🧪 절.
 > 2026-10-13 진행: §3 U1~U7 + 대시보드 탭 구현(A1~A7). **후보 연결 방식 변경**: 매트릭스와 병합하지 않고 **독립 소스**로 나란히(§4 A3 의 CandidateSource 대신 daily.run_day 5) 단계), 두 소스 모두 **같은 모멘텀 점수**로 정렬(매트릭스는 칸 전부 분석·점수순, 유니버스는 점수 ≥ +2·상한 5/5·쿨다운 3일). 섹터 노출 상한(A4)·B(허브 /short-rank)·C(main) 는 보류. 실측 §5 는 첫 Railway 산출로 확인.
 
 목표: 롱숏 후보가 주간 브리핑 `sectorScreen.matrix`(칸당 ≤5, 하루 Long 0~10 · Short 0~10)에만

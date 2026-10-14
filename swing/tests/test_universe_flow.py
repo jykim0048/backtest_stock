@@ -57,16 +57,29 @@ class TestCandidates(unittest.TestCase):
         self.assertTrue(doc["rankLong"] and doc["rankShort"])
         self.assertEqual([x["rankAll"] for x in doc["rankLong"][:3]], [1, 2, 3])
         self.assertEqual([x["score"] for x in doc["rankLong"]], sorted([x["score"] for x in doc["rankLong"]], reverse=True))
+        # rank 모드: 통합 순위를 위에서부터(제외 없음이면 동일 순서)
+        ranked = U.universe_candidates(doc, "long", mode="rank")
+        self.assertEqual([c["code"] for c in ranked], [x["code"] for x in doc["rankLong"] if x["score"] >= config.UNI_CAND_MIN])
+        self.assertIn("전 업종 통합 롱 모멘텀 1위", ranked[0]["reason"])
+        old = dict(doc); old.pop("rankLong"); old.pop("rankShort")
+        self.assertEqual([c["code"] for c in U.universe_candidates(old, "long", mode="rank")], [c["code"] for c in ranked])
+        # 기본(roundrobin, 2026-10-14 결정): 첫 바퀴는 상방 업종마다 1개씩 — 앞 k개가 서로 다른 업종, 바퀴 수 기록, 통합 순위 병기
         longs = U.universe_candidates(doc, "long")
         self.assertTrue(longs)
-        # 후보 = 통합 순위를 위에서부터(제외 없음이면 동일 순서)
-        self.assertEqual([c["code"] for c in longs], [x["code"] for x in doc["rankLong"] if x["score"] >= config.UNI_CAND_MIN])
-        self.assertIn("전 업종 통합 롱 모멘텀 1위", longs[0]["reason"])
-        # 구 문서(통합 순위 없음)도 같은 결과
-        old = dict(doc); old.pop("rankLong"); old.pop("rankShort")
-        self.assertEqual([c["code"] for c in U.universe_candidates(old, "long")], [c["code"] for c in longs])
+        self.assertEqual(config.UNI_PICK_MODE, "roundrobin")
+        n_sec = len({s["name"] for s in doc["sectors"] if s["dir"] == "long" and any(x["score"] >= config.UNI_CAND_MIN for x in s["top"])})
+        first = longs[:n_sec]
+        self.assertEqual(len({c["sector"] for c in first}), n_sec)
+        self.assertTrue(all(c["pickMode"] == "roundrobin" for c in longs))
+        self.assertIn("업종 라운드로빈 1번째(1바퀴", longs[0]["reason"])
+        self.assertIsNotNone(longs[0]["rankAll"])
+        self.assertEqual({c["code"] for c in longs}, {c["code"] for c in ranked})        # 집합은 같고 순서만 다름
+        # sectorcap 모드: 업종당 ≤ 2
+        from collections import Counter
+        sc = U.universe_candidates(doc, "long", mode="sectorcap")
+        self.assertTrue(all(v <= config.UNI_SECTOR_CAP for v in Counter(c["sector"] for c in sc).values()))
         self.assertTrue(all(c["source"] == "universe" and c["score"] >= config.UNI_CAND_MIN for c in longs))
-        self.assertEqual([c["score"] for c in longs], sorted([c["score"] for c in longs], reverse=True))
+        self.assertEqual([c["score"] for c in ranked], sorted([c["score"] for c in ranked], reverse=True))   # rank 모드만 점수순
         self.assertTrue(all(c["signal"] in ("동반강세", "수급유입") for c in longs))
         top = longs[0]["code"]
         self.assertNotIn(top, [c["code"] for c in U.universe_candidates(doc, "long", exclude={top})])
@@ -119,6 +132,7 @@ class TestRunDay(unittest.TestCase):
         self.assertLessEqual(len(sun), config.UNI_NEW_SHORT_PER_DAY)
         self.assertEqual({c["sector"] for c in sun}, {"통신"})
         # 판단 요청에 소스·점수·지표가 전달됨
+        self.assertTrue(all(c["source"] == "universe" for c in un))
         req = next(r for r in ag.reqs if r.code == un[0]["code"])
         self.assertEqual(req.source, "universe")
         self.assertIsNotNone(req.score)

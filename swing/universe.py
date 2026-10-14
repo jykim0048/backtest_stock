@@ -2,9 +2,10 @@
 store `universe/<date>` 에 저장하고 대시보드 「유니버스」 탭이 보여준다.
 **후보 소스**: 매트릭스(섹터 시그널 칸)와 **독립 소스**로 나란히 돌린다(병합 아님, 사용자 결정 2026-10-13) —
 두 소스 모두 아래 score_stock 의 **같은 모멘텀 점수(−5~+5)** 로 채점·정렬하고(attach_scores / universe_candidates),
-진입 규칙만 다르다: 매트릭스 = 칸 종목 전부 분석(점수순, 상한 MAX_NEW_PER_DAY) · 유니버스 = **전 업종 통합 롱/숏 모멘텀
-순위(rankLong/rankShort)** 상위에서 점수 ≥ UNI_CAND_MIN 인 종목을 보유·대기·매트릭스 후보·쿨다운 제외 후 위에서부터
-UNI_NEW_PER_DAY 개(2026-10-13 사용자 결정 — 업종별 풀이 아니라 통합 순위). 주문·포지션·거래에 source 가 남는다.
+진입 규칙만 다르다: 매트릭스 = 칸 종목 전부 분석(점수순, 상한 MAX_NEW_PER_DAY) · 유니버스 = pick() 의 선정 방식
+(config.UNI_PICK_MODE, 2026-10-14 A/B/C 시뮬 뒤 사용자 결정 = **roundrobin**: 방향 업종을 1위 점수순으로 돌며 업종당 1개씩,
+자리가 남으면 2바퀴째)으로 점수 ≥ UNI_CAND_MIN 인 종목을 보유·대기·매트릭스 후보·쿨다운 제외 후 UNI_NEW_PER_DAY 개.
+rank(통합 순위)·sectorcap(통합+업종당 N)은 노브로 남김. 주문·포지션·거래에 source 가 남는다.
 
 파이프라인
   U1 업종 목록      DB증권 USTOCKCOND(K)            → 주간 브리핑 sectorFlow 24행과 이름(norm_sec)으로 조인
@@ -737,27 +738,80 @@ def score_key(c):
     return (0 if s is not None else 1, -(s or 0), -((c.get("metrics") or {}).get("tv1w") or 0))
 
 
-def universe_candidates(doc, side, exclude=(), decided=None, fut_only=False):
-    """유니버스 문서 → 후보 [{code,name,sector,signal,score,reason,source:"universe",metrics}].
-    **전 업종 통합 롱/숏 모멘텀 순위(doc.rankLong/rankShort)** 를 위에서부터 훑어 점수 ≥ UNI_CAND_MIN 이고
-    보유·대기·매트릭스 후보(exclude)·최근 판단(decided, 쿨다운)이 아닌 종목을 순서대로 — 상한(UNI_NEW_PER_DAY)은
-    호출측이 자른다. 구 문서(rank 없음)는 업종 Top 을 모아 같은 순서로 만든다."""
-    decided, out, seen = decided or {}, [], set(exclude)
+def pick(doc, side, mode, ok, cap=None, sector_cap=None):
+    """후보 선정 공통 함수(운용·시뮬 공용, 2026-10-14). doc = {sectors[], rankLong[], rankShort[]} (universe/<date> 또는 시뮬 as-of 문서).
+    ok(x) = 종목 적격 판정(점수·보유·쿨다운 등). mode:
+      rank       = 전 업종 통합 순위(rankLong/rankShort) 위에서부터
+      sectorcap  = rank 와 같되 업종당 최대 sector_cap
+      roundrobin = 방향 업종을 1위(첫 적격 종목) 점수순으로 돌며 업종당 1개씩, 자리가 남으면 2바퀴째(업종별 Top 풀)
+    cap 이 None 이면 적격 종목 전부(호출측이 자름). 반환 행에는 sector·signal·rankAll 이 들어간다."""
+    doc = doc or {}
     key = "rankLong" if side == "long" else "rankShort"
-    ranked = (doc or {}).get(key)
+    ranked = doc.get(key)
     if ranked is None:
-        ranked = integrated_rank((doc or {}).get("sectors") or [], side)
-    for x in ranked:
+        ranked = integrated_rank(doc.get("sectors") or [], side)
+    rank_all = {str(x.get("code")).zfill(6): x.get("rankAll") for x in ranked}
+    out = []
+    if mode in ("rank", "sectorcap"):
+        per, n = (sector_cap if sector_cap is not None else config.UNI_SECTOR_CAP), {}
+        for x in ranked:
+            if not ok(x):
+                continue
+            if mode == "sectorcap":
+                if n.get(x.get("sector"), 0) >= per:
+                    continue
+                n[x.get("sector")] = n.get(x.get("sector"), 0) + 1
+            out.append(dict(x))
+            if cap is not None and len(out) >= cap:
+                break
+        return out
+    lists = []
+    for s in doc.get("sectors") or []:
+        if s.get("dir") != side:
+            continue
+        xs = [dict(x, sector=s.get("name"), signal=s.get("signal"), rankAll=rank_all.get(str(x.get("code")).zfill(6)))
+              for x in (s.get("top") or []) if ok(x)]
+        if xs:
+            lists.append(xs)
+    lists.sort(key=lambda xs: (-(xs[0].get("score") or 0), -(xs[0].get("tv1w") or 0)))   # 업종 순서 = 첫 적격 종목 점수
+    i = 0
+    while any(len(xs) > i for xs in lists) and (cap is None or len(out) < cap):
+        for xs in lists:
+            if len(xs) > i and (cap is None or len(out) < cap):
+                x = dict(xs[i])
+                x["rrRound"] = i + 1
+                out.append(x)
+        i += 1
+    return out
+
+
+def universe_candidates(doc, side, exclude=(), decided=None, fut_only=False, mode=None):
+    """유니버스 문서 → 후보 [{code,name,sector,signal,score,reason,source:"universe",metrics}].
+    선정 방식 = mode(기본 config.UNI_PICK_MODE = roundrobin, 2026-10-14 사용자 결정): pick() 참조. 적격 = 점수 ≥ UNI_CAND_MIN,
+    보유·대기·매트릭스 후보(exclude)·최근 판단(decided, 쿨다운) 아님. 상한(UNI_NEW_PER_DAY)은 호출측이 자른다."""
+    decided, seen = decided or {}, set(exclude)
+    mode = mode or config.UNI_PICK_MODE
+
+    def ok(x):
         code = str(x.get("code") or "").zfill(6)
         if (x.get("score") is None or x["score"] < config.UNI_CAND_MIN or code in seen or code in decided
                 or (fut_only and not x.get("hasStockFuture"))):
-            continue
+            return False
         seen.add(code)
-        label = "롱" if side == "long" else "숏"
+        return True
+    label = "롱" if side == "long" else "숏"
+    out = []
+    for i, x in enumerate(pick(doc, side, mode, ok)):
+        code = str(x.get("code") or "").zfill(6)
+        if mode == "roundrobin":
+            how = f"업종 라운드로빈 {i + 1}번째({x.get('rrRound')}바퀴 · 업종 {x.get('sector')} {x.get('signal')} {x.get('rank')}위 · 통합 {x.get('rankAll')}위)"
+        elif mode == "sectorcap":
+            how = f"통합 {label} 순위 {x.get('rankAll')}위(업종당 ≤{config.UNI_SECTOR_CAP} · 업종 {x.get('sector')} {x.get('signal')} {x.get('rank')}위)"
+        else:
+            how = f"전 업종 통합 {label} 모멘텀 {x.get('rankAll')}위(업종 {x.get('sector')} {x.get('signal')} {x.get('rank')}위)"
         out.append({"code": code, "name": x.get("name"), "sector": x.get("sector"), "signal": x.get("signal"),
-                    "score": x["score"], "source": "universe", "rankAll": x.get("rankAll"),
-                    "reason": f"전 업종 통합 {label} 모멘텀 {x.get('rankAll')}위(업종 {x.get('sector')} {x.get('signal')} {x.get('rank')}위) · "
-                              f"모멘텀 {x['score']:+d}/5" + (f"({x.get('reason')})" if x.get("reason") else ""),
+                    "score": x["score"], "source": "universe", "rankAll": x.get("rankAll"), "pickMode": mode,
+                    "reason": how + f" · 모멘텀 {x['score']:+d}/5" + (f"({x.get('reason')})" if x.get("reason") else ""),
                     "metrics": {k: x.get(k) for k in ("tv1w", "tvMom", "frgn1w", "orgn1w", "flowBp", "shortRlim1w",
                                                       "shortMom", "loanChg", "ret1w", "shortHigh", "cap", "hasStockFuture")}})
     return out
