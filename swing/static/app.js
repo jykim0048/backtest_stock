@@ -1137,16 +1137,22 @@
   }
   function unTopRows(arr) {
     if (!arr.length) return '<div class="mx-empty">해당 방향 업종 없음</div>';
+    // 2026-10-14 업종별 Top10 의 대표 열 3개 추가: 주가(3M·1M) · 20일 거래대금(억, 시총) · 종합(종합점수, 주가·수급 / 게이트). 점수는 칩만(막대 제거)
     var h = '<div class="tr top"><span>#</span><span>종목 · 업종</span><span style="text-align:right">점수</span><span class="v c4">거래대금Δ</span>' +
-      '<span class="v c5">외+기</span><span class="v c6">공매도 비중Δ</span></div>';
+      '<span class="v c5">외+기</span><span class="v c6">공매도Δ</span><span class="v c7">주가 3M</span><span class="v c9">20일대금(억)</span><span class="v c8">종합</span></div>';
     arr.slice(0, 10).forEach(function (x, i) {
-      var fo = (x.frgn1w || 0) + (x.orgn1w || 0);
+      var fo = (x.frgn1w || 0) + (x.orgn1w || 0), ts = x.totalScore;
+      var tot = ts != null ? '<span class="tot" style="--w:' + Math.max(0, Math.min(100, ts)) + '%">' + ts.toFixed(0) + "</span><small>주가" + (x.pxScore == null ? "—" : x.pxScore.toFixed(0)) + "·수급" + (x.flowScore == null ? "—" : x.flowScore.toFixed(0)) + "</small>"
+        : x.liqGate ? '<span class="muted" title="유동성점수 미달 — 종합 미산출">게이트</span><small>유동성 ' + (x.liqScore == null ? "—" : x.liqScore.toFixed(0)) + "</small>" : '<span class="muted">—</span><small>데이터 부족</small>';
       h += '<div class="tr top"><span class="rk">' + (x.rankAll || i + 1) + '</span><span class="nm">' + esc(x.name) + "<small>" + esc(x.sector) + " · " + sig(x.signal) +
         (x.rank ? ' <span class="muted">업종 ' + x.rank + "위</span>" : "") + "</small></span>" +
-        '<span style="text-align:right">' + sbar(x.score) + "</span>" +
+        '<span style="text-align:right"><span class="sc ' + (x.score > 0 ? "up" : x.score < 0 ? "down" : "muted") + '">' + (x.score == null ? "—" : (x.score > 0 ? "+" : "") + x.score) + "</span></span>" +
         '<span class="v c4 ' + cls(x.tvMom) + '">' + (x.tvMom == null ? "—" : sgn(x.tvMom * 100, 0, "%")) + "<small>" + fmtEok(x.tv1w) + "</small></span>" +
         '<span class="v c5 ' + cls(fo) + '">' + sgn(fo, 0, "억") + "<small>" + sgn(x.flowBp, 0, "bp") + "</small></span>" +
-        '<span class="v c6 ' + cls(x.shortMom, true) + '">' + sgn(x.shortMom, 1, "%p") + "<small>" + (x.shortRlim1w == null ? "—" : x.shortRlim1w.toFixed(1) + "%") + "</small></span></div>";
+        '<span class="v c6 ' + cls(x.shortMom, true) + '">' + sgn(x.shortMom, 1, "%p") + "<small>" + (x.shortRlim1w == null ? "—" : x.shortRlim1w.toFixed(1) + "%") + "</small></span>" +
+        '<span class="v c7 ' + cls(x.ret3m) + '">' + sgn(x.ret3m, 1, "%") + "<small>1M " + sgn(x.ret1m, 1, "%") + "</small></span>" +
+        '<span class="v c9">' + (x.tv20d == null ? "—" : Math.round(x.tv20d).toLocaleString("ko-KR")) + "<small>시총 " + (x.cap ? Math.round(x.cap).toLocaleString("ko-KR") : "—") + "</small></span>" +
+        '<span class="v c8">' + tot + "</span></div>";
     });
     return h;
   }
