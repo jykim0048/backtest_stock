@@ -79,4 +79,7 @@ UNI_CAP_DIV = _f("SWING_UNI_CAP_DIV", 100)
 UNI_W_PX = _f("SWING_UNI_W_PX", 0.55)
 UNI_W_FLOW = _f("SWING_UNI_W_FLOW", 0.45)
 UNI_LIQ_GATE = _f("SWING_UNI_LIQ_GATE", 30)
+# 유동성 백분위 풀(2026-10-14 사용자 결정 = all): all = Long·Short 합산 풀 · side = 방향별 풀(종전 — Short 풀이 대형주 20종목뿐이라
+# 경계가 ~335억까지 올라 195~284억 종목까지 게이트에 걸리던 문제)
+UNI_LIQ_POOL = (os.environ.get("SWING_UNI_LIQ_POOL", "all") or "all").strip().lower()
 UNI_PX_KEEP = _i("SWING_UNI_PX_KEEP", 320)          # 종가 이력 캐시 보관 영업일(12M 수익률 252 + 여유)

@@ -47,6 +47,20 @@ class TestComposite(unittest.TestCase):
                                                       st("S2", ret1m=30, ret3m=40, ret6m=50, ret12m=60, flowBp=40)]},
                 {"name": "C", "dir": None, "top": [st("X", score=None)]}]
 
+    def test_liq_pool_all_vs_side(self):
+        """유동성 백분위 풀 — all(Long·Short 합산, 기본) vs side(방향별). Short 풀이 대형주뿐일 때 side 는 과도하게 엄격."""
+        def secs():
+            def st(code, tv):
+                return {"code": code, "score": 3, "tv20d": tv, "ret1m": 1, "ret3m": 1, "flowBp": 1, "tvMom": 0.1}
+            return [{"name": "A", "dir": "long", "top": [st(f"L{i}", tv) for i, tv in enumerate((25, 30, 40, 60, 80, 120, 200, 400))]},
+                    {"name": "B", "dir": "short", "top": [st("S1", 200), st("S2", 900), st("S3", 1500), st("S4", 3000)]}]
+        side = {x["code"]: x for s in U.annotate_composite(secs(), liq_gate=30, liq_pool="side") for x in s["top"]}
+        alls = {x["code"]: x for s in U.annotate_composite(secs(), liq_gate=30, liq_pool="all") for x in s["top"]}
+        self.assertTrue(side["S1"]["liqGate"])                    # 방향별: Short 4종목 중 최하 → 200억인데 게이트
+        self.assertFalse(alls["S1"]["liqGate"])                   # 합산: 12종목 중 중간 → 통과
+        self.assertEqual(alls["S1"]["liqScore"], alls["L6"]["liqScore"])   # 같은 금액이면 방향 무관 같은 점수
+        self.assertTrue(alls["L0"]["liqGate"])
+
     def test_scores_and_gate(self):
         secs = U.annotate_composite(self._sectors(), w_px=0.55, w_flow=0.45, liq_gate=30)
         L = {x["code"]: x for x in secs[0]["top"]}

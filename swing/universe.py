@@ -523,7 +523,8 @@ def build_universe(date, wb, *, dbq, hub, ledger=None, decided=None, log=print, 
                      "flow": "DB증권 DAYSTOCKTJJ 외국인·기관계 매수−매도(억) · bp = ÷시총",
                      "short": "KIS /flow 공매도 volRlim 1W 평균(%) · Δ = 직전 4주 평균 대비(pp)",
                      "loan": "KIS /flow 대차잔고(억) 5영업일 증감", "cap": "DB증권 Avls(시총)",
-                     "composite": f"주가·유동성·수급 점수 = 같은 방향 Top 풀 안 백분위(0~100) · 종합 = {config.UNI_W_PX:.2f}·주가 + {config.UNI_W_FLOW:.2f}·수급 · "
+                     "composite": f"주가·수급 점수 = 같은 방향 Top 풀 안 백분위(0~100) · 유동성 점수 = "
+                                  f"{'Long·Short 합산' if config.UNI_LIQ_POOL == 'all' else '같은 방향'} Top 풀 안 20일 대금 백분위 · 종합 = {config.UNI_W_PX:.2f}·주가 + {config.UNI_W_FLOW:.2f}·수급 · "
                                   f"유동성점수 < {config.UNI_LIQ_GATE:.0f} 이면 종합 공란 · 수익률 = DB증권 CHARTDAY 종가(1M 21·3M 63·6M 126·12M 252영업일, YTD 전년말)"},
            "knobs": knobs,
            "summary": {"sectors": len(out_secs), "signaled": sum(1 for x in out_secs if x.get("dir")),
@@ -958,21 +959,24 @@ def percentile(values, v):
     return round((lt + 0.5 * eq) / len(xs) * 100, 1)
 
 
-def annotate_composite(sectors, *, w_px=None, w_flow=None, liq_gate=None):
+def annotate_composite(sectors, *, w_px=None, w_flow=None, liq_gate=None, liq_pool=None):
     """업종 Top 종목에 주가·유동성·수급·종합 점수(0~100, 같은 방향 풀 안 백분위)를 붙인다(제자리).
     주가점수 = 1M/3M/6M/12M 수익률 백분위 평균(방향 부호 반영: Short 은 하락이 높게, 2개 이상 기간 필요)
-    유동성점수 = 20일 평균 거래대금 백분위 · 수급점수 = (수급/시총, −공매도 비중Δ, −대차Δ, 거래대금 가속) 백분위 평균(방향 부호)
+    유동성점수 = 20일 평균 거래대금 백분위 — 풀은 config.UNI_LIQ_POOL(all = Long·Short 합산, side = 방향별) · 수급점수 = (수급/시총, −공매도 비중Δ, −대차Δ, 거래대금 가속) 백분위 평균(방향 부호)
     종합점수 = w_px·주가 + w_flow·수급 (이미지 역산 0.55/0.45) — 유동성점수 < liq_gate(30) 면 공란(None)."""
     w_px = config.UNI_W_PX if w_px is None else w_px
     w_flow = config.UNI_W_FLOW if w_flow is None else w_flow
     liq_gate = config.UNI_LIQ_GATE if liq_gate is None else liq_gate
+    liq_pool = (liq_pool or config.UNI_LIQ_POOL)
+    liq_all = [x.get("tv20d") for s in sectors if s.get("dir") in ("long", "short")
+               for x in (s.get("top") or []) if x.get("score") is not None]
     for side in ("long", "short"):
         sg = 1 if side == "long" else -1
         pool = [x for s in sectors if s.get("dir") == side for x in (s.get("top") or []) if x.get("score") is not None]
         if not pool:
             continue
         ret_cols = {k: [None if x.get(k) is None else sg * x[k] for x in pool] for k, _ in HORIZONS}
-        liq_col = [x.get("tv20d") for x in pool]
+        liq_col = liq_all if liq_pool == "all" else [x.get("tv20d") for x in pool]
         flow_cols = {"flowBp": [None if x.get("flowBp") is None else sg * x["flowBp"] for x in pool],
                      "shortMom": [None if x.get("shortMom") is None else -sg * x["shortMom"] for x in pool],
                      "loanBp": [None if x.get("loanBp") is None else -sg * x["loanBp"] for x in pool],
