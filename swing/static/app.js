@@ -1113,7 +1113,7 @@
   }
   function unCandTxt(kn) {
     kn = kn || {};
-    return kn.rankBasis === "total" ? "종합 ≥ " + (kn.totalMin != null ? kn.totalMin : 50) + "(게이트 통과)" : "점수 ≥ +" + (kn.candMin || 2);
+    return kn.rankBasis === "total" ? "종합 ≥ " + (kn.totalMin != null ? kn.totalMin : 50) + "(유동성 미달 제외)" : "점수 ≥ +" + (kn.candMin || 2);
   }
   function unRunState(code) {
     var run = S.run || {}, all = (run.candidates || []).concat(run.shortCandidates || []);
@@ -1148,13 +1148,13 @@
   }
   function unTopRows(arr) {
     if (!arr.length) return '<div class="mx-empty">해당 방향 업종 없음</div>';
-    // 2026-10-14 업종별 Top10 의 대표 열 3개 추가: 주가(3M·1M) · 20일 거래대금(억, 시총) · 종합(종합점수, 주가·수급 / 게이트). 점수는 칩만(막대 제거)
+    // 2026-10-14 업종별 Top10 의 대표 열 3개 추가: 주가(3M·1M) · 20일 거래대금(억, 시총) · 종합(종합점수, 주가·수급 / 유동성 미달). 점수는 칩만(막대 제거)
     var h = '<div class="tr top"><span>#</span><span>종목 · 업종</span><span style="text-align:right">점수</span><span class="v c4">거래대금Δ</span>' +
       '<span class="v c5">외+기</span><span class="v c6">공매도Δ</span><span class="v c7">주가 3M</span><span class="v c9">20일대금(억)</span><span class="v c8">종합</span></div>';
     arr.slice(0, 10).forEach(function (x, i) {
       var fo = (x.frgn1w || 0) + (x.orgn1w || 0), ts = x.totalScore;
       var tot = ts != null ? '<span class="tot" style="--w:' + Math.max(0, Math.min(100, ts)) + '%">' + ts.toFixed(0) + "</span><small>주가" + (x.pxScore == null ? "—" : x.pxScore.toFixed(0)) + "·수급" + (x.flowScore == null ? "—" : x.flowScore.toFixed(0)) + "</small>"
-        : x.liqGate ? '<span class="muted" title="유동성점수 미달 — 종합 미산출">게이트</span><small>유동성 ' + (x.liqScore == null ? "—" : x.liqScore.toFixed(0)) + "</small>" : '<span class="muted">—</span><small>데이터 부족</small>';
+        : x.liqGate ? '<span class="muted" title="유동성 점수 ' + (x.liqScore == null ? "—" : x.liqScore.toFixed(1)) + ' < 30 — 종합 미산정">유동성 미달</span><small>유동성 ' + (x.liqScore == null ? "—" : x.liqScore.toFixed(0)) + "</small>" : '<span class="muted">—</span><small>데이터 부족</small>';
       h += '<div class="tr top"><span class="rk">' + (x.rankAll || i + 1) + '</span><span class="nm">' + esc(x.name) + "<small>" + esc(x.sector) + " · " + sig(x.signal) +
         (x.rank ? ' <span class="muted">업종 ' + x.rank + "위</span>" : "") + "</small></span>" +
         '<span style="text-align:right"><span class="sc ' + (x.score > 0 ? "up" : x.score < 0 ? "down" : "muted") + '">' + (x.score == null ? "—" : (x.score > 0 ? "+" : "") + x.score) + "</span></span>" +
@@ -1286,7 +1286,7 @@
       ["대금 1W", "r", "Δ4주", "g-flow"], ["외인 1W", "r", "억", "g-flow"], ["기관 1W", "r", "억", "g-flow"], ["수급/시총", "r", "bp", "g-flow"],
       ["공매도", "r", "비중 · Δ%p", "g-flow"], ["대차 Δ", "r", "억", "g-flow"], ["수급", "r", "점수", "g-flow s"],
       ["종합", "r", "점수", "g-total s"]];
-    var UN_GROUPS = [["모멘텀 점수 −5~+5 · 시총(억)", 5], ["주가 — 1M·3M·6M·12M 백분위 평균 (1W·YTD 표시만)", 7, "g-px"], ["유동성 — 20일 평균 거래대금 백분위 · 30 미만 게이트", 2, "g-liq"],
+    var UN_GROUPS = [["모멘텀 점수 −5~+5 · 시총(억)", 5], ["주가 — 1M·3M·6M·12M 백분위 평균 (1W·YTD 표시만)", 7, "g-px"], ["유동성 — 20일 대금 백분위 · 30 미만 종합 제외", 2, "g-liq"],
       ["수급 — 수급/시총 · −공매도 비중Δ(거래량 대비) · −대차Δ · 거래대금 가속 백분위 평균", 7, "g-flow"], ["종합 0.55주가+0.45수급", 1, "g-total"]];
     var NCOL = COLS.length;
     var th = function (c, tag) { return "<" + tag + ' class="' + (c[1] || "") + (c[3] ? " " + c[3] : "") + '">' + c[0] + (c[2] ? "<small>" + c[2] + "</small>" : "") + "</" + tag + ">"; };
@@ -1294,7 +1294,9 @@
       COLS.map(function (c) { return th(c, "th"); }).join("") + "</tr></thead>";
     // 업종을 펼쳤을 때 어느 열인지 보이도록 업종 머리줄 아래에 열 제목을 반복(2026-10-14)
     var colRow = function (k, closed) {
-      return '<tr class="row colhead' + (closed ? " hide" : "") + '" data-k="' + k + '">' + COLS.map(function (c) { return th(c, "td"); }).join("") + "</tr>";
+      return '<tr class="row colhead grp' + (closed ? " hide" : "") + '" data-k="' + k + '">' + UN_GROUPS.map(function (g) {
+          return '<td colspan="' + g[1] + '" class="' + (g[2] || "") + '">' + g[0] + "</td>"; }).join("") + "</tr>" +
+        '<tr class="row colhead' + (closed ? " hide" : "") + '" data-k="' + k + '">' + COLS.map(function (c) { return th(c, "td"); }).join("") + "</tr>";
     };
     var open = UN.sec != null ? 99 : 5, h = "";
     list.forEach(function (o, k) {
@@ -1332,13 +1334,14 @@
           '<td class="num r g-flow">' + (x.shortRlim1w == null ? "—" : x.shortRlim1w.toFixed(1) + "%") + '<small class="' + cls(x.shortMom, true) + '">' + sgn(x.shortMom, 1) + "</small></td>" +
           '<td class="num r g-flow ' + cls(x.loanChg, true) + '">' + sgn(x.loanChg, 0) + "</td>" + scoreBar(x.flowScore, "", "g-flow s") +
           // 종합
-          (x.totalScore == null ? '<td class="num r muted g-total s" title="' + (x.liqGate ? "유동성점수 미달(게이트)" : "데이터 부족") + '">' + (x.liqGate ? "게이트" : "—") + "</td>" : scoreBar(x.totalScore, "total", "g-total s")) +
+          (x.totalScore == null ? '<td class="num r muted g-total s" title="' + (x.liqGate ? "유동성 점수 " + (x.liqScore == null ? "—" : x.liqScore.toFixed(1)) + " < 30 — 종합 미산정" : "데이터 부족") + '">' + (x.liqGate ? "유동성 미달" : "—") + "</td>" : scoreBar(x.totalScore, "total", "g-total s")) +
           "</tr>";
       });
       if (!rows.length) h += '<tr class="row' + (closed ? " hide" : "") + '" data-k="' + k + '"><td colspan="' + NCOL + '" class="muted" style="text-align:center">표시할 종목 없음</td></tr>';
     });
     if (!list.length) h = '<tr class="empty"><td colspan="' + NCOL + '">조건에 맞는 업종 없음</td></tr>';
-    tbl.innerHTML = head + "<tbody>" + h + "</tbody>";
+    // 열 제목은 업종 블록마다(그룹 띠 + 열 이름, main 토글과 같은 구성) — 표 맨 위 공통 머리줄은 빈 결과일 때만
+    tbl.innerHTML = (list.length ? "" : head) + "<tbody>" + h + "</tbody>";
     tbl.querySelectorAll("tr.sec").forEach(function (tr) {
       tr.addEventListener("click", function () {
         var k = tr.dataset.k, c = tr.classList.toggle("closed");

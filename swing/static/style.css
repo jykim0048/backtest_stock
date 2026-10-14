@@ -679,3 +679,14 @@ details.stage > summary .muted { font-weight: 500; font-size: 11px; margin-left:
 #un-table th, #un-table td { padding-left: 3px; padding-right: 3px; }
 #un-table td:nth-child(2) { max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @media (max-width: 760px) { .ss-q { flex-direction: column; gap: 6px; } .ss-q .qh { flex: 0 0 auto; } }
+
+/* 업종별 Top10 — main 대시보드(주간 브리핑 토글)와 같은 열 폭·그룹 띠(2026-10-14) */
+#un-table th.g-liq:not(.s), #un-table td.g-liq:not(.s) { width: 1%; }                  /* 20일대금 = 내용 폭만 */
+#un-table th.s, #un-table td.s { width: 9%; min-width: 104px; }                        /* 점수 4열 같은 폭 → 막대 비교 */
+#un-table tr.colhead.grp td { text-align: center; font-size: 10.5px; font-weight: 600; white-space: normal; line-height: 1.3;
+  padding: 6px 4px 3px; color: var(--text-muted); border-bottom: 0; }
+#un-table tr.colhead.grp td:first-child { text-align: left; }
+#un-table tr.colhead.grp td.g-px { color: #f87171; border-bottom: 2px solid rgba(248, 113, 113, .5); }
+#un-table tr.colhead.grp td.g-liq { color: #60a5fa; border-bottom: 2px solid rgba(96, 165, 250, .5); }
+#un-table tr.colhead.grp td.g-flow { color: #2dd4bf; border-bottom: 2px solid rgba(45, 212, 191, .5); }
+#un-table tr.colhead.grp td.g-total { color: #a78bfa; border-bottom: 2px solid rgba(167, 139, 250, .5); }
