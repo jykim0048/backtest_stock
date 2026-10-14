@@ -71,6 +71,13 @@ def _clip(text, label):
     return text[:MAX_INPUT] + f"\n…(입력 {label} 이 {len(text):,}자라 앞 {MAX_INPUT:,}자만 첨부)"
 
 
+def _weight_rule():
+    """종목당 비중 규칙(2026-10-14) — Trader·PM 이 시스템 상한·기본값·체결 방식을 알고 비중을 정하게 한다."""
+    return (f" 비중 규칙: 종목당 상한 {config.MAX_WEIGHT * 100:.0f}%, 미제시 시 {config.DEFAULT_WEIGHT * 100:.0f}%, 분할 매수 없음"
+            f"(다음 영업일 1회 지정가 전량). Trader 는 **Position Sizing** 을 포트폴리오 대비 % 숫자 하나로 쓰고, PM 은 리스크 토론을 "
+            f"반영한 최종 비중을 출력 끝에 `**Position Weight**: <%>` 한 줄로 확정한다(없으면 Trader 비중, 상한 초과분은 잘림).")
+
+
 def _momentum_line(req):
     """두 소스 공통 모멘텀 점수(2026-10-13) — 있으면 전략 맥락 끝에 붙인다."""
     sc, m = getattr(req, "score", None), getattr(req, "metrics", None) or {}
@@ -106,7 +113,7 @@ def strategy_context(req):
     return ("[전략 맥락] 스윙 모의투자 신규 진입 검토. 주문은 다음 영업일 1일 유효 지정가(Entry Price 도달 시 "
             "그 가격 체결), 보유 최대 {n}영업일 후 종가 청산. Stop Loss 필수(없으면 주문 안 됨). Price Target 은 "
             "{n}영업일 안에 현실적인 수준으로. 섹터 신호: {sig} {sec}, 스크리닝 근거: {r}.").format(
-        n=config.HOLD_DAYS, sig=req.signal or "-", sec=req.sector or "-", r=req.reason or "-") + _momentum_line(req)
+        n=config.HOLD_DAYS, sig=req.signal or "-", sec=req.sector or "-", r=req.reason or "-") + _weight_rule() + _momentum_line(req)
 
 
 def _short_context(req):
@@ -128,7 +135,7 @@ def _short_context(req):
             "**위**(필수, 없으면 주문 안 됨), Price Target 은 Entry Price **아래**로 {n}영업일 안에 현실적인 수준. "
             "보유 {n}영업일 후 재판별, 대차수수료 연 {br:.1f}%. 섹터 신호: {sig} {sec}, 스크리닝 근거: {r}.").format(
         lc=f"{req.last_close:,.0f}원" if req.last_close else "미상", n=config.HOLD_DAYS,
-        br=config.BORROW_RATE * 100, sig=req.signal or "-", sec=req.sector or "-", r=req.reason or "-") + _momentum_line(req)
+        br=config.BORROW_RATE * 100, sig=req.signal or "-", sec=req.sector or "-", r=req.reason or "-") + _weight_rule() + _momentum_line(req)
 
 
 def _default_llm(system, user, max_tokens, schema):

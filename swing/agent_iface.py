@@ -44,6 +44,7 @@ class Decision:
     stop: Optional[float] = None     # Trader Stop Loss(원)
     target: Optional[float] = None   # PM Price Target(원)
     weight: Optional[float] = None   # Trader Position Sizing → 비율(0~1)
+    pm_weight: Optional[float] = None  # PM **Position Weight**(리스크 토론 반영 최종 비중) → 비율. 수량 계산은 PM 우선(2026-10-14)
     summary: str = ""                # PM Executive Summary
     reports: dict = field(default_factory=dict)   # 역할별 원문(대시보드 판단 리포트)
     agent: str = ""                  # 구현 식별자(mock / trading_agent@<sha>)
@@ -109,6 +110,7 @@ def parse_trader(text):
 def parse_pm(text):
     return {"rating": _word(_field(text, "Rating"), RATINGS) or "REVIEW",
             "target": parse_price(_field(text, "Price Target")),
+            "weight": parse_weight(_field(text, "Position Weight")),      # 2026-10-14: PM 최종 비중(전략 맥락에서 요구)
             "summary": _field(text, "Executive Summary") or ""}
 
 
@@ -116,7 +118,7 @@ def decision_from_markdown(req, trader_md, pm_md, reports=None, agent=""):
     t, p = parse_trader(trader_md), parse_pm(pm_md)
     return Decision(code=req.code, date=req.date, purpose=req.purpose,
                     rating=p["rating"], action=t["action"], entry=t["entry"],
-                    stop=t["stop"], target=p["target"], weight=t["weight"],
+                    stop=t["stop"], target=p["target"], weight=t["weight"], pm_weight=p["weight"],
                     summary=p["summary"], reports=reports or {}, agent=agent, side=req.side)
 
 
@@ -156,7 +158,9 @@ def sell_verdict(d):
 
 
 def effective_weight(d):
-    w = d.weight if d.weight else config.DEFAULT_WEIGHT
+    """주문 비중 = PM Position Weight → 없으면 Trader Position Sizing → 없으면 DEFAULT_WEIGHT, 상한 MAX_WEIGHT.
+    (2026-10-14: 리스크 토론 뒤 PM 이 줄인 비중이 Trader 숫자에 묻혀 주문에 반영되지 않던 문제 수정)"""
+    w = getattr(d, "pm_weight", None) or d.weight or config.DEFAULT_WEIGHT
     return min(w, config.MAX_WEIGHT)
 
 

@@ -239,7 +239,8 @@ def _new_entries(L, store, agent, cands, bars, date, nxt, side, prog=None):
         row = {"code": c["code"], "name": c["name"], "side": side, "signal": c["signal"],
                "sector": c["sector"], "source": c.get("source") or "matrix", "rankAll": c.get("rankAll"),
                "score": c.get("score") if c.get("metrics") is not None else None, "matrixScore": c.get("matrixScore"),
-               "rating": d.rating, "action": d.action,
+               "rating": d.rating, "action": d.action, "weight": A.effective_weight(d),
+               "pmWeight": getattr(d, "pm_weight", None), "traderWeight": d.weight,
                "entry": d.entry, "stop": d.stop, "target": A.effective_target(d),
                "ordered": False, "why": why, "decisionKey": key}
         if ok:

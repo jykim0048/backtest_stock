@@ -54,6 +54,18 @@ class TestParse(unittest.TestCase):
         d.error = "x"
         self.assertFalse(A.sell_verdict(d))
 
+    def test_pm_weight_priority(self):
+        pm = PM + "\n**Position Weight**: 포트폴리오의 4%\n"
+        d = A.decision_from_markdown(A.DecisionRequest(code="1", name="n", date="d", purpose="entry"), TRADER, pm)
+        self.assertEqual((d.weight, d.pm_weight), (0.07, 0.04))
+        self.assertEqual(A.effective_weight(d), 0.04)                     # PM 우선
+        d.pm_weight = 0.3
+        self.assertEqual(A.effective_weight(d), 0.10)                     # 상한
+        d.pm_weight = None
+        self.assertEqual(A.effective_weight(d), 0.07)                     # Trader 폴백
+        back = A.Decision(**d.to_dict())
+        self.assertIsNone(back.pm_weight)
+
     def test_weight_and_target(self):
         d = A.Decision(code="1", date="d", purpose="entry", entry=100, target=90, weight=0.3)
         self.assertEqual(A.effective_weight(d), 0.10)

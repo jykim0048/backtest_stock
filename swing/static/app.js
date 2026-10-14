@@ -279,7 +279,7 @@
       ["보유", c.holdDays + "영업일(체결일=1) → 재판별"],
       ["목표가 도달", "재판별 → 매도(다음 날 시가) / 보유(본전 손절)"],
       ["연장 보유", "매일 재판별 · 최대 " + (c.maxHoldDays || 15) + "영업일"],
-      ["비중", "Trader %(생략 " + (c.defaultWeight * 100) + "%, 상한 " + (c.maxWeight * 100) + "%)"],
+      ["비중", "PM Position Weight → Trader(생략 " + (c.defaultWeight * 100) + "%, 상한 " + (c.maxWeight * 100) + "%)"],
       ["매도 검토", c.sellSignals.join(" · ") + " → PM " + c.sellRatings.join("/")],
       ["비용", "매도세 " + (c.sellTax * 100).toFixed(1) + "% · 슬리피지 없음"],
       ["하루 신규 분석", "최대 " + c.maxNewPerDay + "종목"]
@@ -1044,7 +1044,7 @@
       var g = [["PM 등급", rating(d.rating, d.error)], ["Trader", esc(d.action || "—")],
         ["진입가", '<span class="param-value entry">' + won(d.entry) + "</span>"], ["손절가", '<span class="param-value stop">' + won(d.stop) + "</span>"],
         ["목표가(PM)", '<span class="param-value target">' + (d.target ? won(d.target) : "—") + "</span>"],
-        ["비중", d.weight ? (d.weight * 100).toFixed(1) + "%" : "—"]];
+        ["비중", (d.pm_weight ? "PM " + (d.pm_weight * 100).toFixed(1) + "%" : "PM —") + " · Trader " + (d.weight ? (d.weight * 100).toFixed(1) + "%" : "—")]];
       var h = '<div class="dec-grid">' + g.map(function (x) {
         return '<div class="port-item"><span class="port-lbl">' + x[0] + '</span><span class="port-val">' + x[1] + "</span></div>";
       }).join("") + "</div>";
