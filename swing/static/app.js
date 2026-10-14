@@ -1181,7 +1181,7 @@
       ["거래대금·투자자", "DB증권"], ["공매도·대차", "KIS T+1"], ["후보", "독립 소스 · 점수 ≥ +" + ((doc.knobs || {}).candMin || 2) + " · 하루 " + (S.config && S.config.uniNewPerDay != null ? S.config.uniNewPerDay : 5) + "/" + (S.config && S.config.uniNewShortPerDay != null ? S.config.uniNewShortPerDay : 5)]]
       .map(function (c) { return '<span class="chip">' + c[0] + " <b>" + esc(c[1]) + "</b></span>"; }).join("");
     var kp = [["업종", sm.sectors, "신호 " + sm.signaled + " · 혼조 " + sm.mixed + " · 대분류 제외 " + sm.big],
-      ["1차 컷 → Top", sm.cut + "<small> → " + sm.top + "</small>", "거래대금 상위 " + kn.topkTv + " ∪ 시총 " + kn.topkCap],
+      ["1차 컷 → Top", sm.cut + "<small> → " + sm.top + "</small>", "거래대금 상위 " + kn.topkTv + " ∪ 시총 " + kn.topkCap + " · 20일 평균 거래대금 ≥ " + kn.minTvEok + "억"],
       ["Long 후보", sm.long, "점수 ≥ +" + kn.candMin + " · 상방 업종", "long"],
       ["Short 후보", sm.short, "선물 상장 " + sm.shortFut + " · 하방 업종", "short"],
       ["보유 겹침", sm.heldOverlap, "Top 안의 보유 종목"],
