@@ -1,0 +1,54 @@
+name: Weekly Briefing xlsx Refresh
+
+on:
+  # Railway 상시 서버 스케줄러(railway_server._scheduler)가 평일 16:40~19:00 KST 동안 5분마다
+  # swing-web 유니버스(/api/swing/universe)의 최신 기준일을 확인해 오늘자가 생기면 1회 dispatch
+  # (2026-10-14). 16:10 주간 브리핑 빌드는 swing-cron 16:30 유니버스 산출 전이라 엑셀의
+  # '업종별 수급 모멘텀' 탭이 전 영업일분 — 이 워크플로가 같은 날 유니버스로 엑셀만 다시 만든다.
+  # 주간 브리핑 JSON·LLM·허브는 건드리지 않는다(이미 커밋된 public/weekly_briefing.json 재사용).
+  workflow_dispatch:
+
+concurrency:
+  group: weekly-briefing     # 16:10 주간·16:20 월간과 직렬(같은 파일 커밋 경합 방지)
+  cancel-in-progress: false
+
+jobs:
+  xlsx-refresh:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install openpyxl
+
+      # 템플릿 재현 빌더 그대로 — 검증 실패 시 저장 안 함(커밋 없음). 유니버스는 swing-web 최신본.
+      - name: Rebuild weekly briefing xlsx (same-day universe)
+        run: python build_weekly_xlsx.py
+
+      - name: Commit and push xlsx
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add public/weekly_briefing.xlsx public/reports/weekly_briefing/
+          git diff --staged --quiet && echo "No changes to commit" && exit 0
+          git commit -m "chore: weekly briefing xlsx refresh (universe) $(date -u +'%Y-%m-%d %H:%MZ') [skip railway]"
+          git status --porcelain | head -5
+          for i in $(seq 1 5); do
+            if git push origin HEAD:main; then echo "pushed (attempt $i)"; exit 0; fi
+            echo "push attempt $i rejected; rebasing onto latest main..."
+            git fetch origin main
+            git stash --include-untracked --quiet 2>/dev/null || true
+            git rebase FETCH_HEAD || { git rebase --abort; echo "::error::rebase conflict"; exit 1; }
+            sleep $((RANDOM % 4 + 2))
+          done
+          echo "::error::push failed after 5 attempts" && exit 1

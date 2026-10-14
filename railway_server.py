@@ -672,6 +672,8 @@ CORPMAP_WF   = "build_corp_map.yml"
 INDEXCON_WF  = "index_constituents.yml"
 THEMEMAP_WF  = "theme_map.yml"
 USNIGHT_WF   = "us_night_catalysts.yml"
+XLSXREF_WF   = "weekly_xlsx_refresh.yml"  # 주간 엑셀 재빌드 — swing 유니버스 오늘자 생성 후 1회(2026-10-14)
+SWING_API    = os.environ.get("SWING_API_BASE", "https://swing-web-production.up.railway.app").rstrip("/")
 INTRADAY_MIN = {7, 37}            # KST 09:07~14:37, 30분 간격 (장전 08:37·15:07 은 단독 조건)
 USNIGHT_MIN  = {17, 47}           # KST 20:47~06:17, 30분 간격 (미국 프리~애프터마켓 촉매)
 
@@ -717,6 +719,22 @@ def _kr_market_day(now):
     """KR 파이프라인(장전·장중·마감·수급확정·스코어링·주간·월간·프로브) 발화 여부 — 평일이면서
     휴장일이 아닐 때만. 미국 야간 촉매·월 1회 작업은 이 판정을 타지 않는다."""
     return now.weekday() <= 4 and KR_HOLIDAYS.is_trading_day(now)
+
+
+def _swing_universe_date():
+    """swing-web 최신 유니버스 기준일(YYYY-MM-DD) — 실패하면 None(다음 확인 때 재시도)."""
+    try:
+        req = urllib.request.Request(SWING_API + "/api/swing/universe/progress", headers={"User-Agent": "railway-scheduler"})
+        with urllib.request.urlopen(req, timeout=10) as r:
+            pg = json.loads(r.read().decode("utf-8"))
+        if pg.get("status") == "running":
+            return None                                  # 재산출 진행 중이면 다음 확인 때
+        req = urllib.request.Request(SWING_API + "/api/swing/universe", headers={"User-Agent": "railway-scheduler"})
+        with urllib.request.urlopen(req, timeout=20) as r:
+            return (json.loads(r.read().decode("utf-8")) or {}).get("date")
+    except Exception as e:
+        print(f"[sched] swing 유니버스 확인 실패(재시도): {e}", file=sys.stderr, flush=True)
+        return None
 
 
 def _scheduler():
@@ -785,6 +803,18 @@ def _scheduler():
                     key = (today, f"probe-{now.hour:02d}{now.minute:02d}")
                     if key not in fired and _dispatch(PROBE_WF):
                         fired.add(key)
+                # 주간 엑셀 재빌드 16:40~19:00, 5분마다 확인(2026-10-14) — swing-cron(16:30)이 오늘 유니버스를
+                # 저장하면(보통 ~16:45) 엑셀의 '업종별 수급 모멘텀' 탭을 같은 날 데이터로 다시 만든다. 하루 1회.
+                if (now.hour == 16 and now.minute >= 40 or 17 <= now.hour < 19) and now.minute % 5 == 0:
+                    key = (today, "xlsx-refresh")
+                    chk = (today, f"xlsx-check-{now.hour:02d}{now.minute:02d}")
+                    if key not in fired and chk not in fired:
+                        fired.add(chk)
+                        if _swing_universe_date() == today and _dispatch(XLSXREF_WF):
+                            fired.add(key)
+                if now.hour == 19 and now.minute == 0 and (today, "xlsx-refresh") not in fired                         and (today, "xlsx-giveup") not in fired:
+                    fired.add((today, "xlsx-giveup"))
+                    print(f"[sched] {today} swing 유니버스 오늘자 미생성 — 주간 엑셀 재빌드 생략(16:10 판 유지)", flush=True)
                 # 월간 리뷰 16:20 (2026-09-11 P5) — 주간(16:10, ~4분) 직후라 당일 수급 스냅샷·
                 # netbuy_rank 가 확정돼 있고, 16:05 워밍한 허브 sector-flow 캐시(마감 후 TTL 3h)를
                 # 그대로 쓴다. concurrency 그룹(weekly-briefing) 공유라 겹치면 직렬 대기.
