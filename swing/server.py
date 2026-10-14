@@ -268,6 +268,8 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", cache)
+        if self.path.startswith("/api/"):
+            self.send_header("Access-Control-Allow-Origin", "*")   # 2026-10-14 주 대시보드(backteststock)가 유니버스를 직접 fetch
         self.end_headers()
         self.wfile.write(body)
 
