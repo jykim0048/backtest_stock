@@ -1235,9 +1235,14 @@
     });
     var list = doc.sectors.map(function (s, i) { return { s: s, i: i }; })
       .filter(function (o) { return (UN.sec == null || UN.sec === o.i) && (UN.dir === "all" || o.s.dir === UN.dir); });
-    var head = "<thead><tr><th>#</th><th>종목</th><th>방향</th><th>점수</th>" +
-      '<th class="r">거래대금 1W<small>Δ 4주평균</small></th><th class="r">외인 1W</th><th class="r">기관 1W</th><th class="r">수급/시총</th>' +
-      '<th class="r">공매도 비중<small>거래량 대비 · Δ %p</small></th><th class="r">대차 Δ</th><th class="r">1W</th><th>플래그</th><th>상태</th></tr></thead>';
+    var COLS = [["#"], ["종목"], ["방향"], ["점수"], ["거래대금 1W", "r", "Δ 4주평균"], ["외인 1W", "r"], ["기관 1W", "r"], ["수급/시총", "r"],
+      ["공매도 비중", "r", "거래량 대비 · Δ %p"], ["대차 Δ", "r"], ["1W", "r"], ["플래그"], ["상태"]];
+    var head = "<thead><tr>" + COLS.map(function (c) { return '<th class="' + (c[1] || "") + '">' + c[0] + (c[2] ? "<small>" + c[2] + "</small>" : "") + "</th>"; }).join("") + "</tr></thead>";
+    // 업종을 펼쳤을 때 어느 열인지 보이도록 업종 머리줄 아래에 열 제목을 반복(2026-10-14)
+    var colRow = function (k, closed) {
+      return '<tr class="row colhead' + (closed ? " hide" : "") + '" data-k="' + k + '">' +
+        COLS.map(function (c) { return '<td class="' + (c[1] || "") + '">' + c[0] + (c[2] ? "<small>" + c[2] + "</small>" : "") + "</td>"; }).join("") + "</tr>";
+    };
     var open = UN.sec != null ? 99 : 5, h = "";
     list.forEach(function (o, k) {
       var s = o.s, closed = k >= open;
@@ -1256,6 +1261,7 @@
         '<b class="' + cls(s.secTvMom) + '">' + (s.secTvMom == null ? "" : sgn(s.secTvMom * 100, 0, "%")) + "</b> · 외+기 <b>" + sgn((s.frgn || 0) + (s.orgn || 0), 0, "억") + "</b> · " +
         (s.dir ? "후보 <b>" + nC + "</b> / Top" + (s.top || []).length : s.big ? "대분류 — 산출 제외" : "혼조 — 관찰만") +
         (s.error ? ' · <span class="up">' + esc(s.error) + "</span>" : "") + '</span><span class="more">' + (closed ? "펼치기" : "접기") + "</span></td></tr>";
+      if (rows.length) h += colRow(k, closed);
       rows.forEach(function (x) {
         h += '<tr class="row' + (closed ? " hide" : "") + '" data-k="' + k + '"><td class="num">' + x.rank + "</td><td>" + stock(x.name, x.code) + "</td><td>" +
           (x.side ? '<span class="side-tag ' + x.side + '">' + x.side.toUpperCase() + "</span>" : '<span class="muted">—</span>') + "</td><td>" + sbar(x.score) + "</td>" +

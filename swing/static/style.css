@@ -610,6 +610,11 @@ details.stage > summary .muted { font-weight: 500; font-size: 11px; margin-left:
 .gtbl tr.sec .st b { color: var(--text-main); font-weight: 600; }
 .gtbl tr.sec .more { float: right; font-family: var(--font-outfit); font-size: 11.5px; color: var(--kospi-blue); }
 .gtbl tr.row.hide { display: none; }
+.gtbl tr.colhead td { padding: 5px 8px 4px; font-size: 10.5px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: .4px;
+  border-bottom: 1px solid var(--border-color); background: rgba(7, 10, 19, .25); white-space: nowrap; }
+.gtbl tr.colhead td:first-child { color: var(--text-muted); }
+.gtbl tr.colhead td small { display: block; font-size: 10px; text-transform: none; letter-spacing: 0; color: var(--text-muted); font-family: inherit; }
+.gtbl tbody tr.colhead:hover { background: rgba(7, 10, 19, .25); box-shadow: none; cursor: default; }
 .gtbl tr.row td:first-child { color: var(--text-muted); }
 .gtbl tbody tr.sec:hover { box-shadow: none; background: rgba(7, 10, 19, .6); }
 .gtbl tr.empty td { text-align: center; color: var(--text-muted); padding: 18px; }
