@@ -680,7 +680,7 @@ def build(d):
             b.mg(1, 11); b.wrap_h(t, 1, 11); b.nl()
 
     b.finish()
-    add_detail_sheets(wb, b, d)     # 접힘(토글) 섹션 상세 — 별도 탭 4종(2026-09-09)
+    add_detail_sheets(wb, b, d)     # 접힘(토글) 섹션 상세 — 별도 탭 4종(2026-09-09) + 업종별 수급 모멘텀(2026-10-14)
     del wb["_tpl"]
 
     # 원본 데이터(평탄화 스트림) 탭 삭제 — 2026-09-09 사용자 요청. 상세 탭
@@ -688,6 +688,32 @@ def build(d):
     if RAW_SHEET in wb.sheetnames:
         del wb[RAW_SHEET]
     return wb, ws
+
+
+SWING_API = os.environ.get("SWING_API_BASE", "https://swing-web-production.up.railway.app")
+
+
+def _fetch_universe():
+    """swing-web 최신 유니버스 문서(업종별 수급 모멘텀 Top10) — 실패하면 None(탭 생략, 빌드는 계속).
+    SWING_UNIVERSE_JSON=<파일> 이면 그 파일(오프라인 검증용)."""
+    path = os.environ.get("SWING_UNIVERSE_JSON")
+    try:
+        if path:
+            with open(path, encoding="utf-8") as f:
+                j = json.load(f)
+        else:
+            import urllib.request
+            req = urllib.request.Request(SWING_API.rstrip("/") + "/api/swing/universe",
+                                         headers={"User-Agent": "weekly-xlsx"})
+            with urllib.request.urlopen(req, timeout=20) as r:
+                j = json.loads(r.read().decode("utf-8"))
+        doc = (j or {}).get("universe")
+        if doc:
+            doc["_date"] = j.get("date") or doc.get("date")
+        return doc
+    except Exception as e:                       # noqa: BLE001 — 부가 탭이라 실패해도 본 엑셀은 만든다
+        print(f"[xlsx] 유니버스 탭 생략 — swing-web 조회 실패: {type(e).__name__}: {e}", file=sys.stderr)
+        return None
 
 
 def add_detail_sheets(wb, b, d):
@@ -1100,6 +1126,124 @@ def add_detail_sheets(wb, b, d):
             ws2.conditional_formatting.add(
                 f"B5:B{data_end}",
                 DataBarRule(start_type="min", end_type="max", color="19B6C9", showValue=True))
+
+    # ── 탭 5: 업종별 수급 모멘텀 Top10 — swing-web 유니버스(2026-10-14 사용자 요청) ─────────
+    # 섹터x수급 탭과 같은 표 양식(단일 헤더·평탄 표·틀 고정·자동 필터·부호색·데이터 막대). 데이터는 빌드 시점의
+    # 최신 유니버스(swing-web /api/swing/universe) — 주간 브리핑 16:10 빌드는 그날 16:30 산출 전이라 보통 전 영업일분,
+    # 기준일을 칩 캡션·각주에 명시. 서버 응답 없음·월간 리뷰는 탭을 만들지 않는다(다른 탭과 같은 "데이터 없으면 생략").
+    uni = None if d.get("period") == "month" else _fetch_universe()
+    usecs = [s for s in ((uni or {}).get("sectors") or []) if s.get("top")]
+    if usecs:
+        F_1 = "+0.0;-0.0;0.0"
+        F_S1 = "0.0"
+        WU = {"A": 13.5, "B": 8.5, "C": 4.5, "D": 15.5, "E": 6.5, "F": 5.5, "G": 10.0,
+              "H": 7.5, "I": 7.5, "J": 7.5, "K": 7.5, "L": 7.5, "M": 7.5, "N": 7.0,
+              "O": 9.5, "P": 7.0, "Q": 9.5, "R": 8.0, "S": 8.5, "T": 8.5, "U": 9.0,
+              "V": 7.5, "W": 7.5, "X": 8.5, "Y": 7.0, "Z": 7.0, "AA": 13.0}
+        ws2 = new_sheet("업종별 수급 모멘텀", WU, meta=(23, 24))
+        udate = uni.get("_date") or uni.get("date") or ""
+        kn = uni.get("knobs") or {}
+        basis_t = "종합점수(업종 Top·후보)" if kn.get("rankBasis") == "total" else "모멘텀 점수"
+        b.chip("U1", "업종별 수급 모멘텀 Top10", cap=f"유니버스 기준일 {udate} · 선정 {basis_t} · 가격 %, 수급 억원",
+               cap_col=12)
+        # 컬럼 그룹 밴드 — 대시보드 토글 그룹(모멘텀·시총 / 주가 / 유동성 / 수급 / 종합)
+        for c1, c2, t in ((1, 7, "업종 · 종목 · 모멘텀 점수(−5~+5) · 시총(억)"),
+                          (8, 14, "주가 — 1M·3M·6M·12M 백분위 평균 (1W·YTD 표시만)"),
+                          (15, 16, "유동성 — 20일 대금 백분위"),
+                          (17, 25, "수급 — 수급/시총 · −공매도 비중Δ · −대차Δ · 거래대금 가속 백분위 평균"),
+                          (26, 27, "종합 0.55주가+0.45수급")):
+            b.cell(c1, t, "chip")
+            for c in range(c1 + 1, c2 + 1):
+                b.cell(c, "", "chip")
+            b.mg(c1, c2)
+        b.nl()
+        hdr = ["업종", "신호", "순위", "종목명", "방향", "점수", "시총",
+               "1W", "1M", "3M", "6M", "12M", "YTD", "주가점수",
+               "20일대금", "유동성점수",
+               "대금 1W", "대금Δ4주(%)", "외인 1W", "기관 1W", "수급/시총(bp)", "공매도비중(%)", "공매도Δ(%p)", "대차Δ", "수급점수",
+               "종합점수", "비고"]
+        b.hdr_row(hdr, align="center")
+        hdr_r = b.r - 1
+        SIG_ST = {"동반강세": ("FFD64545", "FFFDEEEE"), "수급이탈": ("FFB45309", "FFFFF4E0"),
+                  "수급유입": ("FF0B7F8C", "FFEAF8FA"), "동반약세": ("FF3182F6", "FFEAF1FD")}
+
+        def num(c, v, fm, sign=False, inv=False, bold_=False):
+            cc = b.cell(c, v if v is not None else "", "econ_cell", fmt=fm, align="right")
+            if sign and isinstance(v, (int, float)) and v:
+                up = (v < 0) if inv else (v > 0)            # inv = 감소가 상방 해석(공매도·대차)
+                fstyle(cc, rgb=BUY_RED if up else SELL_BLUE, bold_=bold_ or None)
+            elif bold_:
+                fstyle(cc, bold_=True)
+            return cc
+
+        for s in usecs:
+            sig = s.get("signal") or ""
+            obs = not s.get("dir")
+            for x in s.get("top") or []:
+                b.cell(1, s.get("name", ""), "nb_cell")
+                sc = b.cell(2, "" if sig == "혼조" else sig, "econ_cell", align="center")
+                if sig in SIG_ST:
+                    fstyle(sc, rgb=SIG_ST[sig][0], bold_=True)
+                    sc.fill = PatternFill("solid", fgColor=SIG_ST[sig][1])
+                b.cell(3, x.get("rank") or "", "econ_cell", align="center")
+                nc_ = b.cell(4, x.get("name", ""), "nb_cell")
+                side = (x.get("side") or "").upper()
+                sd = b.cell(5, side, "econ_cell", align="center")
+                if side:
+                    fstyle(sd, rgb=BUY_RED if side == "LONG" else SELL_BLUE, bold_=True)
+                num(6, x.get("score"), "+0;-0;0", sign=True, bold_=True)
+                num(7, x.get("cap"), F_INT)
+                for j, k in enumerate(("ret1w", "ret1m", "ret3m", "ret6m", "ret12m", "retYtd")):
+                    num(8 + j, x.get(k), F_1, sign=True)
+                num(14, x.get("pxScore"), F_S1)
+                num(15, x.get("tv20d"), F_INT)
+                num(16, x.get("liqScore"), F_S1)
+                tv1 = x.get("tv1w")
+                num(17, tv1 if tv1 is not None else x.get("tvDay"), F_INT)
+                num(18, None if x.get("tvMom") is None else round(x["tvMom"] * 100, 1), F_1, sign=True)
+                num(19, x.get("frgn1w"), F_EOK, sign=True)
+                num(20, x.get("orgn1w"), F_EOK, sign=True)
+                num(21, x.get("flowBp"), F_EOK, sign=True)
+                num(22, x.get("shortRlim1w"), "0.0")
+                num(23, x.get("shortMom"), F_1, sign=True, inv=True)
+                num(24, x.get("loanChg"), F_EOK, sign=True, inv=True)
+                num(25, x.get("flowScore"), F_S1)
+                tot = x.get("totalScore")
+                num(26, tot, F_S1, bold_=True)
+                if tot is None and x.get("liqGate"):
+                    remark = "유동성 미달(<30)"
+                elif tot is None:
+                    remark = "데이터 부족"
+                elif tv1 is None and x.get("tvDay") is not None:
+                    remark = "대금 1W=당일"
+                else:
+                    remark = ""
+                if obs:
+                    remark = ("관찰(후보 제외)" + (" · " + remark if remark else ""))
+                rc = b.cell(27, remark, "econ_cell", align="center")
+                if remark:
+                    fstyle(rc, rgb=GRAY)
+                if obs:
+                    fstyle(nc_, rgb=GRAY)
+                b.nl()
+        data_end = b.r - 1
+        b.nl()
+        bs = uni.get("basis") or {}
+        note(f"swing-web 유니버스(DB증권·KIS, 매 영업일 16:30 산출) · 기준일 {udate} — 주간 브리핑 빌드(16:10) 시점의 최신본"
+             " · 업종별 1차 컷(당일 거래대금 상위 15 ∪ 시총 상위 5, 20일 평균 거래대금 ≥ 20억) 후 Top10")
+        note("모멘텀 점수(−5~+5) = 거래대금 가속 ±2 · 수급/시총 ±2 · 공매도 비중Δ ±1 · 대차 ±1 · 1W 방향 +1(Short 공매도 비중 높음 +1)"
+             " · 주가·유동성·수급 점수 = 같은 방향 Top 풀 백분위(0~100), 유동성은 Long·Short 합산 풀 · 종합 = 0.55·주가 + 0.45·수급"
+             " · 유동성 점수 30 미만 = 유동성 미달(종합 미산정)")
+        footnote("대분류(제조·금융)·혼조 업종 = 관찰(후보 제외 — 점수는 같은 방향 풀 기준 상당값) · 공매도Δ·대차Δ 는 감소가 Long 에"
+                 " 유리(감소 = 적색) · " + " · ".join(v for v in (bs.get("tv"), bs.get("short"), bs.get("loan")) if v)
+                 + " · 관찰 우선순위이며 매매 권유 아님")
+        b.finish()
+        ws2.freeze_panes = f"E{hdr_r + 1}"              # 업종·신호·순위·종목명 + 헤더 고정
+        ws2.auto_filter.ref = f"A{hdr_r}:AA{data_end}"
+        for col, color in (("N", "F87171"), ("P", "60A5FA"), ("Y", "2DD4BF"), ("Z", "A78BFA")):
+            ws2.conditional_formatting.add(
+                f"{col}{hdr_r + 1}:{col}{data_end}",
+                DataBarRule(start_type="num", start_value=0, end_type="num", end_value=100, color=color, showValue=True))
 
 
 def _disp_w(text):
