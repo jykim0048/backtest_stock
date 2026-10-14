@@ -1150,6 +1150,21 @@
     });
     return h;
   }
+  // 그날 유니버스 소스 처리 결과 KPI(2026-10-14 — '산출' 타일 대체): 분석 → 주문, Long/Short, 상한 초과·쿨다운 제외
+  function unRunKpi() {
+    var run = S.run || {};
+    var u = (run.candidates || []).concat(run.shortCandidates || []).filter(function (r) { return r.source === "universe"; });
+    if (!u.length && !run.date) return ["유니버스 분석 → 주문", "—", "이 날 런 없음"];
+    var ord = u.filter(function (r) { return r.ordered; });
+    var L = u.filter(function (r) { return r.side !== "short"; }), Sh = u.filter(function (r) { return r.side === "short"; });
+    var cap = (run.uniCapSkipped || []).length + (run.uniShortCapSkipped || []).length;
+    var cool = null;
+    (run.notes || []).forEach(function (n) { var m = /쿨다운 제외 (\d+)/.exec(n); if (m) cool = +m[1]; });
+    var sub = "Long " + L.filter(function (r) { return r.ordered; }).length + "/" + L.length + " · Short " + Sh.filter(function (r) { return r.ordered; }).length + "/" + Sh.length +
+      (cap ? " · 상한 초과 " + cap : "") + (cool != null ? " · 쿨다운 " + cool : "");
+    if (!u.length) sub = "유니버스 후보 없음" + (cool != null ? " · 쿨다운 " + cool : "");
+    return ["유니버스 분석 → 주문", u.length + '<small> → ' + ord.length + "</small>", sub];
+  }
   function renderUniverse(res) {
     var doc = res && res.universe;
     UN.doc = doc; UN.sec = null;
@@ -1170,7 +1185,7 @@
       ["Long 후보", sm.long, "점수 ≥ +" + kn.candMin + " · 상방 업종", "long"],
       ["Short 후보", sm.short, "선물 상장 " + sm.shortFut + " · 하방 업종", "short"],
       ["보유 겹침", sm.heldOverlap, "Top 안의 보유 종목"],
-      ["산출", (dg.secs || 0) + "s", "DB " + (calls.db || 0) + "콜 · 허브 " + (calls.hub || 0) + "콜"]];
+      unRunKpi()];
     $("un-kpis").innerHTML = kp.map(function (k) {
       return '<div class="kpi"><div class="kpi-lbl">' + k[0] + '</div><div class="kpi-val ' + (k[3] || "") + '">' + k[1] + '</div><div class="kpi-sub">' + k[2] + "</div></div>";
     }).join("");

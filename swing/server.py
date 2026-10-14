@@ -14,6 +14,7 @@
   GET /api/swing/sim[?key=]           유니버스 선정 방식 A/B/C 시뮬 결과(sim/…) — key 없으면 목록+진행
   GET /admin/sim?token=&from=&to=     시뮬 백그라운드 실행(SWING_ADMIN_TOKEN 필요, Railway 에서 과거 재구성 — tools/sim_universe)
   GET /admin/dbq?token=&tr=&code=     DB증권 TR 원본 응답 진단(industry|components|investor|chart|fcodes) — 필드명·구조 확인용
+  GET /admin/universe?token=&date=    그 날짜 유니버스 재산출(덮어쓰기, 백그라운드) · 진행 GET /api/swing/universe/progress
   GET /api/swing/config               운용 규칙(자본·보유일·세금·비중·신호/등급 조건)
   GET /api/swing/export               전체 문서 JSON(백업)
   GET /api/prices?codes=              장중 시세 — SWING_PRICES_PROXY(main 대시보드) 중계, 표시 전용
@@ -177,6 +178,37 @@ def admin_dbq(q):
             "sample": rows[:3], "parsedIndustries": [dict(zip(("code", "name"), U._pick_code_name(x))) for x in rows[:40]] if tr == "industry" else None}
 
 
+def admin_universe(q):
+    """특정 날짜 유니버스 재산출(토큰 필요) — ?date=YYYY-MM-DD[&force=1]. 백그라운드, 진행은 universe/progress.
+    주간 브리핑은 main raw 최신본(그 날짜 asof 가 아니면 doc.wbAsof 로 표시). 후보·주문은 다시 돌리지 않는다(표시용 문서만)."""
+    if not _admin_ok(q):
+        return {"error": "token 불일치 또는 미설정"}
+    import threading
+    from swing import run_daily, universe as U
+    date = q.get("date") or datetime.date.today().isoformat()
+    force = q.get("force", "1") != "0"
+    key = f"universe/{date}"
+
+    def put(**kw):
+        STORE.put("universe/progress", dict(kw, key=key, at=datetime.datetime.now().isoformat(timespec="seconds")))
+
+    def job():
+        try:
+            put(status="running", step="주간 브리핑 로드")
+            wb = run_daily.load_wb(date)
+            put(status="running", step="산출")
+            doc = U.UniverseRunner(STORE, force=force).build_or_load(date, wb, STORE.get("ledger"))
+            put(status="done", summary=doc["summary"], secs=doc["diag"]["secs"], wbAsof=doc.get("wbAsof"))
+        except Exception as e:
+            put(status="failed", error=f"{type(e).__name__}: {e}"[:300])
+    threading.Thread(target=job, daemon=True, name="swing-universe-rebuild").start()
+    return {"started": key, "force": force, "progress": "/api/swing/universe/progress"}
+
+
+def api_universe_progress(q):
+    return STORE.get("universe/progress") or {"status": "none"}
+
+
 def admin_sim(q):
     """토큰 미설정/불일치는 404 가 아니라 이유를 돌려준다(값은 노출하지 않음) — 2026-10-13 진단."""
     tok = (os.environ.get("SWING_ADMIN_TOKEN") or "").strip().strip('"').strip("'")
@@ -221,7 +253,8 @@ ROUTES = {"/api/swing/summary": api_summary, "/api/swing/progress": api_progress
           "/api/swing/equity": lambda q: _ledger()["equity"],
           "/api/swing/runs": api_runs, "/api/swing/decision": api_decision,
           "/api/swing/signals": api_signals, "/api/swing/universe": api_universe, "/api/swing/sim": api_sim,
-          "/admin/sim": admin_sim, "/admin/dbq": admin_dbq, "/api/swing/config": api_config,
+          "/admin/sim": admin_sim, "/admin/dbq": admin_dbq, "/admin/universe": admin_universe,
+          "/api/swing/universe/progress": api_universe_progress, "/api/swing/config": api_config,
           "/api/swing/export": api_export}
 
 
