@@ -40,6 +40,13 @@ TOTAL_METHODS = ("A", "T1", "T2")   # --methods total
 METHOD_DESC.update({"T2W": "T2 · 종합 = 0.50주가+0.40수급+0.10유동성(게이트 없음)",
                     "T2S": "T2 · 유동성 < 30 이면 종합 × 유동성/30(부드러운 게이트)"})
 LIQ_METHODS = ("T2", "T2W", "T2S")    # --methods liq
+# 순노출 상한 비교(2026-10-15): 모두 T2 선정 + Short 총노출 ≤ 30%(운용과 같음), 순노출(Long−Short) 상한만 다름.
+# 노출은 종목당 명목 비중(weight 5%) × 보유·신규 수로 계산 — 선정 시 Short 먼저 채운 뒤 Long 을 순노출 한도까지.
+METHOD_DESC.update({"N0": "T2 · Short ≤ 30% · 순노출 상한 없음", "N30": "T2 · Short ≤ 30% · 순노출 ≤ 30%",
+                    "N10": "T2 · Short ≤ 30% · 순노출 ≤ 10%"})
+NET_METHODS = ("N0", "N30", "N10")     # --methods net
+NET_CAP = {"N0": None, "N30": 0.30, "N10": 0.10}
+SHORT_CAP_NET = 0.30
 LIQ_VARIANTS = {"byTotal": {}, "byTotalW": {"liq_mode": "weight", "w_px": 0.50, "w_flow": 0.40, "w_liq": 0.10},
                 "byTotalS": {"liq_mode": "soft"}}
 WB_HISTORY = os.path.join(_ROOT, "swing", "data", "wb_history")
@@ -334,7 +341,8 @@ def _rr_total(use_total_pool, pool_key="byTotal"):
 
 SELECT = {"A": select_A, "B": select_B, "C": select_C,   # = universe.pick 의 roundrobin / rank / sectorcap
           "T1": _rr_total(False), "T2": _rr_total(True),
-          "T2W": _rr_total(True, "byTotalW"), "T2S": _rr_total(True, "byTotalS")}
+          "T2W": _rr_total(True, "byTotalW"), "T2S": _rr_total(True, "byTotalS"),
+          "N0": _rr_total(True), "N30": _rr_total(True), "N10": _rr_total(True)}
 
 
 # ─────────────────────────── 포트폴리오 시뮬 ───────────────────────────
@@ -419,9 +427,23 @@ def simulate(p, dates, days, prices, method, *, nxt_of, log=print):
         if t in days and days[t]:
             held = {ps["code"] for ps in positions} | {s["code"] for s in pending}
             cool_set = {c for c, until in cool.items() if until >= t}
-            for side in ("long", "short"):
+            gated = method in NET_CAP
+            w0 = p["weight"]
+            lexp = w0 * sum(1 for ps in positions if ps["side"] == "long")
+            sexp = w0 * sum(1 for ps in positions if ps["side"] == "short")
+            for side in (("short", "long") if gated else ("long", "short")):      # 게이트면 Short 먼저 → Long 여유 확보
                 xs = SELECT[method](days[t], side, p, held, cool_set)
                 for x in xs:
+                    if gated and side == "short":
+                        if sexp + w0 > SHORT_CAP_NET + 1e-9:
+                            continue
+                        sexp += w0
+                    elif gated and NET_CAP[method] is not None:
+                        if (lexp + w0) - sexp > NET_CAP[method] + 1e-9:
+                            continue
+                        lexp += w0
+                    elif gated:
+                        lexp += w0
                     sel_today.append({"code": x["code"], "name": x["name"], "sector": x.get("sector"), "side": side, "score": x["score"]})
                     held.add(x["code"])
             pending = sel_today
@@ -439,7 +461,10 @@ def simulate(p, dates, days, prices, method, *, nxt_of, log=print):
         series.append({"date": t, "equity": round(eq, 6), "ret": round(day_ret, 6), "open": n, "sectors": len(secs),
                        "hhi": None if hhi is None else round(hhi, 4), "gross": round(w * n, 3),
                        "long": sum(1 for ps in positions if ps["side"] == "long"), "short": n - sum(1 for ps in positions if ps["side"] == "long"),
-                       "selected": len(sel_today), "longCum": round(long_cum, 6), "shortCum": round(short_cum, 6)})
+                       "selected": len(sel_today), "longCum": round(long_cum, 6), "shortCum": round(short_cum, 6),
+                       "longExp": round(w * sum(1 for ps in positions if ps["side"] == "long"), 3),
+                       "shortExp": round(w * sum(1 for ps in positions if ps["side"] == "short"), 3),
+                       "netExp": round(w * (2 * sum(1 for ps in positions if ps["side"] == "long") - n), 3)})
     return series, trades
 
 
@@ -497,6 +522,7 @@ def metrics(series, trades, corr):
             "longCumPct": round(series[-1]["longCum"] * 100, 2) if series else 0.0,
             "shortCumPct": round(series[-1]["shortCum"] * 100, 2) if series else 0.0,
             "avgOpen": avg("open"), "avgSectors": avg("sectors"), "avgHHI": avg("hhi"), "avgGross": avg("gross"),
+            "avgLongExp": avg("longExp"), "avgShortExp": avg("shortExp"), "avgNetExp": avg("netExp"),
             "pairCorr": corr[0], "pairs": corr[1],
             "byReason": {r: sum(1 for t in trades if t["reason"] == r) for r in ("expiry", "stop", "stop_gap")},
             "bySector": _by_sector(trades)}
@@ -568,7 +594,8 @@ def summary_text(doc):
     rows = [("누적수익률 %", "cumRetPct"), ("연변동성 %", "annVolPct"), ("Sharpe", "sharpe"), ("MDD %", "mddPct"),
             ("거래 수", "trades"), ("승률 %", "winRatePct"), ("평균 거래수익 %", "avgTradeRetPct"), ("Long 기여 %", "longCumPct"),
             ("Short 기여 %", "shortCumPct"), ("평균 보유 종목", "avgOpen"), ("평균 보유 업종", "avgSectors"),
-            ("업종 집중도 HHI", "avgHHI"), ("평균 총노출", "avgGross"), ("보유 종목간 상관", "pairCorr")]
+            ("업종 집중도 HHI", "avgHHI"), ("평균 총노출", "avgGross"), ("평균 Long 노출", "avgLongExp"),
+            ("평균 Short 노출", "avgShortExp"), ("평균 순노출", "avgNetExp"), ("보유 종목간 상관", "pairCorr")]
     ms = doc["methods"]
     mk = list(ms)
     out = [f"[sim] {doc['from']}~{doc['to']} 영업일 {doc['coverage']['days']}(유니버스 {doc['coverage']['daysWithUniverse']}) · "
@@ -635,11 +662,12 @@ def main(argv=None):
     ap.add_argument("--store", default="none", help="none | env | file:<dir>")
     ap.add_argument("--out", help="결과 JSON 파일")
     ap.add_argument("--cap", type=int, default=10)
-    ap.add_argument("--methods", default="abc", help="abc = A/B/C 선정 방식 · total = A vs 종합점수 T1/T2 · liq = 유동성 반영 T2/T2W/T2S")
+    ap.add_argument("--methods", default="abc", help="abc = A/B/C 선정 방식 · total = A vs 종합점수 T1/T2 · liq = 유동성 반영 T2/T2W/T2S"
+                                                        " · net = 순노출 상한 N0/N30/N10")
     ap.add_argument("--total-min", type=float, default=50)
     a = ap.parse_args(argv)
-    methods = {"total": TOTAL_METHODS, "liq": LIQ_METHODS}.get(a.methods, METHODS)
-    kp = {"total": "sim/universe_total", "liq": "sim/universe_liq"}.get(a.methods, "sim/universe_abc")
+    methods = {"total": TOTAL_METHODS, "liq": LIQ_METHODS, "net": NET_METHODS}.get(a.methods, METHODS)
+    kp = {"total": "sim/universe_total", "liq": "sim/universe_liq", "net": "sim/universe_net"}.get(a.methods, "sim/universe_abc")
     st = None if a.store == "none" else (store_mod.from_env() if a.store == "env" else store_mod.FileStore(a.store[5:]))
     p = default_params(capLong=a.cap, capShort=a.cap, totalMin=a.total_min)
     if a.mock:
