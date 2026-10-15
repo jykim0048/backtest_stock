@@ -390,7 +390,8 @@
       }), sd === "short" ? "환매 검토 대상 없음" : "매도 검토 대상 없음");
     table($(pre + "candidates"), [["종목"], ["신호"], ["PM"], ["Trader"], ["가격 레벨"], ["결과"]],
       cands.map(function (c) {
-        var srcTag = c.source === "universe" ? ' <span class="flag uni">유니버스' + (c.rankAll ? " 통합 " + c.rankAll + "위" : "") + "</span>" : "";
+        var srcTag = c.source === "universe" ? ' <span class="flag uni">유니버스' + (c.rankAll ? " 통합 " + c.rankAll + "위" : "") + "</span>"
+          : c.source === "catalyst" ? ' <span class="flag cat" title="' + esc((c.catalyst || {}).title || "") + '">하방촉매 ★' + ((c.catalyst || {}).strength || "") + ((c.catalyst || {}).direct ? " · 마감후" : "") + "</span>" : "";
         var scTag = c.score != null ? ' <span class="num muted" title="공통 모멘텀 점수">' + (c.score > 0 ? "+" : "") + c.score + "</span>" : "";
         return { key: c.decisionKey, cells: [td(stock(c.name, c.code)), td('<span class="sec-name">' + esc(c.sector || "") + "</span>" + sig(c.signal) + srcTag + scTag),
           td(rating(c.rating, /판단 실패/.test(c.why || ""))), td(esc(c.action || "—")),
@@ -1119,7 +1120,7 @@
     var run = S.run || {}, all = (run.candidates || []).concat(run.shortCandidates || []);
     var c = all.filter(function (r) { return r.code === code; })[0];
     if (!c) return null;
-    var who = c.source === "universe" ? "" : '<span class="flag">매트릭스</span> ';
+    var who = c.source === "universe" ? "" : c.source === "catalyst" ? '<span class="flag cat">촉매</span> ' : '<span class="flag">매트릭스</span> ';
     if (c.ordered) return who + '<span class="state ordered">주문 ' + won(c.qty) + "주</span>";
     if (/판단 실패/.test(c.why || "")) return who + '<span class="state skipped">판단 실패</span>';
     return who + '<span class="state hold-ok">' + esc(c.rating || "—") + "</span>";
@@ -1150,7 +1151,7 @@
     if (!arr.length) return '<div class="mx-empty">해당 방향 업종 없음</div>';
     // 2026-10-14 업종별 Top10 의 대표 열 3개 추가: 주가(3M·1M) · 20일 거래대금(억, 시총) · 종합(종합점수, 주가·수급 / 유동성 미달). 점수는 칩만(막대 제거)
     var h = '<div class="tr top"><span>#</span><span>종목 · 업종</span><span style="text-align:right">점수</span><span class="v c4">거래대금Δ</span>' +
-      '<span class="v c5">외+기</span><span class="v c6">공매도Δ</span><span class="v c7">주가 3M</span><span class="v c9">20일대금(억)</span><span class="v c8">종합</span></div>';
+      '<span class="v c5">외+기</span><span class="v c6">공매도Δ</span><span class="v c7">주가 3M</span><span class="v c9">20일 평균대금(억)</span><span class="v c8">종합</span></div>';
     arr.slice(0, 10).forEach(function (x, i) {
       var fo = (x.frgn1w || 0) + (x.orgn1w || 0), ts = x.totalScore;
       var tot = ts != null ? '<span class="tot" style="--w:' + Math.max(0, Math.min(100, ts)) + '%">' + ts.toFixed(0) + "</span><small>주가" + (x.pxScore == null ? "—" : x.pxScore.toFixed(0)) + "·수급" + (x.flowScore == null ? "—" : x.flowScore.toFixed(0)) + "</small>"
@@ -1282,11 +1283,11 @@
     // → 수급(거래대금 1W·Δ, 외인, 기관, 수급/시총, 공매도 Δ, 대차 Δ → 수급점수) → 종합. 4번째 항목 = 그룹 클래스
     var COLS = [["#"], ["종목"], ["방향"], ["점수", "r"], ["시총", "r", "억"],
       ["1W", "r", "", "g-px"], ["1M", "r", "", "g-px"], ["3M", "r", "", "g-px"], ["6M", "r", "", "g-px"], ["12M", "r", "", "g-px"], ["YTD", "r", "", "g-px"], ["주가", "r", "점수", "g-px s"],
-      ["20일대금", "r", "억", "g-liq"], ["유동성", "r", "점수", "g-liq s"],
+      ["20일 평균대금", "r", "억", "g-liq"], ["유동성", "r", "점수", "g-liq s"],
       ["대금 1W", "r", "Δ4주", "g-flow"], ["외인 1W", "r", "억", "g-flow"], ["기관 1W", "r", "억", "g-flow"], ["수급/시총", "r", "bp", "g-flow"],
       ["공매도", "r", "비중 · Δ%p", "g-flow"], ["대차 Δ", "r", "억", "g-flow"], ["수급", "r", "점수", "g-flow s"],
       ["종합", "r", "점수", "g-total s"]];
-    var UN_GROUPS = [["모멘텀 점수 −5~+5 · 시총(억)", 5], ["주가 — 1M·3M·6M·12M 백분위 평균 (1W·YTD 표시만)", 7, "g-px"], ["유동성 — 20일 대금 백분위 · 30 미만 종합 제외", 2, "g-liq"],
+    var UN_GROUPS = [["모멘텀 점수 −5~+5 · 시총(억)", 5], ["주가 — 1M·3M·6M·12M 백분위 평균 (1W·YTD 표시만)", 7, "g-px"], ["유동성 — 20일 평균 거래대금 백분위 · 30 미만 종합 제외", 2, "g-liq"],
       ["수급 — 수급/시총 · −공매도 비중Δ(거래량 대비) · −대차Δ · 거래대금 가속 백분위 평균", 7, "g-flow"], ["종합 0.55주가+0.45수급", 1, "g-total"]];
     var NCOL = COLS.length;
     var th = function (c, tag) { return "<" + tag + ' class="' + (c[1] || "") + (c[3] ? " " + c[3] : "") + '">' + c[0] + (c[2] ? "<small>" + c[2] + "</small>" : "") + "</" + tag + ">"; };

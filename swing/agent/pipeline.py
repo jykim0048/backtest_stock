@@ -78,12 +78,30 @@ def _weight_rule():
             f"반영한 최종 비중을 출력 끝에 `**Position Weight**: <%>` 한 줄로 확정한다(없으면 Trader 비중, 상한 초과분은 잘림).")
 
 
+def _catalyst_line(req):
+    """하방 촉매 소스(2026-10-15) — 공시·뉴스 원문 요약과 강도를 PM·Trader 가 보고 '이미 반영된 급락 추격'인지 판단하게 한다."""
+    c = getattr(req, "catalyst", None) or {}
+    if not c:
+        return ""
+    what = (f"{'희석성 자금조달' if c.get('ruleKind') == 'dilution' else '악재성'} 공시 '{c.get('title') or ''}'" if c.get("kind") == "disclosure"
+            else "하방 뉴스")
+    bits = [f"강도 {c.get('strength')}/5"]
+    if c.get("newsRounds"):
+        bits.append(f"장중 하방 뉴스 {c['newsRounds']}회차")
+    if c.get("changePct") is not None:
+        bits.append(f"당일 등락 {c['changePct']:+.1f}%")
+    if c.get("direct"):
+        bits.append("장 마감 후 접수(아직 주가 미반영 가능)")
+    return (f" 후보 소스: 하방 촉매({what}, {', '.join(bits)}). 요약: {c.get('summary') or '-'}. "
+            "공시 반영 후 추가 하락 여지와 이미 반영된 급락분(추격 리스크)을 나눠 판단하고, 단기 반등 가능성이 크면 진입하지 않는다.")
+
+
 def _momentum_line(req):
     """두 소스 공통 모멘텀 점수(2026-10-13) — 있으면 전략 맥락 끝에 붙인다."""
     sc, m = getattr(req, "score", None), getattr(req, "metrics", None) or {}
     if sc is None:
         return ""
-    src = "업종별 수급 모멘텀 유니버스" if getattr(req, "source", "matrix") == "universe" else "섹터 시그널 매트릭스"
+    src = {"universe": "업종별 수급 모멘텀 유니버스", "catalyst": "하방 촉매"}.get(getattr(req, "source", "matrix"), "섹터 시그널 매트릭스")
     parts = []
     if m.get("tvMom") is not None:
         parts.append(f"주간 거래대금 {m.get('tv1w') or 0:,.0f}억(직전 4주 평균 대비 {m['tvMom'] * 100:+.0f}%)")
@@ -140,7 +158,7 @@ def _short_context(req):
             "**위**(필수, 없으면 주문 안 됨), Price Target 은 Entry Price **아래**로 {n}영업일 안에 현실적인 수준. "
             "보유 {n}영업일 후 재판별, 대차수수료 연 {br:.1f}%. 섹터 신호: {sig} {sec}, 스크리닝 근거: {r}.").format(
         lc=f"{req.last_close:,.0f}원" if req.last_close else "미상", n=config.HOLD_DAYS,
-        br=config.BORROW_RATE * 100, sig=req.signal or "-", sec=req.sector or "-", r=req.reason or "-") + _weight_rule() + _momentum_line(req)
+        br=config.BORROW_RATE * 100, sig=req.signal or "-", sec=req.sector or "-", r=req.reason or "-") + _weight_rule() + _catalyst_line(req) + _momentum_line(req)
 
 
 def _default_llm(system, user, max_tokens, schema):

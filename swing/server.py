@@ -224,6 +224,20 @@ def admin_sim(q):
     return {"started": key, "progress": "/api/swing/sim"}
 
 
+def admin_catrep(q):
+    """하방 촉매 리플레이(2026-10-15) — ?token&from&to[&min=4][&drop=20] → 백그라운드, 결과 /api/swing/sim?key=sim/catalyst_replay/<from>_<to>."""
+    if not _admin_ok(q):
+        return {"error": "token"}
+    from swing.tools import replay_catalyst
+    kw = {}
+    if q.get("min"):
+        kw["min_strength"] = int(q["min"])
+    if q.get("drop"):
+        kw["max_drop"] = float(q["drop"])
+    key = replay_catalyst.start_background(STORE, q.get("from") or "2026-09-01", q.get("to") or STORE.get("ledger", {}).get("asof"), **kw)
+    return {"started": key, "progress": "/api/swing/sim?key=sim/catalyst_replay/progress"}
+
+
 def api_progress(q):
     """실행 진행률(daily.Progress) — 없으면 None."""
     return STORE.get("progress")
@@ -254,7 +268,7 @@ ROUTES = {"/api/swing/summary": api_summary, "/api/swing/progress": api_progress
           "/api/swing/equity": lambda q: _ledger()["equity"],
           "/api/swing/runs": api_runs, "/api/swing/decision": api_decision,
           "/api/swing/signals": api_signals, "/api/swing/universe": api_universe, "/api/swing/sim": api_sim,
-          "/admin/sim": admin_sim, "/admin/dbq": admin_dbq, "/admin/universe": admin_universe,
+          "/admin/sim": admin_sim, "/admin/catrep": admin_catrep, "/admin/dbq": admin_dbq, "/admin/universe": admin_universe,
           "/api/swing/universe/progress": api_universe_progress, "/api/swing/config": api_config,
           "/api/swing/export": api_export}
 

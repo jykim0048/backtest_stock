@@ -61,8 +61,9 @@ def _safe_decide(agent, req):
                           agent=getattr(agent, "name", ""), error=f"{type(ex).__name__}: {ex}")
 
 
-def run_day(date, store, agent, prices, wb, *, force=False, log=print, uni=None):
-    """하루 처리 → run 로그 dict. 원장·판단·로그는 store 에 저장. uni = universe.UniverseRunner(None 이면 유니버스 생략)."""
+def run_day(date, store, agent, prices, wb, *, force=False, log=print, uni=None, cat=None):
+    """하루 처리 → run 로그 dict. 원장·판단·로그는 store 에 저장. uni = universe.UniverseRunner(None 이면 유니버스 생략),
+    cat = catalysts.CatalystRunner(None 이면 하방 촉매 Short 소스 생략, 2026-10-15)."""
     run = {"date": date, "startedAt": datetime.datetime.now().isoformat(timespec="seconds"),
            "agent": getattr(agent, "name", ""), "notes": []}
     if not tradedays.is_trading_day(date):
@@ -132,6 +133,38 @@ def run_day(date, store, agent, prices, wb, *, force=False, log=print, uni=None)
                                 f"Short {len(uscands)}(상한 초과 {len(skipped_uni_short_cap)}) · 쿨다운 제외 {len(decided)}종목")
     skipped_cap, cands = cands[config.MAX_NEW_PER_DAY:], cands[:config.MAX_NEW_PER_DAY]
     skipped_short_cap, scands = scands[config.MAX_NEW_SHORT_PER_DAY:], scands[:config.MAX_NEW_SHORT_PER_DAY]
+
+    # 6) 하방 촉매 Short 후보(2026-10-15, 세 번째 소스) — 매트릭스·유니버스 뒤, 같은 공통 채점·쿨다운·주식선물 옵션
+    ccands, skipped_cat_cap = [], []
+    if cat is not None and config.CAT_SHORT_ENABLED and config.SHORT_ENABLED:
+        prog.update(phase="catalyst")
+        try:
+            decided_c = universe.recent_decisions(store, date, config.UNI_COOLDOWN_DAYS)
+            ex_c = held | pend | {c["code"] for c in cands + scands + ucands + uscands}
+            fut = None
+            if config.UNI_SHORT_FUT_ONLY and uni is not None:
+                try:
+                    fut = uni.dbq.stock_future_underlyings()
+                except Exception as ex:
+                    run["notes"].append(f"촉매 주식선물 목록 실패(한정 해제): {type(ex).__name__}")
+            ccands = cat.short_candidates(date, ex_c, decided_c, fut=fut)
+            if ccands and uni is not None:
+                try:
+                    uni.attach_scores(ccands, "short", date, source="catalyst")
+                except Exception as ex:
+                    traceback.print_exc()
+                    run["notes"].append(f"촉매 후보 모멘텀 채점 실패: {type(ex).__name__}: {str(ex)[:120]}")
+            ccands.sort(key=lambda c: (-c["catalyst"]["strength"], universe.score_key(c),
+                                       -(c["catalyst"]["changePct"] if c["catalyst"]["changePct"] is not None else 0)))
+            skipped_cat_cap, ccands = ccands[config.CAT_NEW_SHORT_PER_DAY:], ccands[:config.CAT_NEW_SHORT_PER_DAY]
+            extra = sorted({c["code"] for c in ccands} - set(bars))
+            if extra:
+                bars.update(prices.daily_bars(extra, date))
+            run["notes"].append(f"하방 촉매 후보 Short {len(ccands)}(상한 초과 {len(skipped_cat_cap)})")
+        except Exception as ex:
+            traceback.print_exc()
+            run["notes"].append(f"하방 촉매 후보 실패: {type(ex).__name__}: {str(ex)[:120]}")
+            ccands = []
 
     # 2) 매도 검토 — ① 신호 트리거(섹터 전환·하방 칸, 주간 브리핑 오늘자일 때만)
     #    ② 목표가 도달 · 보유 만기 · 연장 보유(매일) 재판별(2026-09-29, 브리핑과 무관)
@@ -204,9 +237,11 @@ def run_day(date, store, agent, prices, wb, *, force=False, log=print, uni=None)
     run["uniCapSkipped"] = [c["code"] for c in skipped_uni_cap]
     prog.update(phase="short")
     run["shortCandidates"] = (_new_entries(L, store, agent, scands, bars, date, nxt, "short", prog)
-                              + _new_entries(L, store, agent, uscands, bars, date, nxt, "short", prog))
+                              + _new_entries(L, store, agent, uscands, bars, date, nxt, "short", prog)
+                              + _new_entries(L, store, agent, ccands, bars, date, nxt, "short", prog))
     run["shortCapSkipped"] = [c["code"] for c in skipped_short_cap]
     run["uniShortCapSkipped"] = [c["code"] for c in skipped_uni_short_cap]
+    run["catShortCapSkipped"] = [c["code"] for c in skipped_cat_cap]
 
     if wb_ok:
         store.put(f"signals/{date}", signals.compact(wb))
@@ -219,6 +254,7 @@ def run_day(date, store, agent, prices, wb, *, force=False, log=print, uni=None)
         f"후보 {len(run['candidates'])} · 주문 {sum(r['ordered'] for r in run['candidates'])} · "
         f"숏 후보 {len(run['shortCandidates'])} · 숏 주문 {sum(r['ordered'] for r in run['shortCandidates'])} · "
         f"유니버스 {sum(1 for r in run['candidates'] + run['shortCandidates'] if r.get('source') == 'universe')} · "
+        f"촉매 {sum(1 for r in run['shortCandidates'] if r.get('source') == 'catalyst')} · "
         f"평가 {run['equity']['equity'] if run['equity'] else '-'}")
     return run
 
@@ -231,7 +267,8 @@ def _new_entries(L, store, agent, cands, bars, date, nxt, side, prog=None):
         req = A.DecisionRequest(code=c["code"], name=c["name"], date=date, purpose="entry", side=side,
                                 sector=c["sector"], signal=c["signal"], reason=c["reason"],
                                 last_close=b.get("close"), source=c.get("source") or "matrix",
-                                score=c.get("score") if c.get("metrics") is not None else None, metrics=c.get("metrics"))
+                                score=c.get("score") if c.get("metrics") is not None else None, metrics=c.get("metrics"),
+                                catalyst=c.get("catalyst"))
         d = _safe_decide(agent, req)
         key = _dkey(date, c["code"], "entry", side)
         store.put(key, d.to_dict())
@@ -242,7 +279,9 @@ def _new_entries(L, store, agent, cands, bars, date, nxt, side, prog=None):
                "rating": d.rating, "action": d.action, "weight": A.effective_weight(d),
                "pmWeight": getattr(d, "pm_weight", None), "traderWeight": d.weight,
                "entry": d.entry, "stop": d.stop, "target": A.effective_target(d),
-               "ordered": False, "why": why, "decisionKey": key}
+               "ordered": False, "why": why, "decisionKey": key,
+               "catalyst": ({k: (c.get("catalyst") or {}).get(k) for k in ("kind", "title", "strength", "ruleKind", "changePct", "direct")}
+                            if c.get("catalyst") else None)}
         if ok:
             o = engine.place_entry(L, code=c["code"], name=c["name"], date=date, valid_date=nxt,
                                    entry=d.entry, stop=d.stop, target=A.effective_target(d),

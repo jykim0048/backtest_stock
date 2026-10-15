@@ -92,3 +92,10 @@ UNI_W_LIQ = _f("SWING_UNI_W_LIQ", 0.0)
 # 경계가 ~335억까지 올라 195~284억 종목까지 게이트에 걸리던 문제)
 UNI_LIQ_POOL = (os.environ.get("SWING_UNI_LIQ_POOL", "all") or "all").strip().lower()
 UNI_PX_KEEP = _i("SWING_UNI_PX_KEEP", 320)          # 종가 이력 캐시 보관 영업일(12M 수익률 252 + 여유)
+# 하방 촉매 Short 후보 소스(2026-10-15, PLAN_CATALYST_SHORT 3단계) — main 장중 촉매 아카이브의 bearish 촉매(규칙 태그 우선)
+CAT_SHORT_ENABLED = os.environ.get("SWING_CAT_SHORT", "1") != "0"      # 0 이면 촉매 소스 끔
+CAT_SHORT_MIN = _i("SWING_CAT_SHORT_MIN", 4)                           # 하방 강도(1~5) 최소 — 규칙 bearish 공시 = 4
+CAT_NEW_SHORT_PER_DAY = _i("SWING_CAT_NEW_SHORT_PER_DAY", 5)           # 촉매 소스 하루 신규 Short 분석 상한
+CAT_MAX_DROP = _f("SWING_CAT_MAX_DROP", 20)                            # 당일 하락률(%)이 이보다 크면 추격 금지(관찰만)
+CAT_RALLY_SKIP = _f("SWING_CAT_RALLY_SKIP", 10)                        # 당일 상승률(%)이 이 이상이면 제외(제3자배정 유증 등 호재성 자금조달)
+CAT_DART_DIRECT = os.environ.get("SWING_CAT_DART_DIRECT", "1") != "0"  # DART_API_KEY 있으면 16:30 당일 공시 직접 조회(장 마감 후 접수분)

@@ -771,12 +771,12 @@ def score_codes(items, side, date, *, dbq, hub, caps=None, log=print):
     return out
 
 
-def attach_scores(cands, side, date, *, dbq, hub, caps=None, log=print):
-    """매트릭스 후보(signals._candidates 형식) 에 공통 점수 부여(제자리) — score=모멘텀, matrixScore=생성기 점수,
+def attach_scores(cands, side, date, *, dbq, hub, caps=None, log=print, source="matrix"):
+    """매트릭스(또는 촉매, source 지정) 후보(signals._candidates 형식) 에 공통 점수 부여(제자리) — score=모멘텀, matrixScore=생성기 점수,
     metrics=지표, reason 뒤에 '모멘텀 +3: …' 추가. 채점 실패 종목은 score None(정렬 뒤로)."""
     m = score_codes(cands, side, date, dbq=dbq, hub=hub, caps=caps, log=log)
     for c in cands:
-        c["source"] = "matrix"
+        c["source"] = source
         c["matrixScore"] = c.get("score")
         x = m.get(str(c["code"]).zfill(6))
         if x:
@@ -916,10 +916,10 @@ class UniverseRunner:
         self.store.put(f"universe/{date}", doc)
         return doc
 
-    def attach_scores(self, cands, side, date):
+    def attach_scores(self, cands, side, date, source="matrix"):
         if not cands:
             return cands
-        return attach_scores(cands, side, date, dbq=self.dbq, hub=self.hub, caps=self.caps(date), log=self.log)
+        return attach_scores(cands, side, date, dbq=self.dbq, hub=self.hub, caps=self.caps(date), log=self.log, source=source)
 
 
 # ─────────────────────────── 멀티기간 수익률 · 백분위 점수(2026-10-14, 브레인 리포트 양식 반영) ───────────────────────────

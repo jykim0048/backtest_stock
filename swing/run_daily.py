@@ -113,7 +113,7 @@ def main(argv=None):
                 rc = 1
             continue
         try:
-            run = daily.run_day(d, st, ag, px, wb, force=a.force, uni=uni)
+            run = daily.run_day(d, st, ag, px, wb, force=a.force, uni=uni, cat=_cat_runner(st, a))
         except Exception as ex:
             # 진행률이 "실행 중"으로 남지 않게 실패로 닫고 다시 올린다(원장은 저장되지 않음)
             p = st.get("progress") or {}
@@ -127,6 +127,14 @@ def main(argv=None):
         for n in run.get("notes", []):
             print(f"[swing] {d} {n}")
     return rc
+
+
+def _cat_runner(st, a):
+    """하방 촉매 Short 소스(2026-10-15) — SWING_CAT_SHORT=0 이거나 mock 유니버스(오프라인)면 None."""
+    if not config.CAT_SHORT_ENABLED or getattr(a, "universe", "") == "mock":
+        return None
+    from swing import catalysts
+    return catalysts.CatalystRunner(st)
 
 
 def _runner(st, a):
