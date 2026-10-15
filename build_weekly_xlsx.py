@@ -1205,8 +1205,9 @@ def add_detail_sheets(wb, b, d):
                 num(20, x.get("orgn1w"), F_EOK, sign=True)
                 num(21, x.get("flowBp"), F_EOK, sign=True)
                 num(22, x.get("shortRlim1w"), "0.0")
-                num(23, x.get("shortMom"), F_1, sign=True, inv=True)
-                num(24, x.get("loanChg"), F_EOK, sign=True, inv=True)
+                inv_ = side != "SHORT"                     # Short 행은 증가가 적(공매도 압력 ↑ = Short 에 유리, 2026-10-15)
+                num(23, x.get("shortMom"), F_1, sign=True, inv=inv_)
+                num(24, x.get("loanChg"), F_EOK, sign=True, inv=inv_)
                 num(25, x.get("flowScore"), F_S1)
                 tot = x.get("totalScore")
                 num(26, tot, F_S1, bold_=True)
@@ -1235,7 +1236,7 @@ def add_detail_sheets(wb, b, d):
              " · 주가·유동성·수급 점수 = 같은 방향 Top 풀 백분위(0~100), 유동성은 Long·Short 합산 풀 · 종합 = 0.55·주가 + 0.45·수급"
              " · 유동성 점수 30 미만 = 유동성 미달(종합 미산정)")
         footnote("대분류(제조·금융)·혼조 업종 = 관찰(후보 제외 — 점수는 같은 방향 풀 기준 상당값) · 공매도Δ·대차Δ 는 감소가 Long 에"
-                 " 유리(감소 = 적색) · " + " · ".join(v for v in (bs.get("tv"), bs.get("short"), bs.get("loan")) if v)
+                 " 유리(감소 = 적색), Short 행은 반대(증가 = 적색 — 공매도 압력 증가가 Short 에 유리) · " + " · ".join(v for v in (bs.get("tv"), bs.get("short"), bs.get("loan")) if v)
                  + " · 관찰 우선순위이며 매매 권유 아님")
         b.finish()
         ws2.freeze_panes = f"E{hdr_r + 1}"              # 업종·신호·순위·종목명 + 헤더 고정

@@ -7141,8 +7141,8 @@
             + '<td class="flow">' + eok(x.tv1w != null ? x.tv1w : x.tvDay) + '<small class="' + cl(x.tvMom) + '">' + (x.tv1w == null && x.tvDay != null ? "당일" : x.tvMom == null ? "" : sg(x.tvMom * 100, 0, "%")) + "</small></td>"
             + '<td class="flow ' + cl(x.frgn1w) + '">' + sg(x.frgn1w, 0) + '</td><td class="flow ' + cl(x.orgn1w) + '">' + sg(x.orgn1w, 0) + "</td>"
             + '<td class="flow ' + cl(x.flowBp) + '">' + sg(x.flowBp, 0, "bp") + "</td>"
-            + '<td class="flow">' + (x.shortRlim1w == null ? "—" : x.shortRlim1w.toFixed(1) + "%") + '<small class="' + cl(x.shortMom, true) + '">' + sg(x.shortMom, 1) + "</small></td>"
-            + '<td class="flow ' + cl(x.loanChg, true) + '">' + sg(x.loanChg, 0) + "</td>" + score(x.flowScore, "", "flow s")
+            + '<td class="flow">' + (x.shortRlim1w == null ? "—" : x.shortRlim1w.toFixed(1) + "%") + '<small class="' + cl(x.shortMom, x.side !== "short") + '">' + sg(x.shortMom, 1) + "</small></td>"
+            + '<td class="flow ' + cl(x.loanChg, x.side !== "short") + '">' + sg(x.loanChg, 0) + "</td>" + score(x.flowScore, "", "flow s")
             + (x.totalScore == null ? '<td class="tot s mt" title="' + (x.liqGate ? "유동성 점수 " + (x.liqScore == null ? "—" : x.liqScore.toFixed(1)) + " < 30 — 종합 미산정" : "데이터 부족") + '">' + (x.liqGate ? "유동성 미달" : "—") + "</td>" : score(x.totalScore, "total", "tot s")) + "</tr>";
         }
         if (!rows) rows = '<tr><td colspan="' + COLS.length + '" class="mt" style="text-align:center">표시할 종목 없음</td></tr>';
