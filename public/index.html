@@ -7114,10 +7114,10 @@
       };
       const COLS = [["#"], ["종목"], ["방향"], ["점수", "", "−5~+5"], ["시총", "", "억"],
         ["1W", "px"], ["1M", "px"], ["3M", "px"], ["6M", "px"], ["12M", "px"], ["YTD", "px"], ["주가", "px s", "점수"],
-        ["20일대금", "liq", "억"], ["유동성", "liq s", "점수"],
+        ["20일 평균대금", "liq", "억"], ["유동성", "liq s", "점수"],
         ["대금 1W", "flow", "Δ4주"], ["외인 1W", "flow", "억"], ["기관 1W", "flow", "억"], ["수급/시총", "flow", "bp"],
         ["공매도", "flow", "비중 · Δ%p"], ["대차 Δ", "flow", "억"], ["수급", "flow s", "점수"], ["종합", "tot s", "점수"]];
-      const GROUPS = [["모멘텀 점수 · 시총(억)", 5, ""], ["주가 — 1M·3M·6M·12M 백분위 평균 (1W·YTD 표시만)", 7, "px"], ["유동성 — 20일 대금 백분위 · 30 미만 종합 제외", 2, "liq"],
+      const GROUPS = [["모멘텀 점수 · 시총(억)", 5, ""], ["주가 — 1M·3M·6M·12M 백분위 평균 (1W·YTD 표시만)", 7, "px"], ["유동성 — 20일 평균 거래대금 백분위 · 30 미만 종합 제외", 2, "liq"],
         ["수급 — 수급/시총 · −공매도 비중Δ · −대차Δ · 거래대금 가속 백분위 평균", 7, "flow"], ["종합 0.55주가+0.45수급", 1, "tot"]];
       const head = '<tr class="grp">' + GROUPS.map(g => '<th colspan="' + g[1] + '" class="' + g[2] + '">' + g[0] + "</th>").join("") + "</tr><tr>"
         + COLS.map(c => '<th class="' + (c[1] || "") + '">' + c[0] + (c[2] ? "<small>" + c[2] + "</small>" : "") + "</th>").join("") + "</tr>";
@@ -7873,7 +7873,9 @@
       // 컬럼 폭 — 장중 주요 촉매 표와 유사한 간격
       return '<tr style="border-top:1px solid rgba(128,128,128,.12)">'
         + '<td style="white-space:nowrap;opacity:.7;padding:5px 0;width:56px">' + esc((t.date || "").slice(5)) + "</td>"
-        + '<td style="white-space:nowrap;font-weight:700;width:170px;padding-right:10px">' + (t.stock ? esc(t.stock) : "—") + rep + "</td>"
+        + '<td style="white-space:nowrap;font-weight:700;width:170px;padding-right:10px">' + (t.stock ? esc(t.stock) : "—")
+        + (t.direction === "bearish" ? ' <span class="tl-dir" title="하방 촉매(bearScore 기준 선정)" style="font-size:10px;font-weight:600;color:#3182f6;border:1px solid rgba(49,130,246,.4);border-radius:8px;padding:0 5px;vertical-align:middle">▼ 하방</span>' : "")
+        + rep + "</td>"
         + '<td style="white-space:nowrap;width:80px">' + mk + "</td>"
         + (hasSec ? '<td style="white-space:nowrap;width:110px;padding-right:8px">' + (t.sector ? secPillName(t.sector) : "<span style='opacity:.35'>—</span>") + "</td>" : "")
         + '<td style="white-space:nowrap;width:110px">' + star + "</td>"

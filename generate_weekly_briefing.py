@@ -334,11 +334,18 @@ def _day_summary(date_str):
             picks = []
             for c in (r.get("catalysts") or []):
                 sc, mk = c.get("score"), c.get("market")
+                bs = c.get("bearScore")
+                # 하방 행(2026-10-15): bearScore 로 같은 기준(코스피 ★4↑ / 코스닥 ★5) — direction=bearish 표시
+                if bs is not None and ((mk == "KOSPI" and bs >= 4) or (mk == "KOSDAQ" and bs == 5)):
+                    picks.append({"stock": c.get("stock"), "market": mk, "star": bs, "direction": "bearish",
+                                  "changePct": c.get("changePct"), "code": c.get("code"),
+                                  "event": (c.get("reason") or c.get("summary") or "")[:90]})
+                    continue
                 if sc is None:
                     continue
                 if (mk == "KOSPI" and sc >= 4) or (mk == "KOSDAQ" and sc == 5):
-                    picks.append({"stock": c.get("stock"), "market": mk, "star": sc,
-                                  "changePct": c.get("changePct"),
+                    picks.append({"stock": c.get("stock"), "market": mk, "star": sc, "direction": "bullish",
+                                  "changePct": c.get("changePct"), "code": c.get("code"),
                                   "event": (c.get("reason") or c.get("summary") or "")[:90]})
             if picks:
                 picks.sort(key=lambda x: (-(x["star"]), -(x.get("changePct") or 0)))
@@ -542,12 +549,24 @@ def _sector_top_caps():
             with open(os.path.join(ROOT, "public", "assets", "krx_sector_map.json"),
                       encoding="utf-8") as f:
                 sm = json.load(f) or {}
+            # 별칭(_SEC_ALIAS: 기타금융·은행→금융, 기타제조→제조, 전기·가스·수도→전기·가스)으로
+            # 같은 키에 모이는 섹터는 병합 후 시총 재정렬 — 대입(=)이면 뒤 섹터가 앞 목록을 덮어
+            # 금융=은행 4종목·제조=기타제조 23종목으로 보강되던 버그(2026-10-13 실측 수정).
+            merged = {}
             for key, s in (sm.get("sectors") or {}).items():
                 xs = [x for x in (s.get("stocks") or []) + (s.get("kosdaqStocks") or [])
                       if x.get("code")]
+                merged.setdefault(_norm_sec(s.get("name") or key), []).extend(xs)
+            for k, xs in merged.items():
                 xs.sort(key=lambda x: -(x.get("cap") or 0))
-                _SEC_TOP[_norm_sec(s.get("name") or key)] = [
-                    (str(x["code"]).zfill(6), x.get("name")) for x in xs]
+                seen, out = set(), []
+                for x in xs:
+                    code = str(x["code"]).zfill(6)
+                    if code in seen:
+                        continue
+                    seen.add(code)
+                    out.append((code, x.get("name")))
+                _SEC_TOP[k] = out
         except Exception as ex:
             print(f"[weekly] krx_sector_map 로드 실패(섹터 보강 생략): {ex}", file=sys.stderr)
     return _SEC_TOP
@@ -617,6 +636,7 @@ def build_sector_screen(sector_rows, netbuy_cum, short_loan, stock_rows, flow_fi
         if (t.get("star") or 0) >= (e.get("catStar") or 0):
             e["catStar"] = t.get("star") or 0
             e["catText"] = t.get("event") or ""
+            e["catDirection"] = t.get("direction")       # 2026-10-15: 하방 행도 풀에 들어온다 — 표시·디버그용(점수 미가산 유지)
 
     # A. 신호 섹터 시총 상위 편입 — 순매수 상위 30 등재 중심 유니버스는 대형 반도체주
     # 쏠림(9/10: 68종목 중 전기·전자 25)이라 수급 규모가 작은 섹터(전기·가스·부동산
@@ -2097,6 +2117,7 @@ def main():
             prev["date"] = r["date"]
             prev["event"] = r.get("event") or prev.get("event")
             prev["star"] = max(prev.get("star") or 0, r.get("star") or 0)
+            prev["direction"] = r.get("direction") or prev.get("direction")   # 최신 방향(상→하 전환 반영)
             if r.get("changePct") is not None:
                 prev["changePct"] = r["changePct"]
             prev["appearCount"] += 1

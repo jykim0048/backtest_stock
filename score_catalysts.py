@@ -34,6 +34,7 @@ _SCHEMA = {
     "properties": {"scores": {"type": "array", "items": {"type": "object", "properties": {
         "stock": {"type": "string"},
         "score": {"type": "integer", "minimum": 1, "maximum": 5},
+        "bearScore": {"type": "integer", "minimum": 1, "maximum": 5},
         "reason": {"type": "string"}},
         "required": ["stock", "score", "reason"]}}},
     "required": ["scores"],
@@ -54,8 +55,23 @@ _SYSTEM = (
     "표현)는 금지하고, 주가를 움직인 '원인'을 분석해 쓴다: 어떤 공시·뉴스·수급 재료가 "
     "무슨 이유로 주가를 움직였는지(재료의 구체 내용 중심). 등락률·별점은 별도 컬럼에 "
     "표기되니 수치 재인용 금지. 입력에 없는 사실 금지. "
-    "모든 입력 종목에 대해 빠짐없이 score 를 반환한다."
+    "모든 입력 종목에 대해 빠짐없이 score 를 반환한다.\n"
+    "③ 하방 강도 bearScore(1~5) — direction 이 bearish 이거나 dirRule 이 bearish 인 종목에만 추가로 반환한다. "
+    "기준: 악재 확정성(공시 > 뉴스, dirRule 희석성 자금조달(유상증자·CB·BW·EB·영구채)·감자·관리종목·거래정지·"
+    "감사의견 같은 규칙 태그는 가점) × 하방 압력(당일 하락률, 발행 규모·대주주 매도 비중). 5점: 확정적 대형 악재 + 급락"
+    "(대략 −10% 이상·하한가급). 4점: 명확한 악재(희석성 자금조달 결정 등) + 뚜렷한 약세 또는 아직 미반영. 3점: 재료 보통 "
+    "또는 반응 제한. 2점: 재료 약함. 1점: 악재 아님·반등. 상방 종목은 bearScore 를 생략한다. "
+    "주가 반응이 아직 없더라도(장 마감 후 공시 등) 악재가 확정적이면 4점 이상을 줄 것."
 )
+
+
+def _rule_direction(title):
+    """공시 제목 규칙 방향(analysis.sources.dart_rule_direction) — import 실패 시 (None, None)."""
+    try:
+        from analysis import sources as _src
+        return _src.dart_rule_direction(title)
+    except Exception:
+        return None, None
 
 
 def _load_master():
@@ -105,7 +121,14 @@ def collect(rounds):
     for rd in rounds:
         if rd.get("scoring"):
             continue
+        # 구 아카이브(2026-10-15 이전) 공시 촉매엔 dirRule·title 이 없다 — 회차 disclosures 의 url→제목으로 규칙 태그를 복원
+        titles = {d.get("url"): d.get("title") for d in (rd.get("disclosures") or []) if d.get("url")}
         for c in (rd.get("catalysts") or []):
+            if c.get("kind") == "disclosure" and not c.get("dirRule") and not c.get("title") and titles.get(c.get("url")):
+                c = dict(c, title=titles[c["url"]])
+                d, k = _rule_direction(c["title"])
+                if d:
+                    c["dirRule"], c["ruleKind"] = d, k
             if c.get("market") not in ("KOSPI", "KOSDAQ"):
                 continue
             name = (c.get("stock") or "").strip()
@@ -117,6 +140,10 @@ def collect(rounds):
                 "summary": c.get("summary") or "", "url": c.get("url"),
                 "rounds": 0, "summaries": []})
             e["rounds"] += 1
+            # 규칙 방향 태그·공시 제목·코드(2026-10-15 하방 촉매) — 한 번이라도 있으면 보존
+            for k in ("dirRule", "ruleKind", "title", "code"):
+                if c.get(k) and not e.get(k):
+                    e[k] = c.get(k)
             s = (c.get("summary") or "").strip()
             if s and s not in e["summaries"]:
                 e["summaries"].append(s)
@@ -135,6 +162,24 @@ def _mock_score(e):
     if e.get("direction") == "bearish":
         sc = min(sc, 2)
     return sc, f"[mock] 등락률 {r}% 휴리스틱"
+
+
+def _is_bear(e):
+    return e.get("direction") == "bearish" or e.get("dirRule") == "bearish"
+
+
+def _mock_bear(e):
+    """하방 강도 결정적 휴리스틱(LLM 폴백·mock): 규칙 공시 4(급락 +1), 하방 뉴스 2(3회차↑ 3, −10% 이하 +1)."""
+    if not _is_bear(e):
+        return None
+    r = e.get("changePct")
+    if e.get("dirRule") == "bearish":
+        b = 4 if "정정" not in str(e.get("title") or "") else 3     # [기재정정] 만 있는 공시는 새 사건 아님
+    else:
+        b = 3 if (e.get("rounds") or 0) >= 3 else 2
+    if r is not None and r <= -10:
+        b += 1
+    return max(1, min(5, b))
 
 
 def main():
@@ -159,7 +204,7 @@ def main():
 
     by_name = _load_master()
     for name, e in merged.items():
-        e["code"] = by_name.get(name)
+        e["code"] = e.get("code") or by_name.get(name)
     # 과거일 소급 재실행(코멘트 재작성 등): _naver_rate 는 '현재' 등락률이라 그대로
     # 쓰면 별점 입력이 재실행 시점 주가로 왜곡됨 — 기존 스코어 회차에 저장된 그 날
     # 등락률을 재사용한다(2026-09-08). 기존 회차가 없으면 등락률 없이 재료만 평가.
@@ -189,10 +234,11 @@ def main():
             print("[score] LLM 미설정 — mock 휴리스틱으로 대체", file=sys.stderr)
         for e in entries:
             e["score"], e["reason"] = _mock_score(e)
+            e["bearScore"] = _mock_bear(e)
         generated_by = "mock"
     else:
         user = json.dumps([{k: e.get(k) for k in
-                            ("stock", "market", "direction", "kind", "changePct",
+                            ("stock", "market", "direction", "dirRule", "ruleKind", "title", "kind", "changePct",
                              "rounds", "summaries")} for e in entries], ensure_ascii=False)
         data, generated_by = llm.generate_json(_SYSTEM, user, max_tokens=8192,
                                                schema=_SCHEMA, return_model=True)
@@ -201,11 +247,15 @@ def main():
             hit = smap.get(e["stock"]) or {}
             e["score"] = max(1, min(5, int(hit.get("score") or 3)))
             e["reason"] = (hit.get("reason") or "")[:120]
+            # 하방 강도(2026-10-15): LLM 값(1~5) → 없으면 규칙 휴리스틱, 상방 종목은 None
+            bs = hit.get("bearScore")
+            e["bearScore"] = (max(1, min(5, int(bs))) if isinstance(bs, (int, float)) and _is_bear(e) else _mock_bear(e))
 
     for e in entries:
         e.pop("summaries", None)
     entries.sort(key=lambda e: (-(e.get("score") or 0), -(e.get("changePct") or -999)))
     five = [e["stock"] for e in entries if e.get("score") == 5]
+    bear4 = [e["stock"] for e in entries if (e.get("bearScore") or 0) >= 4]
 
     scoring_round = {
         "date": date,
@@ -213,13 +263,14 @@ def main():
         "scoring": True,
         "generatedBy": generated_by,
         "fiveStar": five,
+        "bearFourStar": bear4,                       # 하방 강도 ★4↑(2026-10-15) — 주간 타임라인 하방 행·swing Short 입구
         "catalysts": entries,
     }
     rounds = [rd for rd in rounds if not rd.get("scoring")] + [scoring_round]
     arch["rounds"] = rounds
     with open(path, "w", encoding="utf-8") as f:
         json.dump(arch, f, ensure_ascii=False, indent=1)
-    print(f"[score] 저장: {path} — {len(entries)}종목, 5점 {len(five)}개 {five}")
+    print(f"[score] 저장: {path} — {len(entries)}종목, 5점 {len(five)}개 {five}, 하방 ★4↑ {len(bear4)}개 {bear4}")
     return 0
 
 

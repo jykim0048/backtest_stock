@@ -649,7 +649,7 @@ def build(d):
             b.cell(3, t.get("market", ""), "tl_cell")
             sec_c = b.cell(4, sec, "tl_cell")
             fstyle(sec_c, rgb=GRAY)
-            b.cell(5, "★" * (t.get("star") or 0), "tl_star")
+            b.cell(5, ("▼" if t.get("direction") == "bearish" else "") + "★" * (t.get("star") or 0), "tl_star")   # ▼ = 하방 촉매(2026-10-15)
             b.cell(6, t.get("changePct", ""), "num_pos", num="sign")
             ev = t.get("event", "")
             for hrow in (t.get("history") or []):
@@ -1149,7 +1149,7 @@ def add_detail_sheets(wb, b, d):
         # 컬럼 그룹 밴드 — 대시보드 토글 그룹(모멘텀·시총 / 주가 / 유동성 / 수급 / 종합)
         for c1, c2, t in ((1, 7, "업종 · 종목 · 모멘텀 점수(−5~+5) · 시총(억)"),
                           (8, 14, "주가 — 1M·3M·6M·12M 백분위 평균 (1W·YTD 표시만)"),
-                          (15, 16, "유동성 — 20일 대금 백분위"),
+                          (15, 16, "유동성 — 20일 평균 거래대금 백분위"),
                           (17, 25, "수급 — 수급/시총 · −공매도 비중Δ · −대차Δ · 거래대금 가속 백분위 평균"),
                           (26, 27, "종합 0.55주가+0.45수급")):
             b.cell(c1, t, "chip")
@@ -1159,7 +1159,7 @@ def add_detail_sheets(wb, b, d):
         b.nl()
         hdr = ["업종", "신호", "순위", "종목명", "방향", "점수", "시총",
                "1W", "1M", "3M", "6M", "12M", "YTD", "주가점수",
-               "20일대금", "유동성점수",
+               "20일 평균대금", "유동성점수",
                "대금 1W", "대금Δ4주(%)", "외인 1W", "기관 1W", "수급/시총(bp)", "공매도비중(%)", "공매도Δ(%p)", "대차Δ", "수급점수",
                "종합점수", "비고"]
         b.hdr_row(hdr, align="center")

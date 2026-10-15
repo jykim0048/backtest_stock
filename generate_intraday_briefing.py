@@ -62,6 +62,8 @@ THEME_DETAIL_TOP = int(os.environ.get("BRIEFING_THEME_DETAIL_TOP", "20"))   # (�
 THEME_MAP_PATH = os.path.join(ROOT, "public", "assets", "theme_map.json")   # 주 1회 재생성(theme_map.yml)
 SECTORS_PER_SIDE = int(os.environ.get("BRIEFING_SECTORS", "3"))    # 상승/하락 각 N개 섹터
 CATALYSTS_PER_DIR = int(os.environ.get("BRIEFING_CAT_PER_DIR", "10"))  # 촉매 방향별 상한(상방/중립/하방)
+RULE_BEAR_EXTRA = int(os.environ.get("BRIEFING_CAT_RULE_EXTRA", "10"))  # 규칙 bearish 공시 추가 허용분(상한 초과·LLM 미선정 백스톱)
+RULE_KIND_KR = {"dilution": "희석성 자금조달(유상증자·CB·BW·EB·영구채 등) 우려", "distress": "악재성 공시(감자·관리종목·거래정지·감사의견 등)"}
 
 # KIS 허브(vi_limit_monitor) /status — KOSPI 산업별 업종 지수 등락률(KRX 분류) 공급원.
 # 허브가 장중 REST 로 FHPUP02140000 을 폴링해 Redis→/status 로 노출한다(대시보드 VI 탭과 동일 서비스).
@@ -997,6 +999,9 @@ SYSTEM = (
     "market(그 종목이 실제 상장된 시장 — KOSPI 또는 KOSDAQ. 한국 상장 종목이 아니거나 불확실하면 "
     "market 을 지어내지 말고 그 항목 자체를 제외할 것), "
     "direction(그 촉매가 주가에 주는 방향 — 상방=bullish|중립=neutral|하방=bearish), summary(핵심 촉매 한 문장).\n"
+    "  · 유상증자·전환사채(CB)·신주인수권부사채(BW)·교환사채(EB)·영구채·신종자본증권 발행 결정, 감자, 대주주 블록딜·"
+    "지분 매각, 관리종목·불성실공시·거래정지, 횡령·배임, 감사의견 거절은 '자금 확보'·'재무 개선' 서술이 있어도 "
+    "주주가치 희석·악재이므로 direction=bearish 로 분류할 것.\n"
     "  · 뉴스는 corp 필드가 없으니 제목·본문에서 종목명을 추출해 stock 에 넣을 것.\n"
     "  · stock 은 반드시 실제 상장 '개별 종목명'이어야 한다 — '~테마주'·'~관련주'·업종/테마 "
     "묶음(예: 한동훈 테마주, 2차전지 관련주)은 종목이 아니다. 기사에 대표 개별 종목이 명시된 "
@@ -1328,11 +1333,15 @@ def synthesize(indices, investors, indicators, sectors_up, sectors_down,
         except (ValueError, IndexError):
             idx = -1
         url, kind = "", ""
+        title, dir_rule, rule_kind, code = "", None, None, ""
         if cid.startswith("d") and 0 <= idx < len(disclosures):
             url, kind = disclosures[idx].get("url", ""), "disclosure"
             market = disclosures[idx].get("market") or market   # 공시 기록의 시장(KOSPI/KOSDAQ) 우선
             if not stock:
                 stock = (disclosures[idx].get("corp") or "").strip()
+            title = disclosures[idx].get("title") or ""
+            dir_rule, rule_kind = disclosures[idx].get("dirRule"), disclosures[idx].get("ruleKind")
+            code = disclosures[idx].get("stockCode") or ""
         elif cid.startswith("n") and 0 <= idx < len(news):
             url, kind = news[idx].get("link", ""), "news"
         if not stock or not summary:
@@ -1351,10 +1360,41 @@ def synthesize(indices, investors, indicators, sectors_up, sectors_down,
             continue
         if dir_count[direction] >= CATALYSTS_PER_DIR:   # 방향별 상한
             continue
+        # 규칙 방향 태그 우선(2026-10-15): 희석성 자금조달·악재 공시는 LLM 이 bullish 를 줘도 bearish 로 고정
+        llm_direction = direction
+        if dir_rule == "bearish" and direction != "bearish":
+            direction = "bearish"
+        if dir_count[direction] >= CATALYSTS_PER_DIR and not (dir_rule == "bearish" and dir_count[direction] < CATALYSTS_PER_DIR + RULE_BEAR_EXTRA):
+            continue
         seen.add(key)
         dir_count[direction] += 1
-        catalysts.append({"stock": stock, "market": market, "direction": direction,
-                          "summary": summary, "url": url, "kind": kind})
+        row = {"stock": stock, "market": market, "direction": direction,
+               "summary": summary, "url": url, "kind": kind}
+        if kind == "disclosure":
+            row.update(title=title, dirRule=dir_rule, ruleKind=rule_kind, code=code or None)
+            if llm_direction != direction:
+                row["llmDirection"] = llm_direction
+        catalysts.append(row)
+    # 백스톱(2026-10-15): 규칙상 bearish 인 공시를 LLM 이 촉매로 고르지 않았으면 결정적으로 추가 — 하방 촉매는
+    # Short 후보 입구(swing)라 누락 비용이 크다. 요약은 제목 기반 템플릿, 종목당 1건, 상한 RULE_BEAR_EXTRA.
+    n_backstop = 0
+    for d in disclosures or []:
+        if d.get("dirRule") != "bearish" or n_backstop >= RULE_BEAR_EXTRA:
+            continue
+        stock = (d.get("corp") or "").strip()
+        key = _norm(stock)
+        if not stock or key in seen or d.get("market") not in ("KOSPI", "KOSDAQ"):
+            continue
+        seen.add(key)
+        n_backstop += 1
+        dir_count["bearish"] += 1
+        catalysts.append({"stock": stock, "market": d.get("market"), "direction": "bearish",
+                          "summary": f"{d.get('title')} 공시 — {RULE_KIND_KR.get(d.get('ruleKind'), '악재성 공시')}(규칙 분류, LLM 미선정)",
+                          "url": d.get("url", ""), "kind": "disclosure", "title": d.get("title"),
+                          "dirRule": "bearish", "ruleKind": d.get("ruleKind"), "code": d.get("stockCode") or None,
+                          "backstop": True})
+    if n_backstop:
+        print(f"  [catalysts] 규칙 하방 공시 백스톱 추가 {n_backstop}건")
 
     # 환율 브리핑 불릿 — LLM 요약 우선, 실패/미설정 시 오늘 환율 뉴스 헤드라인으로 폴백.
     fx_bullets = [b.strip() for b in (synth.get("fxBullets") or []) if b and b.strip()]

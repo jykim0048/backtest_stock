@@ -1087,28 +1087,73 @@ def naver_index_investors():
 
 
 # 장중 촉매성 공시 제목 키워드 (전체 공시에서 시장영향 큰 유형만 추린다)
+# 2026-10-15 하방 촉매 보강: 교환사채(EB)·영구채·신종자본증권·감자·관리종목·불성실공시·거래정지·횡령/배임·
+# 감사의견·상장폐지·담보제공·자기주식처분·잠정실적 추가(종전엔 교환사채가 없어 10/13 두산퓨얼셀 EB 공시 누락).
 DART_CATALYST_KEYWORDS = (
     "공급계약", "단일판매", "유상증자", "무상증자", "합병", "분할", "소송",
     "특허", "임상", "품목허가", "자기주식", "전환사채", "신주인수권",
     "최대주주", "경영권", "영업정지", "파산", "회생", "투자판단", "조회공시",
     "생산재개", "생산중단", "화재", "수주",
+    "교환사채", "영구", "신종자본증권", "감자", "관리종목", "불성실공시", "매매거래정지",
+    "횡령", "배임", "감사의견", "상장폐지", "담보제공", "잠정실적", "영업(잠정)실적",
 )
 
+# 공시 제목 → 규칙 방향(LLM 판단과 별개의 결정적 태그, 2026-10-15). 희석성 자금조달·악재성 공시는 LLM 이
+# "자금 확보"로 읽어 bullish 를 주더라도(10/14 두산퓨얼셀 영구채 사례) 규칙 태그가 우선한다.
+# 반환 (direction, kind): ("bearish","dilution"|"distress") · ("bullish","contract"|"buyback"|"approval"|"bonus") · (None, None)
+_DART_RULE_BEAR = (
+    ("유상증자결정", "dilution"), ("전환사채권발행결정", "dilution"), ("신주인수권부사채권발행결정", "dilution"),
+    ("교환사채권발행결정", "dilution"), ("영구", "dilution"), ("신종자본증권", "dilution"), ("자기주식처분결정", "dilution"),
+    ("감자결정", "distress"), ("관리종목", "distress"), ("불성실공시", "distress"), ("매매거래정지", "distress"),
+    ("횡령", "distress"), ("배임", "distress"), ("감사의견", "distress"), ("회생절차", "distress"),
+    ("파산", "distress"), ("영업정지", "distress"), ("상장폐지", "distress"), ("담보제공", "distress"),
+)
+_DART_RULE_BULL = (
+    ("단일판매", "contract"), ("공급계약", "contract"), ("수주", "contract"),
+    ("자기주식취득결정", "buyback"), ("무상증자결정", "bonus"),
+    ("품목허가", "approval"), ("임상시험계획승인", "approval"), ("특허권취득", "approval"), ("생산재개", "approval"),
+)
+# 우선 수집 키워드 — 건수 상한(limit)과 무관하게 따로 담는다(자금조달·악재 공시가 최신순 상한에 잘리지 않게)
+DART_PRIORITY_KEYWORDS = ("유상증자", "전환사채", "신주인수권", "교환사채", "영구", "신종자본증권", "감자",
+                          "관리종목", "불성실공시", "매매거래정지", "횡령", "배임", "감사의견", "상장폐지")
 
-def dart_today_disclosures(limit=40, keywords=DART_CATALYST_KEYWORDS):
+
+def dart_rule_direction(title):
+    """공시 제목의 규칙 방향 태그 → (direction, kind). 제목 공백 제거 후 부분 일치. 해당 없으면 (None, None).
+    '해지'·'철회'·'취소'가 붙은 제목(계약 해지 등)은 반대 방향으로 뒤집지 않고 None(LLM 판단에 맡김)."""
+    t = "".join(str(title or "").split())
+    if not t:
+        return None, None
+    if any(w in t for w in ("해지", "철회", "취소")):
+        return None, None
+    if "거래정지" in t and any(w in t for w in ("공급계약", "단일판매", "수주", "무상증자", "합병")):   # 호재 공시에 따른 정지
+        return None, None
+    for key, kind in _DART_RULE_BEAR:
+        if key in t:
+            return "bearish", kind
+    for key, kind in _DART_RULE_BULL:
+        if key in t:
+            return "bullish", kind
+    return None, None
+
+
+def dart_today_disclosures(limit=40, keywords=DART_CATALYST_KEYWORDS, priority=DART_PRIORITY_KEYWORDS,
+                           priority_limit=30):
     """당일 전체 상장사 공시(list.json, corp 미지정) 최신순 → 촉매성 필터.
 
-    반환: [{corp, stockCode, market, title, url}] (최신순 limit 건).
+    반환: [{corp, stockCode, market, title, url, dirRule, ruleKind}] (최신순).
     DART list 는 접수 '날짜'만 주므로 시각 필드는 없다 — 순서(rcept_no desc)로
-    최신성을 보장. keywords=None 이면 필터 없이 전부."""
+    최신성을 보장. keywords=None 이면 필터 없이 전부.
+    2026-10-15: priority 키워드(자금조달·악재) 공시는 별도 상한(priority_limit)으로 담고, 나머지가 limit 를 채운다 —
+    종전 최신순 40건 단일 상한에 자금조달 공시가 잘리던 문제. 각 행에 규칙 방향 태그(dirRule/ruleKind)."""
     key = _dart_key()
     if not key:
         return []
     today = datetime.datetime.now(
         datetime.timezone(datetime.timedelta(hours=9))).strftime("%Y%m%d")
-    out = []
+    pri, rest = [], []
     try:
-        for page in (1, 2):
+        for page in (1, 2, 3):
             r = requests.get(
                 "https://opendart.fss.or.kr/api/list.json",
                 params={"crtfc_key": key, "bgn_de": today, "end_de": today,
@@ -1126,20 +1171,27 @@ def dart_today_disclosures(limit=40, keywords=DART_CATALYST_KEYWORDS):
                 title = (it.get("report_nm") or "").strip()
                 if keywords and not any(k in title for k in keywords):
                     continue
-                out.append({
+                d, kind = dart_rule_direction(title)
+                row = {
                     "corp": (it.get("corp_name") or "").strip(),
                     "stockCode": (it.get("stock_code") or "").strip(),
                     "market": "KOSPI" if cls == "Y" else "KOSDAQ",
                     "title": title,
                     "url": f"https://dart.fss.or.kr/dsaf001/main.do?rcpNo={it.get('rcept_no')}",
-                })
-                if len(out) >= limit:
-                    return out
+                    "dirRule": d, "ruleKind": kind,
+                }
+                if priority and any(k in title for k in priority):
+                    if len(pri) < priority_limit:
+                        pri.append(row)
+                elif len(rest) < limit:
+                    rest.append(row)
+                if len(pri) >= priority_limit and len(rest) >= limit:
+                    return pri + rest
             if int(data.get("total_page") or 1) <= page:
                 break
     except Exception as e:
         _warn(f"dart_today_disclosures failed: {e}")
-    return out
+    return pri + rest
 
 
 # ----------------------------------------------------------------------------
