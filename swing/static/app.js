@@ -1147,6 +1147,8 @@
     out.sort(function (a, b) { return (b.score - a.score) || ((b.tv1w || 0) - (a.tv1w || 0)); });
     return out;
   }
+  // 공매도Δ·대차Δ 색(2026-10-15): Long 행 = 감소가 적(유리), Short 행 = 증가가 적(공매도 압력 ↑ = Short 에 유리)
+  function unInv(x) { return (x.side || (x._s && x._s.dir)) !== "short"; }
   function unTopRows(arr) {
     if (!arr.length) return '<div class="mx-empty">해당 방향 업종 없음</div>';
     // 2026-10-14 업종별 Top10 의 대표 열 3개 추가: 주가(3M·1M) · 20일 거래대금(억, 시총) · 종합(종합점수, 주가·수급 / 유동성 미달). 점수는 칩만(막대 제거)
@@ -1161,7 +1163,7 @@
         '<span style="text-align:right"><span class="sc ' + (x.score > 0 ? "up" : x.score < 0 ? "down" : "muted") + '">' + (x.score == null ? "—" : (x.score > 0 ? "+" : "") + x.score) + "</span></span>" +
         '<span class="v c4 ' + cls(x.tvMom) + '">' + (x.tvMom == null ? "—" : sgn(x.tvMom * 100, 0, "%")) + "<small>" + fmtEok(x.tv1w) + "</small></span>" +
         '<span class="v c5 ' + cls(fo) + '">' + sgn(fo, 0, "억") + "<small>" + sgn(x.flowBp, 0, "bp") + "</small></span>" +
-        '<span class="v c6 ' + cls(x.shortMom, true) + '">' + sgn(x.shortMom, 1, "%p") + "<small>" + (x.shortRlim1w == null ? "—" : x.shortRlim1w.toFixed(1) + "%") + "</small></span>" +
+        '<span class="v c6 ' + cls(x.shortMom, unInv(x)) + '">' + sgn(x.shortMom, 1, "%p") + "<small>" + (x.shortRlim1w == null ? "—" : x.shortRlim1w.toFixed(1) + "%") + "</small></span>" +
         '<span class="v c7 ' + cls(x.ret3m) + '">' + sgn(x.ret3m, 1, "%") + "<small>1M " + sgn(x.ret1m, 1, "%") + "</small></span>" +
         '<span class="v c9">' + (x.tv20d == null ? "—" : Math.round(x.tv20d).toLocaleString("ko-KR")) + "<small>시총 " + (x.cap ? Math.round(x.cap).toLocaleString("ko-KR") : "—") + "</small></span>" +
         '<span class="v c8">' + tot + "</span></div>";
@@ -1332,8 +1334,8 @@
           '<td class="num r g-flow">' + fmtEok(x.tv1w != null ? x.tv1w : x.tvDay) + '<small class="' + cls(x.tvMom) + '">' + (x.tv1w == null && x.tvDay != null ? "당일" : x.tvMom == null ? "" : sgn(x.tvMom * 100, 0, "%")) + "</small></td>" +
           '<td class="num r g-flow ' + cls(x.frgn1w) + '">' + sgn(x.frgn1w, 0) + '</td><td class="num r g-flow ' + cls(x.orgn1w) + '">' + sgn(x.orgn1w, 0) + "</td>" +
           '<td class="num r g-flow ' + cls(x.flowBp) + '">' + sgn(x.flowBp, 0, "bp") + "</td>" +
-          '<td class="num r g-flow">' + (x.shortRlim1w == null ? "—" : x.shortRlim1w.toFixed(1) + "%") + '<small class="' + cls(x.shortMom, true) + '">' + sgn(x.shortMom, 1) + "</small></td>" +
-          '<td class="num r g-flow ' + cls(x.loanChg, true) + '">' + sgn(x.loanChg, 0) + "</td>" + scoreBar(x.flowScore, "", "g-flow s") +
+          '<td class="num r g-flow">' + (x.shortRlim1w == null ? "—" : x.shortRlim1w.toFixed(1) + "%") + '<small class="' + cls(x.shortMom, unInv(x)) + '">' + sgn(x.shortMom, 1) + "</small></td>" +
+          '<td class="num r g-flow ' + cls(x.loanChg, unInv(x)) + '">' + sgn(x.loanChg, 0) + "</td>" + scoreBar(x.flowScore, "", "g-flow s") +
           // 종합
           (x.totalScore == null ? '<td class="num r muted g-total s" title="' + (x.liqGate ? "유동성 점수 " + (x.liqScore == null ? "—" : x.liqScore.toFixed(1)) + " < 30 — 종합 미산정" : "데이터 부족") + '">' + (x.liqGate ? "유동성 미달" : "—") + "</td>" : scoreBar(x.totalScore, "total", "g-total s")) +
           "</tr>";
