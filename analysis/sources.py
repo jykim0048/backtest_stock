@@ -1138,10 +1138,11 @@ def dart_rule_direction(title):
 
 
 def dart_today_disclosures(limit=40, keywords=DART_CATALYST_KEYWORDS, priority=DART_PRIORITY_KEYWORDS,
-                           priority_limit=30):
+                           priority_limit=30, bgn_de=None):
     """당일 전체 상장사 공시(list.json, corp 미지정) 최신순 → 촉매성 필터.
 
-    반환: [{corp, stockCode, market, title, url, dirRule, ruleKind}] (최신순).
+    반환: [{corp, stockCode, market, title, url, date, dirRule, ruleKind}] (최신순). bgn_de(YYYYMMDD)를 주면 그날부터 당일까지
+    (첫 회차 08:37 이 전일 장 마감 후 접수분을 함께 받는 용도, 2026-10-15) — 접수일은 date 에 남는다.
     DART list 는 접수 '날짜'만 주므로 시각 필드는 없다 — 순서(rcept_no desc)로
     최신성을 보장. keywords=None 이면 필터 없이 전부.
     2026-10-15: priority 키워드(자금조달·악재) 공시는 별도 상한(priority_limit)으로 담고, 나머지가 limit 를 채운다 —
@@ -1156,7 +1157,7 @@ def dart_today_disclosures(limit=40, keywords=DART_CATALYST_KEYWORDS, priority=D
         for page in (1, 2, 3):
             r = requests.get(
                 "https://opendart.fss.or.kr/api/list.json",
-                params={"crtfc_key": key, "bgn_de": today, "end_de": today,
+                params={"crtfc_key": key, "bgn_de": bgn_de or today, "end_de": today,
                         "page_no": page, "page_count": 100,
                         "sort": "date", "sort_mth": "desc"},
                 timeout=20,
@@ -1173,6 +1174,7 @@ def dart_today_disclosures(limit=40, keywords=DART_CATALYST_KEYWORDS, priority=D
                     continue
                 d, kind = dart_rule_direction(title)
                 row = {
+                    "date": (it.get("rcept_dt") or "").strip(),
                     "corp": (it.get("corp_name") or "").strip(),
                     "stockCode": (it.get("stock_code") or "").strip(),
                     "market": "KOSPI" if cls == "Y" else "KOSDAQ",

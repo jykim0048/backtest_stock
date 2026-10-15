@@ -86,6 +86,75 @@ def _is_final_round(now):
     return (now.hour, now.minute) >= (15, 30)
 
 
+def _prev_trading_day(d):
+    """d(date) 직전 거래일 — krx_calendar 휴장일(파일) + 주말. 최대 10일 역행."""
+    try:
+        import krx_calendar
+        hol = krx_calendar.load_holidays()
+    except Exception:
+        hol = set()
+    x = d
+    for _ in range(10):
+        x = x - datetime.timedelta(days=1)
+        if x.weekday() < 5 and x.strftime("%Y-%m-%d") not in hol and x not in hol:
+            return x
+    return d - datetime.timedelta(days=1)
+
+
+def _overnight_bgn(now):
+    """첫 회차(당일 아카이브에 회차 없음)면 직전 거래일 YYYYMMDD — DART 조회를 '직전 거래일 + 당일'로 넓혀 전일 장 마감 후
+    접수 공시(자금조달·악재 대부분)를 당일 첫 회차에 싣는다(2026-10-15). 이후 회차는 None(당일만)."""
+    path = os.path.join(ARCHIVE_DIR, f"{now.strftime('%Y-%m-%d')}.json")
+    try:
+        with open(path, encoding="utf-8") as f:
+            if (json.load(f) or {}).get("rounds"):
+                return None
+    except Exception:
+        pass
+    return _prev_trading_day(now.date()).strftime("%Y%m%d")
+
+
+def _seen_disclosure_urls(date_str):
+    """그날 아카이브 전 회차의 공시 url(접수번호) 집합 — 전일 장중에 이미 실린 공시를 당일 첫 회차에서 제외."""
+    path = os.path.join(ARCHIVE_DIR, f"{date_str}.json")
+    try:
+        with open(path, encoding="utf-8") as f:
+            rounds = (json.load(f) or {}).get("rounds") or []
+    except Exception:
+        return set()
+    urls = set()
+    for r in rounds:
+        for d in r.get("disclosures") or []:
+            if d.get("url"):
+                urls.add(d["url"])
+        for c in r.get("catalysts") or []:
+            if c.get("kind") == "disclosure" and c.get("url"):
+                urls.add(c["url"])
+    return urls
+
+
+def _fetch_disclosures(now):
+    """당일 공시(첫 회차는 직전 거래일 포함) → 전일 아카이브 중복 제거 → overnight(전일 접수) 표시."""
+    bgn = _overnight_bgn(now)
+    rows = sources.dart_today_disclosures(limit=40, bgn_de=bgn)
+    if not bgn:
+        return rows
+    today = now.strftime("%Y%m%d")
+    prev_iso = f"{bgn[:4]}-{bgn[4:6]}-{bgn[6:8]}"
+    seen = _seen_disclosure_urls(prev_iso)
+    out, n_over, n_dup = [], 0, 0
+    for r in rows:
+        if r.get("date") and r["date"] != today:
+            if r.get("url") in seen:
+                n_dup += 1
+                continue
+            r = dict(r, overnight=True)
+            n_over += 1
+        out.append(r)
+    print(f"  [disclosures] 첫 회차 — 직전 거래일({prev_iso}) 포함: 전일 마감 후 {n_over}건 추가, 전일 아카이브 중복 {n_dup}건 제외")
+    return out
+
+
 def _load_prev_rounds(date_str, limit=12):
     """당일 아카이브의 이전 회차들 → 마감 시황용 다이제스트(회차별 시황 불릿 + 촉매 종목).
     아카이브 없으면 [] (첫 거래일/아카이브 실패 시 graceful)."""
@@ -1333,7 +1402,7 @@ def synthesize(indices, investors, indicators, sectors_up, sectors_down,
         except (ValueError, IndexError):
             idx = -1
         url, kind = "", ""
-        title, dir_rule, rule_kind, code = "", None, None, ""
+        title, dir_rule, rule_kind, code, overnight = "", None, None, "", False
         if cid.startswith("d") and 0 <= idx < len(disclosures):
             url, kind = disclosures[idx].get("url", ""), "disclosure"
             market = disclosures[idx].get("market") or market   # 공시 기록의 시장(KOSPI/KOSDAQ) 우선
@@ -1342,6 +1411,7 @@ def synthesize(indices, investors, indicators, sectors_up, sectors_down,
             title = disclosures[idx].get("title") or ""
             dir_rule, rule_kind = disclosures[idx].get("dirRule"), disclosures[idx].get("ruleKind")
             code = disclosures[idx].get("stockCode") or ""
+            overnight = bool(disclosures[idx].get("overnight"))
         elif cid.startswith("n") and 0 <= idx < len(news):
             url, kind = news[idx].get("link", ""), "news"
         if not stock or not summary:
@@ -1372,6 +1442,8 @@ def synthesize(indices, investors, indicators, sectors_up, sectors_down,
                "summary": summary, "url": url, "kind": kind}
         if kind == "disclosure":
             row.update(title=title, dirRule=dir_rule, ruleKind=rule_kind, code=code or None)
+            if overnight:
+                row["overnight"] = True                      # 전일 장 마감 후 접수(첫 회차 확장분)
             if llm_direction != direction:
                 row["llmDirection"] = llm_direction
         catalysts.append(row)
@@ -1392,7 +1464,7 @@ def synthesize(indices, investors, indicators, sectors_up, sectors_down,
                           "summary": f"{d.get('title')} 공시 — {RULE_KIND_KR.get(d.get('ruleKind'), '악재성 공시')}(규칙 분류, LLM 미선정)",
                           "url": d.get("url", ""), "kind": "disclosure", "title": d.get("title"),
                           "dirRule": "bearish", "ruleKind": d.get("ruleKind"), "code": d.get("stockCode") or None,
-                          "backstop": True})
+                          "backstop": True, **({"overnight": True} if d.get("overnight") else {})})
     if n_backstop:
         print(f"  [catalysts] 규칙 하방 공시 백스톱 추가 {n_backstop}건")
 
@@ -1463,7 +1535,7 @@ def main():
             "sectors":     pool.submit(_timed, "sectors", fetch_sectors),
             "movers":      pool.submit(_timed, "movers", fetch_movers),
             "disclosures": pool.submit(_timed, "disclosures",
-                                       lambda: sources.dart_today_disclosures(limit=40)),
+                                       lambda: _fetch_disclosures(now)),
             "news":        pool.submit(_timed, "news", fetch_news),
             "fx_news":     pool.submit(_timed, "fx_news", fetch_fx_news),
             "inv_series":  pool.submit(_timed, "investor_series", fetch_investor_series),

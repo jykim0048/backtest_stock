@@ -3746,9 +3746,10 @@
     function _ibCatRows(catalysts, markets) {
       const allow = markets || ["KOSPI", "KOSDAQ"];
       _ibCatScoring = (catalysts || []).some(c => typeof c.score === "number");
-      const dirBadge = (dir) => dir === "bullish" ? `<span class="dir-badge bull">▲ 상방</span>`
+      const dirBadge = (dir, c) => (dir === "bullish" ? `<span class="dir-badge bull">▲ 상방</span>`
         : dir === "bearish" ? `<span class="dir-badge bear">▼ 하방</span>`
-        : dir === "neutral" ? `<span class="dir-badge neu">— 중립</span>` : "";
+        : dir === "neutral" ? `<span class="dir-badge neu">— 중립</span>` : "")
+        + (c && c.overnight ? ` <span title="전일 장 마감 후 접수 공시(첫 회차 확장분)" style="font-size:10px;opacity:.65;border:1px solid rgba(148,163,184,.4);border-radius:8px;padding:0 5px">전일 마감후</span>` : "");
       const rows = (catalysts || [])
         .filter(c => allow.indexOf(c.market) >= 0)
         .map(c => {
@@ -3781,7 +3782,7 @@
           const link = c.url ? ` <a href="${_brEsc(c.url)}" target="_blank" rel="noopener" style="color:var(--text-muted); font-size:11px;">원문</a>` : "";
           // 컬럼 순서: 종목 | 시장 | 별점 | 상승률 | 핵심 촉매 (2026-09-08 사용자 요청)
           return `<tr>`
-            + `<td style="font-weight:600; white-space:nowrap;">${icon} ${_brEsc(name)}${dirBadge(c.direction)}</td>`
+            + `<td style="font-weight:600; white-space:nowrap;">${icon} ${_brEsc(name)}${dirBadge(c.direction, c)}</td>`
             + `<td style="color:${mkColor}; font-size:13px; white-space:nowrap;">${mkLabel}</td>`
             + (_ibCatScoring
                ? `<td style="white-space:nowrap;">${stars || `<span style="color:var(--text-muted)">—</span>`}</td>`
