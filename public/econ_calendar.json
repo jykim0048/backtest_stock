@@ -1,6 +1,6 @@
 {
  "date": "2026-10-15",
- "asof": "2026-10-15 11:38 KST",
+ "asof": "2026-10-15 12:09 KST",
  "sources": {
   "naver": true,
   "forexfactory": true
@@ -492,9 +492,7 @@
     "diff": 15.0,
     "verdict": "above"
    }
-  }
- ],
- "upcoming": [
+  },
   {
    "nation": "KOR",
    "name": "M2 통화공급",
@@ -503,13 +501,21 @@
    "period": "Aug 2026",
    "category": "CENTRAL_BANKS",
    "releaseAtKST": "2026-10-15 12:00",
+   "actual": 7.2,
    "previous": 8,
    "unit": "%",
    "unitScale": "",
    "forecast": null,
    "forecastSource": null,
-   "source": "naver"
-  },
+   "source": "naver",
+   "surprise": {
+    "vs": "previous",
+    "diff": -0.8,
+    "verdict": "below"
+   }
+  }
+ ],
+ "upcoming": [
   {
    "nation": "USA",
    "name": "생산자물가지수(PPI) 전월대비",
