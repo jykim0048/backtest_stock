@@ -397,7 +397,7 @@
         return { key: p.decisionKey, cells: [td(stock(p.name, p.code, null, null, testTag(p))),
           td('<span class="sec-name">' + esc(p.sector || "—") + "</span>"), td(sig(p.signal) || '<span class="muted">—</span>'),
           td('<span class="pos-basis" data-dk="' + esc(p.decisionKey || "") + '">' + basisTag({ source: p.source }) + "</span>"),
-          td(levels(p.entry, p.stop, p.target)), td(wt + "<small>" + won(p.qty) + "주</small>", "r"),
+          td(levels(p.entry, p.stop, p.target)), td(wt + '<small class="sub-qty">' + won(p.qty) + "주</small>", "r"),
           td('<span class="num">' + won(p.lastClose) + "</span>", "r"),
           td(pnlBadge(p.unrealPct, pctTxt(p.unrealPct).replace(/^[+-]/, "")), "r"),
           td(holdBar(p.holdDay) + (p.fillDate ? '<small class="hold-fill">체결 ' + esc(p.fillDate.slice(5)) + "</small>" : "")),
@@ -610,7 +610,7 @@
           td('<span class="side-tag ' + sideOf(o) + '">' + (sideOf(o) === "long" ? "LONG" : "SHORT") + "</span>"),
           td(stock(o.name, o.code)), td('<span class="state ' + o.status + '">' + (STATUS[o.status] || o.status) + "</span>"),
           td('<span class="num">' + won(o.entry) + "</span>", "r"),
-          td('<span class="num">' + pct(o.weight) + "</span><small>" + won(o.qty) + "주</small>", "r"),
+          td('<span class="num">' + pct(o.weight) + '</span><small class="sub-qty">' + won(o.qty) + "주</small>", "r"),
           td(retryTag + basisTag({ source: o.source }) + (o.note ? ' <span class="muted">' + esc(o.note) + "</span>" : ""), "wrap")] };
       }), RP.side === "short" ? "Short 진입 내역 없음" : "이 기간 진입 내역이 없습니다");
     var more = $("fills-more");
