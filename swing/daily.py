@@ -120,13 +120,34 @@ def run_day(date, store, agent, prices, wb, *, force=False, log=print, uni=None,
     ev = engine.settle_day(L, date, bars)
     nxt = tradedays.next_trading_day(date)
     run["entryDate"] = nxt                                   # 신규 후보 주문의 진입(유효)일 — 대시보드 표기(2026-10-16)
-    run["retries"] = _retry_unfilled(L, ev, bars, date, nxt, backlog)   # 미도달 재주문(2026-10-16, 방식 A)
-    run["topups"] = _carry_partials(L, ev, bars, date, nxt)                # 부분 진입 잔여분 추가 주문(2026-10-16, B)
+    fut_ok = None                                             # Short 재주문·추가 주문 선물 확인(선물 한정 켜짐 + 목록 있을 때)
+    if config.UNI_SHORT_FUT_ONLY and uni is not None and any(engine.is_short(o) for o in (ev.get("cancelled") or []) + backlog + (ev.get("partials") or [])):
+        fut_ok = uni.fut_set(date)
+    run["retries"] = _retry_unfilled(L, ev, bars, date, nxt, backlog, fut_ok)   # 미도달 재주문(2026-10-16, 방식 A)
+    run["topups"] = _carry_partials(L, ev, bars, date, nxt, fut_ok)            # 부분 진입 잔여분 추가 주문(2026-10-16, B)
     retried = {r["code"] for r in run["retries"] if r["ok"]}
     if retried:                                               # 재주문 종목은 오늘 신규 후보에서 뺀다(대기 주문 = pend)
         pend |= retried
         cands = [c for c in cands if c["code"] not in retried]
         scands = [c for c in scands if c["code"] not in retried]
+    # 주식선물 미상장 Short 정리(2026-10-16) — 그날 종가 환매(오늘 체결분 포함), 노트로 남김
+    run["futClosed"] = []
+    if config.UNI_SHORT_FUT_ONLY and config.SHORT_FUT_CLOSE and uni is not None \
+            and any(engine.is_short(p) for p in L["positions"]):
+        fs_ = uni.fut_set(date)
+        if fs_:
+            for p in [x for x in L["positions"] if engine.is_short(x) and x["code"] not in fs_]:
+                b = bars.get(p["code"]) or {}
+                if not b.get("close"):
+                    run["notes"].append(f"선물 미상장 Short {p['name']} 종가 없음 — 환매 보류")
+                    continue
+                t = engine.close_position(L, p, date, float(b["close"]), "fut_none", note="주식선물 미상장 — 종가 환매")
+                ev["exits"].append(t)
+                run["futClosed"].append(p["code"])
+            if run["futClosed"]:
+                run["notes"].append(f"주식선물 미상장 Short 종가 환매 {len(run['futClosed'])}종목")
+        else:
+            run["notes"].append("주식선물 목록 없음 — 선물 미상장 Short 정리 생략")
     run["events"] = {k: [x.get("id") for x in v] for k, v in ev.items() if isinstance(v, list)}
     run["exits"] = [{"code": t["code"], "name": t["name"], "side": t.get("side", "long"), "reason": t["reason"],
                      "retPct": t["retPct"]} for t in ev.get("exits", [])]
@@ -304,7 +325,7 @@ def run_day(date, store, agent, prices, wb, *, force=False, log=print, uni=None,
     return run
 
 
-def _carry_partials(L, ev, bars, date, nxt):
+def _carry_partials(L, ev, bars, date, nxt, fut_ok=None):
     """부분 진입 잔여분 → 같은 레벨로 다음 영업일 추가 주문(기존 포지션에 합침). 가드는 미도달 재주문과 같음
     (추가 횟수 ≤ ENTRY_RETRY_MAX · 오늘 종가가 진입가 ±ENTRY_RETRY_BAND · 손절가 미침범 · 포지션 유지·청산 예약 없음)."""
     out = []
@@ -320,6 +341,8 @@ def _carry_partials(L, ev, bars, date, nxt):
         close, entry, stop = b.get("close"), o.get("entry"), o.get("stop")
         if n > config.ENTRY_RETRY_MAX:
             row["why"] = f"추가 진입 상한 {config.ENTRY_RETRY_MAX}회"
+        elif fut_ok and o.get("side") == "short" and o["code"] not in fut_ok:
+            row["why"] = "주식선물 미상장 — 추가 주문 안 함"
         elif pos is None or pos.get("sellPending"):
             row["why"] = "포지션 청산(예약) — 추가 진입 안 함"
         elif not close or not entry:
@@ -351,7 +374,7 @@ def _retry_backlog(L, date):
     return out
 
 
-def _retry_unfilled(L, ev, bars, date, nxt, backlog=()):
+def _retry_unfilled(L, ev, bars, date, nxt, backlog=(), fut_ok=None):
     """미도달 취소 주문 → 같은 레벨로 다음 영업일 재주문(재분석 없음). 반환 [{code,name,side,retry,ok,why,orderId,backfill}].
     대상 = 오늘 미도달 취소 + backlog(기능 배포 전·런 누락 등으로 판정을 못 받은 ENTRY_RETRY_FROM 이후 미도달 취소).
     가드: 재시도 횟수 ≤ ENTRY_RETRY_MAX · 유효일 이후 ENTRY_RETRY_MAX 영업일 이내 · 오늘 종가가 진입가 ±ENTRY_RETRY_BAND ·
@@ -377,6 +400,8 @@ def _retry_unfilled(L, ev, bars, date, nxt, backlog=()):
         close, entry, stop = b.get("close"), o.get("entry"), o.get("stop")
         if n > config.ENTRY_RETRY_MAX:
             row["why"] = f"재시도 상한 {config.ENTRY_RETRY_MAX}회"
+        elif fut_ok and o.get("side") == "short" and o["code"] not in fut_ok:
+            row["why"] = "주식선물 미상장 — 재주문 안 함"
         elif not close or not entry:
             row["why"] = "종가 없음"
         elif abs(close / entry - 1) > config.ENTRY_RETRY_BAND:

@@ -146,6 +146,11 @@ def apply_hold(L, code, *, target=None, stop=None, decision_key=None, date=None)
 
 
 # ── 체결 헬퍼 ────────────────────────────────────────────────────────────────
+def close_position(L, p, date, price, reason, note=None):
+    """외부(daily) 정리용 공개 청산 — 그날 지정 가격으로 즉시 청산(예: 선물 미상장 Short 종가 환매)."""
+    return _close_position(L, p, date, price, reason, note=note)
+
+
 def _close_position(L, p, date, price, reason, note=None):
     cost = p["qty"] * p["entry"]
     if is_short(p):

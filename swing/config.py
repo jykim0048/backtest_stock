@@ -121,3 +121,6 @@ UNI_CAP_CARRY = os.environ.get("SWING_UNI_CAP_CARRY", "1") != "0"
 # 미도달 재주문과 같은 가격 가드), 체결되면 기존 포지션에 합쳐 평균단가.
 PARTIAL_ENTRY = os.environ.get("SWING_PARTIAL_ENTRY", "1") != "0"
 PARTIAL_ENTRY_MIN = _f("SWING_PARTIAL_ENTRY_MIN", 0.5)
+# 주식선물 미상장 Short 정리(2026-10-16 사용자 지시: 뉴인텍·엑스플러스 종가 청산) — UNI_SHORT_FUT_ONLY 가 켜져 있으면 선물 미상장 종목의
+# Short 포지션은 그날 종가로 환매(사유 fut_none), 그 종목의 미도달 재주문·잔여분 추가 주문도 내지 않는다. 0 이면 끔.
+SHORT_FUT_CLOSE = os.environ.get("SWING_SHORT_FUT_CLOSE", "1") != "0"

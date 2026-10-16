@@ -3,7 +3,7 @@
   "use strict";
   var $ = function (id) { return document.getElementById(id); };
   // 청산 사유 — 2026-09-29 부터 목표가·만기는 재판별 후 매도(review_*), target/expiry 는 이전 기록 호환
-  var REASON = { stop: "손절", stop_gap: "갭 손절(시가)", review_target: "목표 후 매도", review_expiry: "만기 후 매도",
+  var REASON = { fut_none: "선물 미상장 환매", stop: "손절", stop_gap: "갭 손절(시가)", review_target: "목표 후 매도", review_expiry: "만기 후 매도",
     max_hold: "최대 보유", pm_sell: "PM 매도", cash: "현금 확보", target: "목표가", expiry: "보유 만기" };
   var REVIEW_ACT = { sell: ["sell-next", "매도 예약"], sell_fallback: ["sell-next", "판단 실패 → 원 규칙대로 매도"],
     hold_updated: ["ext", "계속 보유 · 가격 갱신"], hold: ["hold-ok", "계속 보유"] };
@@ -134,7 +134,8 @@
     if (!iso) return "";
     var d = new Date(iso + "T00:00:00"); d.setDate(d.getDate() + 1);
     while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() + 1);
-    return d.toISOString().slice(0, 10);
+    // 로컬 날짜로 포맷(2026-10-16 수정: toISOString 은 UTC 라 KST 에서 하루 앞당겨졌음)
+    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
   }
   function setCount(id, n) { $(id).textContent = n ? n : ""; }
 
