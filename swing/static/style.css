@@ -697,3 +697,8 @@ details.stage > summary .muted { font-weight: 500; font-size: 11px; margin-left:
 .board-header .cand-asof { margin-left: 4px; align-self: center; }
 /* 비중 아래 수량 — 하위 줄·작은 글씨(2026-10-16) */
 td small.sub-qty { display: block; font-size: 10.5px; color: var(--text-muted); font-family: var(--font-outfit); margin-top: 1px; }
+/* 유니버스 KPI 보유 겹침 알약(2026-10-16) — Long 빨강 · Short 파랑 */
+.held-pills { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.held-pill { font-size: 11px; font-weight: 600; padding: 1px 8px; border-radius: 20px; white-space: nowrap; font-family: inherit; }
+.held-pill.long { color: var(--up-red); background: rgba(240, 68, 82, .12); border: 1px solid rgba(240, 68, 82, .35); }
+.held-pill.short { color: var(--down-blue); background: rgba(49, 130, 246, .12); border: 1px solid rgba(49, 130, 246, .35); }

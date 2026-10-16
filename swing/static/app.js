@@ -1288,6 +1288,19 @@
     if (!u.length) sub = "유니버스 후보 없음" + (cool != null ? " · 쿨다운 " + cool : "");
     return ["유니버스 분석 → 주문", u.length + '<small> → ' + ord.length + "</small>", sub];
   }
+  // 보유 겹침 알약(2026-10-16) — Top 안의 보유 종목, Long = 빨강 · Short = 파랑. 방향은 현재 보유(S.held/heldShort) 우선, 없으면 업종 방향
+  function heldPills(doc) {
+    var seen = {}, out = [];
+    (doc.sectors || []).forEach(function (s) {
+      (s.top || []).forEach(function (x) {
+        if (!x.held || seen[x.code]) return;
+        seen[x.code] = 1;
+        var side = S.heldShort && S.heldShort[x.code] ? "short" : S.held && S.held[x.code] ? "long" : (s.dir === "short" ? "short" : "long");
+        out.push('<span class="held-pill ' + side + '" title="' + esc(s.name) + " · " + (side === "short" ? "Short" : "Long") + ' 보유">' + esc(x.name) + "</span>");
+      });
+    });
+    return out.length ? '<div class="held-pills">' + out.join("") + "</div>" : "";
+  }
   function renderUniverse(res) {
     var doc = res && res.universe;
     UN.doc = doc; UN.sec = null;
@@ -1312,7 +1325,7 @@
       ["1차 컷 → Top", sm.cut + "<small> → " + sm.top + "</small>", "거래대금 상위 " + kn.topkTv + " ∪ 시총 " + kn.topkCap + " · 20일 평균 거래대금 ≥ " + kn.minTvEok + "억"],
       ["Long 후보", sm.long, unCandTxt(kn) + " · 상방 업종", "long"],
       ["Short 후보", sm.short, "선물 상장 " + sm.shortFut + " · 하방 업종", "short"],
-      ["보유 겹침", sm.heldOverlap, "Top 안의 보유 종목"],
+      ["보유 겹침", sm.heldOverlap, "Top 안의 보유 종목" + heldPills(doc)],
       unRunKpi()];
     $("un-kpis").innerHTML = kp.map(function (k) {
       return '<div class="kpi"><div class="kpi-lbl">' + k[0] + '</div><div class="kpi-val ' + (k[3] || "") + '">' + k[1] + '</div><div class="kpi-sub">' + k[2] + "</div></div>";
