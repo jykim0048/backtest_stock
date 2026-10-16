@@ -42,13 +42,32 @@ class TestEntry(unittest.TestCase):
         self.assertEqual(L["orderLog"][-1]["note"], "시세 없음")
 
     def test_fill_day_stop_conservative_and_no_target(self):
-        L = ledger_with_order()
-        E.settle_day(L, "2026-09-02", {"000001": bar(10000, 10700, 9400, 9600)})
-        t = L["trades"][0]
-        self.assertEqual((t["reason"], t["exitPrice"]), ("stop", 9500))
+        old = config.FILL_DAY_STOP_NEXT_OPEN
+        config.FILL_DAY_STOP_NEXT_OPEN = False                  # 종전 규칙(노브 끔): 체결일 손절가 당일 청산
+        try:
+            L = ledger_with_order()
+            E.settle_day(L, "2026-09-02", {"000001": bar(10000, 10700, 9400, 9600)})
+            t = L["trades"][0]
+            self.assertEqual((t["reason"], t["exitPrice"]), ("stop", 9500))
+        finally:
+            config.FILL_DAY_STOP_NEXT_OPEN = old
         L = ledger_with_order()
         E.settle_day(L, "2026-09-02", {"000001": bar(10000, 10700, 9900, 10500)})
         self.assertEqual(len(L["positions"]), 1)                 # 체결일 목표 미적용
+
+    def test_fill_day_stop_deferred_to_next_open(self):
+        self.assertTrue(config.FILL_DAY_STOP_NEXT_OPEN)          # 기본(2026-10-16)
+        L = ledger_with_order()
+        ev = E.settle_day(L, "2026-09-02", {"000001": bar(10000, 10700, 9400, 9600)})
+        self.assertEqual(L["trades"], [])                         # 당일 청산 없음
+        p = L["positions"][0]
+        self.assertEqual(p["sellPending"]["kind"], "stop")
+        self.assertEqual(len(ev["deferredStops"]), 1)
+        E.settle_day(L, "2026-09-03", {"000001": bar(9700, 9800, 9600, 9650)})
+        t = L["trades"][0]
+        self.assertEqual((t["reason"], t["exitPrice"], t["exitDate"]), ("stop", 9700, "2026-09-03"))
+        self.assertIn("익일 시가", t["note"])
+        self.assertEqual(L["positions"], [])
 
     def test_qty_zero_skipped(self):
         L = E.new_ledger(10_000)

@@ -55,8 +55,8 @@ UNI_MIN_TV_EOK = _f("SWING_UNI_MIN_TV_EOK", 20)    # 유동성 하한: 20일 평
 UNI_FLOW_PER_SECTOR = _i("SWING_UNI_FLOW_PER_SECTOR", 12)   # KIS 허브 /flow 보강 대상(업종별 예비 상위)
 UNI_CAND_MIN = _i("SWING_UNI_CAND_MIN", 2)         # '후보' 표시 최소 점수
 UNI_COOLDOWN_DAYS = _i("SWING_UNI_COOLDOWN_DAYS", 3)   # 최근 N영업일 entry 판단 있으면 유니버스 후보 제외(쿨다운)·✓ 표시
-UNI_NEW_PER_DAY = _i("SWING_UNI_NEW_PER_DAY", 10)     # 유니버스 소스 하루 신규 Long 분석 상한(= 통합 상위 10, 매트릭스와 별도)
-UNI_NEW_SHORT_PER_DAY = _i("SWING_UNI_NEW_SHORT_PER_DAY", 10)  # 유니버스 소스 하루 신규 Short 분석 상한(= 통합 상위 10)
+UNI_NEW_PER_DAY = _i("SWING_UNI_NEW_PER_DAY", 15)     # 유니버스 소스 하루 신규 Long 분석 상한(= 통합 상위 10, 매트릭스와 별도)
+UNI_NEW_SHORT_PER_DAY = _i("SWING_UNI_NEW_SHORT_PER_DAY", 15)  # 유니버스 소스 하루 신규 Short 분석 상한(= 통합 상위 10)
 UNI_RANK_N = _i("SWING_UNI_RANK_N", 50)             # 전 업종 통합 롱/숏 순위 저장 길이(표시 10)
 # 유니버스 후보 선정 방식(2026-10-14 A/B/C 시뮬 후 사용자 결정 = roundrobin):
 #   roundrobin = 업종 라운드로빈(상방/하방 업종을 1위 점수순으로 돌며 업종당 1개씩, 자리가 남으면 2바퀴째) · rank = 통합 순위 상위 ·
@@ -107,3 +107,10 @@ ENTRY_RETRY_BAND = _f("SWING_ENTRY_RETRY_BAND", 0.03)
 # 소급 시작일(2026-10-16 사용자 지시: 10-15 데이터부터) — 이 날 이후 유효일의 미도달 취소 중 아직 재시도 판정을 안 받은 것(기능 배포 전 취소분)도
 # 다음 런에서 같은 규칙으로 재주문한다. 유효일로부터 ENTRY_RETRY_MAX 영업일이 지나면 기간 경과로 종료.
 ENTRY_RETRY_FROM = os.environ.get("SWING_ENTRY_RETRY_FROM", "2026-10-15")
+# 매트릭스 후보에도 유니버스·하방 촉매와 같은 쿨다운(UNI_COOLDOWN_DAYS)을 적용(2026-10-16 사용자 지시). 0 이면 끔(종전: 매일 재분석)
+MATRIX_COOLDOWN = os.environ.get("SWING_MATRIX_COOLDOWN", "1") != "0"
+# 체결일 손절(2026-10-16 사용자 지시): 체결일 일봉이 손절가에 닿으면 당일 손절가 청산 대신 **다음 영업일 시가 청산 예약**.
+# 0 이면 종전(체결일 손절가로 당일 청산 = 보수적 가정)
+FILL_DAY_STOP_NEXT_OPEN = os.environ.get("SWING_FILL_DAY_STOP_NEXT_OPEN", "1") != "0"
+# 유니버스 분석 상한 이연(2026-10-16 사용자 지시: Long 15 / Short 15, 한쪽 후보가 상한보다 적으면 남는 자리를 다른 쪽에 넘김)
+UNI_CAP_CARRY = os.environ.get("SWING_UNI_CAP_CARRY", "1") != "0"

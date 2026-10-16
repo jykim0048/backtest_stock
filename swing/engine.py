@@ -292,8 +292,14 @@ def settle_day(L, date, bars):
             extreme = b.get("high")
         if p["id"] in new_ids:
             if hit_stop:
-                ev["exits"].append(_close_position(L, p, date, p["stop"], "stop",
-                                                   note="체결일 손절(보수적)"))
+                if config.FILL_DAY_STOP_NEXT_OPEN:
+                    # 2026-10-16: 체결일 손절가 도달은 당일 청산하지 않고 다음 영업일 시가 청산 예약(① 단계에서 처리)
+                    p["sellPending"] = {"reason": f"체결일 손절가 {p['stop']:,.0f} 도달 → 익일 시가 청산", "decisionKey": None,
+                                        "date": date, "kind": "stop"}
+                    ev.setdefault("deferredStops", []).append(p)
+                else:
+                    ev["exits"].append(_close_position(L, p, date, p["stop"], "stop",
+                                                       note="체결일 손절(보수적)"))
             continue
         if hit_stop:
             ev["exits"].append(_close_position(

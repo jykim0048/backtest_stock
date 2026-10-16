@@ -87,6 +87,14 @@ def run_day(date, store, agent, prices, wb, *, force=False, log=print, uni=None,
     cands = signals.buy_candidates(wb, held | pend) if wb_ok else []
     scands = (signals.short_candidates(wb, held | pend | {c["code"] for c in cands})
               if wb_ok and config.SHORT_ENABLED else [])
+    # 매트릭스 후보 쿨다운(2026-10-16) — 유니버스·하방 촉매와 같은 규칙: 최근 UNI_COOLDOWN_DAYS 영업일(판단일 포함) 안에
+    # 진입 판단을 받은 종목은 결과(주문·Hold·미체결)와 무관하게 제외. 보유·대기 종목은 원래 제외.
+    mcool = universe.recent_decisions(store, date, config.UNI_COOLDOWN_DAYS) if config.MATRIX_COOLDOWN else {}
+    run["matrixCooldown"] = sorted(c["code"] for c in cands + scands if c["code"] in mcool)
+    if run["matrixCooldown"]:
+        cands = [c for c in cands if c["code"] not in mcool]
+        scands = [c for c in scands if c["code"] not in mcool]
+        run["notes"].append(f"매트릭스 후보 쿨다운 제외 {len(run['matrixCooldown'])}종목")
     for c in cands + scands:
         c["source"] = "matrix"
     # Short 후보는 주식선물 상장 종목만(2026-10-16, UNI_SHORT_FUT_ONLY 기본 켬) — 매트릭스도 유니버스·촉매와 같은 필터.
@@ -142,16 +150,22 @@ def run_day(date, store, agent, prices, wb, *, force=False, log=print, uni=None,
             decided = universe.recent_decisions(store, date, config.UNI_COOLDOWN_DAYS)
             ex_codes = held | pend | {c["code"] for c in cands} | {c["code"] for c in scands}
             ucands = universe.universe_candidates(uni_doc, "long", ex_codes, decided)
-            skipped_uni_cap, ucands = ucands[config.UNI_NEW_PER_DAY:], ucands[:config.UNI_NEW_PER_DAY]
             if config.SHORT_ENABLED:
                 uscands = universe.universe_candidates(uni_doc, "short", ex_codes | {c["code"] for c in ucands}, decided,
                                                        fut_only=config.UNI_SHORT_FUT_ONLY)
-                skipped_uni_short_cap, uscands = uscands[config.UNI_NEW_SHORT_PER_DAY:], uscands[:config.UNI_NEW_SHORT_PER_DAY]
+            # 상한 이연(2026-10-16): 한쪽 적격 후보가 상한보다 적으면 남는 자리를 다른 쪽 상한에 더한다(총 분석 수 = Long+Short 상한 합 이내)
+            cap_l, cap_s = config.UNI_NEW_PER_DAY, (config.UNI_NEW_SHORT_PER_DAY if config.SHORT_ENABLED else 0)
+            if config.UNI_CAP_CARRY:
+                cap_l, cap_s = cap_l + max(0, cap_s - len(uscands)), cap_s + max(0, cap_l - len(ucands))
+            run["uniCaps"] = {"long": cap_l, "short": cap_s, "base": [config.UNI_NEW_PER_DAY, config.UNI_NEW_SHORT_PER_DAY]}
+            skipped_uni_cap, ucands = ucands[cap_l:], ucands[:cap_l]
+            skipped_uni_short_cap, uscands = uscands[cap_s:], uscands[:cap_s]
             extra = sorted({c["code"] for c in ucands + uscands} - set(bars))
             if extra:
                 bars.update(prices.daily_bars(extra, date))
+            carry = "" if (cap_l, cap_s) == (config.UNI_NEW_PER_DAY, config.UNI_NEW_SHORT_PER_DAY) else f" · 상한 이연 Long {cap_l}/Short {cap_s}"
             run["notes"].append(f"유니버스 후보 Long {len(ucands)}(상한 초과 {len(skipped_uni_cap)}) · "
-                                f"Short {len(uscands)}(상한 초과 {len(skipped_uni_short_cap)}) · 쿨다운 제외 {len(decided)}종목")
+                                f"Short {len(uscands)}(상한 초과 {len(skipped_uni_short_cap)}) · 쿨다운 제외 {len(decided)}종목" + carry)
     skipped_cap, cands = cands[config.MAX_NEW_PER_DAY:], cands[:config.MAX_NEW_PER_DAY]
     skipped_short_cap, scands = scands[config.MAX_NEW_SHORT_PER_DAY:], scands[:config.MAX_NEW_SHORT_PER_DAY]
 

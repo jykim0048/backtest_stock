@@ -51,8 +51,11 @@ class TestShortEngine(unittest.TestCase):
     def test_fill_day_stop_only_no_target(self):
         L = short_ledger()
         E.settle_day(L, "2026-09-02", {"000001": bar(9900, 10600, 9300, 10400)})   # 손절·목표 모두 닿음
+        self.assertEqual(L["trades"], [])                         # 2026-10-16: 체결일 손절 → 익일 시가 환매 예약
+        self.assertEqual(L["positions"][0]["sellPending"]["kind"], "stop")
+        E.settle_day(L, "2026-09-03", {"000001": bar(10450, 10500, 10300, 10350)})
         t = L["trades"][0]
-        self.assertEqual((t["reason"], t["exitPrice"], t["note"]), ("stop", 10500, "체결일 손절(보수적)"))
+        self.assertEqual((t["reason"], t["exitPrice"]), ("stop", 10450))
 
     def test_gap_up_stop_at_open_and_pnl(self):
         L = filled()
