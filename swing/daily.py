@@ -102,8 +102,9 @@ def run_day(date, store, agent, prices, wb, *, force=False, log=print, uni=None,
                 run["notes"].append(f"매트릭스 Short 후보 주식선물 미상장 제외 {len(run['shortFutSkipped'])}종목")
         else:
             run["notes"].append("주식선물 목록 없음 — 매트릭스 Short 선물 한정 필터 생략")
+    backlog = _retry_backlog(L, date)                         # 미도달 재주문 소급분(2026-10-16) — 시세 필요
     need = (held | {o["code"] for o in L["orders"] if o["validDate"] <= date} | {c["code"] for c in cands}
-            | {c["code"] for c in scands})
+            | {c["code"] for c in scands} | {o["code"] for o in backlog})
     bars = prices.daily_bars(sorted(need), date)
     missing = sorted(held - set(bars))
     if missing:
@@ -111,7 +112,12 @@ def run_day(date, store, agent, prices, wb, *, force=False, log=print, uni=None,
     ev = engine.settle_day(L, date, bars)
     nxt = tradedays.next_trading_day(date)
     run["entryDate"] = nxt                                   # 신규 후보 주문의 진입(유효)일 — 대시보드 표기(2026-10-16)
-    run["retries"] = _retry_unfilled(L, ev, bars, date, nxt)   # 미도달 재주문(2026-10-16, 방식 A)
+    run["retries"] = _retry_unfilled(L, ev, bars, date, nxt, backlog)   # 미도달 재주문(2026-10-16, 방식 A)
+    retried = {r["code"] for r in run["retries"] if r["ok"]}
+    if retried:                                               # 재주문 종목은 오늘 신규 후보에서 뺀다(대기 주문 = pend)
+        pend |= retried
+        cands = [c for c in cands if c["code"] not in retried]
+        scands = [c for c in scands if c["code"] not in retried]
     run["events"] = {k: [x.get("id") for x in v] for k, v in ev.items() if isinstance(v, list)}
     run["exits"] = [{"code": t["code"], "name": t["name"], "side": t.get("side", "long"), "reason": t["reason"],
                      "retPct": t["retPct"]} for t in ev.get("exits", [])]
@@ -274,16 +280,39 @@ def run_day(date, store, agent, prices, wb, *, force=False, log=print, uni=None,
     return run
 
 
-def _retry_unfilled(L, ev, bars, date, nxt):
-    """미도달 취소 주문 → 같은 레벨로 다음 영업일 재주문(재분석 없음). 반환 [{code,name,side,retry,ok,why,orderId}].
-    가드: 재시도 횟수 ≤ ENTRY_RETRY_MAX · 그날 종가가 진입가 ±ENTRY_RETRY_BAND · 손절가 미침범(Long 종가>손절, Short 종가<손절) ·
-    보유·대기 아님. 가드에 걸리면 중단(쿨다운이 끝나고 다시 선정되면 그때 재분석)."""
+def _retry_backlog(L, date):
+    """재시도 판정을 아직 받지 않은 과거 미도달 취소(orderLog) — 유효일 ENTRY_RETRY_FROM 이상·오늘 이전·ENTRY_RETRY_MAX 영업일 이내."""
+    out = []
+    for o in L.get("orderLog") or []:
+        vd = o.get("validDate") or ""
+        if (o.get("status") != "cancelled" or not str(o.get("note") or "").startswith("미도달") or o.get("retryChecked")
+                or not vd or vd >= date or (config.ENTRY_RETRY_FROM and vd < config.ENTRY_RETRY_FROM)):
+            continue
+        out.append(o)
+    return out
+
+
+def _retry_unfilled(L, ev, bars, date, nxt, backlog=()):
+    """미도달 취소 주문 → 같은 레벨로 다음 영업일 재주문(재분석 없음). 반환 [{code,name,side,retry,ok,why,orderId,backfill}].
+    대상 = 오늘 미도달 취소 + backlog(기능 배포 전·런 누락 등으로 판정을 못 받은 ENTRY_RETRY_FROM 이후 미도달 취소).
+    가드: 재시도 횟수 ≤ ENTRY_RETRY_MAX · 유효일 이후 ENTRY_RETRY_MAX 영업일 이내 · 오늘 종가가 진입가 ±ENTRY_RETRY_BAND ·
+    손절가 미침범(Long 종가>손절, Short 종가<손절) · 보유·대기 아님. 가드에 걸리면 중단(쿨다운이 끝나고 다시 선정되면 그때 재분석).
+    판정한 취소 주문에는 retryChecked 를 남겨 다음 날 다시 보지 않는다."""
     out = []
     held = {p["code"] for p in L["positions"]}
-    for o in ev.get("cancelled") or []:
-        if not str(o.get("note") or "").startswith("미도달"):
+    todays = [o for o in ev.get("cancelled") or [] if str(o.get("note") or "").startswith("미도달")]
+    seen = set()
+    for o in todays + [x for x in backlog if x.get("id") not in {t.get("id") for t in todays}]:
+        if o.get("id") in seen or o.get("retryChecked"):
             continue
+        seen.add(o.get("id"))
+        o["retryChecked"] = date
         n = int(o.get("retry") or 0) + 1
+        late = o.get("validDate") and o["validDate"] < date
+        if late and len(tradedays.trading_days(o["validDate"], date)) - 1 > config.ENTRY_RETRY_MAX:
+            out.append({"code": o["code"], "name": o.get("name"), "side": o.get("side", "long"), "retry": n, "ok": False,
+                        "why": "유효일 이후 기간 경과", "backfill": True})
+            continue
         row = {"code": o["code"], "name": o.get("name"), "side": o.get("side", "long"), "retry": n, "ok": False, "why": ""}
         b = bars.get(o["code"]) or {}
         close, entry, stop = b.get("close"), o.get("entry"), o.get("stop")
@@ -303,7 +332,11 @@ def _retry_unfilled(L, ev, bars, date, nxt):
                                      signal=o.get("signal"), decision_key=o.get("decisionKey"), side=o.get("side", "long"),
                                      source=o.get("source"))
             new["retry"] = n
-            row.update(ok=new["status"] == "open", why=new.get("note") or f"재시도 {n}/{config.ENTRY_RETRY_MAX}", orderId=new["id"])
+            o["retriedBy"] = new["id"]
+            row.update(ok=new["status"] == "open", why=new.get("note") or f"재시도 {n}/{config.ENTRY_RETRY_MAX}" + (" · 소급" if late else ""),
+                       orderId=new["id"])
+        if late:
+            row["backfill"] = True
         out.append(row)
     return out
 

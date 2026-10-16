@@ -77,5 +77,56 @@ class TestRetry(unittest.TestCase):
         self.assertEqual(r2["retries"], [])                             # 체결(그 뒤 손절)이라 재시도 대상 아님
 
 
+    def test_backfill_from_date(self):
+        """기능 배포 전에 취소된 미도달 주문(retryChecked 없음)도 ENTRY_RETRY_FROM 이후면 다음 런에서 재주문(소급)."""
+        old = config.ENTRY_RETRY_FROM
+        config.ENTRY_RETRY_FROM = "2026-09-15"
+        self.addCleanup(setattr, config, "ENTRY_RETRY_FROM", old)
+        px = prices.DictPrices({
+            "2026-09-14": {"000010": b(10000, 10100, 9900, 10050)},
+            "2026-09-15": {"000010": b(10200, 10300, 10150, 10200)},   # 미도달
+            "2026-09-16": {"000010": b(10100, 10200, 10050, 10100)},   # 종가 +1% → 소급 재주문
+            "2026-09-17": {"000010": b(10100, 10150, 9950, 10000)},    # 체결
+        })
+        self._run("2026-09-14", px, buy=[("000010", "화학")])
+        r2 = self._run("2026-09-15", px)
+        # 배포 전 상태 흉내: 09-15 런의 재시도 판정·주문을 지운다
+        L = self.st.get("ledger")
+        L["orders"] = [o for o in L["orders"] if not o.get("retry")]
+        for o in L["orderLog"]:
+            o.pop("retryChecked", None); o.pop("retriedBy", None)
+        self.st.put("ledger", L)
+        r3 = self._run("2026-09-16", px)
+        self.assertEqual(len(r3["retries"]), 1)
+        self.assertTrue(r3["retries"][0]["ok"])
+        self.assertTrue(r3["retries"][0]["backfill"])
+        self.assertIn("소급", r3["retries"][0]["why"])
+        self.assertEqual(r3["candidates"], [])                        # 재주문 종목은 같은 날 신규 후보에서 제외
+        self._run("2026-09-17", px)
+        self.assertEqual([p["code"] for p in self.st.get("ledger")["positions"]], ["000010"])
+        # 판정이 끝난 취소 주문은 다시 보지 않는다
+        r5 = self._run("2026-09-18", prices.DictPrices({"2026-09-18": {"000010": b(10000, 10050, 9950, 10000)}}))
+        self.assertEqual(r5["retries"], [])
+
+    def test_backfill_before_from_ignored(self):
+        old = config.ENTRY_RETRY_FROM
+        config.ENTRY_RETRY_FROM = "2026-09-16"
+        self.addCleanup(setattr, config, "ENTRY_RETRY_FROM", old)
+        px = prices.DictPrices({
+            "2026-09-14": {"000010": b(10000, 10100, 9900, 10050)},
+            "2026-09-15": {"000010": b(10200, 10300, 10150, 10200)},
+            "2026-09-16": {"000010": b(10100, 10200, 10050, 10100)},
+        })
+        self._run("2026-09-14", px, buy=[("000010", "화학")])
+        self._run("2026-09-15", px)
+        L = self.st.get("ledger")
+        L["orders"] = [o for o in L["orders"] if not o.get("retry")]
+        for o in L["orderLog"]:
+            o.pop("retryChecked", None)
+        self.st.put("ledger", L)
+        r3 = self._run("2026-09-16", px)
+        self.assertEqual(r3["retries"], [])                           # 09-15 유효일 < FROM → 소급 대상 아님
+
+
 if __name__ == "__main__":
     unittest.main()
