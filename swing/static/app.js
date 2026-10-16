@@ -129,6 +129,7 @@
     el.innerHTML = h + "</tbody>";
   }
   function td(v, cls) { return '<td class="' + (cls || "") + '">' + v + "</td>"; }
+  function pct(w) { return w == null ? "—" : (w * 100).toFixed(1) + "%"; }   // 포트폴리오 비중(0~1 → %)
   function nextWeekday(iso) {                                   // 휴장일 미반영 근사(구 런 폴백)
     if (!iso) return "";
     var d = new Date(iso + "T00:00:00"); d.setDate(d.getDate() + 1);
@@ -410,7 +411,7 @@
           td('<span class="sec-name">' + esc(c.sector || "") + "</span>" + sig(c.signal) + srcTag + scTag),
           td('<span class="note-pm"' + pmT + ">" + rating(c.rating, /판단 실패/.test(c.why || "")) + "</span>"), td('<span class="note-tr"' + trT + ">" + esc(c.action || "—") + "</span>"),
           td(c.entry ? levels(c.entry, c.stop, c.target) : '<span class="muted">—</span>'),
-          td(c.ordered ? '<span class="state ordered">' + (sd === "short" ? "공매도 " : "주문 ") + won(c.qty) + "주</span>"
+          td(c.ordered ? '<span class="state ordered" title="' + won(c.qty) + "주 · PM " + pct(c.pmWeight) + " / Trader " + pct(c.traderWeight) + '">' + (sd === "short" ? "공매도 " : "주문 ") + pct(c.weight) + "</span>"
             : '<span class="muted note-why" style="font-size:12px;border-bottom:1px dotted rgba(255,255,255,.35);cursor:help"' + (whyNote ? ' title="' + esc(whyNote) + '"' : "") + ">" + esc(c.why || "미주문") + "</span>")] };
       }), run.skip ? esc(run.skip) : "후보 없음");
       attachNoteTooltips($(pre + "candidates"));
@@ -1164,7 +1165,7 @@
     var c = all.filter(function (r) { return r.code === code; })[0];
     if (!c) return null;
     var who = c.source === "universe" ? "" : c.source === "catalyst" ? '<span class="flag cat">촉매</span> ' : '<span class="flag">매트릭스</span> ';
-    if (c.ordered) return who + '<span class="state ordered">주문 ' + won(c.qty) + "주</span>";
+    if (c.ordered) return who + '<span class="state ordered" title="' + won(c.qty) + '주">주문 ' + pct(c.weight) + "</span>";
     if (/판단 실패/.test(c.why || "")) return who + '<span class="state skipped">판단 실패</span>';
     return who + '<span class="state hold-ok">' + esc(c.rating || "—") + "</span>";
   }
