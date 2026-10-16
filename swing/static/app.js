@@ -445,13 +445,7 @@
             : '<span class="muted note-why" style="font-size:12px;border-bottom:1px dotted rgba(255,255,255,.35);cursor:help"' + (whyNote ? ' title="' + esc(whyNote) + '"' : "") + ">" + esc(c.why || "미주문") + "</span>")] };
       }), run.skip ? esc(run.skip) : "후보 없음");
       attachNoteTooltips($(pre + "candidates"));
-    table($(pre + "executed"), [["종목"], ["결과"], ["진입가", "r"], ["수량", "r"], ["비고"]],
-      ex.map(function (o) {
-        var retryTag = o.retry ? '<span class="flag" title="미도달 재주문 — 전날과 같은 진입·손절·목표가(재분석 없음)">재시도 ' + o.retry + "회</span> " : "";
-        return [td(stock(o.name, o.code)), td('<span class="state ' + o.status + '">' + (STATUS[o.status] || o.status) + "</span>"),
-          td('<span class="num">' + won(o.entry) + "</span>", "r"), td('<span class="num">' + won(o.qty) + "</span>", "r"),
-          td(retryTag + esc(o.note || ""), "wrap")];
-      }), "이 날 유효했던 주문 없음");
+    // '이 날 체결 결과' 표는 트레이딩 리포트 '진입 내역'으로 이동(2026-10-16)
   }
   function reviewResult(r) {
     var a = REVIEW_ACT[r.action] || (r.sell ? REVIEW_ACT.sell : r.error ? ["skipped", "판단 실패 — 보유 유지"] : REVIEW_ACT.hold);
@@ -592,6 +586,37 @@
     var y = new Date(Date.UTC(t.getUTCFullYear(), 0, 1));
     return t.getUTCFullYear() + "-" + Math.ceil(((t - y) / 864e5 + 1) / 7);
   }
+  function periodBy(all, key) {               // 기간 필터 공용(청산 = exitDate, 진입 = validDate)
+    var ref = (S.summary && S.summary.asof) || (all.length ? all[all.length - 1][key] : null);
+    if (RP.period === "day") return all.filter(function (t) { return t[key] === RP.day; });
+    if (RP.period === "all" || !ref) return all;
+    var r = new Date(ref + "T00:00:00");
+    return all.filter(function (t) {
+      var d = new Date(t[key] + "T00:00:00");
+      return RP.period === "month" ? (d.getFullYear() === r.getFullYear() && d.getMonth() === r.getMonth()) : isoWeek(d) === isoWeek(r);
+    });
+  }
+  function rpFills() {
+    var fs = periodBy((S.fills || []).filter(function (o) { return o.validDate; }), "validDate");
+    fs = bySide(fs, RP.side).slice().sort(function (a, b) { return a.validDate < b.validDate ? 1 : a.validDate > b.validDate ? -1 : 0; });
+    var shown = fs.slice(0, RP.flimit || 10);
+    var cnt = { filled: 0, cancelled: 0, skipped: 0 };
+    fs.forEach(function (o) { cnt[o.status] = (cnt[o.status] || 0) + 1; });
+    table($("fills"), [["진입일"], ["방향"], ["종목"], ["결과"], ["진입가", "r"], ["비중 / 수량", "r"], ["비고"]],
+      shown.map(function (o) {
+        var retryTag = o.retry ? '<span class="flag" title="미도달 재주문 — 전날과 같은 진입·손절·목표가(재분석 없음)">재시도 ' + o.retry + "회</span> " : "";
+        return { key: o.decisionKey, cells: [td('<span class="num">' + esc((o.validDate || "").slice(5)) + '</span><small class="hold-fill">판단 ' + esc((o.created || "").slice(5)) + "</small>"),
+          td('<span class="side-tag ' + sideOf(o) + '">' + (sideOf(o) === "long" ? "LONG" : "SHORT") + "</span>"),
+          td(stock(o.name, o.code)), td('<span class="state ' + o.status + '">' + (STATUS[o.status] || o.status) + "</span>"),
+          td('<span class="num">' + won(o.entry) + "</span>", "r"),
+          td('<span class="num">' + pct(o.weight) + "</span><small>" + won(o.qty) + "주</small>", "r"),
+          td(retryTag + basisTag({ source: o.source }) + (o.note ? ' <span class="muted">' + esc(o.note) + "</span>" : ""), "wrap")] };
+      }), RP.side === "short" ? "Short 진입 내역 없음" : "이 기간 진입 내역이 없습니다");
+    var more = $("fills-more");
+    if (fs.length > shown.length) { more.hidden = false; more.textContent = "더 보기 (" + (fs.length - shown.length) + "건 남음)"; }
+    else more.hidden = true;
+    $("fill-caption").textContent = fs.length + "건 · 체결 " + cnt.filled + " · 미도달 취소 " + (cnt.cancelled || 0) + " · 스킵 " + (cnt.skipped || 0);
+  }
   function periodTrades(all) {
     var ref = (S.summary && S.summary.asof) || (all.length ? all[all.length - 1].exitDate : null);
     if (RP.period === "day") return all.filter(function (t) { return t.exitDate === RP.day; });
@@ -625,13 +650,15 @@
     var lbl = { all: "전체 기간", week: "이번 주", month: "이번 달", day: RP.day + " 하루" }[RP.period];
     $("rp-sub").textContent = lbl + " · 청산 " + ts.length + "건 · 세후(매도세 0.2%) · 기준일 " + ((S.summary && S.summary.asof) || "—");
     var dayMode = RP.period === "day";          // 일자 모드: 곡선·요약은 전체 기간을 보여 주고 선택일만 표시
-    rpKpis(ts); rpCum(dayMode ? all : ts, dayMode ? RP.day : null); rpDaily(all, dayMode ? all : ts); rpCompare(ts); rpReasons(ts); rpDist(ts); rpTrades(ts);
+    rpKpis(ts); rpCum(dayMode ? all : ts, dayMode ? RP.day : null); rpDaily(all, dayMode ? all : ts); rpCompare(ts); rpReasons(ts); rpDist(ts); rpFills(); rpTrades(ts);
   }
 
   // 일자 선택 목록(청산일, 최신 먼저) — "일자" 모드일 때만 보임
   function rpDaySelect(all) {
     var sel = $("rp-day"), days = [], seen = {};
     all.forEach(function (t) { if (!seen[t.exitDate]) { seen[t.exitDate] = 1; days.push(t.exitDate); } });
+    (S.fills || []).forEach(function (o) { if (o.validDate && !seen[o.validDate]) { seen[o.validDate] = 1; days.push(o.validDate); } });
+    days.sort().reverse();
     days.reverse();
     if (!RP.day || days.indexOf(RP.day) < 0) RP.day = days[0] || null;
     var cur = Array.prototype.map.call(sel.options, function (o) { return o.value; }).join(",");
@@ -874,6 +901,7 @@
     renderReport();
   });
   segBind("trade-filter", "side", true);
+  $("fills-more").addEventListener("click", function () { RP.flimit = (RP.flimit || 10) + 20; rpFills(); });
   segBind("trade-sort", "sort", false);
   $("trades-more").addEventListener("click", function () { RP.limit += 20; renderReport(); });
 
@@ -1262,6 +1290,11 @@
   function renderUniverse(res) {
     var doc = res && res.universe;
     UN.doc = doc; UN.sec = null;
+    ["cand-asof", "short-cand-asof"].forEach(function (id) {       // 신규 후보 머리 — 업종별 수급 모멘텀 기준 알약(2026-10-16)
+      var el = $(id); if (!el) return;
+      el.hidden = !doc;
+      if (doc) el.innerHTML = '업종별 수급 모멘텀 기준 <b>' + esc(doc.date + " " + String(doc.asof || "").slice(11, 16)) + "</b>";
+    });
     setCount("cnt-universe", doc ? doc.summary.top : 0);
     if (!doc) {
       ["un-chips", "un-kpis", "un-strip", "un-score-rules", "un-knobs", "un-log", "un-foot"].forEach(function (id) { $(id).innerHTML = ""; });
@@ -1454,8 +1487,9 @@
 
   // ── 부트 ──
   Promise.all([api("/api/swing/summary"), api("/api/swing/equity"), api("/api/swing/positions"),
-    api("/api/swing/runs"), api("/api/swing/trades"), api("/api/swing/config")]).then(function (r) {
-    S.summary = r[0]; S.equity = r[1]; S.positions = r[2]; S.trades = r[4]; S.config = r[5];
+    api("/api/swing/runs"), api("/api/swing/trades"), api("/api/swing/config"),
+    api("/api/swing/fills").catch(function () { return []; })]).then(function (r) {
+    S.summary = r[0]; S.equity = r[1]; S.positions = r[2]; S.trades = r[4]; S.config = r[5]; S.fills = r[6] || [];
     S.heldShort = {};
     S.positions.forEach(function (p) { if (sideOf(p) === "short") S.heldShort[p.code] = 1; else S.held[p.code] = 1; });
     renderHeader(r[0]); pollProgress(); renderPortfolio(r[0]); renderRules(r[5]);

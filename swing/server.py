@@ -91,6 +91,14 @@ def api_orders(q):
     return {"date": date, "dates": runs, "created": created, "executed": executed}
 
 
+def api_fills(q):
+    """진입 주문 처리 기록 전체(orderLog — 체결·미도달 취소·스킵) — 트레이딩 리포트 '진입 내역'(2026-10-16)."""
+    L = _ledger()
+    keys = ("id", "code", "name", "side", "created", "validDate", "entry", "stop", "target", "qty", "weight", "status", "note",
+            "retry", "source", "sector", "signal", "decisionKey")
+    return [{k: o.get(k) for k in keys} for o in L.get("orderLog") or [] if o.get("type", "entry") == "entry"][::-1]
+
+
 def api_trades(q):
     tr = _ledger()["trades"]
     f, t = q.get("from"), q.get("to")
@@ -265,7 +273,7 @@ def api_export(q):
 
 
 ROUTES = {"/api/swing/summary": api_summary, "/api/swing/progress": api_progress, "/api/swing/positions": api_positions,
-          "/api/swing/orders": api_orders, "/api/swing/trades": api_trades,
+          "/api/swing/orders": api_orders, "/api/swing/trades": api_trades, "/api/swing/fills": api_fills,
           "/api/swing/equity": lambda q: _ledger()["equity"],
           "/api/swing/runs": api_runs, "/api/swing/decision": api_decision,
           "/api/swing/signals": api_signals, "/api/swing/universe": api_universe, "/api/swing/sim": api_sim,

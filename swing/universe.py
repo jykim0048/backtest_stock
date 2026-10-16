@@ -542,7 +542,8 @@ def build_universe(date, wb, *, dbq, hub, ledger=None, decided=None, log=print, 
     rank_long, rank_short = integrated_rank(out_secs, "long", basis=basis), integrated_rank(out_secs, "short", basis=basis)
     diag["calls"].update(db=dbq.calls, hub=hub.calls, px=pxc.calls)
     diag["secs"] = round(time.time() - t0, 1)
-    doc = {"date": date, "asof": (now or datetime.datetime.now()).isoformat(timespec="seconds"),
+    kst_now = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=9))).replace(tzinfo=None)   # KST(2026-10-16)
+    doc = {"date": date, "asof": (now or kst_now).isoformat(timespec="seconds"),
            "wbAsof": (wb or {}).get("asof"), "mode": "observe",
            "basis": {"tv": "DB증권 DAYSTOCKTJJ 거래대금 5영업일 합(억, AcmlTrPbmn 비면 거래량×종가) · Δ = 직전 4주 주평균 대비",
                      "flow": "DB증권 DAYSTOCKTJJ 외국인·기관계 매수−매도(억) · bp = ÷시총",
