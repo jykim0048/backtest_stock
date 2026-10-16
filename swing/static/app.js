@@ -498,7 +498,6 @@
         SIG_SUB[k] + "</div>" + list + "</div>";
     }).join("");
     renderSectorMatrix(sgn && sgn.sectorFlow);
-    renderShortWatch(m, res && res.date);
     var buy = (m["동반강세"] || []).length + (m["수급유입"] || []).length;
     return { buy: buy, down: (m["수급이탈"] || []).length + (m["동반약세"] || []).length };
   }
@@ -562,21 +561,6 @@
       btn.title = "기관 세부(금융투자·투신(사모)·연기금·보험) " + (sfOpen ? "접기" : "펼치기");
       btn.querySelector(".sf-caret").textContent = sfOpen ? "◂" : "▸";
     });
-  }
-
-  // ── Short 후보 칸(동반약세·수급이탈 전체 — 보유·상한으로 분석하지 않은 종목 포함) ──
-  function renderShortWatch(m, date) {
-    var xs = [];
-    ["동반약세", "수급이탈"].forEach(function (k) { (m[k] || []).forEach(function (x) { xs.push([k, x]); }); });
-    $("short-watch-sub").textContent = "동반약세·수급이탈 칸 전체" + (date ? " · " + date : "") + " — 판단·주문 결과는 위 표";
-    table($("short-watch"), [["종목"], ["신호"], ["근거"], ["점수", "r"], ["보유 상태"]],
-      xs.map(function (p) {
-        var x = p[1];
-        return [td(stock(x.name, x.code)), td('<span class="sec-name">' + esc(x.sector || "") + "</span>" + sig(p[0])),
-          td(esc((x.reason || "").split(" — ")[0]), "wrap"), td('<span class="num">' + (x.score == null ? "—" : x.score) + "</span>", "r"),
-          td(S.held[x.code] ? '<span class="state sell-next">Long 보유 중 · 매도 검토 대상</span>'
-            : S.heldShort[x.code] ? '<span class="side-tag short">SHORT 보유 중</span>' : '<span class="muted">—</span>')];
-      }), "이 날 Short 후보 칸이 비어 있습니다");
   }
 
   // ── 트레이딩 리포트(청산 거래 성과) — 손익 색은 한국식(빨강=이익·파랑=손실)으로 통일(2026-09-29) ──
