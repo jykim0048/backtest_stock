@@ -109,8 +109,10 @@ ENTRY_RETRY_BAND = _f("SWING_ENTRY_RETRY_BAND", 0.03)
 ENTRY_RETRY_FROM = os.environ.get("SWING_ENTRY_RETRY_FROM", "2026-10-15")
 # 매트릭스 후보에도 유니버스·하방 촉매와 같은 쿨다운(UNI_COOLDOWN_DAYS)을 적용(2026-10-16 사용자 지시). 0 이면 끔(종전: 매일 재분석)
 MATRIX_COOLDOWN = os.environ.get("SWING_MATRIX_COOLDOWN", "1") != "0"
-# 체결일 손절(2026-10-16 사용자 지시): 체결일 일봉이 손절가에 닿으면 당일 손절가 청산 대신 **다음 영업일 시가 청산 예약**.
-# 0 이면 종전(체결일 손절가로 당일 청산 = 보수적 가정)
-FILL_DAY_STOP_NEXT_OPEN = os.environ.get("SWING_FILL_DAY_STOP_NEXT_OPEN", "1") != "0"
+# 체결일 손절(2026-10-16 사용자 지시): 체결일(D) 일봉이 손절가에 닿으면
+#   review    = 당일 청산하지 않고 D+1 손절을 유예 → D+1 종가로 trading_agent 재판별 → PM Sell/Underweight 면 D+2 시가 청산,
+#               계속 보유면 새 손절·목표(유효할 때) 적용(새 손절이 없으면 기존 손절 유지 → D+2 시가가 그 아래면 갭 손절) — 기본
+#   next_open = D+1 시가 청산 예약 · same_day = 종전(D 손절가로 당일 청산, 보수적 가정)
+FILL_DAY_STOP = (os.environ.get("SWING_FILL_DAY_STOP", "review") or "review").strip().lower()
 # 유니버스 분석 상한 이연(2026-10-16 사용자 지시: Long 15 / Short 15, 한쪽 후보가 상한보다 적으면 남는 자리를 다른 쪽에 넘김)
 UNI_CAP_CARRY = os.environ.get("SWING_UNI_CAP_CARRY", "1") != "0"

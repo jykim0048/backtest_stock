@@ -103,6 +103,12 @@ def schedule_sell(L, code, reason, decision_key=None, date=None, kind="pm_sell")
     return False
 
 
+def _stop_suspended(p, date):
+    """체결일 손절가 도달 후 재판별 전(체결 다음 영업일) — 그날 갭·장중 손절을 적용하지 않는다."""
+    fs = p.get("fillStop")
+    return bool(fs) and not fs.get("reviewed") and fs.get("date") and fs["date"] < date
+
+
 def apply_hold(L, code, *, target=None, stop=None, decision_key=None, date=None):
     """재판별 결과 '계속 보유'(2026-09-29 사용자 합의, Short 는 방향만 반대).
     - 목표 도달(reviewFlag=target): 목표가 = 새 목표가(Long 현재가 초과·Short 현재가 미만일 때만, 아니면 없음),
@@ -126,7 +132,8 @@ def apply_hold(L, code, *, target=None, stop=None, decision_key=None, date=None)
                 p["target"] = float(target)
             if ok_s:
                 p["stop"] = float(stop)
-        p["extended"] = True
+        if flag != "fill_stop":
+            p["extended"] = True                             # 체결일 손절 재판별은 연장 보유가 아님
         p.setdefault("holdLog", []).append({"date": date, "flag": flag or "extended", "decisionKey": decision_key,
                                             "target": p["target"], "stop": p["stop"]})
         p["reviewFlag"] = None
@@ -224,9 +231,11 @@ def settle_day(L, date, bars):
             sp = p["sellPending"]
             ev["exits"].append(_close_position(L, p, date, b["open"], sp.get("kind") or "pm_sell",
                                                note=sp.get("reason")))
-    # ② 갭 손절 → 시가
+    # ② 갭 손절 → 시가 (체결일 손절 재판별 대기 포지션은 그날 손절 유예 — 2026-10-16)
     for p in list(L["positions"]):
         b = bars.get(p["code"])
+        if _stop_suspended(p, date):
+            continue
         if b and b.get("open") and (b["open"] >= p["stop"] if is_short(p) else b["open"] <= p["stop"]):
             ev["exits"].append(_close_position(L, p, date, b["open"], "stop_gap"))
 
@@ -292,8 +301,11 @@ def settle_day(L, date, bars):
             extreme = b.get("high")
         if p["id"] in new_ids:
             if hit_stop:
-                if config.FILL_DAY_STOP_NEXT_OPEN:
-                    # 2026-10-16: 체결일 손절가 도달은 당일 청산하지 않고 다음 영업일 시가 청산 예약(① 단계에서 처리)
+                if config.FILL_DAY_STOP == "review":
+                    # 2026-10-16: 체결일 손절가 도달 → D+1 손절 유예, D+1 종가로 재판별(daily 2단계), 매도면 D+2 시가
+                    p["fillStop"] = {"date": date, "stop": p["stop"], "extreme": b["high"] if is_short(p) else b["low"]}
+                    ev.setdefault("deferredStops", []).append(p)
+                elif config.FILL_DAY_STOP == "next_open":
                     p["sellPending"] = {"reason": f"체결일 손절가 {p['stop']:,.0f} 도달 → 익일 시가 청산", "decisionKey": None,
                                         "date": date, "kind": "stop"}
                     ev.setdefault("deferredStops", []).append(p)
@@ -301,6 +313,8 @@ def settle_day(L, date, bars):
                     ev["exits"].append(_close_position(L, p, date, p["stop"], "stop",
                                                        note="체결일 손절(보수적)"))
             continue
+        if hit_stop and _stop_suspended(p, date):
+            hit_stop = False                                 # 체결일 손절 재판별 대기 — 오늘 종가로 재판별(daily)
         if hit_stop:
             ev["exits"].append(_close_position(
                 L, p, date, p["stop"], "stop",

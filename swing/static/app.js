@@ -7,7 +7,7 @@
     max_hold: "최대 보유", pm_sell: "PM 매도", cash: "현금 확보", target: "목표가", expiry: "보유 만기" };
   var REVIEW_ACT = { sell: ["sell-next", "매도 예약"], sell_fallback: ["sell-next", "판단 실패 → 원 규칙대로 매도"],
     hold_updated: ["ext", "계속 보유 · 가격 갱신"], hold: ["hold-ok", "계속 보유"] };
-  var KIND_TXT = { target: "목표 도달", expiry: "보유 만기", extended: "연장 재판별", signal: "신호" };
+  var KIND_TXT = { fill_stop: "체결일 손절", target: "목표 도달", expiry: "보유 만기", extended: "연장 재판별", signal: "신호" };
   var STATUS = { filled: "체결", cancelled: "취소", skipped: "스킵", open: "대기" };
   // Short 청산 라벨 — 매도 → 환매(2026-09-29)
   function reasonTxt(r, side) {
@@ -402,6 +402,7 @@
           td(pnlBadge(p.unrealPct, pctTxt(p.unrealPct).replace(/^[+-]/, "")), "r"),
           td(holdBar(p.holdDay) + (p.fillDate ? '<small class="hold-fill">체결 ' + esc(p.fillDate.slice(5)) + "</small>" : "")),
           td(p.sellPending ? '<span class="state sell-next" title="다음 영업일 시가 ' + (sideOf(p) === "short" ? "환매" : "매도") + " — " + esc(p.sellPending.reason) + '">익일 시가 ' + (sideOf(p) === "short" ? "환매" : "매도") + "</span>"
+            : (p.fillStop && !p.fillStop.reviewed) ? '<span class="state sell-next" title="체결일(' + esc((p.fillStop.date || "").slice(5)) + ") 손절가 " + won(p.fillStop.stop) + ' 도달 — 다음 영업일 종가로 재판별, 매도면 그다음 영업일 시가">손절 재판별 대기</span>'
             : p.extended ? '<span class="state ext" title="목표 도달·만기 후 trading_agent 가 계속 보유로 판단 — 매일 재판별">연장 보유</span>'
             : '<span class="state hold-ok">보유</span>')] };
       }), empty);

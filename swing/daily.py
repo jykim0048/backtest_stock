@@ -213,7 +213,14 @@ def run_day(date, store, agent, prices, wb, *, force=False, log=print, uni=None,
         if p.get("sellPending"):
             continue
         flag = p.get("reviewFlag")
-        if flag == "target":
+        fs = p.get("fillStop") or {}
+        if fs and not fs.get("reviewed") and fs.get("date") and fs["date"] < date:
+            # 체결일 손절가 도달 → 체결 다음 영업일 종가로 재판별(2026-10-16) — 매도면 다음 영업일 시가
+            flag = p["reviewFlag"] = "fill_stop"
+            ext = f"고가 {fs.get('extreme') or 0:,.0f}" if engine.is_short(p) else f"저가 {fs.get('extreme') or 0:,.0f}"
+            why = (f"체결일({fs['date'][5:]}) 손절가 {fs.get('stop') or 0:,.0f} 도달({ext}) — {date[5:]} 종가 "
+                   f"{p.get('lastClose') or 0:,.0f} 기준 재판별")
+        elif flag == "target":
             th = p.get("targetHit") or {}
             ext = f"저가 {th.get('low') or 0:,.0f}" if engine.is_short(p) else f"고가 {th.get('high') or 0:,.0f}"
             why = f"목표가 {th.get('target') or p.get('target') or 0:,.0f} 도달({ext})"
@@ -230,8 +237,8 @@ def run_day(date, store, agent, prices, wb, *, force=False, log=print, uni=None,
     prog.update(phase="review", total=len(todo) + len(cands) + len(scands) + len(ucands) + len(uscands))
     for code, t in todo.items():
         p = next(x for x in L["positions"] if x["code"] == code)
-        flag = next((k for k in t["kinds"] if k in ("target", "expiry", "extended")), None)
-        kind = {"target": "review_target", "expiry": "review_expiry", "extended": "review_expiry"}.get(flag, "pm_sell")
+        flag = next((k for k in t["kinds"] if k in ("fill_stop", "target", "expiry", "extended")), None)
+        kind = {"fill_stop": "stop", "target": "review_target", "expiry": "review_expiry", "extended": "review_expiry"}.get(flag, "pm_sell")
         side = p.get("side", "long")
         req = A.DecisionRequest(code=code, name=t["name"], date=date, purpose="review",
                                 sector=t["sector"], signal=t["signal"], side=side,
@@ -245,7 +252,7 @@ def run_day(date, store, agent, prices, wb, *, force=False, log=print, uni=None,
         if sell:
             engine.schedule_sell(L, code, f"PM {d.rating} — {req.reason}", key, date, kind=kind)
             action = "sell"
-        elif d.error and flag in ("target", "expiry"):
+        elif d.error and flag in ("target", "expiry", "fill_stop"):
             # 판단 실패 시 원래 규칙(목표가 익절·만기 청산)대로 다음 날 시가 매도 — 보수적
             engine.schedule_sell(L, code, f"재판별 실패({d.error[:60]}) — 원 규칙대로 "
                                  + ("환매" if side == "short" else "매도"), key, date, kind=kind)
@@ -257,6 +264,8 @@ def run_day(date, store, agent, prices, wb, *, force=False, log=print, uni=None,
             action = "hold_updated" if (p["target"], p["stop"]) != before else "hold"
         if p.get("sellPending"):
             p["reviewFlag"] = None
+        if p.get("fillStop") and flag == "fill_stop":
+            p["fillStop"]["reviewed"] = date                 # 재판별 끝 — 이후 손절은 정상 적용
         prog.step(d, t["name"], side, "review")
         run["reviews"].append({"code": code, "name": t["name"], "side": side, "trigger": req.reason, "kinds": t["kinds"],
                                "rating": d.rating, "sell": action.startswith("sell"), "action": action,
