@@ -397,7 +397,7 @@
       }), sd === "short" ? "환매 검토 대상 없음" : "매도 검토 대상 없음");
     // 진입일 = 다음 영업일(주문 유효일). 구 런(entryDate 없음)은 다음 평일로 근사(2026-10-16)
     var entryDay = run.entryDate || nextWeekday(run.date);
-    table($(pre + "candidates"), [["종목"], ["진입일"], ["섹터"], ["신호"], ["선정기준"], ["PM"], ["Trader"], ["가격 레벨"], ["결과"]],
+    table($(pre + "candidates"), [["종목"], ["진입일"], ["섹터"], ["신호"], ["선정기준"], ["PM"], ["Trader"], ["가격 레벨"], ["진입 비중"]],
       cands.map(function (c) {
         // 선정기준 열(2026-10-16): 소스(매트릭스 칸 / 유니버스 통합 순위 / 하방 촉매 강도) + 공통 모멘텀 점수
         var srcTag = c.source === "universe" ? '<span class="flag uni">유니버스' + (c.rankAll ? " 통합 " + c.rankAll + "위" : "") + "</span>"
@@ -413,8 +413,10 @@
           td('<span class="sec-name">' + esc(c.sector || "—") + "</span>"), td(sig(c.signal) || '<span class="muted">—</span>'), td(srcTag + scTag),
           td('<span class="note-pm"' + pmT + ">" + rating(c.rating, /판단 실패/.test(c.why || "")) + "</span>"), td('<span class="note-tr"' + trT + ">" + esc(c.action || "—") + "</span>"),
           td(c.entry ? levels(c.entry, c.stop, c.target) : '<span class="muted">—</span>'),
-          td(c.ordered ? '<span class="state ordered" title="' + won(c.qty) + "주 · PM " + pct(c.pmWeight) + " / Trader " + pct(c.traderWeight) + '">' + (sd === "short" ? "공매도 " : "주문 ") + pct(c.weight) + "</span>"
-            : '<span class="muted note-why" style="font-size:12px;border-bottom:1px dotted rgba(255,255,255,.35);cursor:help"' + (whyNote ? ' title="' + esc(whyNote) + '"' : "") + ">" + esc(c.why || "미주문") + "</span>")] };
+          // 진입 비중 열(2026-10-16): 주문이면 비중 %만(수량·PM/Trader 비중은 툴팁), 아니면 걸러진 사유 + 판단 요약을 본문에 표기
+          td(c.ordered ? '<span class="state ordered" title="' + won(c.qty) + "주 · PM " + pct(c.pmWeight) + " / Trader " + pct(c.traderWeight) + '">' + pct(c.weight) + "</span>"
+            : '<span class="muted note-why" style="font-size:12px"' + (whyNote ? ' title="' + esc(whyNote) + '"' : "") + "><b>" + esc(c.why || "미주문") + "</b>"
+              + (whyNote ? '<span class="why-note"> — ' + esc(whyNote) + "</span>" : "") + "</span>", "wrap")] };
       }), run.skip ? esc(run.skip) : "후보 없음");
       attachNoteTooltips($(pre + "candidates"));
     table($(pre + "executed"), [["종목"], ["결과"], ["진입가", "r"], ["수량", "r"], ["비고"]],
@@ -1079,7 +1081,11 @@
           var pm = row.querySelector(".note-pm"), tr = row.querySelector(".note-tr"), why = row.querySelector(".note-why");
           if (pm && n.pm) pm.title = n.pm;
           if (tr && n.tr) tr.title = n.tr;
-          if (why) why.title = (/^Trader/.test(why.textContent) ? n.tr : n.pm) || n.pm || n.tr || "";
+          if (why) {
+            var note = (/^Trader/.test(why.textContent) ? n.tr : n.pm) || n.pm || n.tr || "";
+            why.title = note;
+            if (note && !why.querySelector(".why-note")) why.insertAdjacentHTML("beforeend", '<span class="why-note"> — ' + esc(note) + "</span>");
+          }
         });
       }, { once: true });
     });
