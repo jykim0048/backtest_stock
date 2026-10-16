@@ -216,6 +216,9 @@ class TestCash(unittest.TestCase):
         self.assertEqual(sorted(p["code"] for p in L["positions"]), ["00000B", "00000C"])
 
     def test_skip_when_losers_insufficient(self):
+        old = config.PARTIAL_ENTRY
+        config.PARTIAL_ENTRY = False                            # 부분 진입 끔 → 종전 규칙(스킵, 아무것도 팔지 않음)
+        self.addCleanup(setattr, config, "PARTIAL_ENTRY", old)
         L = self.L
         E.place_entry(L, code="00000C", name="C", date="2026-09-02", valid_date="2026-09-03",
                       entry=10000, stop=9000, target=None, weight=0.9)     # 90만 필요
@@ -224,6 +227,19 @@ class TestCash(unittest.TestCase):
                                        "00000C": bar(10000, 10100, 9900, 10000)})
         self.assertFalse(L["trades"])                           # 아무것도 팔지 않음
         self.assertEqual(L["orderLog"][-1]["status"], "skipped")
+
+    def test_partial_when_losers_insufficient(self):
+        L = self.L                                              # 기본(2026-10-16): 50% 이상 살 수 있으면 손실 종목 청산 후 부분 진입
+        E.place_entry(L, code="00000C", name="C", date="2026-09-02", valid_date="2026-09-03",
+                      entry=10000, stop=9000, target=None, weight=0.9)
+        ev = E.settle_day(L, "2026-09-03", {"00000A": bar(9200, 9300, 9100, 9200),
+                                            "00000B": bar(10500, 10600, 10400, 10500),
+                                            "00000C": bar(10000, 10100, 9900, 10000)})
+        o = L["orderLog"][-1]
+        self.assertEqual(o["status"], "filled")
+        self.assertGreaterEqual(o["partial"]["filled"], o["partial"]["planned"] / 2)
+        self.assertEqual([t["reason"] for t in L["trades"]], ["cash"])     # 손실 종목만 청산, 이익 종목(B)은 유지
+        self.assertEqual(len(ev["partials"]), 1)
 
     def test_losers_sorted_by_loss_rate(self):
         L = E.new_ledger(1_000_000, start="2026-09-01")

@@ -121,6 +121,7 @@ def run_day(date, store, agent, prices, wb, *, force=False, log=print, uni=None,
     nxt = tradedays.next_trading_day(date)
     run["entryDate"] = nxt                                   # 신규 후보 주문의 진입(유효)일 — 대시보드 표기(2026-10-16)
     run["retries"] = _retry_unfilled(L, ev, bars, date, nxt, backlog)   # 미도달 재주문(2026-10-16, 방식 A)
+    run["topups"] = _carry_partials(L, ev, bars, date, nxt)                # 부분 진입 잔여분 추가 주문(2026-10-16, B)
     retried = {r["code"] for r in run["retries"] if r["ok"]}
     if retried:                                               # 재주문 종목은 오늘 신규 후보에서 뺀다(대기 주문 = pend)
         pend |= retried
@@ -303,6 +304,41 @@ def run_day(date, store, agent, prices, wb, *, force=False, log=print, uni=None,
     return run
 
 
+def _carry_partials(L, ev, bars, date, nxt):
+    """부분 진입 잔여분 → 같은 레벨로 다음 영업일 추가 주문(기존 포지션에 합침). 가드는 미도달 재주문과 같음
+    (추가 횟수 ≤ ENTRY_RETRY_MAX · 오늘 종가가 진입가 ±ENTRY_RETRY_BAND · 손절가 미침범 · 포지션 유지·청산 예약 없음)."""
+    out = []
+    for o in ev.get("partials") or []:
+        pt = o.get("partial") or {}
+        remain, pid = pt.get("remain") or 0, pt.get("positionId")
+        if remain <= 0 or not pid:
+            continue
+        n = int(o.get("topup") or 0) + 1
+        row = {"code": o["code"], "name": o.get("name"), "side": o.get("side", "long"), "topup": n, "qty": remain, "ok": False, "why": ""}
+        pos = next((x for x in L["positions"] if x["id"] == pid), None)
+        b = bars.get(o["code"]) or {}
+        close, entry, stop = b.get("close"), o.get("entry"), o.get("stop")
+        if n > config.ENTRY_RETRY_MAX:
+            row["why"] = f"추가 진입 상한 {config.ENTRY_RETRY_MAX}회"
+        elif pos is None or pos.get("sellPending"):
+            row["why"] = "포지션 청산(예약) — 추가 진입 안 함"
+        elif not close or not entry:
+            row["why"] = "종가 없음"
+        elif abs(close / entry - 1) > config.ENTRY_RETRY_BAND:
+            row["why"] = f"종가 {close:,.0f} 가 진입가 ±{config.ENTRY_RETRY_BAND * 100:.0f}% 밖"
+        elif stop and ((o.get("side", "long") == "long" and close <= stop) or (o.get("side") == "short" and close >= stop)):
+            row["why"] = f"종가 {close:,.0f} 가 손절가 {stop:,.0f} 침범"
+        else:
+            new = engine.place_entry(L, code=o["code"], name=o.get("name"), date=date, valid_date=nxt, entry=entry, stop=stop,
+                                     target=o.get("target"), weight=o.get("weight") or config.DEFAULT_WEIGHT, sector=o.get("sector"),
+                                     signal=o.get("signal"), decision_key=o.get("decisionKey"), side=o.get("side", "long"),
+                                     source=o.get("source"), qty=remain, extra={"topupOf": pid, "topup": n})
+            row.update(ok=new["status"] == "open", why=new.get("note") or f"잔여 {remain:,}주 추가 주문 {n}/{config.ENTRY_RETRY_MAX}",
+                       orderId=new["id"])
+        out.append(row)
+    return out
+
+
 def _retry_backlog(L, date):
     """재시도 판정을 아직 받지 않은 과거 미도달 취소(orderLog) — 유효일 ENTRY_RETRY_FROM 이상·오늘 이전·ENTRY_RETRY_MAX 영업일 이내."""
     out = []
@@ -347,13 +383,17 @@ def _retry_unfilled(L, ev, bars, date, nxt, backlog=()):
             row["why"] = f"종가 {close:,.0f} 가 진입가 ±{config.ENTRY_RETRY_BAND * 100:.0f}% 밖"
         elif stop and ((o.get("side", "long") == "long" and close <= stop) or (o.get("side") == "short" and close >= stop)):
             row["why"] = f"종가 {close:,.0f} 가 손절가 {stop:,.0f} 침범"
-        elif o["code"] in held or any(x["code"] == o["code"] for x in L["orders"]):
+        elif o.get("topupOf") and not any(x["id"] == o["topupOf"] for x in L["positions"]):
+            row["why"] = "본 포지션 청산됨"
+        elif (not o.get("topupOf") and o["code"] in held) or any(x["code"] == o["code"] for x in L["orders"]):
             row["why"] = "보유·대기 중"
         else:
             new = engine.place_entry(L, code=o["code"], name=o.get("name"), date=date, valid_date=nxt, entry=entry, stop=stop,
                                      target=o.get("target"), weight=o.get("weight") or config.DEFAULT_WEIGHT, sector=o.get("sector"),
                                      signal=o.get("signal"), decision_key=o.get("decisionKey"), side=o.get("side", "long"),
-                                     source=o.get("source"))
+                                     source=o.get("source"),
+                                     qty=o["qty"] if o.get("topupOf") else None,
+                                     extra={"topupOf": o["topupOf"], "topup": o.get("topup")} if o.get("topupOf") else None)
             new["retry"] = n
             o["retriedBy"] = new["id"]
             row.update(ok=new["status"] == "open", why=new.get("note") or f"재시도 {n}/{config.ENTRY_RETRY_MAX}" + (" · 소급" if late else ""),

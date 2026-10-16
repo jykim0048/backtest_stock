@@ -467,6 +467,9 @@
         (sc.length ? " · 숏 후보 " + sc.length + " · 공매도 " + nS : "") + "</div>");
     }
     (run.notes || []).forEach(function (n) { L.push('<div class="warn">⚠ ' + esc(n) + "</div>"); });
+    (run.topups || []).forEach(function (r) {
+      L.push('<div class="' + (r.ok ? "" : "dim") + '">· 부분 진입 잔여분 ' + esc(r.name || r.code) + (r.side === "short" ? "(Short)" : "") + " " + esc(r.why || "") + "</div>");
+    });
     (run.retries || []).forEach(function (r) {
       L.push('<div class="' + (r.ok ? "" : "dim") + '">· 미도달 재주문 ' + esc(r.name || r.code) + (r.side === "short" ? "(Short)" : "") + " " + esc(r.why || "") + "</div>");
     });
@@ -605,7 +608,9 @@
     fs.forEach(function (o) { cnt[o.status] = (cnt[o.status] || 0) + 1; });
     table($("fills"), [["진입일"], ["방향"], ["종목"], ["결과"], ["진입가", "r"], ["비중 / 수량", "r"], ["비고"]],
       shown.map(function (o) {
-        var retryTag = o.retry ? '<span class="flag" title="미도달 재주문 — 전날과 같은 진입·손절·목표가(재분석 없음)">재시도 ' + o.retry + "회</span> " : "";
+        var retryTag = (o.retry ? '<span class="flag" title="미도달 재주문 — 전날과 같은 진입·손절·목표가(재분석 없음)">재시도 ' + o.retry + "회</span> " : "")
+          + (o.partial ? '<span class="flag" title="현금 부족으로 계획 ' + won(o.partial.planned) + '주 중 일부만 진입">부분 ' + won(o.partial.filled) + "/" + won(o.partial.planned) + "</span> " : "")
+          + (o.topupOf ? '<span class="flag" title="부분 진입 잔여분 — 같은 레벨로 추가 주문, 체결 시 기존 포지션에 합침">추가 ' + (o.topup || 1) + "회</span> " : "");
         return { key: o.decisionKey, cells: [td('<span class="num">' + esc((o.validDate || "").slice(5)) + '</span><small class="hold-fill">판단 ' + esc((o.created || "").slice(5)) + "</small>"),
           td('<span class="side-tag ' + sideOf(o) + '">' + (sideOf(o) === "long" ? "LONG" : "SHORT") + "</span>"),
           td(stock(o.name, o.code)), td('<span class="state ' + o.status + '">' + (STATUS[o.status] || o.status) + "</span>"),

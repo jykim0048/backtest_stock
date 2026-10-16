@@ -95,7 +95,7 @@ def api_fills(q):
     """진입 주문 처리 기록 전체(orderLog — 체결·미도달 취소·스킵) — 트레이딩 리포트 '진입 내역'(2026-10-16)."""
     L = _ledger()
     keys = ("id", "code", "name", "side", "created", "validDate", "entry", "stop", "target", "qty", "weight", "status", "note",
-            "retry", "source", "sector", "signal", "decisionKey")
+            "retry", "source", "sector", "signal", "decisionKey", "partial", "topup", "topupOf")
     return [{k: o.get(k) for k in keys} for o in L.get("orderLog") or [] if o.get("type", "entry") == "entry"][::-1]
 
 

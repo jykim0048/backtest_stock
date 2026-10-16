@@ -116,3 +116,8 @@ MATRIX_COOLDOWN = os.environ.get("SWING_MATRIX_COOLDOWN", "1") != "0"
 FILL_DAY_STOP = (os.environ.get("SWING_FILL_DAY_STOP", "review") or "review").strip().lower()
 # 유니버스 분석 상한 이연(2026-10-16 사용자 지시: Long 15 / Short 15, 한쪽 후보가 상한보다 적으면 남는 자리를 다른 쪽에 넘김)
 UNI_CAP_CARRY = os.environ.get("SWING_UNI_CAP_CARRY", "1") != "0"
+# 현금 부족 시 부분 진입 + 잔여분 이월(2026-10-16 사용자 지시, A+B): 손실 종목 청산으로도 전량이 안 되면 살 수 있는 수량만 진입
+# (계획 수량의 PARTIAL_ENTRY_MIN 이상일 때만, 미만이면 종전처럼 스킵) → 모자란 수량은 같은 레벨로 다음 영업일 추가 주문(최대 ENTRY_RETRY_MAX 회,
+# 미도달 재주문과 같은 가격 가드), 체결되면 기존 포지션에 합쳐 평균단가.
+PARTIAL_ENTRY = os.environ.get("SWING_PARTIAL_ENTRY", "1") != "0"
+PARTIAL_ENTRY_MIN = _f("SWING_PARTIAL_ENTRY_MIN", 0.5)

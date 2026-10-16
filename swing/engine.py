@@ -69,16 +69,20 @@ def equity_now(L):
 
 # ── 주문 생성(판단 직후, D 장 마감 후) ─────────────────────────────────────────
 def place_entry(L, *, code, name, date, valid_date, entry, stop, target, weight,
-                sector=None, signal=None, decision_key=None, side="long", source=None):
+                sector=None, signal=None, decision_key=None, side="long", source=None, qty=None, extra=None):
     """다음 영업일(valid_date) 1일 유효 지정가 주문(Long 매수·Short 공매도).
-    수량 = 비중 × D 종가 평가액 / 진입가. Short 는 총노출 상한을 넘으면 스킵."""
+    수량 = 비중 × D 종가 평가액 / 진입가(qty 를 주면 그 수량 — 부분 진입 잔여분 추가 주문). Short 는 총노출 상한을 넘으면 스킵.
+    extra = 주문에 덧붙일 필드(topupOf·topup 등)."""
     eq = equity_now(L)
-    qty = int(math.floor(weight * eq / entry)) if entry > 0 else 0
+    if qty is None:
+        qty = int(math.floor(weight * eq / entry)) if entry > 0 else 0
     o = {"id": _id(L, "o"), "code": code, "name": name, "side": side, "type": "entry",
          "created": date, "validDate": valid_date, "entry": float(entry), "stop": float(stop),
          "target": float(target) if target else None, "weight": weight, "qty": qty,
          "sector": sector, "signal": signal, "decisionKey": decision_key, "status": "open",
          "source": source or "matrix"}
+    if extra:
+        o.update(extra)
     note = None
     if qty <= 0:
         note = "수량 0(비중·가격)"
@@ -180,9 +184,8 @@ def _loss_rate(p, px):
     return -r if is_short(p) else r
 
 
-def _raise_cash(L, need, date, bars, exclude):
-    """평가손실 보유 종목을 손실률 큰 순으로 시가 청산해 need 확보. 합쳐도 부족하면 아무것도
-    팔지 않고 False(이익 종목은 건드리지 않음)."""
+def _loser_avail(L, bars, exclude):
+    """평가손실 보유 종목(손실률 큰 순)과 시가 청산 시 확보 가능한 현금 합 → (avail, losers)."""
     losers = []
     for p in L["positions"]:
         b = bars.get(p["code"])
@@ -194,6 +197,13 @@ def _raise_cash(L, need, date, bars, exclude):
     losers.sort(key=lambda x: x[0])
     avail = sum(position_value(p, px) if is_short(p) else p["qty"] * px * (1 - config.SELL_TAX)
                 for _, p, px in losers)
+    return avail, losers
+
+
+def _raise_cash(L, need, date, bars, exclude):
+    """평가손실 보유 종목을 손실률 큰 순으로 시가 청산해 need 확보. 합쳐도 부족하면 아무것도
+    팔지 않고 False(이익 종목은 건드리지 않음)."""
+    avail, losers = _loser_avail(L, bars, exclude)
     if L["cash"] + avail < need:
         return False, []
     sold = []
@@ -253,7 +263,9 @@ def settle_day(L, date, bars):
         short = is_short(o)
         if not b or b.get("low") is None or (short and b.get("high") is None):
             o.update(status="cancelled", note="시세 없음")
-        elif any(p["code"] == o["code"] for p in L["positions"]):
+        elif o.get("topupOf") and not any(p["id"] == o["topupOf"] for p in L["positions"]):
+            o.update(status="cancelled", note="본 포지션 청산됨 — 추가 진입 취소")
+        elif not o.get("topupOf") and any(p["code"] == o["code"] for p in L["positions"]):
             o.update(status="skipped", note="이미 보유")
         elif short and b["high"] < o["entry"]:
             o.update(status="cancelled",
@@ -262,15 +274,46 @@ def settle_day(L, date, bars):
             o.update(status="cancelled",
                      note=f"미도달(저가 {b['low']:,.0f} > 진입 {o['entry']:,.0f})")
         else:
-            notional = o["qty"] * o["entry"]
-            tax = notional * config.SELL_TAX if short else 0.0
-            cost = notional + tax                         # 숏: 담보 + 공매도 매도세
+            unit = o["entry"] * (1 + config.SELL_TAX) if short else o["entry"]   # 주당 필요 현금(숏: 담보 + 매도세)
+            cost = o["qty"] * unit
             if L["cash"] < cost:
                 ok, sold = _raise_cash(L, cost, date, bars, new_ids)
                 ev["exits"].extend(sold)
                 if not ok:
-                    o.update(status="skipped", note="현금 부족(손실 종목 청산으로도 부족)")
-            if o["status"] == "open":
+                    # 부분 진입(2026-10-16): 현금 + 손실 종목 청산 가능액으로 살 수 있는 수량이 계획의 PARTIAL_ENTRY_MIN 이상이면 그만큼만
+                    q2 = int(math.floor((L["cash"] + _loser_avail(L, bars, new_ids)[0]) / unit)) if unit > 0 else 0
+                    q2 = min(q2, o["qty"])
+                    if config.PARTIAL_ENTRY and q2 > 0 and q2 >= math.ceil(o["qty"] * config.PARTIAL_ENTRY_MIN):
+                        ok2, sold2 = _raise_cash(L, q2 * unit, date, bars, new_ids)
+                        ev["exits"].extend(sold2)
+                        if ok2:
+                            planned = o["qty"]
+                            o["partial"] = {"planned": planned, "filled": q2, "remain": planned - q2}
+                            o["qty"], cost = q2, q2 * unit
+                            o["note"] = f"현금 부족 — {q2:,}/{planned:,}주 부분 진입, 잔여 {planned - q2:,}주 다음 영업일 추가 주문"
+                        else:
+                            o.update(status="skipped", note="현금 부족(손실 종목 청산으로도 부족)")
+                    else:
+                        o.update(status="skipped", note=f"현금 부족(가능 {q2:,}/{o['qty']:,}주 < 최소 {config.PARTIAL_ENTRY_MIN * 100:.0f}%)")
+            if o["status"] == "open" and o.get("topupOf"):
+                # 추가 진입(잔여분) — 기존 포지션에 합쳐 평균단가
+                notional = o["qty"] * o["entry"]
+                tax = notional * config.SELL_TAX if short else 0.0
+                L["cash"] -= o["qty"] * unit
+                p = next(x for x in L["positions"] if x["id"] == o["topupOf"])
+                newq = p["qty"] + o["qty"]
+                p["entry"] = (p["entry"] * p["qty"] + o["entry"] * o["qty"]) / newq
+                p["qty"] = newq
+                if short:
+                    p["entryTax"] = (p.get("entryTax") or 0.0) + tax
+                p.setdefault("topups", []).append({"date": date, "qty": o["qty"], "price": o["entry"], "orderId": o["id"]})
+                o.update(status="filled", fillPrice=o["entry"], positionId=p["id"])
+                if o.get("partial"):
+                    o["partial"]["positionId"] = p["id"]
+                    ev.setdefault("partials", []).append(o)
+            elif o["status"] == "open":
+                notional = o["qty"] * o["entry"]
+                tax = notional * config.SELL_TAX if short else 0.0
                 L["cash"] -= cost
                 p = {"id": _id(L, "p"), "code": o["code"], "name": o["name"], "side": o["side"],
                      "qty": o["qty"], "entry": o["entry"], "stop": o["stop"],
@@ -283,6 +326,9 @@ def settle_day(L, date, bars):
                 L["positions"].append(p)
                 new_ids.add(p["id"])
                 o.update(status="filled", fillPrice=o["entry"], positionId=p["id"])
+                if o.get("partial"):
+                    o["partial"]["positionId"] = p["id"]
+                    ev.setdefault("partials", []).append(o)
         L["orderLog"].append(o)
         ev[{"filled": "filled", "skipped": "skipped"}.get(o["status"], "cancelled")].append(o)
 
