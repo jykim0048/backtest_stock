@@ -394,13 +394,13 @@
       ps.map(function (p) {
         var val = p.value != null ? p.value : p.qty * (p.lastClose || p.entry || 0);
         var wt = eq ? '<span class="num" title="평가금액 ' + won(val) + '원 ÷ 총 평가액">' + (val / eq * 100).toFixed(1) + "%</span>" : '<span class="num muted">—</span>';
-        return { key: p.decisionKey, cells: [td(stock(p.name, p.code, "체결 " + (p.fillDate || "").slice(5), null, testTag(p))),
+        return { key: p.decisionKey, cells: [td(stock(p.name, p.code, null, null, testTag(p))),
           td('<span class="sec-name">' + esc(p.sector || "—") + "</span>"), td(sig(p.signal) || '<span class="muted">—</span>'),
           td('<span class="pos-basis" data-dk="' + esc(p.decisionKey || "") + '">' + basisTag({ source: p.source }) + "</span>"),
           td(levels(p.entry, p.stop, p.target)), td(wt + "<small>" + won(p.qty) + "주</small>", "r"),
           td('<span class="num">' + won(p.lastClose) + "</span>", "r"),
           td(pnlBadge(p.unrealPct, pctTxt(p.unrealPct).replace(/^[+-]/, "")), "r"),
-          td(holdBar(p.holdDay)),
+          td(holdBar(p.holdDay) + (p.fillDate ? '<small class="hold-fill">체결 ' + esc(p.fillDate.slice(5)) + "</small>" : "")),
           td(p.sellPending ? '<span class="state sell-next" title="다음 영업일 시가 ' + (sideOf(p) === "short" ? "환매" : "매도") + " — " + esc(p.sellPending.reason) + '">익일 시가 ' + (sideOf(p) === "short" ? "환매" : "매도") + "</span>"
             : p.extended ? '<span class="state ext" title="목표 도달·만기 후 trading_agent 가 계속 보유로 판단 — 매일 재판별">연장 보유</span>'
             : '<span class="state hold-ok">보유</span>')] };
