@@ -363,12 +363,41 @@
     posTable($("positions"), longs, "Long 보유 종목이 없습니다");
     posTable($("short-positions"), shorts, "Short 보유 종목이 없습니다");
   }
+  // 선정기준 태그(2026-10-16) — 소스(매트릭스 칸 / 유니버스 통합 순위 / 하방 촉매 강도) + 공통 모멘텀 점수. 후보 표·보유 표 공용.
+  // source 없는 구 포지션(2026-10-13 이전)은 매트릭스뿐이었으므로 매트릭스로 본다.
+  function basisTag(c) {
+    var k = c.catalyst || {};
+    var t = c.source === "universe" ? '<span class="flag uni">유니버스' + (c.rankAll ? " 통합 " + c.rankAll + "위" : "") + "</span>"
+      : c.source === "catalyst" ? '<span class="flag cat" title="' + esc(k.title || "") + '">하방촉매' + (k.strength ? " ★" + k.strength : "") + (k.direct ? " · 마감후" : "") + "</span>"
+      : '<span class="flag" title="주간 브리핑 섹터 시그널 칸">매트릭스</span>';
+    return t + (c.score != null ? ' <span class="num muted" title="공통 모멘텀 점수(−5~+5)">' + (c.score > 0 ? "+" : "") + c.score + "</span>" : "");
+  }
+  // 보유 종목의 진입 당시 후보 행(통합 순위·점수·촉매)을 그날 런에서 찾아 선정기준 칸을 채운다 — 날짜별 1회 조회 캐시
+  var RUN_CACHE = {};
+  function fillPosBasis(el) {
+    el.querySelectorAll(".pos-basis[data-dk]").forEach(function (cell) {
+      var m = /^decision\/(\d{4}-\d{2}-\d{2})\/(\d{6})\/entry(-short)?/.exec(cell.getAttribute("data-dk") || "");
+      if (!m) return;
+      var d = m[1], code = m[2];
+      var p = RUN_CACHE[d] || (RUN_CACHE[d] = api("/api/swing/runs?date=" + encodeURIComponent(d)).catch(function () { return null; }));
+      p.then(function (run) {
+        if (!run) return;
+        var c = (run.candidates || []).concat(run.shortCandidates || []).filter(function (x) { return x.code === code; })[0];
+        if (c) cell.innerHTML = basisTag(c);
+      });
+    });
+  }
   function posTable(el, ps, empty) {
-    table(el, [["종목"], ["신호"], ["가격 레벨"], ["수량", "r"], ["종가", "r"], ["평가손익", "r"], ["보유일"], ["상태"]],
+    // 비중 = 평가금액(수량 × 종가) ÷ 총 평가액(2026-10-16) — 상단 비중, 하단 수량(작게)
+    var eq = S.summary && S.summary.equity;
+    table(el, [["종목"], ["섹터"], ["신호"], ["선정기준"], ["가격 레벨"], ["비중 / 수량", "r"], ["종가", "r"], ["평가손익", "r"], ["보유일"], ["상태"]],
       ps.map(function (p) {
+        var val = p.value != null ? p.value : p.qty * (p.lastClose || p.entry || 0);
+        var wt = eq ? '<span class="num" title="평가금액 ' + won(val) + '원 ÷ 총 평가액">' + (val / eq * 100).toFixed(1) + "%</span>" : '<span class="num muted">—</span>';
         return { key: p.decisionKey, cells: [td(stock(p.name, p.code, "체결 " + (p.fillDate || "").slice(5), null, testTag(p))),
-          td('<span class="sec-name">' + esc(p.sector || "") + "</span>" + sig(p.signal)),
-          td(levels(p.entry, p.stop, p.target)), td('<span class="num">' + won(p.qty) + "</span>", "r"),
+          td('<span class="sec-name">' + esc(p.sector || "—") + "</span>"), td(sig(p.signal) || '<span class="muted">—</span>'),
+          td('<span class="pos-basis" data-dk="' + esc(p.decisionKey || "") + '">' + basisTag({ source: p.source }) + "</span>"),
+          td(levels(p.entry, p.stop, p.target)), td(wt + "<small>" + won(p.qty) + "주</small>", "r"),
           td('<span class="num">' + won(p.lastClose) + "</span>", "r"),
           td(pnlBadge(p.unrealPct, pctTxt(p.unrealPct).replace(/^[+-]/, "")), "r"),
           td(holdBar(p.holdDay)),
@@ -376,6 +405,7 @@
             : p.extended ? '<span class="state ext" title="목표 도달·만기 후 trading_agent 가 계속 보유로 판단 — 매일 재판별">연장 보유</span>'
             : '<span class="state hold-ok">보유</span>')] };
       }), empty);
+    fillPosBasis(el);
   }
 
   // ── 판단·주문 (기준일) — Long·Short 탭이 같은 표 양식, 방향으로 나눔 ──
@@ -400,10 +430,7 @@
     table($(pre + "candidates"), [["종목"], ["진입일"], ["섹터"], ["신호"], ["선정기준"], ["PM"], ["Trader"], ["가격 레벨"], ["진입 비중"]],
       cands.map(function (c) {
         // 선정기준 열(2026-10-16): 소스(매트릭스 칸 / 유니버스 통합 순위 / 하방 촉매 강도) + 공통 모멘텀 점수
-        var srcTag = c.source === "universe" ? '<span class="flag uni">유니버스' + (c.rankAll ? " 통합 " + c.rankAll + "위" : "") + "</span>"
-          : c.source === "catalyst" ? '<span class="flag cat" title="' + esc((c.catalyst || {}).title || "") + '">하방촉매 ★' + ((c.catalyst || {}).strength || "") + ((c.catalyst || {}).direct ? " · 마감후" : "") + "</span>"
-          : '<span class="flag" title="주간 브리핑 섹터 시그널 칸">매트릭스</span>';
-        var scTag = c.score != null ? ' <span class="num muted" title="공통 모멘텀 점수(−5~+5)">' + (c.score > 0 ? "+" : "") + c.score + "</span>" : "";
+        var srcTag = basisTag(c), scTag = "";
         // 판단 요약 툴팁(2026-10-16): PM 셀 = Executive Summary, Trader 셀 = Reasoning, 결과 셀 = 걸러낸 쪽의 요약.
         // 구 런(pmNote 없음)은 행에 마우스를 올리면 판단 원문을 받아 채운다(attachNoteTooltips).
         var pmT = c.pmNote ? ' title="' + esc(c.pmNote) + '"' : "", trT = c.traderNote ? ' title="' + esc(c.traderNote) + '"' : "";
@@ -413,10 +440,9 @@
           td('<span class="sec-name">' + esc(c.sector || "—") + "</span>"), td(sig(c.signal) || '<span class="muted">—</span>'), td(srcTag + scTag),
           td('<span class="note-pm"' + pmT + ">" + rating(c.rating, /판단 실패/.test(c.why || "")) + "</span>"), td('<span class="note-tr"' + trT + ">" + esc(c.action || "—") + "</span>"),
           td(c.entry ? levels(c.entry, c.stop, c.target) : '<span class="muted">—</span>'),
-          // 진입 비중 열(2026-10-16): 주문이면 비중 %만(수량·PM/Trader 비중은 툴팁), 아니면 걸러진 사유 + 판단 요약을 본문에 표기
+          // 진입 비중 열(2026-10-16): 주문이면 비중 %만(수량·PM/Trader 비중은 툴팁), 아니면 상태(PM Hold 등)만 — 판단 요약은 툴팁
           td(c.ordered ? '<span class="state ordered" title="' + won(c.qty) + "주 · PM " + pct(c.pmWeight) + " / Trader " + pct(c.traderWeight) + '">' + pct(c.weight) + "</span>"
-            : '<span class="muted note-why" style="font-size:12px"' + (whyNote ? ' title="' + esc(whyNote) + '"' : "") + "><b>" + esc(c.why || "미주문") + "</b>"
-              + (whyNote ? '<span class="why-note"> — ' + esc(whyNote) + "</span>" : "") + "</span>", "wrap")] };
+            : '<span class="muted note-why" style="font-size:12px;border-bottom:1px dotted rgba(255,255,255,.35);cursor:help"' + (whyNote ? ' title="' + esc(whyNote) + '"' : "") + ">" + esc(c.why || "미주문") + "</span>")] };
       }), run.skip ? esc(run.skip) : "후보 없음");
       attachNoteTooltips($(pre + "candidates"));
     table($(pre + "executed"), [["종목"], ["결과"], ["진입가", "r"], ["수량", "r"], ["비고"]],
@@ -1081,11 +1107,7 @@
           var pm = row.querySelector(".note-pm"), tr = row.querySelector(".note-tr"), why = row.querySelector(".note-why");
           if (pm && n.pm) pm.title = n.pm;
           if (tr && n.tr) tr.title = n.tr;
-          if (why) {
-            var note = (/^Trader/.test(why.textContent) ? n.tr : n.pm) || n.pm || n.tr || "";
-            why.title = note;
-            if (note && !why.querySelector(".why-note")) why.insertAdjacentHTML("beforeend", '<span class="why-note"> — ' + esc(note) + "</span>");
-          }
+          if (why) why.title = (/^Trader/.test(why.textContent) ? n.tr : n.pm) || n.pm || n.tr || "";
         });
       }, { once: true });
     });
