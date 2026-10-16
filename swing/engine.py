@@ -21,7 +21,7 @@
   Long  : 매수 수수료 없음, 매도 대금 × SELL_TAX.
   Short : 공매도 진입(매도) 대금 × SELL_TAX, 환매(매수) 비용 없음, 대차수수료 일할.
           체결 시 진입금액 100% 를 담보로 현금에서 묶고 매도대금은 현금에 넣지 않는다(레버리지 없음).
-          평가 = 담보 + (진입가 − 현재가) × 수량. Short 총노출(수량 × 현재가)은 평가액 × SHORT_MAX_GROSS 이내.
+          평가 = 담보 + (진입가 − 현재가) × 수량. Short 총노출(수량 × 현재가)은 SHORT_MAX_GROSS > 0 이면 평가액 × SHORT_MAX_GROSS 이내(기본 0 = 상한 없음).
 """
 import datetime
 import math
@@ -82,7 +82,7 @@ def place_entry(L, *, code, name, date, valid_date, entry, stop, target, weight,
     note = None
     if qty <= 0:
         note = "수량 0(비중·가격)"
-    elif side == "short" and short_exposure(L) + qty * entry > config.SHORT_MAX_GROSS * eq:
+    elif side == "short" and config.SHORT_MAX_GROSS > 0 and short_exposure(L) + qty * entry > config.SHORT_MAX_GROSS * eq:
         note = f"Short 총노출 상한 {config.SHORT_MAX_GROSS * 100:.0f}% 초과"
     if note:
         o.update(status="skipped", note=note)

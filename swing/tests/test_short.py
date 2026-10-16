@@ -100,6 +100,9 @@ class TestShortEngine(unittest.TestCase):
         self.assertEqual(L["positions"][0]["reviewFlag"], "expiry")
 
     def test_short_gross_cap_skips(self):
+        old = config.SHORT_MAX_GROSS
+        config.SHORT_MAX_GROSS = 0.30                               # 노브로 켰을 때의 동작(기본은 0 = 상한 없음, 2026-10-16)
+        self.addCleanup(setattr, config, "SHORT_MAX_GROSS", old)
         L = E.new_ledger(1_000_000, start="2026-09-01")
         o1 = E.place_entry(L, code="000001", name="A", date="2026-09-01", valid_date="2026-09-02",
                            entry=10000, stop=10500, target=None, weight=0.1, side="short")
@@ -115,6 +118,13 @@ class TestShortEngine(unittest.TestCase):
         o5 = E.place_entry(L, code="000005", name="E", date="2026-09-01", valid_date="2026-09-02",
                            entry=10000, stop=9500, target=None, weight=0.1)
         self.assertEqual(o5["status"], "open")
+
+    def test_short_no_cap_by_default(self):
+        self.assertEqual(config.SHORT_MAX_GROSS, 0)
+        L = E.new_ledger(1_000_000, start="2026-09-01")
+        st = [E.place_entry(L, code=f"00000{i}", name=str(i), date="2026-09-01", valid_date="2026-09-02",
+                            entry=10000, stop=10500, target=None, weight=0.1, side="short")["status"] for i in range(1, 6)]
+        self.assertEqual(st, ["open"] * 5)                           # 50% 까지도 상한 없이 접수
 
     def test_raise_cash_closes_losing_short(self):
         L = filled(weight=0.3)                                      # Short 총노출 상한(30%)까지

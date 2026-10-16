@@ -35,7 +35,7 @@ SHORT_SIGNALS = ("동반약세", "수급이탈")                      # 숏 후�
 SHORT_RATINGS = SELL_RATINGS                                 # PM 등급 — 공매도 진입 허용
 COVER_RATINGS = BUY_RATINGS                                  # PM 등급 — 보유 숏 환매(Hold 는 계속 보유)
 MAX_NEW_SHORT_PER_DAY = _i("SWING_MAX_NEW_SHORT_PER_DAY", 10)  # 하루 신규 Short 분석 상한
-SHORT_MAX_GROSS = _f("SWING_SHORT_MAX_GROSS", 0.30)          # Short 총노출 상한(평가액 대비)
+SHORT_MAX_GROSS = _f("SWING_SHORT_MAX_GROSS", 0)             # Short 총노출 상한(평가액 대비). 0 = 상한 없음(2026-10-16 사용자 결정, 종전 0.30)
 BORROW_RATE = _f("SWING_BORROW_RATE", 0.04)                  # 대차수수료 연율(진입금액 × 일수/365)
 
 # main 브랜치 산출물(읽기 전용) — 주간 브리핑은 16:10 런이 ~16:14 커밋

@@ -1459,7 +1459,7 @@
     renderHeader(r[0]); pollProgress(); renderPortfolio(r[0]); renderRules(r[5]);
     document.querySelectorAll(".hold-n").forEach(function (x) { x.textContent = HOLD_N(); });
     if (S.config && S.config.borrowRate != null) $("cfg-borrow").textContent = +(S.config.borrowRate * 100).toFixed(2);
-    if (S.config && S.config.shortMaxGross != null) $("cfg-sgross").textContent = Math.round(S.config.shortMaxGross * 100);
+    if (S.config && S.config.shortMaxGross != null) $("cfg-sgross").textContent = S.config.shortMaxGross > 0 ? "평가액의 " + Math.round(S.config.shortMaxGross * 100) + "%" : "없음";
     renderEquity(r[1], r[0].capital0); renderPositions(r[2]); renderHoldingsPF(r[2], r[0]); renderReport();
     var dates = r[3].slice().reverse(), sel = $("run-date");
     sel.innerHTML = dates.length ? dates.map(function (d) { return "<option>" + d + "</option>"; }).join("") : "<option>—</option>";
