@@ -397,18 +397,20 @@
       }), sd === "short" ? "환매 검토 대상 없음" : "매도 검토 대상 없음");
     // 진입일 = 다음 영업일(주문 유효일). 구 런(entryDate 없음)은 다음 평일로 근사(2026-10-16)
     var entryDay = run.entryDate || nextWeekday(run.date);
-    table($(pre + "candidates"), [["종목"], ["진입일"], ["신호"], ["PM"], ["Trader"], ["가격 레벨"], ["결과"]],
+    table($(pre + "candidates"), [["종목"], ["진입일"], ["섹터"], ["신호"], ["선정기준"], ["PM"], ["Trader"], ["가격 레벨"], ["결과"]],
       cands.map(function (c) {
-        var srcTag = c.source === "universe" ? ' <span class="flag uni">유니버스' + (c.rankAll ? " 통합 " + c.rankAll + "위" : "") + "</span>"
-          : c.source === "catalyst" ? ' <span class="flag cat" title="' + esc((c.catalyst || {}).title || "") + '">하방촉매 ★' + ((c.catalyst || {}).strength || "") + ((c.catalyst || {}).direct ? " · 마감후" : "") + "</span>" : "";
-        var scTag = c.score != null ? ' <span class="num muted" title="공통 모멘텀 점수">' + (c.score > 0 ? "+" : "") + c.score + "</span>" : "";
+        // 선정기준 열(2026-10-16): 소스(매트릭스 칸 / 유니버스 통합 순위 / 하방 촉매 강도) + 공통 모멘텀 점수
+        var srcTag = c.source === "universe" ? '<span class="flag uni">유니버스' + (c.rankAll ? " 통합 " + c.rankAll + "위" : "") + "</span>"
+          : c.source === "catalyst" ? '<span class="flag cat" title="' + esc((c.catalyst || {}).title || "") + '">하방촉매 ★' + ((c.catalyst || {}).strength || "") + ((c.catalyst || {}).direct ? " · 마감후" : "") + "</span>"
+          : '<span class="flag" title="주간 브리핑 섹터 시그널 칸">매트릭스</span>';
+        var scTag = c.score != null ? ' <span class="num muted" title="공통 모멘텀 점수(−5~+5)">' + (c.score > 0 ? "+" : "") + c.score + "</span>" : "";
         // 판단 요약 툴팁(2026-10-16): PM 셀 = Executive Summary, Trader 셀 = Reasoning, 결과 셀 = 걸러낸 쪽의 요약.
         // 구 런(pmNote 없음)은 행에 마우스를 올리면 판단 원문을 받아 채운다(attachNoteTooltips).
         var pmT = c.pmNote ? ' title="' + esc(c.pmNote) + '"' : "", trT = c.traderNote ? ' title="' + esc(c.traderNote) + '"' : "";
         var whyNote = /^Trader/.test(c.why || "") ? c.traderNote : c.pmNote;
         return { key: c.decisionKey, cells: [td(stock(c.name, c.code)),
           td('<span class="num ' + (c.ordered ? "" : "muted") + '" title="' + (c.ordered ? "주문 유효일(다음 영업일 1일 지정가)" : "주문 없음 — 진입 예정일 참고") + '">' + esc((entryDay || "").slice(5)) + "</span>"),
-          td('<span class="sec-name">' + esc(c.sector || "") + "</span>" + sig(c.signal) + srcTag + scTag),
+          td('<span class="sec-name">' + esc(c.sector || "—") + "</span>"), td(sig(c.signal) || '<span class="muted">—</span>'), td(srcTag + scTag),
           td('<span class="note-pm"' + pmT + ">" + rating(c.rating, /판단 실패/.test(c.why || "")) + "</span>"), td('<span class="note-tr"' + trT + ">" + esc(c.action || "—") + "</span>"),
           td(c.entry ? levels(c.entry, c.stop, c.target) : '<span class="muted">—</span>'),
           td(c.ordered ? '<span class="state ordered" title="' + won(c.qty) + "주 · PM " + pct(c.pmWeight) + " / Trader " + pct(c.traderWeight) + '">' + (sd === "short" ? "공매도 " : "주문 ") + pct(c.weight) + "</span>"
