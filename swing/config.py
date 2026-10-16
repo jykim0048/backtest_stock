@@ -68,7 +68,7 @@ UNI_SECTOR_CAP = _i("SWING_UNI_SECTOR_CAP", 2)
 #           후보 = 종합 ≥ UNI_TOTAL_MIN · score = 모멘텀 점수(−5~+5)로 종전 방식
 UNI_RANK_BASIS = (os.environ.get("SWING_UNI_RANK_BASIS", "total") or "total").strip().lower()
 UNI_TOTAL_MIN = _f("SWING_UNI_TOTAL_MIN", 50)
-UNI_SHORT_FUT_ONLY = os.environ.get("SWING_UNI_SHORT_FUT_ONLY", "0") == "1"   # Short 후보를 주식선물 상장 종목으로 한정
+UNI_SHORT_FUT_ONLY = os.environ.get("SWING_UNI_SHORT_FUT_ONLY", "1") == "1"   # 2026-10-16 기본 켬 — 매트릭스·유니버스·촉매 Short 공통   # Short 후보를 주식선물 상장 종목으로 한정
 # 점수 임계값 — 거래대금 가속(1W/4W−1), 수급/시총(bp), 공매도 비중 Δ(pp), 대차 Δ(bp), 공매도 비중 높음(%)
 UNI_TV_HI, UNI_TV_LO = _f("SWING_UNI_TV_HI", 0.40), _f("SWING_UNI_TV_LO", 0.15)
 UNI_FLOW_HI, UNI_FLOW_LO = _f("SWING_UNI_FLOW_HI", 20), _f("SWING_UNI_FLOW_LO", 6)

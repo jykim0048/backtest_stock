@@ -89,6 +89,19 @@ def run_day(date, store, agent, prices, wb, *, force=False, log=print, uni=None,
               if wb_ok and config.SHORT_ENABLED else [])
     for c in cands + scands:
         c["source"] = "matrix"
+    # Short 후보는 주식선물 상장 종목만(2026-10-16, UNI_SHORT_FUT_ONLY 기본 켬) — 매트릭스도 유니버스·촉매와 같은 필터.
+    # 목록은 FCODES(하루 캐시). 유니버스 어댑터가 없거나 목록을 못 받으면 필터 없이 진행하고 노트로 남긴다(fail-open).
+    fut_set, run["shortFutSkipped"] = None, []
+    if scands and config.UNI_SHORT_FUT_ONLY:
+        if uni is not None:
+            fut_set = uni.fut_set(date)
+        if fut_set:
+            run["shortFutSkipped"] = [c["code"] for c in scands if c["code"] not in fut_set]
+            scands = [c for c in scands if c["code"] in fut_set]
+            if run["shortFutSkipped"]:
+                run["notes"].append(f"매트릭스 Short 후보 주식선물 미상장 제외 {len(run['shortFutSkipped'])}종목")
+        else:
+            run["notes"].append("주식선물 목록 없음 — 매트릭스 Short 선물 한정 필터 생략")
     need = (held | {o["code"] for o in L["orders"] if o["validDate"] <= date} | {c["code"] for c in cands}
             | {c["code"] for c in scands})
     bars = prices.daily_bars(sorted(need), date)
@@ -145,10 +158,9 @@ def run_day(date, store, agent, prices, wb, *, force=False, log=print, uni=None,
             ex_c = held | pend | {c["code"] for c in cands + scands + ucands + uscands}
             fut = None
             if config.UNI_SHORT_FUT_ONLY and uni is not None:
-                try:
-                    fut = uni.dbq.stock_future_underlyings()
-                except Exception as ex:
-                    run["notes"].append(f"촉매 주식선물 목록 실패(한정 해제): {type(ex).__name__}")
+                fut = fut_set if fut_set is not None else uni.fut_set(date)
+                if fut is None:
+                    run["notes"].append("촉매 주식선물 목록 없음(한정 해제)")
             ccands = cat.short_candidates(date, ex_c, decided_c, fut=fut)
             if ccands and uni is not None:
                 try:

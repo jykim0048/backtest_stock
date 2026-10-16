@@ -1363,16 +1363,18 @@
       ["대금 1W", "r", "Δ4주", "g-flow"], ["외인 1W", "r", "억", "g-flow"], ["기관 1W", "r", "억", "g-flow"], ["수급/시총", "r", "bp", "g-flow"],
       ["공매도", "r", "비중 · Δ%p", "g-flow"], ["대차 Δ", "r", "억", "g-flow"], ["수급", "r", "점수", "g-flow s"],
       ["종합", "r", "점수", "g-total s"]];
-    var UN_GROUPS = [["모멘텀 점수 −5~+5 · 시총(억)", 5], ["주가 — 1M·3M·6M·12M 백분위 평균 (1W·YTD 표시만)", 7, "g-px"], ["유동성 — 20일 평균 거래대금 백분위 · 30 미만 종합 제외", 2, "g-liq"],
-      ["수급 — 수급/시총 · −공매도 비중Δ(거래량 대비) · −대차Δ · 거래대금 가속 백분위 평균", 7, "g-flow"], ["종합 0.55주가+0.45수급", 1, "g-total"]];
+    // 그룹 띠·열 이름은 이름만 화면에, 설명·단위는 툴팁(2026-10-16) — [이름, colspan, 클래스, 툴팁]
+    var UN_GROUPS = [["모멘텀", 5, "", "모멘텀 점수 −5~+5 · 시총(억)"], ["주가", 7, "g-px", "1M·3M·6M·12M 수익률 백분위 평균 (1W·YTD 는 표시만)"],
+      ["유동성", 2, "g-liq", "20일 평균 거래대금 백분위 · 30 미만이면 종합 제외(유동성 미달)"],
+      ["수급", 7, "g-flow", "수급/시총 · −공매도 비중Δ(거래량 대비) · −대차Δ · 거래대금 가속 의 백분위 평균"], ["종합", 1, "g-total", "0.55 × 주가 + 0.45 × 수급"]];
     var NCOL = COLS.length;
-    var th = function (c, tag) { return "<" + tag + ' class="' + (c[1] || "") + (c[3] ? " " + c[3] : "") + '">' + c[0] + (c[2] ? "<small>" + c[2] + "</small>" : "") + "</" + tag + ">"; };
-    var head = '<thead><tr class="grp">' + UN_GROUPS.map(function (g) { return '<th colspan="' + g[1] + '" class="' + (g[2] || "") + '">' + g[0] + "</th>"; }).join("") + "</tr><tr>" +
+    var th = function (c, tag) { return "<" + tag + ' class="' + (c[1] || "") + (c[3] ? " " + c[3] : "") + '"' + (c[2] ? ' title="' + esc(c[2]) + '"' : "") + ">" + c[0] + "</" + tag + ">"; };
+    var gth = function (g, tag) { return "<" + tag + ' colspan="' + g[1] + '" class="' + (g[2] || "") + '"' + (g[3] ? ' title="' + esc(g[3]) + '"' : "") + ">" + g[0] + "</" + tag + ">"; };
+    var head = '<thead><tr class="grp">' + UN_GROUPS.map(function (g) { return gth(g, "th"); }).join("") + "</tr><tr>" +
       COLS.map(function (c) { return th(c, "th"); }).join("") + "</tr></thead>";
     // 업종을 펼쳤을 때 어느 열인지 보이도록 업종 머리줄 아래에 열 제목을 반복(2026-10-14)
     var colRow = function (k, closed) {
-      return '<tr class="row colhead grp' + (closed ? " hide" : "") + '" data-k="' + k + '">' + UN_GROUPS.map(function (g) {
-          return '<td colspan="' + g[1] + '" class="' + (g[2] || "") + '">' + g[0] + "</td>"; }).join("") + "</tr>" +
+      return '<tr class="row colhead grp' + (closed ? " hide" : "") + '" data-k="' + k + '">' + UN_GROUPS.map(function (g) { return gth(g, "td"); }).join("") + "</tr>" +
         '<tr class="row colhead' + (closed ? " hide" : "") + '" data-k="' + k + '">' + COLS.map(function (c) { return th(c, "td"); }).join("") + "</tr>";
     };
     var open = UN.sec != null ? 99 : 5, h = "";
@@ -1459,6 +1461,7 @@
     renderHeader(r[0]); pollProgress(); renderPortfolio(r[0]); renderRules(r[5]);
     document.querySelectorAll(".hold-n").forEach(function (x) { x.textContent = HOLD_N(); });
     if (S.config && S.config.borrowRate != null) $("cfg-borrow").textContent = +(S.config.borrowRate * 100).toFixed(2);
+    if (S.config && S.config.shortFutOnly != null) $("cfg-sfut").textContent = S.config.shortFutOnly ? "주식선물 상장 종목만" : "선물 상장 무관";
     if (S.config && S.config.shortMaxGross != null) $("cfg-sgross").textContent = S.config.shortMaxGross > 0 ? "평가액의 " + Math.round(S.config.shortMaxGross * 100) + "%" : "없음";
     renderEquity(r[1], r[0].capital0); renderPositions(r[2]); renderHoldingsPF(r[2], r[0]); renderReport();
     var dates = r[3].slice().reverse(), sel = $("run-date");

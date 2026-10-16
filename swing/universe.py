@@ -916,6 +916,26 @@ class UniverseRunner:
         self.store.put(f"universe/{date}", doc)
         return doc
 
+    def fut_set(self, date):
+        """주식선물 상장 기초자산 코드 집합(FCODES JF) — store `uni_cache/fut` 하루 캐시. 조회 실패 시 마지막 캐시(없으면 None).
+        Short 후보(매트릭스·유니버스·촉매) 공통 필터용(2026-10-16)."""
+        if getattr(self, "_fut", None) is not None:
+            return self._fut
+        cached = self.store.get("uni_cache/fut") or {}
+        if cached.get("date") == date and cached.get("codes"):
+            self._fut = set(cached["codes"])
+            return self._fut
+        try:
+            codes = self.dbq.stock_future_underlyings()
+            if codes:
+                self.store.put("uni_cache/fut", {"date": date, "codes": sorted(codes)})
+                self._fut = set(codes)
+                return self._fut
+        except Exception as ex:
+            self.log(f"[swing] 주식선물 목록 조회 실패({type(ex).__name__}: {str(ex)[:80]}) — 캐시 {cached.get('date')} 사용")
+        self._fut = set(cached["codes"]) if cached.get("codes") else None
+        return self._fut
+
     def attach_scores(self, cands, side, date, source="matrix"):
         if not cands:
             return cands

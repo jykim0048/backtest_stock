@@ -5,6 +5,7 @@ import unittest
 from swing import agent_iface as A
 from swing import config, daily, prices, store
 from swing import engine as E
+from swing.tests.test_daily import FixedAgent
 from swing import signals as S
 from swing.agent import pipeline as PL
 
@@ -281,3 +282,54 @@ class TestShortDaily(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class FakeUni:
+    """run_day 의 uni 자리 — 주식선물 집합만 제공(유니버스 산출·채점은 실패 → 노트, 흐름 계속)."""
+    def __init__(self, fut):
+        self.fut, self.calls = fut, 0
+
+    def fut_set(self, date):
+        self.calls += 1
+        return self.fut
+
+    def build_or_load(self, date, wb, ledger):
+        raise RuntimeError("no universe in test")
+
+    def attach_scores(self, cands, side, date, source="matrix"):
+        return cands
+
+
+class TestShortFutOnly(unittest.TestCase):
+    def _wb(self, date, down):
+        return {"asof": f"{date} 16:13 KST", "sectorFlow": {"rows": [{"name": "유통", "signal": "동반약세"}]},
+                "sectorScreen": {"matrix": {"동반강세": [], "수급유입": [], "수급이탈": [],
+                                            "동반약세": [{"code": c, "name": c, "sector": "유통"} for c in down]}}}
+
+    def test_matrix_short_filtered_by_futures(self):
+        self.assertTrue(config.UNI_SHORT_FUT_ONLY)                    # 기본 켬(2026-10-16)
+        st = store.FileStore(tempfile.mkdtemp())
+        ag = FixedAgent()
+        px = prices.DictPrices({"2026-09-21": {"000010": bar(1, 1, 1, 1), "000020": bar(1, 1, 1, 1)}})
+        run = daily.run_day("2026-09-21", st, ag, px, self._wb("2026-09-21", ["000010", "000020"]),
+                            uni=FakeUni({"000010"}), log=lambda *a: None)
+        self.assertEqual([c["code"] for c in run["shortCandidates"]], ["000010"])
+        self.assertEqual(run["shortFutSkipped"], ["000020"])
+        self.assertTrue(any("미상장 제외 1" in n for n in run["notes"]))
+
+    def test_no_futures_list_fail_open(self):
+        st = store.FileStore(tempfile.mkdtemp())
+        px = prices.DictPrices({"2026-09-21": {"000010": bar(1, 1, 1, 1), "000020": bar(1, 1, 1, 1)}})
+        run = daily.run_day("2026-09-21", st, FixedAgent(), px, self._wb("2026-09-21", ["000010", "000020"]),
+                            uni=FakeUni(None), log=lambda *a: None)
+        self.assertEqual(len(run["shortCandidates"]), 2)
+        self.assertTrue(any("필터 생략" in n for n in run["notes"]))
+        old = config.UNI_SHORT_FUT_ONLY
+        config.UNI_SHORT_FUT_ONLY = False
+        try:
+            st2 = store.FileStore(tempfile.mkdtemp())
+            run2 = daily.run_day("2026-09-21", st2, FixedAgent(), px, self._wb("2026-09-21", ["000010", "000020"]),
+                                 uni=FakeUni({"000010"}), log=lambda *a: None)
+            self.assertEqual(len(run2["shortCandidates"]), 2)        # 노브 끄면 필터 없음
+        finally:
+            config.UNI_SHORT_FUT_ONLY = old
