@@ -127,6 +127,7 @@ class TestRunDay(unittest.TestCase):
         self.assertTrue(sc[0]["ordered"])
         self.assertEqual(sc[0]["catalyst"]["strength"], 4)
         self.assertEqual(sc[0]["signal"], "하방촉매")
+        self.assertIn("pmNote", sc[0]); self.assertIn("traderNote", sc[0])              # 툴팁용 요약(2026-10-16)
         self.assertIn(("336260", "entry", "catalyst", 4), ag.calls)
         self.assertTrue(any("하방 촉매 후보 Short 2" in n for n in run["notes"]))
         doc = st.get("catalyst/2026-10-13")

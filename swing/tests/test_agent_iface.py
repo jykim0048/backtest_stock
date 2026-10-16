@@ -105,3 +105,11 @@ class TestParse(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestTraderReason(unittest.TestCase):
+    def test_trader_reason(self):
+        txt = "**Action**: Hold" + chr(10) * 2 + "**Reasoning**: 거래량 급감과" + chr(10) + "지지선 이탈." + chr(10) * 2 + "**Entry Price**: —"
+        d = A.Decision(code="1", date="2026-10-16", purpose="entry", reports={"trader": txt})
+        self.assertEqual(A.trader_reason(d), "거래량 급감과")
+        self.assertEqual(A.trader_reason(A.Decision(code="1", date="d", purpose="entry")), "")

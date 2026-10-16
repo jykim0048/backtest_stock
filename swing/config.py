@@ -99,3 +99,8 @@ CAT_NEW_SHORT_PER_DAY = _i("SWING_CAT_NEW_SHORT_PER_DAY", 5)           # 촉매 
 CAT_MAX_DROP = _f("SWING_CAT_MAX_DROP", 20)                            # 당일 하락률(%)이 이보다 크면 추격 금지(관찰만)
 CAT_RALLY_SKIP = _f("SWING_CAT_RALLY_SKIP", 10)                        # 당일 상승률(%)이 이 이상이면 제외(제3자배정 유증 등 호재성 자금조달)
 CAT_DART_DIRECT = os.environ.get("SWING_CAT_DART_DIRECT", "1") != "0"  # DART_API_KEY 있으면 16:30 당일 공시 직접 조회(장 마감 후 접수분)
+# 미도달 주문 재시도(2026-10-16, 방식 A): 전날 지정가가 미도달 취소되면 같은 진입·손절·목표가로 다음 영업일 1일 지정가를 다시 낸다
+# (재분석 없음 → LLM 비용 0). 최대 ENTRY_RETRY_MAX 회(원주문 포함 ENTRY_RETRY_MAX+1 회 시도). 가드: 취소일 종가가 진입가 ±ENTRY_RETRY_BAND
+# 안이고 손절가를 침범하지 않았을 때만(레벨이 낡으면 중단 → 쿨다운 뒤 재선정 시 재분석).
+ENTRY_RETRY_MAX = _i("SWING_ENTRY_RETRY_MAX", 2)
+ENTRY_RETRY_BAND = _f("SWING_ENTRY_RETRY_BAND", 0.03)

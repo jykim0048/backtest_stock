@@ -91,6 +91,12 @@ def _field(text, label):
     return m.group(1).strip() if m else None
 
 
+def trader_reason(d):
+    """Trader 리포트의 **Reasoning** 한 줄(대시보드 툴팁용, 2026-10-16) — 없으면 ''."""
+    txt = ((getattr(d, "reports", None) or {}).get("trader") or "")
+    return " ".join((_field(txt, "Reasoning") or _field(txt, "Rationale") or "").split()).strip()
+
+
 def _word(val, allowed):
     if not val:
         return None

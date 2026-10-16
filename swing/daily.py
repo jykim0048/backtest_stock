@@ -96,10 +96,12 @@ def run_day(date, store, agent, prices, wb, *, force=False, log=print, uni=None,
     if missing:
         run["notes"].append(f"보유 종목 시세 없음: {', '.join(missing)}")
     ev = engine.settle_day(L, date, bars)
+    nxt = tradedays.next_trading_day(date)
+    run["entryDate"] = nxt                                   # 신규 후보 주문의 진입(유효)일 — 대시보드 표기(2026-10-16)
+    run["retries"] = _retry_unfilled(L, ev, bars, date, nxt)   # 미도달 재주문(2026-10-16, 방식 A)
     run["events"] = {k: [x.get("id") for x in v] for k, v in ev.items() if isinstance(v, list)}
     run["exits"] = [{"code": t["code"], "name": t["name"], "side": t.get("side", "long"), "reason": t["reason"],
                      "retPct": t["retPct"]} for t in ev.get("exits", [])]
-    nxt = tradedays.next_trading_day(date)
 
     # 5) 유니버스 산출 + 공통 모멘텀 채점(매트릭스 후보 정렬) + 유니버스 독립 후보(2026-10-13)
     ucands, uscands, skipped_uni_cap, skipped_uni_short_cap = [], [], [], []
@@ -255,8 +257,43 @@ def run_day(date, store, agent, prices, wb, *, force=False, log=print, uni=None,
         f"숏 후보 {len(run['shortCandidates'])} · 숏 주문 {sum(r['ordered'] for r in run['shortCandidates'])} · "
         f"유니버스 {sum(1 for r in run['candidates'] + run['shortCandidates'] if r.get('source') == 'universe')} · "
         f"촉매 {sum(1 for r in run['shortCandidates'] if r.get('source') == 'catalyst')} · "
+        f"재시도 {sum(1 for r in run.get('retries') or [] if r['ok'])}/{len(run.get('retries') or [])} · "
         f"평가 {run['equity']['equity'] if run['equity'] else '-'}")
     return run
+
+
+def _retry_unfilled(L, ev, bars, date, nxt):
+    """미도달 취소 주문 → 같은 레벨로 다음 영업일 재주문(재분석 없음). 반환 [{code,name,side,retry,ok,why,orderId}].
+    가드: 재시도 횟수 ≤ ENTRY_RETRY_MAX · 그날 종가가 진입가 ±ENTRY_RETRY_BAND · 손절가 미침범(Long 종가>손절, Short 종가<손절) ·
+    보유·대기 아님. 가드에 걸리면 중단(쿨다운이 끝나고 다시 선정되면 그때 재분석)."""
+    out = []
+    held = {p["code"] for p in L["positions"]}
+    for o in ev.get("cancelled") or []:
+        if not str(o.get("note") or "").startswith("미도달"):
+            continue
+        n = int(o.get("retry") or 0) + 1
+        row = {"code": o["code"], "name": o.get("name"), "side": o.get("side", "long"), "retry": n, "ok": False, "why": ""}
+        b = bars.get(o["code"]) or {}
+        close, entry, stop = b.get("close"), o.get("entry"), o.get("stop")
+        if n > config.ENTRY_RETRY_MAX:
+            row["why"] = f"재시도 상한 {config.ENTRY_RETRY_MAX}회"
+        elif not close or not entry:
+            row["why"] = "종가 없음"
+        elif abs(close / entry - 1) > config.ENTRY_RETRY_BAND:
+            row["why"] = f"종가 {close:,.0f} 가 진입가 ±{config.ENTRY_RETRY_BAND * 100:.0f}% 밖"
+        elif stop and ((o.get("side", "long") == "long" and close <= stop) or (o.get("side") == "short" and close >= stop)):
+            row["why"] = f"종가 {close:,.0f} 가 손절가 {stop:,.0f} 침범"
+        elif o["code"] in held or any(x["code"] == o["code"] for x in L["orders"]):
+            row["why"] = "보유·대기 중"
+        else:
+            new = engine.place_entry(L, code=o["code"], name=o.get("name"), date=date, valid_date=nxt, entry=entry, stop=stop,
+                                     target=o.get("target"), weight=o.get("weight") or config.DEFAULT_WEIGHT, sector=o.get("sector"),
+                                     signal=o.get("signal"), decision_key=o.get("decisionKey"), side=o.get("side", "long"),
+                                     source=o.get("source"))
+            new["retry"] = n
+            row.update(ok=new["status"] == "open", why=new.get("note") or f"재시도 {n}/{config.ENTRY_RETRY_MAX}", orderId=new["id"])
+        out.append(row)
+    return out
 
 
 def _new_entries(L, store, agent, cands, bars, date, nxt, side, prog=None):
@@ -280,6 +317,7 @@ def _new_entries(L, store, agent, cands, bars, date, nxt, side, prog=None):
                "pmWeight": getattr(d, "pm_weight", None), "traderWeight": d.weight,
                "entry": d.entry, "stop": d.stop, "target": A.effective_target(d),
                "ordered": False, "why": why, "decisionKey": key,
+               "pmNote": (d.summary or "")[:240], "traderNote": (A.trader_reason(d) or "")[:240],   # 툴팁용 한 줄(2026-10-16)
                "catalyst": ({k: (c.get("catalyst") or {}).get(k) for k in ("kind", "title", "strength", "ruleKind", "changePct", "direct")}
                             if c.get("catalyst") else None)}
         if ok:

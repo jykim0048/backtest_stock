@@ -129,6 +129,12 @@
     el.innerHTML = h + "</tbody>";
   }
   function td(v, cls) { return '<td class="' + (cls || "") + '">' + v + "</td>"; }
+  function nextWeekday(iso) {                                   // 휴장일 미반영 근사(구 런 폴백)
+    if (!iso) return "";
+    var d = new Date(iso + "T00:00:00"); d.setDate(d.getDate() + 1);
+    while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() + 1);
+    return d.toISOString().slice(0, 10);
+  }
   function setCount(id, n) { $(id).textContent = n ? n : ""; }
 
   // ── 탭 ──
@@ -388,22 +394,32 @@
         return { key: r.decisionKey, cells: [td(stock(r.name, r.code)), td(esc(r.trigger), "wrap"), td(rating(r.rating, r.error)),
           td(reviewResult(r))] };
       }), sd === "short" ? "환매 검토 대상 없음" : "매도 검토 대상 없음");
-    table($(pre + "candidates"), [["종목"], ["신호"], ["PM"], ["Trader"], ["가격 레벨"], ["결과"]],
+    // 진입일 = 다음 영업일(주문 유효일). 구 런(entryDate 없음)은 다음 평일로 근사(2026-10-16)
+    var entryDay = run.entryDate || nextWeekday(run.date);
+    table($(pre + "candidates"), [["종목"], ["진입일"], ["신호"], ["PM"], ["Trader"], ["가격 레벨"], ["결과"]],
       cands.map(function (c) {
         var srcTag = c.source === "universe" ? ' <span class="flag uni">유니버스' + (c.rankAll ? " 통합 " + c.rankAll + "위" : "") + "</span>"
           : c.source === "catalyst" ? ' <span class="flag cat" title="' + esc((c.catalyst || {}).title || "") + '">하방촉매 ★' + ((c.catalyst || {}).strength || "") + ((c.catalyst || {}).direct ? " · 마감후" : "") + "</span>" : "";
         var scTag = c.score != null ? ' <span class="num muted" title="공통 모멘텀 점수">' + (c.score > 0 ? "+" : "") + c.score + "</span>" : "";
-        return { key: c.decisionKey, cells: [td(stock(c.name, c.code)), td('<span class="sec-name">' + esc(c.sector || "") + "</span>" + sig(c.signal) + srcTag + scTag),
-          td(rating(c.rating, /판단 실패/.test(c.why || ""))), td(esc(c.action || "—")),
+        // 판단 요약 툴팁(2026-10-16): PM 셀 = Executive Summary, Trader 셀 = Reasoning, 결과 셀 = 걸러낸 쪽의 요약.
+        // 구 런(pmNote 없음)은 행에 마우스를 올리면 판단 원문을 받아 채운다(attachNoteTooltips).
+        var pmT = c.pmNote ? ' title="' + esc(c.pmNote) + '"' : "", trT = c.traderNote ? ' title="' + esc(c.traderNote) + '"' : "";
+        var whyNote = /^Trader/.test(c.why || "") ? c.traderNote : c.pmNote;
+        return { key: c.decisionKey, cells: [td(stock(c.name, c.code)),
+          td('<span class="num ' + (c.ordered ? "" : "muted") + '" title="' + (c.ordered ? "주문 유효일(다음 영업일 1일 지정가)" : "주문 없음 — 진입 예정일 참고") + '">' + esc((entryDay || "").slice(5)) + "</span>"),
+          td('<span class="sec-name">' + esc(c.sector || "") + "</span>" + sig(c.signal) + srcTag + scTag),
+          td('<span class="note-pm"' + pmT + ">" + rating(c.rating, /판단 실패/.test(c.why || "")) + "</span>"), td('<span class="note-tr"' + trT + ">" + esc(c.action || "—") + "</span>"),
           td(c.entry ? levels(c.entry, c.stop, c.target) : '<span class="muted">—</span>'),
           td(c.ordered ? '<span class="state ordered">' + (sd === "short" ? "공매도 " : "주문 ") + won(c.qty) + "주</span>"
-            : '<span class="muted" style="font-size:12px">' + esc(c.why || "미주문") + "</span>")] };
+            : '<span class="muted note-why" style="font-size:12px;border-bottom:1px dotted rgba(255,255,255,.35);cursor:help"' + (whyNote ? ' title="' + esc(whyNote) + '"' : "") + ">" + esc(c.why || "미주문") + "</span>")] };
       }), run.skip ? esc(run.skip) : "후보 없음");
+      attachNoteTooltips($(pre + "candidates"));
     table($(pre + "executed"), [["종목"], ["결과"], ["진입가", "r"], ["수량", "r"], ["비고"]],
       ex.map(function (o) {
+        var retryTag = o.retry ? '<span class="flag" title="미도달 재주문 — 전날과 같은 진입·손절·목표가(재분석 없음)">재시도 ' + o.retry + "회</span> " : "";
         return [td(stock(o.name, o.code)), td('<span class="state ' + o.status + '">' + (STATUS[o.status] || o.status) + "</span>"),
           td('<span class="num">' + won(o.entry) + "</span>", "r"), td('<span class="num">' + won(o.qty) + "</span>", "r"),
-          td(esc(o.note || ""), "wrap")];
+          td(retryTag + esc(o.note || ""), "wrap")];
       }), "이 날 유효했던 주문 없음");
   }
   function reviewResult(r) {
@@ -425,6 +441,9 @@
         (sc.length ? " · 숏 후보 " + sc.length + " · 공매도 " + nS : "") + "</div>");
     }
     (run.notes || []).forEach(function (n) { L.push('<div class="warn">⚠ ' + esc(n) + "</div>"); });
+    (run.retries || []).forEach(function (r) {
+      L.push('<div class="' + (r.ok ? "" : "dim") + '">· 미도달 재주문 ' + esc(r.name || r.code) + (r.side === "short" ? "(Short)" : "") + " " + esc(r.why || "") + "</div>");
+    });
     (run.exits || []).forEach(function (e) {
       L.push("<div>· 청산 " + esc(e.name) + " " + reasonTxt(e.reason, e.side) + " " + pctTxt(e.retPct) + "</div>");
     });
@@ -1038,6 +1057,30 @@
   }
 
   // ── 판단 원문 ──
+  // 구 런 행: 마우스 올리면 판단 원문 1회 조회 → PM/Trader/결과 셀 title 채움(2026-10-16)
+  var NOTE_CACHE = {};
+  function noteFromDecision(d) {
+    var tr = ((d.reports || {}).trader || ""), m = /\*\*(Reasoning|Rationale)\*\*\s*:\s*(.+)/.exec(tr);
+    return { pm: (d.summary || "").slice(0, 240), tr: m ? m[2].trim().slice(0, 240) : "" };
+  }
+  function attachNoteTooltips(el) {
+    el.querySelectorAll("tr[data-key]").forEach(function (row) {
+      if (row.querySelector(".note-pm[title], .note-tr[title]")) return;
+      row.addEventListener("mouseenter", function () {
+        if (row.dataset.noted) return;
+        row.dataset.noted = "1";
+        var key = row.getAttribute("data-key");
+        var p = NOTE_CACHE[key] || (NOTE_CACHE[key] = api("/api/swing/decision?key=" + encodeURIComponent(key)).then(noteFromDecision).catch(function () { return null; }));
+        p.then(function (n) {
+          if (!n) return;
+          var pm = row.querySelector(".note-pm"), tr = row.querySelector(".note-tr"), why = row.querySelector(".note-why");
+          if (pm && n.pm) pm.title = n.pm;
+          if (tr && n.tr) tr.title = n.tr;
+          if (why) why.title = (/^Trader/.test(why.textContent) ? n.tr : n.pm) || n.pm || n.tr || "";
+        });
+      }, { once: true });
+    });
+  }
   function openDecision(key) {
     api("/api/swing/decision?key=" + encodeURIComponent(key)).then(function (d) {
       var sh = d.side === "short";
