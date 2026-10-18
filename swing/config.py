@@ -103,6 +103,8 @@ CAT_DART_DIRECT = os.environ.get("SWING_CAT_DART_DIRECT", "1") != "0"  # DART_AP
 # (재분석 없음 → LLM 비용 0). 최대 ENTRY_RETRY_MAX 회(원주문 포함 ENTRY_RETRY_MAX+1 회 시도). 가드: 취소일 종가가 진입가 ±ENTRY_RETRY_BAND
 # 안이고 손절가를 침범하지 않았을 때만(레벨이 낡으면 중단 → 쿨다운 뒤 재선정 시 재분석).
 ENTRY_RETRY_MAX = _i("SWING_ENTRY_RETRY_MAX", 2)
+# 판단 실패 자동 재분석(2026-10-18, swing/redo.py) — 하루 처리 뒤 LLM 판단 실패가 있으면 이 초만큼 기다렸다가 1회 재분석. 0 = 끔
+REDO_WAIT_S = _i("SWING_REDO_WAIT_S", 900)
 ENTRY_RETRY_BAND = _f("SWING_ENTRY_RETRY_BAND", 0.03)
 # 소급 시작일(2026-10-16 사용자 지시: 10-15 데이터부터) — 이 날 이후 유효일의 미도달 취소 중 아직 재시도 판정을 안 받은 것(기능 배포 전 취소분)도
 # 다음 런에서 같은 규칙으로 재주문한다. 유효일로부터 ENTRY_RETRY_MAX 영업일이 지나면 기간 경과로 종료.

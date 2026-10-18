@@ -5,6 +5,7 @@
   python -m swing.run_daily --from 2026-09-07 --to 2026-09-28 --wb-dir swing/data/wb_history
   python -m swing.run_daily --agent mock --prices mock --store file:swing/data/local  # 오프라인
   python -m swing.run_daily --universe-only                                        # 유니버스만 다시 산출
+  python -m swing.run_daily --date 2026-10-16 --redo                               # 판단 실패만 재분석(swing/redo.py)
 
 하루 처리 안에서 업종별 종목 수급 모멘텀 유니버스(swing/universe.py)를 산출(universe/<date>)하고, 매트릭스 후보에
 같은 모멘텀 점수를 매기며 유니버스 후보도 독립 소스로 trading_agent 에 넘긴다(daily.run_day 5).
@@ -17,13 +18,14 @@ import datetime
 import json
 import os
 import sys
+import time
 import urllib.request
 
 _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _ROOT not in sys.path:
     sys.path.insert(0, _ROOT)
 
-from swing import agent_iface, config, daily, prices, store, tradedays, universe  # noqa: E402
+from swing import agent_iface, config, daily, prices, redo, store, tradedays, universe  # noqa: E402
 
 KST = datetime.timezone(datetime.timedelta(hours=9))
 
@@ -85,6 +87,7 @@ def main(argv=None):
     ap.add_argument("--universe", default=os.environ.get("SWING_UNIVERSE_SOURCE", "live"),
                     help="live(DB증권+KIS 허브) | mock(오프라인) | off")
     ap.add_argument("--universe-only", action="store_true", help="하루 처리 없이 유니버스만 산출")
+    ap.add_argument("--redo", action="store_true", help="하루 처리 없이 그날 판단 실패 후보·매도 검토만 재분석")
     a = ap.parse_args(argv)
 
     if a.start:
@@ -101,6 +104,10 @@ def main(argv=None):
             print(f"[swing] {d} 주간 브리핑 로드 실패: {ex}", file=sys.stderr)
             wb = None
         uni = _runner(st, a)
+        if a.redo:
+            r = redo.redo_failed(d, st, ag, px, uni=uni, cat=_cat_runner(st, a))
+            print(f"[swing] {d} 재분석: {r}")
+            continue
         if a.universe_only:
             if uni is None:
                 print(f"[swing] {d} 유니버스 꺼짐(--universe off / SWING_UNIVERSE=0)")
@@ -126,6 +133,16 @@ def main(argv=None):
             print(f"[swing] {d} 건너뜀: {run['skip']}")
         for n in run.get("notes", []):
             print(f"[swing] {d} {n}")
+        # 판단 실패 자동 재분석 1회(2026-10-18) — LLM 1순위 장애·폴백 한도 소진은 보통 수~수십 분 뒤 풀린다.
+        # 여러 날 백필(--from)에서는 생략(다음 날 처리 전에 기다리지 않음).
+        nfail = 0 if run.get("skip") else redo.count_failed(run)
+        if nfail and config.REDO_WAIT_S > 0 and not a.start:
+            print(f"[swing] {d} 판단 실패 {nfail}건 — {config.REDO_WAIT_S}초 뒤 재분석")
+            time.sleep(config.REDO_WAIT_S)
+            try:
+                print(f"[swing] {d} 재분석: {redo.redo_failed(d, st, ag, px, uni=uni, cat=_cat_runner(st, a))}")
+            except Exception as ex:
+                print(f"[swing] {d} 재분석 실패: {type(ex).__name__}: {ex}", file=sys.stderr)
     return rc
 
 

@@ -451,6 +451,7 @@ def _new_entries(L, store, agent, cands, bars, date, nxt, side, prog=None):
                "entry": d.entry, "stop": d.stop, "target": A.effective_target(d),
                "ordered": False, "why": why, "decisionKey": key,
                "pmNote": (d.summary or "")[:240], "traderNote": (A.trader_reason(d) or "")[:240],   # 툴팁용 한 줄(2026-10-16)
+               "req": {"reason": c.get("reason"), "metrics": c.get("metrics"), "catalyst": c.get("catalyst")},   # 판단 실패 재분석용(2026-10-18)
                "catalyst": ({k: (c.get("catalyst") or {}).get(k) for k in ("kind", "title", "strength", "ruleKind", "changePct", "direct")}
                             if c.get("catalyst") else None)}
         if ok:
