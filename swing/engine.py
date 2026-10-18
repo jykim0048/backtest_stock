@@ -375,6 +375,7 @@ def settle_day(L, date, bars):
                      "sector": o.get("sector"), "signal": o.get("signal"), "source": o.get("source"),
                      "decisionKey": o.get("decisionKey"), "orderId": o["id"],
                      "lastClose": None, "sellPending": None}
+                p.update({k: o[k] for k in ("thesis", "invalidation", "horizon") if o.get(k)})   # Live PM 근거(PLAN_PM §5)
                 if short:
                     p.update(entryTax=tax, borrowFee=0.0, collateral=o.get("collateral") or "cash")
                 L["positions"].append(p)

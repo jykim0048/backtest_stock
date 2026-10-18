@@ -97,6 +97,20 @@ def trader_reason(d):
     return " ".join((_field(txt, "Reasoning") or _field(txt, "Rationale") or "").split()).strip()
 
 
+THESIS_KEYS = ("thesis", "invalidation", "horizon")
+
+
+def thesis_fields(d):
+    """진입 판단 → Live PM 이 장중에 '산 이유가 아직 유효한가'를 볼 근거(2026-10-18, PLAN_PM §5).
+    thesis = PM Executive Summary, invalidation = Trader Reasoning(손절 근거 포함), horizon = PM Time Horizon.
+    값이 없으면 키를 넣지 않는다."""
+    pm = ((getattr(d, "reports", None) or {}).get("pm") or "")
+    out = {"thesis": " ".join((getattr(d, "summary", "") or "").split())[:400],
+           "invalidation": trader_reason(d)[:300],
+           "horizon": " ".join((_field(pm, "Time Horizon") or "").split())[:40]}
+    return {k: v for k, v in out.items() if v}
+
+
 def _word(val, allowed):
     if not val:
         return None

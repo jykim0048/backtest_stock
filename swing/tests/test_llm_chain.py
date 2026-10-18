@@ -75,6 +75,13 @@ class ChainTest(unittest.TestCase):
         self.assertNotIn("gemini-2.5-flash", ms)
         self.assertEqual(ms[0], "gemini-3.1-flash-lite")
 
+    def test_chain_arg_overrides_env(self):
+        s = {"a": ['{"ok": 1}'], "c": ['{"ok": 3}']}
+        with self._adapter(s):
+            self.assertEqual(llm.generate_json("s", "u", chain="gemini:c"), {"ok": 3})
+            self.assertEqual(llm.generate_json("s", "u"), {"ok": 1})   # 인자 없으면 LLM_CHAIN 그대로
+        self.assertEqual(self.calls, ["c", "a"])
+
 
 if __name__ == "__main__":
     unittest.main()

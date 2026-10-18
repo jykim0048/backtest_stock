@@ -431,7 +431,8 @@ def _retry_unfilled(L, ev, bars, date, nxt, backlog=(), fut_ok=None):
                                      signal=o.get("signal"), decision_key=o.get("decisionKey"), side=o.get("side", "long"),
                                      source=o.get("source"),
                                      qty=o["qty"] if o.get("topupOf") else None,
-                                     extra={"topupOf": o["topupOf"], "topup": o.get("topup")} if o.get("topupOf") else None)
+                                     extra=({"topupOf": o["topupOf"], "topup": o.get("topup")} if o.get("topupOf")
+                                            else {k: o[k] for k in A.THESIS_KEYS if o.get(k)} or None))
             new["retry"] = n
             o["retriedBy"] = new["id"]
             row.update(ok=new["status"] == "open", why=new.get("note") or f"재시도 {n}/{config.ENTRY_RETRY_MAX}" + (" · 소급" if late else ""),
@@ -478,7 +479,8 @@ def _new_entries(L, store, agent, cands, bars, date, nxt, side, prog=None, fut=N
             o = engine.place_entry(L, code=c["code"], name=c["name"], date=date, valid_date=nxt,
                                    entry=d.entry, stop=d.stop, target=A.effective_target(d),
                                    weight=A.effective_weight(d), sector=c["sector"],
-                                   signal=c["signal"], decision_key=key, side=side, source=c.get("source") or "matrix")
+                                   signal=c["signal"], decision_key=key, side=side, source=c.get("source") or "matrix",
+                                   extra=A.thesis_fields(d) or None)
             row.update(ordered=o["status"] == "open", orderId=o["id"], qty=o["qty"],
                        why=o.get("note", ""))
         rows.append(row)

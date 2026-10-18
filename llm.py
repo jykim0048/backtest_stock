@@ -217,8 +217,9 @@ _ADAPTERS = {"gemini": _gemini, "anthropic": _anthropic}
 # ---------------------------------------------------------------------------
 # Chain
 # ---------------------------------------------------------------------------
-def _chain():
-    raw = os.environ.get("LLM_CHAIN") or DEFAULT_CHAIN   # empty/unset -> default
+def _chain(raw=None):
+    """raw = 호출자가 넘긴 체인 문자열(예: LIVEPM_LLM_CHAIN). 없으면 LLM_CHAIN → DEFAULT_CHAIN."""
+    raw = raw or os.environ.get("LLM_CHAIN") or DEFAULT_CHAIN   # empty/unset -> default
     out = []
     for part in raw.split(","):
         provider, _, model = part.strip().partition(":")
@@ -230,9 +231,9 @@ def _chain():
     return out or [("gemini", "gemini-3.5-flash")]
 
 
-def configured():
+def configured(chain=None):
     """True if at least one chain link has its API key available."""
-    for provider, _ in _chain():
+    for provider, _ in _chain(chain):
         if provider == "gemini" and (os.environ.get("GEMINI_API_KEY")
                                      or os.environ.get("GOOGLE_API_KEY")):
             return True
@@ -276,7 +277,7 @@ def _invoke(provider, model, system, user, max_tokens, schema, primary=False):
     raise _SwitchLink(f"retries exhausted: {last}")
 
 
-def generate_json(system, user, *, max_tokens=4096, schema=None, return_model=False):
+def generate_json(system, user, *, max_tokens=4096, schema=None, return_model=False, chain=None):
     """Return parsed JSON from the first chain link that succeeds.
 
     system/user are plain strings. `schema` is a JSON-Schema dict used for strict
@@ -286,10 +287,13 @@ def generate_json(system, user, *, max_tokens=4096, schema=None, return_model=Fa
     With return_model=True, returns (data, model_id) so callers can record which
     model produced the answer (the chain may have fallen through several links).
 
+    chain = 'provider:model,...' 문자열로 이 호출만 체인을 바꾼다(Live PM 판단 등, 2026-10-18).
+    없으면 LLM_CHAIN 환경변수 → DEFAULT_CHAIN.
+
     Raises LLMError if every configured link fails.
     """
     seen = []
-    for idx, (provider, model) in enumerate(_chain()):
+    for idx, (provider, model) in enumerate(_chain(chain)):
         dead = _DEAD.get((provider, model))
         if dead and dead[0] > time.monotonic():
             seen.append(f"{provider}:{model} skipped ({dead[1]} 이후 건너뜀)")
