@@ -922,8 +922,19 @@
       ["최대 비중", ps.length ? pc(maxV) : "—", "종목당 상한 " + (((S.config && S.config.maxWeight) || 0.1) * 100) + "%"],
       ["섹터 수", Object.keys(ps.reduce(function (a, p) { a[p.sector || "-"] = 1; return a; }, {})).length + "개", "보유 종목 기준"]
     ];
+    var col = summary.collateral;
+    if (col && col.mode === "subst") {                 // Short 담보 여력(2026-10-18, 주식 대용)
+      var use = col.usePct || 0, ucls = col.room < 0 ? "down" : use >= 80 ? "warn" : "";
+      tiles.push(["Short 담보 여력",
+        '<span class="' + (col.room < 0 ? "down" : "") + '">' + won(col.room) + "원</span><small>평가액의 " + pc(col.room) + "</small>",
+        '<div class="col-bar" title="요구 담보 ÷ (현금 + 대용가)"><span class="' + ucls + '" style="width:' + Math.min(use, 100) + '%"></span></div>' +
+        "사용률 " + use.toFixed(1) + "% · 요구 담보 " + won(col.req) + "원 (Short 평가액 × " + Math.round(col.margin * 100) + "%) · 담보 = 현금 " + won(col.cash) +
+        "원 + 대용가 " + won(col.subst) + "원 (Long × " + Math.round(col.substRate * 100) + "%)" +
+        (col.pledged > 0 ? ' · <span class="down">현금 묶임 ' + won(col.pledged) + "원</span>" : "") +
+        (col.room < 0 ? ' · <span class="down">담보 부족 — 다음 영업일 반대매매</span>' : ""), "wide4"]);
+    }
     $("pf-tiles").innerHTML = tiles.map(function (x) {
-      return '<div class="port-item"><span class="port-lbl">' + x[0] + '</span><span class="port-val">' + x[1] +
+      return '<div class="port-item' + (x[3] ? " " + x[3] : "") + '"><span class="port-lbl">' + x[0] + '</span><span class="port-val">' + x[1] +
         '</span><span class="port-sub">' + x[2] + "</span></div>";
     }).join("");
     var base = Math.max(total, lv + sv + cash);

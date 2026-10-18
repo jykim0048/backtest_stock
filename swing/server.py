@@ -68,7 +68,18 @@ def api_summary(q):
                        "winRate": round(len(wins) / len(tr) * 100, 1) if tr else None,
                        "avgRetPct": round(sum(t["retPct"] for t in tr) / len(tr), 2) if tr else None,
                        "pnl": sum(t["pnl"] for t in tr), "byReason": by_reason},
+            "collateral": _collateral(L, eq["equity"] if eq else L["cash"]),
             "lastRun": last}
+
+
+def _collateral(L, equity):
+    """Short 담보 현황(2026-10-18) — 대용가·요구 담보·여력·사용률. 대용 모드가 아니면 mode 만."""
+    c = engine.collateral(L)
+    base = L["cash"] + c["subst"]                       # 담보 총액(현금 + 대용가)
+    return {"mode": config.SHORT_COLLATERAL, "substRate": config.SHORT_SUBST_RATE, "margin": config.SHORT_MARGIN,
+            "cash": round(L["cash"]), "subst": round(c["subst"]), "req": round(c["req"]), "pledged": round(c["pledged"]),
+            "room": round(c["room"]), "roomPct": round(c["room"] / equity * 100, 1) if equity else None,
+            "usePct": round(c["req"] / base * 100, 1) if base > 0 else None}
 
 
 def api_positions(q):

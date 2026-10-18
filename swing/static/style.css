@@ -131,6 +131,11 @@ header {
 /* 포트폴리오 */
 .pf-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
 .pf-tiles .port-val { font-size: 18px; }
+.pf-tiles .port-val small { font-size: 13px; font-weight: 600; color: var(--text-muted); margin-left: 6px; }
+.col-bar { height: 8px; border-radius: 4px; background: rgba(255, 255, 255, .06); overflow: hidden; margin: 4px 0 6px; }
+.col-bar span { display: block; height: 100%; background: var(--down-blue); }
+.col-bar span.warn { background: #f59e0b; }
+.col-bar span.down { background: var(--up-red); }
 .exposure { margin-top: 14px; }
 .exp-bar { display: flex; height: 14px; border-radius: 7px; overflow: hidden; background: rgba(255, 255, 255, .05); gap: 2px; }
 .exp-bar span { display: block; height: 100%; }
