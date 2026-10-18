@@ -82,26 +82,39 @@
 swing/intraday/feed.py   Tick · PollingFeed(/prices) · ReplayFeed
 swing/vwap/state.py      종목별 VWAP·σ·1분봉·당일 고저 갱신 감지
 swing/vwap/executor.py   분할 진입·장중 손절 판정 → intraday/<date>
-swing/vwap/__main__.py   swing-vwap 서비스 루프 · --replay(검증)
+swing/vwap/__main__.py   swing-vwap 서비스 루프 · --replay(검증) · Redis 시세 버스 발행
+swing/intraday/bus.py    Redis 시세 버스 — PriceBus(발행)·BusFeed(Live PM 구독)
 swing/engine.py          settle_day(…, intraday=) — 기록 반영·폴백
 swing/daily.py           run_day 가 intraday/<date> 를 읽어 넘김, run 로그 intraday 요약
 swing/server.py          GET /api/swing/intraday[?date=]
 ```
 저장 키: `intraday/<date>`(실행기 기록), `intraday/<date>/ticks/<code>`(15초 틱, 재생용 — 백업 export 제외).
 
-## 5. Live PM 지시 인터페이스 (제안 — 미구현)
-Live PM 이 생기면 Live Trader 는 매 폴링마다 `livepm/<date>/instructions`(추가만 하는 목록)를 읽어 새 지시를 집행하고,
-결과를 `intraday/<date>.instructions[지시 id]` 에 남긴다. Live PM 은 이 결과를 읽어 다음 판단에 쓴다.
+## 5. Live PM 과의 연결
+2026-10-18 사용자 결정: ① Live PM 지시는 **Live Trader 가 VWAP 로직에 따라 분할 집행**, ② Live PM 은 **별도 서비스**(swing-livepm)로 두되
+**시세는 Redis 로 공유**, ③ **바로 원장 반영**(shadow 없음).
 
-| 지시 | 내용 | Live Trader 집행(제안) |
+### 5-1. Redis 시세 버스 — 구현됨(`swing/intraday/bus.py`)
+Live Trader 가 폴링할 때마다 발행하고, Live PM 은 KIS 허브를 따로 폴링하지 않고 구독한다.
+| 키 | 형식 | 내용 |
 |---|---|---|
-| `exit` | 포지션 전량 청산 | 청산 슬라이스 생성(trigger=`livepm`) — 첫 10% 즉시(현재가), 나머지 VWAP 분할·5% 전량. 정산 사유 `livepm_exit` |
-| `trim` | 일부 청산(pct) | 같은 방식, 수량 = 보유 × pct |
+| `livetrader:ticks` | Stream(약 4,000개 유지 ≈ 2일) | 폴링 1회 = 항목 1개 `{date, ts, data: [{Tick 필드, vwap, sigma, src}]}` |
+| `livetrader:last` | Hash | 종목 → 최신 항목 |
+| `livetrader:heartbeat` | String, TTL 120초 | `{date, ts, codes}` — 만료되면 Live Trader 멈춤(Live PM X4) |
+- Redis = 같은 프로젝트의 `Redis`(swing-cron 이 db:token 을 읽는 것). swing-vwap 변수 `REDIS_URL`=`${{Redis.REDIS_URL}}`.
+- 발행 실패는 로그만 남기고 60초 뒤 재시도 — **집행·손절 루프는 절대 멈추지 않는다**. `REDIS_URL` 이 없으면 발행 꺼짐.
+- 구독: `BusFeed.history(date)`(재시작 시 오늘 기록 따라잡기) → `poll()`(새 항목 대기), `last()`, `alive()`.
+
+### 5-2. 지시 인터페이스 — 미구현(PLAN_PM M2)
+Live PM 은 `livepm/<date>/instructions`(추가만)에 지시를 쓰고, Live Trader 가 매 폴링마다 읽어 집행·결과를
+`intraday/<date>.instructions[지시 id]` 에 남긴다(DB — 정산이 읽어야 하므로 Redis 가 아닌 저장소).
+
+| 지시 | 내용 | Live Trader 집행 |
+|---|---|---|
+| `exit` | 포지션 전량 청산 | 청산 슬라이스(trigger=`livepm`) — 첫 10% 즉시(현재가), 나머지 VWAP 60분할·5분 + 기다리면 손해인 방향 5% 전량. 정산 사유 `livepm_exit` |
+| `trim` | 일부 청산(pct) | 같은 방식, 수량 = 보유 × pct, 사유 `livepm_trim` |
 | `tighten_stop` | 손절가를 유리한 쪽으로만 이동 | 그 시각부터 새 손절가로 감시. 정산 때 원장 손절가 갱신(그날 일봉 손절 판정은 기존 손절가) |
 | `flag_review` | 장 마감 후 trading_agent 재판별 | `intraday/<date>` 에 표시 → 정산 후 run_day 가 재판별 대상에 추가 |
-
-정할 것(사용자): exit·trim 을 분할 집행할지 즉시 전량 집행할지, Live PM 을 swing-vwap 프로세스 안에서 돌릴지 별도 서비스로 둘지,
-shadow 기간을 둘지. 결정되면 이 절과 PLAN_PM.md 를 함께 고친다.
 
 ## 6. 남은 작업
 - Railway 서비스 `swing-vwap` 생성 — 사용자 작업: 같은 레포·`swing_paper` 브랜치, config `swing/railway.vwap.json`

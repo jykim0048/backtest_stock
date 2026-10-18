@@ -6,6 +6,7 @@
       # source 의 ledger·intraday/<date>/ticks/* 로 실행기를 다시 돌려 store 의 intraday/<date> 에 쓴다(검증용)
 
 저장소 = store.from_env()(swing 과 같은 DB). swing 원장은 읽기만 하고, 결과는 intraday/<date> 에 쓴다.
+시세는 REDIS_URL 이 있으면 Redis 시세 버스(swing/intraday/bus.py, livetrader:*)로도 발행해 Live PM 이 구독한다.
 """
 import argparse
 import datetime
@@ -13,6 +14,7 @@ import time
 
 from .. import store as S
 from .. import tradedays
+from ..intraday.bus import PriceBus
 from ..intraday.feed import KST, PollingFeed, ReplayFeed, now_kst
 from . import config as C
 from .executor import Executor
@@ -45,8 +47,10 @@ def replay(source, target, date, log=print):
     return ex
 
 
-def run_session(st, date, *, feed=None, clock=now_kst, sleep=time.sleep, log=print):
+def run_session(st, date, *, feed=None, bus=None, clock=now_kst, sleep=time.sleep, log=print):
+    """bus = 시세 버스(Redis) 발행기 — Live PM 이 구독한다. 실패해도 집행은 계속(PriceBus 가 예외를 삼킴)."""
     feed = feed or PollingFeed(log=log)
+    bus = bus if bus is not None else PriceBus.from_env(log=log)
     start, end = _at(date, C.SESSION_START), _at(date, C.SESSION_END)
     while clock() < start:
         sleep(min(60, max(1, (start - clock()).total_seconds())))
@@ -61,6 +65,8 @@ def run_session(st, date, *, feed=None, clock=now_kst, sleep=time.sleep, log=pri
             ticks = feed.poll(codes)
             if ticks:
                 ex.on_batch(ticks[0].ts, ticks)
+                bus.publish(date, ticks[0].ts, ticks, ex.states)
+        bus.heartbeat(date, clock().replace(microsecond=0).isoformat(), codes)
         tick_due = mono - last_ticks >= C.TICK_SAVE_S
         if ex.dirty or mono - last_save >= C.SAVE_S or tick_due:
             ex.save(ticks=tick_due)

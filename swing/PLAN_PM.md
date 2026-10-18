@@ -208,12 +208,12 @@ LLM 이 실패하거나 느려도 L1~L3·L5 는 독립적으로 돈다. LLM 실�
 - 프로세스: **새 Railway 서비스 `swing-livepm`**(같은 레포·`swing_paper` 브랜치, 시작 `python -m swing.livepm`,
   config `swing/railway.livepm.json`). 평일 08:55~15:30 루프, 그 외 시간엔 다음 개장까지 대기. 휴장일은 `krx_calendar`.
   swing-web 스레드에 넣으면 웹 재시작 때 같이 죽고, 크론은 장중 상시 실행이 맞지 않는다.
-- 변수: `DATABASE_URL`, `FLOW_API_BASE`, `LIVEPM_MODE=shadow`, `LIVEPM_LLM_CHAIN`, `ANTHROPIC_API_KEY`(체인에 따라), 노브.
+- 변수: `DATABASE_URL`, `REDIS_URL`(시세 버스), `FLOW_API_BASE`(/status), LLM API 키. 규칙값은 코드 상수(2026-10-18 결정 반영 예정, M1-8).
 - 저장: 기존 `store.from_env()`(Postgres `swing_docs`).
   | 키 | 내용 |
   |---|---|
   | `livepm/state` | 거래 상태와 사유·변경 시각 |
-  | `livepm/<date>/ticks` | 1분 샘플 틱(재생용) |
+  | `livepm/<date>/instructions` | Live Trader 에 넘기는 지시(추가만) |
   | `livepm/<date>/events` | 트리거·반사 규칙 이벤트 |
   | `livepm/<date>/calls/<n>` | 스냅샷·원 결정·게이트 결과·모델·토큰·비용 |
   | `livepm/eval/<date>` | 평가·대사 결과 |
@@ -263,9 +263,11 @@ swing/railway.livepm.json
 | # | 항목 | 기본 가정 | 영향 단계 |
 |---|---|---|---|
 | D1 | 1차 액션 범위 | 위험 축소 5종만 | M1 |
-| D2 | 시세 공급 | 폴링 15초 먼저, WS 는 M4 선택 | M1·M4 |
+| D2 | 시세 공급 | **Live Trader 가 폴링한 시세를 Redis 버스로 공유**(2026-10-18 결정·구현), WS 는 M4 선택 | M1·M4 |
 | D3 | 판단 모델 | Anthropic 우선 + Gemini 폴백 | M0·M2 |
-| D4 | 실행 위치 | 새 서비스 `swing-livepm` | M2 |
+| D4 | 실행 위치 | 새 서비스 `swing-livepm` — **2026-10-18 확정**(장애 격리·장중 배포 독립) | M3 |
+| D6 | 집행 방식 | **Live Trader 가 VWAP 분할로 집행**(2026-10-18 확정) | M2 |
+| D7 | 도입 | **shadow 없이 바로 원장 반영**(2026-10-18 확정) | M3 |
 | D5 | 방향 | Long·Short 모두(엔진이 이미 대칭이라 추가 비용 작음) | M1 |
 
 ---
@@ -290,46 +292,45 @@ swing/railway.livepm.json
 `swing/livepm/config.py` 노브 + `python -m swing.livepm`(설정 출력만), 테스트 `test_livepm_m0.py` 7건·`test_llm_chain` 1건 추가,
 전체 171건 통과. 운영 원장 소급(`backfill_thesis.py --apply`)은 배포 후 사용자 확인을 받아 실행.
 
-## M1 — 오프라인 코어 (L)
+> 2026-10-18 결정 반영으로 M1~M3 를 다시 썼다 — 별도 서비스 + Redis 시세 버스, 집행은 Live Trader 가 VWAP 분할로,
+> shadow 없이 바로 원장 반영. 기존 "shadow 운영(M2)·paper 반영(M3)·engine.close_intraday" 계획은 폐기.
+
+## M1 — Live PM 판단 코어, 오프라인 (L)
 | # | 작업 | 테스트 |
 |---|---|---|
-| 1-1 | `feed.py` Tick·ReplayFeed·PollingFeed(재시도·타임아웃, 끊김 시각 보고) | 재생 순서, 폴링 응답 파싱(목업) |
-| 1-2 | `book.py` 지표 계산, Long/Short 방향 | ret5m 링버퍼, stopDistUsedPct, Short 부호 |
-| 1-3 | `state.py` 3상태 + X1~X4 | X2→reducing, X4 끊김→halted→복구 |
-| 1-4 | `triggers.py` T1~T7·디바운스·묶음·상한 | 15분 디바운스, 3초 묶음, 40회 상한 |
-| 1-5 | `snapshot.py` | 토큰 길이 상한, thesis 누락 시 처리 |
-| 1-6 | `agent.py` + `MockLivePM`(규칙 기반 가짜 응답) | 스키마 위반·타임아웃 → hold |
-| 1-7 | `gate.py` G1~G9 | 규칙별 1건 이상 |
-| 1-8 | `executor.py` shadow + `evaluate.py` 반사실 계산 | 손으로 계산한 회피손익과 일치 |
-| 1-9 | 통합: ReplayFeed(합성 하루 틱) → Mock 판단 → 게이트 → shadow 기록 → 평가 | `test_livepm_day.py` |
+| 1-1 | 입력 = Redis 시세 버스 `BusFeed`(오늘 기록 따라잡기 + 새 항목) — **구현됨**(`swing/intraday/bus.py`). 재생은 버스 기록·`intraday/<date>/ticks` | (구현됨) test_bus |
+| 1-2 | `book.py` LiveBook — 원장 + 버스 시세 → 손익·노출·손절 거리 소진율·5/30분 수익률(Long/Short) | 링버퍼, 부호 |
+| 1-3 | `state.py` 3상태 + X2(일중 손실 → reducing)·X3(킬스위치)·X4(버스 heartbeat 만료·시세 끊김 → halted). X1 손절은 Live Trader 몫 | 상태 전환 |
+| 1-4 | `triggers.py` T1~T7·디바운스·묶음·호출/비용 상한. T4·T5 용 `/status`(VI·업종)는 Live PM 이 60초마다 직접 조회 | 디바운스·상한 |
+| 1-5 | `snapshot.py` — Live Trader 체결·손절 현황(`intraday/<date>`) 포함, thesis 누락 처리 | 토큰 상한 |
+| 1-6 | `agent.py` §6 스키마·§10 프롬프트 + `MockLivePM`, 실패·스키마 위반 → hold | |
+| 1-7 | `gate.py` G1~G9 (G8 = Live Trader 가 이미 손절 집행 중인 포지션은 거부) | 규칙별 |
+| 1-8 | `livepm/config.py` 노브를 **코드 상수로 전환**(Live Trader 와 같은 원칙 — 환경변수 덮어쓰기 없음) | |
+| 1-9 | 통합 재생: 버스 기록 → 트리거 → Mock 판단 → 게이트 → 지시 목록 | `test_livepm_day.py` |
 
-완료 기준: `python -m unittest discover -s swing/tests -t .` 전부 통과, `python -m swing.livepm --replay <파일> --agent mock`
-으로 하루 재생 시 이벤트·결정·평가 문서가 생성됨. 네트워크·API 키 없이 돈다.
+완료 기준: 전체 테스트 통과, 합성 하루 재생으로 이벤트·결정·지시 문서가 생성됨(네트워크·API 키 없이).
 
-## M2 — shadow 운영 (M + 관찰 2~4주)
+## M2 — 지시 인터페이스(Live PM → Live Trader → 원장) (M~L)
 | # | 작업 |
 |---|---|
-| 2-1 | `__main__.py` 장중 루프(08:55 기동, 15:30 종료, 휴장일 대기, 상태·킬스위치 확인) |
-| 2-2 | 실제 LLM 연결 + 비용 계측(토큰 × 단가표) + 하루 비용 상한 |
-| 2-3 | `run_daily` 끝에 `livepm.evaluate` 호출(장 마감 후 평가 문서 생성) |
-| 2-4 | API `/api/swing/livepm?date=`(이벤트·결정·평가), `/api/swing/livepm/summary`(누적 지표) + 대시보드 "Live PM" 탭 |
-| 2-5 | `railway.livepm.json` + README Railway 설정 절에 서비스 추가(서비스 생성·변수 입력은 사용자 작업) |
-| 2-6 | 첫 1주: 매일 결정 원문을 훑어 프롬프트·트리거 임계값 조정, 조정 이력을 이 문서에 기록 |
+| 2-1 | Live PM 이 `livepm/<date>/instructions` 에 지시를 **추가만** 한다(id·시각·포지션·action·pct·newStop·사유) |
+| 2-2 | Live Trader 가 매 폴링마다 새 지시를 읽어 집행·결과를 `intraday/<date>.instructions` 에 기록(같은 id 재집행 없음) |
+| 2-3 | exit·trim → 청산 슬라이스(trigger `livepm`) — **VWAP 분할 집행**: 첫 10% 즉시(현재가) + 나머지 VWAP 60분할·5분 + 기다리면 손해인 방향 5% 전량 |
+| 2-4 | tighten_stop → Live Trader 가 그 시각부터 새 손절로 감시(유리한 쪽으로만), 정산 때 원장 손절가 갱신(그날 일봉 판정은 기존 손절가) |
+| 2-5 | flag_review → 정산 후 run_day 가 trading_agent 재판별 대상에 추가 |
+| 2-6 | `engine.settle_day`: 청산 사유 `livepm_exit`/`livepm_trim`, 손절 갱신 반영, 남은 수량 이월(기존 `_apply_exit` 재사용) |
 
-완료 기준: 장중에 끊김 없이 하루 운영(시세 끊김 시 halted→복구 확인), 평가 문서가 매일 생성, 대시보드에서 확인 가능.
-이후 §8 승급 기준을 매주 점검.
+완료 기준: 엔진·실행기 테스트에 지시 경계 사례(손절 중 지시, 같은 지시 중복, 체결일 포지션, 장 마감 직전 지시) 통과.
 
-## M3 — paper 반영 (M~L, 승급 기준 통과 후)
+## M3 — 서비스 운영 (M)
 | # | 작업 |
 |---|---|
-| 3-1 | `engine.close_intraday`(부분·전량), `stopPending` 처리, `settle_day` 가 장중 청산분·당일 손절 규칙을 존중 |
-| 3-2 | 원장 `rev` 낙관적 잠금(Live PM ↔ swing-cron) |
-| 3-3 | `executor.py` paper 경로 + 결정 시점 이후 새 손절 감지(`livepm_stop`) |
-| 3-4 | 결정↔원장 대사(L7) |
-| 3-5 | 대시보드: 청산 사유 "Live PM 청산/손절" 라벨, 통계에서 Live PM 기여 분리 |
-
-완료 기준: 엔진 테스트에 장중 청산·tighten_stop 경계 사례(결정 전 손절 도달, 체결일, 같은 날 목표·손절) 추가 후 통과,
-mock 재생 하루를 paper 로 돌려 원장 대사 불일치 0건.
+| 3-1 | `__main__.py` 장중 루프(08:55 기동, 15:30 종료, 휴장일 대기, 버스 heartbeat 확인) |
+| 3-2 | 실제 LLM 연결 + 비용 계측 + 하루 비용 상한 |
+| 3-3 | Railway `swing-livepm` 생성(시작 명령은 API 로 — 신규 서비스는 config-as-code 미적용), 변수 `DATABASE_URL`·`REDIS_URL`·LLM 키 |
+| 3-4 | 장 마감 후 평가·대사(`livepm/eval/<date>`): 지시별 반사실 손익, 지시↔원장 대사 |
+| 3-5 | API `/api/swing/livepm` + 대시보드 "Live PM" 탭, 청산 사유 라벨 |
+| 3-6 | 첫 1~2주: 매일 결정 원문을 보며 프롬프트·트리거 임계값 조정(코드 상수 변경 + 이 문서 기록) |
 
 ## M4 — 웹소켓 게이트웨이 (선택, L, 허브 레포 `trading_bot_HUB_KIS`)
 폴링 15초가 부족하다고 판단될 때만(예: T3 급변을 자주 늦게 잡음, 평가에서 지연 손실이 큼).
@@ -347,7 +348,7 @@ mock 재생 하루를 paper 로 돌려 원장 대사 불일치 0건.
   사람 승인 단계(텔레그램 등) 후 제한적 자동.
 
 ## 순서 요약
-M0 → M1 → M2(shadow 관찰 시작) → [관찰 기간 중 병행 가능: M4 설계] → 승급 기준 통과 → M3 → M5 검토
+M0(완료) → M1 → M2 → M3(운영, 바로 원장 반영) → [필요 시 M4 웹소켓] → M5 검토
 
 ## 13. 레퍼런스 (2026-10-18 조사)
 | 레포 | 가져온 아이디어 |
