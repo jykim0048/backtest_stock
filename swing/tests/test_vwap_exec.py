@@ -139,6 +139,25 @@ class TestExecutor(unittest.TestCase):
         self.assertEqual(self.fills(r)[-1], ("09:10", 270, 10300, "force"))
         self.assertTrue(r["done"])
 
+    def test_no_force_when_waiting_is_cheaper(self):
+        ex = self.ex(ledger_with(order={}))
+        run(ex, path("000010", [("09:00", 10200), ("09:05", 10100), ("09:10", 9650)]))      # Long 진입 중 −5.4% → 전량 아님, VWAP 분할 1개만
+        self.assertEqual(self.fills(ex.doc["orders"]["o1"])[-1], ("09:10", 90, 9650, "vwap"))
+        ex2 = Executor(store.FileStore(tempfile.mkdtemp()), D1,
+                       ledger_with(position={"sellPending": {"kind": "pm_sell"}}), log=lambda *_: None)
+        run(ex2, path("000020", [("09:00", 5000), ("09:05", 5100), ("09:10", 5300)]))      # Long 청산 중 +6% 반등 → 전량 아님, VWAP 분할 1개만
+        self.assertEqual(self.fills(ex2.doc["exits"]["p1"])[-1], ("09:10", 30, 5300, "vwap"))
+
+    def test_short_force_directions(self):
+        ex = self.ex(ledger_with(order={"side": "short", "entry": 10000.0, "stop": 11000.0}))
+        run(ex, path("000010", [("09:00", 10000), ("09:10", 9450)]))      # Short 진입 중 −5.5% → 전량
+        self.assertEqual(self.fills(ex.doc["orders"]["o1"])[-1][3], "force")
+        ex2 = Executor(store.FileStore(tempfile.mkdtemp()), D1,
+                       ledger_with(position={"side": "short", "stop": 5500.0, "sellPending": {"kind": "pm_sell"}}),
+                       log=lambda *_: None)
+        run(ex2, path("000020", [("09:00", 5000), ("09:10", 5300)]))      # Short 청산 중 +6% → 전량 환매
+        self.assertEqual(self.fills(ex2.doc["exits"]["p1"])[-1], ("09:10", 90, 5300, "force"))
+
     def test_short_mirror(self):
         ex = self.ex(ledger_with(order={"side": "short", "entry": 10000.0, "stop": 10500.0}))
         run(ex, path("000010", [("09:00", 9800), ("09:10", 9950), ("09:20", 10010)]))

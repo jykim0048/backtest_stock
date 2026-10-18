@@ -6,7 +6,8 @@
   ② 나머지 = TRANCHES(60)분할, MIN_GAP_MIN(5분) 간격, VWAP 보다 유리할 때 그 틱 가격으로 체결
      - 진입 Long: 가격 ≤ 진입가(상한) 그리고 ≤ VWAP · 진입 Short: 가격 ≥ 진입가 그리고 ≥ VWAP
      - 청산 Long(매도): 가격 ≥ VWAP · 청산 Short(환매): 가격 ≤ VWAP
-  ③ 가격이 기준가 대비 ±FORCE_MOVE(5%) 이상 움직이면 VWAP·상한 무시하고 남은 수량 전량을 그 가격에 체결.
+  ③ 기다리면 손해인 방향으로 기준가 대비 FORCE_MOVE(5%) 이상 움직이면 VWAP·상한 무시하고 남은 수량 전량을 그 가격에 체결
+     — Long 진입·Short 청산은 상승, Short 진입·Long 청산은 하락일 때만. 반대 방향이면 VWAP 분할을 계속한다.
   진입은 언제나 손절가 안쪽에서만 체결(Long 가격 > 손절). 그날 못 채운 진입은 잔여분 추가 주문, 못 끝낸 청산은 다음 영업일 계속.
 
 swing 원장은 읽기만 한다. 결과는 intraday/<date> 에 남기고, 장 마감 후 engine.settle_day(…, intraday=doc) 가 확정한다.
@@ -217,7 +218,9 @@ class Executor:
                 r["why"] = "시가가 손절가 너머 — 시가 체결 생략"
             return
         px = t.price
-        if r["ref"] and abs(px / r["ref"] - 1) >= C.FORCE_MOVE and inside(px):    # ③ 기준가 ±5% → 전량
+        # ③ 기다리면 손해인 방향으로 기준가 대비 5% 이상 → 전량(2026-10-18): Long 진입·Short 청산 = 상승, Short 진입·Long 청산 = 하락
+        away = 1 if entry == long_ else -1
+        if r["ref"] and away * (px / r["ref"] - 1) >= C.FORCE_MOVE and inside(px):
             self._fill(r, remain, px, ts, "force", st.vwap)
             r.update(done=True, why=f"기준가 {r['ref']:,.0f} 대비 {px / r['ref'] - 1:+.1%} — 남은 수량 전량")
             self.log(f"[vwap] {ts[11:19]} 전량 {'진입' if entry else '청산'} {r['code']} {r['side']} {remain:,}주 @ {px:,.0f} ({r['why']})")
