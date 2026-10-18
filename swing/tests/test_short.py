@@ -32,6 +32,15 @@ def fee(qty, entry, days):
 
 
 class TestShortEngine(unittest.TestCase):
+    """현금 100% 담보(종전) 회계 — 대용 담보는 test_short_subst.py(2026-10-18)."""
+
+    def setUp(self):
+        self._col = config.SHORT_COLLATERAL
+        config.SHORT_COLLATERAL = "cash"
+
+    def tearDown(self):
+        config.SHORT_COLLATERAL = self._col
+
     def test_fill_when_high_reaches_entry_collateral_tax_fee(self):
         L = filled()
         p = L["positions"][0]

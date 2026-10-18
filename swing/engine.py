@@ -20,8 +20,14 @@
 비용·자금(2026-09-29 Short 추가):
   Long  : 매수 수수료 없음, 매도 대금 × SELL_TAX.
   Short : 공매도 진입(매도) 대금 × SELL_TAX, 환매(매수) 비용 없음, 대차수수료 일할.
-          체결 시 진입금액 100% 를 담보로 현금에서 묶고 매도대금은 현금에 넣지 않는다(레버리지 없음).
-          평가 = 담보 + (진입가 − 현재가) × 수량. Short 총노출(수량 × 현재가)은 SHORT_MAX_GROSS > 0 이면 평가액 × SHORT_MAX_GROSS 이내(기본 0 = 상한 없음).
+          담보(2026-10-18, SHORT_COLLATERAL):
+            subst(기본) = 주식 대용 — 담보 여력 = 현금 + 보유 Long 평가액 × SHORT_SUBST_RATE(70%) − 요구 담보
+                          (대용 Short 평가액 × SHORT_MARGIN). 진입 때 현금은 매도세만 나가고 매도대금은 현금에 넣지 않는다.
+                          평가 = (진입가 − 현재가) × 수량. 요구 담보가 대용가로 모자라는 만큼 현금이 묶여(pledged) Long 매수에
+                          못 쓴다. 장 마감 담보 부족이면 손실 큰 Short 부터 다음 영업일 시가 환매 예약(반대매매, kind=margin).
+            cash = 종전 — 진입금액 100% 를 현금에서 묶음, 평가 = 담보 + (진입가 − 현재가) × 수량.
+          포지션마다 진입 당시 방식(p["collateral"])으로 정산. Short 총노출(수량 × 현재가)은 SHORT_MAX_GROSS > 0 이면
+          평가액 × SHORT_MAX_GROSS 이내(기본 0 = 상한 없음).
 """
 import datetime
 import math
@@ -49,12 +55,32 @@ def _px(p):
     return p.get("lastClose") or p["entry"]
 
 
+def is_subst(p):
+    """주식 대용 담보 Short(2026-10-18) — 진입 시 현금을 묶지 않은 포지션."""
+    return is_short(p) and p.get("collateral") == "subst"
+
+
 def position_value(p, px=None):
-    """평가액 기여분. Long = 수량 × 현재가, Short = 담보(수량 × 진입가) + (진입가 − 현재가) × 수량."""
+    """평가액 기여분. Long = 수량 × 현재가, Short(현금 담보) = 담보(수량 × 진입가) + (진입가 − 현재가) × 수량,
+    Short(대용 담보) = (진입가 − 현재가) × 수량."""
     px = _px(p) if px is None else px
+    if is_subst(p):
+        return p["qty"] * (p["entry"] - px)
     if is_short(p):
         return p["qty"] * (2 * p["entry"] - px)
     return p["qty"] * px
+
+
+def collateral(L, px=None):
+    """대용 담보 현황 → {subst: Long 대용가 합, req: 요구 담보, pledged: 대용가로 모자라 묶인 현금, room: 추가 Short 여력,
+    free: Long 매수에 쓸 수 있는 현금}. px = {code: 가격}(없으면 직전 종가)."""
+    px = px or {}
+    pv = lambda p: px.get(p["code"]) or _px(p)
+    subst = sum(p["qty"] * pv(p) for p in L["positions"] if not is_short(p)) * config.SHORT_SUBST_RATE
+    req = sum(p["qty"] * pv(p) for p in L["positions"] if is_subst(p)) * config.SHORT_MARGIN
+    pledged = max(0.0, req - subst)
+    return {"subst": subst, "req": req, "pledged": pledged,
+            "room": L["cash"] + subst - req, "free": L["cash"] - pledged}
 
 
 def short_exposure(L):
@@ -156,7 +182,7 @@ def _close_position(L, p, date, price, reason, note=None):
     if is_short(p):
         # 환매: 담보 반환 + (공매도가 − 환매가) × 수량. 세금은 진입 때 이미 냄
         gain = p["qty"] * (p["entry"] - price)
-        L["cash"] += cost + gain
+        L["cash"] += gain if is_subst(p) else cost + gain
         tax = p.get("entryTax", 0.0)
         fee = p.get("borrowFee", 0.0)
         pnl = gain - tax - fee
@@ -194,8 +220,8 @@ def _loser_avail(L, bars, exclude):
     losers = []
     for p in L["positions"]:
         b = bars.get(p["code"])
-        if p["id"] in exclude or not b or not b.get("open"):
-            continue
+        if p["id"] in exclude or not b or not b.get("open") or is_subst(p):
+            continue                                       # 대용 Short 환매는 현금을 만들지 않는다(손실만 확정)
         r = _loss_rate(p, b["open"])
         if r < 0:
             losers.append((r, p, b["open"]))
@@ -207,17 +233,22 @@ def _loser_avail(L, bars, exclude):
 
 def _raise_cash(L, need, date, bars, exclude):
     """평가손실 보유 종목을 손실률 큰 순으로 시가 청산해 need 확보. 합쳐도 부족하면 아무것도
-    팔지 않고 False(이익 종목은 건드리지 않음)."""
+    팔지 않고 False(이익 종목은 건드리지 않음). 대용 담보로 묶인 현금(pledged)은 쓸 수 없는 현금으로 본다
+    (Long 을 팔면 대용가도 줄어 묶임이 늘 수 있어 청산 중 매번 다시 계산)."""
     avail, losers = _loser_avail(L, bars, exclude)
-    if L["cash"] + avail < need:
+    if _free_cash(L) + avail < need:
         return False, []
     sold = []
     for r, p, px in losers:
-        if L["cash"] >= need:
+        if _free_cash(L) >= need:
             break
         sold.append(_close_position(L, p, date, px, "cash",
                                     note=f"현금 확보(시가 손실률 {r * 100:.2f}%)"))
     return True, sold
+
+
+def _free_cash(L):
+    return collateral(L)["free"] if any(is_subst(p) for p in L["positions"]) else L["cash"]
 
 
 def _days_between(a, b):
@@ -279,27 +310,45 @@ def settle_day(L, date, bars):
             o.update(status="cancelled",
                      note=f"미도달(저가 {b['low']:,.0f} > 진입 {o['entry']:,.0f})")
         else:
-            unit = o["entry"] * (1 + config.SELL_TAX) if short else o["entry"]   # 주당 필요 현금(숏: 담보 + 매도세)
-            cost = o["qty"] * unit
-            if L["cash"] < cost:
-                ok, sold = _raise_cash(L, cost, date, bars, new_ids)
-                ev["exits"].extend(sold)
-                if not ok:
-                    # 부분 진입(2026-10-16): 현금 + 손실 종목 청산 가능액으로 살 수 있는 수량이 계획의 PARTIAL_ENTRY_MIN 이상이면 그만큼만
-                    q2 = int(math.floor((L["cash"] + _loser_avail(L, bars, new_ids)[0]) / unit)) if unit > 0 else 0
-                    q2 = min(q2, o["qty"])
+            if short and (o.get("collateral") or config.SHORT_COLLATERAL) == "subst":
+                # 주식 대용 담보(2026-10-18): 주당 요구 담보 = 진입가 × SHORT_MARGIN, 현금은 매도세만 나감
+                o["collateral"] = "subst"
+                unit = o["entry"] * config.SHORT_MARGIN
+                room = collateral(L)["room"] - o["qty"] * o["entry"] * config.SELL_TAX
+                if room < o["qty"] * unit:
+                    q2 = min(o["qty"], int(math.floor(max(room, 0) / (o["entry"] * (config.SHORT_MARGIN + config.SELL_TAX)))))
                     if config.PARTIAL_ENTRY and q2 > 0 and q2 >= math.ceil(o["qty"] * config.PARTIAL_ENTRY_MIN):
-                        ok2, sold2 = _raise_cash(L, q2 * unit, date, bars, new_ids)
-                        ev["exits"].extend(sold2)
-                        if ok2:
-                            planned = o["qty"]
-                            o["partial"] = {"planned": planned, "filled": q2, "remain": planned - q2}
-                            o["qty"], cost = q2, q2 * unit
-                            o["note"] = f"현금 부족 — {q2:,}/{planned:,}주 부분 진입, 잔여 {planned - q2:,}주 다음 영업일 추가 주문"
-                        else:
-                            o.update(status="skipped", note="현금 부족(손실 종목 청산으로도 부족)")
+                        planned = o["qty"]
+                        o["partial"] = {"planned": planned, "filled": q2, "remain": planned - q2}
+                        o["qty"] = q2
+                        o["note"] = f"담보 부족 — {q2:,}/{planned:,}주 부분 진입, 잔여 {planned - q2:,}주 다음 영업일 추가 주문"
                     else:
-                        o.update(status="skipped", note=f"현금 부족(가능 {q2:,}/{o['qty']:,}주 < 최소 {config.PARTIAL_ENTRY_MIN * 100:.0f}%)")
+                        o.update(status="skipped", note=f"담보 부족(대용 포함 가능 {q2:,}/{o['qty']:,}주"
+                                                        + (f" < 최소 {config.PARTIAL_ENTRY_MIN * 100:.0f}%)" if q2 else ")"))
+                unit = o["entry"] * config.SELL_TAX                                  # 현금 유출 = 매도세뿐
+                cost = o["qty"] * unit
+            else:
+                unit = o["entry"] * (1 + config.SELL_TAX) if short else o["entry"]   # 주당 필요 현금(숏: 담보 + 매도세)
+                cost = o["qty"] * unit
+                if _free_cash(L) < cost:
+                    ok, sold = _raise_cash(L, cost, date, bars, new_ids)
+                    ev["exits"].extend(sold)
+                    if not ok:
+                        # 부분 진입(2026-10-16): 현금 + 손실 종목 청산 가능액으로 살 수 있는 수량이 계획의 PARTIAL_ENTRY_MIN 이상이면 그만큼만
+                        q2 = int(math.floor((_free_cash(L) + _loser_avail(L, bars, new_ids)[0]) / unit)) if unit > 0 else 0
+                        q2 = min(q2, o["qty"])
+                        if config.PARTIAL_ENTRY and q2 > 0 and q2 >= math.ceil(o["qty"] * config.PARTIAL_ENTRY_MIN):
+                            ok2, sold2 = _raise_cash(L, q2 * unit, date, bars, new_ids)
+                            ev["exits"].extend(sold2)
+                            if ok2:
+                                planned = o["qty"]
+                                o["partial"] = {"planned": planned, "filled": q2, "remain": planned - q2}
+                                o["qty"], cost = q2, q2 * unit
+                                o["note"] = f"현금 부족 — {q2:,}/{planned:,}주 부분 진입, 잔여 {planned - q2:,}주 다음 영업일 추가 주문"
+                            else:
+                                o.update(status="skipped", note="현금 부족(손실 종목 청산으로도 부족)")
+                        else:
+                            o.update(status="skipped", note=f"현금 부족(가능 {q2:,}/{o['qty']:,}주 < 최소 {config.PARTIAL_ENTRY_MIN * 100:.0f}%)")
             if o["status"] == "open" and o.get("topupOf"):
                 # 추가 진입(잔여분) — 기존 포지션에 합쳐 평균단가
                 notional = o["qty"] * o["entry"]
@@ -327,7 +376,7 @@ def settle_day(L, date, bars):
                      "decisionKey": o.get("decisionKey"), "orderId": o["id"],
                      "lastClose": None, "sellPending": None}
                 if short:
-                    p.update(entryTax=tax, borrowFee=0.0)
+                    p.update(entryTax=tax, borrowFee=0.0, collateral=o.get("collateral") or "cash")
                 L["positions"].append(p)
                 new_ids.add(p["id"])
                 o.update(status="filled", fillPrice=o["entry"], positionId=p["id"])
@@ -392,6 +441,22 @@ def settle_day(L, date, bars):
             ev.setdefault("maxHold", []).append({"id": p["id"], "code": p["code"]})
         elif p["holdDay"] >= config.HOLD_DAYS and not p.get("reviewFlag"):
             p["reviewFlag"] = "expiry"
+    # 대용 담보 점검(2026-10-18) — 종가 기준 현금 + 대용가 < 요구 담보면 손실 큰 Short 부터 다음 영업일 시가 환매 예약
+    if any(is_subst(p) for p in L["positions"]):
+        c = collateral(L)
+        if c["room"] < 0:
+            short_gap = -c["room"]
+            for p in sorted((x for x in L["positions"] if is_subst(x) and not x.get("sellPending")),
+                            key=lambda x: _loss_rate(x, _px(x))):
+                if short_gap <= 0:
+                    break
+                schedule_sell(L, p["code"], f"담보 부족 {short_gap:,.0f}원 — 반대매매(다음 영업일 시가 환매)", date=date, kind="margin")
+                p["reviewFlag"] = None
+                short_gap -= p["qty"] * _px(p) * config.SHORT_MARGIN
+                ev.setdefault("marginCall", []).append({"id": p["id"], "code": p["code"]})
+        L["collateral"] = {k: round(v) for k, v in collateral(L).items()}
+    else:
+        L.pop("collateral", None)
     value = sum(position_value(p) for p in L["positions"])
     eq = L["cash"] + value
     L["equity"].append({"date": date, "cash": round(L["cash"]), "value": round(value),

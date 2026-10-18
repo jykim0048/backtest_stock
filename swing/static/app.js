@@ -3,7 +3,7 @@
   "use strict";
   var $ = function (id) { return document.getElementById(id); };
   // 청산 사유 — 2026-09-29 부터 목표가·만기는 재판별 후 매도(review_*), target/expiry 는 이전 기록 호환
-  var REASON = { fut_none: "선물 미상장 환매", stop: "손절", stop_gap: "갭 손절(시가)", review_target: "목표 후 매도", review_expiry: "만기 후 매도",
+  var REASON = { fut_none: "선물 미상장 환매", margin: "담보 부족 반대매매", stop: "손절", stop_gap: "갭 손절(시가)", review_target: "목표 후 매도", review_expiry: "만기 후 매도",
     max_hold: "최대 보유", pm_sell: "PM 매도", cash: "현금 확보", target: "목표가", expiry: "보유 만기" };
   var REVIEW_ACT = { sell: ["sell-next", "매도 예약"], sell_fallback: ["sell-next", "판단 실패 → 원 규칙대로 매도"],
     hold_updated: ["ext", "계속 보유 · 가격 갱신"], hold: ["hold-ok", "계속 보유"] };
@@ -1500,6 +1500,9 @@
     document.querySelectorAll(".hold-n").forEach(function (x) { x.textContent = HOLD_N(); });
     if (S.config && S.config.borrowRate != null) $("cfg-borrow").textContent = +(S.config.borrowRate * 100).toFixed(2);
     if (S.config && S.config.shortFutOnly != null) $("cfg-sfut").textContent = S.config.shortFutOnly ? "주식선물 상장 종목만" : "선물 상장 무관";
+    if (S.config && S.config.shortCollateral) $("cfg-scol").textContent = S.config.shortCollateral === "subst"
+      ? "주식 대용 담보(보유 Long 평가액 × " + Math.round((S.config.shortSubstRate || 0) * 100) + "% + 현금, 요구 담보 = Short 평가액 × " + Math.round((S.config.shortMargin || 0) * 100) + "%)"
+      : "진입금액 100% 현금 담보";
     if (S.config && S.config.shortMaxGross != null) $("cfg-sgross").textContent = S.config.shortMaxGross > 0 ? "평가액의 " + Math.round(S.config.shortMaxGross * 100) + "%" : "없음";
     renderEquity(r[1], r[0].capital0); renderPositions(r[2]); renderHoldingsPF(r[2], r[0]); renderReport();
     var dates = r[3].slice().reverse(), sel = $("run-date");

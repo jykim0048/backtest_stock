@@ -261,6 +261,7 @@ def api_config(q):
             "maxNewShortPerDay": config.MAX_NEW_SHORT_PER_DAY, "shortMaxGross": config.SHORT_MAX_GROSS,
             "shortFutOnly": config.UNI_SHORT_FUT_ONLY,
             "borrowRate": config.BORROW_RATE,
+            "shortCollateral": config.SHORT_COLLATERAL, "shortSubstRate": config.SHORT_SUBST_RATE, "shortMargin": config.SHORT_MARGIN,
             "universe": config.UNIVERSE_ENABLED, "uniNewPerDay": config.UNI_NEW_PER_DAY,
             "uniNewShortPerDay": config.UNI_NEW_SHORT_PER_DAY, "uniCandMin": config.UNI_CAND_MIN, "uniRankBasis": config.UNI_RANK_BASIS,
             "uniTotalMin": config.UNI_TOTAL_MIN,

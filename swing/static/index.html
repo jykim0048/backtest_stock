@@ -137,7 +137,7 @@
         <div class="notice">
           <b>Short 모의투자</b> — 동반약세·수급이탈 종목을 trading_agent 가 공매도 관점으로 판단(PM Sell/Underweight + Trader Sell).
           다음 영업일 1일 유효 지정가 <b>매도</b>(고가 ≥ 진입가 체결, 진입가 ≥ 전일 종가 = 업틱룰 근사), 손절가는 진입가 위·목표가는 아래.
-          진입금액 100% 담보(레버리지 없음) · 매도세 0.2%(진입) · 대차수수료 연 <span id="cfg-borrow">4</span>% · Short 총노출 상한
+          <span id="cfg-scol">주식 대용 담보</span>(매도대금은 현금에 넣지 않음, 담보 부족 시 반대매매) · 매도세 0.2%(진입) · 대차수수료 연 <span id="cfg-borrow">4</span>% · Short 총노출 상한
           <span id="cfg-sgross">없음</span> · 후보 <span id="cfg-sfut">주식선물 상장 종목만</span>(매트릭스·유니버스·촉매 공통). 대차 가능 여부·과열종목·리콜은 반영하지 않는 모의 가정입니다.
         </div>
         <div class="board-header side-short mt">
