@@ -108,6 +108,7 @@ jobs:
           # 브랜치 A(딥리서치)는 폴백 산출물이 없으므로 기본값(120s/전체 체인) 유지.
           LLM_TIMEOUT_S:       '75'
           LLM_MAX_LINKS:       '3'
+          LLM_UNAVAIL_WAITS:   ''    # 1순위 5xx 긴 대기(30·60·90s, 2026-10-18) 끔 — 시황은 빨리 폴백
         run: |
           rm -f briefing_branch.done briefing_branch.log
           # nohup+백그라운드로 스텝(shell) 종료 후에도 살아남게 한다. env 는 fork 시점에

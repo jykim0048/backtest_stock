@@ -46,8 +46,10 @@ def main():
     # ── 기본 체인 순서: 대용량 lite 1순위, 20/일 모델들은 폴백 ────────────────
     links = llm.DEFAULT_CHAIN.split(",")
     assert links[0] == "gemini:gemini-3.1-flash-lite", links[0]
-    assert links[1:3] == ["gemini:gemini-3.5-flash", "gemini:gemini-3-flash-preview"]
-    assert len(links) == 5
+    # 2026-10-18: 2.5 계열 폐기(404) → 제거, 대용량 3.5-flash-lite 2순위, 20/일 모델은 뒤쪽 폴백
+    assert links[1] == "gemini:gemini-3.5-flash-lite", links[1]
+    assert not any("2.5" in x for x in links), links
+    assert len(links) == 7
 
     print("ALL PASS (llm lenient parse + chain order)")
 

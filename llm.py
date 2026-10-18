@@ -15,8 +15,12 @@ Default chain (all Gemini, separate per-model quotas). 무료 티어 실측(2026
 프로브)상 3.1-flash-lite 만 일일 한도가 크고(500/일) 나머지는 전부 20/일이라,
 용량 큰 lite 를 1순위로 두고 20/일 모델들은 '비상 폴백'으로 보존한다(구 1순위
 3.5-flash 는 야간 세션에서 20회 소진 후 상시 429 → 재시도 낭비 + 폴백 쿼터 잠식):
-    gemini-3.1-flash-lite -> gemini-3.5-flash -> gemini-3-flash-preview
-    -> gemini-2.5-flash -> gemini-2.5-flash-lite
+    gemini-3.1-flash-lite -> gemini-3.5-flash-lite -> gemini-3.8-flash -> gemini-3.7-flash
+    -> gemini-3.6-flash -> gemini-3.5-flash -> gemini-3-flash-preview
+2026-10-18: 2.5-flash·2.5-flash-lite 가 신규 사용자 404(폐기)라 체인에서 뺐다. 10-16 swing 런에서 1순위 lite 가
+503(구글 과부하)를 내자 20/일 폴백 2개가 앞 3~4종목에 바로 바닥나고 404 두 개만 남아 후보 13개가 판단 실패 →
+(1) 신규 모델로 폴백 층을 늘리고 (2) 1순위 링크 5xx 는 길게 기다리며 (3) 한도 소진(429)·폐기(404) 링크는
+일정 시간 건너뛴다(같은 프로세스 안에서 매 호출 재시도·대기 낭비 방지).
 
 Keys: GEMINI_API_KEY (or GOOGLE_API_KEY) for gemini, ANTHROPIC_API_KEY for
 anthropic. Every link returns parsed JSON via response_mime_type=application/json
@@ -30,10 +34,12 @@ import time
 import random
 
 DEFAULT_CHAIN = ("gemini:gemini-3.1-flash-lite,"
+                 "gemini:gemini-3.5-flash-lite,"
+                 "gemini:gemini-3.8-flash,"
+                 "gemini:gemini-3.7-flash,"
+                 "gemini:gemini-3.6-flash,"
                  "gemini:gemini-3.5-flash,"
-                 "gemini:gemini-3-flash-preview,"
-                 "gemini:gemini-2.5-flash,"
-                 "gemini:gemini-2.5-flash-lite")
+                 "gemini:gemini-3-flash-preview")
 
 MAX_RETRY = 3                                   # transient retries within one link
 RETRYABLE = {429, 500, 502, 503, 504, 529}      # HTTP codes worth retrying / then switching
@@ -44,6 +50,17 @@ RETRYABLE = {429, 500, 502, 503, 504, 529}      # HTTP codes worth retrying / th
 #   LLM_MAX_LINKS : 폴백 체인 길이 상한(0=무제한). 하위 링크까지 다 도는 최악 경로 차단.
 TIMEOUT_S = float(os.environ.get("LLM_TIMEOUT_S", "120"))
 MAX_LINKS = int(os.environ.get("LLM_MAX_LINKS", "0"))
+
+# 1순위 링크 일시 장애(5xx) 인내(2026-10-18) — 짧은 재시도(MAX_RETRY)가 다 실패하면 폴백(하루 한도 작음)으로
+# 넘어가기 전에 LLM_UNAVAIL_WAITS 초씩 더 기다려 본다. 그래도 실패하면 LLM_UNAVAIL_COOLDOWN_S 동안은 긴 대기를
+# 생략(장애가 길 때 호출마다 몇 분씩 묶이지 않게). "" 이면 끔.
+UNAVAIL_WAITS = [float(x) for x in os.environ.get("LLM_UNAVAIL_WAITS", "30,60,90").split(",") if x.strip()]
+UNAVAIL_COOLDOWN_S = float(os.environ.get("LLM_UNAVAIL_COOLDOWN_S", "600"))
+TRANSIENT_5XX = {500, 502, 503, 504, 529}
+# 한도 소진(429 재시도 후에도) 링크는 LLM_EXHAUSTED_COOLDOWN_S 동안 건너뛴다. 404(모델 폐기·없음)는 프로세스 끝까지.
+EXHAUSTED_COOLDOWN_S = float(os.environ.get("LLM_EXHAUSTED_COOLDOWN_S", "3600"))
+_DEAD = {}                                      # (provider, model) -> (until_monotonic, reason)
+_UNAVAIL_UNTIL = {}                             # (provider, model) -> monotonic; 긴 대기 생략 구간
 
 _CLIENTS = {}                                   # (provider, key) -> SDK client (reused)
 
@@ -58,6 +75,10 @@ class _SkipLink(Exception):
 
 class _Retryable(Exception):
     """Transient failure — retry this link, then switch if it persists."""
+
+    def __init__(self, msg, code=None):
+        super().__init__(msg)
+        self.code = code
 
 
 class _SwitchLink(Exception):
@@ -137,7 +158,9 @@ def _gemini(model, system, user, max_tokens, schema):
     except gerr.APIError as e:
         code = getattr(e, "code", None)
         if code in RETRYABLE:
-            raise _Retryable(f"gemini {model} {code} {getattr(e, 'status', '')}")
+            raise _Retryable(f"gemini {model} {code} {getattr(e, 'status', '')}", code)
+        if code == 404:
+            _DEAD[("gemini", model)] = (float("inf"), "404")
         raise _SwitchLink(f"gemini {model} {code} {getattr(e, 'message', e)}")
     except Exception as e:                        # transport / unexpected
         raise _Retryable(f"gemini {model} transport: {e}")
@@ -176,7 +199,7 @@ def _anthropic(model, system, user, max_tokens, schema):
     except anthropic.APIStatusError as e:
         code = getattr(e, "status_code", None)
         if code in RETRYABLE:
-            raise _Retryable(f"anthropic {model} {code}")
+            raise _Retryable(f"anthropic {model} {code}", code)
         raise _SwitchLink(f"anthropic {model} {code} {getattr(e, 'message', e)}")
     except anthropic.APIConnectionError as e:
         raise _Retryable(f"anthropic {model} transport: {e}")
@@ -218,19 +241,38 @@ def configured():
     return False
 
 
-def _invoke(provider, model, system, user, max_tokens, schema):
-    """Run one link with transient retries; raise _SwitchLink/_SkipLink to move on."""
+def _invoke(provider, model, system, user, max_tokens, schema, primary=False):
+    """Run one link with transient retries; raise _SwitchLink/_SkipLink to move on.
+
+    primary=True(체인 1순위)이고 마지막 실패가 5xx 면 UNAVAIL_WAITS 만큼 더 기다리며 재시도한다(쿨다운 중이면 생략).
+    재시도 끝에 429 면 그 링크를 EXHAUSTED_COOLDOWN_S 동안 건너뛴다."""
     fn = _ADAPTERS[provider]
+    link = (provider, model)
     last = None
-    for attempt in range(MAX_RETRY):
+    waits = [_backoff(a) for a in range(MAX_RETRY - 1)]
+    extra = list(UNAVAIL_WAITS) if primary and _UNAVAIL_UNTIL.get(link, 0) <= time.monotonic() else []
+    i = 0
+    while True:
         try:
             return fn(model, system, user, max_tokens, schema)
         except (_SkipLink, _SwitchLink):
             raise
         except _Retryable as e:
             last = e
-            if attempt < MAX_RETRY - 1:
-                time.sleep(_backoff(attempt))
+        if i < len(waits):
+            time.sleep(waits[i])
+        elif extra and getattr(last, "code", None) in TRANSIENT_5XX:
+            w = extra.pop(0)
+            _warn(f"{provider}:{model} {last.code} — 1순위 링크 장애, {w:.0f}s 후 재시도")
+            time.sleep(w)
+        else:
+            break
+        i += 1
+    code = getattr(last, "code", None)
+    if primary and code in TRANSIENT_5XX and UNAVAIL_WAITS:
+        _UNAVAIL_UNTIL[link] = time.monotonic() + UNAVAIL_COOLDOWN_S
+    if code == 429:
+        _DEAD[link] = (time.monotonic() + EXHAUSTED_COOLDOWN_S, "429")
     raise _SwitchLink(f"retries exhausted: {last}")
 
 
@@ -247,9 +289,13 @@ def generate_json(system, user, *, max_tokens=4096, schema=None, return_model=Fa
     Raises LLMError if every configured link fails.
     """
     seen = []
-    for provider, model in _chain():
+    for idx, (provider, model) in enumerate(_chain()):
+        dead = _DEAD.get((provider, model))
+        if dead and dead[0] > time.monotonic():
+            seen.append(f"{provider}:{model} skipped ({dead[1]} 이후 건너뜀)")
+            continue
         try:
-            text = _invoke(provider, model, system, user, max_tokens, schema)
+            text = _invoke(provider, model, system, user, max_tokens, schema, primary=(idx == 0))
         except _SkipLink as e:
             seen.append(f"{provider}:{model} skipped ({e})")
             continue
