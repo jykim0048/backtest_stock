@@ -252,8 +252,9 @@
       '<div class="hero-weight"><div class="exp-pair"><div><span class="port-lbl">총노출</span><span class="port-val num">' + (wL + wS).toFixed(1) +
       '%</span></div><div><span class="port-lbl">순노출</span><span class="port-val num ' + (wL - wS > 0 ? "up" : wL - wS < 0 ? "down" : "") + '">' +
       (wL - wS > 0 ? "+" : "") + (wL - wS).toFixed(1) + "%</span></div></div>" +
-      '<div class="wt-bar"><span class="b-long" style="width:' + Math.min(wL, 100) + '%"></span><span class="b-short" style="width:' +
-      Math.min(wS, Math.max(0, 100 - wL)) + '%"></span></div>' +
+      // 레버리지(총노출 > 100%, 2026-10-18 대용 담보)면 막대 기준을 총노출로 — Short 가 Long 뒤에서 잘리지 않게
+      '<div class="wt-bar"><span class="b-long" style="width:' + (wL / Math.max(100, wL + wS) * 100) + '%"></span><span class="b-short" style="width:' +
+      (wS / Math.max(100, wL + wS) * 100) + '%"></span></div>' +
       '<span class="port-sub">Long <b class="up">' + wL.toFixed(1) + "%</b> · Short <b class=\"down\">" + wS.toFixed(1) + "%</b> · " +
       (S.positions || []).length + "종목</span></div></div></div>";
     h += rt.map(function (x) {
