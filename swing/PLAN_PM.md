@@ -1,6 +1,6 @@
 # 장중 포트폴리오 매니저(Live PM) — 설계·구현 계획
 
-2026-10-18 작성(설계 초안 + GitHub 레퍼런스 조사 통합). **M0 완료, M1~ 미구현.** §12 의 기본 가정은 사용자가 바꾸면
+2026-10-18 작성(설계 초안 + GitHub 레퍼런스 조사 통합). **M0·M1 완료(2026-10-19), M2~ 미구현.** §12 의 기본 가정은 사용자가 바꾸면
 해당 단계만 고친다.
 
 > **2026-10-18 역할 분리**: 장중 시스템을 **Live Trader(집행)** 와 **Live PM(판단)** 으로 나눈다 —
@@ -160,11 +160,11 @@ LLM 이 실패하거나 느려도 L1~L3·L5 는 독립적으로 돈다. LLM 실�
 | G1 | 스냅샷에 없는 종목 코드 / 스키마 위반 | 거부 |
 | G2 | `tighten_stop` 이 손절을 불리하게 옮기거나 현재가를 넘어섬 | 거부 |
 | G3 | `confidence` < 0.6 인 `exit`/`trim` | `flag_review` 로 강등 |
-| G4 | 같은 종목에 대해 30분 안에 반대 방향 결정 | 거부(플립플롭 방지) |
-| G5 | 체결 당일 포지션의 `exit` | 손절가 도달 전이면 `flag_review` 로 강등(체결일 판단 존중) |
+| G4 | 같은 종목에 대해 30분 안에 이미 지시가 있음(M1 구현: 반대 방향뿐 아니라 중복 지시도 막음) | 거부(중복·플립플롭 방지) |
+| G5 | Live Trader 가 그 종목 진입(신규·잔여분 추가)을 오늘 진행 중일 때의 `exit`/`trim`(M1 구현 — Live PM 은 원장 보유분만 보므로 '체결 당일 포지션'은 진입 진행 중 종목으로 판정) | `flag_review` 로 강등 |
 | G6 | 한 번의 호출에서 `exit`+`trim` 합계가 평가액의 30% 초과 | 큰 것부터 30% 까지만 허용 |
 | G7 | 장 시간 밖(09:00~15:20 외) | 거부 |
-| G8 | X1 로 이미 손절가 도달이 기록된 종목의 exit/trim/tighten_stop | 거부(엔진 손절이 우선) |
+| G8 | Live Trader 가 이미 청산 중(손절·예약 청산·지시)인 포지션 | 거부(Live Trader 집행이 우선) |
 | G9 | 거래 상태가 허용하지 않는 액션(§4) | 거부 |
 
 거부·강등은 원래 결정과 함께 사유를 기록한다 — 평가 때 "게이트가 막은 결정"의 반사실 손익도 본다.
@@ -309,6 +309,17 @@ swing/railway.livepm.json
 | 1-9 | 통합 재생: 버스 기록 → 트리거 → Mock 판단 → 게이트 → 지시 목록 | `test_livepm_day.py` |
 
 완료 기준: 전체 테스트 통과, 합성 하루 재생으로 이벤트·결정·지시 문서가 생성됨(네트워크·API 키 없이).
+
+**M1 완료(2026-10-19)** — `swing/livepm/`: `config.py`(코드 상수, 환경변수 없음 — §3·§4·§7 의 `LIVEPM_*` 이름은 이 파일의
+대문자 상수), `book.py`(LiveBook: 손익·손절 거리 소진율·5/30분 수익률·노출, Long/Short), `state.py`(active/reducing/halted, X2~X4,
+킬스위치 키 `livepm/state`), `triggers.py`(T1~T7·15분 디바운스·호출/비용 상한, 업종명 정규화 매칭), `snapshot.py`(§5 + Live Trader 청산
+현황 `liveTrader`, 길이 상한), `agent.py`(LLMAgent — `llm.generate_json(schema, chain)`·실패/스키마 위반 hold, MockLivePM),
+`gate.py`(G1~G9, G6 은 첫 건은 항상 허용), `runner.py`(DayRunner — 지시를 `livepm/<date>/instructions` 에 추가, 호출 기록
+`livepm/<date>/calls/<n>`, 요약 `livepm/<date>/run`), `__main__.py --replay`(Live Trader 틱 기록 재생, 기록은 판단 시각까지로 잘라 룩어헤드 없음).
+테스트 `test_livepm_core.py` 19건, 전체 235건 통과. 한 줄 요약 단기 기억(`today.decisions`)·포지션별 직전 결정(`lastLivePm`) 포함.
+- 관찰(합성 재생): 지시가 아직 집행되지 않으면(M2 전) 같은 포지션에 30분마다 trim 이 다시 나온다 → M2 에서 Live Trader 가 집행하면
+  `intraday` 청산 기록이 생겨 G8 로 막힌다. trim 뒤 exit 같은 추가 축소를 허용할지는 M2 에서 정한다.
+- 비용은 문자 수 기반 추정(`COST_PER_1K_TOKENS_KRW`) — M3 에서 실제 사용량으로 교체.
 
 ## M2 — 지시 인터페이스(Live PM → Live Trader → 원장) (M~L)
 | # | 작업 |

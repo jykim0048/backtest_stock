@@ -85,7 +85,7 @@ class TestBackfill(unittest.TestCase):
 class TestLivePmConfig(unittest.TestCase):
     def test_defaults_match_plan(self):
         from swing.livepm import config as C
-        self.assertIn(C.MODE, C.MODES)
+        self.assertNotIn("os", dir(C))                                # 환경변수로 덮어쓰지 않음(코드 상수, 2026-10-19)
         self.assertEqual((C.STOP_NEAR, C.DEBOUNCE_MIN, C.MAX_CALLS), (0.70, 15, 40))
         self.assertEqual(C.SCHEDULE, ("09:10", "11:00", "13:30", "14:50"))
         self.assertTrue(C.LLM_CHAIN.startswith("anthropic:"))
