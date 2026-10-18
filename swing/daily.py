@@ -110,6 +110,18 @@ def run_day(date, store, agent, prices, wb, *, force=False, log=print, uni=None,
                 run["notes"].append(f"매트릭스 Short 후보 주식선물 미상장 제외 {len(run['shortFutSkipped'])}종목")
         else:
             run["notes"].append("주식선물 목록 없음 — 매트릭스 Short 선물 한정 필터 생략")
+    # 주식선물 미상장 Short 대기 주문 취소(2026-10-18) — 후보 필터(10-16) 이전에 나간 주문·누락 경로까지 체결 전에 막는다
+    run["futCancelled"] = []
+    if config.UNI_SHORT_FUT_ONLY and uni is not None and any(engine.is_short(o) and o["validDate"] <= date for o in L["orders"]):
+        fs0 = uni.fut_set(date)
+        if fs0:
+            for o in [x for x in L["orders"] if engine.is_short(x) and x["validDate"] <= date and x["code"] not in fs0]:
+                L["orders"].remove(o)
+                o.update(status="cancelled", note="주식선물 미상장 — Short 주문 취소(체결 전 확인)")
+                L["orderLog"].append(o)
+                run["futCancelled"].append(o["code"])
+            if run["futCancelled"]:
+                run["notes"].append(f"주식선물 미상장 Short 대기 주문 취소 {len(run['futCancelled'])}건")
     backlog = _retry_backlog(L, date)                         # 미도달 재주문 소급분(2026-10-16) — 시세 필요
     need = (held | {o["code"] for o in L["orders"] if o["validDate"] <= date} | {c["code"] for c in cands}
             | {c["code"] for c in scands} | {o["code"] for o in backlog})
@@ -301,9 +313,10 @@ def run_day(date, store, agent, prices, wb, *, force=False, log=print, uni=None,
     run["capSkipped"] = [c["code"] for c in skipped_cap]
     run["uniCapSkipped"] = [c["code"] for c in skipped_uni_cap]
     prog.update(phase="short")
-    run["shortCandidates"] = (_new_entries(L, store, agent, scands, bars, date, nxt, "short", prog)
-                              + _new_entries(L, store, agent, uscands, bars, date, nxt, "short", prog)
-                              + _new_entries(L, store, agent, ccands, bars, date, nxt, "short", prog))
+    sfut = (uni.fut_set(date) if config.UNI_SHORT_FUT_ONLY and uni is not None and (scands or uscands or ccands) else None)
+    run["shortCandidates"] = (_new_entries(L, store, agent, scands, bars, date, nxt, "short", prog, fut=sfut)
+                              + _new_entries(L, store, agent, uscands, bars, date, nxt, "short", prog, fut=sfut)
+                              + _new_entries(L, store, agent, ccands, bars, date, nxt, "short", prog, fut=sfut))
     run["shortCapSkipped"] = [c["code"] for c in skipped_short_cap]
     run["uniShortCapSkipped"] = [c["code"] for c in skipped_uni_short_cap]
     run["catShortCapSkipped"] = [c["code"] for c in skipped_cat_cap]
@@ -429,10 +442,17 @@ def _retry_unfilled(L, ev, bars, date, nxt, backlog=(), fut_ok=None):
     return out
 
 
-def _new_entries(L, store, agent, cands, bars, date, nxt, side, prog=None):
-    """후보 → trading_agent 판단 → 조건 충족 시 다음 영업일 1일 유효 지정가(Long 매수·Short 공매도)."""
+def _new_entries(L, store, agent, cands, bars, date, nxt, side, prog=None, fut=None):
+    """후보 → trading_agent 판단 → 조건 충족 시 다음 영업일 1일 유효 지정가(Long 매수·Short 공매도).
+    fut = 주식선물 상장 코드 집합(Short 최종 확인, 2026-10-18) — 없는 종목은 분석·주문 없이 행만 남긴다."""
     rows = []
     for c in cands:
+        if side == "short" and fut and c["code"] not in fut:
+            rows.append({"code": c["code"], "name": c["name"], "side": side, "signal": c.get("signal"), "sector": c.get("sector"),
+                         "source": c.get("source") or "matrix", "rankAll": c.get("rankAll"), "score": c.get("score"),
+                         "rating": None, "action": None, "weight": None, "entry": None, "stop": None, "target": None,
+                         "ordered": False, "why": "주식선물 미상장 — Short 분석·주문 안 함", "decisionKey": None})
+            continue
         b = bars.get(c["code"]) or {}
         req = A.DecisionRequest(code=c["code"], name=c["name"], date=date, purpose="entry", side=side,
                                 sector=c["sector"], signal=c["signal"], reason=c["reason"],

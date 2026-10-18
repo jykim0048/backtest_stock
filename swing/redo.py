@@ -105,7 +105,9 @@ def redo_failed(date, store, agent, prices, *, uni=None, cat=None, log=print):
     res = {"date": date, "at": _now(), "entries": 0, "entryOk": 0, "ordered": 0, "reviews": 0, "reviewOk": 0}
     for k, i, r, c in todo:
         log(f"[swing] 재분석 {date} {c['code']} {c['name']} ({r.get('side')}·{c.get('source')})")
-        new = daily._new_entries(L, store, agent, [c], bars, date, nxt, r.get("side", "long"))[0]
+        side = r.get("side", "long")
+        fut = uni.fut_set(date) if side == "short" and config.UNI_SHORT_FUT_ONLY and uni is not None else None
+        new = daily._new_entries(L, store, agent, [c], bars, date, nxt, side, fut=fut)[0]
         new["redo"] = {"at": _now(), "prevWhy": str(r.get("why") or "")[:300]}
         run[k][i] = new
         res["entries"] += 1
