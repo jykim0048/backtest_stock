@@ -11,8 +11,16 @@
   진입은 언제나 손절가 안쪽에서만 체결(Long 가격 > 손절). 그날 못 채운 진입은 잔여분 추가 주문, 못 끝낸 청산은 다음 영업일 계속.
 
 swing 원장은 읽기만 한다. 결과는 intraday/<date> 에 남기고, 장 마감 후 engine.settle_day(…, intraday=doc) 가 확정한다.
-doc = {date, asof, complete, watched: {orders, positions}, orders: {주문 id: 슬라이스 기록}, exits: {포지션 id | "o:<주문 id>": 슬라이스 기록},
-       vwap: {code: {...}}}
+doc = {date, asof, complete, watched: {orders, positions}, orders: {주문 id: 슬라이스 기록},
+       exits: {포지션 id | "o:<주문 id>" | "i:<지시 id>"(Live PM trim): 슬라이스 기록},
+       instructions: {지시 id: {ts, status: done|rejected, why}}, stopMoves: {포지션 id: {ts, old, newStop}},
+       reviews: {포지션 id: {ts, reason}}, vwap: {code: {...}}}
+
+Live PM 지시(2026-10-19, PLAN_LIVE_TRADER §5-2) — 매 폴링마다 livepm/<date>/instructions 의 새 지시를 읽어 집행한다:
+  exit  → 포지션 청산 슬라이스(trigger livepm, kind livepm_exit), 첫 10% 는 다음 틱 현재가, 나머지 VWAP 분할·5% 전량
+  trim  → "i:<지시 id>" 슬라이스(kind livepm_trim, 수량 = 보유 × pct). trim 중에도 손절 감시는 계속, 손절되면 남은 수량만 손절
+  tighten_stop → 그 시각부터 새 손절가로 감시(유리한 쪽으로만), 정산 때 원장 손절가 갱신
+  flag_review  → 정산 때 포지션에 표시 → 그날 배치가 trading_agent 재판별
 슬라이스 기록 = {code, name, side, plan[수량], next, ref, fills[{ts, qty, price, mode: open|vwap|force|stop|stop_gap, vwap}], done, why, …}
   진입 기록 + cap·stop·planned·topupOf, 청산 기록 + trigger(scheduled|stop)·kind(청산 사유)·planned·triggerTs.
 """
@@ -60,7 +68,8 @@ class Executor:
     def __init__(self, store, date, ledger, *, log=print, save_ticks=True):
         self.store, self.date, self.log, self.save_ticks = store, date, log, save_ticks
         self.doc = store.get(f"intraday/{date}") or _new_doc(date)
-        self.doc.setdefault("exits", {})
+        for k in ("exits", "instructions", "stopMoves", "reviews"):
+            self.doc.setdefault(k, {})
         self.states, self.ticks, self.seen = {}, {}, set()
         self.dirty = False
         self._plan(ledger or {})
@@ -71,6 +80,7 @@ class Executor:
     def _plan(self, L):
         doc, held = self.doc, {p["code"] for p in L.get("positions") or []}
         self.positions = {}                   # 손절 감시
+        self.held = {p["id"]: p for p in L.get("positions") or []}   # Live PM 지시 대상(원장 보유 전부)
         for p in L.get("positions") or []:
             sp = p.get("sellPending")
             if sp:                            # 예약 청산 → 시가 10% + VWAP 분할
@@ -79,8 +89,9 @@ class Executor:
                     "kind": sp.get("kind") or "pm_sell", "planned": p["qty"], "plan": slice_plan(p["qty"]), "next": 0,
                     "ref": None, "fills": [], "done": False, "why": None, "triggerTs": None})
             elif not engine._stop_suspended(p, self.date):
-                self.positions[p["id"]] = {"code": p["code"], "side": p.get("side", "long"), "stop": p["stop"],
-                                           "name": p.get("name"), "qty": p["qty"]}
+                mv = doc["stopMoves"].get(p["id"])            # 재시작 — 오늘 Live PM 이 올린 손절가 유지
+                self.positions[p["id"]] = {"code": p["code"], "side": p.get("side", "long"),
+                                           "stop": mv["newStop"] if mv else p["stop"], "name": p.get("name"), "qty": p["qty"]}
             else:
                 continue                      # 체결일 손절 재판별 대기 — 그날 손절 유예(엔진과 같음)
             if p["id"] not in doc["watched"]["positions"]:
@@ -168,13 +179,88 @@ class Executor:
             hit = self._stop_hit(st, p["side"], p["stop"], first=pid not in self.seen)
             self.seen.add(pid)
             if hit:
-                self._open_exit(pid, code=p["code"], name=p.get("name"), side=p["side"], qty=p["qty"],
+                trimmed = self._close_trims(pid, "손절로 대체")
+                self._open_exit(pid, code=p["code"], name=p.get("name"), side=p["side"], qty=p["qty"] - trimmed,
                                 price=hit[0], kind=hit[1], ts=ts)
                 self.dirty = True
                 for oid, base in self.base_of.items():      # 본 포지션 손절 → 그 잔여분 추가 주문도 중단
                     r = self.doc["orders"].get(oid)
                     if base == pid and r and not r["done"]:
                         r.update(done=True, why="본 포지션 손절 — 남은 분할 취소")
+
+    # ── Live PM 지시 ───────────────────────────────────────────────────────
+    def _trims(self, pid):
+        return [r for k, r in self.doc["exits"].items() if k.startswith("i:") and r.get("positionId") == pid]
+
+    def _close_trims(self, pid, why):
+        """그 포지션의 trim 을 끝내고 지금까지 체결된 trim 수량 합을 돌려준다."""
+        n = 0
+        for r in self._trims(pid):
+            n += filled(r)
+            if not r["done"]:
+                r.update(done=True, why=why)
+        return n
+
+    def apply_instructions(self, instructions, ts):
+        """Live PM 지시 목록(livepm/<date>/instructions) 중 아직 처리 안 한 것을 집행. 반환 처리한 개수."""
+        n = 0
+        for ins in instructions or []:
+            iid = ins.get("id")
+            if not iid or iid in self.doc["instructions"]:
+                continue
+            ok, why = self._apply(ins, ts)
+            self.doc["instructions"][iid] = {"ts": ts, "status": "done" if ok else "rejected", "why": why,
+                                             "action": ins.get("action"), "code": ins.get("code")}
+            self.dirty = True
+            n += 1
+            self.log(f"[vwap] {ts[11:19]} Live PM 지시 {iid} {ins.get('action')} {ins.get('code')} → {'집행' if ok else '거부'}"
+                     + (f" ({why})" if why else ""))
+        return n
+
+    def _apply(self, ins, ts):
+        pid, act = ins.get("positionId"), ins.get("action")
+        p = self.held.get(pid)
+        if p is None:
+            return False, "원장에 없는 포지션"
+        side = p.get("side", "long")
+        full = self.doc["exits"].get(pid)
+        if act in ("exit", "trim", "tighten_stop") and full is not None:
+            return False, f"이미 청산 중({full.get('trigger')})"
+        if act == "exit":
+            trimmed = self._close_trims(pid, "exit 으로 대체")
+            qty = p["qty"] - trimmed
+            if qty <= 0:
+                return False, "남은 수량 없음"
+            self.doc["exits"][pid] = self._livepm_slices(p, qty, "livepm_exit", ts, ins)
+            return True, None
+        if act == "trim":
+            trimmed = sum(filled(r) for r in self._trims(pid))
+            open_trim = sum(r["planned"] - filled(r) for r in self._trims(pid) if not r["done"])
+            room = p["qty"] - trimmed - open_trim
+            qty = min(room, max(1, int(round(p["qty"] * float(ins.get("pct") or 0.5)))))
+            if qty <= 0:
+                return False, "남은 수량 없음"
+            self.doc["exits"]["i:" + ins["id"]] = dict(self._livepm_slices(p, qty, "livepm_trim", ts, ins), positionId=pid)
+            return True, None
+        if act == "tighten_stop":
+            w = self.positions.get(pid)
+            ns = ins.get("newStop")
+            if w is None or not isinstance(ns, (int, float)):
+                return False, "손절 감시 대상 아님"
+            if (ns >= w["stop"]) if side == "short" else (ns <= w["stop"]):
+                return False, "유리한 방향 아님"
+            self.doc["stopMoves"][pid] = {"ts": ts, "old": w["stop"], "newStop": float(ns)}
+            w["stop"] = float(ns)
+            return True, None
+        if act == "flag_review":
+            self.doc["reviews"][pid] = {"ts": ts, "reason": ins.get("reason")}
+            return True, None
+        return False, f"모르는 지시 {act}"
+
+    def _livepm_slices(self, p, qty, kind, ts, ins):
+        return {"code": p["code"], "name": p.get("name"), "side": p.get("side", "long"), "trigger": "livepm", "kind": kind,
+                "planned": qty, "plan": slice_plan(qty), "next": 0, "ref": None, "fills": [], "done": False, "why": None,
+                "triggerTs": ts, "instruction": ins.get("id")}
 
     def _entry(self, oid, r, st, ts, hm):
         if r["fills"]:
@@ -204,6 +290,13 @@ class Executor:
         def inside(px):                                   # 진입은 손절 안쪽에서만
             return not entry or (px > r["stop"] if long_ else px < r["stop"])
 
+        if r["next"] == 0 and r.get("trigger") == "livepm":   # Live PM 지시 → 첫 10% 는 지금 가격
+            r.update(ref=t.price, next=1)
+            self._fill(r, r["plan"][0], t.price, ts, "livepm", st.vwap)
+            self.log(f"[vwap] {ts[11:19]} 지시 청산 {r['code']} {r['side']} {r['plan'][0]:,}주 @ {t.price:,.0f} ({r['kind']})")
+            if filled(r) >= r["planned"]:
+                r.update(done=True, why="청산 완료")
+            return
         if r["next"] == 0:                               # ① 시가 첫 분할
             if t.open is None or t.volume <= 0:
                 return
@@ -256,10 +349,13 @@ class Executor:
 
     def summary(self):
         o, x = self.doc["orders"].values(), self.doc["exits"].values()
+        ins = self.doc["instructions"].values()
         return {"orders": len(self.doc["orders"]), "filledOrders": sum(1 for r in o if r["fills"]),
                 "entryFills": sum(len(r["fills"]) for r in o), "exits": len(self.doc["exits"]),
                 "stopExits": sum(1 for r in x if r["trigger"] == "stop"), "exitFills": sum(len(r["fills"]) for r in x),
-                "watchedPositions": len(self.positions), "complete": self.doc["complete"], "asof": self.doc["asof"]}
+                "watchedPositions": len(self.positions), "complete": self.doc["complete"], "asof": self.doc["asof"],
+                "instructions": sum(1 for i in ins if i["status"] == "done"),
+                "rejected": sum(1 for i in ins if i["status"] != "done")}
 
     def save(self, ticks=False):
         self.store.put(f"intraday/{self.date}", self.doc)

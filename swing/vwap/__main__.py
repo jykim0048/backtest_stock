@@ -60,6 +60,7 @@ def run_session(st, date, *, feed=None, bus=None, clock=now_kst, sleep=time.slee
     last_save = last_ticks = time.monotonic()
     while clock() < end:
         mono = time.monotonic()
+        ex.apply_instructions(st.get(f"livepm/{date}/instructions"), clock().replace(microsecond=0).isoformat())
         codes = ex.codes()
         if codes:
             ticks = feed.poll(codes)

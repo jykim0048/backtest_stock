@@ -283,9 +283,10 @@ def _hm(ts):
     return (ts or "")[11:16]
 
 
-def _apply_exit(L, p, rec, date, ev, reason):
+def _apply_exit(L, p, rec, date, ev, reason, carry=True):
     """장중 실행기 청산 슬라이스 기록(시가 10%·VWAP 분할·±5% 전량·손절 첫 분할) → 체결 합 수량을 평균가로 청산.
-    남은 수량은 다음 영업일 계속(sellPending — 실행기가 없으면 엔진 ① 시가 청산). 반환 True = 기록 반영."""
+    carry=True 면 남은 수량은 다음 영업일 계속(sellPending — 실행기가 없으면 엔진 ① 시가 청산).
+    carry=False(Live PM trim) 면 못 채운 trim 수량은 버리고 포지션은 그대로 둔다. 반환 True = 기록 반영."""
     fills = (rec or {}).get("fills") or []
     q = min(sum(f["qty"] for f in fills), p["qty"])
     if q <= 0:
@@ -297,7 +298,7 @@ def _apply_exit(L, p, rec, date, ev, reason):
     if sp.get("reason"):
         note = f"{sp['reason']} · {note}"
     ev["exits"].append(_close_position(L, p, date, avg, reason, note=note, qty=q))
-    if p in L["positions"]:
+    if carry and p in L["positions"]:
         p["sellPending"] = {"reason": f"분할 청산 잔여 {p['qty']:,}주 — 다음 영업일 계속", "decisionKey": sp.get("decisionKey"),
                             "date": date, "kind": reason}
     return True
@@ -464,9 +465,20 @@ def settle_day(L, date, bars, intraday=None):
         L["orderLog"].append(o)
         ev[{"filled": "filled", "skipped": "skipped"}.get(o["status"], "cancelled")].append(o)
 
+    # ④-0 Live PM trim(2026-10-19) — 먼저 반영(그 뒤 손절·지시 청산 기록은 남은 수량 기준)
+    for key, rec in i_exits.items():
+        if key.startswith("i:"):
+            p = next((x for x in L["positions"] if x["id"] == rec.get("positionId")), None)
+            if p is not None:
+                _apply_exit(L, p, rec, date, ev, rec.get("kind") or "livepm_trim", carry=False)
+
     # ④⑤ 장중 손절·목표
     for p in list(L["positions"]):
         b = bars.get(p["code"])
+        own = i_exits.get(p["id"]) or {}
+        if own.get("trigger") == "livepm":                   # Live PM exit 지시 — 시세 유무와 관계없이 기록대로
+            _apply_exit(L, p, own, date, ev, own.get("kind") or "livepm_exit")
+            continue
         if not b or b.get("low") is None or (is_short(p) and b.get("high") is None):
             continue
         if is_short(p):
@@ -510,6 +522,18 @@ def settle_day(L, date, bars, intraday=None):
         elif hit_tgt and not p.get("sellPending"):
             p["reviewFlag"] = "target"                      # 청산하지 않음 — 장 마감 후 재판별
             p["targetHit"] = {"date": date, "target": p["target"], "high" if not is_short(p) else "low": extreme}
+
+    # ⑤-1 Live PM 손절 상향·재판별 요청(2026-10-19) — 그날 손절 판정은 기존 손절가로 끝났으니 이제 원장에 반영
+    for pid, mv in ((I or {}).get("stopMoves") or {}).items():
+        p = next((x for x in L["positions"] if x["id"] == pid), None)
+        ns = (mv or {}).get("newStop")
+        if p is not None and ns is not None and ((ns < p["stop"]) if is_short(p) else (ns > p["stop"])):
+            p["stopHistory"] = (p.get("stopHistory") or []) + [{"date": date, "from": p["stop"], "to": ns, "by": "livepm"}]
+            p["stop"] = float(ns)
+    for pid, rv in ((I or {}).get("reviews") or {}).items():
+        p = next((x for x in L["positions"] if x["id"] == pid), None)
+        if p is not None and not p.get("sellPending"):
+            p["livepmReview"] = {"date": date, "ts": (rv or {}).get("ts"), "reason": (rv or {}).get("reason")}
 
     # ⑥ 만기 → 재판별 표시 / 최대 보유 → 다음 날 시가 청산 예약 · ⑦ 대차수수료·평가
     for p in list(L["positions"]):

@@ -1,6 +1,6 @@
 # 장중 포트폴리오 매니저(Live PM) — 설계·구현 계획
 
-2026-10-18 작성(설계 초안 + GitHub 레퍼런스 조사 통합). **M0·M1 완료(2026-10-19), M2~ 미구현.** §12 의 기본 가정은 사용자가 바꾸면
+2026-10-18 작성(설계 초안 + GitHub 레퍼런스 조사 통합). **M0·M1·M2 완료(2026-10-19), M3 미구현.** §12 의 기본 가정은 사용자가 바꾸면
 해당 단계만 고친다.
 
 > **2026-10-18 역할 분리**: 장중 시스템을 **Live Trader(집행)** 와 **Live PM(판단)** 으로 나눈다 —
@@ -332,6 +332,18 @@ swing/railway.livepm.json
 | 2-6 | `engine.settle_day`: 청산 사유 `livepm_exit`/`livepm_trim`, 손절 갱신 반영, 남은 수량 이월(기존 `_apply_exit` 재사용) |
 
 완료 기준: 엔진·실행기 테스트에 지시 경계 사례(손절 중 지시, 같은 지시 중복, 체결일 포지션, 장 마감 직전 지시) 통과.
+
+**M2 완료(2026-10-19)** — Live Trader(`swing/vwap/executor.py`) `apply_instructions`: swing-vwap 루프가 매 폴링마다
+`livepm/<date>/instructions` 를 읽어 새 지시만 집행, 결과 `intraday/<date>.instructions[id]`(done·rejected·사유).
+- exit → 포지션 키 청산 슬라이스(trigger `livepm`, kind `livepm_exit`), 첫 10% 는 다음 틱 현재가(mode `livepm`), 나머지 VWAP 분할·5% 전량.
+  진행 중 trim 은 끝내고 남은 수량만. 이미 청산 중(손절·예약·지시)이면 거부.
+- trim → `i:<지시 id>` 슬라이스(kind `livepm_trim`) — 손절 감시는 계속, 손절되면 trim 을 끝내고 남은 수량만 손절 청산.
+- tighten_stop → 감시 손절가 즉시 교체(유리한 쪽만, `stopMoves` 기록·재시작 시 유지). flag_review → `reviews` 기록.
+- 엔진: ④-0 trim 먼저(남은 수량은 이월 안 함 — `_apply_exit(carry=False)`), Live PM exit 은 기록대로(남으면 다음 날 계속),
+  ⑤-1 손절 상향을 그날 판정 뒤 원장에 반영(`stopHistory`), 재판별 요청은 `livepmReview` → run_day 가 trading_agent 재판별
+  (매도면 kind `livepm_review`, 보유면 연장 보유로 바꾸지 않음).
+- 테스트 `test_livepm_m2.py` 12건(지시 집행·중복·trim 후 손절·exit 이 trim 대체·손절 상향 후 새 손절 도달·예약 청산 중 거부·
+  정산 반영·재판별 흐름·Live PM → Live Trader → 원장 통합). 운영: Live PM 서비스(M3)가 아직 없어 지시는 비어 있다.
 
 ## M3 — 서비스 운영 (M)
 | # | 작업 |

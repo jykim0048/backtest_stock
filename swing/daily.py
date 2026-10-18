@@ -267,6 +267,8 @@ def run_day(date, store, agent, prices, wb, *, force=False, log=print, uni=None,
             why = f"보유 만기 {p['holdDay']}/{config.HOLD_DAYS}영업일" + (" · 연장 보유 중" if p.get("extended") else "")
         elif p.get("extended"):
             flag, why = "extended", f"연장 보유 재판별 {p['holdDay']}영업일째"
+        elif p.get("livepmReview"):
+            flag, why = "livepm", f"Live PM 장중 재판별 요청({engine._hm((p['livepmReview'] or {}).get('ts'))}) — {(p['livepmReview'] or {}).get('reason') or ''}"
         else:
             continue
         e = todo.setdefault(p["code"], {"name": p["name"], "sector": p.get("sector"), "signal": p.get("signal"),
@@ -276,8 +278,9 @@ def run_day(date, store, agent, prices, wb, *, force=False, log=print, uni=None,
     prog.update(phase="review", total=len(todo) + len(cands) + len(scands) + len(ucands) + len(uscands))
     for code, t in todo.items():
         p = next(x for x in L["positions"] if x["code"] == code)
-        flag = next((k for k in t["kinds"] if k in ("fill_stop", "target", "expiry", "extended")), None)
-        kind = {"fill_stop": "stop", "target": "review_target", "expiry": "review_expiry", "extended": "review_expiry"}.get(flag, "pm_sell")
+        flag = next((k for k in t["kinds"] if k in ("fill_stop", "target", "expiry", "extended", "livepm")), None)
+        kind = {"fill_stop": "stop", "target": "review_target", "expiry": "review_expiry", "extended": "review_expiry",
+                "livepm": "livepm_review"}.get(flag, "pm_sell")
         side = p.get("side", "long")
         req = A.DecisionRequest(code=code, name=t["name"], date=date, purpose="review",
                                 sector=t["sector"], signal=t["signal"], side=side,
@@ -296,13 +299,14 @@ def run_day(date, store, agent, prices, wb, *, force=False, log=print, uni=None,
             engine.schedule_sell(L, code, f"재판별 실패({d.error[:60]}) — 원 규칙대로 "
                                  + ("환매" if side == "short" else "매도"), key, date, kind=kind)
             action = "sell_fallback"
-        elif flag:
+        elif flag and flag != "livepm":                      # Live PM 요청 재판별은 보유면 그대로(연장 보유로 바꾸지 않음)
             before = (p["target"], p["stop"])
             engine.apply_hold(L, code, target=d.target, stop=d.stop,
                               decision_key=key, date=date)
             action = "hold_updated" if (p["target"], p["stop"]) != before else "hold"
         if p.get("sellPending"):
             p["reviewFlag"] = None
+        p.pop("livepmReview", None)                          # 요청 처리 끝(매도·보유 모두)
         if p.get("fillStop") and flag == "fill_stop":
             p["fillStop"]["reviewed"] = date                 # 재판별 끝 — 이후 손절은 정상 적용
         prog.step(d, t["name"], side, "review")

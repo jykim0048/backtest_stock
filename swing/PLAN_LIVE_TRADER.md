@@ -105,7 +105,7 @@ Live Trader 가 폴링할 때마다 발행하고, Live PM 은 KIS 허브를 따�
 - 발행 실패는 로그만 남기고 60초 뒤 재시도 — **집행·손절 루프는 절대 멈추지 않는다**. `REDIS_URL` 이 없으면 발행 꺼짐.
 - 구독: `BusFeed.history(date)`(재시작 시 오늘 기록 따라잡기) → `poll()`(새 항목 대기), `last()`, `alive()`.
 
-### 5-2. 지시 인터페이스 — 미구현(PLAN_PM M2)
+### 5-2. 지시 인터페이스 — 구현됨(2026-10-19, PLAN_PM M2 완료 기록 참고)
 Live PM 은 `livepm/<date>/instructions`(추가만)에 지시를 쓰고, Live Trader 가 매 폴링마다 읽어 집행·결과를
 `intraday/<date>.instructions[지시 id]` 에 남긴다(DB — 정산이 읽어야 하므로 Redis 가 아닌 저장소).
 
