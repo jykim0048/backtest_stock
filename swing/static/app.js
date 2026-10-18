@@ -129,7 +129,7 @@
     el.innerHTML = h + "</tbody>";
   }
   function td(v, cls) { return '<td class="' + (cls || "") + '">' + v + "</td>"; }
-  function pct(w) { return w == null ? "—" : (w * 100).toFixed(1) + "%"; }   // 포트폴리오 비중(0~1 → %)
+  function wpct(w) { return w == null ? "—" : (w * 100).toFixed(1) + "%"; }   // 포트폴리오 비중(0~1 → %) — pct(수익률 %)와 이름 분리(2026-10-18 덮어쓰기 버그)
   function nextWeekday(iso) {                                   // 휴장일 미반영 근사(구 런 폴백)
     if (!iso) return "";
     var d = new Date(iso + "T00:00:00"); d.setDate(d.getDate() + 1);
@@ -443,7 +443,7 @@
           td('<span class="note-pm"' + pmT + ">" + rating(c.rating, /판단 실패/.test(c.why || "")) + "</span>"), td('<span class="note-tr"' + trT + ">" + esc(c.action || "—") + "</span>"),
           td(c.entry ? levels(c.entry, c.stop, c.target) : '<span class="muted">—</span>'),
           // 진입 비중 열(2026-10-16): 주문이면 비중 %만(수량·PM/Trader 비중은 툴팁), 아니면 상태(PM Hold 등)만 — 판단 요약은 툴팁
-          td(c.ordered ? '<span class="state ordered" title="' + won(c.qty) + "주 · PM " + pct(c.pmWeight) + " / Trader " + pct(c.traderWeight) + '">' + pct(c.weight) + "</span>"
+          td(c.ordered ? '<span class="state ordered" title="' + won(c.qty) + "주 · PM " + wpct(c.pmWeight) + " / Trader " + wpct(c.traderWeight) + '">' + wpct(c.weight) + "</span>"
             : '<span class="muted note-why" style="font-size:12px;border-bottom:1px dotted rgba(255,255,255,.35);cursor:help"' + (whyNote ? ' title="' + esc(whyNote) + '"' : "") + ">" + esc(c.why || "미주문") + "</span>")] };
       }), run.skip ? esc(run.skip) : "후보 없음");
       attachNoteTooltips($(pre + "candidates"));
@@ -600,7 +600,7 @@
           td('<span class="side-tag ' + sideOf(o) + '">' + (sideOf(o) === "long" ? "LONG" : "SHORT") + "</span>"),
           td(stock(o.name, o.code)), td('<span class="state ' + o.status + '">' + (STATUS[o.status] || o.status) + "</span>"),
           td('<span class="num">' + won(o.entry) + "</span>", "r"),
-          td('<span class="num">' + pct(o.weight) + '</span><small class="sub-qty">' + won(o.qty) + "주</small>", "r"),
+          td('<span class="num">' + wpct(o.weight) + '</span><small class="sub-qty">' + won(o.qty) + "주</small>", "r"),
           td(retryTag + basisTag({ source: o.source }) + (o.note ? ' <span class="muted">' + esc(o.note) + "</span>" : ""), "wrap")] };
       }), RP.side === "short" ? "Short 진입 내역 없음" : "이 기간 진입 내역이 없습니다");
     var more = $("fills-more");
@@ -1225,7 +1225,7 @@
     var c = all.filter(function (r) { return r.code === code; })[0];
     if (!c) return null;
     var who = c.source === "universe" ? "" : c.source === "catalyst" ? '<span class="flag cat">촉매</span> ' : '<span class="flag">매트릭스</span> ';
-    if (c.ordered) return who + '<span class="state ordered" title="' + won(c.qty) + '주">주문 ' + pct(c.weight) + "</span>";
+    if (c.ordered) return who + '<span class="state ordered" title="' + won(c.qty) + '주">주문 ' + wpct(c.weight) + "</span>";
     if (/판단 실패/.test(c.why || "")) return who + '<span class="state skipped">판단 실패</span>';
     return who + '<span class="state hold-ok">' + esc(c.rating || "—") + "</span>";
   }
