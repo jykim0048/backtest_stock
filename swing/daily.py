@@ -129,7 +129,12 @@ def run_day(date, store, agent, prices, wb, *, force=False, log=print, uni=None,
     missing = sorted(held - set(bars))
     if missing:
         run["notes"].append(f"보유 종목 시세 없음: {', '.join(missing)}")
-    ev = engine.settle_day(L, date, bars)
+    intraday = store.get(f"intraday/{date}") if config.INTRADAY_SETTLE else None   # 장중 VWAP 실행기 기록(PLAN_VWAP.md)
+    ev = engine.settle_day(L, date, bars, intraday=intraday)
+    if intraday:
+        run["intraday"] = {"complete": bool(intraday.get("complete")), "asof": intraday.get("asof"),
+                           "orders": len((intraday.get("watched") or {}).get("orders") or []),
+                           "stops": len(intraday.get("stops") or {})}
     nxt = tradedays.next_trading_day(date)
     run["entryDate"] = nxt                                   # 신규 후보 주문의 진입(유효)일 — 대시보드 표기(2026-10-16)
     fut_ok = None                                             # Short 재주문·추가 주문 선물 확인(선물 한정 켜짐 + 목록 있을 때)

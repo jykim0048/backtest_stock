@@ -17,6 +17,7 @@ trading_agent 가 판단하고, 5영업일 보유 롱 모의투자를 한다(`SW
 | 조기 매도 | 보유 종목 섹터가 수급이탈/동반약세 전환 **또는** 종목이 그 칸에 등재 → trading_agent 재판단 → PM Sell/Underweight 면 다음 영업일 시가 |
 | 자본·비용 | 5억, 매도세 0.2%, 슬리피지 없음, 비중 = Trader %(생략 5%, 상한 10%) |
 | 현금 부족 | 체결일 시가에 평가손실 종목을 손실률 큰 순으로 청산(합쳐도 부족하면 청산 없이 스킵) |
+| **장중 VWAP** | swing-vwap 서비스가 돌면(2026-10-18) 진입 주문은 진입가 상한 + VWAP 보다 유리한 가격에서 3분할(20분 간격) 체결 → 포지션 진입가 = 체결 평균, 미체결분은 잔여분 추가 주문. 손절은 장중 실시간(체결 후 손절은 그날 바로 청산). 서비스가 안 돈 날은 아래 일봉 규칙 그대로, `SWING_INTRADAY=0` 이면 끔 — [PLAN_VWAP.md](PLAN_VWAP.md) |
 | **Short** | 동반약세 → 수급이탈(하루 ≤ `SWING_MAX_NEW_SHORT_PER_DAY`=10), PM Sell/Underweight + Trader Sell, 고가 ≥ 진입가 체결(진입가 ≥ 전일 종가), 손절 진입가 위·목표 아래, 환매 = PM Buy/Overweight, 담보 100%·매도세 0.2%·대차 연 4%·총노출 ≤ 30% — [PLAN_SHORT.md](PLAN_SHORT.md) |
 
 ## 구성
@@ -26,6 +27,7 @@ agent_iface.py   판단 요청/결과·파서·Mock   signals.py     주간 브�
 agent/           trading_agent 헤드리스(kit=원본 복사, peers.py, pipeline.py)
 daily.py         하루 처리                  run_daily.py   swing-cron 진입점(백필 포함)
 store.py         File / Postgres(swing_docs) prices.py     일봉(Dict·Mock·yfinance·DbHub=DB증권 CHARTDAY)
+vwap/            장중 VWAP 실행기(swing-vwap) — 분할 진입·장중 손절 기록(intraday/<date>), intraday/feed.py 시세 폴링
 server.py        swing-web(API + static/)   tools/extract_wb_history.py  과거 신호 복원
 data/wb_history/ 9/9~ 일별 주간 브리핑 축약본(git 이력에서 추출)
 ```

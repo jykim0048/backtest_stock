@@ -259,13 +259,30 @@ def _days_between(a, b):
 
 
 # ── 하루 정산 ────────────────────────────────────────────────────────────────
-def settle_day(L, date, bars):
+def _intraday(doc, date):
+    """장중 VWAP 실행기 기록(swing/vwap, PLAN_VWAP.md) → (doc, 감시 주문 id, 감시 포지션 id, 세션 완주). 없으면 None."""
+    if not doc or doc.get("date") != date:
+        return None, set(), set(), False
+    w = doc.get("watched") or {}
+    return doc, set(w.get("orders") or []), set(w.get("positions") or []), bool(doc.get("complete"))
+
+
+def _hm(ts):
+    return (ts or "")[11:16]
+
+
+def settle_day(L, date, bars, intraday=None):
     """date 영업일 처리. bars = {code: {open, high, low, close}}. 이미 처리한 날은 무시.
+    intraday = 그날 장중 VWAP 실행기 문서(intraday/<date>) — 감시한 주문은 분할 체결 기록으로 체결, 감시한 포지션은
+    장중 손절 기록으로 청산(세션 완주면 일봉 손절 판정 생략). 없거나 감시 밖이면 종전 일봉 규칙(2026-10-18).
     반환: 그날 이벤트 {filled, cancelled, skipped, exits}."""
     if L.get("asof") and date <= L["asof"]:
         return {"skip": f"이미 정산됨(asof {L['asof']})"}
     prev = L.get("asof")
     ev = {"filled": [], "cancelled": [], "skipped": [], "exits": []}
+    I, w_ord, w_pos, complete = _intraday(intraday, date)
+    i_stops = (I or {}).get("stops") or {}
+    from_intraday = {}                                       # 새 포지션 id → 실행기 주문 기록
 
     for p in L["positions"]:
         p["holdDay"] += 1
@@ -282,6 +299,12 @@ def settle_day(L, date, bars):
         b = bars.get(p["code"])
         if _stop_suspended(p, date):
             continue
+        rec = i_stops.get(p["id"])
+        if rec and rec.get("kind") == "stop_gap":
+            ev["exits"].append(_close_position(L, p, date, rec["price"], "stop_gap", note=f"장중 실행기 {_hm(rec.get('ts'))}"))
+            continue
+        if rec or (complete and p["id"] in w_pos):
+            continue                                         # 장중 실행기가 판정(④에서 손절가 청산 또는 미도달)
         if b and b.get("open") and (b["open"] >= p["stop"] if is_short(p) else b["open"] <= p["stop"]):
             ev["exits"].append(_close_position(L, p, date, b["open"], "stop_gap"))
 
@@ -303,32 +326,47 @@ def settle_day(L, date, bars):
             o.update(status="cancelled", note="본 포지션 청산됨 — 추가 진입 취소")
         elif not o.get("topupOf") and any(p["code"] == o["code"] for p in L["positions"]):
             o.update(status="skipped", note="이미 보유")
-        elif short and b["high"] < o["entry"]:
+        elif o["id"] in w_ord and not sum(f["qty"] for f in ((I["orders"].get(o["id"]) or {}).get("fills") or [])):
+            o.update(status="cancelled", note="미도달(VWAP 분할 — 진입가 상한·VWAP 조건 미충족)")
+        elif o["id"] not in w_ord and short and b["high"] < o["entry"]:
             o.update(status="cancelled",
                      note=f"미도달(고가 {b['high']:,.0f} < 진입 {o['entry']:,.0f})")
-        elif not short and b["low"] > o["entry"]:
+        elif o["id"] not in w_ord and not short and b["low"] > o["entry"]:
             o.update(status="cancelled",
                      note=f"미도달(저가 {b['low']:,.0f} > 진입 {o['entry']:,.0f})")
         else:
+            irec = I["orders"].get(o["id"]) if o["id"] in w_ord else None
+            if irec:
+                # 장중 VWAP 분할 체결(2026-10-18) — 수량 = 체결 합, 가격 = 체결 평균. 진입가(o["entry"])는 상한·다음 날 잔여분 레벨로 유지
+                fq = sum(f["qty"] for f in irec["fills"])
+                px = sum(f["qty"] * f["price"] for f in irec["fills"]) / fq
+                o["vwapFills"] = irec["fills"]
+                if fq < o["qty"]:
+                    planned = o["qty"]
+                    o["partial"] = {"planned": planned, "filled": fq, "remain": planned - fq}
+                    o["note"] = f"VWAP 분할 {len(irec['fills'])}/{len(irec['tranches'])} — {fq:,}/{planned:,}주, 잔여 {planned - fq:,}주 다음 영업일 추가 주문"
+                o["qty"] = fq
+            else:
+                px = o["entry"]
             if short and (o.get("collateral") or config.SHORT_COLLATERAL) == "subst":
                 # 주식 대용 담보(2026-10-18): 주당 요구 담보 = 진입가 × SHORT_MARGIN, 현금은 매도세만 나감
                 o["collateral"] = "subst"
-                unit = o["entry"] * config.SHORT_MARGIN
-                room = collateral(L)["room"] - o["qty"] * o["entry"] * config.SELL_TAX
+                unit = px * config.SHORT_MARGIN
+                room = collateral(L)["room"] - o["qty"] * px * config.SELL_TAX
                 if room < o["qty"] * unit:
-                    q2 = min(o["qty"], int(math.floor(max(room, 0) / (o["entry"] * (config.SHORT_MARGIN + config.SELL_TAX)))))
+                    q2 = min(o["qty"], int(math.floor(max(room, 0) / (px * (config.SHORT_MARGIN + config.SELL_TAX)))))
                     if config.PARTIAL_ENTRY and q2 > 0 and q2 >= math.ceil(o["qty"] * config.PARTIAL_ENTRY_MIN):
-                        planned = o["qty"]
+                        planned = (o.get("partial") or {}).get("planned") or o["qty"]     # VWAP 분할 잔여가 있으면 원래 계획 기준
                         o["partial"] = {"planned": planned, "filled": q2, "remain": planned - q2}
                         o["qty"] = q2
                         o["note"] = f"담보 부족 — {q2:,}/{planned:,}주 부분 진입, 잔여 {planned - q2:,}주 다음 영업일 추가 주문"
                     else:
                         o.update(status="skipped", note=f"담보 부족(대용 포함 가능 {q2:,}/{o['qty']:,}주"
                                                         + (f" < 최소 {config.PARTIAL_ENTRY_MIN * 100:.0f}%)" if q2 else ")"))
-                unit = o["entry"] * config.SELL_TAX                                  # 현금 유출 = 매도세뿐
+                unit = px * config.SELL_TAX                                  # 현금 유출 = 매도세뿐
                 cost = o["qty"] * unit
             else:
-                unit = o["entry"] * (1 + config.SELL_TAX) if short else o["entry"]   # 주당 필요 현금(숏: 담보 + 매도세)
+                unit = px * (1 + config.SELL_TAX) if short else px   # 주당 필요 현금(숏: 담보 + 매도세)
                 cost = o["qty"] * unit
                 if _free_cash(L) < cost:
                     ok, sold = _raise_cash(L, cost, date, bars, new_ids)
@@ -341,7 +379,7 @@ def settle_day(L, date, bars):
                             ok2, sold2 = _raise_cash(L, q2 * unit, date, bars, new_ids)
                             ev["exits"].extend(sold2)
                             if ok2:
-                                planned = o["qty"]
+                                planned = (o.get("partial") or {}).get("planned") or o["qty"]
                                 o["partial"] = {"planned": planned, "filled": q2, "remain": planned - q2}
                                 o["qty"], cost = q2, q2 * unit
                                 o["note"] = f"현금 부족 — {q2:,}/{planned:,}주 부분 진입, 잔여 {planned - q2:,}주 다음 영업일 추가 주문"
@@ -351,26 +389,26 @@ def settle_day(L, date, bars):
                             o.update(status="skipped", note=f"현금 부족(가능 {q2:,}/{o['qty']:,}주 < 최소 {config.PARTIAL_ENTRY_MIN * 100:.0f}%)")
             if o["status"] == "open" and o.get("topupOf"):
                 # 추가 진입(잔여분) — 기존 포지션에 합쳐 평균단가
-                notional = o["qty"] * o["entry"]
+                notional = o["qty"] * px
                 tax = notional * config.SELL_TAX if short else 0.0
                 L["cash"] -= o["qty"] * unit
                 p = next(x for x in L["positions"] if x["id"] == o["topupOf"])
                 newq = p["qty"] + o["qty"]
-                p["entry"] = (p["entry"] * p["qty"] + o["entry"] * o["qty"]) / newq
+                p["entry"] = (p["entry"] * p["qty"] + px * o["qty"]) / newq
                 p["qty"] = newq
                 if short:
                     p["entryTax"] = (p.get("entryTax") or 0.0) + tax
-                p.setdefault("topups", []).append({"date": date, "qty": o["qty"], "price": o["entry"], "orderId": o["id"]})
-                o.update(status="filled", fillPrice=o["entry"], positionId=p["id"])
+                p.setdefault("topups", []).append({"date": date, "qty": o["qty"], "price": px, "orderId": o["id"]})
+                o.update(status="filled", fillPrice=px, positionId=p["id"])
                 if o.get("partial"):
                     o["partial"]["positionId"] = p["id"]
                     ev.setdefault("partials", []).append(o)
             elif o["status"] == "open":
-                notional = o["qty"] * o["entry"]
+                notional = o["qty"] * px
                 tax = notional * config.SELL_TAX if short else 0.0
                 L["cash"] -= cost
                 p = {"id": _id(L, "p"), "code": o["code"], "name": o["name"], "side": o["side"],
-                     "qty": o["qty"], "entry": o["entry"], "stop": o["stop"],
+                     "qty": o["qty"], "entry": px, "stop": o["stop"],
                      "target": o["target"], "fillDate": date, "holdDay": 1,
                      "sector": o.get("sector"), "signal": o.get("signal"), "source": o.get("source"),
                      "decisionKey": o.get("decisionKey"), "orderId": o["id"],
@@ -380,7 +418,9 @@ def settle_day(L, date, bars):
                     p.update(entryTax=tax, borrowFee=0.0, collateral=o.get("collateral") or "cash")
                 L["positions"].append(p)
                 new_ids.add(p["id"])
-                o.update(status="filled", fillPrice=o["entry"], positionId=p["id"])
+                if irec:
+                    from_intraday[p["id"]] = irec
+                o.update(status="filled", fillPrice=px, positionId=p["id"])
                 if o.get("partial"):
                     o["partial"]["positionId"] = p["id"]
                     ev.setdefault("partials", []).append(o)
@@ -400,6 +440,14 @@ def settle_day(L, date, bars):
             hit_stop = b["low"] <= p["stop"]
             hit_tgt = bool(p.get("target")) and b.get("high") is not None and b["high"] >= p["target"]
             extreme = b.get("high")
+        rec = i_stops.get(p["id"]) or (from_intraday.get(p["id"]) or {}).get("stop_hit")
+        if rec:
+            # 장중 실행기 손절(체결 후 손절 포함) — 기록된 가격·시각으로 청산, 체결일 손절 유예 규칙보다 우선(순서를 알기 때문)
+            ev["exits"].append(_close_position(L, p, date, rec["price"], "stop",
+                                               note=f"장중 손절 {_hm(rec.get('ts'))}" + (" · 체결 후" if p["id"] in from_intraday else "")))
+            continue
+        if complete and (p["id"] in w_pos or p["id"] in from_intraday):
+            hit_stop = False                                 # 장중 실행기가 세션 내내 감시 — 손절 미도달로 확정
         if p["id"] in new_ids:
             if hit_stop:
                 if config.FILL_DAY_STOP == "review":
