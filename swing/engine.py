@@ -177,24 +177,34 @@ def close_position(L, p, date, price, reason, note=None):
     return _close_position(L, p, date, price, reason, note=note)
 
 
-def _close_position(L, p, date, price, reason, note=None):
-    cost = p["qty"] * p["entry"]
+def _close_position(L, p, date, price, reason, note=None, qty=None):
+    """qty 를 주면 그 수량만 청산(분할 청산, 2026-10-18) — 숏 진입세·대차수수료는 수량 비율로 나눠 반영하고 포지션은 남는다."""
+    q = p["qty"] if qty is None else min(int(qty), p["qty"])
+    part = q < p["qty"]
+    f = q / p["qty"] if p["qty"] else 1.0
+    cost = q * p["entry"]
     if is_short(p):
         # 환매: 담보 반환 + (공매도가 − 환매가) × 수량. 세금은 진입 때 이미 냄
-        gain = p["qty"] * (p["entry"] - price)
+        gain = q * (p["entry"] - price)
         L["cash"] += gain if is_subst(p) else cost + gain
-        tax = p.get("entryTax", 0.0)
-        fee = p.get("borrowFee", 0.0)
+        tax = p.get("entryTax", 0.0) * f
+        fee = p.get("borrowFee", 0.0) * f
         pnl = gain - tax - fee
+        if part:
+            p["entryTax"] = p.get("entryTax", 0.0) - tax
+            p["borrowFee"] = p.get("borrowFee", 0.0) - fee
     else:
-        gross = p["qty"] * price
+        gross = q * price
         tax = gross * config.SELL_TAX
         fee = 0.0
         pnl = gross - tax - cost
         L["cash"] += gross - tax
-    L["positions"].remove(p)
+    if part:
+        p["qty"] -= q
+    else:
+        L["positions"].remove(p)
     t = {"id": _id(L, "t"), "code": p["code"], "name": p["name"], "side": p["side"],
-         "qty": p["qty"], "entryDate": p["fillDate"], "entryPrice": p["entry"],
+         "qty": q, "entryDate": p["fillDate"], "entryPrice": p["entry"],
          "exitDate": date, "exitPrice": float(price), "reason": reason,
          "holdDays": p["holdDay"], "tax": round(tax), "pnl": round(pnl),
          "retPct": round(pnl / cost * 100, 2) if cost else 0.0,
@@ -205,6 +215,8 @@ def _close_position(L, p, date, price, reason, note=None):
         t["borrowFee"] = round(fee)
     if note:
         t["note"] = note
+    if part:
+        t["partial"] = True
     L["trades"].append(t)
     return t
 
@@ -271,6 +283,26 @@ def _hm(ts):
     return (ts or "")[11:16]
 
 
+def _apply_exit(L, p, rec, date, ev, reason):
+    """장중 실행기 청산 슬라이스 기록(시가 10%·VWAP 분할·±5% 전량·손절 첫 분할) → 체결 합 수량을 평균가로 청산.
+    남은 수량은 다음 영업일 계속(sellPending — 실행기가 없으면 엔진 ① 시가 청산). 반환 True = 기록 반영."""
+    fills = (rec or {}).get("fills") or []
+    q = min(sum(f["qty"] for f in fills), p["qty"])
+    if q <= 0:
+        return False
+    avg = sum(f["qty"] * f["price"] for f in fills) / sum(f["qty"] for f in fills)
+    sp = p.get("sellPending") or {}
+    modes = "·".join(dict.fromkeys(f.get("mode") or "?" for f in fills))
+    note = f"장중 분할 {len(fills)}회({modes}) {_hm(fills[0]['ts'])}~{_hm(fills[-1]['ts'])}"
+    if sp.get("reason"):
+        note = f"{sp['reason']} · {note}"
+    ev["exits"].append(_close_position(L, p, date, avg, reason, note=note, qty=q))
+    if p in L["positions"]:
+        p["sellPending"] = {"reason": f"분할 청산 잔여 {p['qty']:,}주 — 다음 영업일 계속", "decisionKey": sp.get("decisionKey"),
+                            "date": date, "kind": reason}
+    return True
+
+
 def settle_day(L, date, bars, intraday=None):
     """date 영업일 처리. bars = {code: {open, high, low, close}}. 이미 처리한 날은 무시.
     intraday = 그날 장중 VWAP 실행기 문서(intraday/<date>) — 감시한 주문은 분할 체결 기록으로 체결, 감시한 포지션은
@@ -281,7 +313,7 @@ def settle_day(L, date, bars, intraday=None):
     prev = L.get("asof")
     ev = {"filled": [], "cancelled": [], "skipped": [], "exits": []}
     I, w_ord, w_pos, complete = _intraday(intraday, date)
-    i_stops = (I or {}).get("stops") or {}
+    i_exits = (I or {}).get("exits") or {}
     from_intraday = {}                                       # 새 포지션 id → 실행기 주문 기록
 
     for p in L["positions"]:
@@ -290,6 +322,11 @@ def settle_day(L, date, bars, intraday=None):
     # ① 청산 예약 → 시가
     for p in list(L["positions"]):
         b = bars.get(p["code"])
+        if p.get("sellPending") and p["id"] in i_exits:
+            _apply_exit(L, p, i_exits[p["id"]], date, ev, p["sellPending"].get("kind") or "pm_sell")   # 시가 10% + VWAP 분할
+            continue
+        if p.get("sellPending") and complete and p["id"] in w_pos:
+            continue                                         # 실행기가 하루 감시했지만 체결 없음(거래정지 등) — 다음 날 계속
         if p.get("sellPending") and b and b.get("open"):
             sp = p["sellPending"]
             ev["exits"].append(_close_position(L, p, date, b["open"], sp.get("kind") or "pm_sell",
@@ -299,9 +336,9 @@ def settle_day(L, date, bars, intraday=None):
         b = bars.get(p["code"])
         if _stop_suspended(p, date):
             continue
-        rec = i_stops.get(p["id"])
-        if rec and rec.get("kind") == "stop_gap":
-            ev["exits"].append(_close_position(L, p, date, rec["price"], "stop_gap", note=f"장중 실행기 {_hm(rec.get('ts'))}"))
+        rec = i_exits.get(p["id"])
+        if rec and rec.get("trigger") == "stop" and rec.get("kind") == "stop_gap":
+            _apply_exit(L, p, rec, date, ev, "stop_gap")
             continue
         if rec or (complete and p["id"] in w_pos):
             continue                                         # 장중 실행기가 판정(④에서 손절가 청산 또는 미도달)
@@ -344,7 +381,7 @@ def settle_day(L, date, bars, intraday=None):
                 if fq < o["qty"]:
                     planned = o["qty"]
                     o["partial"] = {"planned": planned, "filled": fq, "remain": planned - fq}
-                    o["note"] = f"VWAP 분할 {len(irec['fills'])}/{len(irec['tranches'])} — {fq:,}/{planned:,}주, 잔여 {planned - fq:,}주 다음 영업일 추가 주문"
+                    o["note"] = f"장중 분할 {len(irec['fills'])}회 — {fq:,}/{planned:,}주, 잔여 {planned - fq:,}주 다음 영업일 추가 주문"
                 o["qty"] = fq
             else:
                 px = o["entry"]
@@ -419,7 +456,7 @@ def settle_day(L, date, bars, intraday=None):
                 L["positions"].append(p)
                 new_ids.add(p["id"])
                 if irec:
-                    from_intraday[p["id"]] = irec
+                    from_intraday[p["id"]] = dict(irec, _oid=o["id"])
                 o.update(status="filled", fillPrice=px, positionId=p["id"])
                 if o.get("partial"):
                     o["partial"]["positionId"] = p["id"]
@@ -440,12 +477,14 @@ def settle_day(L, date, bars, intraday=None):
             hit_stop = b["low"] <= p["stop"]
             hit_tgt = bool(p.get("target")) and b.get("high") is not None and b["high"] >= p["target"]
             extreme = b.get("high")
-        rec = i_stops.get(p["id"]) or (from_intraday.get(p["id"]) or {}).get("stop_hit")
+        oid = (from_intraday.get(p["id"]) or {}).get("_oid")
+        rec = i_exits.get(p["id"]) if (i_exits.get(p["id"]) or {}).get("trigger") == "stop" else (i_exits.get("o:" + oid) if oid else None)
         if rec:
-            # 장중 실행기 손절(체결 후 손절 포함) — 기록된 가격·시각으로 청산, 체결일 손절 유예 규칙보다 우선(순서를 알기 때문)
-            ev["exits"].append(_close_position(L, p, date, rec["price"], "stop",
-                                               note=f"장중 손절 {_hm(rec.get('ts'))}" + (" · 체결 후" if p["id"] in from_intraday else "")))
+            # 장중 실행기 손절(체결 후 손절 포함) — 손절 도달 10% + VWAP 분할·±5% 전량 기록으로 청산, 체결일 손절 유예 규칙보다 우선
+            _apply_exit(L, p, rec, date, ev, rec.get("kind") or "stop")
             continue
+        if p.get("sellPending") and p["id"] in i_exits:
+            continue                                         # 오늘 분할 청산 중(잔여 다음 날)
         if complete and (p["id"] in w_pos or p["id"] in from_intraday):
             hit_stop = False                                 # 장중 실행기가 세션 내내 감시 — 손절 미도달로 확정
         if p["id"] in new_ids:

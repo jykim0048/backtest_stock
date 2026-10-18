@@ -8,10 +8,19 @@ from swing import config, daily, engine as E, prices, store
 from swing.intraday.feed import KST, PollingFeed, ReplayFeed, Tick, parse_prices
 from swing.tests.test_daily import FixedAgent, b, wb
 from swing.vwap import config as C
-from swing.vwap.executor import Executor, tranche_qtys
+from swing.vwap.executor import Executor, slice_plan, tranche_qtys
 from swing.vwap.state import VwapState
 
 D0, D1 = "2026-10-16", "2026-10-19"          # 금 → 월
+ORIG_TRANCHES, ORIG_GAP = C.TRANCHES, C.MIN_GAP_MIN
+
+
+def setUpModule():
+    C.TRANCHES, C.MIN_GAP_MIN = 3, 20        # 시나리오 테스트는 3분할·20분 간격 기준으로 읽기 쉽게(운용 기본값은 60분할·5분)
+
+
+def tearDownModule():
+    C.TRANCHES, C.MIN_GAP_MIN = ORIG_TRANCHES, ORIG_GAP
 
 
 def ts(hm, date=D1, sec=0):
@@ -81,9 +90,15 @@ class TestFeedState(unittest.TestCase):
 
     def test_tranches(self):
         self.assertEqual(tranche_qtys(300), [100, 100, 100])
-        self.assertEqual(tranche_qtys(301), [100, 100, 101])
-        self.assertEqual(tranche_qtys(2), [2])
+        self.assertEqual(tranche_qtys(301), [101, 100, 100])
+        self.assertEqual(tranche_qtys(2), [1, 1])                       # 분할 수보다 적으면 1주씩
         self.assertEqual(tranche_qtys(0), [])
+
+    def test_default_60_tranches(self):
+        self.assertEqual((ORIG_TRANCHES, ORIG_GAP), (60, 5))
+        q = tranche_qtys(270, 60)
+        self.assertEqual((len(q), sum(q), q.count(5), q.count(4)), (60, 270, 30, 30))
+        self.assertEqual(tranche_qtys(45, 60), [1] * 45)
 
 
 class TestExecutor(unittest.TestCase):
@@ -93,95 +108,168 @@ class TestExecutor(unittest.TestCase):
     def ex(self, L):
         return Executor(self.st, D1, L, log=lambda *_: None)
 
-    def test_long_split_entry_cap_vwap_gap(self):
+    def fills(self, r):
+        return [(f["ts"][11:16], f["qty"], f["price"], f["mode"]) for f in r["fills"]]
+
+    def test_slice_plan(self):
+        self.assertEqual(slice_plan(300), [30, 90, 90, 90])
+        self.assertEqual(slice_plan(5), [1, 2, 1, 1])
+        self.assertEqual(slice_plan(1), [1])
+
+    def test_long_open_slice_ignores_cap_then_vwap_tranches(self):
         ex = self.ex(ledger_with(order={}))
-        run(ex, path("000010", [("09:00", 10200), ("09:05", 10100),      # 상한 위
+        run(ex, path("000010", [("09:00", 10200), ("09:05", 10100),      # 시가 10% 는 상한(10,000) 위라도 체결
                                 ("09:10", 9990),                          # ≤ 상한·VWAP → 1차
                                 ("09:15", 9980),                          # 간격 5분 < 20 → 대기
-                                ("09:30", 9990),                          # 2차
-                                ("09:40", 9960), ("09:50", 9970)]))       # 3차
+                                ("09:30", 9990), ("09:40", 9960), ("09:50", 9970)]))
         r = ex.doc["orders"]["o1"]
-        self.assertEqual([(f["ts"][11:16], f["qty"], f["price"]) for f in r["fills"]],
-                         [("09:10", 100, 9990), ("09:30", 100, 9990), ("09:50", 100, 9970)])
-        self.assertIn("o1", ex.doc["watched"]["orders"])
+        self.assertEqual(self.fills(r), [("09:00", 30, 10200, "open"), ("09:10", 90, 9990, "vwap"),
+                                         ("09:30", 90, 9990, "vwap"), ("09:50", 90, 9970, "vwap")])
+        self.assertTrue(r["done"])
 
-    def test_no_fill_above_vwap(self):
+    def test_no_vwap_fill_above_vwap_keeps_open_slice(self):
         ex = self.ex(ledger_with(order={}))
-        run(ex, path("000010", [("09:00", 9800), ("09:10", 9850), ("09:30", 9900)]))   # 상한 아래지만 계속 VWAP 위
-        self.assertEqual(ex.doc["orders"]["o1"]["fills"], [])
+        run(ex, path("000010", [("09:00", 9800), ("09:10", 9850), ("09:30", 9900)]))
+        self.assertEqual(self.fills(ex.doc["orders"]["o1"]), [("09:00", 30, 9800, "open")])
+
+    def test_force_all_on_5pct_move(self):
+        ex = self.ex(ledger_with(order={}))
+        run(ex, path("000010", [("09:00", 9800), ("09:10", 10300)]))      # 기준가 9,800 대비 +5.1% → 상한 무시 전량
+        r = ex.doc["orders"]["o1"]
+        self.assertEqual(self.fills(r)[-1], ("09:10", 270, 10300, "force"))
+        self.assertTrue(r["done"])
 
     def test_short_mirror(self):
         ex = self.ex(ledger_with(order={"side": "short", "entry": 10000.0, "stop": 10500.0}))
-        run(ex, path("000010", [("09:00", 9800), ("09:10", 9950), ("09:20", 10010)]))  # 10010 ≥ 하한·VWAP
-        self.assertEqual([f["price"] for f in ex.doc["orders"]["o1"]["fills"]], [10010])
+        run(ex, path("000010", [("09:00", 9800), ("09:10", 9950), ("09:20", 10010)]))
+        self.assertEqual(self.fills(ex.doc["orders"]["o1"]), [("09:00", 30, 9800, "open"), ("09:20", 90, 10010, "vwap")])
 
-    def test_fill_then_stop_cancels_rest(self):
+    def test_open_beyond_stop_skips_open_slice(self):
         ex = self.ex(ledger_with(order={}))
-        run(ex, path("000010", [("09:00", 10200), ("09:05", 10100), ("09:10", 9990), ("09:20", 9700, 9480)]))   # 꼬리로 손절 9500 터치
+        run(ex, path("000010", [("09:00", 9400), ("09:05", 9450)]))
         r = ex.doc["orders"]["o1"]
-        self.assertEqual((len(r["fills"]), r["done"], r["stop_hit"]["price"]), (1, True, 9500.0))
+        self.assertEqual((r["fills"], r["plan"][:2]), ([], [0, 120]))
 
-    def test_position_stop_tail_and_first_gap(self):
+    def test_fill_then_stop_opens_exit_slices(self):
+        ex = self.ex(ledger_with(order={}))
+        run(ex, path("000010", [("09:00", 10200), ("09:05", 10100), ("09:10", 9990),
+                                ("09:20", 9700, 9480),                    # 꼬리로 손절 9,500 터치
+                                ("09:25", 9000)]))                        # 손절가 대비 −5.3% → 남은 청산 전량
+        r, x = ex.doc["orders"]["o1"], ex.doc["exits"]["o:o1"]
+        self.assertTrue(r["done"])
+        self.assertEqual((x["planned"], x["trigger"]), (120, "stop"))
+        self.assertEqual(self.fills(x), [("09:20", 12, 9500.0, "stop"), ("09:25", 108, 9000, "force")])
+
+    def test_position_stop_then_vwap_sell(self):
         ex = self.ex(ledger_with(position={}))
-        run(ex, path("000020", [("09:00", 5000), ("09:30", 4900, 4790)]))
-        self.assertEqual((ex.doc["stops"]["p1"]["price"], ex.doc["stops"]["p1"]["kind"]), (4800.0, "stop"))
-        st2 = store.FileStore(tempfile.mkdtemp())
-        ex2 = Executor(st2, D1, ledger_with(position={}), log=lambda *_: None)
-        run(ex2, path("000020", [("10:00", 4750, 4700)], date=D1))            # 기동 지연 — 시가(4750)부터 손절 아래
-        self.assertEqual(ex2.doc["stops"]["p1"]["kind"], "stop_gap")
+        run(ex, path("000020", [("09:00", 5000), ("09:30", 4900, 4790),  # 손절 → 10주 @ 4,800
+                                ("09:40", 4950)]))                        # VWAP(4,950) 이상 → 30주
+        x = ex.doc["exits"]["p1"]
+        self.assertEqual(self.fills(x), [("09:30", 10, 4800.0, "stop"), ("09:40", 30, 4950, "vwap")])
 
-    def test_excludes_sell_pending_and_held(self):
-        L = ledger_with(order={"code": "000020"}, position={"sellPending": {"kind": "pm_sell"}})
-        ex = self.ex(L)
-        self.assertEqual((ex.doc["watched"]["orders"], ex.doc["watched"]["positions"]), ([], []))
+    def test_first_observation_gap(self):
+        ex = self.ex(ledger_with(position={}))
+        run(ex, path("000020", [("10:00", 4750, 4700)]))                 # 기동 지연 — 시가(4,750)부터 손절 아래
+        self.assertEqual(ex.doc["exits"]["p1"]["kind"], "stop_gap")
+        self.assertEqual(ex.doc["exits"]["p1"]["fills"][0]["price"], 4750)
+
+    def test_scheduled_exit_open_slice_and_vwap(self):
+        ex = self.ex(ledger_with(position={"sellPending": {"kind": "pm_sell", "reason": "PM Sell"}}))
+        run(ex, path("000020", [("09:00", 5000), ("09:10", 4900), ("09:20", 5050)]))
+        x = ex.doc["exits"]["p1"]
+        self.assertEqual((x["trigger"], x["kind"]), ("scheduled", "pm_sell"))
+        self.assertEqual(self.fills(x), [("09:00", 10, 5000, "open"), ("09:20", 30, 5050, "vwap")])
+        self.assertNotIn("p1", ex.positions)                             # 예약 청산 중엔 손절 감시 대신 분할 청산
+
+    def test_excludes_held_code_order(self):
+        ex = self.ex(ledger_with(order={"code": "000020"}, position={}))
+        self.assertEqual((ex.doc["watched"]["orders"], ex.doc["watched"]["positions"]), ([], ["p1"]))
 
     def test_restart_keeps_doc(self):
         ex = self.ex(ledger_with(order={}))
         run(ex, path("000010", [("09:00", 10200), ("09:05", 10100), ("09:10", 9990)]))
         ex.save(ticks=True)
         ex2 = self.ex(ledger_with(order={}))
-        self.assertEqual(len(ex2.doc["orders"]["o1"]["fills"]), 1)
+        self.assertEqual(len(ex2.doc["orders"]["o1"]["fills"]), 2)
         self.assertAlmostEqual(ex2.states["000010"].vwap, (10200 + 10100 + 9990) / 3)
 
 
-def doc(orders=None, stops=None, watched_o=(), watched_p=(), complete=True):
+def doc(orders=None, exits=None, watched_o=(), watched_p=(), complete=True):
     return {"date": D1, "complete": complete, "asof": ts("15:30"),
             "watched": {"orders": list(watched_o), "positions": list(watched_p)},
-            "orders": orders or {}, "stops": stops or {}}
+            "orders": orders or {}, "exits": exits or {}}
 
 
 def fills(*rows):
-    return {"tranches": [100, 100, 100], "fills": [{"ts": ts(h), "qty": q, "price": p} for h, q, p in rows], "stop_hit": None}
+    return {"plan": [30, 90, 90, 90], "fills": [{"ts": ts(h), "qty": q, "price": p, "mode": "vwap"} for h, q, p in rows]}
+
+
+def xrec(trigger, kind, *rows):
+    return {"trigger": trigger, "kind": kind, "fills": [{"ts": ts(h), "qty": q, "price": p, "mode": m} for h, q, p, m in rows]}
 
 
 class TestSettleIntraday(unittest.TestCase):
     def test_avg_price_and_partial_remainder(self):
         L = ledger_with(order={})
-        I = doc(orders={"o1": fills(("09:10", 100, 9990), ("09:30", 100, 9970))}, watched_o=["o1"])
-        ev = E.settle_day(L, D1, {"000010": b(10100, 10200, 9950, 10000)}, intraday=I)
+        I = doc(orders={"o1": fills(("09:00", 30, 10200), ("09:30", 90, 9970))}, watched_o=["o1"])
+        ev = E.settle_day(L, D1, {"000010": b(10200, 10250, 9950, 10000)}, intraday=I)
         p = L["positions"][0]
-        self.assertEqual((p["qty"], p["entry"]), (200, 9980))
-        self.assertEqual(ev["partials"][0]["partial"]["remain"], 100)
+        self.assertEqual((p["qty"], round(p["entry"], 2)), (120, round((30 * 10200 + 90 * 9970) / 120, 2)))
+        self.assertEqual(ev["partials"][0]["partial"]["remain"], 180)
         self.assertEqual(L["orderLog"][-1]["entry"], 10000.0)          # 상한은 유지(잔여분 레벨)
 
     def test_zero_fill_cancels_even_if_daily_low_reached(self):
         L = ledger_with(order={})
-        I = doc(orders={"o1": fills()}, watched_o=["o1"])
-        ev = E.settle_day(L, D1, {"000010": b(10100, 10200, 9900, 10000)}, intraday=I)
+        ev = E.settle_day(L, D1, {"000010": b(10100, 10200, 9900, 10000)}, intraday=doc(orders={"o1": fills()}, watched_o=["o1"]))
         self.assertFalse(L["positions"])
         self.assertTrue(ev["cancelled"][0]["note"].startswith("미도달(VWAP"))
 
-    def test_intraday_stop_closes_at_record(self):
+    def test_stop_exit_partial_carries_remainder(self):
         L = ledger_with(position={})
-        I = doc(stops={"p1": {"ts": ts("13:05"), "price": 4800.0, "kind": "stop"}}, watched_p=["p1"])
+        I = doc(exits={"p1": xrec("stop", "stop", ("13:05", 10, 4800.0, "stop"), ("13:30", 30, 4850.0, "vwap"))},
+                watched_p=["p1"])
         ev = E.settle_day(L, D1, {"000020": b(5000, 5050, 4790, 4900)}, intraday=I)
-        self.assertEqual((ev["exits"][0]["reason"], ev["exits"][0]["exitPrice"]), ("stop", 4800.0))
+        t = ev["exits"][0]
+        self.assertEqual((t["reason"], t["qty"], t["exitPrice"], t.get("partial")), ("stop", 40, 4837.5, True))
+        p = L["positions"][0]
+        self.assertEqual((p["qty"], p["sellPending"]["kind"]), (60, "stop"))
+        ev2 = E.settle_day(L, "2026-10-20", {"000020": b(4700, 4750, 4650, 4700)})   # 실행기 없는 다음 날 → 시가 청산
+        self.assertEqual((ev2["exits"][0]["qty"], ev2["exits"][0]["exitPrice"]), (60, 4700))
+        self.assertFalse(L["positions"])
 
     def test_stop_gap_record(self):
         L = ledger_with(position={})
-        I = doc(stops={"p1": {"ts": ts("09:00"), "price": 4700.0, "kind": "stop_gap"}}, watched_p=["p1"])
+        I = doc(exits={"p1": xrec("stop", "stop_gap", ("09:00", 100, 4700.0, "stop_gap"))}, watched_p=["p1"])
         ev = E.settle_day(L, D1, {"000020": b(4700, 4750, 4650, 4700)}, intraday=I)
         self.assertEqual((ev["exits"][0]["reason"], ev["exits"][0]["exitPrice"]), ("stop_gap", 4700.0))
+        self.assertFalse(L["positions"])
+
+    def test_scheduled_exit_full(self):
+        L = ledger_with(position={"sellPending": {"kind": "pm_sell", "reason": "PM Sell"}})
+        I = doc(exits={"p1": xrec("scheduled", "pm_sell", ("09:00", 10, 5000.0, "open"), ("10:00", 90, 5100.0, "force"))},
+                watched_p=["p1"])
+        ev = E.settle_day(L, D1, {"000020": b(5000, 5150, 4950, 5100)}, intraday=I)
+        self.assertEqual((ev["exits"][0]["reason"], ev["exits"][0]["qty"], ev["exits"][0]["exitPrice"]), ("pm_sell", 100, 5090.0))
+        self.assertFalse(L["positions"])
+
+    def test_scheduled_exit_no_fills_complete_carries(self):
+        L = ledger_with(position={"sellPending": {"kind": "pm_sell", "reason": "PM Sell"}})
+        ev = E.settle_day(L, D1, {"000020": b(5000, 5150, 4950, 5100)}, intraday=doc(watched_p=["p1"]))
+        self.assertFalse(ev["exits"])
+        self.assertTrue(L["positions"][0]["sellPending"])
+
+    def test_short_partial_close_sums_to_full_pnl(self):
+        def short_ledger():
+            return ledger_with(position={"side": "short", "entry": 5000.0, "stop": 5300.0, "entryTax": 1000.0, "borrowFee": 200.0})
+        full = short_ledger()
+        t = E.close_position(full, full["positions"][0], D1, 4800.0, "x")
+        part = short_ledger()
+        p = part["positions"][0]
+        t1 = E._close_position(part, p, D1, 4800.0, "x", qty=30)
+        t2 = E._close_position(part, p, D1, 4800.0, "x")
+        self.assertAlmostEqual(t1["pnl"] + t2["pnl"], t["pnl"], delta=1)
+        self.assertAlmostEqual(part["cash"], full["cash"])
+        self.assertFalse(part["positions"])
 
     def test_complete_without_record_ignores_daily_low(self):
         L = ledger_with(position={})
@@ -193,13 +281,14 @@ class TestSettleIntraday(unittest.TestCase):
         ev = E.settle_day(L, D1, {"000020": b(5000, 5050, 4790, 4900)}, intraday=doc(watched_p=["p1"], complete=False))
         self.assertEqual(ev["exits"][0]["reason"], "stop")
 
-    def test_fill_day_stop_from_intraday_closes_same_day(self):
+    def test_fill_day_stop_from_intraday(self):
         L = ledger_with(order={})
-        rec = fills(("09:10", 100, 9990))
-        rec["stop_hit"] = {"ts": ts("11:00"), "price": 9500.0, "kind": "stop"}
-        ev = E.settle_day(L, D1, {"000010": b(10100, 10200, 9400, 9600)}, intraday=doc(orders={"o1": rec}, watched_o=["o1"]))
+        I = doc(orders={"o1": fills(("09:00", 30, 10100), ("09:10", 90, 9990))},
+                exits={"o:o1": xrec("stop", "stop", ("11:00", 12, 9500.0, "stop"), ("11:05", 108, 9000.0, "force"))},
+                watched_o=["o1"])
+        ev = E.settle_day(L, D1, {"000010": b(10100, 10200, 8900, 9100)}, intraday=I)
         self.assertFalse(L["positions"])
-        self.assertEqual((ev["exits"][0]["exitPrice"], ev["exits"][0]["qty"]), (9500.0, 100))
+        self.assertEqual(ev["exits"][0]["qty"], 120)
         self.assertFalse(ev.get("deferredStops"))
 
     def test_other_date_doc_ignored(self):
