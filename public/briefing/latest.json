@@ -1,74 +1,326 @@
 {
-  "date": "2026-10-16",
-  "asof": "2026-10-16 07:47",
-  "sourceAsof": "2026-10-16 07:44",
-  "generatedBy": "gemini-2.5-flash",
-  "stance": "중립",
-  "stanceReason": "다우와 S&P500은 상승했으나 나스닥과 필라델피아 반도체 지수는 하락했고, VIX 변동성 지수는 소폭 하락하며 혼조세를 보였습니다. 특히 생산자물가지수(PPI)와 소매판매가 예상치를 상회하며 인플레이션 우려가 재부각된 점이 시장에 부담으로 작용했습니다.",
+  "date": "2026-10-19",
+  "asof": "2026-10-19 07:53",
+  "sourceAsof": "2026-10-19 07:45",
+  "generatedBy": "gemini-3.1-flash-lite",
+  "stance": "위험회피",
+  "stanceReason": "나스닥과 필라델피아 반도체 지수의 급락 및 VIX 지수의 21.45% 급등으로 시장의 공포 심리가 극대화됨.",
   "usReview": {
     "bullets": [
-      "전일 미국 증시는 다우 지수가 1.08% 상승하고 S&P500이 0.33% 오르는 등 주요 지수가 상승 마감했으나, 나스닥은 0.08% 소폭 상승, 필라델피아 반도체 지수는 0.88% 하락하며 기술주 내 차별화가 나타났습니다.",
-      "미국 9월 생산자물가지수(PPI)는 전월 대비 1.3% 상승하며 예상치(0.6%)를 크게 상회했고, 소매판매 역시 전월 대비 0.8% 증가하며 예상치(0.3%)를 상회하여 인플레이션 압력이 재부각되었습니다.",
-      "섹터별로는 바이오(2.05%)와 헬스케어(1.86%)가 강세를 보인 반면, 에너지(-1.58%)와 반도체(-1.04%) 섹터는 약세를 기록했습니다.",
-      "오픈AI와 앤트로픽에 대한 미국 FTC의 해킹 논란 및 경영진 소환 조사 착수 소식은 AI 산업 전반의 규제 리스크를 부각시키며 관련 기술주 투자 심리에 부정적인 영향을 주었습니다."
+      "나스닥이 2.15% 하락하고 필라델피아 반도체 지수가 3.83% 급락하는 등 기술주 중심의 투매 현상이 시장 전반을 압도함.",
+      "미국 수입 물가 지수(8.1%)와 산업생산(0.7%)이 모두 이전치 대비 상회하며 인플레이션 및 금리 불확실성을 자극함.",
+      "AI 거품론과 코어위브 관련 우려가 반도체 및 기술 섹터의 밸류에이션 고평가 논란을 재점화하며 투자 심리를 위축시킴."
     ]
   },
   "flow": [
     {
+      "usTheme": "에너지",
+      "usChangePct": 2.52,
+      "usStocks": [
+        {
+          "symbol": "EOG",
+          "name": "EOG Resources",
+          "changePct": 4.23
+        },
+        {
+          "symbol": "COP",
+          "name": "ConocoPhillips",
+          "changePct": 3.37
+        },
+        {
+          "symbol": "CVX",
+          "name": "Chevron",
+          "changePct": 2.59
+        },
+        {
+          "symbol": "XOM",
+          "name": "ExxonMobil",
+          "changePct": 2.46
+        },
+        {
+          "symbol": "SLB",
+          "name": "SLB",
+          "changePct": 2.34
+        }
+      ],
+      "krTheme": "정유·에너지",
+      "krStocks": [
+        {
+          "code": "010950",
+          "name": "S-Oil",
+          "changePct": -3.58
+        },
+        {
+          "code": "096770",
+          "name": "SK이노베이션",
+          "changePct": -1.94
+        },
+        {
+          "code": "047050",
+          "name": "포스코인터내셔널",
+          "changePct": 1.63
+        },
+        {
+          "code": "078930",
+          "name": "GS",
+          "changePct": -1.48
+        }
+      ],
+      "industryReports": [
+        {
+          "category": "유틸리티",
+          "title": "SMP는 11월까지 높아지지 않을 수도",
+          "broker": "하나증권",
+          "date": "2026-10-16",
+          "url": "https://stock.naver.com/research/industry/46502",
+          "pdfUrl": "",
+          "summary": "주간 리뷰 - 주간 커버리지 합산 수익률은 시장을 11.8% 상회했다. 14일 종가 기준 WTI 101.9달러/배럴(WoW +7.3%), 미국 천연가스 3.3달러/mmbtu(+2.2%), 아시아 LNG 현물 26.4달러/mmbtu(+1.9%), 호주산 유연탄 150.4달러/톤(+0.1%), 원/달러 환율 1,339.5원(+0.0%)을 기록했다. 유럽 가스 재고와 JKM 가격이 동반 상승 중이다. 미국산 LNG 확보 업체에 수혜가 기대된다. - 10월 3번째 주 들어 전력 공급능력이 90GW를 하회하고 있다. 최대전력수요는 10월 초부터 대체로 전년대비 증가하는 가운데 일별 SMP는 평일 110원/kWh을 지속적으로 하회해왔다. SMP 결정 요소 중 연료비단가, 전력수요, 공급능력 모두 전년대비 크지 않은 범"
+        },
+        {
+          "category": "유틸리티",
+          "title": "8월 전력통계월보: 높아진 구입단가. 9월부터 하락 전망",
+          "broker": "하나증권",
+          "date": "2026-10-15",
+          "url": "https://stock.naver.com/research/industry/46487",
+          "pdfUrl": ""
+        },
+        {
+          "category": "에너지",
+          "title": "[IBKS 에너지/소재 In-Depth] 윤활기유의 시대",
+          "broker": "IBK투자증권",
+          "date": "2026-10-15",
+          "url": "https://stock.naver.com/research/industry/46472",
+          "pdfUrl": ""
+        }
+      ],
+      "rationale": "유럽 가스 재고 상승과 JKM 가격 강세로 미국산 LNG 확보 업체 및 에너지 섹터의 상대적 강세가 이어짐."
+    },
+    {
+      "usTheme": "소재",
+      "usChangePct": 0.71,
+      "usStocks": [
+        {
+          "symbol": "NEM",
+          "name": "Newmont",
+          "changePct": 2.43
+        },
+        {
+          "symbol": "LIN",
+          "name": "Linde",
+          "changePct": 1.06
+        },
+        {
+          "symbol": "APD",
+          "name": "Air Products",
+          "changePct": 1.01
+        },
+        {
+          "symbol": "FCX",
+          "name": "Freeport-McMoRan",
+          "changePct": -0.74
+        },
+        {
+          "symbol": "SHW",
+          "name": "Sherwin-Williams",
+          "changePct": -0.51
+        }
+      ],
+      "krTheme": "소재·화학",
+      "krStocks": [
+        {
+          "code": "003670",
+          "name": "포스코퓨처엠",
+          "changePct": -0.81
+        },
+        {
+          "code": "051910",
+          "name": "LG화학",
+          "changePct": 0.79
+        },
+        {
+          "code": "011780",
+          "name": "금호석유화학",
+          "changePct": -0.7
+        },
+        {
+          "code": "011170",
+          "name": "롯데케미칼",
+          "changePct": 0.55
+        }
+      ],
+      "industryReports": [
+        {
+          "category": "철강금속",
+          "title": "인고의 시간",
+          "broker": "대신증권",
+          "date": "2026-10-15",
+          "url": "https://stock.naver.com/research/industry/46480",
+          "pdfUrl": "",
+          "summary": "철강 섹터 투자 전략: 3분기 실적 모멘텀 제한적, 시선을 멀리 두자 3Q는 연중 실적 모멘텀이 낮은 비수기. 자동차, 조선향 판가 인상에도 원달러 환율 하락이 수출단가에 부정적으로 작용하며 ASP 상승 제한, 고로 투입원가는 원료탄 가격 상승으로 2Q 49.6만원/톤→3Q 51.3만원/톤, 전기로 투입원가는 상반기 고가의 스크랩 재고 투입으로 2Q 42.7만원/톤→ 3Q 42.4만원/톤으로 하락 폭 제한적. 비수기 진입과 조업일수 감소로 판매량도 감소. 철강업종 주가는 연초 이후 역사적 저점 수준에서 오랜 시간 머물러 있어 다운사이드 리스크보다는 주가 상승 요인에 주목해야 할 시점. 2H 철강 본업에 대한 실적 기대가 제한적이고, 신사업도 단기적으로 소강상태에 접어드는 가운데, 산업용 지역 전기요금제, 데"
+        },
+        {
+          "category": "철강금속",
+          "title": "2027 WSA 철강 수요전망",
+          "broker": "유진투자증권",
+          "date": "2026-10-13",
+          "url": "https://stock.naver.com/research/industry/46446",
+          "pdfUrl": ""
+        },
+        {
+          "category": "석유화학",
+          "title": "정유화학 Weekly - 디젤 공급난이 흔드는 미국 시장",
+          "broker": "유진투자증권",
+          "date": "2026-10-13",
+          "url": "https://stock.naver.com/research/industry/46444",
+          "pdfUrl": ""
+        }
+      ],
+      "rationale": "철강 섹터의 실적 모멘텀은 제한적이나, 역사적 저점 수준의 주가로 인해 다운사이드 리스크보다는 반등 요인에 주목하는 흐름."
+    },
+    {
+      "usTheme": "금융",
+      "usChangePct": 0.45,
+      "usStocks": [
+        {
+          "symbol": "WFC",
+          "name": "Wells Fargo",
+          "changePct": 1.35
+        },
+        {
+          "symbol": "JPM",
+          "name": "JPMorgan Chase",
+          "changePct": 1.25
+        },
+        {
+          "symbol": "GS",
+          "name": "Goldman Sachs",
+          "changePct": -1.12
+        },
+        {
+          "symbol": "BAC",
+          "name": "Bank of America",
+          "changePct": -0.91
+        },
+        {
+          "symbol": "MS",
+          "name": "Morgan Stanley",
+          "changePct": -0.84
+        }
+      ],
+      "krTheme": "은행·증권",
+      "krStocks": [
+        {
+          "code": "006800",
+          "name": "미래에셋증권",
+          "changePct": 4.27
+        },
+        {
+          "code": "016360",
+          "name": "삼성증권",
+          "changePct": 3.54
+        },
+        {
+          "code": "105560",
+          "name": "KB금융",
+          "changePct": 2.11
+        },
+        {
+          "code": "055550",
+          "name": "신한지주",
+          "changePct": -0.85
+        },
+        {
+          "code": "316140",
+          "name": "우리금융지주",
+          "changePct": 0.64
+        }
+      ],
+      "industryReports": [
+        {
+          "category": "은행",
+          "title": "9월 여수신: 조달 구조 개선과 기업대 경쟁 완화가 필요",
+          "broker": "한화투자증권",
+          "date": "2026-10-16",
+          "url": "https://stock.naver.com/research/industry/46507",
+          "pdfUrl": "",
+          "summary": "예금은행 9월 여신 동향 - 9월 예금은행 대출잔액은 2,640조원(+4% YoY)으로 월 중 11조원 증가 - 기업 대출(그림3): 자영업자 대출은 19개월째 1% 이하의 증가율(이하 YoY)을 지속. 은행들의 공급 확대로 증가율이 상승세를 보였던 법인 중소기업 대출은 6% 내외 수준을 유지함. 대기업 대출은 분기 말 계절성에도 불구하고 전월 대비 7.5조원 증가하면서 근 4년래 최대 순증폭을 기록 - 가계 대출(그림2): 주택대출은 월 중 3조원 증가. 지난 1~3월 중 정체를 나타냈던 주택대출 잔액은 4월 이후 매월 3~4조원 증가. 다만 아파트 매매 거래량은 최근 월 5만건 내외에서 8월에는 3.8만건으로 감소했고 전세대출이 12개월 연속 감소하면서 증가세는 둔화될 것으로 예상. 한편 일반대출(신용 "
+        },
+        {
+          "category": "은행",
+          "title": "9 월 여수신 동향 - 조달 포트폴리오 악화 지속",
+          "broker": "SK증권",
+          "date": "2026-10-16",
+          "url": "https://stock.naver.com/research/industry/46498",
+          "pdfUrl": ""
+        },
+        {
+          "category": "보험",
+          "title": "투자손익 부진에도 보험손익은 점진적 개선",
+          "broker": "iM증권",
+          "date": "2026-10-16",
+          "url": "https://stock.naver.com/research/industry/46496",
+          "pdfUrl": ""
+        }
+      ],
+      "rationale": "글로벌 금융 시장의 투자 심리 개선과 블랙록 등 대형 금융주의 호실적 기대감이 국내 증권업종의 투자 심리를 지지함."
+    }
+  ],
+  "downFlow": [
+    {
       "usTheme": "바이오",
-      "usChangePct": 2.05,
+      "usChangePct": -3.65,
       "usStocks": [
         {
           "symbol": "MRNA",
           "name": "Moderna",
-          "changePct": 4.51
-        },
-        {
-          "symbol": "GILD",
-          "name": "Gilead Sciences",
-          "changePct": 2.49
-        },
-        {
-          "symbol": "REGN",
-          "name": "Regeneron",
-          "changePct": 2.31
+          "changePct": -7.82
         },
         {
           "symbol": "VRTX",
           "name": "Vertex Pharmaceuticals",
-          "changePct": 2.06
+          "changePct": -1.77
+        },
+        {
+          "symbol": "GILD",
+          "name": "Gilead Sciences",
+          "changePct": -0.75
+        },
+        {
+          "symbol": "REGN",
+          "name": "Regeneron",
+          "changePct": -0.7
         },
         {
           "symbol": "AMGN",
           "name": "Amgen",
-          "changePct": 1.86
+          "changePct": -0.35
         }
       ],
       "krTheme": "제약·바이오",
       "krStocks": [
         {
-          "code": "141080",
-          "name": "리가켐바이오",
-          "changePct": -4.99
-        },
-        {
           "code": "196170",
           "name": "알테오젠",
-          "changePct": -4.9
+          "changePct": 9.6
         },
         {
-          "code": "145020",
-          "name": "휴젤",
-          "changePct": -2.32
-        },
-        {
-          "code": "214150",
-          "name": "클래시스",
-          "changePct": -2.15
+          "code": "141080",
+          "name": "리가켐바이오",
+          "changePct": 8.76
         },
         {
           "code": "068270",
           "name": "셀트리온",
+          "changePct": 6.53
+        },
+        {
+          "code": "145020",
+          "name": "휴젤",
+          "changePct": 6.29
+        },
+        {
+          "code": "214150",
+          "name": "클래시스",
           "changePct": 1.28
         }
       ],
@@ -99,1475 +351,1062 @@
           "pdfUrl": ""
         }
       ],
-      "rationale": "미국 바이오 섹터의 강세는 Moderna, Gilead Sciences 등 주요 종목의 상승에 힘입은 것으로, 국내 제약·바이오 테마는 견고한 펀더멘털과 기술이전 성과에 대한 기대감으로 동반 상승할 수 있습니다."
-    },
-    {
-      "usTheme": "헬스케어",
-      "usChangePct": 1.86,
-      "usStocks": [
-        {
-          "symbol": "LLY",
-          "name": "Eli Lilly",
-          "changePct": 3.55
-        },
-        {
-          "symbol": "UNH",
-          "name": "UnitedHealth",
-          "changePct": 2.79
-        },
-        {
-          "symbol": "PFE",
-          "name": "Pfizer",
-          "changePct": 0.79
-        },
-        {
-          "symbol": "JNJ",
-          "name": "Johnson & Johnson",
-          "changePct": -0.25
-        },
-        {
-          "symbol": "ABBV",
-          "name": "AbbVie",
-          "changePct": -0.03
-        }
-      ],
-      "krTheme": "헬스케어",
-      "krStocks": [
-        {
-          "code": "207940",
-          "name": "삼성바이오로직스",
-          "changePct": 5.5
-        },
-        {
-          "code": "000100",
-          "name": "유한양행",
-          "changePct": 5.09
-        },
-        {
-          "code": "128940",
-          "name": "한미약품",
-          "changePct": -4.57
-        },
-        {
-          "code": "185750",
-          "name": "종근당",
-          "changePct": 1.99
-        },
-        {
-          "code": "326030",
-          "name": "에스케이바이오팜",
-          "changePct": -1.28
-        }
-      ],
-      "industryReports": [
-        {
-          "category": "제약",
-          "title": "Kiwoom Healthcare 종합정리 (10/06)",
-          "broker": "키움증권",
-          "date": "2026-10-06",
-          "url": "https://stock.naver.com/research/industry/46312",
-          "pdfUrl": "",
-          "summary": "▶ 제약/바이오 - Sanofi-Regeneron, 최대 $8B 규모 계약으로 차세대 면역질환 항체 협력 확대(10/2) 사노피가 리제네론에 선급금 $1B, 마일스톤 최대 $7B 지급. IL-13, IL-4/IL-13 이중항체 등 포함 지속형 항체 4종 공동 개발 양사는 개발비와 향후 이익을 50:50으로 분담. 아토피피부염 치료제 REGN20423은 1상이며 나머지 3종은 2027년 임상 진입 예정 - 에이프릴 파트너사 에보뮨, 아토피 치료제 후보 2a상 유의미한 치료효과 확인(10/1) ‘2회’ 투여만으로 12주차 EASI 55% 개선…위약군 22% 대비 유의한 효과 다양한 염증 경로 조절 확인…2027년 글로벌 임상2b상 진입 예정 - Lilly, 아밀린+tirzepatide 병용으로 당뇨 동반 비만 "
-        },
-        {
-          "category": "바이오",
-          "title": "하나 Biweekly 제약/바이오(10월 초)",
-          "broker": "하나증권",
-          "date": "2026-10-02",
-          "url": "https://stock.naver.com/research/industry/46303",
-          "pdfUrl": ""
-        },
-        {
-          "category": "제약",
-          "title": "쇼킹하지 않은 악재 , 서프라이즈한 호재",
-          "broker": "키움증권",
-          "date": "2026-09-28",
-          "url": "https://stock.naver.com/research/industry/46207",
-          "pdfUrl": ""
-        }
-      ],
-      "rationale": "미국 헬스케어 섹터는 Eli Lilly, UnitedHealth 등 대형주의 실적 기대감과 견조한 흐름을 보였으며, 이는 국내 헬스케어 대표주인 삼성바이오로직스, 유한양행 등에도 긍정적인 영향을 미칠 수 있습니다."
-    },
-    {
-      "usTheme": "소재",
-      "usChangePct": 1.79,
-      "usStocks": [
-        {
-          "symbol": "SHW",
-          "name": "Sherwin-Williams",
-          "changePct": 3.81
-        },
-        {
-          "symbol": "NEM",
-          "name": "Newmont",
-          "changePct": 3.79
-        },
-        {
-          "symbol": "APD",
-          "name": "Air Products",
-          "changePct": 1.39
-        },
-        {
-          "symbol": "FCX",
-          "name": "Freeport-McMoRan",
-          "changePct": 0.63
-        },
-        {
-          "symbol": "LIN",
-          "name": "Linde",
-          "changePct": 0.11
-        }
-      ],
-      "krTheme": "소재·화학",
-      "krStocks": [
-        {
-          "code": "003670",
-          "name": "포스코퓨처엠",
-          "changePct": -6.69
-        },
-        {
-          "code": "051910",
-          "name": "LG화학",
-          "changePct": -5.79
-        },
-        {
-          "code": "011170",
-          "name": "롯데케미칼",
-          "changePct": -5.57
-        },
-        {
-          "code": "011780",
-          "name": "금호석유화학",
-          "changePct": -2.06
-        }
-      ],
-      "industryReports": [
-        {
-          "category": "철강금속",
-          "title": "인고의 시간",
-          "broker": "대신증권",
-          "date": "2026-10-15",
-          "url": "https://stock.naver.com/research/industry/46480",
-          "pdfUrl": "",
-          "summary": "철강 섹터 투자 전략: 3분기 실적 모멘텀 제한적, 시선을 멀리 두자 3Q는 연중 실적 모멘텀이 낮은 비수기. 자동차, 조선향 판가 인상에도 원달러 환율 하락이 수출단가에 부정적으로 작용하며 ASP 상승 제한, 고로 투입원가는 원료탄 가격 상승으로 2Q 49.6만원/톤→3Q 51.3만원/톤, 전기로 투입원가는 상반기 고가의 스크랩 재고 투입으로 2Q 42.7만원/톤→ 3Q 42.4만원/톤으로 하락 폭 제한적. 비수기 진입과 조업일수 감소로 판매량도 감소. 철강업종 주가는 연초 이후 역사적 저점 수준에서 오랜 시간 머물러 있어 다운사이드 리스크보다는 주가 상승 요인에 주목해야 할 시점. 2H 철강 본업에 대한 실적 기대가 제한적이고, 신사업도 단기적으로 소강상태에 접어드는 가운데, 산업용 지역 전기요금제, 데"
-        },
-        {
-          "category": "철강금속",
-          "title": "2027 WSA 철강 수요전망",
-          "broker": "유진투자증권",
-          "date": "2026-10-13",
-          "url": "https://stock.naver.com/research/industry/46446",
-          "pdfUrl": ""
-        },
-        {
-          "category": "석유화학",
-          "title": "정유화학 Weekly - 디젤 공급난이 흔드는 미국 시장",
-          "broker": "유진투자증권",
-          "date": "2026-10-13",
-          "url": "https://stock.naver.com/research/industry/46444",
-          "pdfUrl": ""
-        }
-      ],
-      "rationale": "미국 소재 섹터는 Sherwin-Williams, Newmont 등의 상승으로 강세를 보였으며, 국내 소재·화학 테마는 철강 섹터의 비수기에도 불구하고 장기적인 관점에서 주가 상승 요인에 주목할 필요가 있습니다."
-    }
-  ],
-  "downFlow": [
-    {
-      "usTheme": "에너지",
-      "usChangePct": -1.58,
-      "usStocks": [
-        {
-          "symbol": "XOM",
-          "name": "ExxonMobil",
-          "changePct": -1.32
-        },
-        {
-          "symbol": "CVX",
-          "name": "Chevron",
-          "changePct": -1.22
-        },
-        {
-          "symbol": "EOG",
-          "name": "EOG Resources",
-          "changePct": -1.02
-        },
-        {
-          "symbol": "COP",
-          "name": "ConocoPhillips",
-          "changePct": -0.43
-        },
-        {
-          "symbol": "SLB",
-          "name": "SLB",
-          "changePct": -0.29
-        }
-      ],
-      "krTheme": "정유·에너지",
-      "krStocks": [
-        {
-          "code": "078930",
-          "name": "GS",
-          "changePct": -6.07
-        },
-        {
-          "code": "096770",
-          "name": "SK이노베이션",
-          "changePct": -5.02
-        },
-        {
-          "code": "047050",
-          "name": "포스코인터내셔널",
-          "changePct": -4.17
-        },
-        {
-          "code": "010950",
-          "name": "S-Oil",
-          "changePct": -1.91
-        }
-      ],
-      "industryReports": [
-        {
-          "category": "유틸리티",
-          "title": "8월 전력통계월보: 높아진 구입단가. 9월부터 하락 전망",
-          "broker": "하나증권",
-          "date": "2026-10-15",
-          "url": "https://stock.naver.com/research/industry/46487",
-          "pdfUrl": "",
-          "summary": "8월 전력판매량 YoY +0.9%, 전력판매금액 YoY -0.3% 8월 전력판매량은 52.6TWh로 전년대비 0.9% 증가, 전력판매금액은 9.3조원으로 전년대비 0.3% 감소했다. 용도별 판매량은 주택용 +3.1%, 일반용 +3.1%, 산업용 -2.1%, 판매금액 주택용 +4.6%, 일반용 +1.8%, 산업용 -3.6%를 기록했다. 전력판매단가는 주택용 +0.8%, 일반용 -1.3%, 산업용 -1.6%이고 평균 판매단가는 177.67원/kWh을 기록하면서 전년대비 1.2% 하락했다. 산업용 판매 감소가 지속되고 있지만 무더위로 인한 주택용과 일반용 수요 증가로 8월 판매량은 전년대비 소폭 개선되었다. 한편 주요 용도별 요금 개편에 의한 판매 단가 인하 효과가 Q 증가를 상쇄하며 전체적인 판가는 약세 흐름을"
-        },
-        {
-          "category": "에너지",
-          "title": "[IBKS 에너지/소재 In-Depth] 윤활기유의 시대",
-          "broker": "IBK투자증권",
-          "date": "2026-10-15",
-          "url": "https://stock.naver.com/research/industry/46472",
-          "pdfUrl": ""
-        },
-        {
-          "category": "에너지",
-          "title": "러시아 디젤 수입마저 허용한 미국",
-          "broker": "하나증권",
-          "date": "2026-10-12",
-          "url": "https://stock.naver.com/research/industry/46433",
-          "pdfUrl": ""
-        }
-      ],
-      "rationale": "우크라이나의 러시아 정유시설 드론 공격 지속과 중동 지정학적 리스크로 국제유가 상승 압력이 커지며 미국 에너지 섹터가 약세를 보였고, 이는 국내 정유·에너지 관련주에 비용 부담으로 작용할 수 있습니다."
+      "rationale": "글로벌 기술주 투매 여파로 제약·바이오 섹터 전반의 투자 심리가 악화되며 단기 변동성 확대가 불가피함."
     },
     {
       "usTheme": "반도체",
-      "usChangePct": -1.04,
+      "usChangePct": -3.41,
       "usStocks": [
+        {
+          "symbol": "AMD",
+          "name": "AMD",
+          "changePct": -5.95
+        },
         {
           "symbol": "INTC",
           "name": "Intel",
-          "changePct": -2.8
+          "changePct": -5.79
         },
         {
           "symbol": "MU",
           "name": "Micron",
-          "changePct": 1.87
+          "changePct": -5.63
         },
         {
-          "symbol": "NVDA",
-          "name": "NVIDIA",
-          "changePct": -1.84
+          "symbol": "AVGO",
+          "name": "Broadcom",
+          "changePct": -4.52
         },
         {
           "symbol": "TSM",
           "name": "TSMC",
-          "changePct": -1.8
-        },
-        {
-          "symbol": "AMD",
-          "name": "AMD",
-          "changePct": -1.5
+          "changePct": -2.28
         }
       ],
       "krTheme": "반도체 소부장",
       "krStocks": [
         {
-          "code": "240810",
-          "name": "원익IPS",
-          "changePct": -15.47
-        },
-        {
           "code": "095340",
           "name": "ISC",
-          "changePct": -15.33
+          "changePct": 9.02
         },
         {
-          "code": "058470",
-          "name": "리노공업",
-          "changePct": -11.58
-        },
-        {
-          "code": "000660",
-          "name": "SK하이닉스",
-          "changePct": -11.06
+          "code": "240810",
+          "name": "원익IPS",
+          "changePct": 6.13
         },
         {
           "code": "039030",
           "name": "이오테크닉스",
-          "changePct": -9.71
+          "changePct": 5.91
+        },
+        {
+          "code": "058470",
+          "name": "리노공업",
+          "changePct": 5.36
+        },
+        {
+          "code": "005930",
+          "name": "삼성전자",
+          "changePct": 2.62
         }
       ],
       "industryReports": [
+        {
+          "category": "반도체",
+          "title": "과도한 하락",
+          "broker": "대신증권",
+          "date": "2026-10-16",
+          "url": "https://stock.naver.com/research/industry/46505",
+          "pdfUrl": "",
+          "summary": "이익의 가치가 철저하게 부정당하고 있다 금주 한국 반도체의 주가가 급락. 1) 메모리반도체 가격 저항, 2) CoreWeave 회사채 이슈, 3) 중국 반도체의 위협 (CXMT의 4F Square 개발, 2028년 중국 메모리반도체 생산 급증 우려) 등이 하락의 배경. 메모리반도체의 이익이 철저히 부정당하고 있는 수준이며, 당사는 지금의 하락이 과도하다고 생각."
+        },
+        {
+          "category": "반도체",
+          "title": "매수",
+          "broker": "SK증권",
+          "date": "2026-10-16",
+          "url": "https://stock.naver.com/research/industry/46495",
+          "pdfUrl": ""
+        },
         {
           "category": "전기전자",
           "title": "2026년 10월 둘째 주 전기전자 Weekly",
           "broker": "교보증권",
           "date": "2026-10-14",
           "url": "https://stock.naver.com/research/industry/46468",
-          "pdfUrl": "",
-          "summary": "교보증권 리서치 전기전자 코멘트 - SET 수요 부진, AI 인프라 투자 지속에 대한 의구심이 강하게 작용하고 있는 한 주 - 견조한 흐름을 이어가던 전기전자 섹터의 하락폭이 두드러지는 상황 - 고금리 전망 속 투자에 대한 우려는 존재하나, Agent AI 기술 고도화 등 수요 호재 요인 존재 - AI 수요 사이클은 지속될 전망, SET향 대응과 AI향 대응 사업 간의 격차는 더 뚜렷해질 전망 - 3분기 실적에 대한 가시성이 높은 기업 중 낙폭이 컸던 종목에 대한 매수 기회 존재"
-        },
-        {
-          "category": "반도체",
-          "title": "Rubin의 출하 확대, HBM4 성장의 시작",
-          "broker": "한화투자증권",
-          "date": "2026-10-13",
-          "url": "https://stock.naver.com/research/industry/46457",
-          "pdfUrl": ""
-        },
-        {
-          "category": "반도체",
-          "title": "후공정도 멀리 봐도 된다",
-          "broker": "대신증권",
-          "date": "2026-10-13",
-          "url": "https://stock.naver.com/research/industry/46448",
           "pdfUrl": ""
         }
       ],
-      "rationale": "미국 필라델피아 반도체 지수가 하락하고 Intel, NVIDIA 등 주요 반도체 종목이 약세를 보인 것은 국내 반도체 소부장 테마에 대한 투자 심리 위축으로 이어질 수 있습니다."
+      "rationale": "메모리 반도체 가격 저항과 중국 반도체 위협, AI 거품론이 겹치며 반도체 소부장 섹터의 하방 압력이 가중됨."
     },
     {
       "usTheme": "기술",
-      "usChangePct": -0.65,
+      "usChangePct": -3.02,
       "usStocks": [
         {
-          "symbol": "CRM",
-          "name": "Salesforce",
-          "changePct": 4.57
+          "symbol": "ORCL",
+          "name": "Oracle",
+          "changePct": -4.64
         },
         {
           "symbol": "ADBE",
           "name": "Adobe",
-          "changePct": 4.57
+          "changePct": -2.57
         },
         {
-          "symbol": "ORCL",
-          "name": "Oracle",
-          "changePct": 3.0
-        },
-        {
-          "symbol": "IBM",
-          "name": "IBM",
-          "changePct": 2.74
+          "symbol": "CRM",
+          "name": "Salesforce",
+          "changePct": -2.45
         },
         {
           "symbol": "MSFT",
           "name": "Microsoft",
-          "changePct": 1.08
+          "changePct": -1.93
+        },
+        {
+          "symbol": "IBM",
+          "name": "IBM",
+          "changePct": -0.85
         }
       ],
       "krTheme": "IT·플랫폼",
       "krStocks": [
         {
-          "code": "018260",
-          "name": "삼성에스디에스",
-          "changePct": -4.05
-        },
-        {
           "code": "293490",
           "name": "카카오게임즈",
-          "changePct": 3.91
+          "changePct": 4.48
         },
         {
           "code": "035420",
           "name": "NAVER",
-          "changePct": -3.23
+          "changePct": 3.69
+        },
+        {
+          "code": "018260",
+          "name": "삼성에스디에스",
+          "changePct": 2.88
         },
         {
           "code": "035720",
           "name": "카카오",
-          "changePct": -2.21
+          "changePct": 2.74
         },
         {
           "code": "259960",
           "name": "크래프톤",
-          "changePct": 0.83
+          "changePct": 0.41
         }
       ],
       "industryReports": [
         {
           "category": "통신",
-          "title": "한국 GW급 데이터센터 현실성은?",
-          "broker": "신한투자증권",
-          "date": "2026-10-15",
-          "url": "https://stock.naver.com/research/industry/46481",
+          "title": "이유 없는 하락엔 매수로 대응해야",
+          "broker": "하나증권",
+          "date": "2026-10-16",
+          "url": "https://stock.naver.com/research/industry/46506",
           "pdfUrl": "",
-          "summary": "데이터센터 내러티브 반영될까 당사는 계속해서 통신주가 데이터센터 관련주로 재평가될 가능성에 주목하고 있으나 시장(특히 외국인투자자)은 실행 가능성에 의문 제기. 글로벌 사업자와 장기 계약을 체결하기 전까지는, 주가 상승 폭이 컸던 SK텔레콤은 AI 투자심리에 따라 변동성이 확대되고 KT/LG유플러스는 제한적인 움직임을 보이는 패턴이 지속될 전망"
+          "summary": "다음주 투자 전략 및 이슈 점검 - 미국 통신 3사 주가 하락의 영향으로 금주 초반 SKT와 LGU+ 주가가 급락하였다. 표면적인 이유는 스페이스X의 통신산업 진출 가능성 때문이었다. 그런데 이번 SKT/KT의 주가 하락은 다소 억울한 측면이 있다. 미국 통신 3사의 경우에는 막강한 자금력을 갖춘 스페이스X의 지상파 진출이 위협 요인이 될 수 있겠지만 국내의 경우엔 영향이 없을 것이기 때문이다. 미국과 달리 한국의 경우 사업자간 주파수 거래가 불가 함에 따라 신규 주파수 경매에 임하지 않는다면 사업권 취득이 불가하며 각종 요금 규제, 마케팅 규제, 대주주 적격성 심사 등 까다로운 인가 조건이 존재하며 망 임대가 아닌 MNO로 시업에 임할 경우 사업성 확보가 쉽지 않을 것이기 때문이다. 700만명 이상의 가입"
         },
         {
-          "category": "게임",
+          "category": "인터넷포탈",
           "title": "[IBKS Daily] 인터넷/게임",
           "broker": "IBK투자증권",
-          "date": "2026-10-15",
-          "url": "https://stock.naver.com/research/industry/46473",
+          "date": "2026-10-16",
+          "url": "https://stock.naver.com/research/industry/46494",
           "pdfUrl": ""
         },
         {
-          "category": "통신",
-          "title": "통신 Weekly - 스페이스X, 국내에서는 다른 이야기",
-          "broker": "유안타증권",
-          "date": "2026-10-14",
-          "url": "https://stock.naver.com/research/industry/46465",
+          "category": "IT",
+          "title": "[TSMC] 26년 3분기 실적 리뷰: AI 수요에 대한 강한 자신감.",
+          "broker": "IBK투자증권",
+          "date": "2026-10-16",
+          "url": "https://stock.naver.com/research/industry/46493",
           "pdfUrl": ""
         }
       ],
-      "rationale": "미국 기술 섹터는 Salesforce, Adobe 등 일부 종목의 강세에도 불구하고 전반적으로 약세를 보였으며, 이는 국내 IT·플랫폼 테마에 대한 투자 심리에도 부정적인 영향을 미칠 수 있습니다."
+      "rationale": "나스닥 기술주 급락과 AI 밸류에이션 고평가 논란이 국내 IT·플랫폼 기업들의 투자 심리를 직접적으로 타격함."
     }
   ],
   "krPreview": {
-    "narrative": "전일 미국 증시의 혼조세와 인플레이션 우려 재부각 속에서 국내 시장은 반도체 대형주의 매물 소화 과정이 이어질 것으로 예상됩니다. 금일 오전 8시 발표될 한국 실업률 지표와 오늘 밤 발표될 미국 산업생산 지표가 시장에 영향을 미칠 수 있습니다.",
-    "catalystSummary": "전일 장 마감 후 국내에서는 HMM의 2.1조원 규모 컨테이너선 확충 투자 결정, 카카오게임즈의 신작 '도깨비의세계' 양대 마켓 매출 1위 달성, 미원에스씨의 자기주식 취득 결정 공시, 이노에이엑스의 신규 공급계약 체결 공시 등 개별 종목별 호재성 공시가 발표되었습니다."
+    "narrative": "미국 기술주 급락에 따른 투자 심리 위축으로 국내 증시 역시 변동성 확대가 예상되며, 오늘 밤 발표될 전미주택건설협회 주택시장지수를 통해 경기 흐름을 재확인할 필요가 있음.",
+    "catalystSummary": "전일 장 마감 후 기계적 스크리닝을 통해 타이거일렉, 네오셈, 서진시스템 등 반도체 및 IT 관련주가 상위 종목으로 포착되었으나, 미국발 기술주 투매 여파로 인한 시초가 변동성에 유의해야 함."
   },
   "usMarket": {
     "indices": [
       {
         "name": "S&P500",
         "ticker": "^GSPC",
-        "price": 7744.06,
-        "changePct": 0.33
+        "price": 7659.44,
+        "changePct": -1.09
       },
       {
         "name": "나스닥",
         "ticker": "^IXIC",
-        "price": 26713.03,
-        "changePct": 0.08
+        "price": 26140.03,
+        "changePct": -2.15
       },
       {
         "name": "다우",
         "ticker": "^DJI",
-        "price": 52177.69,
-        "changePct": 1.08
+        "price": 52002.41,
+        "changePct": -0.34
       },
       {
         "name": "필라델피아 반도체",
         "ticker": "^SOX",
-        "price": 11581.21,
-        "changePct": -0.88
+        "price": 11137.29,
+        "changePct": -3.83
       },
       {
         "name": "VIX 변동성",
         "ticker": "^VIX",
-        "price": 16.46,
-        "changePct": -2.43
+        "price": 19.99,
+        "changePct": 21.45
       }
     ],
     "sectors": [
       {
-        "name": "바이오",
-        "ticker": "XBI",
-        "price": 149.78,
-        "changePct": 2.05
-      },
-      {
-        "name": "헬스케어",
-        "ticker": "XLV",
-        "price": 177.19,
-        "changePct": 1.86
+        "name": "에너지",
+        "ticker": "XLE",
+        "price": 68.24,
+        "changePct": 2.52
       },
       {
         "name": "소재",
         "ticker": "XLB",
-        "price": 50.56,
-        "changePct": 1.79
-      },
-      {
-        "name": "임의소비재",
-        "ticker": "XLY",
-        "price": 113.41,
-        "changePct": 1.71
+        "price": 50.92,
+        "changePct": 0.71
       },
       {
         "name": "금융",
         "ticker": "XLF",
-        "price": 55.27,
-        "changePct": 1.38
+        "price": 55.52,
+        "changePct": 0.45
       },
       {
         "name": "산업재",
         "ticker": "XLI",
-        "price": 167.89,
-        "changePct": 0.51
+        "price": 167.76,
+        "changePct": -0.08
+      },
+      {
+        "name": "헬스케어",
+        "ticker": "XLV",
+        "price": 176.71,
+        "changePct": -0.27
+      },
+      {
+        "name": "임의소비재",
+        "ticker": "XLY",
+        "price": 112.46,
+        "changePct": -0.84
       },
       {
         "name": "기술",
         "ticker": "XLK",
-        "price": 189.19,
-        "changePct": -0.65
+        "price": 183.47,
+        "changePct": -3.02
       },
       {
         "name": "반도체",
         "ticker": "SMH",
-        "price": 558.84,
-        "changePct": -1.04
+        "price": 539.79,
+        "changePct": -3.41
       },
       {
-        "name": "에너지",
-        "ticker": "XLE",
-        "price": 66.56,
-        "changePct": -1.58
+        "name": "바이오",
+        "ticker": "XBI",
+        "price": 144.32,
+        "changePct": -3.65
       }
     ],
     "movers": [
       {
-        "symbol": "RGC",
-        "name": "Regencell Bioscience Holdings L",
-        "changePct": 17.39
+        "symbol": "CRGY",
+        "name": "Crescent Energy Company",
+        "changePct": 10.07
       },
       {
-        "symbol": "APPN",
-        "name": "Appian Corporation",
-        "changePct": 13.97
+        "symbol": "PAYP",
+        "name": "PayPay Corporation - American D",
+        "changePct": 6.99
       },
       {
-        "symbol": "KRMN",
-        "name": "Karman Holdings Inc.",
-        "changePct": 12.48
+        "symbol": "MTDR",
+        "name": "Matador Resources Company",
+        "changePct": 6.97
       },
       {
-        "symbol": "KD",
-        "name": "Kyndryl Holdings, Inc.",
-        "changePct": 11.87
+        "symbol": "AR",
+        "name": "Antero Resources Corporation",
+        "changePct": 6.06
       },
       {
-        "symbol": "ERIC",
-        "name": "Ericsson",
-        "changePct": 11.8
+        "symbol": "NOG",
+        "name": "Northern Oil and Gas, Inc.",
+        "changePct": 5.48
       },
       {
-        "symbol": "Z",
-        "name": "Zillow Group, Inc.",
-        "changePct": 11.05
+        "symbol": "SM",
+        "name": "SM Energy Company",
+        "changePct": 5.28
       },
       {
-        "symbol": "ZG",
-        "name": "Zillow Group, Inc.",
-        "changePct": 10.8
+        "symbol": "OVV",
+        "name": "Ovintiv Inc. (DE)",
+        "changePct": 4.84
       },
       {
-        "symbol": "TRU",
-        "name": "TransUnion",
-        "changePct": 10.73
+        "symbol": "MUR",
+        "name": "Murphy Oil Corporation",
+        "changePct": 4.74
       },
       {
-        "symbol": "FIGR",
-        "name": "Figure Technology Solutions, In",
-        "changePct": 10.46
+        "symbol": "TALO",
+        "name": "Talos Energy, Inc.",
+        "changePct": 4.65
       },
       {
-        "symbol": "INTA",
-        "name": "Intapp, Inc.",
-        "changePct": 10.32
+        "symbol": "EQNR",
+        "name": "Equinor ASA",
+        "changePct": 4.59
       },
       {
-        "symbol": "ARQT",
-        "name": "Arcutis Biotherapeutics, Inc.",
-        "changePct": 10.19
+        "symbol": "FMX",
+        "name": "Fomento Economico Mexicano S.A.",
+        "changePct": 4.52
       },
       {
-        "symbol": "COMP",
-        "name": "Compass, Inc.",
-        "changePct": 9.82
+        "symbol": "DNOW",
+        "name": "DNOW Inc.",
+        "changePct": 4.39
       },
       {
-        "symbol": "SIG",
-        "name": "Signet Jewelers Limited",
-        "changePct": 9.45
+        "symbol": "TRGP",
+        "name": "Targa Resources, Inc.",
+        "changePct": 4.37
       },
       {
-        "symbol": "WULF",
-        "name": "TeraWulf Inc.",
-        "changePct": 9.36
+        "symbol": "VET",
+        "name": "Vermilion Energy Inc.",
+        "changePct": 4.35
       },
       {
-        "symbol": "CRCL",
-        "name": "Circle Internet Group, Inc.",
-        "changePct": 9.33
+        "symbol": "RRC",
+        "name": "Range Resources Corporation",
+        "changePct": 4.35
       },
       {
-        "symbol": "IONQ",
-        "name": "IonQ, Inc.",
-        "changePct": 9.33
+        "symbol": "FANG",
+        "name": "Diamondback Energy, Inc.",
+        "changePct": 4.27
       },
       {
-        "symbol": "WIX",
-        "name": "Wix.com Ltd.",
-        "changePct": 9.2
+        "symbol": "EOG",
+        "name": "EOG Resources, Inc.",
+        "changePct": 4.23
       },
       {
-        "symbol": "SMG",
-        "name": "Scotts Miracle-Gro Company (The",
-        "changePct": 9.11
+        "symbol": "KMI",
+        "name": "Kinder Morgan, Inc.",
+        "changePct": 4.2
       },
       {
-        "symbol": "UPST",
-        "name": "Upstart Holdings, Inc.",
-        "changePct": 8.84
+        "symbol": "CHRD",
+        "name": "Chord Energy Corporation",
+        "changePct": 4.2
       },
       {
-        "symbol": "PAG",
-        "name": "Penske Automotive Group, Inc.",
-        "changePct": 8.84
+        "symbol": "PR",
+        "name": "Permian Resources Corporation",
+        "changePct": 4.15
       }
     ],
     "losers": [
       {
-        "symbol": "MAN",
-        "name": "ManpowerGroup",
-        "changePct": -15.82
+        "symbol": "BSP",
+        "name": "Bending Spoons S.p.A.",
+        "changePct": -15.6
+      },
+      {
+        "symbol": "TLK",
+        "name": "PT Telekomunikasi Indonesia, Tb",
+        "changePct": -13.69
+      },
+      {
+        "symbol": "GRAL",
+        "name": "GRAIL, Inc.",
+        "changePct": -13.03
       },
       {
         "symbol": "VICR",
         "name": "Vicor Corporation",
-        "changePct": -10.36
+        "changePct": -12.92
       },
       {
-        "symbol": "SMTC",
-        "name": "Semtech Corporation",
-        "changePct": -10.01
+        "symbol": "NBIS",
+        "name": "Nebius Group N.V.",
+        "changePct": -12.18
       },
       {
-        "symbol": "PENG",
-        "name": "Penguin Solutions, Inc.",
-        "changePct": -8.48
+        "symbol": "SLS",
+        "name": "SELLAS Life Sciences Group, Inc",
+        "changePct": -11.99
       },
       {
-        "symbol": "LBRT",
-        "name": "Liberty Energy Inc.",
-        "changePct": -7.33
+        "symbol": "CRWV",
+        "name": "CoreWeave, Inc.",
+        "changePct": -11.91
       },
       {
-        "symbol": "HPE",
-        "name": "Hewlett Packard Enterprise Comp",
-        "changePct": -7.1
+        "symbol": "GLXY",
+        "name": "Galaxy Digital Inc.",
+        "changePct": -11.56
       },
       {
-        "symbol": "LSCC",
-        "name": "Lattice Semiconductor Corporati",
-        "changePct": -6.88
+        "symbol": "RIOT",
+        "name": "Riot Platforms, Inc.",
+        "changePct": -11.48
       },
       {
-        "symbol": "MTSI",
-        "name": "MACOM Technology Solutions Hold",
-        "changePct": -6.84
+        "symbol": "APLD",
+        "name": "Applied Digital Corporation",
+        "changePct": -11.48
       },
       {
-        "symbol": "DELL",
-        "name": "Dell Technologies Inc.",
-        "changePct": -6.8
+        "symbol": "PGEN",
+        "name": "Precigen, Inc.",
+        "changePct": -11.26
       },
       {
-        "symbol": "ECO",
-        "name": "Okeanis Eco Tankers Corp.",
-        "changePct": -6.77
-      },
-      {
-        "symbol": "RKLB",
-        "name": "Rocket Lab Corporation",
-        "changePct": -6.64
-      },
-      {
-        "symbol": "FRO",
-        "name": "Frontline Plc",
-        "changePct": -6.63
-      },
-      {
-        "symbol": "FRVO",
-        "name": "Fervo Energy Company",
-        "changePct": -6.22
-      },
-      {
-        "symbol": "DHT",
-        "name": "DHT Holdings, Inc.",
-        "changePct": -6.09
-      },
-      {
-        "symbol": "SEI",
-        "name": "Solaris Energy Infrastructure, ",
-        "changePct": -6.07
+        "symbol": "IREN",
+        "name": "IREN LIMITED",
+        "changePct": -11.19
       },
       {
         "symbol": "AXTI",
         "name": "AXT Inc",
-        "changePct": -5.97
+        "changePct": -11.12
       },
       {
-        "symbol": "IMOS",
-        "name": "ChipMOS TECHNOLOGIES INC.",
-        "changePct": -5.85
+        "symbol": "HUT",
+        "name": "Hut 8 Corp.",
+        "changePct": -10.96
       },
       {
-        "symbol": "VG",
-        "name": "Venture Global, Inc.",
-        "changePct": -5.8
+        "symbol": "FROG",
+        "name": "JFrog Ltd.",
+        "changePct": -10.82
       },
       {
-        "symbol": "COHU",
-        "name": "Cohu, Inc.",
-        "changePct": -5.73
+        "symbol": "TWLO",
+        "name": "Twilio Inc.",
+        "changePct": -10.62
       },
       {
-        "symbol": "P",
-        "name": "Everpure, Inc.",
-        "changePct": -5.72
+        "symbol": "CIFR",
+        "name": "Cipher Digital Inc.",
+        "changePct": -10.56
+      },
+      {
+        "symbol": "CBRS",
+        "name": "Cerebras Systems Inc.",
+        "changePct": -10.52
+      },
+      {
+        "symbol": "FSLY",
+        "name": "Fastly, Inc.",
+        "changePct": -10.37
+      },
+      {
+        "symbol": "OKTA",
+        "name": "Okta, Inc.",
+        "changePct": -10.2
       }
     ],
     "sectorStocks": {
       "기술": [
         {
-          "symbol": "CRM",
-          "name": "Salesforce",
-          "changePct": 4.57
+          "symbol": "ORCL",
+          "name": "Oracle",
+          "changePct": -4.64
         },
         {
           "symbol": "ADBE",
           "name": "Adobe",
-          "changePct": 4.57
+          "changePct": -2.57
         },
         {
-          "symbol": "ORCL",
-          "name": "Oracle",
-          "changePct": 3.0
-        },
-        {
-          "symbol": "IBM",
-          "name": "IBM",
-          "changePct": 2.74
+          "symbol": "CRM",
+          "name": "Salesforce",
+          "changePct": -2.45
         },
         {
           "symbol": "MSFT",
           "name": "Microsoft",
-          "changePct": 1.08
+          "changePct": -1.93
+        },
+        {
+          "symbol": "IBM",
+          "name": "IBM",
+          "changePct": -0.85
         },
         {
           "symbol": "AAPL",
           "name": "Apple",
-          "changePct": -0.28
+          "changePct": 0.43
         }
       ],
       "반도체": [
         {
+          "symbol": "AMD",
+          "name": "AMD",
+          "changePct": -5.95
+        },
+        {
           "symbol": "INTC",
           "name": "Intel",
-          "changePct": -2.8
+          "changePct": -5.79
         },
         {
           "symbol": "MU",
           "name": "Micron",
-          "changePct": 1.87
-        },
-        {
-          "symbol": "NVDA",
-          "name": "NVIDIA",
-          "changePct": -1.84
-        },
-        {
-          "symbol": "TSM",
-          "name": "TSMC",
-          "changePct": -1.8
-        },
-        {
-          "symbol": "AMD",
-          "name": "AMD",
-          "changePct": -1.5
+          "changePct": -5.63
         },
         {
           "symbol": "AVGO",
           "name": "Broadcom",
-          "changePct": -0.55
+          "changePct": -4.52
+        },
+        {
+          "symbol": "TSM",
+          "name": "TSMC",
+          "changePct": -2.28
+        },
+        {
+          "symbol": "NVDA",
+          "name": "NVIDIA",
+          "changePct": -1.43
         },
         {
           "symbol": "ASML",
           "name": "ASML",
-          "changePct": 0.45
+          "changePct": -0.96
         }
       ],
       "헬스케어": [
         {
-          "symbol": "LLY",
-          "name": "Eli Lilly",
-          "changePct": 3.55
-        },
-        {
           "symbol": "UNH",
           "name": "UnitedHealth",
-          "changePct": 2.79
-        },
-        {
-          "symbol": "PFE",
-          "name": "Pfizer",
-          "changePct": 0.79
+          "changePct": -1.29
         },
         {
           "symbol": "JNJ",
           "name": "Johnson & Johnson",
-          "changePct": -0.25
+          "changePct": 0.9
         },
         {
           "symbol": "ABBV",
           "name": "AbbVie",
-          "changePct": -0.03
+          "changePct": 0.71
+        },
+        {
+          "symbol": "PFE",
+          "name": "Pfizer",
+          "changePct": 0.48
+        },
+        {
+          "symbol": "LLY",
+          "name": "Eli Lilly",
+          "changePct": 0.43
         }
       ],
       "바이오": [
         {
           "symbol": "MRNA",
           "name": "Moderna",
-          "changePct": 4.51
-        },
-        {
-          "symbol": "GILD",
-          "name": "Gilead Sciences",
-          "changePct": 2.49
-        },
-        {
-          "symbol": "REGN",
-          "name": "Regeneron",
-          "changePct": 2.31
+          "changePct": -7.82
         },
         {
           "symbol": "VRTX",
           "name": "Vertex Pharmaceuticals",
-          "changePct": 2.06
+          "changePct": -1.77
+        },
+        {
+          "symbol": "GILD",
+          "name": "Gilead Sciences",
+          "changePct": -0.75
+        },
+        {
+          "symbol": "REGN",
+          "name": "Regeneron",
+          "changePct": -0.7
         },
         {
           "symbol": "AMGN",
           "name": "Amgen",
-          "changePct": 1.86
+          "changePct": -0.35
         }
       ],
       "에너지": [
         {
-          "symbol": "XOM",
-          "name": "ExxonMobil",
-          "changePct": -1.32
-        },
-        {
-          "symbol": "CVX",
-          "name": "Chevron",
-          "changePct": -1.22
-        },
-        {
           "symbol": "EOG",
           "name": "EOG Resources",
-          "changePct": -1.02
+          "changePct": 4.23
         },
         {
           "symbol": "COP",
           "name": "ConocoPhillips",
-          "changePct": -0.43
+          "changePct": 3.37
+        },
+        {
+          "symbol": "CVX",
+          "name": "Chevron",
+          "changePct": 2.59
+        },
+        {
+          "symbol": "XOM",
+          "name": "ExxonMobil",
+          "changePct": 2.46
         },
         {
           "symbol": "SLB",
           "name": "SLB",
-          "changePct": -0.29
+          "changePct": 2.34
         }
       ],
       "금융": [
         {
           "symbol": "WFC",
           "name": "Wells Fargo",
-          "changePct": 2.29
-        },
-        {
-          "symbol": "GS",
-          "name": "Goldman Sachs",
-          "changePct": 1.43
-        },
-        {
-          "symbol": "BAC",
-          "name": "Bank of America",
-          "changePct": 0.6
-        },
-        {
-          "symbol": "MS",
-          "name": "Morgan Stanley",
-          "changePct": 0.33
+          "changePct": 1.35
         },
         {
           "symbol": "JPM",
           "name": "JPMorgan Chase",
-          "changePct": 0.07
+          "changePct": 1.25
+        },
+        {
+          "symbol": "GS",
+          "name": "Goldman Sachs",
+          "changePct": -1.12
+        },
+        {
+          "symbol": "BAC",
+          "name": "Bank of America",
+          "changePct": -0.91
+        },
+        {
+          "symbol": "MS",
+          "name": "Morgan Stanley",
+          "changePct": -0.84
         }
       ],
       "산업재": [
         {
           "symbol": "BA",
           "name": "Boeing",
-          "changePct": 2.2
-        },
-        {
-          "symbol": "UPS",
-          "name": "UPS",
-          "changePct": 2.14
+          "changePct": 0.78
         },
         {
           "symbol": "CAT",
           "name": "Caterpillar",
-          "changePct": -1.78
+          "changePct": -0.66
         },
         {
           "symbol": "GE",
           "name": "GE Aerospace",
-          "changePct": 1.62
+          "changePct": 0.59
         },
         {
           "symbol": "HON",
           "name": "Honeywell",
-          "changePct": 1.39
+          "changePct": 0.43
+        },
+        {
+          "symbol": "UPS",
+          "name": "UPS",
+          "changePct": -0.36
         }
       ],
       "소재": [
         {
-          "symbol": "SHW",
-          "name": "Sherwin-Williams",
-          "changePct": 3.81
-        },
-        {
           "symbol": "NEM",
           "name": "Newmont",
-          "changePct": 3.79
-        },
-        {
-          "symbol": "APD",
-          "name": "Air Products",
-          "changePct": 1.39
-        },
-        {
-          "symbol": "FCX",
-          "name": "Freeport-McMoRan",
-          "changePct": 0.63
+          "changePct": 2.43
         },
         {
           "symbol": "LIN",
           "name": "Linde",
-          "changePct": 0.11
+          "changePct": 1.06
+        },
+        {
+          "symbol": "APD",
+          "name": "Air Products",
+          "changePct": 1.01
+        },
+        {
+          "symbol": "FCX",
+          "name": "Freeport-McMoRan",
+          "changePct": -0.74
+        },
+        {
+          "symbol": "SHW",
+          "name": "Sherwin-Williams",
+          "changePct": -0.51
         }
       ],
       "임의소비재": [
         {
-          "symbol": "NKE",
-          "name": "Nike",
-          "changePct": 5.21
-        },
-        {
-          "symbol": "HD",
-          "name": "Home Depot",
-          "changePct": 4.31
-        },
-        {
-          "symbol": "MCD",
-          "name": "McDonald's",
-          "changePct": 1.76
-        },
-        {
           "symbol": "TSLA",
           "name": "Tesla",
-          "changePct": -1.29
+          "changePct": -2.13
         },
         {
           "symbol": "AMZN",
           "name": "Amazon",
-          "changePct": 0.27
+          "changePct": -1.87
+        },
+        {
+          "symbol": "HD",
+          "name": "Home Depot",
+          "changePct": 0.45
+        },
+        {
+          "symbol": "MCD",
+          "name": "McDonald's",
+          "changePct": 0.19
+        },
+        {
+          "symbol": "NKE",
+          "name": "Nike",
+          "changePct": -0.03
         }
       ]
     },
-    "asof": "2026-10-16",
+    "asof": "2026-10-19",
     "krSectorStocks": {
       "기술": [
         {
-          "code": "018260",
-          "name": "삼성에스디에스",
-          "changePct": -4.05
-        },
-        {
           "code": "293490",
           "name": "카카오게임즈",
-          "changePct": 3.91
+          "changePct": 4.48
         },
         {
           "code": "035420",
           "name": "NAVER",
-          "changePct": -3.23
+          "changePct": 3.69
+        },
+        {
+          "code": "018260",
+          "name": "삼성에스디에스",
+          "changePct": 2.88
         },
         {
           "code": "035720",
           "name": "카카오",
-          "changePct": -2.21
+          "changePct": 2.74
         },
         {
           "code": "259960",
           "name": "크래프톤",
-          "changePct": 0.83
+          "changePct": 0.41
         }
       ],
       "반도체": [
         {
-          "code": "240810",
-          "name": "원익IPS",
-          "changePct": -15.47
-        },
-        {
           "code": "095340",
           "name": "ISC",
-          "changePct": -15.33
+          "changePct": 9.02
         },
         {
-          "code": "058470",
-          "name": "리노공업",
-          "changePct": -11.58
-        },
-        {
-          "code": "000660",
-          "name": "SK하이닉스",
-          "changePct": -11.06
+          "code": "240810",
+          "name": "원익IPS",
+          "changePct": 6.13
         },
         {
           "code": "039030",
           "name": "이오테크닉스",
-          "changePct": -9.71
+          "changePct": 5.91
+        },
+        {
+          "code": "058470",
+          "name": "리노공업",
+          "changePct": 5.36
         },
         {
           "code": "005930",
           "name": "삼성전자",
-          "changePct": -9.48
+          "changePct": 2.62
+        },
+        {
+          "code": "000660",
+          "name": "SK하이닉스",
+          "changePct": 0.79
         }
       ],
       "헬스케어": [
         {
-          "code": "207940",
-          "name": "삼성바이오로직스",
-          "changePct": 5.5
+          "code": "326030",
+          "name": "에스케이바이오팜",
+          "changePct": 5.62
         },
         {
           "code": "000100",
           "name": "유한양행",
-          "changePct": 5.09
+          "changePct": 5.24
+        },
+        {
+          "code": "207940",
+          "name": "삼성바이오로직스",
+          "changePct": 4.09
         },
         {
           "code": "128940",
           "name": "한미약품",
-          "changePct": -4.57
+          "changePct": 2.98
         },
         {
           "code": "185750",
           "name": "종근당",
-          "changePct": 1.99
-        },
-        {
-          "code": "326030",
-          "name": "에스케이바이오팜",
-          "changePct": -1.28
+          "changePct": -0.15
         }
       ],
       "바이오": [
         {
-          "code": "141080",
-          "name": "리가켐바이오",
-          "changePct": -4.99
-        },
-        {
           "code": "196170",
           "name": "알테오젠",
-          "changePct": -4.9
+          "changePct": 9.6
         },
         {
-          "code": "145020",
-          "name": "휴젤",
-          "changePct": -2.32
-        },
-        {
-          "code": "214150",
-          "name": "클래시스",
-          "changePct": -2.15
+          "code": "141080",
+          "name": "리가켐바이오",
+          "changePct": 8.76
         },
         {
           "code": "068270",
           "name": "셀트리온",
+          "changePct": 6.53
+        },
+        {
+          "code": "145020",
+          "name": "휴젤",
+          "changePct": 6.29
+        },
+        {
+          "code": "214150",
+          "name": "클래시스",
           "changePct": 1.28
         }
       ],
       "에너지": [
         {
-          "code": "078930",
-          "name": "GS",
-          "changePct": -6.07
+          "code": "010950",
+          "name": "S-Oil",
+          "changePct": -3.58
         },
         {
           "code": "096770",
           "name": "SK이노베이션",
-          "changePct": -5.02
+          "changePct": -1.94
         },
         {
           "code": "047050",
           "name": "포스코인터내셔널",
-          "changePct": -4.17
+          "changePct": 1.63
         },
         {
-          "code": "010950",
-          "name": "S-Oil",
-          "changePct": -1.91
+          "code": "078930",
+          "name": "GS",
+          "changePct": -1.48
         }
       ],
       "금융": [
         {
           "code": "006800",
           "name": "미래에셋증권",
-          "changePct": -9.06
+          "changePct": 4.27
         },
         {
           "code": "016360",
           "name": "삼성증권",
-          "changePct": -4.15
+          "changePct": 3.54
         },
         {
           "code": "105560",
           "name": "KB금융",
-          "changePct": -1.57
+          "changePct": 2.11
         },
         {
           "code": "055550",
           "name": "신한지주",
-          "changePct": -0.84
-        },
-        {
-          "code": "086790",
-          "name": "하나금융지주",
-          "changePct": 0.66
+          "changePct": -0.85
         },
         {
           "code": "316140",
           "name": "우리금융지주",
-          "changePct": 0.48
+          "changePct": 0.64
+        },
+        {
+          "code": "086790",
+          "name": "하나금융지주",
+          "changePct": 0.08
         }
       ],
       "산업재": [
         {
           "code": "000150",
           "name": "두산",
-          "changePct": -13.55
+          "changePct": 3.54
         },
         {
           "code": "034020",
           "name": "두산에너빌리티",
-          "changePct": -8.79
-        },
-        {
-          "code": "267270",
-          "name": "HD건설기계",
-          "changePct": -7.49
+          "changePct": 2.05
         },
         {
           "code": "006360",
           "name": "GS건설",
-          "changePct": -5.37
+          "changePct": 1.06
+        },
+        {
+          "code": "267270",
+          "name": "HD건설기계",
+          "changePct": -0.65
         }
       ],
       "소재": [
         {
           "code": "003670",
           "name": "포스코퓨처엠",
-          "changePct": -6.69
+          "changePct": -0.81
         },
         {
           "code": "051910",
           "name": "LG화학",
-          "changePct": -5.79
-        },
-        {
-          "code": "011170",
-          "name": "롯데케미칼",
-          "changePct": -5.57
+          "changePct": 0.79
         },
         {
           "code": "011780",
           "name": "금호석유화학",
-          "changePct": -2.06
+          "changePct": -0.7
+        },
+        {
+          "code": "011170",
+          "name": "롯데케미칼",
+          "changePct": 0.55
         }
       ],
       "임의소비재": [
         {
+          "code": "139480",
+          "name": "이마트",
+          "changePct": 5.48
+        },
+        {
           "code": "004170",
           "name": "신세계",
-          "changePct": -7.99
+          "changePct": 3.96
         },
         {
           "code": "383220",
           "name": "F&F",
-          "changePct": -3.79
+          "changePct": 2.54
         },
         {
           "code": "008770",
           "name": "호텔신라",
-          "changePct": -1.99
-        },
-        {
-          "code": "139480",
-          "name": "이마트",
-          "changePct": -1.84
+          "changePct": 1.49
         }
       ]
     }
   },
   "picks": [
     {
-      "code": "207940",
-      "name": "삼성바이오로직스",
-      "market": "KOSPI",
-      "reason": "미국 시장에서 일라이 릴리 등 대형 헬스케어주가 강세를 보였으며, 국내에서도 전일 5.5% 상승하며 견조한 수급을 증명했습니다. 제약 브랜드 평판 1위 및 실적 기대감이 유효합니다.",
-      "catalyst": "미국 헬스케어 섹터 강세 및 국내 바이오 대장주 수급 집중",
-      "changePct": 5.5
-    },
-    {
-      "code": "011200",
-      "name": "HMM",
-      "market": "KOSPI",
-      "reason": "2.16조원 규모의 컨테이너선 12척 확충을 위한 대규모 신규 시설 투자 공시를 발표하며 중장기 성장 동력을 확보했습니다.",
-      "catalyst": "2.1조원 규모 컨테이너선 확충 시설 투자 결정",
-      "changePct": -0.64
-    },
-    {
-      "code": "293490",
-      "name": "카카오게임즈",
+      "code": "219130",
+      "name": "타이거일렉",
       "market": "KOSDAQ",
-      "reason": "신작 '도깨비의세계'가 출시 5일 만에 양대 마켓 매출 1위를 기록했다는 소식과 함께 전일 가격 모멘텀이 발생했습니다.",
-      "catalyst": "신작 게임 '도깨비의세계' 양대 마켓 매출 1위 달성",
-      "changePct": 3.91
+      "reason": "[가격] 전일 등락률 +16.16%, 거래대금 7,395,995,400원.",
+      "catalyst": "기계적 스크리닝 상위 (뉴스/LLM 미적용)",
+      "changePct": 16.16
     },
     {
-      "code": "000100",
-      "name": "유한양행",
-      "market": "KOSPI",
-      "reason": "미국 바이오 섹터(XBI)의 2%대 상승과 동조화될 수 있는 국내 대표 바이오 종목으로, 전일 5%대 상승하며 직전 고점 돌파 시도가 예상됩니다.",
-      "catalyst": "미국 바이오 ETF(XBI) 급등 및 레이저티닙 기대감 지속",
-      "changePct": 5.09
-    },
-    {
-      "code": "268280",
-      "name": "미원에스씨",
-      "market": "KOSPI",
-      "reason": "장 마감 후 자기주식 취득 결정 공시를 통해 주주가치 제고 의지를 확인했으며, 하락장 속에서 하방 경직성을 확보할 재료입니다.",
-      "catalyst": "자기주식 취득 결정 공시",
-      "changePct": 1.25
-    },
-    {
-      "code": "296640",
-      "name": "이노에이엑스",
+      "code": "253590",
+      "name": "네오셈",
       "market": "KOSDAQ",
-      "reason": "단일판매 및 공급계약 체결 공시를 보유하고 있으며, 소형주 특성상 공시 모멘텀에 의한 변동성 확대가 기대됩니다.",
-      "catalyst": "신규 공급계약 체결 공시",
-      "changePct": 1.97
+      "reason": "[가격] 전일 등락률 +13.94%, 거래대금 16,018,120,800원.",
+      "catalyst": "기계적 스크리닝 상위 (뉴스/LLM 미적용)",
+      "changePct": 13.94
+    },
+    {
+      "code": "178320",
+      "name": "서진시스템",
+      "market": "KOSDAQ",
+      "reason": "[가격] 전일 등락률 +12.78%, 거래대금 63,378,390,100원.",
+      "catalyst": "기계적 스크리닝 상위 (뉴스/LLM 미적용)",
+      "changePct": 12.78
+    },
+    {
+      "code": "174900",
+      "name": "앱클론",
+      "market": "KOSDAQ",
+      "reason": "[가격] 전일 등락률 +12.53%, 거래대금 5,462,671,200원.",
+      "catalyst": "기계적 스크리닝 상위 (뉴스/LLM 미적용)",
+      "changePct": 12.53
+    },
+    {
+      "code": "196170",
+      "name": "알테오젠",
+      "market": "KOSDAQ",
+      "reason": "[가격] 전일 등락률 +9.60%, 거래대금 130,055,328,000원.",
+      "catalyst": "기계적 스크리닝 상위 (뉴스/LLM 미적용)",
+      "changePct": 9.6
+    },
+    {
+      "code": "091120",
+      "name": "이엠텍",
+      "market": "KOSDAQ",
+      "reason": "[가격] 전일 등락률 +12.66%, 거래대금 647,610,400원.",
+      "catalyst": "기계적 스크리닝 상위 (뉴스/LLM 미적용)",
+      "changePct": 12.66
+    },
+    {
+      "code": "131290",
+      "name": "티에스이",
+      "market": "KOSDAQ",
+      "reason": "[가격] 전일 등락률 +9.58%, 거래대금 38,726,170,000원.",
+      "catalyst": "기계적 스크리닝 상위 (뉴스/LLM 미적용)",
+      "changePct": 9.58
+    },
+    {
+      "code": "403870",
+      "name": "HPSP",
+      "market": "KOSDAQ",
+      "reason": "[가격] 전일 등락률 +8.74%, 거래대금 114,252,329,300원.",
+      "catalyst": "기계적 스크리닝 상위 (뉴스/LLM 미적용)",
+      "changePct": 8.74
+    },
+    {
+      "code": "095340",
+      "name": "ISC",
+      "market": "KOSDAQ",
+      "reason": "[가격] 전일 등락률 +9.02%, 거래대금 34,455,259,200원.",
+      "catalyst": "기계적 스크리닝 상위 (뉴스/LLM 미적용)",
+      "changePct": 9.02
+    },
+    {
+      "code": "012450",
+      "name": "한화에어로스페이스",
+      "market": "KOSPI",
+      "reason": "[가격] 전일 등락률 +7.77%, 거래대금 198,736,176,000원.",
+      "catalyst": "기계적 스크리닝 상위 (뉴스/LLM 미적용)",
+      "changePct": 7.77
     }
   ],
-  "marketView": "전일 미국 증시는 다우 지수가 1% 이상 상승하고 S&P500이 사상 최고치를 경신하는 등 견조한 흐름을 보였으나, 필라델피아 반도체 지수는 0.88% 하락하며 기술주 내 차별화가 나타났습니다. 특히 일라이 릴리(3.55%)와 모더나(4.51%) 등 바이오·헬스케어 섹터가 강세를 보였으며, 이는 최근 국내 증시에서 반도체 약세와 바이오 강세가 뚜렷한 '섹터 로테이션' 현상과 동조화될 가능성이 높습니다. 금일 한국 시장은 반도체 대형주의 매물 소화 과정 속에서 실적 기대감이 있는 바이오, 음식료, 금융 등 방어적 성격의 섹터로 수급이 쏠릴 것으로 전망됩니다.",
+  "marketView": "LLM 선정을 사용할 수 없어 후보 점수 상위 종목으로 대체했습니다.",
   "econEvents": {
     "usReleased": [
-      {
-        "nation": "USA",
-        "name": "생산자물가지수(PPI) 전월대비",
-        "reutersCode": "USPPFD=ECIX",
-        "importance": 4,
-        "period": "Sep 2026",
-        "category": "PRICE",
-        "releaseAtKST": "2026-10-15 21:30",
-        "actual": 1.3,
-        "previous": 0.4,
-        "unit": "%",
-        "unitScale": "",
-        "forecast": 0.6,
-        "forecastSource": "forexfactory",
-        "source": "naver",
-        "forecastText": "0.6",
-        "surprise": {
-          "vs": "forecast",
-          "diff": 0.7,
-          "verdict": "above"
-        }
-      },
-      {
-        "nation": "USA",
-        "name": "소매판매 전월대비",
-        "reutersCode": "USRSL=ECIX",
-        "importance": 4,
-        "period": "Sep 2026",
-        "category": "BSI_CSI",
-        "releaseAtKST": "2026-10-15 21:30",
-        "actual": 0.8,
-        "previous": 1.2,
-        "unit": "%",
-        "unitScale": "",
-        "forecast": 0.3,
-        "forecastSource": "forexfactory",
-        "source": "naver",
-        "forecastText": "0.3",
-        "surprise": {
-          "vs": "forecast",
-          "diff": 0.5,
-          "verdict": "above"
-        }
-      },
-      {
-        "nation": "USA",
-        "name": "신규 실업수당청구건수",
-        "reutersCode": "USJOB=ECIX",
-        "importance": 4,
-        "period": "10 Oct2026",
-        "category": "EMPLOYMENT",
-        "releaseAtKST": "2026-10-15 21:30",
-        "actual": 199,
-        "previous": 197,
-        "unit": "pers",
-        "unitScale": "K",
-        "forecast": 199.0,
-        "forecastSource": "forexfactory",
-        "source": "naver",
-        "forecastText": "199",
-        "surprise": {
-          "vs": "forecast",
-          "diff": 0.0,
-          "verdict": "inline"
-        }
-      },
-      {
-        "nation": "USA",
-        "name": "필라델피아 연준 제조업활동지수",
-        "reutersCode": "USPFDB=ECIX",
-        "importance": 3,
-        "period": "Oct 2026",
-        "category": "EMPLOYMENT",
-        "releaseAtKST": "2026-10-15 21:30",
-        "actual": 20.9,
-        "previous": 37.8,
-        "unit": "",
-        "unitScale": "",
-        "forecast": null,
-        "forecastSource": null,
-        "source": "naver",
-        "surprise": {
-          "vs": "previous",
-          "diff": -16.9,
-          "verdict": "below"
-        }
-      },
-      {
-        "nation": "USA",
-        "name": "근원 생산자물가지수(PPI) 전년대비",
-        "reutersCode": "USPPEY=ECIX",
-        "importance": 2,
-        "period": "Sep 2026",
-        "category": "PRICE",
-        "releaseAtKST": "2026-10-15 21:30",
-        "actual": 5,
-        "previous": 4.6,
-        "unit": "%",
-        "unitScale": "",
-        "forecast": null,
-        "forecastSource": null,
-        "source": "naver",
-        "surprise": {
-          "vs": "previous",
-          "diff": 0.4,
-          "verdict": "above"
-        }
-      },
-      {
-        "nation": "USA",
-        "name": "근원 생산자물가지수(PPI) 전월대비",
-        "reutersCode": "USPPIE=ECIX",
-        "importance": 2,
-        "period": "Sep 2026",
-        "category": "PRICE",
-        "releaseAtKST": "2026-10-15 21:30",
-        "actual": 0.7,
-        "previous": 0.2,
-        "unit": "%",
-        "unitScale": "",
-        "forecast": 0.3,
-        "forecastSource": "forexfactory",
-        "source": "naver",
-        "forecastText": "0.3",
-        "surprise": {
-          "vs": "forecast",
-          "diff": 0.4,
-          "verdict": "above"
-        }
-      },
-      {
-        "nation": "USA",
-        "name": "근원 소매판매 전월대비",
-        "reutersCode": "USRSLA=ECIX",
-        "importance": 2,
-        "period": "Sep 2026",
-        "category": "BSI_CSI",
-        "releaseAtKST": "2026-10-15 21:30",
-        "actual": 0.9,
-        "previous": 1.4,
-        "unit": "%",
-        "unitScale": "",
-        "forecast": 0.6,
-        "forecastSource": "forexfactory",
-        "source": "naver",
-        "forecastText": "0.6",
-        "surprise": {
-          "vs": "forecast",
-          "diff": 0.3,
-          "verdict": "above"
-        }
-      },
-      {
-        "nation": "USA",
-        "name": "뉴욕 연준 제조업지수",
-        "reutersCode": "USEMPM=ECIX",
-        "importance": 2,
-        "period": "Oct 2026",
-        "category": "EMPLOYMENT",
-        "releaseAtKST": "2026-10-15 21:30",
-        "actual": 25.5,
-        "previous": 7.6,
-        "unit": "",
-        "unitScale": "",
-        "forecast": null,
-        "forecastSource": null,
-        "source": "naver",
-        "surprise": {
-          "vs": "previous",
-          "diff": 17.9,
-          "verdict": "above"
-        }
-      }
-    ],
-    "korToday": [
-      {
-        "nation": "KOR",
-        "name": "실업률(계절조정계열)",
-        "reutersCode": "KRUNR=ECIX",
-        "importance": 4,
-        "period": "Sep 2026",
-        "category": "EMPLOYMENT",
-        "releaseAtKST": "2026-10-16 08:00",
-        "previous": 2.7,
-        "unit": "%",
-        "unitScale": "",
-        "forecast": null,
-        "forecastSource": null,
-        "source": "naver"
-      }
-    ],
-    "usTonight": [
       {
         "nation": "USA",
         "name": "수입 물가 지수 전년대비",
@@ -1576,12 +1415,18 @@
         "period": "Sep 2026",
         "category": "PRICE",
         "releaseAtKST": "2026-10-16 21:30",
+        "actual": 8.1,
         "previous": 7,
         "unit": "%",
         "unitScale": "",
         "forecast": null,
         "forecastSource": null,
-        "source": "naver"
+        "source": "naver",
+        "surprise": {
+          "vs": "previous",
+          "diff": 1.1,
+          "verdict": "above"
+        }
       },
       {
         "nation": "USA",
@@ -1591,12 +1436,18 @@
         "period": "Sep 2026",
         "category": "PRICE",
         "releaseAtKST": "2026-10-16 21:30",
+        "actual": 1.1,
         "previous": 0.7,
         "unit": "%",
         "unitScale": "",
         "forecast": null,
         "forecastSource": null,
-        "source": "naver"
+        "source": "naver",
+        "surprise": {
+          "vs": "previous",
+          "diff": 0.4,
+          "verdict": "above"
+        }
       },
       {
         "nation": "USA",
@@ -1606,12 +1457,18 @@
         "period": "Sep 2026",
         "category": "EMPLOYMENT",
         "releaseAtKST": "2026-10-16 22:15",
+        "actual": 0.7,
         "previous": 0,
         "unit": "%",
         "unitScale": "",
         "forecast": null,
         "forecastSource": null,
-        "source": "naver"
+        "source": "naver",
+        "surprise": {
+          "vs": "previous",
+          "diff": 0.7,
+          "verdict": "above"
+        }
       },
       {
         "nation": "USA",
@@ -1621,8 +1478,32 @@
         "period": "Sep 2026",
         "category": "EMPLOYMENT",
         "releaseAtKST": "2026-10-16 22:15",
+        "actual": 76.9,
         "previous": 76.3,
         "unit": "%",
+        "unitScale": "",
+        "forecast": null,
+        "forecastSource": null,
+        "source": "naver",
+        "surprise": {
+          "vs": "previous",
+          "diff": 0.6,
+          "verdict": "above"
+        }
+      }
+    ],
+    "korToday": [],
+    "usTonight": [
+      {
+        "nation": "USA",
+        "name": "전미주택건설협회 주택시장지수",
+        "reutersCode": "USNAHB=ECIX",
+        "importance": 2,
+        "period": "Oct 2026",
+        "category": "EMPLOYMENT",
+        "releaseAtKST": "2026-10-19 23:00",
+        "previous": 32,
+        "unit": "",
         "unitScale": "",
         "forecast": null,
         "forecastSource": null,
@@ -1632,58 +1513,134 @@
   },
   "usCatalysts": [
     {
-      "ticker": "TSM",
-      "stock": "Taiwan Semiconductor Manufacturing Co Ltd",
-      "category": "nasdaq",
-      "exchange": "nyse",
-      "market": "US",
-      "kind": "sec",
-      "form": "6-K",
-      "direction": "neutral",
-      "summary": "3분기 매출 50.9%·EPS 68.7% 급증하며 어닝 서프라이즈 기록, 4분기 매출 가이던스도 $52.3B~$54.3B로 제시하며 강력한 AI 수요 증명. 2nm 공정 비중 확대와 첨단 기술 수요 지속으로 국내 반도체 소부장 및 파운드리 밸류체인에 긍정적 모멘텀 예상. · (마감) TSMC의 호실적에도 불구하고 필라델피아 반도체 지수가 0.88% 하락 마감하며 국내 반도체주에 대한 상방 압력은 제한되었습니다.",
-      "url": "https://www.sec.gov/Archives/edgar/data/1046179/000104617926000726/0001046179-26-000726-index.htm",
-      "filedAt": "2026-10-15",
-      "changePct": null,
-      "accession": "0001046179-26-000726",
-      "capturedAt": "20:48"
-    },
-    {
-      "ticker": "PRIVATE",
-      "stock": "오픈AI",
-      "category": "nasdaq",
-      "exchange": "nasdaq",
-      "relatedStock": "네이버",
-      "relatedUrl": null,
-      "market": "US",
-      "kind": "news",
-      "form": "",
-      "direction": "bearish",
-      "summary": "미국 FTC가 오픈AI와 앤트로픽을 대상으로 해킹 논란 및 경영진 소환 조사를 착수함. AI 산업 전반의 규제 리스크가 부각되며 관련 기술주 투자 심리에 부정적 영향을 줄 수 있음.",
-      "url": "",
-      "source": "kis-flash",
-      "filedAt": "2026-10-15",
-      "changePct": null,
-      "accession": "kis-flash:2026101520451320413",
-      "capturedAt": "20:48"
-    },
-    {
-      "ticker": "UNH",
-      "stock": "유나이티드헬스",
+      "ticker": "LLY",
+      "stock": "일라이릴리",
       "category": "sp",
       "exchange": "nyse",
-      "relatedStock": "유한양행",
+      "relatedStock": "한미약품",
       "relatedUrl": null,
       "market": "US",
       "kind": "news",
       "form": "",
       "direction": "bullish",
-      "summary": "유나이티드헬스 그룹이 EPS 가이던스를 상향 조정하며 견조한 실적 흐름을 보임. 헬스케어 섹터의 실적 방어력이 확인되며 국내 제약·바이오 섹터에 긍정적 모멘텀으로 작용 가능.",
+      "summary": "경구용 비만치료제에 대해 EU 전문가위원회의 승인 권고를 획득하며 유럽 시장 진출이 가시화됨. 국내 비만치료제 관련주 및 제약·바이오 섹터 전반에 긍정적 모멘텀으로 작용할 전망.",
       "url": "",
       "source": "kis",
-      "filedAt": "2026-10-15",
+      "filedAt": "2026-10-16",
       "changePct": null,
-      "accession": "kis:ICH806058",
+      "accession": "kis:ICH806226",
       "capturedAt": "20:48"
+    },
+    {
+      "ticker": "BLK",
+      "stock": "블랙록",
+      "category": "sp",
+      "exchange": "nyse",
+      "relatedStock": "미래에셋증권",
+      "relatedUrl": null,
+      "market": "US",
+      "kind": "news",
+      "form": "",
+      "direction": "bullish",
+      "summary": "3분기 호실적과 함께 수수료 수익 성장이 가속화되면서 월가 목표주가가 상향됨. 글로벌 금융 시장의 투자 심리 개선과 증권업종 전반의 실적 기대감을 높이는 요인.",
+      "url": "",
+      "source": "kis",
+      "filedAt": "2026-10-16",
+      "changePct": null,
+      "accession": "kis:ICH806217",
+      "capturedAt": "20:48"
+    },
+    {
+      "ticker": "",
+      "stock": "연준",
+      "category": "macro",
+      "exchange": "",
+      "relatedStock": "KB금융",
+      "relatedUrl": "http://www.kjdaily.com/article.php?aid=1792150811689362276",
+      "market": "US",
+      "kind": "news",
+      "form": "",
+      "direction": "neutral",
+      "summary": "물가 안정과 고용 시장 사이에서 금리 정책 방향성을 결정하기 어려운 연준의 딜레마가 부각됨. 통화정책 불확실성이 지속되면서 국내 금융주 및 시장 변동성에 영향을 줄 수 있음.",
+      "url": "",
+      "source": "kis-flash",
+      "filedAt": "2026-10-16",
+      "changePct": null,
+      "accession": "kis-flash:2026101620253587007",
+      "capturedAt": "20:48"
+    },
+    {
+      "ticker": "XOM",
+      "stock": "ExxonMobil",
+      "category": "sp",
+      "exchange": "nyse",
+      "market": "US",
+      "kind": "sec",
+      "form": "8-K",
+      "direction": "neutral",
+      "summary": "엑손모빌이 3분기 실적에 영향을 미칠 시장 및 계획된 요인(Market and Planned Impacts)을 8-K로 사전 공시함. 유가 하락에 따른 업스트림 부문 수익 감소(-1.3B)와 정제 마진 변동 등 주요 변수를 제시했으나, 이는 전체 실적 추정치가 아닌 특정 요인에 국한된 가이드라인으로 한국 정유·화학주에 유가 변동성 경계 심리를 자극할 수 있음.",
+      "url": "https://www.sec.gov/Archives/edgar/data/2115436/000211543626000013/0002115436-26-000013-index.htm",
+      "filedAt": "2026-10-16",
+      "changePct": null,
+      "accession": "0002115436-26-000013",
+      "capturedAt": "21:18"
+    },
+    {
+      "ticker": "GOOGL",
+      "stock": "알파벳",
+      "category": "nasdaq",
+      "exchange": "nasdaq",
+      "relatedStock": "모바일어플라이언스",
+      "relatedUrl": null,
+      "market": "US",
+      "kind": "news",
+      "form": "",
+      "direction": "bearish",
+      "summary": "자율주행 자회사 웨이모가 캐나다 시장 진출을 공식화하며 2028년 서비스 개시를 목표로 함. 자율주행 기술의 글로벌 확장 가속화로 국내 관련주에 긍정적 모멘텀 기대. · (마감) 나스닥이 2% 넘게 급락하며 기술주 전반에 매도세가 확산, 자율주행 관련주 투자 심리도 위축됨.",
+      "url": "",
+      "source": "kis",
+      "filedAt": "2026-10-16",
+      "changePct": null,
+      "accession": "kis:ICH806227",
+      "capturedAt": "21:18"
+    },
+    {
+      "ticker": "XOM",
+      "stock": "엑슨 모빌",
+      "category": "sp",
+      "exchange": "nyse",
+      "relatedStock": "S-Oil",
+      "relatedUrl": null,
+      "market": "US",
+      "kind": "news",
+      "form": "",
+      "direction": "bearish",
+      "summary": "3분기 실적에서 액체유 가격 하락이 13억 달러 규모의 이익 감소 요인으로 작용했다고 밝힘. 유가 변동성에 따른 정유업계 수익성 우려가 국내 정유주에 하방 압력으로 작용할 수 있음.",
+      "url": "",
+      "source": "kis-flash",
+      "filedAt": "2026-10-16",
+      "changePct": null,
+      "accession": "kis-flash:2026101621061060855",
+      "capturedAt": "21:18"
+    },
+    {
+      "ticker": "TSLA",
+      "stock": "테슬라",
+      "category": "nasdaq",
+      "exchange": "nasdaq",
+      "relatedStock": "명신산업",
+      "relatedUrl": null,
+      "market": "US",
+      "kind": "news",
+      "form": "",
+      "direction": "bearish",
+      "summary": "2세대 로드스터 공개 소식에 주가가 급등함. 신차 모멘텀이 전기차 섹터 전반의 투자 심리를 개선하며 국내 부품 공급사들에 긍정적 영향을 줄 것으로 전망. · (마감) 기술주 중심의 투매 현상으로 테슬라를 포함한 전기차 섹터 전반이 하락 마감하며 투자 심리가 악화됨.",
+      "url": "",
+      "source": "kis",
+      "filedAt": "2026-10-16",
+      "changePct": null,
+      "accession": "kis:ICH806228",
+      "capturedAt": "21:18"
     },
     {
       "ticker": "",
@@ -1691,265 +1648,18 @@
       "category": "macro",
       "exchange": "",
       "relatedStock": "S-Oil",
-      "relatedUrl": "https://www.nytimes.com/2026/10/15/world/europe/ukraine-jet-drone-interceptor.html?partner=naver",
-      "market": "US",
-      "kind": "news",
-      "form": "",
-      "direction": "bullish",
-      "summary": "우크라이나의 러시아 정유시설 드론 공격 지속과 중동 지정학적 리스크로 유가 상승 압력이 커짐. 에너지 비용 상승은 국내 정유 및 관련 수출 기업의 비용 부담을 가중시킬 수 있음.",
-      "url": "",
-      "source": "kis-flash",
-      "filedAt": "2026-10-15",
-      "changePct": null,
-      "accession": "kis-flash:2026101519240499399",
-      "capturedAt": "20:48"
-    },
-    {
-      "ticker": "",
-      "stock": "미국 소비자물가",
-      "category": "macro",
-      "exchange": "",
-      "relatedStock": "KB금융",
-      "relatedUrl": "http://www.kjdaily.com/article.php?aid=1792064407689323276",
+      "relatedUrl": "https://www.nytimes.com/2026/10/16/books/review/bogland-merritt-turetsky.html?partner=naver",
       "market": "US",
       "kind": "news",
       "form": "",
       "direction": "bearish",
-      "summary": "미국 소비자물가가 3.7% 상승하며 추가 금리 인상 압박이 커짐. 고금리 장기화 우려로 국내 금융주 및 성장주 전반에 투자 심리 위축이 예상됨.",
-      "url": "https://news.kbs.co.kr/news/pc/view/view.do?ncd=8686891&ref=A",
-      "source": "naver",
-      "filedAt": "2026-10-15",
-      "changePct": null,
-      "accession": "https://news.kbs.co.kr/news/pc/view/view.do?ncd=8686891&ref=A",
-      "capturedAt": "21:17"
-    },
-    {
-      "ticker": "FMC",
-      "stock": "FMC",
-      "category": "sp",
-      "exchange": "nyse",
-      "relatedStock": "남해화학",
-      "relatedUrl": null,
-      "market": "US",
-      "kind": "news",
-      "form": "",
-      "direction": "bearish",
-      "summary": "FMC가 3분기 실적 가이던스를 하향하고 조정 EBITDA 적자를 전망함. 농화학 섹터의 업황 둔화 신호로 해석되어 국내 비료 및 화학 관련주에 부정적.",
-      "url": "",
-      "source": "kis-flash",
-      "filedAt": "2026-10-15",
-      "changePct": null,
-      "accession": "kis-flash:2026101521060972158",
-      "capturedAt": "21:17"
-    },
-    {
-      "ticker": "SCHW",
-      "stock": "찰스슈왑",
-      "category": "sp",
-      "exchange": "nyse",
-      "relatedStock": "키움증권",
-      "relatedUrl": null,
-      "market": "US",
-      "kind": "news",
-      "form": "",
-      "direction": "bearish",
-      "summary": "찰스슈왑이 매출 실망으로 주가가 하락함. 미국 금융 서비스업의 실적 부진은 국내 증권업종의 투자 심리에도 하방 압력으로 작용할 수 있음.",
+      "summary": "WTI가 한 달 만에 100달러를 돌파하며 에너지 가격 급등세가 재점화됨. 인플레이션 압력 가중과 정유주 수익성 개선 기대감이 국내 증시에 상존함. · (마감) 시장 전반의 위험 회피 심리가 강화되면서 유가 상승에 따른 인플레이션 우려가 증시 하방 압력으로 작용.",
       "url": "",
       "source": "kis",
-      "filedAt": "2026-10-15",
+      "filedAt": "2026-10-17",
       "changePct": null,
-      "accession": "kis:ICH806060",
-      "capturedAt": "21:17"
-    },
-    {
-      "ticker": "",
-      "stock": "미국 생산자물가",
-      "category": "macro",
-      "exchange": "",
-      "relatedStock": "삼성전자",
-      "relatedUrl": "https://www.edaily.co.kr/News/Read?newsId=06317286645613248&mediaCodeNo=257&utm_source=naver&utm_medium=referral&utm_campaign=news_syndication&utm_content=original_article",
-      "market": "US",
-      "kind": "news",
-      "form": "",
-      "direction": "bearish",
-      "summary": "미국 9월 PPI가 전년 대비 6.3% 상승하며 시장 예상치를 상회, 인플레이션 압력이 재부각됨. 고금리 장기화 우려가 커지며 국내 증시 전반의 투자 심리에 하방 압력으로 작용할 전망.",
-      "url": "https://www.cbci.co.kr/news/articleView.html?idxno=615829",
-      "source": "naver",
-      "filedAt": "2026-10-15",
-      "changePct": null,
-      "accession": "https://www.cbci.co.kr/news/articleView.html?idxno=615829",
-      "capturedAt": "21:48"
-    },
-    {
-      "ticker": "CCCS",
-      "stock": "CCC 인텔리전트",
-      "category": "sp",
-      "exchange": "nyse",
-      "relatedStock": "현대오토에버",
-      "relatedUrl": null,
-      "market": "US",
-      "kind": "news",
-      "form": "",
-      "direction": "bullish",
-      "summary": "GTCR과 엘리엇 컨소시엄이 CCC 인텔리전트를 61억 달러에 인수하기로 합의함. 소프트웨어 및 자동차 데이터 플랫폼 섹터의 M&A 활성화는 국내 관련 소프트웨어 기업들의 밸류에이션 재평가 기대감을 높일 수 있음.",
-      "url": "",
-      "source": "kis-flash",
-      "filedAt": "2026-10-15",
-      "changePct": null,
-      "accession": "kis-flash:2026101521210934281",
-      "capturedAt": "21:48"
-    },
-    {
-      "ticker": "",
-      "stock": "미국 생산자물가",
-      "category": "macro",
-      "exchange": "",
-      "relatedStock": "삼성전자",
-      "relatedUrl": "https://www.edaily.co.kr/News/Read?newsId=06412406645613248&mediaCodeNo=257&utm_source=naver&utm_medium=referral&utm_campaign=news_syndication&utm_content=original_article",
-      "market": "US",
-      "kind": "news",
-      "form": "",
-      "direction": "bearish",
-      "summary": "미국 9월 생산자물가(PPI)가 4년 6개월 만에 최대폭으로 급등하며 인플레이션 우려가 재점화됨. 고금리 장기화 공포로 인해 국내 증시 전반의 투자 심리 위축이 불가피함.",
-      "url": "https://www.edaily.co.kr/News/Read?newsId=06392726645613248&mediaCodeNo=257&utm_source=naver&utm_medium=referral&utm_campaign=news_syndication&utm_content=original_article",
-      "source": "naver",
-      "filedAt": "2026-10-15",
-      "changePct": null,
-      "accession": "https://www.edaily.co.kr/News/Read?newsId=06392726645613248&mediaCodeNo=257&utm_source=naver&utm_medium=referral&utm_campaign=news_syndication&utm_content=original_article",
-      "capturedAt": "22:18"
-    },
-    {
-      "ticker": "TSM",
-      "stock": "TSMC",
-      "category": "nasdaq",
-      "exchange": "nyse",
-      "relatedStock": "삼성전자",
-      "relatedUrl": null,
-      "market": "US",
-      "kind": "news",
-      "form": "",
-      "direction": "neutral",
-      "summary": "TSMC가 6분기 연속 순이익 신기록을 경신하며 강력한 실적을 발표함. 미국 텍사스 투자 검토 소식과 함께 파운드리 업황 회복 기대감이 국내 반도체 밸류체인에 긍정적 모멘텀으로 작용할 전망. · (마감) 역대급 실적 발표에도 불구하고 반도체 지수 전반이 약세를 보이며 국내 관련주에 미치는 긍정적 영향이 희석되었습니다.",
-      "url": "",
-      "source": "kis-flash",
-      "filedAt": "2026-10-15",
-      "changePct": null,
-      "accession": "kis-flash:2026101522165261098",
-      "capturedAt": "22:18"
-    },
-    {
-      "ticker": "NFLX",
-      "stock": "넷플릭스",
-      "category": "nasdaq",
-      "exchange": "nasdaq",
-      "relatedStock": "스튜디오드래곤",
-      "relatedUrl": null,
-      "market": "US",
-      "kind": "news",
-      "form": "",
-      "direction": "bullish",
-      "summary": "제프리스가 넷플릭스의 강력한 가격결정력이 수익화 확대를 지지할 것이라고 분석함. 콘텐츠 경쟁력과 수익성 개선 기대감은 국내 미디어 및 콘텐츠 관련주에 긍정적.",
-      "url": "",
-      "source": "kis",
-      "filedAt": "2026-10-15",
-      "changePct": null,
-      "accession": "kis:ICH806071",
-      "capturedAt": "23:48"
-    },
-    {
-      "ticker": "AAPL",
-      "stock": "애플",
-      "category": "nasdaq",
-      "exchange": "nasdaq",
-      "relatedStock": "LG이노텍",
-      "relatedUrl": null,
-      "market": "US",
-      "kind": "news",
-      "form": "",
-      "direction": "neutral",
-      "summary": "애플이 엔비디아에 이어 시가총액 5조 달러를 돌파하며 사상 최고가를 경신했습니다. 이는 국내 관련 부품 공급사 및 기술주 전반에 긍정적인 투자 심리를 제공할 것으로 예상됩니다. · (마감) 애플이 장중 사상 최고가를 경신했으나 나스닥 지수가 0.08% 소폭 상승에 그치며 기술주 전반의 탄력은 둔화되었습니다.",
-      "url": "https://www.cbci.co.kr/news/articleView.html?idxno=615878",
-      "source": "naver",
-      "filedAt": "2026-10-16",
-      "changePct": null,
-      "accession": "https://www.cbci.co.kr/news/articleView.html?idxno=615878",
-      "capturedAt": "00:18"
-    },
-    {
-      "ticker": "",
-      "stock": "앤트로픽",
-      "category": "nasdaq",
-      "exchange": "",
-      "relatedStock": "이스트소프트",
-      "relatedUrl": null,
-      "market": "US",
-      "kind": "news",
-      "form": "",
-      "direction": "neutral",
-      "summary": "앤트로픽이 3분기 매출 168억 달러를 기록했다고 밝혔습니다. 이는 AI 산업의 성장세를 보여주지만, 이미 FTC 조사가 진행 중인 상황에서 새로운 촉매로 보기는 어렵습니다.",
-      "url": "",
-      "source": "kis",
-      "filedAt": "2026-10-16",
-      "changePct": null,
-      "accession": "kis:ICH806072",
-      "capturedAt": "00:18"
-    },
-    {
-      "ticker": "",
-      "stock": "흑해",
-      "category": "sp",
-      "exchange": "",
-      "relatedStock": "한화에어로스페이스",
-      "relatedUrl": null,
-      "market": "US",
-      "kind": "news",
-      "form": "",
-      "direction": "bearish",
-      "summary": "루마니아 앞 흑해에서 선박 드론 피격으로 7명이 실종되는 사건이 발생했습니다. 이는 흑해 지역의 지정학적 긴장을 고조시키며 국제유가 및 방산 관련주에 영향을 줄 수 있습니다.",
-      "url": "",
-      "source": "kis-flash",
-      "filedAt": "2026-10-16",
-      "changePct": null,
-      "accession": "kis-flash:2026101523552182496",
-      "capturedAt": "00:18"
-    },
-    {
-      "ticker": "",
-      "stock": "미국 CPI",
-      "category": "macro",
-      "exchange": "",
-      "relatedStock": "삼성전자",
-      "relatedUrl": "https://www.chosun.com/economy/money/2026/10/16/TJDN42VHYZFOVK25H7UKMB3OJI/?utm_source=naver&utm_medium=referral&utm_campaign=naver-news",
-      "market": "US",
-      "kind": "news",
-      "form": "",
-      "direction": "neutral",
-      "summary": "미국 소비자물가지수(CPI) 충격으로 인한 인플레이션 우려가 재점화되며 글로벌 증시 전반의 투자 심리를 위축시키고 있습니다. 특히 AI 거품론과 맞물려 국내 반도체 대형주를 중심으로 외국인 매도세가 강화될 수 있습니다. · (마감) CPI 우려에도 불구하고 나스닥과 S&P500이 소폭 상승 마감하며 지수 차원의 급격한 위축은 방어되었습니다.",
-      "url": "https://www.cbci.co.kr/news/articleView.html?idxno=615998",
-      "source": "naver",
-      "filedAt": "2026-10-16",
-      "changePct": null,
-      "accession": "https://www.cbci.co.kr/news/articleView.html?idxno=615998",
-      "capturedAt": "00:37"
-    },
-    {
-      "ticker": "NVDA",
-      "stock": "엔비디아",
-      "category": "nasdaq",
-      "exchange": "nasdaq",
-      "relatedStock": "SK하이닉스",
-      "relatedUrl": null,
-      "market": "US",
-      "kind": "news",
-      "form": "",
-      "direction": "bullish",
-      "summary": "젠슨 황 CEO가 AI 인프라 기업 코어위브의 신용 우려를 일축하며 자본조달 환경 개선을 강조했습니다. AI 설비투자 지속성에 대한 불안을 완화하여 국내 반도체 밸류체인 심리에 긍정적입니다.",
-      "url": "",
-      "source": "kis",
-      "filedAt": "2026-10-16",
-      "changePct": null,
-      "accession": "kis:AKR20261016001100016",
-      "capturedAt": "01:18"
+      "accession": "kis:AKR20261017004300016",
+      "capturedAt": "04:48"
     },
     {
       "ticker": "CORE",
@@ -1961,14 +1671,33 @@
       "market": "US",
       "kind": "news",
       "form": "",
-      "direction": "neutral",
-      "summary": "AI 인프라 기업 코어위브의 대규모 부채 리스크가 부각되며 주가가 급락함. AI 설비투자(Capex) 지속성에 대한 시장의 의구심이 커지며 국내 AI 반도체 밸류체인 전반에 투자 심리 위축이 우려됨. · (마감) 개별 기업의 리스크가 부각되었으나 미 증시 주요 지수가 보합권 이상에서 마감하며 업종 전반의 투매로 확산되지는 않았습니다.",
-      "url": "https://www.newspim.com/news/view/20261016000009",
+      "direction": "bearish",
+      "summary": "AI 인프라 기업 코어위브 관련 우려가 반도체 섹터 전반의 투자 심리를 위축시킴. AI 거품론이 재점화되며 국내 반도체 및 AI 관련주에 단기 하방 압력으로 작용할 전망.",
+      "url": "https://www.mediapen.com/news/view/1130618",
       "source": "naver",
-      "filedAt": "2026-10-16",
+      "filedAt": "2026-10-17",
       "changePct": null,
-      "accession": "https://www.newspim.com/news/view/20261016000009",
-      "capturedAt": "01:47"
+      "accession": "https://www.mediapen.com/news/view/1130618",
+      "capturedAt": "05:18"
+    },
+    {
+      "ticker": "",
+      "stock": "앤트로픽",
+      "category": "nasdaq",
+      "exchange": "",
+      "relatedStock": "네이버",
+      "relatedUrl": null,
+      "market": "US",
+      "kind": "news",
+      "form": "",
+      "direction": "bearish",
+      "summary": "AI 스타트업 앤트로픽의 매출 성장 둔화 소식이 AI 섹터의 밸류에이션 고평가 논란을 자극함. AI 서비스 및 솔루션 기업들의 실적 기대치를 낮추는 요인으로 작용.",
+      "url": "https://www.mediapen.com/news/view/1130618",
+      "source": "naver",
+      "filedAt": "2026-10-17",
+      "changePct": null,
+      "accession": "https://www.mediapen.com/news/view/1130618",
+      "capturedAt": "05:18"
     },
     {
       "ticker": "",
@@ -1976,57 +1705,22 @@
       "category": "macro",
       "exchange": "",
       "relatedStock": "S-Oil",
-      "relatedUrl": "https://www.g-enews.com/view.php?ud=20261015172323265fbbec65dfb_1",
+      "relatedUrl": "https://www.nytimes.com/2026/10/16/books/review/bogland-merritt-turetsky.html?partner=naver",
       "market": "US",
       "kind": "news",
       "form": "",
       "direction": "bearish",
-      "summary": "미국 원유 재고가 급감하며 WTI가 3% 급등, 6일 연속 상승세를 보임. 에너지 비용 상승은 국내 정유 및 수출 기업의 비용 부담을 가중시킬 수 있음.",
-      "url": "",
-      "source": "kis",
-      "filedAt": "2026-10-16",
+      "summary": "중동 지정학적 리스크 고조로 유가가 급등하며 인플레이션 우려를 자극, 시장 전반의 투자 심리를 위축시키고 있음.",
+      "url": "https://www.g-enews.com/view.php?ud=202610170523539946e250e8e188_1",
+      "source": "naver",
+      "filedAt": "2026-10-17",
       "changePct": null,
-      "accession": "kis:AKR20261016003600016",
-      "capturedAt": "04:18"
+      "accession": "https://www.g-enews.com/view.php?ud=202610170523539946e250e8e188_1",
+      "capturedAt": "05:48"
     },
     {
-      "ticker": "TSLA",
-      "stock": "테슬라",
-      "category": "nasdaq",
-      "exchange": "nasdaq",
-      "relatedStock": "LG에너지솔루션",
-      "relatedUrl": null,
-      "market": "US",
-      "kind": "news",
-      "form": "",
-      "direction": "bullish",
-      "summary": "일론 머스크가 장기간 연기되었던 신형 로드스터 신차를 마침내 공개했습니다. 신규 신차 모멘텀은 전기차 및 2차전지 밸류체인 전반의 투자심리 개선에 긍정적입니다.",
-      "url": "",
-      "source": "kis-flash",
-      "filedAt": "2026-10-16",
-      "changePct": null,
-      "accession": "kis-flash:2026101604252041661",
-      "capturedAt": "04:26"
-    },
-    {
-      "ticker": "CAT",
-      "stock": "CATERPILLAR INC",
-      "category": "sp",
-      "exchange": "nyse",
-      "market": "US",
-      "kind": "sec",
-      "form": "8-K",
-      "direction": "neutral",
-      "summary": "Resource Industries 부문 그룹 사장 Denise Johnson의 은퇴 및 Derrick York 신임 사장 선임 발표. 경영진 교체에 따른 리더십 전환 공시로, 한국 건설기계 및 광산 장비 관련주에 미치는 직접적인 영향은 제한적일 것으로 판단됨.",
-      "url": "https://www.sec.gov/Archives/edgar/data/18230/000110465926116198/0001104659-26-116198-index.htm",
-      "filedAt": "2026-10-15",
-      "changePct": null,
-      "accession": "0001104659-26-116198",
-      "capturedAt": "04:48"
-    },
-    {
-      "ticker": "AAPL",
-      "stock": "애플",
+      "ticker": "",
+      "stock": "AI 거품론",
       "category": "nasdaq",
       "exchange": "nasdaq",
       "relatedStock": "삼성전자",
@@ -2034,87 +1728,33 @@
       "market": "US",
       "kind": "news",
       "form": "",
-      "direction": "neutral",
-      "summary": "애플 CEO가 메모리 공급난을 언급하며 중국산 메모리 사용 가능성을 시사함. 국내 메모리 반도체 기업의 공급망 지위 변화 가능성으로 인해 관련주 변동성 확대가 예상됨.",
-      "url": "",
-      "source": "kis-flash",
-      "filedAt": "2026-10-16",
+      "direction": "bearish",
+      "summary": "AI 투자 대비 수익성(ROI)에 대한 의구심이 확산되며 나스닥 기술주 중심의 급락을 유발, 국내 반도체 및 AI 관련주에 하방 압력으로 작용할 전망.",
+      "url": "https://www.edaily.co.kr/News/Read?newsId=01430086645613904&mediaCodeNo=257&utm_source=naver&utm_medium=referral&utm_campaign=news_syndication&utm_content=original_article",
+      "source": "naver",
+      "filedAt": "2026-10-17",
       "changePct": null,
-      "accession": "kis-flash:2026101604415413372",
-      "capturedAt": "04:48"
+      "accession": "https://www.edaily.co.kr/News/Read?newsId=01430086645613904&mediaCodeNo=257&utm_source=naver&utm_medium=referral&utm_campaign=news_syndication&utm_content=original_article",
+      "capturedAt": "05:48"
     },
     {
-      "ticker": "ABBV",
-      "stock": "AbbVie Inc.",
-      "category": "sp",
-      "exchange": "nyse",
-      "market": "US",
-      "kind": "sec",
-      "form": "8-K",
-      "direction": "neutral",
-      "summary": "2026년 만기 예정인 선순위 채권 등 부채 구조 관련 정보를 포함한 일반적인 8-K 공시를 제출했습니다. 단순 서류 제출로 주가 영향은 제한적이며 국내 바이오시밀러 및 대형 제약주에 미치는 직접적 영향은 낮습니다.",
-      "url": "https://www.sec.gov/Archives/edgar/data/1551152/000110465926116227/0001104659-26-116227-index.htm",
-      "filedAt": "2026-10-15",
-      "changePct": null,
-      "accession": "0001104659-26-116227",
-      "capturedAt": "05:18"
-    },
-    {
-      "ticker": "AA",
-      "stock": "알코아",
-      "category": "sp",
-      "exchange": "nyse",
-      "relatedStock": "삼아알미늄",
-      "relatedUrl": null,
-      "market": "US",
-      "kind": "news",
-      "form": "",
-      "direction": "bullish",
-      "summary": "알코아가 3분기 순이익이 증가하고 알루마 제련소 재가동을 완료했습니다. 이는 알루미늄 업황 개선 기대를 높여 국내 알루미늄 관련주에 긍정적입니다.",
-      "url": "",
-      "source": "kis-flash",
-      "filedAt": "2026-10-16",
-      "changePct": null,
-      "accession": "kis-flash:2026101605161010837",
-      "capturedAt": "05:18"
-    },
-    {
-      "ticker": "",
-      "stock": "후티",
-      "category": "sp",
-      "exchange": "",
-      "relatedStock": "한화에어로스페이스",
+      "ticker": "AAPL",
+      "stock": "애플",
+      "category": "nasdaq",
+      "exchange": "nasdaq",
+      "relatedStock": "LG이노텍",
       "relatedUrl": null,
       "market": "US",
       "kind": "news",
       "form": "",
       "direction": "bearish",
-      "summary": "예멘 후티 반군이 아덴 대통령궁에 미사일 공격을 감행하며 중동 지정학적 긴장이 고조되고 있습니다. 이는 국제유가 상승 압력과 함께 국내 방산 관련주에 긍정적 영향을 줄 수 있습니다.",
-      "url": "",
-      "source": "kis-flash",
-      "filedAt": "2026-10-16",
+      "summary": "애플의 첫 폴더블폰이 예약 주문 폭주로 내년 1월까지 물량이 밀리는 등 초기 흥행에 성공함. 폴더블폰 시장 개화에 따른 국내 부품 공급망의 수혜가 기대됨. · (마감) 나스닥 급락장 속에서 애플을 포함한 대형 기술주 전반이 동반 하락하며 개별 호재의 영향력이 제한됨.",
+      "url": "https://www.mk.co.kr/article/12178326",
+      "source": "naver",
+      "filedAt": "2026-10-17",
       "changePct": null,
-      "accession": "kis-flash:2026101605103466225",
-      "capturedAt": "05:18"
-    },
-    {
-      "ticker": "IBKR",
-      "stock": "인터랙티브 브로커스",
-      "category": "sp",
-      "exchange": "nasdaq",
-      "relatedStock": "키움증권",
-      "relatedUrl": null,
-      "market": "US",
-      "kind": "news",
-      "form": "",
-      "direction": "bullish",
-      "summary": "인터랙티브 브로커스가 3분기 순매출 증가와 함께 분기 배당을 인상했습니다. 이는 미국 증권업의 견조한 실적을 보여주며 국내 증권업종 투자 심리에 긍정적입니다.",
-      "url": "",
-      "source": "kis-flash",
-      "filedAt": "2026-10-16",
-      "changePct": null,
-      "accession": "kis-flash:2026101605091212618",
-      "capturedAt": "05:18"
+      "accession": "https://www.mk.co.kr/article/12178326",
+      "capturedAt": "06:17"
     }
   ]
 }
