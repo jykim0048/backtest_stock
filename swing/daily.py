@@ -129,7 +129,7 @@ def run_day(date, store, agent, prices, wb, *, force=False, log=print, uni=None,
     missing = sorted(held - set(bars))
     if missing:
         run["notes"].append(f"보유 종목 시세 없음: {', '.join(missing)}")
-    intraday = store.get(f"intraday/{date}") if config.INTRADAY_SETTLE else None   # 장중 VWAP 실행기 기록(PLAN_VWAP.md)
+    intraday = store.get(f"intraday/{date}") if config.INTRADAY_SETTLE else None   # Live Trader(장중 집행기) 기록(PLAN_LIVE_TRADER.md)
     ev = engine.settle_day(L, date, bars, intraday=intraday)
     if intraday:
         run["intraday"] = {"complete": bool(intraday.get("complete")), "asof": intraday.get("asof"),

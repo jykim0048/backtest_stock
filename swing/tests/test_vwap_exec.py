@@ -1,4 +1,4 @@
-"""장중 VWAP 실행기(PLAN_VWAP.md) — 시세 파싱·VWAP 상태·분할 진입·장중 손절·정산 반영 오프라인 테스트."""
+"""Live Trader(장중 집행기)(PLAN_LIVE_TRADER.md) — 시세 파싱·VWAP 상태·분할 진입·장중 손절·정산 반영 오프라인 테스트."""
 import datetime
 import tempfile
 import unittest

@@ -17,7 +17,7 @@
   GET /admin/universe?token=&date=    그 날짜 유니버스 재산출(덮어쓰기, 백그라운드) · 진행 GET /api/swing/universe/progress
   GET /api/swing/config               운용 규칙(자본·보유일·세금·비중·신호/등급 조건)
   GET /api/swing/export               전체 문서 JSON(백업)
-  GET /api/swing/intraday[?date=]     장중 VWAP 실행기 — 분할 체결·장중 손절·종목별 VWAP(PLAN_VWAP.md)
+  GET /api/swing/intraday[?date=]     Live Trader(장중 집행기) — 분할 체결·장중 손절·종목별 VWAP(PLAN_LIVE_TRADER.md)
   GET /api/prices?codes=              장중 시세 — SWING_PRICES_PROXY(main 대시보드) 중계, 표시 전용
   GET /healthz
 
@@ -286,7 +286,7 @@ def api_export(q):
 
 
 def api_intraday(q):
-    """장중 VWAP 실행기 기록(PLAN_VWAP.md) — 분할 체결·장중 손절·종목별 VWAP. date 없으면 최근 날짜."""
+    """Live Trader(장중 집행기) 기록(PLAN_LIVE_TRADER.md) — 분할 체결·장중 손절·종목별 VWAP. date 없으면 최근 날짜."""
     dates = sorted({k.split("/")[1] for k in STORE.keys("intraday/") if k.count("/") == 1})
     date = q.get("date") or (dates[-1] if dates else None)
     return {"dates": dates, "date": date, "doc": STORE.get(f"intraday/{date}") if date else None}

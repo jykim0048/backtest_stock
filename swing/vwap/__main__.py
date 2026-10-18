@@ -1,4 +1,4 @@
-"""swing-vwap 진입점 — 장중 VWAP 실행기(PLAN_VWAP.md).
+"""swing-vwap 진입점 — Live Trader(장중 집행기)(PLAN_LIVE_TRADER.md).
 
   python -m swing.vwap                 # 상시: 영업일 09:00~15:35 폴링, 그 외 다음 세션까지 대기
   python -m swing.vwap --once          # 오늘 세션 하나만
@@ -75,7 +75,7 @@ def run_session(st, date, *, feed=None, clock=now_kst, sleep=time.sleep, log=pri
 
 
 def main(argv=None):
-    ap = argparse.ArgumentParser(description="swing 장중 VWAP 실행기(PLAN_VWAP.md)")
+    ap = argparse.ArgumentParser(description="swing Live Trader(장중 집행기)(PLAN_LIVE_TRADER.md)")
     ap.add_argument("--replay", metavar="DATE")
     ap.add_argument("--source", default="env")
     ap.add_argument("--store", default="env")

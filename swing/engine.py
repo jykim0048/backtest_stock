@@ -272,7 +272,7 @@ def _days_between(a, b):
 
 # ── 하루 정산 ────────────────────────────────────────────────────────────────
 def _intraday(doc, date):
-    """장중 VWAP 실행기 기록(swing/vwap, PLAN_VWAP.md) → (doc, 감시 주문 id, 감시 포지션 id, 세션 완주). 없으면 None."""
+    """Live Trader(장중 집행기) 기록(swing/vwap, PLAN_LIVE_TRADER.md) → (doc, 감시 주문 id, 감시 포지션 id, 세션 완주). 없으면 None."""
     if not doc or doc.get("date") != date:
         return None, set(), set(), False
     w = doc.get("watched") or {}
@@ -305,7 +305,7 @@ def _apply_exit(L, p, rec, date, ev, reason):
 
 def settle_day(L, date, bars, intraday=None):
     """date 영업일 처리. bars = {code: {open, high, low, close}}. 이미 처리한 날은 무시.
-    intraday = 그날 장중 VWAP 실행기 문서(intraday/<date>) — 감시한 주문은 분할 체결 기록으로 체결, 감시한 포지션은
+    intraday = 그날 Live Trader(장중 집행기) 문서(intraday/<date>) — 감시한 주문은 분할 체결 기록으로 체결, 감시한 포지션은
     장중 손절 기록으로 청산(세션 완주면 일봉 손절 판정 생략). 없거나 감시 밖이면 종전 일봉 규칙(2026-10-18).
     반환: 그날 이벤트 {filled, cancelled, skipped, exits}."""
     if L.get("asof") and date <= L["asof"]:

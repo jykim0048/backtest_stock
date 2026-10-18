@@ -1,7 +1,12 @@
 # 장중 포트폴리오 매니저(Live PM) — 설계·구현 계획
 
-2026-10-18 작성(설계 초안 + GitHub 레퍼런스 조사 통합). **구현 전.** §12 의 기본 가정은 사용자가 바꾸면
+2026-10-18 작성(설계 초안 + GitHub 레퍼런스 조사 통합). **M0 완료, M1~ 미구현.** §12 의 기본 가정은 사용자가 바꾸면
 해당 단계만 고친다.
+
+> **2026-10-18 역할 분리**: 장중 시스템을 **Live Trader(집행)** 와 **Live PM(판단)** 으로 나눈다 —
+> [PLAN_LIVE_TRADER.md](PLAN_LIVE_TRADER.md) §0. Live Trader(구 VWAP 실행기, `swing/vwap`, 서비스 swing-vwap)가 이미
+> 시세 수신·분할 체결·**손절 감시와 집행**·`intraday/<date>` 기록을 맡고 있다. 따라서 Live PM 은 **판단만** 하고,
+> 집행은 Live Trader 에 지시(§8·PLAN_LIVE_TRADER §5)로 넘긴다. 아래 층 표의 "담당" 열이 이 분리를 반영한다.
 
 ## 0. 목적과 이름
 - swing 은 하루 한 번(16:30 KST 장 마감 후)만 판단하므로, 장중에 일어난 일에는 다음 날 시가에야 대응한다.
@@ -11,16 +16,16 @@
 - 신규 진입은 계속 하루 배치(trading_agent)가 맡고, Live PM 은 **보유 관리(위험 축소)부터** 맡는다.
 
 ## 1. 층 구조 — LLM 은 틱 경로에 두지 않는다
-| 층 | 주기 | 하는 일 | LLM |
-|---|---|---|---|
-| L0 시세 공급 `MarketFeed` | 실시간 / 폴링 | 보유 종목 현재가·장중 고저·VI·섹터 | 없음 |
-| L1 상태 엔진 `LiveBook` | 틱마다 | 원장(ledger) + 현재가 → 평가손익·노출·손절 거리·롤링 수익률 | 없음 |
-| L2 반사 규칙 `Reflex` + 거래 상태 | 틱마다 | 하드 리밋 감시, 거래 상태 전환(§4) | 없음 |
-| L3 트리거 `Trigger` | 틱마다, 디바운스 | 이벤트 감지 → Live PM 호출 여부 결정 | 없음 |
-| L4 판단 `LivePM` | 이벤트 + 정기 | 스냅샷 → 구조화된 결정 | **있음** |
-| L5 검증 `RiskGate` | 결정마다 | 결정을 축소·거부만 가능(키울 수 없음) | 없음 |
-| L6 실행 `Executor` | 결정마다 | shadow: 기록만 / paper: 원장 장중 반영 / real: 범위 밖 | 없음 |
-| L7 평가·대사 `Evaluate` | 장 마감 후 | shadow 반사실 손익, paper 결정↔원장 대사 | 없음 |
+| 층 | 주기 | 하는 일 | LLM | 담당(2026-10-18) |
+|---|---|---|---|---|
+| L0 시세 공급 `MarketFeed` | 실시간 / 폴링 | 보유 종목 현재가·장중 고저·VI·섹터 | 없음 | **Live Trader** — `swing/intraday/feed.py`(/prices). Live PM 은 Live Trader 가 공개한 `intraday/<date>.vwap` 을 읽는다. /status(VI·업종)는 Live PM 이 직접 |
+| L1 상태 엔진 `LiveBook` | 틱마다 | 원장(ledger) + 현재가 → 평가손익·노출·손절 거리·롤링 수익률 | 없음 | Live PM (VWAP·1분봉은 Live Trader `vwap/state.py`) |
+| L2 반사 규칙 `Reflex` + 거래 상태 | 틱마다 | 하드 리밋 감시, 거래 상태 전환(§4) | 없음 | X1 손절 = **Live Trader 가 집행**. 거래 상태·X2~X4 = Live PM |
+| L3 트리거 `Trigger` | 틱마다, 디바운스 | 이벤트 감지 → Live PM 호출 여부 결정 | 없음 | Live PM |
+| L4 판단 `LivePM` | 이벤트 + 정기 | 스냅샷 → 구조화된 결정 | **있음** | Live PM |
+| L5 검증 `RiskGate` | 결정마다 | 결정을 축소·거부만 가능(키울 수 없음) | 없음 | Live PM |
+| L6 실행 `Executor` | 결정마다 | shadow: 기록만 / paper: 원장 장중 반영 / real: 범위 밖 | 없음 | **Live Trader** — Live PM 은 지시만(`livepm/<date>/instructions`) |
+| L7 평가·대사 `Evaluate` | 장 마감 후 | shadow 반사실 손익, paper 결정↔원장 대사 | 없음 | Live PM |
 
 LLM 이 실패하거나 느려도 L1~L3·L5 는 독립적으로 돈다. LLM 실패·타임아웃·스키마 위반은 **hold** 로 처리한다.
 (레퍼런스: kalshi-ai-trading-bot·Infinite Bagholder 모두 손절·비중 한도를 LLM 밖 코드로 강제 — §13)
@@ -165,6 +170,10 @@ LLM 이 실패하거나 느려도 L1~L3·L5 는 독립적으로 돈다. LLM 실�
 거부·강등은 원래 결정과 함께 사유를 기록한다 — 평가 때 "게이트가 막은 결정"의 반사실 손익도 본다.
 
 ## 8. 실행 모드 (L6) — `LIVEPM_MODE`
+
+> 2026-10-18 역할 분리 이후: paper 집행은 Live PM 이 원장을 고치는 것이 아니라 **Live Trader 에 지시**를 남기고,
+> Live Trader 가 `intraday/<date>` 에 기록 → 16:30 `settle_day` 가 확정한다(PLAN_LIVE_TRADER §5). 아래 `engine.close_intraday`
+> 신설 계획은 엔진 일부 청산(`_close_position(qty=)`)·`_apply_exit` 로 이미 대체됐다. shadow 는 지시를 남기지 않고 기록만 한다.
 | 모드 | 동작 | 단계 |
 |---|---|---|
 | `shadow` | 결정·당시 가격만 기록, 원장 변경 없음 | **M2 (2~4주)** |

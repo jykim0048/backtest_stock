@@ -122,7 +122,7 @@ MATRIX_COOLDOWN = os.environ.get("SWING_MATRIX_COOLDOWN", "1") != "0"
 #               계속 보유면 새 손절·목표(유효할 때) 적용(새 손절이 없으면 기존 손절 유지 → D+2 시가가 그 아래면 갭 손절) — 기본
 #   next_open = D+1 시가 청산 예약 · same_day = 종전(D 손절가로 당일 청산, 보수적 가정)
 FILL_DAY_STOP = (os.environ.get("SWING_FILL_DAY_STOP", "review") or "review").strip().lower()
-# 장중 VWAP 실행기(swing/vwap, PLAN_VWAP.md, 2026-10-18) 기록을 정산에 반영 — 0 이면 intraday/<date> 를 무시하고 종전 일봉 규칙만
+# Live Trader(장중 집행기)(swing/vwap, PLAN_LIVE_TRADER.md, 2026-10-18) 기록을 정산에 반영 — 0 이면 intraday/<date> 를 무시하고 종전 일봉 규칙만
 INTRADAY_SETTLE = os.environ.get("SWING_INTRADAY", "1") != "0"
 # 유니버스 분석 상한 이연(2026-10-16 사용자 지시: Long 15 / Short 15, 한쪽 후보가 상한보다 적으면 남는 자리를 다른 쪽에 넘김)
 UNI_CAP_CARRY = os.environ.get("SWING_UNI_CAP_CARRY", "1") != "0"

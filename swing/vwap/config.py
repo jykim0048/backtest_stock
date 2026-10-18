@@ -1,6 +1,6 @@
-"""장중 VWAP 실행기 설정 — PLAN_VWAP.md 규칙값(2026-10-18).
+"""Live Trader(장중 집행기) 설정 — PLAN_LIVE_TRADER.md 규칙값(2026-10-18).
 
-환경변수로 덮어쓰지 않는다(사용자 결정 2026-10-18): 값을 바꿀 땐 이 파일을 고치고 PLAN_VWAP.md 에 함께 기록해
+환경변수로 덮어쓰지 않는다(사용자 결정 2026-10-18): 값을 바꿀 땐 이 파일을 고치고 PLAN_LIVE_TRADER.md 에 함께 기록해
 규칙 변경이 git 이력에 남게 한다. Railway swing-vwap 서비스 변수는 DATABASE_URL·FLOW_API_BASE 둘뿐.
 """
 

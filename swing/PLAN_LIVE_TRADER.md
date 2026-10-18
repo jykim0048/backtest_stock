@@ -1,11 +1,29 @@
-# swing 장중 VWAP 실행 — 분할 진입·장중 손절 규칙·구현 기록
+# Live Trader — 장중 집행(분할 진입·청산·손절) 규칙·구현 기록
 
-2026-10-18 사용자 결정:
+2026-10-18 명칭 변경: 구 `PLAN_VWAP.md` → **Live Trader**. 장중 시스템을 두 역할로 나눈다(§0).
+코드 패키지 `swing/vwap/`·Railway 서비스 `swing-vwap`·키 `intraday/<date>` 는 이름을 그대로 둔다(운영 중 서비스 시작 명령 유지).
+
+## 0. 역할 분리 — Live Trader(집행) vs Live PM(판단)
+| | **Live Trader** (이 문서) | **Live PM** ([PLAN_PM.md](PLAN_PM.md)) |
+|---|---|---|
+| 한 줄 | 정해진 주문을 **어떻게** 체결할지 | 포트폴리오를 **무엇을** 바꿀지 |
+| 입력 | swing 원장(그날 진입 주문·예약 청산·손절가), 허브 `/prices`, Live PM 지시 | Live Trader 가 공개한 장중 상태(가격·VWAP·체결·손절), 원장, 진입 근거(thesis) |
+| 하는 일 | 시세 수신·VWAP 계산, 분할 체결(시가 10%·VWAP 60분할·5% 전량), **손절 감시·집행(하드 규칙)**, 지시 집행 | 트리거 감지, LLM 판단, RiskGate, 집행 **지시**만 발행, 평가 |
+| LLM | 없음(규칙만) | 있음 |
+| 쓰는 곳 | `intraday/<date>` — **유일한 작성자** | `livepm/<date>/…` (지시·호출 기록·평가). `intraday/<date>` 는 읽기만 |
+| 원장 | 읽기만(16:30 `settle_day` 가 `intraday/<date>` 로 확정) | 읽기만 |
+| 상태 | 구현·배포(swing-vwap, 2026-10-18) | M0 완료, M1~ 미구현 |
+
+원칙:
+- **손절은 Live Trader 가 단독으로 집행**한다. Live PM 이 멈추거나 틀려도 손절·분할 규칙은 그대로 돈다.
+- Live PM 은 주문을 직접 내지 않는다. 지시(exit·trim·tighten_stop·flag_review)를 남기면 Live Trader 가 자기 규칙으로 집행한다.
+- 원장 쓰기는 지금처럼 16:30 정산 한 곳뿐이다.
+
+2026-10-18 사용자 결정(집행 규칙):
 - **진입**: Long·Short 모두 trading_agent 진입가를 **상한**으로 두고, **VWAP 보다 유리한 가격에서 분할 매매**로 진입.
 - **청산**: **장중 손절가 실시간 처리**.
-- 2차(같은 날): 진입·청산(손절 포함) 모두 **10% 시가(손절은 도달가) + 나머지 VWAP 분할 + 기준가 ±5% 전량** — §2.
+- 2차(같은 날): 진입·청산(손절 포함) 모두 **10% 시가(손절은 도달가) + 나머지 VWAP 분할 + 기다리면 손해인 방향 5% 전량** — §2.
 - **도입**: 바로 swing 원장에 반영. 처음 만든 별도 VWAP 단타 원장(1억)·신호 3종은 **제거**.
-- Live PM(PLAN_PM.md)은 중단 상태. 시세 공급 `swing/intraday/feed.py` 는 Live PM M1 에서 재사용.
 
 ## 1. 구조
 ```
@@ -71,7 +89,21 @@ swing/server.py          GET /api/swing/intraday[?date=]
 ```
 저장 키: `intraday/<date>`(실행기 기록), `intraday/<date>/ticks/<code>`(15초 틱, 재생용 — 백업 export 제외).
 
-## 5. 남은 작업
+## 5. Live PM 지시 인터페이스 (제안 — 미구현)
+Live PM 이 생기면 Live Trader 는 매 폴링마다 `livepm/<date>/instructions`(추가만 하는 목록)를 읽어 새 지시를 집행하고,
+결과를 `intraday/<date>.instructions[지시 id]` 에 남긴다. Live PM 은 이 결과를 읽어 다음 판단에 쓴다.
+
+| 지시 | 내용 | Live Trader 집행(제안) |
+|---|---|---|
+| `exit` | 포지션 전량 청산 | 청산 슬라이스 생성(trigger=`livepm`) — 첫 10% 즉시(현재가), 나머지 VWAP 분할·5% 전량. 정산 사유 `livepm_exit` |
+| `trim` | 일부 청산(pct) | 같은 방식, 수량 = 보유 × pct |
+| `tighten_stop` | 손절가를 유리한 쪽으로만 이동 | 그 시각부터 새 손절가로 감시. 정산 때 원장 손절가 갱신(그날 일봉 손절 판정은 기존 손절가) |
+| `flag_review` | 장 마감 후 trading_agent 재판별 | `intraday/<date>` 에 표시 → 정산 후 run_day 가 재판별 대상에 추가 |
+
+정할 것(사용자): exit·trim 을 분할 집행할지 즉시 전량 집행할지, Live PM 을 swing-vwap 프로세스 안에서 돌릴지 별도 서비스로 둘지,
+shadow 기간을 둘지. 결정되면 이 절과 PLAN_PM.md 를 함께 고친다.
+
+## 6. 남은 작업
 - Railway 서비스 `swing-vwap` 생성 — 사용자 작업: 같은 레포·`swing_paper` 브랜치, config `swing/railway.vwap.json`
   (상시 실행, 장 시간 외 대기), 변수는 `DATABASE_URL`=`${{Postgres.DATABASE_URL}}`·`FLOW_API_BASE` 둘뿐(규칙값은 코드 상수).
 - 대시보드: 보유·진입 내역에 분할 체결(`vwapFills`)·장중 손절 시각 표시.
