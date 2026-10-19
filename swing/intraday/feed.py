@@ -66,12 +66,16 @@ def parse_prices(body, ts):
 
 
 class PollingFeed:
-    """codes 를 chunk 개씩 나눠 /prices 조회. get(url) → dict 를 주입하면 테스트에서 네트워크 없이 돈다."""
+    """codes 를 chunk 개씩 나눠 /prices 를 **병렬**로 조회. get(url) → dict 를 주입하면 테스트에서 네트워크 없이 돈다.
 
-    def __init__(self, base=None, *, get=None, chunk=30, timeout=15, clock=now_kst, log=print):
+    허브 /prices 는 종목을 하나씩 KIS 에 조회한다(종목당 약 0.75초, 2026-10-19 실측 27종목 20.4초). 그래서 30종목 한 번에
+    15초 제한으로 부르면 매번 시간 초과였다(10-19 하루 1,477회 전부 실패) → 5종목씩 나눠 동시에(허브는 ThreadingHTTPServer) 부른다."""
+
+    def __init__(self, base=None, *, get=None, chunk=5, workers=8, timeout=30, clock=now_kst, log=print):
         self.base = (base or swing_config.FLOW_API_BASE).rstrip("/")
-        self._get, self.chunk, self.timeout, self.clock, self.log = get, chunk, timeout, clock, log
+        self._get, self.chunk, self.workers, self.timeout, self.clock, self.log = get, chunk, workers, timeout, clock, log
         self.errors = 0
+        self.last_ok = None           # 마지막으로 시세를 받은 시각(ts)
 
     def _fetch(self, url):
         if self._get:
@@ -79,18 +83,27 @@ class PollingFeed:
         with urllib.request.urlopen(url, timeout=self.timeout) as r:
             return json.loads(r.read().decode("utf-8"))
 
+    def _one(self, part, ts):
+        url = f"{self.base}/prices?" + urllib.parse.urlencode({"codes": ",".join(part)})
+        try:
+            return parse_prices(self._fetch(url), ts)
+        except Exception as ex:
+            self.errors += 1
+            self.log(f"[feed] /prices 실패({len(part)}종목, {type(ex).__name__}: {str(ex)[:80]})")
+            return []
+
     def poll(self, codes):
         ts = self.clock().replace(microsecond=0).isoformat()
         codes = sorted(set(codes))
-        out = []
-        for i in range(0, len(codes), self.chunk):
-            part = codes[i:i + self.chunk]
-            url = f"{self.base}/prices?" + urllib.parse.urlencode({"codes": ",".join(part)})
-            try:
-                out += parse_prices(self._fetch(url), ts)
-            except Exception as ex:
-                self.errors += 1
-                self.log(f"[feed] /prices 실패({type(ex).__name__}: {str(ex)[:80]})")
+        parts = [codes[i:i + self.chunk] for i in range(0, len(codes), self.chunk)]
+        if len(parts) <= 1:
+            out = self._one(parts[0], ts) if parts else []
+        else:
+            from concurrent.futures import ThreadPoolExecutor
+            with ThreadPoolExecutor(max_workers=min(self.workers, len(parts))) as pool:
+                out = [t for chunk in pool.map(lambda p: self._one(p, ts), parts) for t in chunk]
+        if out:
+            self.last_ok = ts
         return out
 
 

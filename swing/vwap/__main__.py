@@ -58,6 +58,7 @@ def run_session(st, date, *, feed=None, bus=None, clock=now_kst, sleep=time.slee
     ex.save()
     log(f"[vwap] {date} 세션 시작 — 진입 주문 {len(ex.doc['orders'])} · 손절 감시 {len(ex.positions)}")
     last_save = last_ticks = time.monotonic()
+    last_warn = 0.0
     while clock() < end:
         mono = time.monotonic()
         ex.apply_instructions(st.get(f"livepm/{date}/instructions"), clock().replace(microsecond=0).isoformat())
@@ -68,6 +69,13 @@ def run_session(st, date, *, feed=None, bus=None, clock=now_kst, sleep=time.slee
                 ex.on_batch(ticks[0].ts, ticks)
                 bus.publish(date, ticks[0].ts, ticks, ex.states)
         bus.heartbeat(date, clock().replace(microsecond=0).isoformat(), codes)
+        now_ts = clock()
+        if codes and now_ts >= start + datetime.timedelta(minutes=5) and mono - last_warn >= 300:
+            ok = feed.last_ok if hasattr(feed, "last_ok") else None
+            age = (now_ts - datetime.datetime.fromisoformat(ok)).total_seconds() if ok else None
+            if age is None or age >= 300:
+                log(f"[vwap] 경고: 시세 {'한 번도 못 받음' if age is None else f'{age / 60:.0f}분째 없음'} — 집행·손절 멈춤, 정산은 일봉 규칙으로 폴백")
+                last_warn = mono
         tick_due = mono - last_ticks >= C.TICK_SAVE_S
         if ex.dirty or mono - last_save >= C.SAVE_S or tick_due:
             ex.save(ticks=tick_due)

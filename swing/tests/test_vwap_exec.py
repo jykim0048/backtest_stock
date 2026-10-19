@@ -310,6 +310,20 @@ class TestSettleIntraday(unittest.TestCase):
         self.assertEqual(ev["exits"][0]["qty"], 120)
         self.assertFalse(ev.get("deferredStops"))
 
+    def test_no_data_day_falls_back_to_daily(self):
+        """2026-10-19 사고 재현 — 시세를 한 번도 못 받은(asof 없음) 날은 감시 주문도 일봉 규칙으로 체결."""
+        L = ledger_with(order={})
+        I = doc(orders={"o1": fills()}, watched_o=["o1"], complete=False)
+        I["asof"] = None
+        E.settle_day(L, D1, {"000010": b(10100, 10200, 9900, 10000)}, intraday=I)
+        self.assertEqual(L["positions"][0]["entry"], 10000.0)
+
+    def test_incomplete_zero_fill_order_falls_back(self):
+        L = ledger_with(order={})
+        E.settle_day(L, D1, {"000010": b(10100, 10200, 9900, 10000)},
+                     intraday=doc(orders={"o1": fills()}, watched_o=["o1"], complete=False))
+        self.assertEqual(L["positions"][0]["entry"], 10000.0)                # 미완주 + 무체결 → 일봉 규칙
+
     def test_other_date_doc_ignored(self):
         L = ledger_with(order={})
         I = doc(orders={"o1": fills()}, watched_o=["o1"])
@@ -328,7 +342,7 @@ class TestDailyIntegration(unittest.TestCase):
             daily.run_day("2026-09-21", st, ag, px, wb("2026-09-21", buy=[("000010", "화학")]))
             oid = st.get("ledger")["orders"][0]["id"]
             q = st.get("ledger")["orders"][0]["qty"]
-            I = {"date": "2026-09-22", "complete": True, "watched": {"orders": [oid], "positions": []}, "stops": {},
+            I = {"date": "2026-09-22", "complete": True, "asof": "2026-09-22T15:30:00+09:00", "watched": {"orders": [oid], "positions": []}, "stops": {},
                  "orders": {oid: {"tranches": tranche_qtys(q), "stop_hit": None,
                                   "fills": [{"ts": "2026-09-22T09:10:00+09:00", "qty": q, "price": 9960.0}]}}}
             st.put("intraday/2026-09-22", I)

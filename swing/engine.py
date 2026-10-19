@@ -273,7 +273,8 @@ def _days_between(a, b):
 # ── 하루 정산 ────────────────────────────────────────────────────────────────
 def _intraday(doc, date):
     """Live Trader(장중 집행기) 기록(swing/vwap, PLAN_LIVE_TRADER.md) → (doc, 감시 주문 id, 감시 포지션 id, 세션 완주). 없으면 None."""
-    if not doc or doc.get("date") != date:
+    if not doc or doc.get("date") != date or not doc.get("asof"):
+        # 기록이 없거나 시세를 한 번도 못 받은 날(asof 없음 — 2026-10-19 /prices 전부 시간 초과) → 종전 일봉 규칙
         return None, set(), set(), False
     w = doc.get("watched") or {}
     return doc, set(w.get("orders") or []), set(w.get("positions") or []), bool(doc.get("complete"))
@@ -314,6 +315,8 @@ def settle_day(L, date, bars, intraday=None):
     prev = L.get("asof")
     ev = {"filled": [], "cancelled": [], "skipped": [], "exits": []}
     I, w_ord, w_pos, complete = _intraday(intraday, date)
+    # 장중 기록으로 처리할 주문 = 분할 체결이 있었거나, 세션을 완주해 '조건 미충족 미체결'이 확정된 것. 미완주·무체결은 일봉 규칙(2026-10-19)
+    w_ord = {oid for oid in w_ord if complete or ((I or {}).get("orders") or {}).get(oid, {}).get("fills")}
     i_exits = (I or {}).get("exits") or {}
     from_intraday = {}                                       # 새 포지션 id → 실행기 주문 기록
 

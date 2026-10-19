@@ -83,7 +83,7 @@ class TestTraderApplies(unittest.TestCase):
 
 
 def idoc(exits=None, stopMoves=None, reviews=None, watched=("p1",)):
-    return {"date": D1, "complete": True, "watched": {"orders": [], "positions": list(watched)}, "orders": {},
+    return {"date": D1, "complete": True, "asof": ts("15:30"), "watched": {"orders": [], "positions": list(watched)}, "orders": {},
             "exits": exits or {}, "stopMoves": stopMoves or {}, "reviews": reviews or {}}
 
 
@@ -137,7 +137,7 @@ class TestReviewFlow(unittest.TestCase):
         daily.run_day("2026-09-21", st, ag, px, wb("2026-09-21", buy=[("000010", "화학")]), log=lambda *_: None)
         daily.run_day("2026-09-22", st, ag, px, wb("2026-09-22"), log=lambda *_: None)
         pid = st.get("ledger")["positions"][0]["id"]
-        st.put("intraday/2026-09-23", {"date": "2026-09-23", "complete": True, "watched": {"orders": [], "positions": [pid]},
+        st.put("intraday/2026-09-23", {"date": "2026-09-23", "complete": True, "asof": "2026-09-23T15:30:00+09:00", "watched": {"orders": [], "positions": [pid]},
                                        "orders": {}, "exits": {}, "reviews": {pid: {"ts": "2026-09-23T10:00:00+09:00",
                                                                                    "reason": "업종 급락"}}})
         r = daily.run_day("2026-09-23", st, ag, px, wb("2026-09-23"), log=lambda *_: None)
