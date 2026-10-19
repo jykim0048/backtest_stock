@@ -21,12 +21,19 @@ Live PM 지시(2026-10-19, PLAN_LIVE_TRADER §5-2) — 매 폴링마다 livepm/<
   trim  → "i:<지시 id>" 슬라이스(kind livepm_trim, 수량 = 보유 × pct). trim 중에도 손절 감시는 계속, 손절되면 남은 수량만 손절
   tighten_stop → 그 시각부터 새 손절가로 감시(유리한 쪽으로만), 정산 때 원장 손절가 갱신
   flag_review  → 정산 때 포지션에 표시 → 그날 배치가 trading_agent 재판별
+
+스위칭(2026-10-19 사용자 결정, PLAN_LIVE_TRADER §2-1) — 시가 일괄 현금 확보 청산 대신:
+  Long 신규 매수는 **그 시점까지 쓸 수 있는 현금** 안에서만 체결(현금 = 세션 시작 가용 현금 + 오늘 Long 매도 대금 − 오늘 Long 매수 대금).
+  남은 Long 매수 금액이 현금보다 크면, 보유 Long 중 **장중 수익률이 가장 낮은 종목**부터 재원으로 판다("s:<포지션 id>", kind switch):
+  시가에는 팔지 않고, VWAP 이상(팔기 유리)일 때 필요 금액의 1/TRANCHES 씩 VWAP 분할 간격으로 팔며, 오늘 시가 대비 FORCE_MOVE 넘게
+  빠진 종목은 남은 필요 금액만큼 바로 판다. 정산은 진입 전에 재원 매도를 현금으로 반영하고, 못 산 수량은 잔여분 추가 주문으로 다음 날 이어진다.
 슬라이스 기록 = {code, name, side, plan[수량], next, ref, fills[{ts, qty, price, mode: open|vwap|force|stop|stop_gap, vwap}], done, why, …}
   진입 기록 + cap·stop·planned·topupOf, 청산 기록 + trigger(scheduled|stop)·kind(청산 사유)·planned·triggerTs.
 """
 import math
 
 from .. import engine
+from ..config import SELL_TAX
 from ..intraday.feed import Tick
 from . import config as C
 from .state import VwapState
@@ -68,7 +75,7 @@ class Executor:
     def __init__(self, store, date, ledger, *, log=print, save_ticks=True):
         self.store, self.date, self.log, self.save_ticks = store, date, log, save_ticks
         self.doc = store.get(f"intraday/{date}") or _new_doc(date)
-        for k in ("exits", "instructions", "stopMoves", "reviews"):
+        for k in ("exits", "instructions", "stopMoves", "reviews", "switch"):
             self.doc.setdefault(k, {})
         self.states, self.ticks, self.seen = {}, {}, set()
         self.dirty = False
@@ -96,6 +103,10 @@ class Executor:
                 continue                      # 체결일 손절 재판별 대기 — 그날 손절 유예(엔진과 같음)
             if p["id"] not in doc["watched"]["positions"]:
                 doc["watched"]["positions"].append(p["id"])
+        self.pool = {p["id"]: p for p in L.get("positions") or []           # 스위칭 재원 후보 — 예약 청산 없는 Long
+                     if not engine.is_short(p) and not p.get("sellPending")}
+        if "cashStart" not in doc["switch"]:
+            doc["switch"]["cashStart"] = float(engine._free_cash(L)) if L.get("positions") is not None and "cash" in L else 0.0
         self.base_of = {}
         for o in L.get("orders") or []:
             if o.get("validDate") != self.date or o.get("status", "open") != "open":
@@ -140,8 +151,10 @@ class Executor:
                 if r["code"] == t.code and not r["done"]:
                     self._entry(key, r, st, ts, hm)
             for r in list(self.doc["exits"].values()):
-                if r["code"] == t.code and not r["done"]:
+                if r["code"] == t.code and not r["done"] and r.get("trigger") != "switch":
                     self._advance(r, st, ts, hm, "exit")
+        if ticks:
+            self._switch(ts, hm)
         self.doc["asof"] = ts
         self.doc["complete"] = hm >= C.COMPLETE_AT
 
@@ -188,12 +201,91 @@ class Executor:
                     if base == pid and r and not r["done"]:
                         r.update(done=True, why="본 포지션 손절 — 남은 분할 취소")
 
+    # ── 현금·스위칭 ─────────────────────────────────────────────────────────
+    def cash(self):
+        """지금 쓸 수 있는 현금 = 세션 시작 가용 현금 + 오늘 Long 매도 대금(세금 뺀) − 오늘 Long 매수 대금."""
+        raised = sum(f["qty"] * f["price"] * (1 - SELL_TAX) for r in self.doc["exits"].values()
+                     if r.get("side", "long") == "long" for f in r.get("fills") or [])
+        spent = sum(f["qty"] * f["price"] for r in self.doc["orders"].values()
+                    if r.get("side", "long") == "long" for f in r.get("fills") or [])
+        return (self.doc["switch"].get("cashStart") or 0.0) + raised - spent
+
+    def _afford(self, px):
+        return max(0, int(math.floor(self.cash() / px))) if px > 0 else 0
+
+    def need(self):
+        """남은 Long 매수 금액 − 현재 현금(양수면 재원이 모자람)."""
+        todo = 0.0
+        for r in self.doc["orders"].values():
+            if r.get("side", "long") != "long" or r["done"]:
+                continue
+            st = self.states.get(r["code"])
+            px = min(r["cap"], st.last.price) if st and st.last else r["cap"]
+            todo += (r["planned"] - filled(r)) * px
+        return todo - self.cash()
+
+    def _switch(self, ts, hm):
+        """재원이 모자라면 수익률 낮은 보유 Long 부터 VWAP 분할로 판다(한 폴링에 VWAP 분할 1건, 5% 하락분은 즉시)."""
+        need = self.need()
+        sw = self.doc["switch"]
+        if need <= 0:
+            return
+        if not sw.get("unit"):
+            sw["unit"] = need / max(1, C.TRANCHES)               # 1회 매도 금액 = 처음 모자란 금액 / 분할 수
+            sw["firstNeedTs"], sw["firstNeed"] = ts, need
+        cands = []
+        buying = {r["code"] for r in self.doc["orders"].values() if not r["done"]}
+        for pid, p in self.pool.items():
+            if pid in self.doc["exits"] or p["code"] in buying:
+                continue                                         # 이미 전량 청산 중이거나, 오늘 그 종목을 사는 중(잔여분 추가)
+            st = self.states.get(p["code"])
+            if not st or not st.last:
+                continue
+            rem = p["qty"] - sum(filled(r) for r in self._trims(pid))
+            if rem <= 0:
+                continue
+            cands.append((st.last.price / p["entry"] - 1, pid, p, st, rem))
+        cands.sort(key=lambda x: x[0])                           # 장중 수익률 낮은 순
+        for ret, pid, p, st, rem in cands:                       # 오늘 시가 대비 FORCE_MOVE 넘게 빠짐 → 남은 필요 금액만큼 즉시
+            t = st.last
+            if need > 0 and t.open and t.price <= t.open * (1 - C.FORCE_MOVE):
+                q = min(rem, int(math.ceil(need / (t.price * (1 - SELL_TAX)))))
+                self._switch_fill(pid, p, q, t.price, ts, "force", st, ret)
+                need -= q * t.price * (1 - SELL_TAX)
+        if need <= 0 or not (C.ENTRY_START <= hm < C.ENTRY_END):
+            return
+        last = sw.get("lastVwapTs")
+        if last and _minutes(last, ts) < C.MIN_GAP_MIN:
+            return
+        for ret, pid, p, st, rem in cands:
+            t = st.last
+            if st.n_obs < C.MIN_OBS or st.vwap is None or t.price < st.vwap:
+                continue                                         # 팔기 유리할 때(가격 ≥ VWAP)만
+            rem -= sum(f["qty"] for f in (self.doc["exits"].get("s:" + pid) or {}).get("fills") or [] if f["ts"] == ts)
+            if rem <= 0:
+                continue
+            q = min(rem, int(math.ceil(min(sw["unit"], need) / (t.price * (1 - SELL_TAX)))))
+            self._switch_fill(pid, p, q, t.price, ts, "vwap", st, ret)
+            sw["lastVwapTs"] = ts
+            return
+
+    def _switch_fill(self, pid, p, q, px, ts, mode, st, ret):
+        r = self.doc["exits"].setdefault("s:" + pid, {
+            "code": p["code"], "name": p.get("name"), "side": "long", "trigger": "switch", "kind": "switch",
+            "positionId": pid, "planned": 0, "plan": [], "next": 0, "ref": None, "fills": [], "done": False, "why": None,
+            "triggerTs": ts})
+        r["planned"] += q
+        self._fill(r, q, px, ts, mode, st.vwap)
+        self.log(f"[vwap] {ts[11:19]} 스위칭 재원 매도 {p['code']} {p.get('name') or ''} {q:,}주 @ {px:,.0f} "
+                 f"({mode}, 장중 수익률 {ret * 100:+.1f}%)")
+
     # ── Live PM 지시 ───────────────────────────────────────────────────────
     def _trims(self, pid):
-        return [r for k, r in self.doc["exits"].items() if k.startswith("i:") and r.get("positionId") == pid]
+        """그 포지션의 부분 청산 기록 — Live PM trim("i:")·스위칭 재원("s:")."""
+        return [r for k, r in self.doc["exits"].items() if k[:2] in ("i:", "s:") and r.get("positionId") == pid]
 
     def _close_trims(self, pid, why):
-        """그 포지션의 trim 을 끝내고 지금까지 체결된 trim 수량 합을 돌려준다."""
+        """그 포지션의 부분 청산(trim·스위칭)을 끝내고 지금까지 체결된 수량 합을 돌려준다."""
         n = 0
         for r in self._trims(pid):
             n += filled(r)
@@ -235,7 +327,7 @@ class Executor:
             return True, None
         if act == "trim":
             trimmed = sum(filled(r) for r in self._trims(pid))
-            open_trim = sum(r["planned"] - filled(r) for r in self._trims(pid) if not r["done"])
+            open_trim = sum(r["planned"] - filled(r) for r in self._trims(pid) if not r["done"] and r.get("trigger") != "switch")
             room = p["qty"] - trimmed - open_trim
             qty = min(room, max(1, int(round(p["qty"] * float(ins.get("pct") or 0.5)))))
             if qty <= 0:
@@ -302,9 +394,17 @@ class Executor:
                 return
             r["ref"] = t.open
             r["next"] = 1
-            if inside(t.open):
-                self._fill(r, r["plan"][0], t.open, ts, "open", st.vwap)
-                self.log(f"[vwap] {ts[11:19]} 시가 {'진입' if entry else '청산'} {r['code']} {r['side']} {r['plan'][0]:,}주 @ {t.open:,.0f}")
+            q0 = r["plan"][0]
+            if inside(t.open) and entry and long_:
+                q0 = min(q0, self._afford(t.open))                    # Long 매수는 현금 한도 안에서만
+                if q0 < r["plan"][0] and len(r["plan"]) > 1:
+                    r["plan"][1] += r["plan"][0] - q0
+                    r["plan"][0] = q0
+            if inside(t.open) and q0 > 0:
+                self._fill(r, q0, t.open, ts, "open", st.vwap)
+                self.log(f"[vwap] {ts[11:19]} 시가 {'진입' if entry else '청산'} {r['code']} {r['side']} {q0:,}주 @ {t.open:,.0f}")
+            elif inside(t.open):
+                r["why"] = "현금 부족 — 시가 체결 생략"
             elif len(r["plan"]) > 1:
                 r["plan"][1] += r["plan"][0]                  # 시가가 손절 너머 → 첫 분할을 다음 분할에 합침
                 r["plan"][0] = 0
@@ -314,9 +414,14 @@ class Executor:
         # ③ 기다리면 손해인 방향으로 기준가 대비 5% 이상 → 전량(2026-10-18): Long 진입·Short 청산 = 상승, Short 진입·Long 청산 = 하락
         away = 1 if entry == long_ else -1
         if r["ref"] and away * (px / r["ref"] - 1) >= C.FORCE_MOVE and inside(px):
-            self._fill(r, remain, px, ts, "force", st.vwap)
-            r.update(done=True, why=f"기준가 {r['ref']:,.0f} 대비 {px / r['ref'] - 1:+.1%} — 남은 수량 전량")
-            self.log(f"[vwap] {ts[11:19]} 전량 {'진입' if entry else '청산'} {r['code']} {r['side']} {remain:,}주 @ {px:,.0f} ({r['why']})")
+            q = min(remain, self._afford(px)) if entry and long_ else remain
+            if q <= 0:
+                return                                           # 현금이 생길 때까지(스위칭) 기다린다
+            self._fill(r, q, px, ts, "force", st.vwap)
+            if q >= remain:
+                r.update(done=True, why=f"기준가 {r['ref']:,.0f} 대비 {px / r['ref'] - 1:+.1%} — 남은 수량 전량")
+            self.log(f"[vwap] {ts[11:19]} 전량 {'진입' if entry else '청산'} {r['code']} {r['side']} {q:,}주 @ {px:,.0f}"
+                     f" (기준가 대비 {px / r['ref'] - 1:+.1%})")
             return
         if not (C.ENTRY_START <= hm < C.ENTRY_END) or st.n_obs < C.MIN_OBS or st.vwap is None:
             return
@@ -331,7 +436,17 @@ class Executor:
         if not ok or r["next"] >= len(r["plan"]):
             return
         q = min(r["plan"][r["next"]], remain)
-        r["next"] += 1
+        if entry and long_:
+            qa = min(q, self._afford(px))                         # 현금 한도 — 모자라면 이 분할을 줄여 체결하고 나머지는 남긴다
+            if qa <= 0:
+                return
+            if qa < q:
+                r["plan"][r["next"]] -= qa
+                q = qa
+            else:
+                r["next"] += 1
+        else:
+            r["next"] += 1
         self._fill(r, q, px, ts, "vwap", st.vwap)
         self.log(f"[vwap] {ts[11:19]} VWAP 분할 {'진입' if entry else '청산'} {r['code']} {r['side']} {q:,}주 @ {px:,.0f} (VWAP {st.vwap:,.0f})")
         if filled(r) >= r["planned"]:
@@ -343,8 +458,11 @@ class Executor:
             if not r["done"]:
                 r.update(done=True, why=r["why"] or f"{filled(r):,}/{r['planned']:,}주 체결 — 나머지 잔여분 추가 주문")
         for r in self.doc["exits"].values():
-            if not r["done"]:
+            if not r["done"] and r.get("trigger") == "switch":
+                r.update(done=True, why=f"스위칭 재원 {filled(r):,}주")
+            elif not r["done"]:
                 r.update(done=True, why=r["why"] or f"{filled(r):,}/{r['planned']:,}주 청산 — 나머지 다음 영업일 계속")
+        self.doc["switch"]["cashEnd"] = self.cash()
         self.dirty = True
 
     def summary(self):

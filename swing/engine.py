@@ -335,6 +335,14 @@ def settle_day(L, date, bars, intraday=None):
             sp = p["sellPending"]
             ev["exits"].append(_close_position(L, p, date, b["open"], sp.get("kind") or "pm_sell",
                                                note=sp.get("reason")))
+    # ①-1 Live Trader 스위칭 재원 매도(2026-10-19) — 신규 매수 재원으로 장중 VWAP 분할 매도한 수량. 진입(③) 전에 현금으로 반영,
+    # 남은 수량은 이월하지 않는다(다음 날 Live Trader 가 필요 금액을 다시 계산).
+    for key, rec in i_exits.items():
+        if key.startswith("s:"):
+            p = next((x for x in L["positions"] if x["id"] == rec.get("positionId")), None)
+            if p is not None:
+                _apply_exit(L, p, rec, date, ev, "switch", carry=False)
+
     # ② 갭 손절 → 시가 (체결일 손절 재판별 대기 포지션은 그날 손절 유예 — 2026-10-16)
     for p in list(L["positions"]):
         b = bars.get(p["code"])
@@ -410,14 +418,20 @@ def settle_day(L, date, bars, intraday=None):
                 unit = px * (1 + config.SELL_TAX) if short else px   # 주당 필요 현금(숏: 담보 + 매도세)
                 cost = o["qty"] * unit
                 if _free_cash(L) < cost:
-                    ok, sold = _raise_cash(L, cost, date, bars, new_ids)
+                    # 2026-10-19 사용자 결정: 시가 일괄 현금 확보 청산은 기본 끔(RAISE_CASH_AT_OPEN) — 재원은 Live Trader 가 장중
+                    # 스위칭(수익률 낮은 순·VWAP 분할 매도)으로 마련하고, 엔진은 있는 현금만큼만 진입한다.
+                    raise_ = config.RAISE_CASH_AT_OPEN
+                    ok, sold = _raise_cash(L, cost, date, bars, new_ids) if raise_ else (False, [])
                     ev["exits"].extend(sold)
                     if not ok:
-                        # 부분 진입(2026-10-16): 현금 + 손실 종목 청산 가능액으로 살 수 있는 수량이 계획의 PARTIAL_ENTRY_MIN 이상이면 그만큼만
-                        q2 = int(math.floor((_free_cash(L) + _loser_avail(L, bars, new_ids)[0]) / unit)) if unit > 0 else 0
+                        # 부분 진입(2026-10-16): 현금(+ 켜져 있으면 손실 종목 청산 가능액)으로 살 수 있는 수량이 계획의 PARTIAL_ENTRY_MIN 이상이면
+                        # 그만큼만. Live Trader 가 이미 장중에 산 주문(irec)은 최소 비율 없이 살 수 있는 만큼 받는다.
+                        extra = _loser_avail(L, bars, new_ids)[0] if raise_ else 0.0
+                        q2 = int(math.floor((_free_cash(L) + extra) / unit)) if unit > 0 else 0
                         q2 = min(q2, o["qty"])
-                        if config.PARTIAL_ENTRY and q2 > 0 and q2 >= math.ceil(o["qty"] * config.PARTIAL_ENTRY_MIN):
-                            ok2, sold2 = _raise_cash(L, q2 * unit, date, bars, new_ids)
+                        min_q = 1 if irec else math.ceil(o["qty"] * config.PARTIAL_ENTRY_MIN)
+                        if (config.PARTIAL_ENTRY or irec) and q2 > 0 and q2 >= min_q:
+                            ok2, sold2 = _raise_cash(L, q2 * unit, date, bars, new_ids) if raise_ else (True, [])
                             ev["exits"].extend(sold2)
                             if ok2:
                                 planned = (o.get("partial") or {}).get("planned") or o["qty"]

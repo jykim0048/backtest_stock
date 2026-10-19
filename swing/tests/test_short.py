@@ -139,6 +139,9 @@ class TestShortEngine(unittest.TestCase):
         self.assertEqual(st, ["open"] * 5)                           # 50% 까지도 상한 없이 접수
 
     def test_raise_cash_closes_losing_short(self):
+        old = config.RAISE_CASH_AT_OPEN
+        config.RAISE_CASH_AT_OPEN = True                             # 옵션 켠 경우(기본은 끔)
+        self.addCleanup(setattr, config, "RAISE_CASH_AT_OPEN", old)
         L = filled(weight=0.3)                                      # Short 총노출 상한(30%)까지
         E.place_entry(L, code="000002", name="B", date="2026-09-02", valid_date="2026-09-03",
                       entry=10000, stop=9500, target=None, weight=0.8)  # 남은 현금(~70만)보다 큰 Long

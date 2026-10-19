@@ -130,6 +130,8 @@ UNI_CAP_CARRY = os.environ.get("SWING_UNI_CAP_CARRY", "1") != "0"
 # (계획 수량의 PARTIAL_ENTRY_MIN 이상일 때만, 미만이면 종전처럼 스킵) → 모자란 수량은 같은 레벨로 다음 영업일 추가 주문(최대 ENTRY_RETRY_MAX 회,
 # 미도달 재주문과 같은 가격 가드), 체결되면 기존 포지션에 합쳐 평균단가.
 PARTIAL_ENTRY = os.environ.get("SWING_PARTIAL_ENTRY", "1") != "0"
+# 현금 부족 시 평가손실 종목 시가 일괄 청산(2026-10-16 도입) — 2026-10-19 사용자 결정으로 기본 끔: 재원은 Live Trader 스위칭(PLAN_LIVE_TRADER §2-1)
+RAISE_CASH_AT_OPEN = os.environ.get("SWING_RAISE_CASH_AT_OPEN", "0") == "1"
 PARTIAL_ENTRY_MIN = _f("SWING_PARTIAL_ENTRY_MIN", 0.5)
 # 주식선물 미상장 Short 정리(2026-10-16 사용자 지시: 뉴인텍·엑스플러스 종가 청산) — UNI_SHORT_FUT_ONLY 가 켜져 있으면 선물 미상장 종목의
 # Short 포지션은 그날 종가로 환매(사유 fut_none), 그 종목의 미도달 재주문·잔여분 추가 주문도 내지 않는다. 0 이면 끔.

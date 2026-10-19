@@ -190,7 +190,12 @@ class TestExits(unittest.TestCase):
 
 
 class TestCash(unittest.TestCase):
+    """시가 현금 확보 청산(옵션 SWING_RAISE_CASH_AT_OPEN=1) — 2026-10-19 부터 기본은 끔(TestCashDefault)."""
+
     def setUp(self):
+        old = config.RAISE_CASH_AT_OPEN
+        config.RAISE_CASH_AT_OPEN = True
+        self.addCleanup(setattr, config, "RAISE_CASH_AT_OPEN", old)
         # 자본 100만: A(-8% 손실)·B(+5% 이익) 보유, 현금 소진 상태 만들기
         L = E.new_ledger(1_000_000, start="2026-09-01")
         E.place_entry(L, code="00000A", name="A", date="2026-09-01", valid_date="2026-09-02",
