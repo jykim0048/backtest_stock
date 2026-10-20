@@ -1,8 +1,14 @@
 """코스피200 + 코스닥150 정확한 구성종목 갱신 -> index_constituents.json
 
 소스 우선순위:
-  1. pykrx (data.krx.co.kr) — 정확한 지수 구성종목. 단, 해외 IP 차단 가능성.
-  2. (실패 시) 갱신 건너뜀 — 기존 파일 유지.
+  1. pykrx (data.krx.co.kr) — 정확한 지수 구성종목. 단, 해외 IP 차단 가능성 +
+     2026-10 기준 KRX 로그인(KRX_ID/KRX_PW) 없으면 빈 응답.
+  2. 네이버/와이즈리포트 폴백 — 코스피200 = m.stock.naver.com 지수 편입종목 API,
+     코스닥150 = KODEX 코스닥150(229200) ETF 구성종목(CU). 종목명→코드는 네이버
+     자동완성(정확 일치)으로 확정 — krx_companies.json 은 사명변경이 늦게 반영됨.
+  3. (둘 다 실패 시) 갱신 건너뜀 — 기존 파일 유지.
+
+출력에 "names"(code → 현재 종목명)도 함께 저장 — press_news 종목 매칭용.
 
 지수 코드:
   1028 = 코스피200, 2203 = 코스닥150
@@ -13,6 +19,7 @@
 import os
 import sys
 import json
+import re
 import datetime
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -64,17 +71,87 @@ def fetch_via_pykrx(date: str) -> dict:
     return result
 
 
+NAVER_UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+            "(KHTML, like Gecko) Chrome/130.0 Safari/537.36")
+KQ150_ETF = "229200"          # KODEX 코스닥150 — 지수 완전복제 ETF
+
+
+def _naver_code_by_name(name: str):
+    """네이버 자동완성에서 종목명 정확 일치 코드. 없으면 None."""
+    import requests
+    r = requests.get("https://ac.stock.naver.com/ac",
+                     params={"q": name, "target": "stock"},
+                     headers={"User-Agent": NAVER_UA}, timeout=10)
+    r.raise_for_status()
+    for it in r.json().get("items", []):
+        if it.get("name") == name and it.get("nationCode") == "KOR":
+            return it.get("code")
+    return None
+
+
+def fetch_via_naver() -> tuple:
+    """(codes_by_index, names) — 코스피200 은 네이버 지수 API, 코스닥150 은 ETF CU."""
+    import requests
+    names = {}
+
+    k200 = []
+    for page in range(1, 10):            # pageSize 상한 50 (100 은 HTTP 400)
+        r = requests.get("https://m.stock.naver.com/api/index/KPI200/enrollStocks",
+                         params={"page": page, "pageSize": 50},
+                         headers={"User-Agent": NAVER_UA}, timeout=15)
+        r.raise_for_status()
+        rows = r.json()
+        if not rows:
+            break
+        for x in rows:
+            k200.append(x["itemCode"])
+            names[x["itemCode"]] = x["stockName"]
+    print(f"[naver] KOSPI200: {len(k200)}종목", flush=True)
+
+    r = requests.get("https://navercomp.wisereport.co.kr/v2/ETF/index.aspx",
+                     params={"cmp_cd": KQ150_ETF},
+                     headers={"User-Agent": NAVER_UA}, timeout=20)
+    r.raise_for_status()
+    m = re.search(r"CU_data\s*=\s*(\{.*?\});", r.text, re.S)
+    if not m:
+        raise RuntimeError("ETF CU_data 없음")
+    rows = json.loads(m.group(1)).get("grid_data") or []
+    kq150, unresolved = [], []
+    for x in rows:
+        nm = (x.get("STK_NM_KOR") or "").strip()
+        if not nm or nm.endswith("현금") or not x.get("ETF_WEIGHT"):
+            continue
+        code = _naver_code_by_name(nm)
+        if code:
+            kq150.append(code)
+            names[code] = nm
+        else:
+            unresolved.append(nm)
+    print(f"[naver] KOSDAQ150(ETF {KQ150_ETF} CU {rows[0].get('TRD_DT') if rows else '?'}): "
+          f"{len(kq150)}종목, 코드 미확정 {unresolved}", flush=True)
+    if unresolved:
+        raise RuntimeError(f"코스닥150 종목코드 미확정: {unresolved}")
+
+    return ({"KOSPI200": sorted(set(k200)), "KOSDAQ150": sorted(set(kq150))}, names)
+
+
 def main():
     date = _recent_business_day()
     kst = datetime.timezone(datetime.timedelta(hours=9))
     now_str = datetime.datetime.now(kst).strftime("%Y-%m-%d %H:%M KST")
 
+    names, source = {}, "pykrx get_index_portfolio_deposit_file"
     try:
         data = fetch_via_pykrx(date)
     except Exception as e:
-        print(f"[error] pykrx 구성종목 수집 실패: {e}", file=sys.stderr)
-        print("기존 index_constituents.json 유지 — 갱신 안 함.", file=sys.stderr)
-        sys.exit(1)
+        print(f"[warn] pykrx 구성종목 수집 실패: {e} — 네이버 폴백", file=sys.stderr)
+        try:
+            data, names = fetch_via_naver()
+            source = f"naver KPI200 enrollStocks + KODEX코스닥150({KQ150_ETF}) CU"
+        except Exception as e2:
+            print(f"[error] 네이버 폴백도 실패: {e2}", file=sys.stderr)
+            print("기존 index_constituents.json 유지 — 갱신 안 함.", file=sys.stderr)
+            sys.exit(1)
 
     k = len(data.get("KOSPI200", []))
     q = len(data.get("KOSDAQ150", []))
@@ -86,13 +163,15 @@ def main():
               f"그래도 저장은 진행", flush=True)
 
     out = {
-        "_comment": "코스피200 + 코스닥150 정확한 구성종목 (pykrx, data.krx.co.kr). "
+        "_comment": "코스피200 + 코스닥150 정확한 구성종목 (pykrx, 실패 시 네이버 폴백). "
                     "반기 정기변경(6·12월) 후 자동 갱신.",
         "updated":   now_str,
-        "source":    "pykrx get_index_portfolio_deposit_file",
+        "source":    source,
         "KOSPI200":  data["KOSPI200"],
         "KOSDAQ150": data["KOSDAQ150"],
     }
+    if names:
+        out["names"] = {c: names[c] for c in sorted(names)}
 
     for path in OUT_PATHS:
         os.makedirs(os.path.dirname(path), exist_ok=True)
