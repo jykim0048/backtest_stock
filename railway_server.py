@@ -25,6 +25,7 @@ uses (peers + news + DART + community + LLM). No external store needed.
 Env (Railway variables): GEMINI_API_KEY (or LLM_CHAIN + matching keys),
      DART_API_KEY, NAVER_CLIENT_ID, NAVER_CLIENT_SECRET, TAVILY_API_KEY,
      DATABASE_URL (리포트 Postgres — report_db.py), INGEST_TOKEN (/api/ingest 인증).
+     PRESS_RSS_INTERVAL / PRESS_DAILY_AT / PRESS_DAILY_MAX_CALLS (press_news.py 수집 주기).
      PORT is injected by Railway.
 """
 import os
@@ -46,6 +47,7 @@ sys.path.insert(0, ROOT)
 import generate_analysis as ga          # heavy import once at boot — keeps the worker warm
 import report_db                        # 리포트 Postgres 저장소 (DATABASE_URL 미설정 시 자동 비활성)
 import krx_calendar                     # KRX 휴장일 캘린더 — KR 파이프라인 dispatch 게이트(2026-09-24)
+import press_news                       # 한경·매경 종목 뉴스 수집 스레드 (DATABASE_URL 미설정 시 비활성)
 
 KRX_MASTER = os.path.join(ROOT, "public", "assets", "krx_companies.json")
 PEERS_PATH = os.path.join(ROOT, "analysis", "peers.json")
@@ -532,7 +534,8 @@ class Handler(BaseHTTPRequestHandler):
         u = urlparse(self.path)
         if u.path == "/healthz":
             return self._send(200, {"status": "ok", "rawProxy": _RAW_STATE,
-                                    "db": report_db.status()})
+                                    "db": report_db.status(),
+                                    "pressNews": press_news.STATE})
         if u.path == "/api/prices":
             return self._prices(u)
         if u.path == "/api/sector":
@@ -893,6 +896,7 @@ def main():
     threading.Thread(target=_scheduler, daemon=True).start()
     threading.Thread(target=_raw_probe, daemon=True).start()   # 데이터 프록시 진단 로그
     threading.Thread(target=_db_init, daemon=True).start()     # PG 스키마 준비 (비차단)
+    threading.Thread(target=press_news.loop, daemon=True).start()  # 한경·매경 RSS 30분 + 네이버 보충 22:30
     srv.serve_forever()
 
 
