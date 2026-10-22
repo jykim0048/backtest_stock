@@ -1,6 +1,6 @@
 {
  "date": "2026-10-22",
- "asof": "2026-10-22 09:38 KST",
+ "asof": "2026-10-22 10:08 KST",
  "sources": {
   "naver": true,
   "forexfactory": true
@@ -488,9 +488,7 @@
     "diff": -0.875,
     "verdict": "below"
    }
-  }
- ],
- "upcoming": [
+  },
   {
    "nation": "KOR",
    "name": "중앙은행 기준금리",
@@ -499,13 +497,21 @@
    "period": "Oct 2026",
    "category": "CENTRAL_BANKS",
    "releaseAtKST": "2026-10-22 10:00",
+   "actual": 3,
    "previous": 3,
    "unit": "%",
    "unitScale": "",
    "forecast": null,
    "forecastSource": null,
-   "source": "naver"
-  },
+   "source": "naver",
+   "surprise": {
+    "vs": "previous",
+    "diff": 0.0,
+    "verdict": "inline"
+   }
+  }
+ ],
+ "upcoming": [
   {
    "nation": "USA",
    "name": "신규 실업수당청구건수",
@@ -1244,6 +1250,6 @@
     }
    ]
   },
-  "asof": "2026-10-22 09:38 KST"
+  "asof": "2026-10-22 10:08 KST"
  }
 }
