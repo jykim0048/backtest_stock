@@ -1,76 +1,11 @@
 {
- "date": "2026-10-26",
- "asof": "2026-10-26 15:40 KST",
+ "date": "2026-10-27",
+ "asof": "2026-10-27 07:47 KST",
  "sources": {
   "naver": true,
   "forexfactory": true
  },
  "released": [
-  {
-   "nation": "USA",
-   "name": "캔사스시티 연준 제조업지수",
-   "reutersCode": "USKCMF=ECIX",
-   "importance": 1,
-   "period": "Oct 2026",
-   "category": "EMPLOYMENT",
-   "releaseAtKST": "2026-10-23 00:00",
-   "actual": 16,
-   "previous": 20,
-   "unit": "",
-   "unitScale": "",
-   "forecast": null,
-   "forecastSource": null,
-   "source": "naver",
-   "surprise": {
-    "vs": "previous",
-    "diff": -4.0,
-    "verdict": "below"
-   }
-  },
-  {
-   "nation": "USA",
-   "name": "켄사스시티 연준 종합지수",
-   "reutersCode": "USKCCI=ECIX",
-   "importance": 1,
-   "period": "Oct 2026",
-   "category": "GDP",
-   "releaseAtKST": "2026-10-23 00:00",
-   "actual": 11,
-   "previous": 14,
-   "unit": "",
-   "unitScale": "",
-   "forecast": null,
-   "forecastSource": null,
-   "source": "naver",
-   "surprise": {
-    "vs": "previous",
-    "diff": -3.0,
-    "verdict": "below"
-   }
-  },
-  {
-   "nation": "USA",
-   "name": "미시간대 인플레이션 기대심리",
-   "reutersCode": "USUM1F=ECIX",
-   "importance": 1,
-   "period": "Oct 2026",
-   "category": "PRICE",
-   "releaseAtKST": "2026-10-23 23:00",
-   "actual": 4.7,
-   "previous": 4.6,
-   "unit": "%",
-   "unitScale": "",
-   "forecast": null,
-   "forecastSource": null,
-   "source": "naver",
-   "surprise": {
-    "vs": "previous",
-    "diff": 0.1,
-    "verdict": "above"
-   }
-  }
- ],
- "upcoming": [
   {
    "nation": "USA",
    "name": "시카고 연준 국가활동지수",
@@ -79,12 +14,18 @@
    "period": "Sep 2026",
    "category": "EMPLOYMENT",
    "releaseAtKST": "2026-10-26 21:30",
+   "actual": 0.07,
    "previous": -0.04,
    "unit": "",
    "unitScale": "",
    "forecast": null,
    "forecastSource": null,
-   "source": "naver"
+   "source": "naver",
+   "surprise": {
+    "vs": "previous",
+    "diff": 0.11,
+    "verdict": "above"
+   }
   },
   {
    "nation": "USA",
@@ -94,12 +35,18 @@
    "period": "Oct 2026",
    "category": "EMPLOYMENT",
    "releaseAtKST": "2026-10-26 23:30",
+   "actual": 13.4,
    "previous": 9.8,
    "unit": "",
    "unitScale": "",
    "forecast": null,
    "forecastSource": null,
-   "source": "naver"
+   "source": "naver",
+   "surprise": {
+    "vs": "previous",
+    "diff": 3.6,
+    "verdict": "above"
+   }
   },
   {
    "nation": "KOR",
@@ -109,13 +56,21 @@
    "period": "Oct 2026",
    "category": "BSI_CSI",
    "releaseAtKST": "2026-10-27 06:00",
+   "actual": 105.4,
    "previous": 106.6,
    "unit": "",
    "unitScale": "",
    "forecast": null,
    "forecastSource": null,
-   "source": "naver"
-  },
+   "source": "naver",
+   "surprise": {
+    "vs": "previous",
+    "diff": -1.2,
+    "verdict": "below"
+   }
+  }
+ ],
+ "upcoming": [
   {
    "nation": "USA",
    "name": "건축승인건수",
@@ -157,10 +112,10 @@
    "previous": 0,
    "unit": "%",
    "unitScale": "",
-   "forecast": 1.8,
+   "forecast": 2.0,
    "forecastSource": "forexfactory",
    "source": "naver",
-   "forecastText": "1.8"
+   "forecastText": "2.0"
   },
   {
    "nation": "USA",
@@ -324,10 +279,10 @@
    "previous": 81.9,
    "unit": "",
    "unitScale": "",
-   "forecast": 80.5,
+   "forecast": 81.2,
    "forecastSource": "forexfactory",
    "source": "naver",
-   "forecastText": "80.5"
+   "forecastText": "81.2"
   },
   {
    "nation": "USA",
@@ -1079,6 +1034,96 @@
    "category": "BALANCE",
    "releaseAtKST": "2026-11-01 09:00",
    "previous": 83.5,
+   "unit": "%",
+   "unitScale": "",
+   "forecast": null,
+   "forecastSource": null,
+   "source": "naver"
+  },
+  {
+   "nation": "USA",
+   "name": "ISM 제조업 구매관리자지수(PMI)",
+   "reutersCode": "USPMI=ECIX",
+   "importance": 4,
+   "period": "Oct 2026",
+   "category": "EMPLOYMENT",
+   "releaseAtKST": "2026-11-03 00:00",
+   "previous": 54.5,
+   "unit": "",
+   "unitScale": "",
+   "forecast": null,
+   "forecastSource": null,
+   "source": "naver"
+  },
+  {
+   "nation": "USA",
+   "name": "ISM 제조업 물가지수",
+   "reutersCode": "USISMP=ECIX",
+   "importance": 2,
+   "period": "Oct 2026",
+   "category": "EMPLOYMENT",
+   "releaseAtKST": "2026-11-03 00:00",
+   "previous": 77.9,
+   "unit": "",
+   "unitScale": "",
+   "forecast": null,
+   "forecastSource": null,
+   "source": "naver"
+  },
+  {
+   "nation": "USA",
+   "name": "건설지출 전월대비",
+   "reutersCode": "USTCNS=ECIX",
+   "importance": 2,
+   "period": "Sep 2026",
+   "category": "EMPLOYMENT",
+   "releaseAtKST": "2026-11-03 00:00",
+   "previous": 0.9,
+   "unit": "%",
+   "unitScale": "",
+   "forecast": null,
+   "forecastSource": null,
+   "source": "naver"
+  },
+  {
+   "nation": "USA",
+   "name": "ISM 제조업 고용지수",
+   "reutersCode": "USISME=ECIX",
+   "importance": 1,
+   "period": "Oct 2026",
+   "category": "EMPLOYMENT",
+   "releaseAtKST": "2026-11-03 00:00",
+   "previous": 52.7,
+   "unit": "",
+   "unitScale": "",
+   "forecast": null,
+   "forecastSource": null,
+   "source": "naver"
+  },
+  {
+   "nation": "KOR",
+   "name": "소비자물가지수(CPI) 전년대비",
+   "reutersCode": "KRCPIY=ECIX",
+   "importance": 4,
+   "period": "Oct 2026",
+   "category": "PRICE",
+   "releaseAtKST": "2026-11-03 08:00",
+   "previous": 2.9,
+   "unit": "%",
+   "unitScale": "",
+   "forecast": null,
+   "forecastSource": null,
+   "source": "naver"
+  },
+  {
+   "nation": "KOR",
+   "name": "소비자물가지수(CPI) 전월대비",
+   "reutersCode": "KRCPI=ECIX",
+   "importance": 2,
+   "period": "Oct 2026",
+   "category": "PRICE",
+   "releaseAtKST": "2026-11-03 08:00",
+   "previous": 0.3,
    "unit": "%",
    "unitScale": "",
    "forecast": null,
