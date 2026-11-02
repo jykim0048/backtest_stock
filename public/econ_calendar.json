@@ -1,6 +1,6 @@
 {
  "date": "2026-11-03",
- "asof": "2026-11-03 07:45 KST",
+ "asof": "2026-11-03 08:41 KST",
  "sources": {
   "naver": true,
   "forexfactory": true
@@ -132,9 +132,7 @@
     "diff": -0.3,
     "verdict": "below"
    }
-  }
- ],
- "upcoming": [
+  },
   {
    "nation": "KOR",
    "name": "소비자물가지수(CPI) 전년대비",
@@ -143,12 +141,18 @@
    "period": "Oct 2026",
    "category": "PRICE",
    "releaseAtKST": "2026-11-03 08:00",
+   "actual": 2.8,
    "previous": 2.9,
    "unit": "%",
    "unitScale": "",
    "forecast": null,
    "forecastSource": null,
-   "source": "naver"
+   "source": "naver",
+   "surprise": {
+    "vs": "previous",
+    "diff": -0.1,
+    "verdict": "below"
+   }
   },
   {
    "nation": "KOR",
@@ -158,13 +162,21 @@
    "period": "Oct 2026",
    "category": "PRICE",
    "releaseAtKST": "2026-11-03 08:00",
+   "actual": 0.2,
    "previous": 0.3,
    "unit": "%",
    "unitScale": "",
    "forecast": null,
    "forecastSource": null,
-   "source": "naver"
-  },
+   "source": "naver",
+   "surprise": {
+    "vs": "previous",
+    "diff": -0.1,
+    "verdict": "below"
+   }
+  }
+ ],
+ "upcoming": [
   {
    "nation": "USA",
    "name": "레드북 소매판매지수 전년대비",
