@@ -6,6 +6,7 @@
   python -m swing.run_daily --agent mock --prices mock --store file:swing/data/local  # 오프라인
   python -m swing.run_daily --universe-only                                        # 유니버스만 다시 산출
   python -m swing.run_daily --date 2026-10-16 --redo                               # 판단 실패만 재분석(swing/redo.py)
+  python -m swing.run_daily --reflect-only                                         # 매매 복기만(swing/reflect.py)
 
 하루 처리 안에서 업종별 종목 수급 모멘텀 유니버스(swing/universe.py)를 산출(universe/<date>)하고, 매트릭스 후보에
 같은 모멘텀 점수를 매기며 유니버스 후보도 독립 소스로 trading_agent 에 넘긴다(daily.run_day 5).
@@ -25,7 +26,7 @@ _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _ROOT not in sys.path:
     sys.path.insert(0, _ROOT)
 
-from swing import agent_iface, config, daily, prices, redo, store, tradedays, universe  # noqa: E402
+from swing import agent_iface, config, daily, prices, redo, reflect, store, tradedays, universe  # noqa: E402
 
 KST = datetime.timezone(datetime.timedelta(hours=9))
 
@@ -88,6 +89,7 @@ def main(argv=None):
                     help="live(DB증권+KIS 허브) | mock(오프라인) | off")
     ap.add_argument("--universe-only", action="store_true", help="하루 처리 없이 유니버스만 산출")
     ap.add_argument("--redo", action="store_true", help="하루 처리 없이 그날 판단 실패 후보·매도 검토만 재분석")
+    ap.add_argument("--reflect-only", action="store_true", help="하루 처리 없이 매매 복기만")
     a = ap.parse_args(argv)
 
     if a.start:
@@ -95,6 +97,10 @@ def main(argv=None):
     else:
         dates = [a.date or datetime.datetime.now(KST).date().isoformat()]
     st = make_store(a.store)
+    if a.reflect_only:
+        for d in dates:
+            _reflect(st, d)
+        return 0
     ag, px = make_agent(a.agent, st), make_prices(a.prices)
     rc = 0
     for d in dates:
@@ -143,7 +149,17 @@ def main(argv=None):
                 print(f"[swing] {d} 재분석: {redo.redo_failed(d, st, ag, px, uni=uni, cat=_cat_runner(st, a))}")
             except Exception as ex:
                 print(f"[swing] {d} 재분석 실패: {type(ex).__name__}: {ex}", file=sys.stderr)
+        # 매매 복기(2026-11-02) — 판단이 끝난 뒤 남는 LLM 한도로. 실패해도 런 결과에 영향 없고 다음 런이 잇는다. 백필(--from)·mock 은 생략.
+        if a.agent == "trading_agent" and config.REFLECT_ENABLED and not a.start and not run.get("skip"):
+            _reflect(st, d)
     return rc
+
+
+def _reflect(st, d):
+    try:
+        print(f"[swing] {d} 매매 복기: {reflect.run(st, d)}")
+    except Exception as ex:
+        print(f"[swing] {d} 매매 복기 실패: {type(ex).__name__}: {ex}", file=sys.stderr)
 
 
 def _cat_runner(st, a):

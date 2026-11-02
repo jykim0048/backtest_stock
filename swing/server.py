@@ -18,6 +18,7 @@
   GET /api/swing/config               운용 규칙(자본·보유일·세금·비중·신호/등급 조건)
   GET /api/swing/export               전체 문서 JSON(백업)
   GET /api/swing/intraday[?date=]     Live Trader(장중 집행기) — 분할 체결·장중 손절·종목별 VWAP(PLAN_LIVE_TRADER.md)
+  GET /api/swing/reflections[?from=&to=]  매매 복기(reflection/<청산일>, swing/reflect.py) — 최근 청산일 순
   GET /api/prices?codes=              장중 시세 — SWING_PRICES_PROXY(main 대시보드) 중계, 표시 전용
   GET /healthz
 
@@ -292,6 +293,17 @@ def api_intraday(q):
     return {"dates": dates, "date": date, "doc": STORE.get(f"intraday/{date}") if date else None}
 
 
+def api_reflections(q):
+    """매매 복기 — 끝난 포지션별 복기(swing/reflect.py). from/to = 청산일."""
+    f, t = q.get("from"), q.get("to")
+    out = []
+    for k in sorted(STORE.keys("reflection/"), reverse=True):
+        d = k.split("/", 1)[1]
+        if (not f or d >= f) and (not t or d <= t):
+            out.extend((STORE.get(k) or {}).get("items") or [])
+    return out
+
+
 ROUTES = {"/api/swing/summary": api_summary, "/api/swing/progress": api_progress, "/api/swing/positions": api_positions,
           "/api/swing/orders": api_orders, "/api/swing/trades": api_trades, "/api/swing/fills": api_fills,
           "/api/swing/equity": lambda q: _ledger()["equity"],
@@ -299,7 +311,8 @@ ROUTES = {"/api/swing/summary": api_summary, "/api/swing/progress": api_progress
           "/api/swing/signals": api_signals, "/api/swing/universe": api_universe, "/api/swing/sim": api_sim,
           "/admin/sim": admin_sim, "/admin/catrep": admin_catrep, "/admin/dbq": admin_dbq, "/admin/universe": admin_universe,
           "/api/swing/universe/progress": api_universe_progress, "/api/swing/config": api_config,
-          "/api/swing/export": api_export, "/api/swing/intraday": api_intraday}
+          "/api/swing/export": api_export, "/api/swing/intraday": api_intraday,
+          "/api/swing/reflections": api_reflections}
 
 
 class Handler(BaseHTTPRequestHandler):

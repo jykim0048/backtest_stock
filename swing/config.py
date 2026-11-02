@@ -136,3 +136,8 @@ PARTIAL_ENTRY_MIN = _f("SWING_PARTIAL_ENTRY_MIN", 0.5)
 # 주식선물 미상장 Short 정리(2026-10-16 사용자 지시: 뉴인텍·엑스플러스 종가 청산) — UNI_SHORT_FUT_ONLY 가 켜져 있으면 선물 미상장 종목의
 # Short 포지션은 그날 종가로 환매(사유 fut_none), 그 종목의 미도달 재주문·잔여분 추가 주문도 내지 않는다. 0 이면 끔.
 SHORT_FUT_CLOSE = os.environ.get("SWING_SHORT_FUT_CLOSE", "1") != "0"
+# 매매 복기(2026-11-02 1단계, swing/reflect.py) — 끝난 포지션을 하루 처리 뒤 LLM 으로 복기(1건 1콜). PM 판단에는 아직 넣지 않는다. 0 이면 끔.
+# REFLECT_MAX = 런당 상한(밀린 건은 다음 런), REFLECT_FROM = 이 날 이후 청산분만(Live Trader 장중 체결이 시작된 10-19 부터).
+REFLECT_ENABLED = os.environ.get("SWING_REFLECT", "1") != "0"
+REFLECT_MAX = int(_f("SWING_REFLECT_MAX", 15))
+REFLECT_FROM = os.environ.get("SWING_REFLECT_FROM", "2026-10-19")

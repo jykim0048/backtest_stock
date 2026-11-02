@@ -707,3 +707,13 @@ td small.sub-qty { display: block; font-size: 10.5px; color: var(--text-muted); 
 .held-pill { font-size: 11px; font-weight: 600; padding: 1px 8px; border-radius: 20px; white-space: nowrap; font-family: inherit; }
 .held-pill.long { color: var(--up-red); background: rgba(240, 68, 82, .12); border: 1px solid rgba(240, 68, 82, .35); }
 .held-pill.short { color: var(--down-blue); background: rgba(49, 130, 246, .12); border: 1px solid rgba(49, 130, 246, .35); }
+
+/* 매매 복기(2026-11-02) */
+.flag.miss { color: var(--up-red); background: var(--up-red-dim); }
+.reflect-day { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 10px; }
+.reflect-list { display: flex; flex-direction: column; gap: 8px; }
+.reflect-card { padding: 12px 14px; border: 1px solid var(--border-color); border-radius: 10px; background: rgba(255, 255, 255, .02); }
+.reflect-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.reflect-name { font-weight: 700; color: var(--text-main); font-size: 14px; background: none; border: 0; padding: 0; cursor: pointer; }
+.reflect-ret { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+.reflect-text { margin: 8px 0 0; font-size: 13px; line-height: 1.65; color: var(--text-main); white-space: pre-wrap; overflow-wrap: anywhere; }

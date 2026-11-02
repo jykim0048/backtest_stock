@@ -609,6 +609,41 @@
     else more.hidden = true;
     $("fill-caption").textContent = fs.length + "건 · 체결 " + cnt.filled + " · 미도달 취소 " + (cnt.cancelled || 0) + " · 스킵 " + (cnt.skipped || 0);
   }
+  function rpReflect() {                       // 매매 복기(2026-11-02, swing/reflect.py) — 청산일 기준
+    var rs = bySide(periodBy(S.reflections || [], "exitDate"), RP.side);
+    var shown = rs.slice(0, RP.rlimit || 5);
+    $("reflects").innerHTML = shown.length ? shown.map(function (r) {
+      var verdict = r.text ? '<span class="flag ' + (r.right ? "done" : "miss") + '">' + (r.right ? "적중" : "빗나감") + "</span>" : "";
+      var alpha = r.alphaPct != null ? '<span class="stock-code" title="' + esc(r.benchName + " " + pctTxt(r.benchPct)) + ' 기준">시장 대비 ' + pctTxt(r.alphaPct) + "</span>" : "";
+      return '<div class="reflect-card"><div class="reflect-head"><span class="side-tag ' + sideOf(r) + '">' + (sideOf(r) === "long" ? "LONG" : "SHORT") + "</span>" +
+        '<button type="button" class="reflect-name" data-key="' + esc(r.decisionKey || "") + '" title="진입 판단 원문 보기">' + esc(r.name) + "</button>" +
+        verdict + basisTag({ source: r.source }) + '<span class="reason ' + esc(r.reason) + '">' + esc(reasonTxt(r.reason, r.side)) + "</span>" +
+        '<span class="stock-code">' + esc((r.entryDate || "").slice(5)) + " → " + esc((r.exitDate || "").slice(5)) + " · " + (r.holdDays || 0) + "일</span>" +
+        '<span class="reflect-ret">' + pnlBadge(r.retPct, pctTxt(r.retPct).replace(/^[+-]/, "")) + alpha + "</span></div>" +
+        '<p class="reflect-text">' + esc(r.text || r.why || "복기 없음") + "</p></div>";
+    }).join("") : '<div class="rp-note">' + (S.reflections && S.reflections.length ? "이 기간 복기가 없습니다" : "아직 복기가 없습니다 — 청산이 끝난 포지션부터 장 마감 후 배치에서 작성합니다") + "</div>";
+    var more = $("reflects-more");
+    if (rs.length > shown.length) { more.hidden = false; more.textContent = "더 보기 (" + (rs.length - shown.length) + "건 남음)"; }
+    else more.hidden = true;
+    var w = rs.filter(function (r) { return r.text && r.right; }).length, n = rs.filter(function (r) { return r.text; }).length;
+    $("reflect-caption").textContent = n ? n + "건 · 적중 " + w + " · 빗나감 " + (n - w) : "";
+    rpDayReview();
+  }
+  function rpDayReview() {                     // 일 단위 조회 — 그날 판단 결과 요약(주문 안 낸 종목·미도달·스킵, LLM 없음)
+    var el = $("reflect-day"), d = RP.period === "day" ? RP.day : null;
+    if (!d) { el.hidden = true; return; }
+    var p = RUN_CACHE[d] || (RUN_CACHE[d] = api("/api/swing/runs?date=" + encodeURIComponent(d)).catch(function () { return null; }));
+    p.then(function (run) {
+      if (!run || RP.period !== "day" || RP.day !== d) return;
+      var cs = bySide((run.candidates || []).concat(run.shortCandidates || []), RP.side);
+      var no = cs.filter(function (c) { return !c.ordered; });
+      var fs = bySide((S.fills || []).filter(function (o) { return o.validDate === d; }), RP.side);
+      var nc = fs.filter(function (o) { return o.status === "cancelled"; }).length, ns = fs.filter(function (o) { return o.status === "skipped"; }).length;
+      el.innerHTML = '<span class="rp-note">신규 판단 ' + cs.length + " · 주문 " + (cs.length - no.length) + " · 미주문 " + no.length + " · 미도달 취소 " + nc + " · 스킵 " + ns + "</span>" +
+        no.map(function (c) { return '<span class="flag" title="' + esc((c.why || "") + (c.pmNote ? " — " + c.pmNote : "")) + '">' + esc(c.name) + "</span>"; }).join("");
+      el.hidden = false;
+    });
+  }
   function periodTrades(all) {
     var ref = (S.summary && S.summary.asof) || (all.length ? all[all.length - 1].exitDate : null);
     if (RP.period === "day") return all.filter(function (t) { return t.exitDate === RP.day; });
@@ -642,7 +677,7 @@
     var lbl = { all: "전체 기간", week: "이번 주", month: "이번 달", day: RP.day + " 하루" }[RP.period];
     $("rp-sub").textContent = lbl + " · 청산 " + ts.length + "건 · 세후(매도세 0.2%) · 기준일 " + ((S.summary && S.summary.asof) || "—");
     var dayMode = RP.period === "day";          // 일자 모드: 곡선·요약은 전체 기간을 보여 주고 선택일만 표시
-    rpKpis(ts); rpCum(dayMode ? all : ts, dayMode ? RP.day : null); rpDaily(all, dayMode ? all : ts); rpCompare(ts); rpReasons(ts); rpDist(ts); rpFills(); rpTrades(ts);
+    rpKpis(ts); rpCum(dayMode ? all : ts, dayMode ? RP.day : null); rpDaily(all, dayMode ? all : ts); rpCompare(ts); rpReasons(ts); rpDist(ts); rpReflect(); rpFills(); rpTrades(ts);
   }
 
   // 일자 선택 목록(청산일, 최신 먼저) — "일자" 모드일 때만 보임
@@ -894,6 +929,7 @@
   });
   segBind("trade-filter", "side", true);
   $("fills-more").addEventListener("click", function () { RP.flimit = (RP.flimit || 10) + 20; rpFills(); });
+  $("reflects-more").addEventListener("click", function () { RP.rlimit = (RP.rlimit || 5) + 10; rpReflect(); });
   segBind("trade-sort", "sort", false);
   $("trades-more").addEventListener("click", function () { RP.limit += 20; renderReport(); });
 
@@ -1504,8 +1540,8 @@
   // ── 부트 ──
   Promise.all([api("/api/swing/summary"), api("/api/swing/equity"), api("/api/swing/positions"),
     api("/api/swing/runs"), api("/api/swing/trades"), api("/api/swing/config"),
-    api("/api/swing/fills").catch(function () { return []; })]).then(function (r) {
-    S.summary = r[0]; S.equity = r[1]; S.positions = r[2]; S.trades = r[4]; S.config = r[5]; S.fills = r[6] || [];
+    api("/api/swing/fills").catch(function () { return []; }), api("/api/swing/reflections").catch(function () { return []; })]).then(function (r) {
+    S.summary = r[0]; S.equity = r[1]; S.positions = r[2]; S.trades = r[4]; S.config = r[5]; S.fills = r[6] || []; S.reflections = r[7] || [];
     S.heldShort = {};
     S.positions.forEach(function (p) { if (sideOf(p) === "short") S.heldShort[p.code] = 1; else S.held[p.code] = 1; });
     renderHeader(r[0]); pollProgress(); renderPortfolio(r[0]); renderRules(r[5]);
