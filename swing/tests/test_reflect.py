@@ -104,8 +104,8 @@ class TestRun(unittest.TestCase):
         self.assertEqual(reflect.run(st, "2026-10-23", llm_fn=llm, bench_fn=bench, log=quiet)["skipped"], 0)
 
     def test_exits_before_cutoff_ignored(self):
-        st = make_store([tr("t1", "2026-10-16", 100, 11000, 90000, entry_date="2026-10-13")])
-        self.assertEqual(config.REFLECT_FROM, "2026-10-19")
+        st = make_store([tr("t1", "2026-09-28", 100, 11000, 90000, entry_date="2026-09-22")])
+        self.assertEqual(config.REFLECT_FROM, "2026-09-29")
         self.assertEqual(reflect.run(st, "2026-10-23", llm_fn=Llm(), bench_fn=bench, log=quiet)["written"], 0)
 
 
