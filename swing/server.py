@@ -63,15 +63,22 @@ def api_summary(q):
     by_reason = {}
     for t in tr:
         by_reason[t["reason"]] = by_reason.get(t["reason"], 0) + 1
+    from swing import history
+    live = history.live_prices(STORE, L.get("asof"))
+    equity, ret = (eq["equity"], eq["retPct"]) if eq else (round(L["cash"]), 0.0)
+    live_ts = None
+    if live and L["positions"]:                          # 장중(정산 전) — 전일 보유 수량 × Live Trader 현재가(2026-11-03)
+        v = L["cash"] + sum(engine.position_value(p, (live.get(p["code"]) or {}).get("price")) for p in L["positions"])
+        equity, ret = round(v), round((v / L["capital0"] - 1) * 100, 2)
+        live_ts = max((x.get("ts") or "" for x in live.values()), default="")[11:16] or None
     return {"asof": L.get("asof"), "capital0": L["capital0"], "cash": round(L["cash"]),
-            "equity": eq["equity"] if eq else round(L["cash"]),
-            "retPct": eq["retPct"] if eq else 0.0,
+            "equity": equity, "retPct": ret, "liveTs": live_ts, "closeEquity": eq["equity"] if eq else round(L["cash"]),
             "positions": len(L["positions"]), "openOrders": len(L["orders"]),
             "trades": {"n": len(tr), "wins": len(wins),
                        "winRate": round(len(wins) / len(tr) * 100, 1) if tr else None,
                        "avgRetPct": round(sum(t["retPct"] for t in tr) / len(tr), 2) if tr else None,
                        "pnl": sum(t["pnl"] for t in tr), "byReason": by_reason},
-            "collateral": _collateral(L, eq["equity"] if eq else L["cash"]),
+            "collateral": _collateral(L, equity),
             "lastRun": last}
 
 
@@ -86,12 +93,16 @@ def _collateral(L, equity):
 
 
 def api_positions(q):
+    """보유 — 현재가 = 장중이면 Live Trader 마지막 시세(15초 폴링, priceTs), 정산 뒤엔 원장 종가(2026-11-03)."""
+    from swing import history
     L = _ledger()
+    live = history.live_prices(STORE, L.get("asof"))
     out = []
     for p in L["positions"]:
-        px = p.get("lastClose") or p["entry"]
+        lv = live.get(p["code"])
+        px = (lv or {}).get("price") or p.get("lastClose") or p["entry"]
         r = px / p["entry"] - 1
-        out.append({**p, "value": round(p["qty"] * px),
+        out.append({**p, "price": px, "priceTs": ((lv or {}).get("ts") or "")[11:16] or None, "value": round(p["qty"] * px),
                     "unrealPct": round((-r if p.get("side") == "short" else r) * 100, 2)})   # 숏은 하락이 이익
     return out
 

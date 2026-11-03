@@ -116,6 +116,46 @@ class TestBuild(unittest.TestCase):
         self.assertEqual((h["events"][-1]["held"], h["events"][-1]["live"]), (0, True))
         self.assertEqual(h["qty"], 0)
 
+    def test_live_price_before_settlement(self):
+        st = setup()
+        st.put("intraday/2026-11-03", {"vwap": {"006110": {"price": 50000.0, "ts": "2026-11-03T10:15:30+09:00"}}, "orders": {}, "exits": {}})
+        h = history.build(st, KEY, log=lambda *a: None)
+        self.assertEqual((h["last"], h["lastTs"]), (50000.0, "10:15"))
+        self.assertAlmostEqual(h["vsAvgPct"], (50000 / 65563 - 1) * 100, places=1)
+
+    def test_settled_day_uses_ledger_close(self):
+        st = setup()
+        st.put("intraday/2026-11-02", {"vwap": {"006110": {"price": 50000.0, "ts": "2026-11-02T15:20:00+09:00"}}, "orders": {}, "exits": {}})
+        h = history.build(st, KEY, log=lambda *a: None)              # 원장 asof 11-02 = 이미 정산된 날
+        self.assertEqual((h["last"], h["lastTs"]), (55600.0, None))
+
+    def test_positions_api_uses_live_price(self):
+        from swing import server
+        st = setup()
+        st.put("intraday/2026-11-03", {"vwap": {"006110": {"price": 50000.0, "ts": "2026-11-03T10:15:30+09:00"}}, "orders": {}, "exits": {}})
+        old, server.STORE = server.STORE, st
+        try:
+            p = server.api_positions({})[0]
+        finally:
+            server.STORE = old
+        self.assertEqual((p["price"], p["priceTs"], p["value"]), (50000.0, "10:15", 49 * 50000))
+        self.assertAlmostEqual(p["unrealPct"], (50000 / 65563 - 1) * 100, places=1)
+
+    def test_summary_equity_uses_live_price(self):
+        from swing import server
+        st = setup()
+        L = st.get("ledger")
+        L.update(capital0=500_000_000, cash=100_000_000, equity=[dict(e, retPct=-4.0) for e in L["equity"]])
+        st.put("ledger", L)
+        st.put("intraday/2026-11-03", {"vwap": {"006110": {"price": 50000.0, "ts": "2026-11-03T10:15:30+09:00"}}, "orders": {}, "exits": {}})
+        old, server.STORE = server.STORE, st
+        try:
+            s = server.api_summary({})
+        finally:
+            server.STORE = old
+        self.assertEqual((s["equity"], s["liveTs"], s["closeEquity"]), (100_000_000 + 49 * 50000, "10:15", 480_000_000))
+        self.assertAlmostEqual(s["retPct"], ((100_000_000 + 49 * 50000) / 500_000_000 - 1) * 100, places=2)
+
     def test_bars_failure_falls_back_to_decision_chart(self):
         def boom(*a):
             raise RuntimeError("no token")

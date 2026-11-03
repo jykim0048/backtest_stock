@@ -248,7 +248,8 @@
     var base = eqNow || 1, wL = lv / base * 100, wS = sv / base * 100;
     var h = '<div class="port-item wide4 hero"><div class="hero-row"><div class="hero-main"><span class="port-lbl">평가액</span><span class="port-val">' +
       '<span class="num">' + won(eqNow) + '</span><small>원</small></span><span class="port-sub">초기 ' + won(cap) + "원 대비 " +
-      pct(s.retPct) + " · 기준일 " + (s.asof || "—") + "</span></div>" +
+      pct(s.retPct) + (s.liveTs ? ' · <span title="정산 전 — 전일 보유 수량 × Live Trader 현재가(15초 폴링). 16:30 정산 뒤 종가 기준으로 바뀜">장중 ' + esc(s.liveTs) + " 시세</span>" : "") +
+      " · 기준일 " + (s.asof || "—") + "</span></div>" +
       '<div class="hero-weight"><div class="exp-pair"><div><span class="port-lbl">총노출</span><span class="port-val num">' + (wL + wS).toFixed(1) +
       '%</span></div><div><span class="port-lbl">순노출</span><span class="port-val num ' + (wL - wS > 0 ? "up" : wL - wS < 0 ? "down" : "") + '">' +
       (wL - wS > 0 ? "+" : "") + (wL - wS).toFixed(1) + "%</span></div></div>" +
@@ -390,9 +391,9 @@
     });
   }
   function posTable(el, ps, empty) {
-    // 비중 = 평가금액(수량 × 종가) ÷ 총 평가액(2026-10-16) — 상단 비중, 하단 수량(작게)
+    // 비중 = 평가금액(수량 × 현재가) ÷ 총 평가액(2026-10-16) — 상단 비중, 하단 수량(작게). 현재가 = 장중이면 Live Trader 시세(2026-11-03)
     var eq = S.summary && S.summary.equity;
-    table(el, [["종목"], ["섹터"], ["신호"], ["선정기준"], ["가격 레벨"], ["비중 / 수량", "r"], ["종가", "r"], ["평가손익", "r"], ["보유일"], ["상태"]],
+    table(el, [["종목"], ["섹터"], ["신호"], ["선정기준"], ["가격 레벨"], ["비중 / 수량", "r"], ["현재가", "r"], ["평가손익", "r"], ["보유일"], ["상태"]],
       ps.map(function (p) {
         var val = p.value != null ? p.value : p.qty * (p.lastClose || p.entry || 0);
         var wt = eq ? '<span class="num" title="평가금액 ' + won(val) + '원 ÷ 총 평가액">' + (val / eq * 100).toFixed(1) + "%</span>" : '<span class="num muted">—</span>';
@@ -400,7 +401,8 @@
           td('<span class="sec-name">' + esc(p.sector || "—") + "</span>"), td(sig(p.signal) || '<span class="muted">—</span>'),
           td('<span class="pos-basis" data-dk="' + esc(p.decisionKey || "") + '">' + basisTag({ source: p.source }) + "</span>"),
           td(levels(p.entry, p.stop, p.target)), td(wt + '<small class="sub-qty">' + won(p.qty) + "주</small>", "r"),
-          td('<span class="num">' + won(p.lastClose) + "</span>", "r"),
+          td('<span class="num">' + won(p.price != null ? p.price : p.lastClose) + "</span>" + (p.priceTs ? '<small class="px-ts" title="장중 시세(Live Trader 15초 폴링) — 정산 뒤 종가로 바뀜">' + esc(p.priceTs) + "</small>"
+            : '<small class="px-ts" title="원장 종가(정산 기준)">종가</small>'), "r"),
           td(pnlBadge(p.unrealPct, pctTxt(p.unrealPct).replace(/^[+-]/, "")), "r"),
           td(holdBar(p.holdDay) + (p.fillDate ? '<small class="hold-fill">체결 ' + esc(p.fillDate.slice(5)) + "</small>" : "")),
           td(p.sellPending ? '<span class="state sell-next" title="다음 영업일 시가 ' + (sideOf(p) === "short" ? "환매" : "매도") + " — " + esc(p.sellPending.reason) + '">익일 시가 ' + (sideOf(p) === "short" ? "환매" : "매도") + "</span>"
@@ -1343,7 +1345,7 @@
     if (!el || !h) return;
     if (h.status === "none") { el.hidden = true; return; }
     var ws = h.side === "short" ? "SHORT" : "LONG";
-    var vs = h.vsAvgPct != null ? (h.qty ? "현재가 " + won(h.last) + " · 평단 대비 " : "마지막 종가 " + won(h.last) + " · 평단 대비 ") + pctTxt(h.vsAvgPct) : "";
+    var vs = h.vsAvgPct != null ? (h.qty ? "현재가 " + won(h.last) + (h.lastTs ? "(" + h.lastTs + ")" : "") + " · 평단 대비 " : "마지막 종가 " + won(h.last) + " · 평단 대비 ") + pctTxt(h.vsAvgPct) : "";
     var pnl = h.realized ? '<div class="hist-num"><span>실현 손익</span><b class="' + signCls(h.realized) + '">' + wonS(h.realized) + "</b>" + (h.realizedPct != null ? "<small>" + pctTxt(h.realizedPct) + "</small>" : "") + "</div>" : "";
     var html = '<div class="hist-card" role="button" tabindex="0" aria-expanded="' + HIST.open + '">' +
       '<div class="hist-top"><strong>트레이딩 히스토리</strong><span class="side-tag ' + h.side + '">' + ws + "</span>" + (h.status === "open" ? '<span class="flag held">보유 ' + won(h.qty) + "주</span>" : '<span class="flag">청산 완료</span>') +

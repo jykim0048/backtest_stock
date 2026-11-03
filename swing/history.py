@@ -42,6 +42,15 @@ def _ticks(store, day, code):
 ticks_fn = _ticks
 
 
+def live_prices(store, asof):
+    """장중 현재가(2026-11-03) — 정산 전(intraday 날짜 > 원장 asof) Live Trader 기록의 종목별 마지막 시세 {code: {price, ts}}.
+    15초 폴링값이라 장 마감 뒤 정산(16:30) 전까지는 15:2x 가격(종가 동시호가 전)이 남는다. 정산되면 원장 종가로 돌아간다."""
+    day = max((k.split("/")[1] for k in store.keys("intraday/") if k.count("/") == 1), default=None)
+    if not day or (asof and day <= asof):
+        return {}
+    return {c: {"price": v["price"], "ts": v.get("ts")} for c, v in ((store.get(f"intraday/{day}") or {}).get("vwap") or {}).items() if v.get("price")}
+
+
 def _mins(hm):
     h, m = hm.split(":")
     return int(h) * 60 + int(m)
@@ -293,8 +302,9 @@ def build(store, key, *, day=None, log=print):
 
     target = (plan.get("weight") or (p or {}).get("weight") or 0) * 100
     closes = [x["c"] for x in days if x.get("c")]
-    last_px = (p or {}).get("lastClose") or (closes[-1] if closes else None)
     qty_now = max(0, h2)
+    live = live_prices(store, asof).get(code) if qty_now else None        # 보유 중이면 장중 현재가 우선
+    last_px = (live or {}).get("price") or (p or {}).get("lastClose") or (closes[-1] if closes else None)
     realized = sum(t.get("pnl") or 0 for t in r["trades"])
     cost = sum(t["qty"] * t["entryPrice"] for t in r["trades"])
     reached = next((x["d"] for x in days if target and x["w"] >= target * 0.95), None)
@@ -325,7 +335,7 @@ def build(store, key, *, day=None, log=print):
         extra["dayView"] = {"d": day, "step": 5, "bars": minute_bars(ticks_fn(store, day, code), 5, bars.get(day)) if day in tick_days else [],
                             "fills": [f for f in fl if f["ts"][:10] == day], "close": (bars.get(day) or {}).get("c")}
     return {**extra, "status": status, "code": code, "side": side, "name": plan.get("name") or (p or {}).get("name") or (r["trades"][-1]["name"] if r["trades"] else code),
-            "entryDate": start, "exitDate": end, "avg": avg, "last": last_px, "vsAvgPct": round(sign * (last_px / avg - 1) * 100, 2) if last_px and avg else None,
+            "entryDate": start, "exitDate": end, "avg": avg, "last": last_px, "lastTs": ((live or {}).get("ts") or "")[11:16] or None, "vsAvgPct": round(sign * (last_px / avg - 1) * 100, 2) if last_px and avg else None,
             "qty": qty_now, "targetWeight": round(target, 2), "peakWeight": round(peak, 2), "peakDay": peak_day,
             "nowWeight": days[-1]["w"] if days and qty_now else 0.0, "realized": round(realized), "realizedPct": round(realized / cost * 100, 2) if cost else None,
             "summary": line, "deviations": sum(1 for e in ev if e.get("warn")), "hasBars": bool(bars), "days": days, "events": ev}
