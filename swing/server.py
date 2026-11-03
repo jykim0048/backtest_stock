@@ -19,6 +19,7 @@
   GET /api/swing/export               전체 문서 JSON(백업)
   GET /api/swing/intraday[?date=]     Live Trader(장중 집행기) — 분할 체결·장중 손절·종목별 VWAP(PLAN_LIVE_TRADER.md)
   GET /api/swing/reflections[?from=&to=]  매매 복기(reflection/<청산일>, swing/reflect.py) — 최근 청산일 순
+  GET /api/swing/history?key=         트레이딩 히스토리(swing/history.py) — 그 판단이 속한 포지션 회차의 체결·재판별·청산·비중·일봉
   GET /api/prices?codes=              장중 시세 — SWING_PRICES_PROXY(main 대시보드) 중계, 표시 전용
   GET /healthz
 
@@ -293,6 +294,11 @@ def api_intraday(q):
     return {"dates": dates, "date": date, "doc": STORE.get(f"intraday/{date}") if date else None}
 
 
+def api_history(q):
+    from swing import history
+    return history.build(STORE, q.get("key") or "")
+
+
 def api_reflections(q):
     """매매 복기 — 끝난 포지션별 복기(swing/reflect.py). from/to = 청산일."""
     f, t = q.get("from"), q.get("to")
@@ -312,7 +318,7 @@ ROUTES = {"/api/swing/summary": api_summary, "/api/swing/progress": api_progress
           "/admin/sim": admin_sim, "/admin/catrep": admin_catrep, "/admin/dbq": admin_dbq, "/admin/universe": admin_universe,
           "/api/swing/universe/progress": api_universe_progress, "/api/swing/config": api_config,
           "/api/swing/export": api_export, "/api/swing/intraday": api_intraday,
-          "/api/swing/reflections": api_reflections}
+          "/api/swing/reflections": api_reflections, "/api/swing/history": api_history}
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -392,6 +398,17 @@ def main(argv=None):
         STORE = store_mod.FileStore(demo_data.build(rebuild=a.rebuild_demo))
     else:
         STORE = store_mod.from_env()
+    if a.demo or a.rebuild_demo:                             # 데모는 DB증권 대신 mock 일봉(데모 원장과 같은 시세)
+        from swing import history, prices, tradedays
+        mock = prices.MockPrices()
+
+        def bars(code, d1, d2):
+            out = {}
+            for d in tradedays.trading_days(d1, d2):
+                b = mock.daily_bars([code], d)[code]
+                out[d] = {"o": b["open"], "h": b["high"], "l": b["low"], "c": b["close"]}
+            return out
+        history.bars_fn = bars
     port = int(os.environ.get("PORT", "8124"))
     print(f"[swing-web] :{port} store={type(STORE).__name__}" + (" (demo)" if a.demo or a.rebuild_demo else ""), flush=True)
     ThreadingHTTPServer(("0.0.0.0", port), Handler).serve_forever()

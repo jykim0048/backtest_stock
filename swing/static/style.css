@@ -718,3 +718,50 @@ td small.sub-qty { display: block; font-size: 10.5px; color: var(--text-muted); 
 .reflect-name { font-weight: 700; color: var(--text-main); font-size: 14px; background: none; border: 0; padding: 0; cursor: pointer; }
 .reflect-ret { display: flex; align-items: center; gap: 8px; margin-left: auto; }
 .reflect-text { margin: 8px 0 0; font-size: 13px; line-height: 1.65; color: var(--text-main); white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* 트레이딩 히스토리(2026-11-03) — 판단 원문 팝업의 카드 */
+.stocks-table tr[data-key] .stock-name { text-decoration: underline; text-decoration-color: rgba(0, 240, 255, .4); text-underline-offset: 3px; cursor: pointer; }
+.hist-card { border: 1px solid rgba(0, 240, 255, .28); border-radius: 12px; padding: 12px 14px; background: rgba(0, 240, 255, .04); cursor: pointer; }
+.hist-card:hover, .hist-card:focus-visible { border-color: rgba(0, 240, 255, .55); background: rgba(0, 240, 255, .07); outline: none; }
+.hist-top { display: flex; align-items: center; gap: 8px; }
+.hist-top strong { font-size: 14px; }
+.hist-top em { margin-left: auto; font-style: normal; font-size: 12px; color: var(--kospi-blue); white-space: nowrap; }
+.hist-main { display: flex; flex-wrap: wrap; align-items: stretch; gap: 8px 22px; margin: 10px 0; }
+.hist-avg { padding: 8px 14px; border-radius: 10px; background: rgba(0, 240, 255, .1); border: 1px solid rgba(0, 240, 255, .32); min-width: 190px; }
+.hist-avg span { display: block; font-size: 12px; color: var(--kospi-blue); font-weight: 700; }
+.hist-avg b { display: block; font-family: var(--font-outfit); font-size: 26px; line-height: 1.2; color: var(--text-main); }
+.hist-avg small { font-size: 11.5px; color: var(--text-muted); }
+.hist-num { display: flex; flex-direction: column; justify-content: center; }
+.hist-num span { font-size: 11.5px; color: var(--text-muted); }
+.hist-num b { font-family: var(--font-outfit); font-size: 17px; }
+.hist-num small { font-size: 11px; color: var(--text-muted); }
+.hist-chart { display: block; width: 100%; height: auto; }
+.hist-sub { margin-top: 6px; font-size: 12px; color: var(--text-muted); line-height: 1.5; }
+.hist-sub b { color: var(--amber); font-weight: 400; }
+.hist-body { margin-top: 8px; padding: 10px 12px; border: 1px solid var(--border-color); border-radius: 12px; background: rgba(0, 0, 0, .2); }
+.hist-tl { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+.hist-tl h4 { margin: 0; font-size: 13px; color: var(--text-main); }
+.hist-row { display: grid; grid-template-columns: 46px 88px minmax(0, 1fr) 76px 56px 52px; gap: 8px; align-items: center; padding: 8px 2px; border-top: 1px solid var(--border-color); font-size: 13px; }
+.hist-row.head { font-size: 11.5px; color: var(--text-muted); border-top: 0; padding: 0 2px 6px; }
+.hist-row .r { text-align: right; }
+.hist-row[data-more] { cursor: pointer; }
+.hist-row[data-more]:hover { background: rgba(255, 255, 255, .03); }
+.hist-d { color: var(--text-muted); font-size: 12.5px; }
+.hist-ev { justify-self: start; font-size: 11.5px; font-weight: 700; padding: 2px 7px; border-radius: 6px; white-space: nowrap; max-width: 88px; overflow: hidden; text-overflow: ellipsis; }
+.hist-ev.plan { color: var(--text-muted); background: rgba(255, 255, 255, .06); }
+.hist-ev.buy { color: var(--up-red); background: var(--up-red-dim); }
+.hist-ev.review { color: var(--kospi-blue); background: var(--kospi-blue-dim); }
+.hist-ev.switch { color: var(--amber); background: rgba(251, 191, 36, .12); }
+.hist-ev.stop { color: var(--down-blue); background: var(--down-blue-dim); }
+.hist-ev.exit { color: #c4b5fd; background: rgba(139, 92, 246, .14); }
+.hist-why { min-width: 0; line-height: 1.45; overflow-wrap: anywhere; }
+.hist-why small { display: block; font-size: 11.5px; color: var(--text-muted); }
+.hist-why small.warn { color: var(--amber); }
+.hist-raw { background: none; border: 0; padding: 0; font: inherit; font-size: 11.5px; color: var(--kospi-blue); cursor: pointer; }
+.hist-more { padding: 2px 2px 8px 150px; font-size: 12px; color: var(--text-muted); }
+@media (max-width: 640px) {
+  .hist-row { grid-template-columns: 40px 72px minmax(0, 1fr) 46px; }
+  .hist-row > :nth-child(4), .hist-row > :nth-child(5) { display: none; }
+  .hist-more { padding-left: 2px; }
+  .hist-avg { min-width: 0; width: 100%; }
+}
