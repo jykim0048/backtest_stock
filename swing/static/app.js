@@ -1348,7 +1348,7 @@
           var x0 = L + step * first[d.d] + 1.5, x1 = L + step * (last[d.d] + 1) - 1.5, yy = yw(d.w), hit = tg && d.w >= tg * 0.95;
           w += '<rect x="' + x0 + '" y="' + yy + '" width="' + Math.max(1, x1 - x0) + '" height="' + (base - yy) + '" rx="2" fill="' + (hit ? "rgba(0,240,255,.6)" : "rgba(0,240,255,.28)") +
             '"><title>' + d.d + " 비중 " + d.w.toFixed(2) + "% · " + won(d.held) + "주</title></rect>";
-          if (x1 - x0 >= 30) w += '<text x="' + (x0 + x1) / 2 + '" y="' + (yy - top >= 11 ? yy - 2 : yy + 10) + '" text-anchor="middle" font-size="10" font-weight="700" fill="var(--text-main)">' + d.w.toFixed(1) + "%</text>";
+          if (x1 - x0 >= 30) w += '<text x="' + (x0 + x1) / 2 + '" y="' + (base - 4) + '" text-anchor="middle" font-size="10" font-weight="700" fill="var(--text-main)">' + d.w.toFixed(1) + "%</text>";
         });
         if (tg) w += '<line x1="' + L + '" x2="' + xr + '" y1="' + yw(tg) + '" y2="' + yw(tg) + '" stroke="var(--amber)" stroke-width="1.2" stroke-dasharray="4 3"/>' +
           '<text x="' + (xr + 4) + '" y="' + (yw(tg) + 4) + '" font-size="10.5" fill="var(--amber)">목표 ' + tg.toFixed(1) + "%</text>";
