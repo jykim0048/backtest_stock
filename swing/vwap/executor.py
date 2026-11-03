@@ -29,6 +29,8 @@ Live PM 지시(2026-10-19, PLAN_LIVE_TRADER §5-2) — 매 폴링마다 livepm/<
   시가에는 팔지 않는다(ENTRY_START 부터). 판 직후 같은 폴링에서 막혔던 매수를 다시 시도한다.
   (10-20 첫 운영의 '남은 매수 금액 전체 − 현금' 방식은 살 수 없는 주문 몫까지 미리 팔아 현금 9,240만 원이 남았다 → 폐기.)
   정산은 진입 전에 재원 매도를 현금으로 반영하고, 못 산 수량은 잔여분 추가 주문으로 다음 날 이어진다.
+진입 우선순위(2026-11-03 사용자 지시) — 매 폴링마다 주문을 engine.entry_priority(PM 등급 → 높은 비중) 순으로 검토해 현금을 먼저 준다.
+  순위가 높아도 그 폴링에 체결 조건(진입가 상한·VWAP)이 안 맞으면 다음 순위를 바로 검토한다 — 현금을 묶어 두지 않는다.
 슬라이스 기록 = {code, name, side, plan[수량], next, ref, fills[{ts, qty, price, mode: open|vwap|force|stop|stop_gap, vwap}], done, why, …}
   진입 기록 + cap·stop·planned·topupOf, 청산 기록 + trigger(scheduled|stop)·kind(청산 사유)·planned·triggerTs.
 """
@@ -118,7 +120,7 @@ class Executor:
             doc["orders"].setdefault(o["id"], {
                 "code": o["code"], "name": o.get("name"), "side": o.get("side", "long"), "cap": o["entry"], "stop": o["stop"],
                 "planned": o["qty"], "plan": slice_plan(o["qty"]), "next": 0, "ref": None, "fills": [], "done": False,
-                "why": None, "topupOf": o.get("topupOf")})
+                "why": None, "topupOf": o.get("topupOf"), "rating": o.get("rating"), "weight": o.get("weight")})
             if o.get("topupOf"):
                 self.base_of[o["id"]] = o["topupOf"]
             if o["id"] not in doc["watched"]["orders"]:
@@ -150,12 +152,13 @@ class Executor:
             st.update(t)
             self.doc["vwap"][t.code] = {"price": t.price, "vwap": st.vwap, "sigma": st.sigma, "source": st.vwap_source, "ts": ts}
             self._stops(st, ts)
-            for key, r in list(self.doc["orders"].items()):
-                if r["code"] == t.code and not r["done"]:
-                    self._entry(key, r, st, ts, hm)
             for r in list(self.doc["exits"].values()):
                 if r["code"] == t.code and not r["done"] and r.get("trigger") != "switch":
                     self._advance(r, st, ts, hm, "exit")
+        live = {t.code for t in ticks}                       # 청산을 먼저 돌려 같은 폴링의 매도 대금도 우선순위대로 쓴다
+        for key, r in sorted(self.doc["orders"].items(), key=lambda kv: engine.entry_priority(kv[1])):
+            if r["code"] in live and not r["done"]:
+                self._entry(key, r, self.states[r["code"]], ts, hm)
         if self._requests and self._switch(ts, hm, self._requests):
             for r, st, _q, _px in self._requests:                # 판 직후 같은 폴링에서 막혔던 매수 다시 시도
                 if not r["done"]:

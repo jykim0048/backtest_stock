@@ -93,6 +93,14 @@ def equity_now(L):
     return L["cash"] + sum(position_value(p) for p in L["positions"])
 
 
+def entry_priority(o):
+    """같은 날 진입 주문의 현금·담보 배분 순서(2026-11-03 사용자 지시) — PM 등급(Long Buy > Overweight · Short Sell > Underweight),
+    같은 등급이면 높은 비중. 등급이 없는 주문은 맨 뒤. 정렬 키(작을수록 먼저)."""
+    order = config.SHORT_RATINGS if is_short(o) else config.BUY_RATINGS
+    rating = o.get("rating")
+    return (order.index(rating) if rating in order else len(order), -(o.get("weight") or 0.0))
+
+
 # ── 주문 생성(판단 직후, D 장 마감 후) ─────────────────────────────────────────
 def place_entry(L, *, code, name, date, valid_date, entry, stop, target, weight,
                 sector=None, signal=None, decision_key=None, side="long", source=None, qty=None, extra=None):
@@ -366,7 +374,7 @@ def settle_day(L, date, bars, intraday=None):
         L["orderLog"].append(o)
         ev["cancelled"].append(o)
     new_ids = set()
-    for o in todays:
+    for o in sorted(todays, key=entry_priority):
         b = bars.get(o["code"])
         short = is_short(o)
         if not b or b.get("low") is None or (short and b.get("high") is None):

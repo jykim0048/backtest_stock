@@ -141,3 +141,7 @@ SHORT_FUT_CLOSE = os.environ.get("SWING_SHORT_FUT_CLOSE", "1") != "0"
 REFLECT_ENABLED = os.environ.get("SWING_REFLECT", "1") != "0"
 REFLECT_MAX = int(_f("SWING_REFLECT_MAX", 15))
 REFLECT_FROM = os.environ.get("SWING_REFLECT_FROM", "2026-09-29")
+# 손절 폭 상한(2026-11-03 사용자 지시) — 손절 거리 = min(ATR14 × STOP_CAP_ATR, 진입가 × STOP_CAP_PCT). PM·Trader 손절가가 더 넓으면 조이고, 더 좁으면 그대로.
+# ATR 이 없으면(차트 없음) 비율 상한만. 신규 주문과 재판별의 새 손절가에 적용, 이미 보유한 포지션의 손절가를 소급해 바꾸지는 않는다. 둘 다 0 이면 끔.
+STOP_CAP_ATR = _f("SWING_STOP_CAP_ATR", 2.0)
+STOP_CAP_PCT = _f("SWING_STOP_CAP_PCT", 0.10)

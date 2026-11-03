@@ -19,7 +19,7 @@ import datetime
 import traceback
 
 from . import agent_iface as A
-from . import config, engine, signals, tradedays, universe
+from . import chart, config, engine, signals, tradedays, universe
 
 
 def _dkey(date, code, purpose, side="long"):
@@ -301,7 +301,8 @@ def run_day(date, store, agent, prices, wb, *, force=False, log=print, uni=None,
             action = "sell_fallback"
         elif flag and flag != "livepm":                      # Live PM 요청 재판별은 보유면 그대로(연장 보유로 바꾸지 않음)
             before = (p["target"], p["stop"])
-            engine.apply_hold(L, code, target=d.target, stop=d.stop,
+            stop = A.capped_stop(p["entry"], d.stop, side, chart.last_atr(d.chart))[0]   # 재판별 새 손절가에도 폭 상한
+            engine.apply_hold(L, code, target=d.target, stop=stop,
                               decision_key=key, date=date)
             action = "hold_updated" if (p["target"], p["stop"]) != before else "hold"
         if p.get("sellPending"):
@@ -326,6 +327,9 @@ def run_day(date, store, agent, prices, wb, *, force=False, log=print, uni=None,
     run["shortCandidates"] = (_new_entries(L, store, agent, scands, bars, date, nxt, "short", prog, fut=sfut)
                               + _new_entries(L, store, agent, uscands, bars, date, nxt, "short", prog, fut=sfut)
                               + _new_entries(L, store, agent, ccands, bars, date, nxt, "short", prog, fut=sfut))
+    ncap = sum(1 for r in run["candidates"] + run["shortCandidates"] if r.get("stopCap"))
+    if ncap:
+        run["notes"].append(f"손절 폭 상한 적용 {ncap}종목")
     run["shortCapSkipped"] = [c["code"] for c in skipped_short_cap]
     run["uniShortCapSkipped"] = [c["code"] for c in skipped_uni_short_cap]
     run["catShortCapSkipped"] = [c["code"] for c in skipped_cat_cap]
@@ -377,7 +381,7 @@ def _carry_partials(L, ev, bars, date, nxt, fut_ok=None):
             new = engine.place_entry(L, code=o["code"], name=o.get("name"), date=date, valid_date=nxt, entry=entry, stop=stop,
                                      target=o.get("target"), weight=o.get("weight") or config.DEFAULT_WEIGHT, sector=o.get("sector"),
                                      signal=o.get("signal"), decision_key=o.get("decisionKey"), side=o.get("side", "long"),
-                                     source=o.get("source"), qty=remain, extra={"topupOf": pid, "topup": n})
+                                     source=o.get("source"), qty=remain, extra={"topupOf": pid, "topup": n, "rating": o.get("rating")})
             row.update(ok=new["status"] == "open", why=new.get("note") or f"잔여 {remain:,}주 추가 주문 {n}/{config.ENTRY_RETRY_MAX}",
                        orderId=new["id"])
         out.append(row)
@@ -440,8 +444,8 @@ def _retry_unfilled(L, ev, bars, date, nxt, backlog=(), fut_ok=None):
                                      signal=o.get("signal"), decision_key=o.get("decisionKey"), side=o.get("side", "long"),
                                      source=o.get("source"),
                                      qty=o["qty"] if o.get("topupOf") else None,
-                                     extra=({"topupOf": o["topupOf"], "topup": o.get("topup")} if o.get("topupOf")
-                                            else {k: o[k] for k in A.THESIS_KEYS if o.get(k)} or None))
+                                     extra=dict({"topupOf": o["topupOf"], "topup": o.get("topup")} if o.get("topupOf")
+                                                else {k: o[k] for k in A.THESIS_KEYS if o.get(k)}, rating=o.get("rating")))
             new["retry"] = n
             o["retriedBy"] = new["id"]
             row.update(ok=new["status"] == "open", why=new.get("note") or f"재시도 {n}/{config.ENTRY_RETRY_MAX}" + (" · 소급" if late else ""),
@@ -485,11 +489,14 @@ def _new_entries(L, store, agent, cands, bars, date, nxt, side, prog=None, fut=N
                "catalyst": ({k: (c.get("catalyst") or {}).get(k) for k in ("kind", "title", "strength", "ruleKind", "changePct", "direct")}
                             if c.get("catalyst") else None)}
         if ok:
+            stop, cap = A.capped_stop(d.entry, d.stop, side, chart.last_atr(d.chart))   # 손절 폭 상한(2026-11-03)
+            if cap:
+                row.update(stop=stop, stopCap=cap)
             o = engine.place_entry(L, code=c["code"], name=c["name"], date=date, valid_date=nxt,
-                                   entry=d.entry, stop=d.stop, target=A.effective_target(d),
+                                   entry=d.entry, stop=stop, target=A.effective_target(d),
                                    weight=A.effective_weight(d), sector=c["sector"],
                                    signal=c["signal"], decision_key=key, side=side, source=c.get("source") or "matrix",
-                                   extra=A.thesis_fields(d) or None)
+                                   extra=dict(A.thesis_fields(d) or {}, rating=d.rating, **({"stopCap": cap} if cap else {})))
             row.update(ordered=o["status"] == "open", orderId=o["id"], qty=o["qty"],
                        why=o.get("note", ""))
         rows.append(row)

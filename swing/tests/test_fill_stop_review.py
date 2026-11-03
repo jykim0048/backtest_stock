@@ -45,9 +45,9 @@ class TestFillStopReview(unittest.TestCase):
         r2 = self._run(st, ag, "2026-09-16")
         self.assertEqual(r2["reviews"][0]["action"], "hold_updated")
         p = st.get("ledger")["positions"][0]
-        self.assertEqual((p["stop"], p["target"], p.get("extended")), (8900, 10400, None))
+        self.assertEqual((p["stop"], p["target"], p.get("extended")), (9000, 10400, None))   # 새 손절 8,900 → 폭 상한 −10%
         self.assertTrue(p["fillStop"]["reviewed"])
-        self._run(st, ag, "2026-09-17")                             # 새 손절 8,900 위 — 계속 보유
+        self._run(st, ag, "2026-09-17")                             # 새 손절 9,000 위 — 계속 보유
         self.assertEqual(len(st.get("ledger")["positions"]), 1)
 
 

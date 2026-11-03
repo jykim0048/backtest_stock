@@ -27,6 +27,20 @@ def _ema(xs, span=None, alpha=None, min_periods=0):
     return out
 
 
+def last_atr(doc, n=14):
+    """차트 문서(from_csv) → 최신 ATR(Wilder, indicators.py 와 같은 수식) — 고저종가가 n 일 미만이거나 없으면 None.
+    차트는 최근 90거래일이라 시작값 차이는 무시할 수준이다."""
+    if not doc:
+        return None
+    tr, pc = [], None
+    for h, l, c in zip(doc.get("h") or [], doc.get("l") or [], doc.get("c") or []):
+        if h is None or l is None or c is None:
+            continue
+        tr.append(h - l if pc is None else max(h - l, abs(h - pc), abs(l - pc)))
+        pc = c
+    return _ema(tr, alpha=1.0 / n, min_periods=n)[-1] if len(tr) >= n else None
+
+
 def _sma(xs, n):
     out, s = [], 0.0
     for i, x in enumerate(xs):

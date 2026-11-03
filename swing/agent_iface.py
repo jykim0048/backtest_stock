@@ -178,6 +178,26 @@ def sell_verdict(d):
     return (not d.error) and d.rating in ratings
 
 
+def capped_stop(entry, stop, side, atr=None):
+    """손절 폭 상한(2026-11-03) → (적용 손절가, 조였으면 기록 dict·아니면 None). 거리 = min(ATR × STOP_CAP_ATR, 진입가 × STOP_CAP_PCT).
+    넓은 쪽만 조인다 — 좁게 잡은 손절가는 그대로."""
+    caps = [(atr * config.STOP_CAP_ATR, "atr")] if atr and config.STOP_CAP_ATR > 0 else []
+    if config.STOP_CAP_PCT > 0:
+        caps.append((entry * config.STOP_CAP_PCT, "pct"))
+    if not caps or not stop:
+        return stop, None
+    dist, basis = min(caps)
+    if side == "short":
+        limit = max(round(entry + dist), entry + 1)
+        tight = stop > limit
+    else:
+        limit = min(round(entry - dist), entry - 1)
+        tight = stop < limit
+    if not tight:
+        return stop, None
+    return float(limit), {"pm": stop, "basis": basis, "atr": round(atr, 2) if atr else None}
+
+
 def effective_weight(d):
     """주문 비중 = PM Position Weight → 없으면 Trader Position Sizing → 없으면 DEFAULT_WEIGHT, 상한 MAX_WEIGHT.
     (2026-10-14: 리스크 토론 뒤 PM 이 줄인 비중이 Trader 숫자에 묻혀 주문에 반영되지 않던 문제 수정)"""
