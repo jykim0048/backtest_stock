@@ -138,10 +138,9 @@ def run_day(date, store, agent, prices, wb, *, force=False, log=print, uni=None,
     nxt = tradedays.next_trading_day(date)
     run["entryDate"] = nxt                                   # 신규 후보 주문의 진입(유효)일 — 대시보드 표기(2026-10-16)
     fut_ok = None                                             # Short 재주문·추가 주문 선물 확인(선물 한정 켜짐 + 목록 있을 때)
-    if config.UNI_SHORT_FUT_ONLY and uni is not None and any(engine.is_short(o) for o in (ev.get("cancelled") or []) + backlog + (ev.get("partials") or [])):
+    if config.UNI_SHORT_FUT_ONLY and uni is not None and any(engine.is_short(o) for o in (ev.get("cancelled") or []) + backlog + L["positions"]):
         fut_ok = uni.fut_set(date)
     run["retries"] = _retry_unfilled(L, ev, bars, date, nxt, backlog, fut_ok)   # 미도달 재주문(2026-10-16, 방식 A)
-    run["topups"] = _carry_partials(L, ev, bars, date, nxt, fut_ok)            # 부분 진입 잔여분 추가 주문(2026-10-16, B)
     retried = {r["code"] for r in run["retries"] if r["ok"]}
     if retried:                                               # 재주문 종목은 오늘 신규 후보에서 뺀다(대기 주문 = pend)
         pend |= retried
@@ -307,6 +306,8 @@ def run_day(date, store, agent, prices, wb, *, force=False, log=print, uni=None,
             action = "hold_updated" if (p["target"], p["stop"]) != before else "hold"
         if p.get("sellPending"):
             p["reviewFlag"] = None
+        if not d.error:
+            p["lastRating"] = d.rating                       # 비중 채우기(_topups) 판단 기준 — 최근 PM 등급
         p.pop("livepmReview", None)                          # 요청 처리 끝(매도·보유 모두)
         if p.get("fillStop") and flag == "fill_stop":
             p["fillStop"]["reviewed"] = date                 # 재판별 끝 — 이후 손절은 정상 적용
@@ -315,6 +316,8 @@ def run_day(date, store, agent, prices, wb, *, force=False, log=print, uni=None,
                                "rating": d.rating, "sell": action.startswith("sell"), "action": action,
                                "error": d.error, "target": p.get("target"), "stop": p.get("stop"),
                                "decisionKey": key})
+
+    run["topups"] = _topups(L, bars, date, nxt, fut_ok)      # PM 비중 채우기(2026-11-03) — 재판별 뒤(오늘 매도 판정·새 손절 반영)
 
     # 3) 신규 분석·주문(Long) · 4) 신규 Short — 매트릭스 후보 뒤에 유니버스 후보(독립 소스, source 로 구분)
     prog.update(phase="long")
@@ -351,39 +354,56 @@ def run_day(date, store, agent, prices, wb, *, force=False, log=print, uni=None,
     return run
 
 
-def _carry_partials(L, ev, bars, date, nxt, fut_ok=None):
-    """부분 진입 잔여분 → 같은 레벨로 다음 영업일 추가 주문(기존 포지션에 합침). 가드는 미도달 재주문과 같음
-    (추가 횟수 ≤ ENTRY_RETRY_MAX · 오늘 종가가 진입가 ±ENTRY_RETRY_BAND · 손절가 미침범 · 포지션 유지·청산 예약 없음)."""
+def _topups(L, bars, date, nxt, fut_ok=None):
+    """PM 비중 채우기(2026-11-03, 종전 부분 진입 잔여분 2회 추가 주문 대체) — 보유 포지션이 PM 계획 수량(판단 때 비중 × 평가액 / 진입가)에
+    못 미치면 매일 잔여분을 다음 영업일 추가 주문. 횟수 제한·종가 밴드 없음, 체결은 원 진입가 상한·현재 손절가 안쪽에서만(Live Trader).
+    멈춤: 최근 PM 판단이 매수·보유 쪽이 아님 · 청산 예약 · 이 회차에 청산 이력(손절·스위칭·trim) · 최대 보유 TOPUP_STOP_BEFORE 일 전 ·
+    종가가 손절가 침범 · Short 주식선물 미상장. 남은 수량이 목표의 TOPUP_MIN 미만이면 다 찬 것(행 없음)."""
     out = []
-    for o in ev.get("partials") or []:
-        pt = o.get("partial") or {}
-        remain, pid = pt.get("remain") or 0, pt.get("positionId")
-        if remain <= 0 or not pid:
+    plans = {}
+    for o in L.get("orderLog", []) + L["orders"]:
+        if o.get("type", "entry") == "entry" and not o.get("topupOf") and o.get("decisionKey"):
+            plans.setdefault(o["decisionKey"], o)
+    exited = {t.get("decisionKey") for t in L["trades"]}
+    queued = {o.get("topupOf") for o in L["orders"] if o.get("topupOf")}
+    for p in L["positions"]:
+        o = plans.get(p.get("decisionKey"))
+        cap = (o or {}).get("entry")
+        if not o or not cap or p["id"] in queued:
             continue
-        n = int(o.get("topup") or 0) + 1
-        row = {"code": o["code"], "name": o.get("name"), "side": o.get("side", "long"), "topup": n, "qty": remain, "ok": False, "why": ""}
-        pos = next((x for x in L["positions"] if x["id"] == pid), None)
-        b = bars.get(o["code"]) or {}
-        close, entry, stop = b.get("close"), o.get("entry"), o.get("stop")
-        if n > config.ENTRY_RETRY_MAX:
-            row["why"] = f"추가 진입 상한 {config.ENTRY_RETRY_MAX}회"
-        elif fut_ok and o.get("side") == "short" and o["code"] not in fut_ok:
+        short = engine.is_short(p)
+        weight = p.get("weight") or o.get("weight") or config.DEFAULT_WEIGHT
+        goal = (o.get("partial") or {}).get("planned") or o.get("qty") or 0     # 평가액 변동으로 다 찬 포지션을 다시 사지 않게 계획 수량 고정
+        remain = goal - p["qty"]
+        if remain <= 0 or remain < goal * config.TOPUP_MIN:
+            continue
+        rating = p.get("lastRating") or p.get("rating") or o.get("rating")
+        n = len(p.get("topups") or []) + 1
+        row = {"code": p["code"], "name": p.get("name"), "side": p.get("side", "long"), "topup": n, "qty": remain, "rating": rating, "ok": False, "why": ""}
+        close, stop = (bars.get(p["code"]) or {}).get("close"), p.get("stop")
+        if rating not in (config.SHORT_RATINGS if short else config.BUY_RATINGS) + ("Hold",):
+            row["why"] = f"최근 PM {rating or '—'} — 비중 채우기 안 함"
+        elif p.get("sellPending"):
+            row["why"] = "청산 예약 — 비중 채우기 안 함"
+        elif p.get("decisionKey") in exited:
+            row["why"] = "이 회차 청산 이력(손절·스위칭 등) — 비중 채우기 안 함"
+        elif p.get("holdDay", 0) >= config.MAX_HOLD_DAYS - config.TOPUP_STOP_BEFORE:
+            row["why"] = f"최대 보유 {config.MAX_HOLD_DAYS}일 {config.TOPUP_STOP_BEFORE}일 전 — 비중 채우기 끝"
+        elif fut_ok and short and p["code"] not in fut_ok:
             row["why"] = "주식선물 미상장 — 추가 주문 안 함"
-        elif pos is None or pos.get("sellPending"):
-            row["why"] = "포지션 청산(예약) — 추가 진입 안 함"
-        elif not close or not entry:
+        elif not close:
             row["why"] = "종가 없음"
-        elif abs(close / entry - 1) > config.ENTRY_RETRY_BAND:
-            row["why"] = f"종가 {close:,.0f} 가 진입가 ±{config.ENTRY_RETRY_BAND * 100:.0f}% 밖"
-        elif stop and ((o.get("side", "long") == "long" and close <= stop) or (o.get("side") == "short" and close >= stop)):
+        elif stop and ((not short and close <= stop) or (short and close >= stop)):
             row["why"] = f"종가 {close:,.0f} 가 손절가 {stop:,.0f} 침범"
+        elif stop and ((not short and stop >= cap) or (short and stop <= cap)):
+            row["why"] = f"손절가 {stop:,.0f} 가 진입가 상한 {cap:,.0f} 너머 — 살 수 있는 가격 없음"
         else:
-            new = engine.place_entry(L, code=o["code"], name=o.get("name"), date=date, valid_date=nxt, entry=entry, stop=stop,
-                                     target=o.get("target"), weight=o.get("weight") or config.DEFAULT_WEIGHT, sector=o.get("sector"),
-                                     signal=o.get("signal"), decision_key=o.get("decisionKey"), side=o.get("side", "long"),
-                                     source=o.get("source"), qty=remain, extra={"topupOf": pid, "topup": n, "rating": o.get("rating")})
-            row.update(ok=new["status"] == "open", why=new.get("note") or f"잔여 {remain:,}주 추가 주문 {n}/{config.ENTRY_RETRY_MAX}",
-                       orderId=new["id"])
+            new = engine.place_entry(L, code=p["code"], name=p.get("name"), date=date, valid_date=nxt, entry=cap, stop=stop,
+                                     target=p.get("target"), weight=weight, sector=p.get("sector"), signal=p.get("signal"),
+                                     decision_key=p.get("decisionKey"), side=p.get("side", "long"), source=o.get("source"), qty=remain,
+                                     extra={"topupOf": p["id"], "topup": n, "rating": rating})
+            row.update(ok=new["status"] == "open", orderId=new["id"],
+                       why=new.get("note") or f"PM {rating} · {p['qty']:,}/{goal:,}주 — 잔여 {remain:,}주 추가 주문({n}회째)")
         out.append(row)
     return out
 
