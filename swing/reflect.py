@@ -17,7 +17,7 @@ from .agent import KIT_DIR
 MD_SCHEMA = {"type": "object", "properties": {"markdown": {"type": "string"}}, "required": ["markdown"]}
 REASON = {"stop": "손절", "stop_gap": "갭 손절(시가)", "target": "목표 도달", "expiry": "보유 만기", "review_target": "목표 도달 후 재판별 청산",
           "review_expiry": "만기 재판별 청산", "pm_sell": "PM 청산", "switch": "신규 매수 재원 매도", "fut_none": "주식선물 미상장 환매",
-          "margin": "담보 부족 반대매매", "livepm_exit": "Live PM 청산"}
+          "margin": "담보 부족 반대매매", "livepm_exit": "Live PM 청산", "max_hold": "최대 보유 청산", "cash": "현금 확보 매도"}
 PM_CLIP = 2500                                            # 판단 원문 길이 상한(자)
 
 

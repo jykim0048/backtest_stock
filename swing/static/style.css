@@ -721,23 +721,39 @@ td small.sub-qty { display: block; font-size: 10.5px; color: var(--text-muted); 
 
 /* 트레이딩 히스토리(2026-11-03) — 판단 원문 팝업의 카드 */
 .stocks-table tr[data-key] .stock-name { text-decoration: underline; text-decoration-color: rgba(0, 240, 255, .4); text-underline-offset: 3px; cursor: pointer; }
-.hist-card { border: 1px solid rgba(0, 240, 255, .28); border-radius: 12px; padding: 12px 14px; background: rgba(0, 240, 255, .04); cursor: pointer; }
+.hist-card { border: 1px solid rgba(0, 240, 255, .28); border-radius: 10px; padding: 8px 11px; background: rgba(0, 240, 255, .04); cursor: pointer; }
 .hist-card:hover, .hist-card:focus-visible { border-color: rgba(0, 240, 255, .55); background: rgba(0, 240, 255, .07); outline: none; }
 .hist-top { display: flex; align-items: center; gap: 8px; }
-.hist-top strong { font-size: 14px; }
-.hist-top em { margin-left: auto; font-style: normal; font-size: 12px; color: var(--kospi-blue); white-space: nowrap; }
-.hist-main { display: flex; flex-wrap: wrap; align-items: stretch; gap: 8px 22px; margin: 10px 0; }
-.hist-avg { padding: 8px 14px; border-radius: 10px; background: rgba(0, 240, 255, .1); border: 1px solid rgba(0, 240, 255, .32); min-width: 190px; }
-.hist-avg span { display: block; font-size: 12px; color: var(--kospi-blue); font-weight: 700; }
-.hist-avg b { display: block; font-family: var(--font-outfit); font-size: 26px; line-height: 1.2; color: var(--text-main); }
-.hist-avg small { font-size: 11.5px; color: var(--text-muted); }
+.hist-top strong { font-size: 13px; }
+.hist-top em { margin-left: auto; font-style: normal; font-size: 11.5px; color: var(--kospi-blue); white-space: nowrap; }
+.hist-main { display: flex; flex-wrap: wrap; align-items: stretch; gap: 6px 18px; margin: 6px 0; }
+.hist-avg { padding: 4px 10px; border-radius: 8px; background: rgba(0, 240, 255, .1); border: 1px solid rgba(0, 240, 255, .32); min-width: 150px; }
+.hist-avg span { display: block; font-size: 11px; color: var(--kospi-blue); font-weight: 700; }
+.hist-avg b { display: block; font-family: var(--font-outfit); font-size: 19px; line-height: 1.15; color: var(--text-main); }
+.hist-avg small { font-size: 11px; color: var(--text-muted); }
 .hist-num { display: flex; flex-direction: column; justify-content: center; }
 .hist-num span { font-size: 11.5px; color: var(--text-muted); }
-.hist-num b { font-family: var(--font-outfit); font-size: 17px; }
+.hist-num b { font-family: var(--font-outfit); font-size: 15px; }
 .hist-num small { font-size: 11px; color: var(--text-muted); }
 .hist-chart { display: block; width: 100%; height: auto; }
-.hist-sub { margin-top: 6px; font-size: 12px; color: var(--text-muted); line-height: 1.5; }
+.hist-sub { margin-top: 3px; font-size: 11.5px; color: var(--text-muted); line-height: 1.5; }
 .hist-sub b { color: var(--amber); font-weight: 400; }
+.hist-foot { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 2px 12px; }
+.hist-foot .hist-sub { margin-top: 3px; }
+.hist-legend { display: flex; flex-wrap: wrap; gap: 2px 10px; font-size: 11px; color: var(--text-muted); }
+.hist-legend i { display: inline-block; vertical-align: middle; margin-right: 4px; }
+.lg-w { width: 12px; height: 8px; background: rgba(0, 240, 255, .25); border-top: 1.5px solid rgba(0, 240, 255, .7); }
+.lg-tri { margin-right: 3px; font-size: 10px; font-weight: 400; }
+.lg-tri.add { color: #fbbf24; }
+.lg-tri.cut { color: #c4b5fd; }
+.lg-vw { width: 14px; height: 0; border-top: 1.5px solid rgba(226, 232, 240, .7); }
+.lg-avg { width: 14px; height: 0; border-top: 1.5px dashed var(--kospi-blue); }
+.hist-days { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-bottom: 6px; font-size: 11.5px; color: var(--text-muted); }
+.hist-days span { margin-right: 4px; }
+.hist-days button { font: inherit; font-family: var(--font-outfit); color: var(--text-main); background: rgba(255, 255, 255, .04); border: 1px solid var(--border-color); border-radius: 6px; padding: 1px 7px; cursor: pointer; }
+.hist-days button.active { border-color: var(--kospi-blue); color: var(--kospi-blue); background: var(--kospi-blue-dim); }
+.hist-day { margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid var(--border-color); }
+.hist-day .hist-legend { margin-top: 2px; }
 .hist-body { margin-top: 8px; padding: 10px 12px; border: 1px solid var(--border-color); border-radius: 12px; background: rgba(0, 0, 0, .2); }
 .hist-tl { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
 .hist-tl h4 { margin: 0; font-size: 13px; color: var(--text-main); }

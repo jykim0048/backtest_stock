@@ -134,5 +134,84 @@ class TestBuild(unittest.TestCase):
         self.assertEqual(h["status"], "open")
 
 
+def ticks(day, prices, start="09:00:15", gap=15, value=True):
+    """15초 간격 틱 — 누적 거래량 100주씩, 거래대금은 가격 × 거래량 누적."""
+    h, m, s = map(int, start.split(":"))
+    t0, out, vol, val = h * 3600 + m * 60 + s, [], 0, 0.0
+    for i, px in enumerate(prices):
+        sec = t0 + i * gap
+        vol += 100
+        val += px * 100
+        out.append({"code": "006110", "ts": f"{day}T{sec // 3600:02d}:{sec // 60 % 60:02d}:{sec % 60:02d}+09:00", "price": px, "volume": vol,
+                    "value": val if value else None})
+    return out
+
+
+class TestMinuteBars(unittest.TestCase):
+    def test_step_by_holding_days(self):
+        self.assertEqual([history.step_for(n) for n in (1, 2, 3, 4, 5, 9, 10, 17, 18)], [5, 10, 15, 15, 30, 30, 60, 60, None])
+
+    def test_buckets_and_official_close(self):
+        bars = history.minute_bars(ticks("2026-10-29", [100, 103, 99, 101] * 20, start="09:00:00"), 5, {"o": 98, "h": 110, "l": 90, "c": 97})
+        self.assertEqual(bars[0]["t"], "09:00")
+        self.assertEqual(bars[0]["o"], 98)                  # 시가 = KRX 확정
+        self.assertEqual(bars[-1]["c"], 97)                 # 종가 동시호가 = KRX 확정
+        self.assertEqual(bars[-1]["l"], 97)
+        self.assertEqual((bars[1]["h"], bars[1]["l"]), (103, 99))
+        self.assertEqual(len(bars), 4)                      # 80틱 × 15초 = 20분 → 5분봉 4개
+        self.assertAlmostEqual(bars[0]["vw"], 100.75, places=1)
+
+    def test_ticks_outside_session_ignored(self):
+        bars = history.minute_bars(ticks("2026-10-29", [100, 101], start="08:59:45") + ticks("2026-10-29", [105], start="15:35:00"), 30)
+        self.assertEqual([b["t"] for b in bars], ["09:00"])
+
+
+class TestIntradayCard(unittest.TestCase):
+    def setUp(self):
+        self.old = history.bars_fn
+        history.bars_fn = bars
+        history._bars_cache.clear()
+
+    def tearDown(self):
+        history.bars_fn = self.old
+
+    def put_ticks(self, st, days):
+        for d in days:
+            st.put(f"intraday/{d}/ticks/006110", ticks(d, [60000 + i for i in range(1500)]))
+
+    def test_intraday_bars_when_every_day_has_ticks(self):
+        st = setup(position=False)
+        self.put_ticks(st, ("2026-10-28", "2026-10-29", "2026-10-30", "2026-11-02"))
+        h = history.build(st, KEY, log=lambda *a: None)
+        self.assertEqual(h["step"], 15)                     # 4일 → 15분봉
+        self.assertEqual({b["d"] for b in h["ibars"]}, {"2026-10-28", "2026-10-29", "2026-10-30", "2026-11-02"})
+        self.assertEqual(h["ibars"][-1]["c"], 55600.0)      # 마지막 날 종가 = 일봉
+        self.assertEqual(len(h["tickDays"]), 4)
+
+    def test_missing_tick_day_keeps_daily(self):
+        st = setup(position=False)
+        self.put_ticks(st, ("2026-10-29", "2026-10-30", "2026-11-02"))
+        h = history.build(st, KEY, log=lambda *a: None)
+        self.assertIsNone(h["step"])
+        self.assertEqual(h["ibars"], [])
+        self.assertEqual(h["tickDays"], ["2026-10-29", "2026-10-30", "2026-11-02"])
+
+    def test_fills_signed_and_day_view(self):
+        st = setup()
+        self.put_ticks(st, ("2026-10-29",))
+        h = history.build(st, KEY, day="2026-10-29", log=lambda *a: None)
+        self.assertEqual([(f["q"], f["mode"]) for f in h["fills"]], [(21, "open"), (184, "force")])
+        dv = h["dayView"]
+        self.assertEqual((dv["step"], dv["bars"][0]["t"], len(dv["fills"])), (5, "09:00", 2))
+        self.assertIn("vw", dv["bars"][0])
+
+    def test_exit_fills_are_negative(self):
+        st = setup()
+        st.put("intraday/2026-11-03", {"exits": {"p1": {"code": "006110", "side": "long", "kind": "stop", "why": "전량",
+                                                         "fills": [{"ts": "2026-11-03T09:03:15+09:00", "qty": 49, "price": 48350, "mode": "force"}]}}, "orders": {}})
+        h = history.build(st, KEY, log=lambda *a: None)
+        self.assertEqual(h["fills"][-1]["q"], -49)
+
+
 if __name__ == "__main__":
     unittest.main()

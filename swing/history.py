@@ -3,10 +3,12 @@
 흩어진 기록을 읽기만 한다(쓰기 없음): 원장 orders·orderLog·positions·trades, run/<날짜>.reviews, intraday/<날짜>(분할 체결).
 회차 = 같은 진입 판단(decisionKey). 재판별 판단으로 열면 그 날짜가 들어 있는 회차를 찾는다.
 일봉 = DB증권 CHARTDAY, 실패하면 회차의 판단 문서 차트(chart.py), 그것도 없으면 그래프의 주가 칸만 비운다.
+분봉(2026-11-03) = Live Trader 가 저장한 15초 틱(intraday/<날짜>/ticks/<종목>)을 묶는다. 외부 호출 없음.
+카드는 보유 일수에 따라 5~60분봉(봉 120개 이하), 회차 전 기간에 틱이 있을 때만. 날짜별 5분봉은 day 로 따로 조회.
 """
 import time
 
-from . import engine, tradedays
+from . import config, engine, tradedays
 from .reflect import REASON
 
 MODE = {"open": "시가", "vwap": "VWAP", "force": "전량", "stop": "손절", "stop_gap": "갭 손절", "livepm": "지시",
@@ -24,6 +26,50 @@ def _db_bars(code, d1, d2):
 
 
 bars_fn = _db_bars                                        # 데모 서버는 mock 시세로 바꾼다(server.main)
+
+SESSION = ("09:00", "15:30")
+STEPS = ((1, 5), (2, 10), (4, 15), (9, 30), (17, 60))     # 보유 일수 ≤ n → 분봉 간격. 그보다 길면 일봉만
+
+
+def step_for(n):
+    return next((s for k, s in STEPS if n <= k), None)
+
+
+def _ticks(store, day, code):
+    return store.get(f"intraday/{day}/ticks/{code}") or []
+
+
+ticks_fn = _ticks
+
+
+def _mins(hm):
+    h, m = hm.split(":")
+    return int(h) * 60 + int(m)
+
+
+def minute_bars(ticks, step, day_bar=None):
+    """15초 틱 → step 분봉 [{t, o, h, l, c, vw}]. 틱은 표본이라 고저가 실제보다 좁을 수 있고 동시호가가 빠진다 —
+    그날 일봉(KRX 확정)이 있으면 첫 봉 시가·마지막 봉 종가를 그 값으로 덮는다. vw = 그 봉 끝의 당일 누적 VWAP."""
+    t0, t1 = _mins(SESSION[0]), _mins(SESSION[1])
+    out = {}
+    for x in sorted(ticks, key=lambda x: x["ts"]):
+        m, px = _mins(x["ts"][11:16]), x.get("price")
+        if not px or not t0 <= m <= t1:
+            continue
+        k = t0 + (min(m, t1 - 1) - t0) // step * step
+        b = out.get(k)
+        if b is None:
+            b = out[k] = {"t": f"{k // 60:02d}:{k % 60:02d}", "o": px, "h": px, "l": px, "c": px}
+        else:
+            b["h"], b["l"], b["c"] = max(b["h"], px), min(b["l"], px), px
+        if x.get("value") and x.get("volume"):
+            b["vw"] = round(x["value"] / x["volume"], 1)
+    bars = [out[k] for k in sorted(out)]
+    if bars and day_bar:
+        bars[0]["o"], bars[-1]["c"] = day_bar["o"], day_bar["c"]
+        for b in (bars[0], bars[-1]):
+            b["h"], b["l"] = max(b["h"], b["o"], b["c"]), min(b["l"], b["o"], b["c"])
+    return bars
 
 
 def _iso(d):
@@ -119,8 +165,8 @@ def _avg(fills):
     return q, (sum(f["qty"] * f["price"] for f in fills) / q if q else None)
 
 
-def build(store, key, *, log=print):
-    """판단 키 → 카드 데이터. 그 판단으로 주문·체결이 없으면 status none."""
+def build(store, key, *, day=None, log=print):
+    """판단 키 → 카드 데이터. 그 판단으로 주문·체결이 없으면 status none. day = 그날 5분봉·체결(dayView)도 붙인다."""
     parsed = _parse_key(key)
     if not parsed:
         return {"status": "none"}
@@ -134,12 +180,17 @@ def build(store, key, *, log=print):
     entry_doc = store.get(r["key"]) if r.get("key") else None
     orders = sorted(r["orders"], key=lambda o: (o.get("validDate") or "", o.get("created") or ""))
     plan = orders[0] if orders else {}
-    days_doc, ev = {}, []
+    days_doc, ev, fills = {}, [], {}
 
     def intra(d):
         if d not in days_doc:
             days_doc[d] = store.get(f"intraday/{d}") or {}
         return days_doc[d]
+
+    def take(fs, sgn):                                    # 분할 체결 → 차트 점. q 는 보유 증감(+늘림 / −줄임)
+        for f in fs or []:
+            if f.get("ts") and f.get("qty"):
+                fills[(f["ts"], f["price"], f["qty"], f.get("mode"))] = {"ts": f["ts"], "q": sgn * f["qty"], "px": f["price"], "mode": f.get("mode")}
 
     if orders:
         o = plan
@@ -153,6 +204,7 @@ def build(store, key, *, log=print):
     for n, o in enumerate(orders):
         v, st = o.get("validDate"), o.get("status")
         rec = (intra(v).get("orders") or {}).get(o["id"]) or {}
+        take(rec.get("fills"), 1)
         if st == "filled":
             px = o.get("fillPrice") or o.get("entry")
             over = sign * (px / o["entry"] - 1) if o.get("entry") else 0
@@ -182,11 +234,13 @@ def build(store, key, *, log=print):
         word = REASON.get(reason, reason)
         slip = sign * (plan.get("stop", 0) / px - 1) if reason in STOP_REASONS and plan.get("stop") and px else 0
         warn = slip > STOP_SLIP
-        recs = [x for k, x in (intra(d).get("exits") or {}).items() if x.get("code") == code and k.startswith("s:") == (reason == "switch")]
-        fills = [f for x in recs for f in x.get("fills") or []]
+        recs = [x for k, x in (intra(d).get("exits") or {}).items()
+                if x.get("code") == code and x.get("side", "long") == side and k.startswith("s:") == (reason == "switch")]
+        xf = [f for x in recs for f in x.get("fills") or []]
+        take(xf, -1)
         ev.append({"date": d, "rank": 2, "label": "스위칭" if reason == "switch" else word, "cls": "switch" if reason == "switch" else "stop" if reason in STOP_REASONS else "exit",
                    "qty": -q, "price": px, "text": f"{q:,}주 청산 · {pnl / 1e4:+,.0f}만 원", "pnl": pnl,
-                   "sub": (f"손절가보다 {slip * 100:.1f}% 불리 · " if warn else "") + (ts[-1].get("note") or ""), "warn": warn, "more": _splits(fills)})
+                   "sub": (f"손절가보다 {slip * 100:.1f}% 불리 · " if warn else "") + (ts[-1].get("note") or ""), "warn": warn, "more": _splits(xf)})
     last_day = max([d for d in (asof, end) if d] or [date])
     for d in (tradedays.trading_days(start, end or asof or last_day) if start else []):
         for x in (store.get(f"run/{d}") or {}).get("reviews") or []:
@@ -200,9 +254,11 @@ def build(store, key, *, log=print):
         for k, x in (intra(today).get("exits") or {}).items():
             if x.get("code") == code and x.get("side", "long") == side and x.get("fills") and r["position"]:
                 q, px = _avg(x["fills"])
+                take(x["fills"], -1)
                 word = "스위칭" if k.startswith("s:") else REASON.get(x.get("kind"), x.get("kind"))
+                pnl = sign * (px - r["position"]["entry"]) * q - (px * q * config.SELL_TAX if not short else 0)   # 정산 전 추정(Long 매도세 반영)
                 ev.append({"date": today, "rank": 2, "label": word, "cls": "switch" if k.startswith("s:") else "stop" if x.get("kind") in STOP_REASONS else "exit", "qty": -q, "price": px,
-                           "text": f"{q:,}주 청산(정산 전)", "sub": x.get("why") or "", "more": _splits(x["fills"]), "live": True})
+                           "text": f"{q:,}주 청산(정산 전) · 약 {pnl / 1e4:+,.0f}만 원", "pnl": round(pnl), "sub": x.get("why") or "", "more": _splits(x["fills"]), "live": True})
                 last_day = today
     ev.sort(key=lambda e: (e["date"] or "", e["rank"]))
 
@@ -232,8 +288,8 @@ def build(store, key, *, log=print):
     for e in ev:
         h2 += e.get("qty") or 0
         e["held"] = h2
-        day = next((x for x in days if x["d"] == e["date"]), None)
-        e["weight"] = day["w"] if day else 0.0
+        dd = next((x for x in days if x["d"] == e["date"]), None)
+        e["weight"] = dd["w"] if dd else 0.0
 
     target = (plan.get("weight") or (p or {}).get("weight") or 0) * 100
     closes = [x["c"] for x in days if x.get("c")]
@@ -258,7 +314,17 @@ def build(store, key, *, log=print):
     if start:
         line += " · " + (f"스위칭 {switched:,}주" if switched else "스위칭 없음")
     status = "none" if not start and not any(e["cls"] == "buy" for e in ev) else "open" if qty_now else "closed"
-    return {"status": status, "code": code, "side": side, "name": plan.get("name") or (p or {}).get("name") or (r["trades"][-1]["name"] if r["trades"] else code),
+
+    # 분봉 — 회차 전 기간에 틱이 있어야 카드에 쓴다(10-19 이전·감시 밖 날이 섞이면 일봉 그대로)
+    tick_days = [d for d in span if store.keys(f"intraday/{d}/ticks/{code}")]
+    step = step_for(len(span)) if span and len(tick_days) == len(span) else None
+    ibars = [{"d": d, **{k: v for k, v in b.items() if k != "vw"}} for d in span for b in minute_bars(ticks_fn(store, d, code), step, bars.get(d))] if step else []
+    fl = sorted(fills.values(), key=lambda f: f["ts"])
+    extra = {"step": step if ibars else None, "ibars": ibars, "fills": fl, "tickDays": tick_days}
+    if day:
+        extra["dayView"] = {"d": day, "step": 5, "bars": minute_bars(ticks_fn(store, day, code), 5, bars.get(day)) if day in tick_days else [],
+                            "fills": [f for f in fl if f["ts"][:10] == day], "close": (bars.get(day) or {}).get("c")}
+    return {**extra, "status": status, "code": code, "side": side, "name": plan.get("name") or (p or {}).get("name") or (r["trades"][-1]["name"] if r["trades"] else code),
             "entryDate": start, "exitDate": end, "avg": avg, "last": last_px, "vsAvgPct": round(sign * (last_px / avg - 1) * 100, 2) if last_px and avg else None,
             "qty": qty_now, "targetWeight": round(target, 2), "peakWeight": round(peak, 2), "peakDay": peak_day,
             "nowWeight": days[-1]["w"] if days and qty_now else 0.0, "realized": round(realized), "realizedPct": round(realized / cost * 100, 2) if cost else None,

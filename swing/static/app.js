@@ -470,7 +470,7 @@
     }
     (run.notes || []).forEach(function (n) { L.push('<div class="warn">⚠ ' + esc(n) + "</div>"); });
     (run.topups || []).forEach(function (r) {
-      L.push('<div class="' + (r.ok ? "" : "dim") + '">· 부분 진입 잔여분 ' + esc(r.name || r.code) + (r.side === "short" ? "(Short)" : "") + " " + esc(r.why || "") + "</div>");
+      L.push('<div class="' + (r.ok ? "" : "dim") + '">· 비중 채우기 ' + esc(r.name || r.code) + (r.side === "short" ? "(Short)" : "") + " " + esc(r.why || "") + "</div>");
     });
     (run.retries || []).forEach(function (r) {
       L.push('<div class="' + (r.ok ? "" : "dim") + '">· 미도달 재주문 ' + esc(r.name || r.code) + (r.side === "short" ? "(Short)" : "") + " " + esc(r.why || "") + "</div>");
@@ -1197,56 +1197,146 @@
     });
   }
   // 트레이딩 히스토리(2026-11-03, swing/history.py) — 판단 원문 팝업의 카드. 누르면 타임라인이 펼쳐진다
-  var HIST = { open: false, mode: "all", doc: null, key: null };
+  var HIST = { open: false, mode: "all", doc: null, key: null, day: null, dayViews: {} };
   function loadHistory(key) {
-    HIST.key = key; HIST.doc = null;
+    HIST.key = key; HIST.doc = null; HIST.day = null; HIST.dayViews = {};
     api("/api/swing/history?key=" + encodeURIComponent(key)).then(function (h) {
       if (HIST.key !== key) return;
       HIST.doc = h; renderHistory();
     }).catch(function () { var el = $("dec-hist"); if (el) el.hidden = true; });
   }
-  function histChart(h) {
-    var ds = h.days || [], n = ds.length;
-    if (!n) return "";
-    var W = 820, L = 8, R = 92, PT = 8, PH = h.hasBars ? 132 : 0, WH = 46, GAP = h.hasBars ? 12 : 4, B = 18, H = PT + PH + GAP + WH + B;
-    var step = (W - L - R) / n, x = function (i) { return L + step * (i + 0.5); }, s = '';
-    if (h.hasBars) {
-      var bars = ds.filter(function (d) { return d.h != null; });
-      var hi = Math.max.apply(null, bars.map(function (d) { return d.h; }).concat(h.avg ? [h.avg] : []));
-      var lo = Math.min.apply(null, bars.map(function (d) { return d.l; }).concat(h.avg ? [h.avg] : []));
+  // 체결 표시(2026-11-03) — 세모 = 실제 매매 방향(매수·환매 ▲ / 매도·공매도 ▼), 색 = 보유 증가(노랑)/감소(보라), 테두리 = 시가·전량·손절·스위칭, 크기 = 수량
+  var FILL_RING = { open: "#ffffff", force: "#f472b6", stop: "#f97316", stop_gap: "#f97316" };
+  var FILL_WORD = { open: "시가", vwap: "VWAP", force: "전량", stop: "손절", stop_gap: "갭 손절", livepm: "지시" };
+  function fillRank(m) { return { stop: 4, stop_gap: 4, force: 3, open: 2 }[m] || (/^sw/.test(m || "") ? 1 : 0); }
+  function sideLegend(side) {
+    var t = side === "short" ? [["▼", "add", "공매도"], ["▲", "cut", "환매"]] : [["▲", "add", "매수"], ["▼", "cut", "매도"]];
+    return t.map(function (x) { return '<span><b class="lg-tri ' + x[1] + '">' + x[0] + "</b>" + x[2] + "</span>"; }).join("");
+  }
+  function hm2m(t) { return +t.slice(0, 2) * 60 + +t.slice(3, 5); }
+  function two(n) { return (n < 10 ? "0" : "") + n; }
+  // 공용 봉차트 — slots 한 칸 = 봉 하나({o,h,l,c}). 비중 면·평단선·VWAP선·체결 점은 opt 로
+  function candleSvg(slots, opt) {
+    var SH = opt.SH || 0, GAP = SH && opt.PH ? 6 : 0;   // SH = 아래 비중 띠 높이(같은 날짜 축)
+    var W = 820, L = 8, R = 92, PT = 6, PH = opt.PH, B = 16, H = PT + PH + GAP + SH + B, bot = PT + PH, m = slots.length;
+    var step = (W - L - R) / m, x = function (i) { return L + step * (i + 0.5); }, s = "";
+    (opt.seps || []).forEach(function (i) { s += '<line x1="' + (L + step * i) + '" x2="' + (L + step * i) + '" y1="' + PT + '" y2="' + (bot + GAP + SH) + '" stroke="rgba(255,255,255,.08)"/>'; });
+    if (opt.weight) s += opt.weight(L, step, bot + GAP, SH, W - R);
+    var px = slots.filter(function (b) { return b.h != null; });
+    if (px.length) {
+      var ext = (opt.avg && !opt.avgEdge ? [opt.avg] : []).concat((opt.fills || []).map(function (f) { return f.px; }));
+      var hi = Math.max.apply(null, px.map(function (b) { return b.h; }).concat(ext));
+      var lo = Math.min.apply(null, px.map(function (b) { return b.l; }).concat(ext));
       var pad = (hi - lo) * 0.08 || hi * 0.01;
       var y = function (v) { return PT + PH * (1 - (v - lo + pad) / (hi - lo + pad * 2)); };
-      ds.forEach(function (d, i) {
-        if (d.h == null) return;
-        var up = d.c >= d.o, c = up ? "var(--up-red)" : "var(--down-blue)", bw = Math.max(2, Math.min(step * 0.62, 12));
-        s += '<g><title>' + d.d + " 시 " + won(d.o) + " 고 " + won(d.h) + " 저 " + won(d.l) + " 종 " + won(d.c) + '</title><line x1="' + x(i) + '" x2="' + x(i) + '" y1="' + y(d.h) + '" y2="' + y(d.l) + '" stroke="' + c + '"/>' +
-          '<rect x="' + (x(i) - bw / 2) + '" y="' + y(Math.max(d.o, d.c)) + '" width="' + bw + '" height="' + Math.max(1, Math.abs(y(d.o) - y(d.c))) + '" fill="' + c + '"/></g>';
+      var bw = Math.max(1.5, Math.min(step * 0.62, 12));
+      slots.forEach(function (b, i) {
+        if (b.h == null) return;
+        var c = b.c >= b.o ? "var(--up-red)" : "var(--down-blue)";
+        s += '<g><title>' + esc(opt.label(b)) + " 시 " + won(b.o) + " 고 " + won(b.h) + " 저 " + won(b.l) + " 종 " + won(b.c) + '</title><line x1="' + x(i) + '" x2="' + x(i) + '" y1="' + y(b.h) + '" y2="' + y(b.l) + '" stroke="' + c + '"/>' +
+          '<rect x="' + (x(i) - bw / 2) + '" y="' + y(Math.max(b.o, b.c)) + '" width="' + bw + '" height="' + Math.max(1, Math.abs(y(b.o) - y(b.c))) + '" fill="' + c + '"/></g>';
       });
-      (h.events || []).forEach(function (e) {
-        if (!e.qty) return;
-        var i = ds.map(function (d) { return d.d; }).indexOf(e.date);
-        if (i < 0 || ds[i].h == null) return;
-        var buy = e.qty > 0, yy = buy ? y(ds[i].l) + 10 : y(ds[i].h) - 4;
-        s += '<text x="' + x(i) + '" y="' + yy + '" text-anchor="middle" font-size="10" fill="' + (buy ? "#fbbf24" : "#c4b5fd") + '">' + (buy ? "▲" : "▼") + "</text>";
-      });
-      if (h.avg) {
-        var ya = y(h.avg);
+      if (opt.vw) {
+        var vp = slots.map(function (b, i) { return b.vw ? [x(i), y(b.vw)] : null; }).filter(Boolean);
+        if (vp.length > 1) s += '<path d="M' + vp.map(function (p) { return p[0] + " " + p[1]; }).join("L") + '" fill="none" stroke="#e2e8f0" stroke-opacity=".55" stroke-width="1.2"/>';
+      }
+      var out = opt.avgEdge && opt.avg ? (opt.avg > hi + pad ? -1 : opt.avg < lo - pad ? 1 : 0) : 0;   // 평단이 그날 범위 밖이면 가장자리 표시만
+      if (out) {
+        var ye = out < 0 ? PT + 9 : bot - 9;
+        s += '<rect x="' + (W - R + 2) + '" y="' + (ye - 9) + '" width="' + (R - 4) + '" height="18" rx="4" fill="rgba(0,240,255,.10)"/>' +
+          '<text x="' + (W - 4 - (R - 4) / 2) + '" y="' + (ye + 4) + '" text-anchor="middle" font-size="11" fill="var(--kospi-blue)">' + (out < 0 ? "↑" : "↓") + " 평단 " + won(opt.avg) + "</text>";
+      } else if (opt.avg) {
+        var ya = y(opt.avg);
         s += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + ya + '" y2="' + ya + '" stroke="var(--kospi-blue)" stroke-width="1.5" stroke-dasharray="6 3"/>' +
           '<rect x="' + (W - R + 2) + '" y="' + (ya - 9) + '" width="' + (R - 4) + '" height="18" rx="4" fill="rgba(0,240,255,.16)"/>' +
-          '<text x="' + (W - 4 - (R - 4) / 2) + '" y="' + (ya + 4) + '" text-anchor="middle" font-size="11.5" font-weight="700" fill="var(--kospi-blue)">평단 ' + won(h.avg) + "</text>";
+          '<text x="' + (W - 4 - (R - 4) / 2) + '" y="' + (ya + 4) + '" text-anchor="middle" font-size="11.5" font-weight="700" fill="var(--kospi-blue)">평단 ' + won(opt.avg) + "</text>";
       }
+      var agg = {}, qmax = 0, short = opt.side === "short";
+      (opt.fills || []).forEach(function (f) {
+        var i = opt.slotOf(f);
+        if (i < 0) return;
+        var k = i + (f.q > 0 ? "+" : "-") + (opt.byMode ? f.mode : ""), a = agg[k] || (agg[k] = { i: i, add: f.q > 0, q: 0, v: 0, n: 0, mode: f.mode, t0: f.ts.slice(11, 16) });
+        a.q += Math.abs(f.q); a.v += Math.abs(f.q) * f.px; a.n++; a.t1 = f.ts.slice(11, 16);
+        if (fillRank(f.mode) > fillRank(a.mode)) a.mode = f.mode;
+        qmax = Math.max(qmax, a.q);
+      });
+      Object.keys(agg).map(function (k) { return agg[k]; }).sort(function (a, b) { return b.q - a.q; }).forEach(function (a) {
+        var ring = FILL_RING[a.mode] || (/^sw/.test(a.mode || "") ? "#a3e635" : null);
+        var word = short ? (a.add ? "공매도" : "환매") : (a.add ? "매수" : "매도"), up = a.add !== short;
+        var cx = x(a.i), cy = y(a.v / a.q), r = 3.5 + 5 * Math.sqrt(a.q / qmax), tip = up ? -r : r, base = up ? r * 0.75 : -r * 0.75;
+        s += '<path d="M' + cx + " " + (cy + tip) + "L" + (cx + r * 0.95) + " " + (cy + base) + "L" + (cx - r * 0.95) + " " + (cy + base) + 'Z" fill="' + (a.add ? "#fbbf24" : "#c4b5fd") + '" fill-opacity=".9" stroke-linejoin="round" stroke="' +
+          (ring || "rgba(0,0,0,.55)") + '" stroke-width="' + (ring ? 1.8 : 0.8) + '"><title>' + esc(opt.label(slots[a.i]) + " · " + word + " " + a.n + "회 " + won(a.q) + "주 @" + won(a.v / a.q) +
+          " (" + a.t0 + (a.t1 !== a.t0 ? "~" + a.t1 : "") + (a.mode && a.mode !== "vwap" ? " · " + (FILL_WORD[a.mode] || (/^sw/.test(a.mode) ? "스위칭" : a.mode)) : "") + ")") + "</title></path>";
+      });
+      if (opt.extra) s += opt.extra(x, y);
     }
-    var top = PT + PH + GAP, wmax = Math.max.apply(null, ds.map(function (d) { return d.w; }).concat([h.targetWeight || 0, 0.1])) * 1.15;
-    var yw = function (v) { return top + WH * (1 - v / wmax); };
-    var path = ds.map(function (d, i) { return (i ? "L" : "M") + (L + step * i) + " " + yw(d.w) + "L" + (L + step * (i + 1)) + " " + yw(d.w); }).join("");
-    s += '<path d="' + path + "L" + (W - R) + " " + yw(0) + "L" + L + " " + yw(0) + 'Z" fill="rgba(0,240,255,.12)"/><path d="' + path + '" fill="none" stroke="var(--kospi-blue)" stroke-width="1.5"/>';
-    if (h.targetWeight) s += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + yw(h.targetWeight) + '" y2="' + yw(h.targetWeight) + '" stroke="var(--amber)" stroke-dasharray="4 3"/>' +
-      '<text x="' + (W - R + 4) + '" y="' + (yw(h.targetWeight) + 4) + '" font-size="10.5" fill="var(--amber)">목표 ' + h.targetWeight.toFixed(1) + "%</text>";
-    var every = Math.max(1, Math.ceil(n / 7));
-    ds.forEach(function (d, i) {
-      if (i % every === 0) s += '<text x="' + x(i) + '" y="' + (H - 4) + '" text-anchor="middle" font-size="10.5" fill="var(--text-muted)">' + d.d.slice(5) + "</text>";
+    (opt.xlabels || []).forEach(function (t) { s += '<text x="' + (L + step * t[0]) + '" y="' + (H - 4) + '" text-anchor="middle" font-size="10.5" fill="var(--text-muted)">' + t[1] + "</text>"; });
+    return '<svg class="hist-chart" viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="' + esc(opt.aria) + '">' + s + "</svg>";
+  }
+  // 체결 시각 → 그 분봉 칸. 그 칸에 틱이 없으면 같은 날 직전 칸
+  function slotFinder(slots, step) {
+    var ix = {}, days = {};
+    slots.forEach(function (b, i) { ix[b.d + " " + b.t] = i; (days[b.d] = days[b.d] || []).push(i); });
+    return function (f) {
+      var d = f.ts.slice(0, 10), m = Math.min(hm2m(f.ts.slice(11, 16)), 929), k = 540 + Math.floor(Math.max(0, m - 540) / step) * step;
+      var i = ix[d + " " + two(Math.floor(k / 60)) + ":" + two(k % 60)];
+      if (i != null) return i;
+      var js = days[d] || [], best = js.length ? js[0] : -1;
+      js.forEach(function (j) { if (hm2m(slots[j].t) <= k) best = j; });
+      return best;
+    };
+  }
+  function histChart(h) {
+    var ds = h.days || [];
+    if (!ds.length) return "";
+    // 주가 위 · 비중 아래 띠(같은 날짜 축) — 비중은 날짜별 막대 + 값, 목표 도달(95%↑) 날은 진하게. 회차 전 기간에 틱이 있으면 분봉 + 체결 세모
+    var ib = h.step && h.ibars && h.ibars.length ? h.ibars : null, slots = ib || ds, first = {}, last = {};
+    slots.forEach(function (b, i) { if (!(b.d in first)) first[b.d] = i; last[b.d] = i; });
+    var PH = h.hasBars || ib ? 78 : 0, wmax = Math.max.apply(null, ds.map(function (d) { return d.w; }).concat([h.targetWeight || 0, 0.1])) * 1.3;
+    var dates = Object.keys(first), every = Math.max(1, Math.ceil(dates.length / 7));
+    var dayIx = {}; ds.forEach(function (d, i) { dayIx[d.d] = i; });
+    return candleSvg(slots, {
+      PH: PH, SH: PH ? 32 : 44, avg: h.avg, side: h.side, aria: "주가 " + (ib ? h.step + "분봉" : "일봉") + "과 비중 변화",
+      label: function (b) { return ib ? b.d.slice(5) + " " + b.t : b.d; },
+      seps: ib ? dates.slice(1).map(function (d) { return first[d]; }) : [],
+      fills: ib ? h.fills : null, slotOf: ib ? slotFinder(ib, h.step) : null,
+      xlabels: dates.filter(function (d, i) { return i % every === 0; }).map(function (d) { return [(first[d] + last[d] + 1) / 2, d.slice(5)]; }),
+      weight: function (L, step, top, SH, xr) {
+        var base = top + SH, yw = function (v) { return base - SH * v / wmax; }, tg = h.targetWeight;
+        var w = '<rect x="' + L + '" y="' + top + '" width="' + (xr - L) + '" height="' + SH + '" rx="3" fill="rgba(255,255,255,.03)"/>';
+        ds.forEach(function (d) {
+          if (!(d.d in first) || !d.w) return;
+          var x0 = L + step * first[d.d] + 1.5, x1 = L + step * (last[d.d] + 1) - 1.5, yy = yw(d.w), hit = tg && d.w >= tg * 0.95;
+          w += '<rect x="' + x0 + '" y="' + yy + '" width="' + Math.max(1, x1 - x0) + '" height="' + (base - yy) + '" rx="2" fill="' + (hit ? "rgba(0,240,255,.6)" : "rgba(0,240,255,.28)") +
+            '"><title>' + d.d + " 비중 " + d.w.toFixed(2) + "% · " + won(d.held) + "주</title></rect>";
+          if (x1 - x0 >= 30) w += '<text x="' + (x0 + x1) / 2 + '" y="' + (yy - top >= 11 ? yy - 2 : yy + 10) + '" text-anchor="middle" font-size="10" font-weight="700" fill="var(--text-main)">' + d.w.toFixed(1) + "%</text>";
+        });
+        if (tg) w += '<line x1="' + L + '" x2="' + xr + '" y1="' + yw(tg) + '" y2="' + yw(tg) + '" stroke="var(--amber)" stroke-width="1.2" stroke-dasharray="4 3"/>' +
+          '<text x="' + (xr + 4) + '" y="' + (yw(tg) + 4) + '" font-size="10.5" fill="var(--amber)">목표 ' + tg.toFixed(1) + "%</text>";
+        return w + (!tg || base - yw(tg) > 15 ? '<text x="' + (xr + 4) + '" y="' + (base - 1) + '" font-size="10" fill="var(--kospi-blue)">비중</text>' : "");
+      },
+      extra: ib ? null : function (x, y) {      // 일봉 — 그날 체결은 화살표(실제 매매 방향, 공매도 진입은 ▼)
+        return (h.events || []).map(function (e) {
+          var i = dayIx[e.date];
+          if (!e.qty || i == null || ds[i].h == null) return "";
+          var add = e.qty > 0, buy = add !== (h.side === "short");
+          return '<text x="' + x(i) + '" y="' + (buy ? y(ds[i].l) + 10 : y(ds[i].h) - 4) + '" text-anchor="middle" font-size="10" fill="' + (add ? "#fbbf24" : "#c4b5fd") + '">' + (buy ? "▲" : "▼") + "</text>";
+        }).join("");
+      }
     });
-    return '<svg class="hist-chart" viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="주가 일봉과 비중 변화">' + s + "</svg>";
+  }
+  // 날짜별 5분봉 — 분할 1회 = 봉 1개. VWAP(당일 누적)선과 비교
+  function dayChart(h, dv) {
+    if (!dv.bars.length) return '<p class="muted hist-day-empty">' + dv.d.slice(5) + " — 저장된 틱이 없어 분봉을 그릴 수 없습니다.</p>";
+    var bars = dv.bars.map(function (b) { return Object.assign({ d: dv.d }, b); });
+    return candleSvg(bars, {
+      PH: 120, avg: h.avg, avgEdge: true, side: h.side, vw: true, byMode: true, aria: dv.d + " 5분봉과 체결",
+      label: function (b) { return dv.d.slice(5) + " " + b.t; },
+      fills: dv.fills, slotOf: slotFinder(bars, 5),
+      xlabels: bars.map(function (b, i) { return b.t.slice(3) === "00" ? [i + 0.5, b.t] : null; }).filter(Boolean)
+    }) + '<div class="hist-legend"><span><i class="lg-vw"></i>VWAP(당일 누적)</span><span><i class="lg-avg"></i>평단</span>' +
+      sideLegend(h.side) + '<span>테두리 <b style="color:#fff">시가</b> · <b style="color:#f472b6">전량</b> · <b style="color:#f97316">손절</b> · <b style="color:#a3e635">스위칭</b></span>' +
+      (dv.close ? "<span>종가 " + won(dv.close) + "(KRX)</span>" : "") + "</div>";
   }
   function renderHistory() {
     var el = $("dec-hist"), h = HIST.doc;
@@ -1260,13 +1350,18 @@
       '<em>' + (HIST.open ? "타임라인 접기 ▴" : "타임라인 펼치기 ▾") + "</em></div>" +
       '<div class="hist-main"><div class="hist-avg"><span>평단</span><b>' + (h.avg ? won(h.avg) : "—") + "</b><small>" + esc(vs) + "</small></div>" +
       '<div class="hist-num"><span>PM 목표</span><b>' + (h.targetWeight || 0).toFixed(1) + "%</b></div>" +
-      '<div class="hist-num"><span>최고 도달</span><b>' + (h.peakWeight || 0).toFixed(1) + "%</b>" + (h.peakDay ? "<small>" + h.peakDay.slice(5) + "</small>" : "") + "</div>" +
       '<div class="hist-num"><span>현재</span><b>' + (h.nowWeight || 0).toFixed(1) + "%</b></div>" + pnl + "</div>" +
       histChart(h) +
-      '<div class="hist-sub">' + esc(h.summary || "") + (h.deviations ? ' · <b>계획과 다른 체결 ' + h.deviations + "건</b>" : "") + "</div></div>";
+      '<div class="hist-foot"><div class="hist-sub">' + esc(h.summary || "") + (h.deviations ? ' · <b>계획과 다른 체결 ' + h.deviations + "건</b>" : "") + "</div>" +
+      '<div class="hist-legend">' + (h.step && h.ibars && h.ibars.length ? "<span>" + h.step + '분봉</span>' + sideLegend(h.side) : "<span>일봉</span>") +
+      '<span><i class="lg-w"></i>비중</span></div></div></div>';
     if (HIST.open) {
       var rows = (h.events || []).filter(function (e) { return HIST.mode === "all" || e.kind !== "review"; });
-      html += '<div class="hist-body"><div class="hist-tl"><h4>타임라인</h4><div class="seg"><button type="button" data-hm="all" class="' + (HIST.mode === "all" ? "active" : "") + '">전체</button><button type="button" data-hm="trade" class="' + (HIST.mode === "trade" ? "active" : "") + '">매매만</button></div></div>' +
+      var td = h.tickDays || [];
+      html += '<div class="hist-body">' + (td.length ? '<div class="hist-days"><span>5분봉</span>' + td.map(function (d) {
+        return '<button type="button" data-hday="' + d + '" class="' + (HIST.day === d ? "active" : "") + '">' + d.slice(5) + "</button>";
+      }).join("") + "</div>" + (HIST.day ? '<div class="hist-day">' + (HIST.dayViews[HIST.day] ? dayChart(h, HIST.dayViews[HIST.day]) : '<p class="muted">불러오는 중…</p>') + "</div>" : "") : "") +
+        '<div class="hist-tl"><h4>타임라인</h4><div class="seg"><button type="button" data-hm="all" class="' + (HIST.mode === "all" ? "active" : "") + '">전체</button><button type="button" data-hm="trade" class="' + (HIST.mode === "trade" ? "active" : "") + '">매매만</button></div></div>' +
         '<div class="hist-row head"><span>날짜</span><span>사건</span><span>내용</span><span class="r">평균가</span><span class="r">보유</span><span class="r">비중</span></div>' +
         rows.map(function (e, i) {
           return '<div class="hist-row"' + (e.more ? ' data-more="' + i + '"' : "") + '><span class="num hist-d">' + esc((e.date || "").slice(5)) + '</span><span class="hist-ev ' + esc(e.cls) + '">' + esc(e.label) + "</span>" +
@@ -1331,6 +1426,20 @@
   document.addEventListener("click", function (e) {
     var seg = e.target.closest("#dec-hist [data-hm]");
     if (seg) { HIST.mode = seg.getAttribute("data-hm"); renderHistory(); return; }
+    var hd = e.target.closest("#dec-hist [data-hday]");
+    if (hd) {
+      var d = hd.getAttribute("data-hday"), key = HIST.key;
+      HIST.day = HIST.day === d ? null : d;
+      renderHistory();
+      if (HIST.day && !HIST.dayViews[d]) {
+        api("/api/swing/history?key=" + encodeURIComponent(key) + "&day=" + d).then(function (x) {
+          if (HIST.key !== key) return;
+          HIST.dayViews[d] = x.dayView || { d: d, bars: [], fills: [] };
+          renderHistory();
+        }).catch(function () { HIST.dayViews[d] = { d: d, bars: [], fills: [] }; renderHistory(); });
+      }
+      return;
+    }
     if (e.target.closest("#dec-hist [data-key]")) return;
     var more = e.target.closest("#dec-hist .hist-row[data-more]");
     if (more) { var m = $("hist-m" + more.getAttribute("data-more")); if (m) m.hidden = !m.hidden; return; }

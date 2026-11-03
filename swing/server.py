@@ -296,7 +296,7 @@ def api_intraday(q):
 
 def api_history(q):
     from swing import history
-    return history.build(STORE, q.get("key") or "")
+    return history.build(STORE, q.get("key") or "", day=q.get("day"))
 
 
 def api_reflections(q):
