@@ -1398,7 +1398,8 @@
       '<div class="hist-num"><span>현재</span><b>' + (h.nowWeight || 0).toFixed(1) + "%</b></div>" + pnl + "</div>" +
       histChart(h) +
       '<div class="hist-foot"><div class="hist-sub">' + esc(h.summary || "") + (h.deviations ? ' · <b>계획과 다른 체결 ' + h.deviations + "건</b>" : "") + "</div>" +
-      '<div class="hist-legend">' + (h.step && h.ibars && h.ibars.length ? "<span>" + h.step + '분봉</span>' + sideLegend(h.side) : "<span>일봉</span>") +
+      '<div class="hist-legend">' + (h.step && h.ibars && h.ibars.length ? "<span>" + h.step + "분봉</span>" : "<span>일봉</span>") +
+      ((h.events || []).some(function (e) { return e.qty; }) ? sideLegend(h.side) : "") +   // 일봉 화살표도 같은 범례(2026-11-04 HMM)
       '<span><i class="lg-w"></i>비중</span></div></div></div>';
     if (HIST.open) {
       var rows = (h.events || []).filter(function (e) { return HIST.mode === "all" || (e.kind !== "review" && e.kind !== "wait"); });
