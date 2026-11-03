@@ -200,6 +200,15 @@ class TestExecutor(unittest.TestCase):
         x = ex.doc["exits"]["p1"]
         self.assertEqual(self.fills(x), [("09:30", 10, 4800.0, "stop"), ("09:40", 30, 4950, "vwap")])
 
+    def test_stop_includes_todays_topup_fills(self):
+        # 2026-11-03 광전자 — 시가에 산 추가분이 손절 청산에서 빠져 다음 날 따로 팔리던 문제
+        ex = self.ex(ledger_with(order={"code": "000020", "topupOf": "p1", "entry": 5000.0, "stop": 4800.0, "qty": 50}, position={}))
+        run(ex, path("000020", [("09:00", 4990), ("09:30", 4900, 4790)]))
+        r, x = ex.doc["orders"]["o1"], ex.doc["exits"]["p1"]
+        self.assertEqual(sum(f["qty"] for f in r["fills"]), 5)
+        self.assertEqual(x["planned"], 105)
+        self.assertTrue(r["done"])                                       # 남은 추가 분할은 취소
+
     def test_first_observation_gap(self):
         ex = self.ex(ledger_with(position={}))
         run(ex, path("000020", [("10:00", 4750, 4700)]))                 # 기동 지연 — 시가(4,750)부터 손절 아래

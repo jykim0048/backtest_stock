@@ -229,7 +229,10 @@ class Executor:
             self.seen.add(pid)
             if hit:
                 trimmed = self._close_trims(pid, "손절로 대체")
-                self._open_exit(pid, code=p["code"], name=p.get("name"), side=p["side"], qty=p["qty"] - trimmed,
+                # 오늘 이미 체결된 추가 매수분도 함께 청산(2026-11-03 광전자: 시가 85주가 빠져 다음 날 '손절'로 따로 팔림) — 정산은 진입(③)이 먼저라 합쳐진다
+                added = sum(f["qty"] for oid, base in self.base_of.items() if base == pid
+                            for f in (self.doc["orders"].get(oid) or {}).get("fills") or [])
+                self._open_exit(pid, code=p["code"], name=p.get("name"), side=p["side"], qty=p["qty"] - trimmed + added,
                                 price=hit[0], kind=hit[1], ts=ts)
                 self.dirty = True
                 for oid, base in self.base_of.items():      # 본 포지션 손절 → 그 잔여분 추가 주문도 중단
