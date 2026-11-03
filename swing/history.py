@@ -42,11 +42,17 @@ def _ticks(store, day, code):
 ticks_fn = _ticks
 
 
+def live_date(store, asof):
+    """정산 전 장중 기록 날짜(intraday 날짜 > 원장 asof) — 없으면 None."""
+    day = max((k.split("/")[1] for k in store.keys("intraday/") if k.count("/") == 1), default=None)
+    return day if day and (not asof or day > asof) else None
+
+
 def live_prices(store, asof):
     """장중 현재가(2026-11-03) — 정산 전(intraday 날짜 > 원장 asof) Live Trader 기록의 종목별 마지막 시세 {code: {price, ts}}.
     15초 폴링값이라 장 마감 뒤 정산(16:30) 전까지는 15:2x 가격(종가 동시호가 전)이 남는다. 정산되면 원장 종가로 돌아간다."""
-    day = max((k.split("/")[1] for k in store.keys("intraday/") if k.count("/") == 1), default=None)
-    if not day or (asof and day <= asof):
+    day = live_date(store, asof)
+    if not day:
         return {}
     return {c: {"price": v["price"], "ts": v.get("ts")} for c, v in ((store.get(f"intraday/{day}") or {}).get("vwap") or {}).items() if v.get("price")}
 
@@ -210,10 +216,23 @@ def build(store, key, *, day=None, log=print):
                    "sub": f"진입가 상한 {o.get('entry') or 0:,.0f} · 손절 {o.get('stop') or 0:,.0f}" + (f" · 목표 {o['target']:,.0f}" if o.get("target") else ""),
                    "decisionKey": r["key"]})
     buy_word = "공매도" if short else "매수"
+    wait = []                                             # 이어진 비중 채우기 미체결(2026-11-03) — 한 줄로 묶는다
+
+    def flush():
+        if wait:
+            a, b = wait[0], wait[-1]
+            ev.append({"date": a.get("validDate"), "rank": 1, "label": "비중 채우기 대기", "cls": "plan", "qty": 0, "kind": "wait",
+                       "text": f"{len(wait)}일 미체결" + (f" · {a['validDate'][5:]}~{b['validDate'][5:]}" if len(wait) > 1 else ""),
+                       "sub": f"잔여 {b.get('qty') or 0:,}주 · 진입가 상한 {b.get('entry') or 0:,.0f} 너머 — 내려오면 체결"})
+            wait.clear()
     for n, o in enumerate(orders):
         v, st = o.get("validDate"), o.get("status")
         rec = (intra(v).get("orders") or {}).get(o["id"]) or {}
         take(rec.get("fills"), 1)
+        if st == "cancelled" and o.get("topupOf"):
+            wait.append(o)
+            continue
+        flush()
         if st == "filled":
             px = o.get("fillPrice") or o.get("entry")
             over = sign * (px / o["entry"] - 1) if o.get("entry") else 0
@@ -231,6 +250,7 @@ def build(store, key, *, day=None, log=print):
                        "more": _splits(rec["fills"]), "live": True})
         else:
             ev.append({"date": v, "rank": 1, "label": "주문 대기", "cls": "plan", "qty": 0, "text": f"{o.get('qty') or 0:,}주 대기", "sub": "다음 체결 시간대에 집행"})
+    flush()
 
     start, end = _span(r)
     by_exit = {}
@@ -247,7 +267,8 @@ def build(store, key, *, day=None, log=print):
                 if x.get("code") == code and x.get("side", "long") == side and k.startswith("s:") == (reason == "switch")]
         xf = [f for x in recs for f in x.get("fills") or []]
         take(xf, -1)
-        ev.append({"date": d, "rank": 2, "label": "스위칭" if reason == "switch" else word, "cls": "switch" if reason == "switch" else "stop" if reason in STOP_REASONS else "exit",
+        tier = next((f["mode"][2:] for f in xf if (f.get("mode") or "").startswith("sw")), "")   # 스위칭 등급(A~D, 2026-11-03)
+        ev.append({"date": d, "rank": 2, "label": ("스위칭 " + tier).strip() if reason == "switch" else word, "cls": "switch" if reason == "switch" else "stop" if reason in STOP_REASONS else "exit",
                    "qty": -q, "price": px, "text": f"{q:,}주 청산 · {pnl / 1e4:+,.0f}만 원", "pnl": pnl,
                    "sub": (f"손절가보다 {slip * 100:.1f}% 불리 · " if warn else "") + (ts[-1].get("note") or ""), "warn": warn, "more": _splits(xf)})
     last_day = max([d for d in (asof, end) if d] or [date])

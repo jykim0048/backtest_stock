@@ -116,7 +116,7 @@ class TestPmWeightFill(unittest.TestCase):
 
     def test_underweight_review_stops(self):
         r = self.topups(self.ledger(lastRating="Underweight"))
-        self.assertFalse(r[0]["ok"])
+        self.assertEqual((r[0]["ok"], r[0]["skip"]), (False, "rating"))
 
     def test_stops_after_any_exit_in_round(self):
         L = self.ledger()

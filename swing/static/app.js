@@ -4,7 +4,9 @@
   var $ = function (id) { return document.getElementById(id); };
   // 청산 사유 — 2026-09-29 부터 목표가·만기는 재판별 후 매도(review_*), target/expiry 는 이전 기록 호환
   var REASON = { fut_none: "선물 미상장 환매", margin: "담보 부족 반대매매", stop: "손절", stop_gap: "갭 손절(시가)", review_target: "목표 후 매도", review_expiry: "만기 후 매도",
-    max_hold: "최대 보유", pm_sell: "PM 매도", cash: "현금 확보", target: "목표가", expiry: "보유 만기" };
+    max_hold: "최대 보유", pm_sell: "PM 매도", cash: "현금 확보", target: "목표가", expiry: "보유 만기",
+    switch: "스위칭", livepm_exit: "Live PM 청산", livepm_trim: "Live PM 축소" };
+  var SW_TIER = { A: "손실 정리", B: "정체", C: "소폭 손익", D: "승자 초과분" };   // 스위칭 4등급(2026-11-03, 체결 기록 swA~swD)
   var REVIEW_ACT = { sell: ["sell-next", "매도 예약"], sell_fallback: ["sell-next", "판단 실패 → 원 규칙대로 매도"],
     hold_updated: ["ext", "계속 보유 · 가격 갱신"], hold: ["hold-ok", "계속 보유"] };
   var KIND_TXT = { fill_stop: "체결일 손절", target: "목표 도달", expiry: "보유 만기", extended: "연장 재판별", signal: "신호" };
@@ -13,6 +15,10 @@
   function reasonTxt(r, side) {
     var t = REASON[r] || r;
     return side === "short" ? String(t).replace("PM 매도", "PM 환매").replace("후 매도", "후 환매") : t;
+  }
+  function tradeReason(t) {
+    var m = t.reason === "switch" && /\bsw([A-D])\b/.exec(t.note || "");
+    return m ? "스위칭 " + m[1] + " · " + SW_TIER[m[1]] : reasonTxt(t.reason, t.side);
   }
   var SIG_ORDER = ["동반강세", "수급유입", "수급이탈", "동반약세"];
   var SIG_C = { "동반강세": "var(--sig-strong)", "수급유입": "var(--sig-inflow)", "수급이탈": "var(--sig-outflow)", "동반약세": "var(--sig-weak)" };
@@ -236,11 +242,18 @@
       vol: sd * Math.sqrt(252) * 100, mdd: mdd * 100, mddSpan: ddFrom == null ? "" : dates[ddFrom] + " 고점 → " + dates[ddTo] + " 저점",
       calmar: mdd < 0 ? ann / -mdd : null, curDD: (eq[eq.length - 1] / peak - 1) * 100 };
   }
+  // 장중(정산 전)이면 오늘 장중 평가액을 마지막 점으로 붙인다(2026-11-03) — 기간 수익률·현재 낙폭·추이 그래프용.
+  // Sharpe·Sortino·변동성·MDD 는 하루가 덜 끝난 값이 섞이지 않게 종가 행만
+  function liveRows(rows, s) {
+    var last = rows[rows.length - 1];
+    if (!s || !s.liveTs || !s.liveDate || (last && last.date >= s.liveDate)) return rows;
+    return rows.concat([{ date: s.liveDate, equity: s.equity, retPct: s.retPct, cash: s.cash, positions: s.positions, live: s.liveTs }]);
+  }
   function renderPortfolio(s) {
-    var rows = S.equity || [], cap = s.capital0, eqNow = s.equity;
-    var rt = [["YTD", periodReturn(rows, cap, 0, true)], ["1W", periodReturn(rows, cap, 7)],
-      ["1M", periodReturn(rows, cap, 30)], ["3M", periodReturn(rows, cap, 91)]];
-    var m = riskMetrics(rows, cap);
+    var rows = S.equity || [], cap = s.capital0, eqNow = s.equity, lrows = liveRows(rows, s);
+    var rt = [["YTD", periodReturn(lrows, cap, 0, true)], ["1W", periodReturn(lrows, cap, 7)],
+      ["1M", periodReturn(lrows, cap, 30)], ["3M", periodReturn(lrows, cap, 91)]];
+    var m = riskMetrics(rows, cap), ml = riskMetrics(lrows, cap);
     function f2(v) { return v == null ? "—" : v.toFixed(2); }
     // 총노출 = (Long+Short) ÷ 평가액, 순노출 = (Long−Short) ÷ 평가액 — 막대는 Long·Short 비중
     var lv = 0, sv = 0;
@@ -268,7 +281,7 @@
       ["Sortino Ratio", f2(m.sortino), "하방 변동성 기준"],
       ["MDD", m.mdd == null ? "—" : '<span class="' + (m.mdd < 0 ? "down" : "") + '">' + m.mdd.toFixed(2) + "%</span>",
         m.mddSpan || "낙폭 없음"],
-      ["변동성(연)", m.vol == null ? "—" : m.vol.toFixed(2) + "%", "현재 낙폭 " + (m.curDD == null ? "—" : m.curDD.toFixed(2) + "%")]
+      ["변동성(연)", m.vol == null ? "—" : m.vol.toFixed(2) + "%", "현재 낙폭 " + (ml.curDD == null ? "—" : ml.curDD.toFixed(2) + "%") + (lrows !== rows ? "(장중)" : "")]
     ];
     h += mm.map(function (x) {
       return '<div class="port-item"><span class="port-lbl">' + x[0] + '</span><span class="port-val">' + x[1] +
@@ -276,7 +289,7 @@
     }).join("");
     $("portfolio").innerHTML = h;
     var since = rt.some(function (x) { return x[1] && x[1].since; });
-    $("pf-note").textContent = "일별 평가액 " + (m.n || 0) + "영업일 기준" + (since ? " · * 기간 시작 전 기록이 없어 운용 시작 대비" : "") +
+    $("pf-note").textContent = "일별 평가액 " + (m.n || 0) + "영업일 기준" + (lrows !== rows ? " · 기간 수익률·현재 낙폭은 장중 " + s.liveTs + " 평가액 포함" : "") + (since ? " · * 기간 시작 전 기록이 없어 운용 시작 대비" : "") +
       ((m.n || 0) < 60 ? " · 표본이 짧아 Sharpe·Sortino 는 참고용" : "");
   }
   function renderRules(c) {
@@ -325,8 +338,10 @@
     });
     svg += '</g><line class="base" x1="' + m.l + '" x2="' + (W - m.r) + '" y1="' + y(cap) + '" y2="' + y(cap) + '"/>';
     var pts = rows.map(function (r, i) { return x(i) + "," + y(r.equity); });
+    var live = rows.length > 1 && rows[rows.length - 1].live, solid = live ? pts.slice(0, -1) : pts;   // 장중 점은 점선으로 이어 붙임
     svg += '<path class="area" d="M' + pts.join("L") + "L" + x(rows.length - 1) + "," + (H - m.b) + "L" + x(0) + "," + (H - m.b) + 'Z"/>';
-    svg += '<path class="ln" d="M' + pts.join("L") + '"/>';
+    svg += '<path class="ln" d="M' + solid.join("L") + '"/>';
+    if (live) svg += '<path class="ln" stroke-dasharray="4 3" d="M' + pts.slice(-2).join("L") + '"/>';
     svg += '<line class="cross" id="eq-cross" y1="' + m.t + '" y2="' + (H - m.b) + '" visibility="hidden"/>';
     svg += '<circle class="dot" id="eq-dot" r="4.5" visibility="hidden"/>';
     svg += '<rect x="' + m.l + '" y="0" width="' + (W - m.l - m.r) + '" height="' + H + '" fill="transparent" id="eq-hit"/></svg>';
@@ -340,7 +355,7 @@
       cross.setAttribute("x1", x(i)); cross.setAttribute("x2", x(i)); cross.setAttribute("visibility", "visible");
       dot.setAttribute("cx", x(i)); dot.setAttribute("cy", y(r.equity)); dot.setAttribute("visibility", "visible");
       tip.hidden = false;
-      tip.innerHTML = "<b>" + r.date + "</b>" + won(r.equity) + "원 · " + pctTxt(r.retPct) + "<br>현금 " + eok(r.cash) + " · 보유 " + r.positions;
+      tip.innerHTML = "<b>" + r.date + (r.live ? " 장중 " + r.live : "") + "</b>" + won(r.equity) + "원 · " + pctTxt(r.retPct) + "<br>현금 " + eok(r.cash) + " · 보유 " + r.positions;
       var left = x(i) * rect.width / W + 10;
       if (left + tip.offsetWidth > rect.width) left -= tip.offsetWidth + 20;
       tip.style.left = left + "px"; tip.style.top = "4px";
@@ -390,6 +405,12 @@
       });
     });
   }
+  // 청산 예약 상태(2026-11-03) — Live Trader 는 다음 영업일 시가 10% + VWAP 분할로 집행. 손절 분할이 남으면 다음 날 이어서
+  function pendingTag(p) {
+    var sp = p.sellPending, w = sideOf(p) === "short" ? "환매" : "매도", k = sp.kind;
+    var t = k === "stop" || k === "stop_gap" ? "손절 분할 진행" : k === "max_hold" ? "최대 보유 · 익일 분할 " + w : "익일 분할 " + w;
+    return '<span class="state sell-next" title="다음 영업일 시가 10% + VWAP 분할 ' + w + " — " + esc(sp.reason || "") + '">' + t + "</span>";
+  }
   function posTable(el, ps, empty) {
     // 비중 = 평가금액(수량 × 현재가) ÷ 총 평가액(2026-10-16) — 상단 비중, 하단 수량(작게). 현재가 = 장중이면 Live Trader 시세(2026-11-03)
     var eq = S.summary && S.summary.equity;
@@ -405,7 +426,7 @@
             : '<small class="px-ts" title="원장 종가(정산 기준)">종가</small>'), "r"),
           td(pnlBadge(p.unrealPct, pctTxt(p.unrealPct).replace(/^[+-]/, "")), "r"),
           td(holdBar(p.holdDay) + (p.fillDate ? '<small class="hold-fill">체결 ' + esc(p.fillDate.slice(5)) + "</small>" : "")),
-          td(p.sellPending ? '<span class="state sell-next" title="다음 영업일 시가 ' + (sideOf(p) === "short" ? "환매" : "매도") + " — " + esc(p.sellPending.reason) + '">익일 시가 ' + (sideOf(p) === "short" ? "환매" : "매도") + "</span>"
+          td(p.sellPending ? pendingTag(p)
             : (p.fillStop && !p.fillStop.reviewed) ? '<span class="state sell-next" title="체결일(' + esc((p.fillStop.date || "").slice(5)) + ") 손절가 " + won(p.fillStop.stop) + ' 도달 — 다음 영업일 종가로 재판별, 매도면 그다음 영업일 시가">손절 재판별 대기</span>'
             : p.extended ? '<span class="state ext" title="목표 도달·만기 후 trading_agent 가 계속 보유로 판단 — 매일 재판별">연장 보유</span>'
             : '<span class="state hold-ok">보유</span>')] };
@@ -471,9 +492,16 @@
         (sc.length ? " · 숏 후보 " + sc.length + " · 공매도 " + nS : "") + "</div>");
     }
     (run.notes || []).forEach(function (n) { L.push('<div class="warn">⚠ ' + esc(n) + "</div>"); });
+    // 비중 채우기 — 주문 낸 종목만 펼치고, 멈춘 종목은 사유별 개수로 접는다(2026-11-03)
+    var TOPUP_SKIP = { rating: "PM 등급", pending: "청산 예약", exited: "청산 이력", maxhold: "최대 보유 임박", fut: "선물 미상장", noclose: "종가 없음", stop: "손절 침범", cap: "손절 ≥ 상한" };
+    var skipN = {};
     (run.topups || []).forEach(function (r) {
-      L.push('<div class="' + (r.ok ? "" : "dim") + '">· 비중 채우기 ' + esc(r.name || r.code) + (r.side === "short" ? "(Short)" : "") + " " + esc(r.why || "") + "</div>");
+      if (r.ok || !r.skip) L.push('<div class="' + (r.ok ? "" : "dim") + '">· 비중 채우기 ' + esc(r.name || r.code) + (r.side === "short" ? "(Short)" : "") + " " + esc(r.why || "") + "</div>");
+      else skipN[r.skip] = (skipN[r.skip] || []).concat([r.name || r.code]);
     });
+    var sk = Object.keys(skipN);
+    if (sk.length) L.push('<div class="dim" title="' + esc(sk.map(function (k) { return (TOPUP_SKIP[k] || k) + ": " + skipN[k].join(", "); }).join(" / ")) + '">· 비중 채우기 중단 ' +
+      sk.reduce(function (a, k) { return a + skipN[k].length; }, 0) + "종목 — " + sk.map(function (k) { return (TOPUP_SKIP[k] || k) + " " + skipN[k].length; }).join(" · ") + "</div>");
     (run.retries || []).forEach(function (r) {
       L.push('<div class="' + (r.ok ? "" : "dim") + '">· 미도달 재주문 ' + esc(r.name || r.code) + (r.side === "short" ? "(Short)" : "") + " " + esc(r.why || "") + "</div>");
     });
@@ -589,8 +617,10 @@
     });
   }
   function rpFills() {
-    var fs = periodBy((S.fills || []).filter(function (o) { return o.validDate; }), "validDate");
-    fs = bySide(fs, RP.side).slice().sort(function (a, b) { return a.validDate < b.validDate ? 1 : a.validDate > b.validDate ? -1 : 0; });
+    var all = bySide(periodBy((S.fills || []).filter(function (o) { return o.validDate; }), "validDate"), RP.side);
+    // 비중 채우기 미체결(상한 위에서 매일 취소)은 따로 세고 표에서 뺀다(2026-11-03)
+    var waits = all.filter(function (o) { return o.topupOf && o.status === "cancelled"; });
+    var fs = all.filter(function (o) { return !(o.topupOf && o.status === "cancelled"); }).slice().sort(function (a, b) { return a.validDate < b.validDate ? 1 : a.validDate > b.validDate ? -1 : 0; });
     var shown = fs.slice(0, RP.flimit || 10);
     var cnt = { filled: 0, cancelled: 0, skipped: 0 };
     fs.forEach(function (o) { cnt[o.status] = (cnt[o.status] || 0) + 1; });
@@ -598,7 +628,7 @@
       shown.map(function (o) {
         var retryTag = (o.retry ? '<span class="flag" title="미도달 재주문 — 전날과 같은 진입·손절·목표가(재분석 없음)">재시도 ' + o.retry + "회</span> " : "")
           + (o.partial ? '<span class="flag" title="현금 부족으로 계획 ' + won(o.partial.planned) + '주 중 일부만 진입">부분 ' + won(o.partial.filled) + "/" + won(o.partial.planned) + "</span> " : "")
-          + (o.topupOf ? '<span class="flag" title="부분 진입 잔여분 — 같은 레벨로 추가 주문, 체결 시 기존 포지션에 합침">추가 ' + (o.topup || 1) + "회</span> " : "");
+          + (o.topupOf ? '<span class="flag" title="PM 비중 채우기 — 원 진입가 상한·현재 손절가로 잔여분 추가 주문, 체결 시 기존 포지션에 합침">비중 채우기 ' + (o.topup || 1) + "회째</span> " : "");
         return { key: o.decisionKey, cells: [td('<span class="num">' + esc((o.validDate || "").slice(5)) + '</span><small class="hold-fill">판단 ' + esc((o.created || "").slice(5)) + "</small>"),
           td('<span class="side-tag ' + sideOf(o) + '">' + (sideOf(o) === "long" ? "LONG" : "SHORT") + "</span>"),
           td(stock(o.name, o.code)), td('<span class="state ' + o.status + '">' + (STATUS[o.status] || o.status) + "</span>"),
@@ -609,7 +639,8 @@
     var more = $("fills-more");
     if (fs.length > shown.length) { more.hidden = false; more.textContent = "더 보기 (" + (fs.length - shown.length) + "건 남음)"; }
     else more.hidden = true;
-    $("fill-caption").textContent = fs.length + "건 · 체결 " + cnt.filled + " · 미도달 취소 " + (cnt.cancelled || 0) + " · 스킵 " + (cnt.skipped || 0);
+    $("fill-caption").textContent = fs.length + "건 · 체결 " + cnt.filled + " · 미도달 취소 " + (cnt.cancelled || 0) + " · 스킵 " + (cnt.skipped || 0) +
+      (waits.length ? " · 비중 채우기 미체결 " + waits.length + "건(표 제외)" : "");
   }
   function closedRounds() {                    // 끝난 포지션(swing/reflect.py closed_rounds 와 같은 묶음) — 거래 목록은 최신순
     var g = {};
@@ -627,7 +658,7 @@
       var alpha = r.alphaPct != null ? '<span class="stock-code" title="' + esc(r.benchName + " " + pctTxt(r.benchPct)) + ' 기준">시장 대비 ' + pctTxt(r.alphaPct) + "</span>" : "";
       return '<div class="reflect-card"><div class="reflect-head"><span class="side-tag ' + sideOf(r) + '">' + (sideOf(r) === "long" ? "LONG" : "SHORT") + "</span>" +
         '<button type="button" class="reflect-name" data-key="' + esc(r.decisionKey || "") + '" title="진입 판단 원문 보기">' + esc(r.name) + "</button>" +
-        verdict + basisTag({ source: r.source }) + '<span class="reason ' + esc(r.reason) + '">' + esc(reasonTxt(r.reason, r.side)) + "</span>" +
+        verdict + basisTag({ source: r.source }) + '<span class="reason ' + esc(r.reason) + '">' + esc(tradeReason(r)) + "</span>" +
         '<span class="stock-code">' + esc((r.entryDate || "").slice(5)) + " → " + esc((r.exitDate || "").slice(5)) + " · " + (r.holdDays || 0) + "일</span>" +
         '<span class="reflect-ret">' + pnlBadge(r.retPct, pctTxt(r.retPct).replace(/^[+-]/, "")) + alpha + "</span></div>" +
         '<p class="reflect-text">' + esc(r.text || r.why || "복기 없음") + "</p></div>";
@@ -650,7 +681,7 @@
       var cs = bySide((run.candidates || []).concat(run.shortCandidates || []), RP.side);
       var no = cs.filter(function (c) { return !c.ordered; });
       var fs = bySide((S.fills || []).filter(function (o) { return o.validDate === d; }), RP.side);
-      var nc = fs.filter(function (o) { return o.status === "cancelled"; }).length, ns = fs.filter(function (o) { return o.status === "skipped"; }).length;
+      var nc = fs.filter(function (o) { return o.status === "cancelled" && !o.topupOf; }).length, ns = fs.filter(function (o) { return o.status === "skipped"; }).length;
       el.innerHTML = '<span class="rp-note">신규 판단 ' + cs.length + " · 주문 " + (cs.length - no.length) + " · 미주문 " + no.length + " · 미도달 취소 " + nc + " · 스킵 " + ns + "</span>" +
         no.map(function (c) { return '<span class="flag" title="' + esc((c.why || "") + (c.pmNote ? " — " + c.pmNote : "")) + '">' + esc(c.name) + "</span>"; }).join("");
       el.hidden = false;
@@ -912,8 +943,8 @@
           td('<span class="side-tag ' + sideOf(t) + '">' + (sideOf(t) === "long" ? "LONG" : "SHORT") + "</span>"),
           td(stock(t.name, t.code, "진입 " + (t.entryDate || "").slice(5), null, testTag(t))),
           td(t.exitDecisionKey
-            ? '<button type="button" class="reason ' + t.reason + ' name-link" data-key="' + esc(t.exitDecisionKey) + '" title="청산 판단 원문 보기">' + esc(reasonTxt(t.reason, t.side)) + " ›</button>"
-            : '<span class="reason ' + t.reason + '"' + (t.note ? ' title="' + esc(t.note) + '"' : "") + ">" + esc(reasonTxt(t.reason, t.side)) + "</span>"),
+            ? '<button type="button" class="reason ' + t.reason + ' name-link" data-key="' + esc(t.exitDecisionKey) + '" title="청산 판단 원문 보기">' + esc(tradeReason(t)) + " ›</button>"
+            : '<span class="reason ' + t.reason + '"' + (t.note ? ' title="' + esc(t.note) + '"' : "") + ">" + esc(tradeReason(t)) + "</span>"),
           td('<div class="stock-info" style="align-items:flex-end"><span class="num">' + won(t.entryPrice) + " → " + won(t.exitPrice) +
             '</span><span class="stock-code">' + won(t.qty) + "주</span></div>", "r"),
           td('<span class="num">' + t.holdDays + "일</span>", "r"),
@@ -1358,7 +1389,7 @@
       '<div class="hist-legend">' + (h.step && h.ibars && h.ibars.length ? "<span>" + h.step + '분봉</span>' + sideLegend(h.side) : "<span>일봉</span>") +
       '<span><i class="lg-w"></i>비중</span></div></div></div>';
     if (HIST.open) {
-      var rows = (h.events || []).filter(function (e) { return HIST.mode === "all" || e.kind !== "review"; });
+      var rows = (h.events || []).filter(function (e) { return HIST.mode === "all" || (e.kind !== "review" && e.kind !== "wait"); });
       var td = h.tickDays || [];
       html += '<div class="hist-body">' + (td.length ? '<div class="hist-days"><span>5분봉</span>' + td.map(function (d) {
         return '<button type="button" data-hday="' + d + '" class="' + (HIST.day === d ? "active" : "") + '">' + d.slice(5) + "</button>";
@@ -1782,14 +1813,14 @@
       ? "주식 대용 담보(보유 Long 평가액 × " + Math.round((S.config.shortSubstRate || 0) * 100) + "% + 현금, 요구 담보 = Short 평가액 × " + Math.round((S.config.shortMargin || 0) * 100) + "%)"
       : "진입금액 100% 현금 담보";
     if (S.config && S.config.shortMaxGross != null) $("cfg-sgross").textContent = S.config.shortMaxGross > 0 ? "평가액의 " + Math.round(S.config.shortMaxGross * 100) + "%" : "없음";
-    renderEquity(r[1], r[0].capital0); renderPositions(r[2]); renderHoldingsPF(r[2], r[0]); renderReport();
+    renderEquity(liveRows(r[1], r[0]), r[0].capital0); renderPositions(r[2]); renderHoldingsPF(r[2], r[0]); renderReport();
     var dates = r[3].slice().reverse(), sel = $("run-date");
     sel.innerHTML = dates.length ? dates.map(function (d) { return "<option>" + d + "</option>"; }).join("") : "<option>—</option>";
     sel.addEventListener("change", function () { loadDate(sel.value); });
     if (dates.length) loadDate(dates[0]);
     else { renderRun(null, {}); renderSignals(null); renderUniverse(null); }
     var t;
-    window.addEventListener("resize", function () { clearTimeout(t); t = setTimeout(function () { renderEquity(S.equity, S.summary.capital0); renderReport(); }, 150); });
+    window.addEventListener("resize", function () { clearTimeout(t); t = setTimeout(function () { renderEquity(liveRows(S.equity, S.summary), S.summary.capital0); renderReport(); }, 150); });
   }).catch(function (e) {
     $("run-status").textContent = "API 연결 실패";
     $("run-dot").className = "status-dot warn";

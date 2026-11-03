@@ -116,6 +116,26 @@ class TestBuild(unittest.TestCase):
         self.assertEqual((h["events"][-1]["held"], h["events"][-1]["live"]), (0, True))
         self.assertEqual(h["qty"], 0)
 
+    def test_unfilled_topups_grouped_into_one_wait_row(self):
+        st = setup()
+        L = st.get("ledger")
+        for i, d in enumerate(("2026-10-30", "2026-11-02")):
+            L["orderLog"].append(order(f"w{i}", "2026-10-29", d, 300, None, status="cancelled", topup=True))
+        st.put("ledger", L)
+        h = history.build(st, KEY, log=lambda *a: None)
+        w = [e for e in h["events"] if e.get("kind") == "wait"]
+        self.assertEqual(len(w), 1)
+        self.assertEqual((w[0]["date"], w[0]["text"]), ("2026-10-30", "2일 미체결 · 10-30~11-02"))
+
+    def test_switch_exit_label_has_tier(self):
+        st = setup(position=False)
+        L = st.get("ledger")
+        L["trades"][-1]["reason"] = "switch"
+        st.put("ledger", L)
+        st.put("intraday/2026-11-02", {"exits": {"s:p1": {"code": "006110", "side": "long", "fills": [{"ts": "2026-11-02T10:00:00+09:00", "qty": 49, "price": 48651, "mode": "swA"}]}}, "orders": {}})
+        h = history.build(st, KEY, log=lambda *a: None)
+        self.assertIn("스위칭 A", [e["label"] for e in h["events"]])
+
     def test_live_price_before_settlement(self):
         st = setup()
         st.put("intraday/2026-11-03", {"vwap": {"006110": {"price": 50000.0, "ts": "2026-11-03T10:15:30+09:00"}}, "orders": {}, "exits": {}})

@@ -72,7 +72,8 @@ def api_summary(q):
         equity, ret = round(v), round((v / L["capital0"] - 1) * 100, 2)
         live_ts = max((x.get("ts") or "" for x in live.values()), default="")[11:16] or None
     return {"asof": L.get("asof"), "capital0": L["capital0"], "cash": round(L["cash"]),
-            "equity": equity, "retPct": ret, "liveTs": live_ts, "closeEquity": eq["equity"] if eq else round(L["cash"]),
+            "equity": equity, "retPct": ret, "liveTs": live_ts, "liveDate": history.live_date(STORE, L.get("asof")) if live_ts else None,
+            "closeEquity": eq["equity"] if eq else round(L["cash"]),
             "positions": len(L["positions"]), "openOrders": len(L["orders"]),
             "trades": {"n": len(tr), "wins": len(wins),
                        "winRate": round(len(wins) / len(tr) * 100, 1) if tr else None,

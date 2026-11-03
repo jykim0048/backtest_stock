@@ -382,21 +382,21 @@ def _topups(L, bars, date, nxt, fut_ok=None):
         row = {"code": p["code"], "name": p.get("name"), "side": p.get("side", "long"), "topup": n, "qty": remain, "rating": rating, "ok": False, "why": ""}
         close, stop = (bars.get(p["code"]) or {}).get("close"), p.get("stop")
         if rating not in (config.SHORT_RATINGS if short else config.BUY_RATINGS) + ("Hold",):
-            row["why"] = f"최근 PM {rating or '—'} — 비중 채우기 안 함"
+            row.update(skip="rating", why=f"최근 PM {rating or '—'} — 비중 채우기 안 함")
         elif p.get("sellPending"):
-            row["why"] = "청산 예약 — 비중 채우기 안 함"
+            row.update(skip="pending", why="청산 예약 — 비중 채우기 안 함")
         elif p.get("decisionKey") in exited:
-            row["why"] = "이 회차 청산 이력(손절·스위칭 등) — 비중 채우기 안 함"
+            row.update(skip="exited", why="이 회차 청산 이력(손절·스위칭 등) — 비중 채우기 안 함")
         elif p.get("holdDay", 0) >= config.MAX_HOLD_DAYS - config.TOPUP_STOP_BEFORE:
-            row["why"] = f"최대 보유 {config.MAX_HOLD_DAYS}일 {config.TOPUP_STOP_BEFORE}일 전 — 비중 채우기 끝"
+            row.update(skip="maxhold", why=f"최대 보유 {config.MAX_HOLD_DAYS}일 {config.TOPUP_STOP_BEFORE}일 전 — 비중 채우기 끝")
         elif fut_ok and short and p["code"] not in fut_ok:
-            row["why"] = "주식선물 미상장 — 추가 주문 안 함"
+            row.update(skip="fut", why="주식선물 미상장 — 추가 주문 안 함")
         elif not close:
-            row["why"] = "종가 없음"
+            row.update(skip="noclose", why="종가 없음")
         elif stop and ((not short and close <= stop) or (short and close >= stop)):
-            row["why"] = f"종가 {close:,.0f} 가 손절가 {stop:,.0f} 침범"
+            row.update(skip="stop", why=f"종가 {close:,.0f} 가 손절가 {stop:,.0f} 침범")
         elif stop and ((not short and stop >= cap) or (short and stop <= cap)):
-            row["why"] = f"손절가 {stop:,.0f} 가 진입가 상한 {cap:,.0f} 너머 — 살 수 있는 가격 없음"
+            row.update(skip="cap", why=f"손절가 {stop:,.0f} 가 진입가 상한 {cap:,.0f} 너머 — 살 수 있는 가격 없음")
         else:
             new = engine.place_entry(L, code=p["code"], name=p.get("name"), date=date, valid_date=nxt, entry=cap, stop=stop,
                                      target=p.get("target"), weight=weight, sector=p.get("sector"), signal=p.get("signal"),
