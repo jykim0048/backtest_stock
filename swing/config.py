@@ -133,7 +133,7 @@ PARTIAL_ENTRY = os.environ.get("SWING_PARTIAL_ENTRY", "1") != "0"
 # 현금 부족 시 평가손실 종목 시가 일괄 청산(2026-10-16 도입) — 2026-10-19 사용자 결정으로 기본 끔: 재원은 Live Trader 스위칭(PLAN_LIVE_TRADER §2-1)
 RAISE_CASH_AT_OPEN = os.environ.get("SWING_RAISE_CASH_AT_OPEN", "0") == "1"
 PARTIAL_ENTRY_MIN = _f("SWING_PARTIAL_ENTRY_MIN", 0.5)
-# PM 비중 채우기(2026-11-03 사용자 결정) — 추가 주문 횟수 제한·종가 ±밴드 대신, 최근 PM 판단이 매수·보유 쪽이면 목표 수량까지 매일 추가 주문
+# PM 비중 채우기(2026-11-03 사용자 결정) — 추가 주문 횟수 제한·종가 ±밴드 대신, 최근 PM 등급이 진입 쪽(Hold 제외)이면 목표 수량까지 매일 추가 주문
 # (원 진입가 상한·현재 손절가 안쪽에서만 체결). 남은 수량이 목표의 TOPUP_MIN 미만이면 다 찬 것으로 보고, 최대 보유 TOPUP_STOP_BEFORE 일 전부터는 멈춘다.
 TOPUP_MIN = _f("SWING_TOPUP_MIN", 0.1)
 TOPUP_STOP_BEFORE = _i("SWING_TOPUP_STOP_BEFORE", 2)

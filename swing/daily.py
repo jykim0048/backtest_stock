@@ -317,7 +317,7 @@ def run_day(date, store, agent, prices, wb, *, force=False, log=print, uni=None,
                                "error": d.error, "target": p.get("target"), "stop": p.get("stop"),
                                "decisionKey": key})
 
-    run["topups"] = _topups(L, bars, date, nxt, fut_ok)      # PM 비중 채우기(2026-11-03) — 재판별 뒤(오늘 매도 판정·새 손절 반영)
+    run["topups"] = _topups(L, bars, date, nxt, fut_ok, store)      # PM 비중 채우기(2026-11-03) — 재판별 뒤(오늘 매도 판정·새 손절 반영)
 
     # 3) 신규 분석·주문(Long) · 4) 신규 Short — 매트릭스 후보 뒤에 유니버스 후보(독립 소스, source 로 구분)
     prog.update(phase="long")
@@ -354,10 +354,11 @@ def run_day(date, store, agent, prices, wb, *, force=False, log=print, uni=None,
     return run
 
 
-def _topups(L, bars, date, nxt, fut_ok=None):
+def _topups(L, bars, date, nxt, fut_ok=None, store=None):
     """PM 비중 채우기(2026-11-03, 종전 부분 진입 잔여분 2회 추가 주문 대체) — 보유 포지션이 PM 계획 수량(판단 때 비중 × 평가액 / 진입가)에
     못 미치면 매일 잔여분을 다음 영업일 추가 주문. 횟수 제한·종가 밴드 없음, 체결은 원 진입가 상한·현재 손절가 안쪽에서만(Live Trader).
-    멈춤: 최근 PM 판단이 매수·보유 쪽이 아님 · 청산 예약 · 이 회차에 청산 이력(손절·스위칭·trim) · 최대 보유 TOPUP_STOP_BEFORE 일 전 ·
+    멈춤: 최근 PM 등급이 진입 쪽(Long Buy·Overweight / Short Sell·Underweight)이 아님 — Hold 도 멈춤(2026-11-03 사용자 결정, PM 이
+    '추가 매수 없이 유지' 를 Hold 로 표현) · 청산 예약 · 이 회차에 청산 이력(손절·스위칭·trim) · 최대 보유 TOPUP_STOP_BEFORE 일 전 ·
     종가가 손절가 침범 · Short 주식선물 미상장. 남은 수량이 목표의 TOPUP_MIN 미만이면 다 찬 것(행 없음)."""
     out = []
     plans = {}
@@ -377,11 +378,12 @@ def _topups(L, bars, date, nxt, fut_ok=None):
         remain = goal - p["qty"]
         if remain <= 0 or remain < goal * config.TOPUP_MIN:
             continue
-        rating = p.get("lastRating") or p.get("rating") or o.get("rating")
+        rating = (p.get("lastRating") or p.get("rating") or o.get("rating")
+                  or ((store.get(p["decisionKey"]) if store is not None and p.get("decisionKey") else None) or {}).get("rating"))   # 11-03 이전 주문엔 등급 없음 → 진입 판단 문서
         n = len(p.get("topups") or []) + 1
         row = {"code": p["code"], "name": p.get("name"), "side": p.get("side", "long"), "topup": n, "qty": remain, "rating": rating, "ok": False, "why": ""}
         close, stop = (bars.get(p["code"]) or {}).get("close"), p.get("stop")
-        if rating not in (config.SHORT_RATINGS if short else config.BUY_RATINGS) + ("Hold",):
+        if rating not in (config.SHORT_RATINGS if short else config.BUY_RATINGS):
             row.update(skip="rating", why=f"최근 PM {rating or '—'} — 비중 채우기 안 함")
         elif p.get("sellPending"):
             row.update(skip="pending", why="청산 예약 — 비중 채우기 안 함")

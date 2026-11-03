@@ -110,9 +110,20 @@ class TestPmWeightFill(unittest.TestCase):
         o = L["orders"][-1]
         self.assertEqual((o["qty"], o["entry"], o["topupOf"], o["topup"]), (700, 10000.0, "p1", 3))
 
-    def test_hold_review_keeps_filling(self):
-        r = self.topups(self.ledger(lastRating="Hold"))
-        self.assertTrue(r[0]["ok"])
+    def test_hold_review_stops(self):
+        r = self.topups(self.ledger(lastRating="Hold"))                  # PM Hold = 추가 매수 없이 유지
+        self.assertEqual((r[0]["ok"], r[0]["skip"]), (False, "rating"))
+
+    def test_rating_falls_back_to_entry_decision_doc(self):
+        L = self.ledger(rating=None)
+        L["orderLog"][0].pop("rating")                                  # 11-03 이전 주문 — 등급 기록 없음
+        st = store.FileStore(tempfile.mkdtemp())
+        st.put(self.K, {"rating": "Buy"})
+        b = {"000010": bar(10600, 10600, 10600, 10600)}
+        L2 = self.ledger(rating=None)
+        L2["orderLog"][0].pop("rating")
+        self.assertEqual(daily._topups(L2, b, "2026-10-23", "2026-10-26")[0]["skip"], "rating")   # 문서 없으면 등급 미상 → 멈춤
+        self.assertTrue(daily._topups(L, b, "2026-10-23", "2026-10-26", store=st)[0]["ok"])
 
     def test_underweight_review_stops(self):
         r = self.topups(self.ledger(lastRating="Underweight"))

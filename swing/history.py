@@ -272,6 +272,8 @@ def build(store, key, *, day=None, log=print):
                    "qty": -q, "price": px, "text": f"{q:,}주 청산 · {pnl / 1e4:+,.0f}만 원", "pnl": pnl,
                    "sub": (f"손절가보다 {slip * 100:.1f}% 불리 · " if warn else "") + (ts[-1].get("note") or ""), "warn": warn, "more": _splits(xf)})
     last_day = max([d for d in (asof, end) if d] or [date])
+    if r["position"] and not end:                         # 보유 중이면 오늘 장중(정산 전)까지 그래프에(2026-11-03 두산에너빌리티)
+        last_day = max(last_day, live_date(store, asof) or last_day)
     for d in (tradedays.trading_days(start, end or asof or last_day) if start else []):
         for x in (store.get(f"run/{d}") or {}).get("reviews") or []:
             if x.get("code") == code and (x.get("side") or "long") == side:
