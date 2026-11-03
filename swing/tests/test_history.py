@@ -161,6 +161,34 @@ class TestBuild(unittest.TestCase):
         self.assertEqual((p["price"], p["priceTs"], p["value"]), (50000.0, "10:15", 49 * 50000))
         self.assertAlmostEqual(p["unrealPct"], (50000 / 65563 - 1) * 100, places=1)
 
+    def test_decision_api_attaches_latest_review_of_same_round(self):
+        from swing import server
+        st = setup()
+        st.put(KEY, {"rating": "Overweight", "summary": "진입 요약"})
+        st.put("decision/2026-10-29/006110/review", {"rating": "Hold", "summary": "10-29 재판별"})
+        st.put("decision/2026-10-31/006110/review", {"rating": "Hold", "summary": "10-31 재판별"})
+        st.put("decision/2026-10-20/006110/review", {"rating": "Sell", "summary": "이전 회차"})       # 진입 전 — 제외
+        st.put("decision/2026-10-30/006110/review-short", {"rating": "Hold", "summary": "Short"})     # 방향 다름 — 제외
+        old, server.STORE = server.STORE, st
+        try:
+            d = server.api_decision({"key": KEY})
+            r = server.api_decision({"key": "decision/2026-10-29/006110/review"})
+        finally:
+            server.STORE = old
+        self.assertEqual((d["summary"], d["latestReview"]["summary"], d["latestReview"]["count"]), ("진입 요약", "10-31 재판별", 2))
+        self.assertNotIn("latestReview", r)
+
+    def test_latest_review_uses_applied_stop_target(self):
+        from swing import server
+        st = setup()
+        st.put("decision/2026-10-29/006110/review", {"rating": "Hold", "summary": "s", "action": "Hold", "stop": 50000, "target": 90000})
+        old, server.STORE = server.STORE, st
+        try:
+            lr = server.api_decision({"key": KEY})["latestReview"]
+        finally:
+            server.STORE = old
+        self.assertEqual((lr["stop"], lr["target"], lr["trader"], lr["reviewAction"]), (57000, 71000, "Hold", "hold_updated"))   # run 기록(적용값) 우선
+
     def test_summary_equity_uses_live_price(self):
         from swing import server
         st = setup()

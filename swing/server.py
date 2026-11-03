@@ -138,10 +138,40 @@ def api_runs(q):
 
 
 def api_decision(q):
+    """판단 원문. 진입 판단이면 같은 회차의 마지막 재판별 요약(latestReview)을 붙인다(2026-11-03 — PM 요약은 최신 판단 기준)."""
     k = q.get("key") or ""
     if not k.startswith("decision/"):
         return None
-    return STORE.get(k)
+    d = STORE.get(k)
+    if d is not None:
+        lr = _latest_review(k)
+        if lr:
+            d = {**d, "latestReview": lr}
+    return d
+
+
+def _latest_review(key):
+    p = key.split("/")
+    if len(p) != 4 or not p[3].startswith("entry"):
+        return None
+    from swing import history
+    date, code, short = p[1], p[2], p[3].endswith("-short")
+    r = history._rounds(_ledger(), code, "short" if short else "long").get(key)
+    if not r:
+        return None
+    end = history._span(r)[1] or "9999-12-31"                # 회차 청산일까지(보유 중이면 오늘까지) — 다른 회차 재판별 제외
+    want = "review-short" if short else "review"
+    ks = [x for x in STORE.keys("decision/") if x.endswith(f"/{code}/{want}") and date < x.split("/")[1] <= end]
+    if not ks:
+        return None
+    lk = max(ks, key=lambda x: x.split("/")[1])
+    doc = STORE.get(lk) or {}
+    # 손절·목표는 재판별 뒤 실제 적용된 값(run 기록 — 폭 상한·본전 손절 반영), 없으면 판단 문서 값
+    rec = next((x for x in (STORE.get(f"run/{lk.split('/')[1]}") or {}).get("reviews") or [] if x.get("decisionKey") == lk), {})
+    return {"key": lk, "date": lk.split("/")[1], "rating": doc.get("rating"), "summary": doc.get("summary"), "error": doc.get("error"), "count": len(ks),
+            "trader": doc.get("action"), "reviewAction": rec.get("action"),
+            "stop": rec.get("stop") if rec.get("stop") is not None else doc.get("stop"),
+            "target": rec.get("target") if rec else doc.get("target")}
 
 
 def api_signals(q):

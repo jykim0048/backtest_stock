@@ -1412,15 +1412,22 @@
       var sh = d.side === "short";
       $("dec-title").textContent = d.code + " · " + d.date + " · " +
         (d.purpose === "review" ? (sh ? "Short 환매 검토" : "매도 검토") : (sh ? "공매도 진입" : "신규 진입"));
-      var g = [["PM 등급", rating(d.rating, d.error)], ["Trader", esc(d.action || "—")],
-        ["진입가", '<span class="param-value entry">' + won(d.entry) + "</span>"], ["손절가", '<span class="param-value stop">' + won(d.stop) + "</span>"],
-        ["목표가(PM)", '<span class="param-value target">' + (d.target ? won(d.target) : "—") + "</span>"],
+      // 진입 판단이라도 재판별이 있으면 등급·Trader·손절·목표는 마지막 재판별 기준(2026-11-03), 진입가·비중은 진입 판단 그대로
+      var lr = d.latestReview, rv = lr ? " · " + esc(lr.date.slice(5)) + " 재판별" : "";
+      var stop = lr && lr.stop != null ? lr.stop : d.stop, tgt = lr ? lr.target : d.target;
+      var g = [["PM 등급" + rv, lr ? rating(lr.rating, lr.error) : rating(d.rating, d.error)], ["Trader" + rv, esc((lr ? lr.trader : d.action) || "—")],
+        ["진입가", '<span class="param-value entry">' + won(d.entry) + "</span>"], ["손절가" + (lr ? " · 재판별 후" : ""), '<span class="param-value stop">' + won(stop) + "</span>"],
+        ["목표가(PM)" + (lr ? " · 재판별 후" : ""), '<span class="param-value target">' + (tgt ? won(tgt) : "—") + "</span>"],
         ["비중", (d.pm_weight ? "PM " + (d.pm_weight * 100).toFixed(1) + "%" : "PM —") + " · Trader " + (d.weight ? (d.weight * 100).toFixed(1) + "%" : "—")]];
       var h = '<div class="dec-grid">' + g.map(function (x) {
         return '<div class="port-item"><span class="port-lbl">' + x[0] + '</span><span class="port-val">' + x[1] + "</span></div>";
       }).join("") + "</div>";
       if (d.error) h += '<div class="dec-sec"><h4>판단 실패</h4><div class="report" style="color:#fca5a5">' + esc(d.error) + "</div></div>";
-      if (d.summary) h += '<div class="dec-sec"><h4>PM 요약</h4><div class="report">' + esc(d.summary) + "</div></div>";
+      if (lr && lr.summary) {                  // 진입 판단 팝업 — PM 요약은 같은 회차 마지막 재판별 기준, 최초 진입 요약은 접어서(2026-11-03)
+        h += '<div class="dec-sec"><h4>PM 요약 <span class="muted">· 최근 재판별 ' + esc(lr.date.slice(5)) + (lr.count > 1 ? "(" + lr.count + "회 중 마지막)" : "") +
+          "</span> " + rating(lr.rating) + ' <button type="button" class="hist-raw" data-key="' + esc(lr.key) + '">원문 ›</button></h4><div class="report">' + esc(lr.summary) + "</div>" +
+          (d.summary ? '<details class="dec-first"><summary>최초 진입 판단 요약 · ' + esc((d.date || "").slice(5)) + "</summary>" + '<div class="report">' + esc(d.summary) + "</div></details>" : "") + "</div>";
+      } else if (d.summary) h += '<div class="dec-sec"><h4>PM 요약</h4><div class="report">' + esc(d.summary) + "</div></div>";
       h += '<div class="dec-sec" id="dec-hist" hidden></div>';
       var reps = d.reports || {}, known = {};
       ROLE_GROUPS.forEach(function (g) { g[1].forEach(function (r) { known[r[0]] = 1; }); });
