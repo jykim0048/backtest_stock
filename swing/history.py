@@ -328,6 +328,11 @@ def build(store, key, *, day=None, log=print):
     last_px = (live or {}).get("price") or (p or {}).get("lastClose") or (closes[-1] if closes else None)
     realized = sum(t.get("pnl") or 0 for t in r["trades"])
     cost = sum(t["qty"] * t["entryPrice"] for t in r["trades"])
+    # 오늘 장중 청산(정산 전, 2026-11-03 LG화학) — 추정 손익을 더하고 pending 으로 따로 알린다. 16:30 정산 뒤엔 원장 값으로 바뀜
+    live_x = [e for e in ev if e.get("live") and (e.get("qty") or 0) < 0]
+    pending = sum(e.get("pnl") or 0 for e in live_x)
+    realized += pending
+    cost += sum(-e["qty"] * (p or {}).get("entry", 0) for e in live_x)
     reached = next((x["d"] for x in days if target and x["w"] >= target * 0.95), None)
     first_exit = next((e for e in ev if (e.get("qty") or 0) < 0), None)
     switched = sum(-(e["qty"]) for e in ev if e["cls"] == "switch")
@@ -358,5 +363,5 @@ def build(store, key, *, day=None, log=print):
     return {**extra, "status": status, "code": code, "side": side, "name": plan.get("name") or (p or {}).get("name") or (r["trades"][-1]["name"] if r["trades"] else code),
             "entryDate": start, "exitDate": end, "avg": avg, "last": last_px, "lastTs": ((live or {}).get("ts") or "")[11:16] or None, "vsAvgPct": round(sign * (last_px / avg - 1) * 100, 2) if last_px and avg else None,
             "qty": qty_now, "targetWeight": round(target, 2), "peakWeight": round(peak, 2), "peakDay": peak_day,
-            "nowWeight": days[-1]["w"] if days and qty_now else 0.0, "realized": round(realized), "realizedPct": round(realized / cost * 100, 2) if cost else None,
+            "nowWeight": days[-1]["w"] if days and qty_now else 0.0, "realized": round(realized), "realizedPct": round(realized / cost * 100, 2) if cost else None, "realizedPending": round(pending),
             "summary": line, "deviations": sum(1 for e in ev if e.get("warn")), "hasBars": bool(bars), "days": days, "events": ev}

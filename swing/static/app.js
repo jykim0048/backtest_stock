@@ -1383,7 +1383,13 @@
     if (h.status === "none") { el.hidden = true; return; }
     var ws = h.side === "short" ? "SHORT" : "LONG";
     var vs = h.vsAvgPct != null ? (h.qty ? "현재가 " + won(h.last) + (h.lastTs ? "(" + h.lastTs + ")" : "") + " · 평단 대비 " : "마지막 종가 " + won(h.last) + " · 평단 대비 ") + pctTxt(h.vsAvgPct) : "";
-    var pnl = h.realized ? '<div class="hist-num"><span>실현 손익</span><b class="' + signCls(h.realized) + '">' + wonS(h.realized) + "</b>" + (h.realizedPct != null ? "<small>" + pctTxt(h.realizedPct) + "</small>" : "") + "</div>" : "";
+    var pnl = h.realized ? '<div class="hist-num"' + (h.realizedPending ? ' title="오늘 장중 청산분 ' + wonS(h.realizedPending) + '원은 정산 전 추정(매도세 반영) — 16:30 정산 뒤 확정"' : "") + '><span>실현 손익' + (h.realizedPending ? " · 정산 전 포함" : "") +
+      '</span><b class="' + signCls(h.realized) + '">' + wonS(h.realized) + "</b>" + (h.realizedPct != null ? "<small>" + pctTxt(h.realizedPct) + "</small>" : "") + "</div>" : "";
+    if (!pnl && h.qty && h.avg && h.last) {    // 실현손익이 없으면 보유분 평가손익(2026-11-03) — 장중이면 장중 현재가 기준
+      var ur = (h.side === "short" ? -1 : 1) * (h.last - h.avg) * h.qty;
+      pnl = '<div class="hist-num" title="' + won(h.qty) + "주 × (현재가 " + won(h.last) + (h.lastTs ? "(" + h.lastTs + ")" : "") + " − 평단 " + won(h.avg) + ')"><span>평가 손익</span><b class="' + signCls(ur) + '">' +
+        wonS(ur) + "</b>" + (h.vsAvgPct != null ? "<small>" + pctTxt(h.vsAvgPct) + "</small>" : "") + "</div>";
+    }
     var html = '<div class="hist-card" role="button" tabindex="0" aria-expanded="' + HIST.open + '">' +
       '<div class="hist-top"><strong>트레이딩 히스토리</strong><span class="side-tag ' + h.side + '">' + ws + "</span>" + (h.status === "open" ? '<span class="flag held">보유 ' + won(h.qty) + "주</span>" : '<span class="flag">청산 완료</span>') +
       '<em>' + (HIST.open ? "타임라인 접기 ▴" : "타임라인 펼치기 ▾") + "</em></div>" +
@@ -1412,6 +1418,25 @@
     }
     el.innerHTML = html;
     el.hidden = false;
+  }
+  // 해외 비교기업(2026-11-03) — swing/agent/peers.py JSON 을 표로. 파싱 실패 시 원문 그대로
+  var PEER_SRC = { "llm-proposed": "LLM 제안 · yfinance 시세 검증", curated: "큐레이션 목록", none: "비교기업 없음" };
+  var PEER_MKT = { T: "일본", HK: "홍콩", SS: "상하이", SZ: "선전", TW: "대만", L: "런던", PA: "파리", DE: "독일", AS: "암스테르담", SW: "스위스",
+    MI: "밀라노", MC: "마드리드", ST: "스톡홀름", CO: "코펜하겐", HE: "헬싱키", OL: "오슬로", BR: "브뤼셀", TO: "토론토", AX: "호주", NS: "인도", BO: "인도", SI: "싱가포르", IL: "런던(IOB)" };
+  function peersHtml(raw) {
+    var x;
+    try { x = JSON.parse(raw); } catch (e) { return "<pre><code>" + esc(raw) + "</code></pre>"; }
+    var ps = x.peers || [], ind = x.industry || {}, rej = x.rejected || [];
+    var mkt = function (t) { var m = /\.([A-Z]+)$/.exec(t || ""); return m ? (PEER_MKT[m[1]] || m[1]) : "미국"; };
+    var head = '<p class="peer-meta">' + esc(PEER_SRC[x.source] || x.source || "—") +
+      (ind.sector || ind.industry ? " · 업종 " + esc([ind.sector, ind.industry].filter(Boolean).join(" / ")) : "") +
+      (x.model ? " · " + esc(x.model) : "") + "</p>";
+    var body = ps.length ? '<table class="peer-table"><thead><tr><th>기업</th><th>티커</th><th>시장</th><th>유사점</th></tr></thead><tbody>' + ps.map(function (p) {
+      return "<tr><td>" + esc(p.name || "—") + '</td><td class="num">' + esc(p.ticker || "—") + "</td><td>" + esc(mkt(p.ticker)) + "</td><td>" + esc(p.note || "") + "</td></tr>";
+    }).join("") + "</tbody></table>" : '<p class="muted">선정된 해외 비교기업이 없습니다.</p>';
+    var tail = (rej.length ? '<p class="peer-meta">제외 ' + rej.map(function (r) { return esc(r.ticker) + "(" + esc(r.reason || "") + ")"; }).join(", ") + "</p>" : "") +
+      (x.note ? '<p class="peer-meta">' + esc(x.note) + "</p>" : "");
+    return head + body + tail;
   }
   function openDecision(key) {
     api("/api/swing/decision?key=" + encodeURIComponent(key)).then(function (d) {
@@ -1445,7 +1470,7 @@
       if (groups.length) h += '<div class="dec-sec"><h4>종합 리포트</h4>' + groups.map(function (g) {
         var rep = function (k) {   // peers 는 JSON 이라 코드 블록, 나머지는 마크다운
           return (k === "market" && d.chart ? techChart(d.chart, d) : "") +     // I-1 에 차트
-            '<div class="report md">' + (k === "peers" ? "<pre><code>" + esc(reps[k]) + "</code></pre>" : md(reps[k])) + "</div>";
+            '<div class="report md">' + (k === "peers" ? peersHtml(reps[k]) : md(reps[k])) + "</div>";
         };
         var body = g[1].length === 1 ? rep(g[1][0][0])
           : '<div class="role-list">' + g[1].map(function (r) {
