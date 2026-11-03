@@ -609,6 +609,14 @@
     else more.hidden = true;
     $("fill-caption").textContent = fs.length + "건 · 체결 " + cnt.filled + " · 미도달 취소 " + (cnt.cancelled || 0) + " · 스킵 " + (cnt.skipped || 0);
   }
+  function closedRounds() {                    // 끝난 포지션(swing/reflect.py closed_rounds 와 같은 묶음) — 거래 목록은 최신순
+    var g = {};
+    (S.trades || []).forEach(function (t) {
+      var k = [t.code, sideOf(t), t.entryDate, t.decisionKey].join("|");
+      if (!g[k]) g[k] = t;
+    });
+    return Object.keys(g).map(function (k) { return g[k]; }).filter(function (t) { return !t.partial; });
+  }
   function rpReflect() {                       // 매매 복기(2026-11-02, swing/reflect.py) — 청산일 기준
     var rs = bySide(periodBy(S.reflections || [], "exitDate"), RP.side);
     var shown = rs.slice(0, RP.rlimit || 5);
@@ -626,7 +634,9 @@
     if (rs.length > shown.length) { more.hidden = false; more.textContent = "더 보기 (" + (rs.length - shown.length) + "건 남음)"; }
     else more.hidden = true;
     var w = rs.filter(function (r) { return r.text && r.right; }).length, n = rs.filter(function (r) { return r.text; }).length;
-    $("reflect-caption").textContent = n ? n + "건 · 적중 " + w + " · 빗나감 " + (n - w) : "";
+    var wait = Math.max(0, bySide(periodBy(closedRounds(), "exitDate"), RP.side).length - rs.length);
+    $("reflect-caption").textContent = (n ? n + "건 · 적중 " + w + " · 빗나감 " + (n - w) : "") +
+      (wait ? (n ? " · " : "") + "복기 대기 " + wait + "건(장 마감 후 런마다 " + ((S.config && S.config.reflectMax) || 15) + "건씩 작성)" : "");
     rpDayReview();
   }
   function rpDayReview() {                     // 일 단위 조회 — 그날 판단 결과 요약(주문 안 낸 종목·미도달·스킵, LLM 없음)
@@ -686,7 +696,6 @@
     all.forEach(function (t) { if (!seen[t.exitDate]) { seen[t.exitDate] = 1; days.push(t.exitDate); } });
     (S.fills || []).forEach(function (o) { if (o.validDate && !seen[o.validDate]) { seen[o.validDate] = 1; days.push(o.validDate); } });
     days.sort().reverse();
-    days.reverse();
     if (!RP.day || days.indexOf(RP.day) < 0) RP.day = days[0] || null;
     var cur = Array.prototype.map.call(sel.options, function (o) { return o.value; }).join(",");
     if (cur !== days.join(",")) sel.innerHTML = days.map(function (d) { return "<option>" + d + "</option>"; }).join("");
@@ -695,6 +704,7 @@
   }
 
   // 일자별 요약 — 선택 기간 안의 청산일마다 건수·손익·승률·누적, 행 클릭 = 그 날짜 조회
+  var DAILY_SHOW = 5;                          // 일자별 요약 기본 표시 일수 — 나머지는 접음(2026-11-03)
   function rpDaily(all, ts) {
     var days = {}, order = [];
     ts.forEach(function (t) {
@@ -707,6 +717,9 @@
       return { d: d, a: a, p: p, acc: acc };
     }).reverse();
     var maxAbs = Math.max.apply(null, rows.map(function (r) { return Math.abs(r.p); }).concat([1]));
+    var total = rows.length, selAt = RP.period === "day" ? rows.map(function (r) { return r.d; }).indexOf(RP.day) : -1;
+    var open = RP.dailyOpen || selAt >= DAILY_SHOW;       // 고른 날짜가 접힌 쪽이면 펼쳐서 보여 준다
+    if (!open) rows = rows.slice(0, DAILY_SHOW);
     var h = '<thead><tr><th>청산일</th><th class="r">건수</th><th class="r">Long · Short</th><th class="r">승률</th>' +
       '<th class="r">평균 수익률</th><th class="r">실현 손익</th><th></th><th class="r">누적 손익</th></tr></thead><tbody>';
     h += rows.length ? rows.map(function (r) {
@@ -721,6 +734,9 @@
         '<td class="r num ' + signCls(r.acc) + '">' + wonS(r.acc) + "</td></tr>";
     }).join("") : '<tr class="empty"><td colspan="8">이 기간 청산 거래가 없습니다</td></tr>';
     $("rp-daily").innerHTML = h + "</tbody>";
+    var more = $("daily-more");
+    more.hidden = total <= DAILY_SHOW || selAt >= DAILY_SHOW;
+    more.textContent = RP.dailyOpen ? "접기" : "이전 " + (total - DAILY_SHOW) + "일 더 보기";
   }
 
   // ① 핵심 지표
@@ -929,7 +945,8 @@
   });
   segBind("trade-filter", "side", true);
   $("fills-more").addEventListener("click", function () { RP.flimit = (RP.flimit || 10) + 20; rpFills(); });
-  $("reflects-more").addEventListener("click", function () { RP.rlimit = (RP.rlimit || 5) + 10; rpReflect(); });
+  $("reflects-more").addEventListener("click", function () { RP.rlimit = Infinity; rpReflect(); });
+  $("daily-more").addEventListener("click", function () { RP.dailyOpen = !RP.dailyOpen; renderReport(); });
   segBind("trade-sort", "sort", false);
   $("trades-more").addEventListener("click", function () { RP.limit += 20; renderReport(); });
 
