@@ -474,7 +474,7 @@ def settle_day(L, date, bars, intraday=None):
                      "qty": o["qty"], "entry": px, "stop": o["stop"],
                      "target": o["target"], "fillDate": date, "holdDay": 1,
                      "sector": o.get("sector"), "signal": o.get("signal"), "source": o.get("source"),
-                     "decisionKey": o.get("decisionKey"), "orderId": o["id"],
+                     "decisionKey": o.get("decisionKey"), "orderId": o["id"], "weight": o.get("weight"), "rating": o.get("rating"),
                      "lastClose": None, "sellPending": None}
                 p.update({k: o[k] for k in ("thesis", "invalidation", "horizon") if o.get(k)})   # Live PM 근거(PLAN_PM §5)
                 if short:

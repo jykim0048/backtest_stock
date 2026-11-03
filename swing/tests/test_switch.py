@@ -63,7 +63,7 @@ class TestSwitching(unittest.TestCase):
         run(ex, ticks)
         self.assertNotIn("s:p2", ex.doc["exits"])                          # 수익률 높은 종목은 남김
         sw = ex.doc["exits"]["s:p1"]
-        self.assertEqual({f["mode"] for f in sw["fills"]}, {"vwap"})
+        self.assertEqual({f["mode"] for f in sw["fills"]}, {"swC"})
         self.assertTrue(all(f["price"] >= f["vwap"] for f in sw["fills"]))  # VWAP 이상에서만 판다
         self.assertNotIn("open", {f["mode"] for f in sw["fills"]})         # 시가에는 안 판다
         bought = sum(f["qty"] * f["price"] for f in ex.doc["orders"]["o1"]["fills"])
@@ -78,7 +78,7 @@ class TestSwitching(unittest.TestCase):
         run(ex, merge(path("000010", [("09:00", 10000), ("09:05", 9990), ("09:06", 9980)]),
                       path("000020", [("09:00", 5000), ("09:06", 4700)])))   # 매수 막힘 + 재원 후보가 시가 −6%
         sw = ex.doc["exits"]["s:p1"]
-        self.assertEqual(fills(sw)[0][3], "force")
+        self.assertEqual(fills(sw)[0][3], "swA")
         self.assertEqual(fills(sw)[0][2], 4700)
 
     def test_no_switch_for_unbuyable_order(self):

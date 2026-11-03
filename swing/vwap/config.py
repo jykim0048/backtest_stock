@@ -19,4 +19,7 @@ FORCE_MOVE = 0.05           # S4 기준가 대비 기다리면 손해인 방향�
 TRANCHES = 60               # S3 첫 분할 뒤 남은 수량의 VWAP 분할 수(2026-10-18 3 → 60)
 MIN_GAP_MIN = 5             # S3 VWAP 분할 사이 최소 간격(분, 2026-10-18 20 → 5)
 MIN_OBS = 2                 # VWAP 판정 전 최소 관측 구간
+SWITCH_WINNER_PCT = 0.05    # 스위칭 D(승자 보호) — 진입가 대비 수익이 이 이상이면 PM 비중 초과분만 매도(2026-11-03)
+SWITCH_STALE_DAYS = 5       # 스위칭 B(정체) — 이 영업일 이상 보유했는데
+SWITCH_STALE_PCT = 0.01     #                  수익이 이 미만이면 VWAP 과 무관하게 재원 후보
 SIGMA_FLOOR = 0.002         # σ 하한(가격 대비, 표시용)

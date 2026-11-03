@@ -25,7 +25,12 @@ Live PM 지시(2026-10-19, PLAN_LIVE_TRADER §5-2) — 매 폴링마다 livepm/<
 스위칭(2026-10-19 사용자 결정, PLAN_LIVE_TRADER §2-1) — 시가 일괄 현금 확보 청산 대신:
   Long 신규 매수는 **그 시점까지 쓸 수 있는 현금** 안에서만 체결(현금 = 세션 시작 가용 현금 + 오늘 Long 매도 대금 − 오늘 Long 매수 대금).
   **적시 스위칭**(2026-10-20 수정) — 매수 분할의 조건이 맞았는데 현금이 모자랄 때만, 그 **부족 금액만큼** 보유 Long 을 판다
-  ("s:<포지션 id>", kind switch): 오늘 시가 대비 FORCE_MOVE 넘게 빠진 종목 먼저, 없으면 가격 ≥ VWAP 인 종목 중 장중 수익률 낮은 순.
+  ("s:<포지션 id>", kind switch). 손실은 빨리, 수익은 길게(2026-11-03 사용자 지시) — 4등급을 위에서부터 판다(_tier, 수익 = 진입가 대비):
+    A 손절 우선: 손실 중 + 가격 < VWAP, 또는 시가 대비 FORCE_MOVE 하락(수익 SWITCH_WINNER_PCT 미만) — 손절선에 가까운 순
+    B 정체: SWITCH_STALE_DAYS 영업일 이상 보유 + 수익 SWITCH_STALE_PCT 미만 — 수익 낮은 순
+    C 소폭 손익: 가격 ≥ VWAP + 수익 SWITCH_WINNER_PCT 미만 — 수익 낮은 순
+    D 승자 보호: 수익 SWITCH_WINNER_PCT 이상 또는 목표 도달 후 보유 — A~C 로 모자라고 막힌 매수에 PM Buy 가 있을 때만, 현재 비중이 PM 비중을 넘은 초과분만
+    어디에도 안 드는 종목(소폭 수익 + 가격 < VWAP)은 팔지 않는다.
   시가에는 팔지 않는다(ENTRY_START 부터). 판 직후 같은 폴링에서 막혔던 매수를 다시 시도한다.
   (10-20 첫 운영의 '남은 매수 금액 전체 − 현금' 방식은 살 수 없는 주문 몫까지 미리 팔아 현금 9,240만 원이 남았다 → 폐기.)
   정산은 진입 전에 재원 매도를 현금으로 반영하고, 못 산 수량은 잔여분 추가 주문으로 다음 날 이어진다.
@@ -37,7 +42,7 @@ Live PM 지시(2026-10-19, PLAN_LIVE_TRADER §5-2) — 매 폴링마다 livepm/<
 import math
 
 from .. import engine
-from ..config import SELL_TAX
+from ..config import MAX_WEIGHT, SELL_TAX
 from ..intraday.feed import Tick
 from . import config as C
 from .state import VwapState
@@ -59,6 +64,26 @@ def slice_plan(planned):
         return []
     first = min(planned, max(1, int(math.floor(planned * C.OPEN_PCT + 0.5))))
     return [first] + tranche_qtys(planned - first)
+
+
+def _tier(p, st, ret):
+    """스위칭 재원 등급(모듈 설명) — A·B·C·D 또는 None(팔지 않음)."""
+    t, has_vwap = st.last, st.n_obs >= C.MIN_OBS and st.vwap is not None
+    fall = t.open and t.price <= t.open * (1 - C.FORCE_MOVE)
+    winner = ret >= C.SWITCH_WINNER_PCT
+    if (ret < 0 and has_vwap and t.price < st.vwap) or (fall and not winner):
+        return "A"
+    if winner or p.get("targetHit"):
+        return "D"
+    if (p.get("holdDay") or 0) >= C.SWITCH_STALE_DAYS and ret < C.SWITCH_STALE_PCT:
+        return "B"
+    return "C" if has_vwap and t.price >= st.vwap else None
+
+
+def _stop_progress(p, px):
+    """손절선까지 진행률 — 0 = 진입가, 1 = 손절가. 손절가가 진입가 이상이면(수익 잠금) 1."""
+    room = p["entry"] - p["stop"]
+    return (p["entry"] - px) / room if room > 0 else 1.0
 
 
 def _minutes(a, b):
@@ -109,6 +134,7 @@ class Executor:
                 doc["watched"]["positions"].append(p["id"])
         self.pool = {p["id"]: p for p in L.get("positions") or []           # 스위칭 재원 후보 — 예약 청산 없는 Long
                      if not engine.is_short(p) and not p.get("sellPending")}
+        self.equity = engine.equity_now(L) if "cash" in L else 0.0             # D 등급 비중 기준 — 전일 종가 평가액
         if "cashStart" not in doc["switch"]:
             doc["switch"]["cashStart"] = float(engine._free_cash(L)) if L.get("positions") is not None and "cash" in L else 0.0
         self.base_of = {}
@@ -229,10 +255,11 @@ class Executor:
         need = sum(q * px for _r, _st, q, px in requests) - max(0.0, self.cash())
         if need <= 0:
             return False
+        net = 1 - SELL_TAX
         sw = self.doc["switch"]
         sw["requests"] = (sw.get("requests") or 0) + 1
         buying = {r["code"] for r in self.doc["orders"].values() if not r["done"]}
-        cands = []
+        groups = {"A": [], "B": [], "C": [], "D": []}
         for pid, p in self.pool.items():
             if pid in self.doc["exits"] or p["code"] in buying:
                 continue                                         # 이미 전량 청산 중이거나, 오늘 그 종목을 사는 중(잔여분 추가)
@@ -241,23 +268,41 @@ class Executor:
                 continue
             rem = p["qty"] - sum(filled(r) for r in self._trims(pid))
             if rem > 0:
-                cands.append((st.last.price / p["entry"] - 1, pid, p, st, rem))
-        falling = [c for c in cands if c[3].last.open and c[3].last.price <= c[3].last.open * (1 - C.FORCE_MOVE)]
-        above = [c for c in cands if c not in falling and c[3].n_obs >= C.MIN_OBS and c[3].vwap is not None
-                 and c[3].last.price >= c[3].vwap]
+                ret = st.last.price / p["entry"] - 1
+                tier = _tier(p, st, ret)
+                if tier:
+                    groups[tier].append((ret, pid, p, st, rem))
+        groups["A"].sort(key=lambda c: -_stop_progress(c[2], c[3].last.price))
+        for tier in ("B", "C", "D"):
+            groups[tier].sort(key=lambda c: c[0])
+        order = [("A", c) for c in groups["A"]] + [("B", c) for c in groups["B"]] + [("C", c) for c in groups["C"]]
+        if any(r.get("rating") == "Buy" for r, _st, _q, _px in requests):
+            order += [("D", c) for c in groups["D"]]
         sold = False
-        for mode, group in (("force", falling), ("vwap", above)):
-            for ret, pid, p, st, rem in sorted(group, key=lambda x: x[0]):    # 장중 수익률 낮은 순
-                if need <= 0:
-                    return sold
-                px = st.last.price
-                q = min(rem, int(math.ceil(need / (px * (1 - SELL_TAX)))))
-                self._switch_fill(pid, p, q, px, ts, mode, st, ret)
-                need -= q * px * (1 - SELL_TAX)
-                sold = True
+        for tier, (ret, pid, p, st, rem) in order:
+            if need <= 0:
+                break
+            px = st.last.price
+            q = min(rem, int(math.ceil(need / (px * net))))
+            if tier == "D":                                      # 승자는 PM 비중을 넘은 만큼만
+                q = min(q, int(math.floor(max(0.0, rem * px - self._pm_weight(p) * self.equity) / px)))
+            if q <= 0:
+                continue
+            self._switch_fill(pid, p, q, px, ts, "sw" + tier, st, ret)
+            need -= q * px * net
+            sold = True
         if need > 0:
             sw["unmet"] = (sw.get("unmet") or 0) + 1             # 팔 수 있는 재원이 없어 매수가 계속 막힘
         return sold
+
+    def _pm_weight(self, p):
+        """PM 목표 비중 — 포지션에 없으면(2026-11-03 이전 진입) 진입 판단 문서에서. 모르면 1.0(초과분 없음 = 팔지 않음)."""
+        w = p.get("weight")
+        if w is None:
+            d = self.store.get(p["decisionKey"]) if p.get("decisionKey") else None
+            w = (d or {}).get("pm_weight") or (d or {}).get("weight")
+            p["weight"] = w = min(w, MAX_WEIGHT) if w else 1.0
+        return w
 
     def _switch_fill(self, pid, p, q, px, ts, mode, st, ret):
         r = self.doc["exits"].setdefault("s:" + pid, {
@@ -267,7 +312,7 @@ class Executor:
         r["planned"] += q
         self._fill(r, q, px, ts, mode, st.vwap)
         self.log(f"[vwap] {ts[11:19]} 스위칭 재원 매도 {p['code']} {p.get('name') or ''} {q:,}주 @ {px:,.0f} "
-                 f"({mode}, 장중 수익률 {ret * 100:+.1f}%)")
+                 f"({mode}, 진입가 대비 {ret * 100:+.1f}%)")
 
     # ── Live PM 지시 ───────────────────────────────────────────────────────
     def _trims(self, pid):
