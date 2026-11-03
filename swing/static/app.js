@@ -411,6 +411,12 @@
     var t = k === "stop" || k === "stop_gap" ? "손절 분할 진행" : k === "max_hold" ? "최대 보유 · 익일 분할 " + w : "익일 분할 " + w;
     return '<span class="state sell-next" title="다음 영업일 시가 10% + VWAP 분할 ' + w + " — " + esc(sp.reason || "") + '">' + t + "</span>";
   }
+  // 오늘 장중 청산(정산 전) — 원장은 16:30 정산 때 반영(2026-11-03)
+  function liveExitTag(p) {
+    var x = p.liveExit, w = sideOf(p) === "short" ? "환매" : "매도", what = x.kind === "switch" ? "스위칭 " + w : reasonTxt(x.kind || "청산", sideOf(p));
+    return '<span class="state sell-next" title="장중 실행기 기록 — 16:30 정산 때 원장에 반영">' + (x.done ? "오늘 " + what + " 완료 " + esc(x.at)
+      : "오늘 " + what + " " + won(x.qty) + "/" + won(p.qty) + "주") + "</span>";
+  }
   function posTable(el, ps, empty) {
     // 비중 = 평가금액(수량 × 현재가) ÷ 총 평가액(2026-10-16) — 상단 비중, 하단 수량(작게). 현재가 = 장중이면 Live Trader 시세(2026-11-03)
     var eq = S.summary && S.summary.equity;
@@ -426,7 +432,7 @@
             : '<small class="px-ts" title="원장 종가(정산 기준)">종가</small>'), "r"),
           td(pnlBadge(p.unrealPct, pctTxt(p.unrealPct).replace(/^[+-]/, "")), "r"),
           td(holdBar(p.holdDay) + (p.fillDate ? '<small class="hold-fill">체결 ' + esc(p.fillDate.slice(5)) + "</small>" : "")),
-          td(p.sellPending ? pendingTag(p)
+          td(p.liveExit ? liveExitTag(p) : p.sellPending ? pendingTag(p)
             : (p.fillStop && !p.fillStop.reviewed) ? '<span class="state sell-next" title="체결일(' + esc((p.fillStop.date || "").slice(5)) + ") 손절가 " + won(p.fillStop.stop) + ' 도달 — 다음 영업일 종가로 재판별, 매도면 그다음 영업일 시가">손절 재판별 대기</span>'
             : p.extended ? '<span class="state ext" title="목표 도달·만기 후 trading_agent 가 계속 보유로 판단 — 매일 재판별">연장 보유</span>'
             : '<span class="state hold-ok">보유</span>')] };

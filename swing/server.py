@@ -98,13 +98,21 @@ def api_positions(q):
     from swing import history
     L = _ledger()
     live = history.live_prices(STORE, L.get("asof"))
+    day = history.live_date(STORE, L.get("asof"))
+    exits = ((STORE.get(f"intraday/{day}") or {}).get("exits") or {}) if day else {}
     out = []
     for p in L["positions"]:
         lv = live.get(p["code"])
         px = (lv or {}).get("price") or p.get("lastClose") or p["entry"]
         r = px / p["entry"] - 1
+        # 오늘 장중 청산(정산 전, 2026-11-03 LG화학) — 원장은 16:30 정산 때 줄어드니 상태에 따로 표시
+        own, sw = exits.get(p["id"]) or {}, exits.get("s:" + p["id"]) or {}
+        fills = sorted((own.get("fills") or []) + (sw.get("fills") or []), key=lambda f: f["ts"])
+        sold = sum(f["qty"] for f in fills)
+        lx = {"kind": own.get("kind") if own.get("fills") else "switch", "qty": min(sold, p["qty"]), "done": sold >= p["qty"],
+              "at": fills[-1]["ts"][11:16]} if sold else None
         out.append({**p, "price": px, "priceTs": ((lv or {}).get("ts") or "")[11:16] or None, "value": round(p["qty"] * px),
-                    "unrealPct": round((-r if p.get("side") == "short" else r) * 100, 2)})   # 숏은 하락이 이익
+                    "unrealPct": round((-r if p.get("side") == "short" else r) * 100, 2), "liveExit": lx})   # 숏은 하락이 이익
     return out
 
 

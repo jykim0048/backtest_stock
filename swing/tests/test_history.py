@@ -69,7 +69,7 @@ class TestBuild(unittest.TestCase):
         self.assertEqual(h["realized"], -933825 - 588264)
         self.assertLess(h["vsAvgPct"], -15)
         self.assertTrue(h["hasBars"])
-        self.assertIn("10-29 목표 도달", h["summary"])
+        self.assertIn("10-29 목표 비중 도달", h["summary"])
         self.assertIn("스위칭 없음", h["summary"])
 
     def test_events_in_time_order_with_running_quantity(self):
@@ -148,6 +148,18 @@ class TestBuild(unittest.TestCase):
         st.put("intraday/2026-11-02", {"vwap": {"006110": {"price": 50000.0, "ts": "2026-11-02T15:20:00+09:00"}}, "orders": {}, "exits": {}})
         h = history.build(st, KEY, log=lambda *a: None)              # 원장 asof 11-02 = 이미 정산된 날
         self.assertEqual((h["last"], h["lastTs"]), (55600.0, None))
+
+    def test_positions_api_marks_todays_intraday_exit(self):
+        from swing import server
+        st = setup()
+        st.put("intraday/2026-11-03", {"vwap": {}, "orders": {}, "exits": {"p1": {"code": "006110", "side": "long", "kind": "stop", "trigger": "stop",
+                                                                                  "fills": [{"ts": "2026-11-03T09:03:15+09:00", "qty": 49, "price": 48350, "mode": "stop"}]}}})
+        old, server.STORE = server.STORE, st
+        try:
+            p = server.api_positions({})[0]
+        finally:
+            server.STORE = old
+        self.assertEqual(p["liveExit"], {"kind": "stop", "qty": 49, "done": True, "at": "09:03"})
 
     def test_positions_api_uses_live_price(self):
         from swing import server

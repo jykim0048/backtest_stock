@@ -333,9 +333,9 @@ def build(store, key, *, day=None, log=print):
     switched = sum(-(e["qty"]) for e in ev if e["cls"] == "switch")
     bits = []
     if reached:
-        bits.append(f"{reached[5:]} 목표 도달")
+        bits.append(f"{reached[5:]} 목표 비중 도달")
     elif start:
-        bits.append("목표 미달")
+        bits.append("목표 비중 미달")
     done = qty_now == 0 and first_exit
     if first_exit and (not done or first_exit["date"] != ev[-1]["date"]):
         bits.append(f"{first_exit['date'][5:]} {first_exit['label']} 시작")
