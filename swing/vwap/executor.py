@@ -6,8 +6,9 @@
   ② 나머지 = TRANCHES(60)분할, MIN_GAP_MIN(5분) 간격, VWAP 보다 유리할 때 그 틱 가격으로 체결
      - 진입 Long: 가격 ≤ 진입가(상한) 그리고 ≤ VWAP · 진입 Short: 가격 ≥ 진입가 그리고 ≥ VWAP
      - 청산 Long(매도): 가격 ≥ VWAP · 청산 Short(환매): 가격 ≤ VWAP
-  ③ 기다리면 손해인 방향으로 기준가 대비 FORCE_MOVE(5%) 이상 움직이면 VWAP·상한 무시하고 남은 수량 전량을 그 가격에 체결
+  ③ 기다리면 손해인 방향으로 기준가 대비 FORCE_MOVE(5%) 이상 움직이면 VWAP 무시하고 남은 수량 전량을 그 가격에 체결
      — Long 진입·Short 청산은 상승, Short 진입·Long 청산은 하락일 때만. 반대 방향이면 VWAP 분할을 계속한다.
+     진입은 진입가 상한 안쪽에서만(2026-11-03 사용자 지시 — 삼아알미늄 10-29 상한 +5.9% 추격 매수). 청산은 가격 제한 없음.
   진입은 언제나 손절가 안쪽에서만 체결(Long 가격 > 손절). 그날 못 채운 진입은 잔여분 추가 주문, 못 끝낸 청산은 다음 영업일 계속.
 
 swing 원장은 읽기만 한다. 결과는 intraday/<date> 에 남기고, 장 마감 후 engine.settle_day(…, intraday=doc) 가 확정한다.
@@ -422,6 +423,9 @@ class Executor:
         def inside(px):                                   # 진입은 손절 안쪽에서만
             return not entry or (px > r["stop"] if long_ else px < r["stop"])
 
+        def in_cap(px):                                   # 진입은 진입가 상한 안쪽에서만(Long 이하·Short 이상)
+            return not entry or (px <= r["cap"] if long_ else px >= r["cap"])
+
         if r["next"] == 0 and r.get("trigger") == "livepm":   # Live PM 지시 → 첫 10% 는 지금 가격
             r.update(ref=t.price, next=1)
             self._fill(r, r["plan"][0], t.price, ts, "livepm", st.vwap)
@@ -453,7 +457,7 @@ class Executor:
         px = t.price
         # ③ 기다리면 손해인 방향으로 기준가 대비 5% 이상 → 전량(2026-10-18): Long 진입·Short 청산 = 상승, Short 진입·Long 청산 = 하락
         away = 1 if entry == long_ else -1
-        if r["ref"] and away * (px / r["ref"] - 1) >= C.FORCE_MOVE and inside(px):
+        if r["ref"] and away * (px / r["ref"] - 1) >= C.FORCE_MOVE and inside(px) and in_cap(px):
             q = min(remain, self._afford(px)) if entry and long_ else remain
             if entry and long_ and q < remain:
                 self._ask_cash(r, st, remain - q, px)            # 모자란 만큼 적시 스위칭

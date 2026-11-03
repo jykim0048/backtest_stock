@@ -133,11 +133,21 @@ class TestExecutor(unittest.TestCase):
         self.assertEqual(self.fills(ex.doc["orders"]["o1"]), [("09:00", 30, 9800, "open")])
 
     def test_force_all_on_5pct_move(self):
-        ex = self.ex(ledger_with(order={}))
-        run(ex, path("000010", [("09:00", 9800), ("09:10", 10300)]))      # 기준가 9,800 대비 +5.1% → 상한 무시 전량
+        ex = self.ex(ledger_with(order={"stop": 8500.0}))
+        run(ex, path("000010", [("09:00", 9000), ("09:10", 9500)]))       # 기준가 9,000 대비 +5.6%, 상한 10,000 안쪽 → 전량
         r = ex.doc["orders"]["o1"]
-        self.assertEqual(self.fills(r)[-1], ("09:10", 270, 10300, "force"))
+        self.assertEqual(self.fills(r)[-1], ("09:10", 270, 9500, "force"))
         self.assertTrue(r["done"])
+
+    def test_no_force_entry_past_cap(self):
+        ex = self.ex(ledger_with(order={}))
+        run(ex, path("000010", [("09:00", 9800), ("09:10", 10300)]))      # +5.1% 지만 상한 10,000 초과 → 추격 매수 안 함(2026-11-03)
+        r = ex.doc["orders"]["o1"]
+        self.assertEqual(self.fills(r), [("09:00", 30, 9800, "open")])
+        self.assertFalse(r["done"])
+        ex2 = self.ex(ledger_with(order={"side": "short", "entry": 10000.0, "stop": 11000.0}))
+        run(ex2, path("000010", [("09:00", 10000), ("09:10", 9450)]))     # Short 도 진입가 아래로는 추격 공매도 안 함
+        self.assertEqual(self.fills(ex2.doc["orders"]["o1"])[-1][3], "open")
 
     def test_no_force_when_waiting_is_cheaper(self):
         ex = self.ex(ledger_with(order={}))
@@ -149,8 +159,8 @@ class TestExecutor(unittest.TestCase):
         self.assertEqual(self.fills(ex2.doc["exits"]["p1"])[-1], ("09:10", 30, 5300, "vwap"))
 
     def test_short_force_directions(self):
-        ex = self.ex(ledger_with(order={"side": "short", "entry": 10000.0, "stop": 11000.0}))
-        run(ex, path("000010", [("09:00", 10000), ("09:10", 9450)]))      # Short 진입 중 −5.5% → 전량
+        ex = self.ex(ledger_with(order={"side": "short", "entry": 10000.0, "stop": 12000.0}))
+        run(ex, path("000010", [("09:00", 11000), ("09:10", 10400)]))     # Short 진입 중 −5.5%, 진입가 위 → 전량
         self.assertEqual(self.fills(ex.doc["orders"]["o1"])[-1][3], "force")
         ex2 = Executor(store.FileStore(tempfile.mkdtemp()), D1,
                        ledger_with(position={"side": "short", "stop": 5500.0, "sellPending": {"kind": "pm_sell"}}),
