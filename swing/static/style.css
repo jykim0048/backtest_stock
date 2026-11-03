@@ -250,6 +250,7 @@ header {
   background: rgba(255, 255, 255, .03); border: 1px solid var(--border-color); color: var(--text-muted);
 }
 .more-btn:hover { color: var(--kospi-blue); border-color: rgba(0, 240, 255, .35); }
+.more-btn[hidden], .reflect-day[hidden] { display: none; }   /* display 지정이 hidden 속성을 덮어 버튼이 남던 문제(2026-11-03) */
 @media (max-width: 640px) {
   .rp-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .kpi-val { font-size: 20px; }
