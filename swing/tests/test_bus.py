@@ -115,7 +115,7 @@ class TestSessionPublishes(unittest.TestCase):
     def test_run_session_publishes_each_poll_and_heartbeat(self):
         st = store.FileStore(tempfile.mkdtemp())
         st.put("ledger", ledger_with(order={}))
-        ticks = path("000010", [("09:00", 10200), ("09:05", 10100), ("09:10", 9990)])
+        ticks = path("000010", [("09:00", 9995), ("09:05", 10000), ("09:10", 9990)])
         t0 = datetime.datetime(2026, 10, 19, 9, 0, tzinfo=KST)
         now = [t0]
 
@@ -135,7 +135,7 @@ class TestSessionPublishes(unittest.TestCase):
     def test_run_session_survives_redis_down(self):
         st = store.FileStore(tempfile.mkdtemp())
         st.put("ledger", ledger_with(order={}))
-        ticks = path("000010", [("09:00", 10200), ("09:05", 10100), ("09:10", 9990)])
+        ticks = path("000010", [("09:00", 9995), ("09:05", 10000), ("09:10", 9990)])
         now = [datetime.datetime(2026, 10, 19, 9, 0, tzinfo=KST)]
         ex = M.run_session(st, D1, feed=FakeFeed([[t] for t in ticks]),
                            bus=BUS.PriceBus(client=FakeRedis(fail=True), log=lambda *_: None),

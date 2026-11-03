@@ -8,7 +8,7 @@
      - 청산 Long(매도): 가격 ≥ VWAP · 청산 Short(환매): 가격 ≤ VWAP
   ③ 기다리면 손해인 방향으로 기준가 대비 FORCE_MOVE(5%) 이상 움직이면 VWAP 무시하고 남은 수량 전량을 그 가격에 체결
      — Long 진입·Short 청산은 상승, Short 진입·Long 청산은 하락일 때만. 반대 방향이면 VWAP 분할을 계속한다.
-     진입은 진입가 상한 안쪽에서만(2026-11-03 사용자 지시 — 삼아알미늄 10-29 상한 +5.9% 추격 매수). 청산은 가격 제한 없음.
+     진입은 시가 첫 분할까지 포함해 진입가 상한 안쪽에서만(2026-11-03 사용자 지시 — 삼아알미늄 10-29 상한 +5.9% 추격 매수). 청산은 가격 제한 없음.
   진입은 언제나 손절가 안쪽에서만 체결(Long 가격 > 손절). 그날 못 채운 진입은 잔여분 추가 주문, 못 끝낸 청산은 다음 영업일 계속.
 
 swing 원장은 읽기만 한다. 결과는 intraday/<date> 에 남기고, 장 마감 후 engine.settle_day(…, intraday=doc) 가 확정한다.
@@ -439,20 +439,24 @@ class Executor:
             r["ref"] = t.open
             r["next"] = 1
             q0 = r["plan"][0]
-            if inside(t.open) and entry and long_:
+            ok = inside(t.open) and in_cap(t.open)            # 시가가 손절·진입가 상한 밖이면 첫 분할도 체결하지 않는다(2026-11-03)
+            if ok and entry and long_:
                 q0 = min(q0, self._afford(t.open))                    # Long 매수는 현금 한도 안에서만(시가엔 재원 매도 없음)
                 if q0 < r["plan"][0] and len(r["plan"]) > 1:
                     r["plan"][1] += r["plan"][0] - q0
                     r["plan"][0] = q0
-            if inside(t.open) and q0 > 0:
+            if ok and q0 > 0:
                 self._fill(r, q0, t.open, ts, "open", st.vwap)
                 self.log(f"[vwap] {ts[11:19]} 시가 {'진입' if entry else '청산'} {r['code']} {r['side']} {q0:,}주 @ {t.open:,.0f}")
-            elif inside(t.open):
+            elif ok:
                 r["why"] = "현금 부족 — 시가 체결 생략"
-            elif len(r["plan"]) > 1:
-                r["plan"][1] += r["plan"][0]                  # 시가가 손절 너머 → 첫 분할을 다음 분할에 합침
+            else:
+                if len(r["plan"]) > 1:                        # 첫 분할을 다음 분할에 합침
+                    r["plan"][1] += r["plan"][0]
+                else:
+                    r["plan"].append(r["plan"][0])
                 r["plan"][0] = 0
-                r["why"] = "시가가 손절가 너머 — 시가 체결 생략"
+                r["why"] = "시가가 " + ("손절가" if not inside(t.open) else "진입가 상한") + " 너머 — 시가 체결 생략"
             return
         px = t.price
         # ③ 기다리면 손해인 방향으로 기준가 대비 5% 이상 → 전량(2026-10-18): Long 진입·Short 청산 = 상승, Short 진입·Long 청산 = 하락

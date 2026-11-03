@@ -116,16 +116,20 @@ class TestExecutor(unittest.TestCase):
         self.assertEqual(slice_plan(5), [1, 2, 1, 1])
         self.assertEqual(slice_plan(1), [1])
 
-    def test_long_open_slice_ignores_cap_then_vwap_tranches(self):
+    def test_long_open_above_cap_skips_open_slice_then_vwap_tranches(self):
         ex = self.ex(ledger_with(order={}))
-        run(ex, path("000010", [("09:00", 10200), ("09:05", 10100),      # 시가 10% 는 상한(10,000) 위라도 체결
+        run(ex, path("000010", [("09:00", 10200), ("09:05", 10100),      # 시가가 상한(10,000) 위 → 첫 분할은 다음 분할로(2026-11-03)
                                 ("09:10", 9990),                          # ≤ 상한·VWAP → 1차
                                 ("09:15", 9980),                          # 간격 5분 < 20 → 대기
                                 ("09:30", 9990), ("09:40", 9960), ("09:50", 9970)]))
         r = ex.doc["orders"]["o1"]
-        self.assertEqual(self.fills(r), [("09:00", 30, 10200, "open"), ("09:10", 90, 9990, "vwap"),
-                                         ("09:30", 90, 9990, "vwap"), ("09:50", 90, 9970, "vwap")])
+        self.assertEqual(self.fills(r), [("09:10", 120, 9990, "vwap"), ("09:30", 90, 9990, "vwap"), ("09:50", 90, 9970, "vwap")])
         self.assertTrue(r["done"])
+
+    def test_single_share_order_open_above_cap_can_still_fill(self):
+        ex = self.ex(ledger_with(order={"qty": 1}))
+        run(ex, path("000010", [("09:00", 10200), ("09:05", 10100), ("09:10", 9990)]))
+        self.assertEqual(self.fills(ex.doc["orders"]["o1"]), [("09:10", 1, 9990, "vwap")])
 
     def test_no_vwap_fill_above_vwap_keeps_open_slice(self):
         ex = self.ex(ledger_with(order={}))
@@ -152,7 +156,7 @@ class TestExecutor(unittest.TestCase):
     def test_no_force_when_waiting_is_cheaper(self):
         ex = self.ex(ledger_with(order={}))
         run(ex, path("000010", [("09:00", 10200), ("09:05", 10100), ("09:10", 9650)]))      # Long 진입 중 −5.4% → 전량 아님, VWAP 분할 1개만
-        self.assertEqual(self.fills(ex.doc["orders"]["o1"])[-1], ("09:10", 90, 9650, "vwap"))
+        self.assertEqual(self.fills(ex.doc["orders"]["o1"])[-1], ("09:10", 120, 9650, "vwap"))   # 상한 위 시가 분할 30주를 합침
         ex2 = Executor(store.FileStore(tempfile.mkdtemp()), D1,
                        ledger_with(position={"sellPending": {"kind": "pm_sell"}}), log=lambda *_: None)
         run(ex2, path("000020", [("09:00", 5000), ("09:05", 5100), ("09:10", 5300)]))      # Long 청산 중 +6% 반등 → 전량 아님, VWAP 분할 1개만
@@ -171,7 +175,7 @@ class TestExecutor(unittest.TestCase):
     def test_short_mirror(self):
         ex = self.ex(ledger_with(order={"side": "short", "entry": 10000.0, "stop": 10500.0}))
         run(ex, path("000010", [("09:00", 9800), ("09:10", 9950), ("09:20", 10010)]))
-        self.assertEqual(self.fills(ex.doc["orders"]["o1"]), [("09:00", 30, 9800, "open"), ("09:20", 90, 10010, "vwap")])
+        self.assertEqual(self.fills(ex.doc["orders"]["o1"]), [("09:20", 120, 10010, "vwap")])     # 시가가 진입가 아래 → 시가 분할 없음
 
     def test_open_beyond_stop_skips_open_slice(self):
         ex = self.ex(ledger_with(order={}))
@@ -216,11 +220,11 @@ class TestExecutor(unittest.TestCase):
 
     def test_restart_keeps_doc(self):
         ex = self.ex(ledger_with(order={}))
-        run(ex, path("000010", [("09:00", 10200), ("09:05", 10100), ("09:10", 9990)]))
+        run(ex, path("000010", [("09:00", 9995), ("09:05", 10000), ("09:10", 9990)]))
         ex.save(ticks=True)
         ex2 = self.ex(ledger_with(order={}))
         self.assertEqual(len(ex2.doc["orders"]["o1"]["fills"]), 2)
-        self.assertAlmostEqual(ex2.states["000010"].vwap, (10200 + 10100 + 9990) / 3)
+        self.assertAlmostEqual(ex2.states["000010"].vwap, (9995 + 10000 + 9990) / 3)
 
 
 def doc(orders=None, exits=None, watched_o=(), watched_p=(), complete=True):
