@@ -1258,6 +1258,8 @@
     api("/api/swing/history?key=" + encodeURIComponent(key)).then(function (h) {
       if (HIST.key !== key) return;
       HIST.doc = h; renderHistory();
+      var av = $("dec-avg");
+      if (av && h.avg) av.textContent = "평단 " + won(h.avg) + (h.status === "closed" ? " · 청산" : "");
     }).catch(function () { var el = $("dec-hist"); if (el) el.hidden = true; });
   }
   // 체결 표시(2026-11-03) — 세모 = 실제 매매 방향(매수·환매 ▲ / 매도·공매도 ▼), 색 = 보유 증가(노랑)/감소(보라), 테두리 = 시가·전량·손절·스위칭, 크기 = 수량
@@ -1464,7 +1466,8 @@
       var lr = d.latestReview, rv = lr ? " · " + esc(lr.date.slice(5)) + " 재판별" : "";
       var stop = lr && lr.stop != null ? lr.stop : d.stop, tgt = lr ? lr.target : d.target;
       var g = [["PM 등급" + rv, lr ? rating(lr.rating, lr.error) : rating(d.rating, d.error)], ["Trader" + rv, esc((lr ? lr.trader : d.action) || "—")],
-        ["진입가", '<span class="param-value entry">' + won(d.entry) + "</span>"], ["손절가" + (lr ? " · 재판별 후" : ""), '<span class="param-value stop">' + won(stop) + "</span>"],
+        // 판단 진입가 = 주문 진입가 상한(Long 이하·Short 이상에서만 체결), 아래에 실제 평단(히스토리 로드 후, 2026-11-04)
+        ["진입가 상한", '<span class="param-value entry">' + won(d.entry) + '</span><small class="dec-sub" id="dec-avg"></small>'], ["손절가" + (lr ? " · 재판별 후" : ""), '<span class="param-value stop">' + won(stop) + "</span>"],
         ["목표가(PM)" + (lr ? " · 재판별 후" : ""), '<span class="param-value target">' + (tgt ? won(tgt) : "—") + "</span>"],
         ["비중", (d.pm_weight ? "PM " + (d.pm_weight * 100).toFixed(1) + "%" : "PM —") + " · Trader " + (d.weight ? (d.weight * 100).toFixed(1) + "%" : "—")]];
       var h = '<div class="dec-grid">' + g.map(function (x) {
