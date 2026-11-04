@@ -797,3 +797,7 @@ td small.sub-qty { display: block; font-size: 10.5px; color: var(--text-muted); 
 @keyframes px-flash-down { 0% { background: rgba(59, 130, 246, .35); } 100% { background: transparent; } }
 .live-dot { display: inline-block; width: 6px; height: 6px; margin-right: 4px; border-radius: 50%; background: #10b981; vertical-align: middle; animation: live-pulse 1.6s ease-in-out infinite; }
 @keyframes live-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .25; } }
+.th-sub { display: block; font-size: 10.5px; font-weight: 400; color: var(--text-muted); font-family: var(--font-outfit); }
+.px-chg { display: block; font-size: 11px; font-family: var(--font-outfit); }
+.px-chg.up { color: var(--up-red); }
+.px-chg.down { color: var(--down-blue); }

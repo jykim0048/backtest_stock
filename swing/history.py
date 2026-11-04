@@ -89,7 +89,7 @@ def live_prices(store, asof):
     for c, v in (live_bus() or {}).items():
         ts = (v or {}).get("ts") or ""
         if ts[:10] == day and v.get("price") and ts > ((out.get(c) or {}).get("ts") or ""):
-            out[c] = {"price": v["price"], "ts": ts, "bus": True}
+            out[c] = {"price": v["price"], "ts": ts, "bus": True, "prevClose": v.get("prev_close")}   # KIS 전일 종가(등락률용)
     return out
 
 

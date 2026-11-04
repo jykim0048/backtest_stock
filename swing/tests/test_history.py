@@ -206,7 +206,7 @@ class TestBuild(unittest.TestCase):
         st = setup()
         st.put("intraday/2026-11-03", {"vwap": {"006110": {"price": 50000.0, "ts": "2026-11-03T10:15:00+09:00"}}, "orders": {}, "exits": {}})
         old, server.STORE = server.STORE, st
-        old_bus, history.live_bus = history.live_bus, lambda: {"006110": {"price": 50500.0, "ts": "2026-11-03T10:15:45+09:00"},
+        old_bus, history.live_bus = history.live_bus, lambda: {"006110": {"price": 50500.0, "ts": "2026-11-03T10:15:45+09:00", "prev_close": 50000.0},
                                                                "000000": {"price": 1.0, "ts": "2026-11-02T15:00:00+09:00"}}
         try:
             r = server.api_live({})
@@ -214,6 +214,7 @@ class TestBuild(unittest.TestCase):
             server.STORE, history.live_bus = old, old_bus
         p = r["positions"][0]
         self.assertEqual((r["live"], r["source"], r["liveTs"], p["price"], p["value"]), (True, "bus", "10:15:45", 50500.0, 49 * 50500))
+        self.assertEqual(p["chgPct"], 1.0)                                   # KIS 전일 종가 대비
 
     def test_live_api_off_after_settlement(self):
         from swing import server

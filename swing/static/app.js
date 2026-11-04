@@ -426,7 +426,10 @@
     ps = ps.slice().sort(function (a, b) { return (a.liveEntry ? 1 : 0) - (b.liveEntry ? 1 : 0); });   // 오늘 진입 행은 맨 아래
     // 비중 = 평가금액(수량 × 현재가) ÷ 총 평가액(2026-10-16) — 상단 비중, 하단 수량(작게). 현재가 = 장중이면 Live Trader 시세(2026-11-03)
     var eq = S.summary && S.summary.equity;
-    table(el, [["종목"], ["섹터"], ["신호"], ["선정기준"], ["가격 레벨"], ["비중 / 수량", "r"], ["현재가", "r"], ["평가손익", "r"], ["보유일"], ["상태"]],
+    // 현재가 기준 시각은 컬럼명 아래 한 번만, 가격 아래엔 전일대비(2026-11-04)
+    var pts = ps.map(function (p) { return p.priceTs || ""; }).sort().pop();
+    var pxHead = '현재가<small class="th-sub">' + (pts ? esc(pts.slice(0, 5)) + " 기준" : "종가") + "</small>";
+    table(el, [["종목"], ["섹터"], ["신호"], ["선정기준"], ["가격 레벨"], ["비중 / 수량", "r"], [pxHead, "r"], ["평가손익", "r"], ["보유일"], ["상태"]],
       ps.map(function (p) {
         var val = p.value != null ? p.value : p.qty * (p.lastClose || p.entry || 0);
         var wt = eq ? '<span class="num" title="평가금액 ' + won(val) + '원 ÷ 총 평가액">' + (val / eq * 100).toFixed(1) + "%</span>" : '<span class="num muted">—</span>';
@@ -434,8 +437,8 @@
           td('<span class="sec-name">' + esc(p.sector || "—") + "</span>"), td(sig(p.signal) || '<span class="muted">—</span>'),
           td('<span class="pos-basis" data-dk="' + esc(p.decisionKey || "") + '">' + basisTag({ source: p.source }) + "</span>"),
           td(levels(p.entry, p.stop, p.target)), td(wt + '<small class="sub-qty">' + won(p.qty) + "주</small>", "r"),
-          td('<span class="num live-px" data-pxid="' + esc(p.id) + '">' + won(p.price != null ? p.price : p.lastClose) + "</span>" + (p.priceTs ? '<small class="px-ts" title="장중 시세(Live Trader 15초 폴링) — 정산 뒤 종가로 바뀜">' + esc(p.priceTs.slice(0, 5)) + "</small>"
-            : '<small class="px-ts" title="원장 종가(정산 기준)">종가</small>'), "r"),
+          td('<span class="num live-px" data-pxid="' + esc(p.id) + '">' + won(p.price != null ? p.price : p.lastClose) + "</span>" + (p.chgPct != null ? '<small class="px-chg ' + signCls(p.chgPct) + '" title="전일 종가 대비">' + pctTxt(p.chgPct) + "</small>"
+            : ""), "r"),
           td(pnlBadge(p.unrealPct, pctTxt(p.unrealPct).replace(/^[+-]/, "")), "r"),
           td(holdBar(p.holdDay) + (p.fillDate ? '<small class="hold-fill">체결 ' + esc(p.fillDate.slice(5)) + "</small>" : "")),
           td(p.liveEntry ? liveEntryTag(p) : p.liveExit ? liveExitTag(p) : p.sellPending ? pendingTag(p)

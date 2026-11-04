@@ -110,7 +110,9 @@ def api_positions(q):
         sold = sum(f["qty"] for f in fills)
         lx = {"kind": own.get("kind") if own.get("fills") else "switch", "qty": min(sold, p["qty"]), "done": sold >= p["qty"],
               "at": fills[-1]["ts"][11:16]} if sold else None
+        prev = (lv or {}).get("prevClose") or (p.get("lastClose") if lv else None)
         out.append({**p, "price": px, "priceTs": ((lv or {}).get("ts") or "")[11:19] or None, "value": round(p["qty"] * px),
+                    "chgPct": round((px / prev - 1) * 100, 2) if prev else None,
                     "unrealPct": round((-r if p.get("side") == "short" else r) * 100, 2), "liveExit": lx})   # 숏은 하락이 이익
     out += _live_entries(L, doc, live)
     return out
@@ -138,6 +140,7 @@ def _live_entries(L, doc, live):
                      "source": o.get("source"), "decisionKey": o.get("decisionKey"), "weight": o.get("weight") or rec.get("weight"),
                      "rating": o.get("rating") or rec.get("rating"), "fillDate": doc.get("date"), "holdDay": 1, "lastClose": None, "sellPending": None,
                      "price": px, "priceTs": (lv.get("ts") or fills[-1]["ts"])[11:19], "value": round(q * px),
+                     "chgPct": round((px / lv["prevClose"] - 1) * 100, 2) if lv.get("prevClose") else None,
                      "unrealPct": round((-r if side == "short" else r) * 100, 2), "liveExit": None,
                      "liveEntry": {"qty": q, "planned": rec.get("planned") or o.get("qty"), "done": bool(rec.get("done")), "at": fills[-1]["ts"][11:16]}})
     return rows
@@ -156,7 +159,7 @@ def api_live(q):
     live = history.live_prices(STORE, L.get("asof"))
     return {"live": True, "liveTs": ts, "liveDate": history.live_date(STORE, L.get("asof")), "source": "bus" if any(x.get("bus") for x in live.values()) else "doc",
             "equity": round(v), "retPct": round((v / L["capital0"] - 1) * 100, 2) if L.get("capital0") else None, "cash": round(L["cash"]),
-            "positions": [p if p["id"].startswith("live:") else {k: p.get(k) for k in ("id", "code", "side", "price", "priceTs", "value", "unrealPct", "liveExit")}
+            "positions": [p if p["id"].startswith("live:") else {k: p.get(k) for k in ("id", "code", "side", "price", "priceTs", "chgPct", "value", "unrealPct", "liveExit")}
                           for p in ps]}
 
 
