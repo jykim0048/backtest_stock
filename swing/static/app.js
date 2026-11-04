@@ -412,12 +412,18 @@
     return '<span class="state sell-next" title="다음 영업일 시가 10% + VWAP 분할 ' + w + " — " + esc(sp.reason || "") + '">' + t + "</span>";
   }
   // 오늘 장중 청산(정산 전) — 원장은 16:30 정산 때 반영(2026-11-03)
+  function liveEntryTag(p) {                   // 오늘 장중 신규 진입(정산 전, 2026-11-04)
+    var x = p.liveEntry, w = sideOf(p) === "short" ? "공매도" : "매수";
+    return '<span class="state ext" title="장중 실행기 체결 기록 — 16:30 정산 때 원장 보유로 확정">' + (x.done ? "오늘 " + w + " 완료 " + esc(x.at)
+      : "오늘 " + w + " " + won(x.qty) + "/" + won(x.planned) + "주") + "</span>";
+  }
   function liveExitTag(p) {
     var x = p.liveExit, w = sideOf(p) === "short" ? "환매" : "매도", what = x.kind === "switch" ? "스위칭 " + w : reasonTxt(x.kind || "청산", sideOf(p));
     return '<span class="state sell-next" title="장중 실행기 기록 — 16:30 정산 때 원장에 반영">' + (x.done ? "오늘 " + what + " 완료 " + esc(x.at)
       : "오늘 " + what + " " + won(x.qty) + "/" + won(p.qty) + "주") + "</span>";
   }
   function posTable(el, ps, empty) {
+    ps = ps.slice().sort(function (a, b) { return (a.liveEntry ? 1 : 0) - (b.liveEntry ? 1 : 0); });   // 오늘 진입 행은 맨 아래
     // 비중 = 평가금액(수량 × 현재가) ÷ 총 평가액(2026-10-16) — 상단 비중, 하단 수량(작게). 현재가 = 장중이면 Live Trader 시세(2026-11-03)
     var eq = S.summary && S.summary.equity;
     table(el, [["종목"], ["섹터"], ["신호"], ["선정기준"], ["가격 레벨"], ["비중 / 수량", "r"], ["현재가", "r"], ["평가손익", "r"], ["보유일"], ["상태"]],
@@ -432,7 +438,7 @@
             : '<small class="px-ts" title="원장 종가(정산 기준)">종가</small>'), "r"),
           td(pnlBadge(p.unrealPct, pctTxt(p.unrealPct).replace(/^[+-]/, "")), "r"),
           td(holdBar(p.holdDay) + (p.fillDate ? '<small class="hold-fill">체결 ' + esc(p.fillDate.slice(5)) + "</small>" : "")),
-          td(p.liveExit ? liveExitTag(p) : p.sellPending ? pendingTag(p)
+          td(p.liveEntry ? liveEntryTag(p) : p.liveExit ? liveExitTag(p) : p.sellPending ? pendingTag(p)
             : (p.fillStop && !p.fillStop.reviewed) ? '<span class="state sell-next" title="체결일(' + esc((p.fillStop.date || "").slice(5)) + ") 손절가 " + won(p.fillStop.stop) + ' 도달 — 다음 영업일 종가로 재판별, 매도면 그다음 영업일 시가">손절 재판별 대기</span>'
             : p.extended ? '<span class="state ext" title="목표 도달·만기 후 trading_agent 가 계속 보유로 판단 — 매일 재판별">연장 보유</span>'
             : '<span class="state hold-ok">보유</span>')] };
@@ -1836,7 +1842,9 @@
       var prev = {}, by = {};
       (S.positions || []).forEach(function (p) { prev[p.id] = p.price != null ? p.price : p.lastClose; });
       r.positions.forEach(function (x) { by[x.id] = x; });
-      S.positions = (S.positions || []).map(function (p) { return by[p.id] ? Object.assign({}, p, by[p.id]) : p; });
+      var have = {};
+      S.positions = (S.positions || []).filter(function (p) { return by[p.id]; }).map(function (p) { have[p.id] = 1; return Object.assign({}, p, by[p.id]); })
+        .concat(r.positions.filter(function (x) { return !have[x.id]; }));   // 장중 신규 체결 행(live:*)은 통째로 온다
       Object.assign(S.summary, { equity: r.equity, retPct: r.retPct, liveTs: r.liveTs, liveDate: r.liveDate });
       renderPortfolio(S.summary); renderPositions(S.positions); renderHoldingsPF(S.positions, S.summary);
       renderEquity(liveRows(S.equity, S.summary), S.summary.capital0);

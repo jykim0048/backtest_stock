@@ -223,6 +223,26 @@ class TestBuild(unittest.TestCase):
         finally:
             server.STORE = old
 
+    def test_positions_api_adds_todays_new_entry_as_live_row(self):
+        from swing import server
+        st = setup()
+        L = st.get("ledger")
+        L["orders"].append({"id": "o9", "code": "000660", "name": "SK하이닉스", "side": "long", "type": "entry", "entry": 200000.0, "stop": 190000.0,
+                            "target": 220000.0, "qty": 50, "status": "open", "decisionKey": "decision/2026-11-02/000660/entry", "rating": "Buy", "weight": 0.02})
+        st.put("ledger", L)
+        st.put("intraday/2026-11-03", {"date": "2026-11-03", "exits": {}, "vwap": {"000660": {"price": 202000.0, "ts": "2026-11-03T10:20:00+09:00"}},
+                                       "orders": {"o9": {"code": "000660", "side": "long", "planned": 50, "done": False,
+                                                         "fills": [{"ts": "2026-11-03T09:00:15+09:00", "qty": 5, "price": 199000}, {"ts": "2026-11-03T09:05:15+09:00", "qty": 5, "price": 201000}]}}})
+        old, server.STORE = server.STORE, st
+        try:
+            ps = server.api_positions({})
+            lv = server.api_live({})
+        finally:
+            server.STORE = old
+        x = next(p for p in ps if p["id"] == "live:o9")
+        self.assertEqual((x["qty"], x["entry"], x["price"], x["liveEntry"]["planned"], x["decisionKey"]), (10, 200000.0, 202000.0, 50, "decision/2026-11-02/000660/entry"))
+        self.assertEqual(lv["equity"] - (L["cash"] + 49 * 55600), 10 * 2000)      # 평가액엔 체결가 대비 손익만
+
     def test_summary_equity_uses_live_price(self):
         from swing import server
         st = setup()
@@ -235,7 +255,7 @@ class TestBuild(unittest.TestCase):
             s = server.api_summary({})
         finally:
             server.STORE = old
-        self.assertEqual((s["equity"], s["liveTs"], s["closeEquity"]), (100_000_000 + 49 * 50000, "10:15", 480_000_000))
+        self.assertEqual((s["equity"], s["liveTs"], s["closeEquity"]), (100_000_000 + 49 * 50000, "10:15:30", 480_000_000))
         self.assertAlmostEqual(s["retPct"], ((100_000_000 + 49 * 50000) / 500_000_000 - 1) * 100, places=2)
 
     def test_bars_failure_falls_back_to_decision_chart(self):

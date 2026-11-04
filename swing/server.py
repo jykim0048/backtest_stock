@@ -64,13 +64,11 @@ def api_summary(q):
     for t in tr:
         by_reason[t["reason"]] = by_reason.get(t["reason"], 0) + 1
     from swing import history
-    live = history.live_prices(STORE, L.get("asof"))
     equity, ret = (eq["equity"], eq["retPct"]) if eq else (round(L["cash"]), 0.0)
     live_ts = None
-    if live and L["positions"]:                          # 장중(정산 전) — 전일 보유 수량 × Live Trader 현재가(2026-11-03)
-        v = L["cash"] + sum(engine.position_value(p, (live.get(p["code"]) or {}).get("price")) for p in L["positions"])
-        equity, ret = round(v), round((v / L["capital0"] - 1) * 100, 2)
-        live_ts = max((x.get("ts") or "" for x in live.values()), default="")[11:16] or None
+    lv = api_live(q)                                     # 장중(정산 전) — /api/swing/live 와 같은 평가액(2026-11-03·04)
+    if lv.get("live") and L["positions"]:
+        equity, ret, live_ts = lv["equity"], lv["retPct"], lv["liveTs"]
     return {"asof": L.get("asof"), "capital0": L["capital0"], "cash": round(L["cash"]),
             "equity": equity, "retPct": ret, "liveTs": live_ts, "liveDate": history.live_date(STORE, L.get("asof")) if live_ts else None,
             "closeEquity": eq["equity"] if eq else round(L["cash"]),
@@ -99,7 +97,8 @@ def api_positions(q):
     L = _ledger()
     live = history.live_prices(STORE, L.get("asof"))
     day = history.live_date(STORE, L.get("asof"))
-    exits = ((STORE.get(f"intraday/{day}") or {}).get("exits") or {}) if day else {}
+    doc = (STORE.get(f"intraday/{day}") or {}) if day else {}
+    exits = doc.get("exits") or {}
     out = []
     for p in L["positions"]:
         lv = live.get(p["code"])
@@ -113,7 +112,35 @@ def api_positions(q):
               "at": fills[-1]["ts"][11:16]} if sold else None
         out.append({**p, "price": px, "priceTs": ((lv or {}).get("ts") or "")[11:19] or None, "value": round(p["qty"] * px),
                     "unrealPct": round((-r if p.get("side") == "short" else r) * 100, 2), "liveExit": lx})   # 숏은 하락이 이익
+    out += _live_entries(L, doc, live)
     return out
+
+
+def _live_entries(L, doc, live):
+    """오늘 장중 신규 진입(정산 전, 2026-11-04) — Live Trader 체결 기록으로 임시 보유 행을 만든다(id = live:<주문>).
+    원장엔 16:30 정산 때 들어간다. 추가 매수(topupOf)는 기존 행에 합치지 않고 오늘 체결 수량만 liveAdd 로 붙인다."""
+    orders = {o["id"]: o for o in L.get("orders") or []}
+    held = {(p["code"], p.get("side", "long")) for p in L["positions"]}
+    rows = []
+    for oid, rec in (doc.get("orders") or {}).items():
+        fills = rec.get("fills") or []
+        q = sum(f["qty"] for f in fills)
+        o = orders.get(oid) or {}
+        side = rec.get("side") or o.get("side") or "long"
+        if not q or rec.get("topupOf") or o.get("topupOf") or (rec.get("code"), side) in held:
+            continue
+        avg = sum(f["qty"] * f["price"] for f in fills) / q
+        lv = live.get(rec.get("code")) or {}
+        px = lv.get("price") or fills[-1]["price"]
+        r = px / avg - 1
+        rows.append({"id": "live:" + oid, "code": rec.get("code"), "name": rec.get("name") or o.get("name"), "side": side, "qty": q, "entry": avg,
+                     "stop": rec.get("stop") or o.get("stop"), "target": o.get("target"), "sector": o.get("sector"), "signal": o.get("signal"),
+                     "source": o.get("source"), "decisionKey": o.get("decisionKey"), "weight": o.get("weight") or rec.get("weight"),
+                     "rating": o.get("rating") or rec.get("rating"), "fillDate": doc.get("date"), "holdDay": 1, "lastClose": None, "sellPending": None,
+                     "price": px, "priceTs": (lv.get("ts") or fills[-1]["ts"])[11:19], "value": round(q * px),
+                     "unrealPct": round((-r if side == "short" else r) * 100, 2), "liveExit": None,
+                     "liveEntry": {"qty": q, "planned": rec.get("planned") or o.get("qty"), "done": bool(rec.get("done")), "at": fills[-1]["ts"][11:16]}})
+    return rows
 
 
 def api_live(q):
@@ -124,11 +151,13 @@ def api_live(q):
     ts = max(((p.get("priceTs") or "") for p in ps), default="")
     if not ts:
         return {"live": False}
-    v = L["cash"] + sum(engine.position_value(p, p["price"]) for p in ps)
+    v = L["cash"] + sum(engine.position_value(p, p["price"]) if not p["id"].startswith("live:")
+                        else (-1 if p["side"] == "short" else 1) * (p["price"] - p["entry"]) * p["qty"] for p in ps)
     live = history.live_prices(STORE, L.get("asof"))
     return {"live": True, "liveTs": ts, "liveDate": history.live_date(STORE, L.get("asof")), "source": "bus" if any(x.get("bus") for x in live.values()) else "doc",
             "equity": round(v), "retPct": round((v / L["capital0"] - 1) * 100, 2) if L.get("capital0") else None, "cash": round(L["cash"]),
-            "positions": [{k: p.get(k) for k in ("id", "code", "side", "price", "priceTs", "value", "unrealPct", "liveExit")} for p in ps]}
+            "positions": [p if p["id"].startswith("live:") else {k: p.get(k) for k in ("id", "code", "side", "price", "priceTs", "value", "unrealPct", "liveExit")}
+                          for p in ps]}
 
 
 def api_orders(q):
