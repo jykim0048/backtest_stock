@@ -94,7 +94,7 @@ def features(payload: dict, date: str, close: float | None, hold_days: int | Non
             "note": ("예탁원정보(KIS ksdinfo) 기업행위 일정. d_n = 판단일 대비 영업일(+미래/−과거), "
                      "inHoldWindow = 최대 보유일 안에 드는 일정, haltInWindow = 보유 기간과 겹치는 매매정지, "
                      "sizePct = 신주·예치 물량 ÷ 총발행주식(%), gapPct = 현재가 ÷ gapRef − 1(%). "
-                     "배당락(추정)은 기준일 전 평일 — 공휴일 미반영. 의무예치는 예치일 기준(해제일 필드 미확인).")}
+                     "배당락(추정)은 기준일 전 평일 — 공휴일 미반영. 의무예치는 '보호예수 해제'(release) 일정이 해제일.")}
 
 
 def attach(out_dir: str, stock: dict, req, *, fetch_fn=None) -> str:
