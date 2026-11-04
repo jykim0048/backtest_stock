@@ -71,8 +71,9 @@ def fake_collect(price_status="ok", raise_exc=None):
     return fn
 
 
-def agent(llm=None, collect=None, rounds=1, peer_fn=None):
+def agent(llm=None, collect=None, rounds=1, peer_fn=None, ca_fn=None):
     return PL.TradingAgent(llm_fn=llm or FakeLLM(), collect_fn=collect or fake_collect(),
+                           ca_fn=ca_fn or (lambda out, stock, req: "skipped"),
                            resolve_fn=lambda c: {"code": c, "name": "테스트", "ticker": f"{c}.KS"},
                            peer_fn=peer_fn or (lambda s: {"source": "curated", "peers": []}),
                            rounds=rounds, runs_dir=tempfile.mkdtemp())

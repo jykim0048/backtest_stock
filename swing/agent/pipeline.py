@@ -17,6 +17,7 @@ from .. import agent_iface as A
 from .. import chart as chart_mod
 from .. import config
 from . import KIT_DIR, SOURCE_SHA, ensure_kit_path
+from . import ca as ca_mod
 from . import peers as peers_mod
 
 ROLES = os.path.join(KIT_DIR, "references", "roles")
@@ -185,12 +186,15 @@ def _default_resolve(code):
 
 class TradingAgent:
     def __init__(self, store=None, *, llm_fn=None, collect_fn=None, resolve_fn=None, peer_fn=None,
-                 rounds=None, social=None, runs_dir=None):
+                 rounds=None, social=None, runs_dir=None, ca_fn=None):
         self.store = store
         self.llm_fn = llm_fn or _default_llm
         self.collect_fn = collect_fn or _default_collect
         self.resolve_fn = resolve_fn or _default_resolve
         self.peer_fn = peer_fn or (lambda stock: peers_mod.resolve_peers(stock, self.store, self.llm_fn))
+        # 예탁원 CA 일정(2026-11-04) — kit 수집 뒤 05_disclosures.json 에 덧붙임. 끄기: SWING_AGENT_CA=0
+        self.ca_fn = ca_fn or (ca_mod.attach if os.environ.get("SWING_AGENT_CA", "1") != "0"
+                               else (lambda out, stock, req: "skipped"))
         self.rounds = rounds or ROUNDS
         self.social = SOCIAL if social is None else social
         self.runs_dir = runs_dir or RUNS_DIR
@@ -212,7 +216,7 @@ class TradingAgent:
     def _stock_line(self, stock, req):
         return f"## 종목\n{stock['name']} ({stock['code']}), 야후 티커 {stock.get('ticker')}, 기준일 {req.date}\n"
 
-    def _analyst_user(self, stock, req, out, files):
+    def _analyst_user(self, stock, req, out, files, extra=""):
         parts = [self._stock_line(stock, req)]
         for fn in files:
             p = os.path.join(out, fn)
@@ -225,6 +229,8 @@ class TradingAgent:
                 txt = "\n".join(ls[:1] + ls[-OHLCV_TAIL:])
                 fn = f"ohlcv.csv (최근 {OHLCV_TAIL}거래일)"
             parts.append(f"## 입력 파일: {fn}\n```\n{_clip(txt, fn)}\n```\n")
+        if extra:
+            parts.append(extra)
         return "\n".join(parts)
 
     def _reports_block(self, R):
@@ -249,6 +255,13 @@ class TradingAgent:
             os.makedirs(out, exist_ok=True)
             manifest = self.collect_fn(stock, req.date, out, self.social) or {}
             legs = {k: (v or {}).get("status") for k, v in (manifest.get("legs") or {}).items()}
+            try:                                          # 예탁원 CA(실패해도 판단 계속 — unavailable 로 표시)
+                legs["ksd_ca"] = self.ca_fn(out, stock, req)
+            except Exception as ex:
+                legs["ksd_ca"] = f"unavailable({type(ex).__name__})"
+            ca_md = ca_mod.to_markdown(out)               # 부록: 코드가 계산한 CA 원자료(LLM 해석과 대조)
+            if ca_md:
+                R["ca"] = ca_md
             R["collect"] = "\n".join(f"- {k}: {v}" for k, v in sorted(legs.items())) or "(manifest 없음)"
             try:                                          # I-1 차트(스킬 ohlcv.csv, 실패해도 판단 계속)
                 chart = chart_mod.from_csv(os.path.join(out, "ohlcv.csv"))
@@ -261,7 +274,8 @@ class TradingAgent:
 
             # 1~5 애널리스트
             for key, role, files in ANALYSTS:
-                R[key] = self._call(role, self._analyst_user(stock, req, out, files))
+                extra = ca_mod.guide(legs.get("ksd_ca")) if key == "news" and legs.get("ksd_ca") != "skipped" else ""
+                R[key] = self._call(role, self._analyst_user(stock, req, out, files, extra))
             reports = self._reports_block(R)
 
             # 6 Bull ↔ Bear

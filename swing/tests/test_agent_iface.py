@@ -100,6 +100,7 @@ class TestParse(unittest.TestCase):
         from swing.agent import pipeline
         keys = set(re.findall(r'R\["(\w+)"\]\s*=', inspect.getsource(pipeline)))
         keys |= {k for k, _, _ in pipeline.ANALYSTS}
+        keys -= {"ca"}                    # 예탁원 CA 원자료(부록) — CA 가 있을 때만 붙는 선택 키(2026-11-04)
         self.assertEqual(keys, set(A.REPORT_KEYS))
 
 
