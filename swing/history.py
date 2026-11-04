@@ -333,6 +333,9 @@ def build(store, key, *, day=None, log=print):
     # 일별 보유 수량 → 비중(종가 평가액 / 그날 총평가액)
     p = r["position"]
     avg = p["entry"] if p else (r["trades"][-1]["entryPrice"] if r["trades"] else None)
+    if avg is None:                                       # 오늘 장중 신규 진입(정산 전, 2026-11-04) — 오늘 체결 평균가
+        buys = [f for f in fills.values() if f["q"] > 0]
+        avg = sum(f["q"] * f["px"] for f in buys) / sum(f["q"] for f in buys) if buys else None
     first = start or plan.get("validDate") or date
     span = tradedays.trading_days(first, max(end or last_day, first))      # 그래프 = 진입일 ~ 청산일(보유 중이면 최근일)
     docs = [store.get(x["decisionKey"]) for x in ev if x.get("kind") == "review" and x.get("decisionKey")][-1:] + [entry_doc]

@@ -243,6 +243,19 @@ class TestBuild(unittest.TestCase):
         self.assertEqual((x["qty"], x["entry"], x["price"], x["liveEntry"]["planned"], x["decisionKey"]), (10, 200000.0, 202000.0, 50, "decision/2026-11-02/000660/entry"))
         self.assertEqual(lv["equity"] - (L["cash"] + 49 * 55600), 10 * 2000)      # 평가액엔 체결가 대비 손익만
 
+    def test_todays_new_entry_card_has_average_price(self):
+        st = setup()
+        L = st.get("ledger")
+        L["orders"].append({"id": "o9", "code": "069620", "name": "대웅제약", "side": "short", "type": "entry", "created": "2026-11-02", "validDate": "2026-11-03",
+                            "entry": 102600.0, "stop": 108000.0, "qty": 50, "status": "open", "decisionKey": "decision/2026-11-02/069620/entry-short", "weight": 0.05})
+        st.put("ledger", L)
+        st.put("intraday/2026-11-03", {"date": "2026-11-03", "exits": {}, "vwap": {"069620": {"price": 100000.0, "ts": "2026-11-03T10:00:00+09:00"}},
+                                       "orders": {"o9": {"code": "069620", "side": "short", "fills": [{"ts": "2026-11-03T09:00:15+09:00", "qty": 10, "price": 103000, "mode": "open"},
+                                                                                                  {"ts": "2026-11-03T09:05:15+09:00", "qty": 30, "price": 102000, "mode": "vwap"}]}}})
+        h = history.build(st, "decision/2026-11-02/069620/entry-short", log=lambda *a: None)
+        self.assertEqual((h["status"], h["qty"], h["avg"]), ("open", 40, 102250.0))
+        self.assertAlmostEqual(h["vsAvgPct"], (1 - 100000 / 102250) * 100, places=1)       # Short 은 하락이 이익
+
     def test_summary_equity_uses_live_price(self):
         from swing import server
         st = setup()
