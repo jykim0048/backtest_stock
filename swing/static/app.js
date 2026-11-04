@@ -650,7 +650,7 @@
       shown.map(function (o) {
         var retryTag = (o.retry ? '<span class="flag" title="미도달 재주문 — 전날과 같은 진입·손절·목표가(재분석 없음)">재시도 ' + o.retry + "회</span> " : "")
           + (o.partial ? '<span class="flag" title="현금 부족으로 계획 ' + won(o.partial.planned) + '주 중 일부만 진입">부분 ' + won(o.partial.filled) + "/" + won(o.partial.planned) + "</span> " : "")
-          + (o.topupOf ? '<span class="flag" title="PM 비중 채우기 — 원 진입가 상한·현재 손절가로 잔여분 추가 주문, 체결 시 기존 포지션에 합침">비중 채우기 ' + (o.topup || 1) + "회째</span> " : "");
+          + (o.topupOf ? '<span class="flag" title="PM 비중 채우기 — 원 진입가 리밋·현재 손절가로 잔여분 추가 주문, 체결 시 기존 포지션에 합침">비중 채우기 ' + (o.topup || 1) + "회째</span> " : "");
         return { key: o.decisionKey, cells: [td('<span class="num">' + esc((o.validDate || "").slice(5)) + '</span><small class="hold-fill">판단 ' + esc((o.created || "").slice(5)) + "</small>"),
           td('<span class="side-tag ' + sideOf(o) + '">' + (sideOf(o) === "long" ? "LONG" : "SHORT") + "</span>"),
           td(stock(o.name, o.code)), td('<span class="state ' + o.status + '">' + (STATUS[o.status] || o.status) + "</span>"),
@@ -1467,7 +1467,7 @@
       var stop = lr && lr.stop != null ? lr.stop : d.stop, tgt = lr ? lr.target : d.target;
       var g = [["PM 등급" + rv, lr ? rating(lr.rating, lr.error) : rating(d.rating, d.error)], ["Trader" + rv, esc((lr ? lr.trader : d.action) || "—")],
         // 판단 진입가 = 주문 진입가 상한(Long 이하·Short 이상에서만 체결), 아래에 실제 평단(히스토리 로드 후, 2026-11-04)
-        ["진입가 상한", '<span class="param-value entry">' + won(d.entry) + '</span><small class="dec-sub" id="dec-avg"></small>'], ["손절가" + (lr ? " · 재판별 후" : ""), '<span class="param-value stop">' + won(stop) + "</span>"],
+        ["진입가 리밋", '<span class="param-value entry">' + won(d.entry) + '</span><small class="dec-sub" id="dec-avg"></small>'], ["손절가" + (lr ? " · 재판별 후" : ""), '<span class="param-value stop">' + won(stop) + "</span>"],
         ["목표가(PM)" + (lr ? " · 재판별 후" : ""), '<span class="param-value target">' + (tgt ? won(tgt) : "—") + "</span>"],
         ["비중", (d.pm_weight ? "PM " + (d.pm_weight * 100).toFixed(1) + "%" : "PM —") + " · Trader " + (d.weight ? (d.weight * 100).toFixed(1) + "%" : "—")]];
       var h = '<div class="dec-grid">' + g.map(function (x) {

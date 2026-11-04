@@ -253,7 +253,7 @@ def build(store, key, *, day=None, log=print):
         planned = (o.get("partial") or {}).get("planned") or o.get("qty") or 0
         ev.append({"date": o.get("created"), "rank": 0, "label": "판단", "cls": "plan", "qty": 0,
                    "text": f"PM {rating} · 계획 {planned:,}주({(o.get('weight') or 0) * 100:.1f}%)",
-                   "sub": f"진입가 상한 {o.get('entry') or 0:,.0f} · 손절 {o.get('stop') or 0:,.0f}" + (f" · 목표 {o['target']:,.0f}" if o.get("target") else ""),
+                   "sub": f"진입가 리밋 {o.get('entry') or 0:,.0f} · 손절 {o.get('stop') or 0:,.0f}" + (f" · 목표 {o['target']:,.0f}" if o.get("target") else ""),
                    "decisionKey": r["key"]})
     buy_word = "공매도" if short else "매수"
     wait = []                                             # 이어진 비중 채우기 미체결(2026-11-03) — 한 줄로 묶는다
@@ -263,7 +263,7 @@ def build(store, key, *, day=None, log=print):
             a, b = wait[0], wait[-1]
             ev.append({"date": a.get("validDate"), "rank": 1, "label": "비중 채우기 대기", "cls": "plan", "qty": 0, "kind": "wait",
                        "text": f"{len(wait)}일 미체결" + (f" · {a['validDate'][5:]}~{b['validDate'][5:]}" if len(wait) > 1 else ""),
-                       "sub": f"잔여 {b.get('qty') or 0:,}주 · 진입가 상한 {b.get('entry') or 0:,.0f} 너머 — 내려오면 체결"})
+                       "sub": f"잔여 {b.get('qty') or 0:,}주 · 진입가 리밋 {b.get('entry') or 0:,.0f} 너머 — 내려오면 체결"})
             wait.clear()
     for n, o in enumerate(orders):
         v, st = o.get("validDate"), o.get("status")

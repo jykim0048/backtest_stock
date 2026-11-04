@@ -398,7 +398,7 @@ def _topups(L, bars, date, nxt, fut_ok=None, store=None):
         elif stop and ((not short and close <= stop) or (short and close >= stop)):
             row.update(skip="stop", why=f"종가 {close:,.0f} 가 손절가 {stop:,.0f} 침범")
         elif stop and ((not short and stop >= cap) or (short and stop <= cap)):
-            row.update(skip="cap", why=f"손절가 {stop:,.0f} 가 진입가 상한 {cap:,.0f} 너머 — 살 수 있는 가격 없음")
+            row.update(skip="cap", why=f"손절가 {stop:,.0f} 가 진입가 리밋 {cap:,.0f} 너머 — 살 수 있는 가격 없음")
         else:
             new = engine.place_entry(L, code=p["code"], name=p.get("name"), date=date, valid_date=nxt, entry=cap, stop=stop,
                                      target=p.get("target"), weight=weight, sector=p.get("sector"), signal=p.get("signal"),
