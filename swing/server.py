@@ -117,6 +117,9 @@ def api_positions(q):
         qty = p["qty"] + add_q - sold
         entry = (p["entry"] * p["qty"] + sum(f["qty"] * f["price"] for f in af)) / (p["qty"] + add_q) if add_q else p["entry"]
         r = px / entry - 1
+        # 오늘 청산분의 실현 손익(정산 전 추정, 2026-11-04 한화솔루션 — 손절 전량 환매로 +인데 평가손익이 현재가로 −로 보이던 문제)
+        proceeds = sum(f["qty"] * f["price"] for f in fills)
+        realized = sgn * (proceeds - sold * entry) - (proceeds * config.SELL_TAX if sgn > 0 else 0) if sold else None
         kind = own.get("kind") if own.get("fills") else "switch" if sw.get("fills") else (trims[0].get("kind") if trims else None)
         lx = {"kind": kind, "qty": sold, "done": qty <= 0, "at": fills[-1]["ts"][11:16]} if sold else None
         # 평가액 보정(api_live) — 원장 수량·평단 평가에 오늘 체결분 차이만 더한다: 추가 = (현재가 − 체결가), 청산 = (체결가 − 현재가)
@@ -125,7 +128,9 @@ def api_positions(q):
         out.append({**p, "qty": qty, "entry": entry, "qtyLedger": p["qty"], "entryLedger": p["entry"],
                     "price": px, "priceTs": ((lv or {}).get("ts") or "")[11:19] or None, "value": round(qty * px),
                     "chgPct": round((px / prev - 1) * 100, 2) if prev else None,
-                    "unrealPct": round(sgn * r * 100, 2), "liveExit": lx,   # 숏은 하락이 이익
+                    "unrealPct": round(sgn * r * 100, 2) if qty > 0 else None, "liveExit": lx,   # 숏은 하락이 이익 · 전량 청산이면 평가손익 없음
+                    "liveRealized": round(realized) if realized is not None else None,
+                    "liveRealizedPct": round(realized / (sold * entry) * 100, 2) if realized is not None else None,
                     "liveAdd": {"qty": add_q, "price": round(sum(f["qty"] * f["price"] for f in af) / add_q), "at": af[-1]["ts"][11:16]} if add_q else None,
                     "liveAdj": round(adj)})
     out += _live_entries(L, doc, live)
@@ -174,7 +179,8 @@ def _live_entries(L, doc, live):
                      "rating": o.get("rating") or rec.get("rating"), "fillDate": doc.get("date"), "holdDay": 1, "lastClose": None, "sellPending": None,
                      "price": px, "priceTs": (lv.get("ts") or fills[-1]["ts"])[11:19], "value": round(left * px), "liveRealized": round(realized),
                      "chgPct": round((px / lv["prevClose"] - 1) * 100, 2) if lv.get("prevClose") else None,
-                     "unrealPct": round((-r if side == "short" else r) * 100, 2),
+                     "unrealPct": round((-r if side == "short" else r) * 100, 2) if left > 0 else None,
+                     "liveRealizedPct": round(realized / (out_q * avg) * 100, 2) if out_q else None,
                      "liveExit": {"kind": (doc.get("exits") or {})["o:" + oid].get("kind"), "qty": out_q, "done": left == 0, "at": xf[-1]["ts"][11:16]} if out_q else None,
                      "liveEntry": {"qty": q, "planned": rec.get("planned") or o.get("qty"), "done": bool(rec.get("done")), "at": fills[-1]["ts"][11:16]}})
     return rows
@@ -195,7 +201,7 @@ def api_live(q):
     return {"live": True, "liveTs": ts, "liveDate": history.live_date(STORE, L.get("asof")), "source": "bus" if any(x.get("bus") for x in live.values()) else "doc",
             "equity": round(v), "retPct": round((v / L["capital0"] - 1) * 100, 2) if L.get("capital0") else None, "cash": round(L["cash"]),
             "positions": [p if p["id"].startswith("live:") else {k: p.get(k) for k in ("id", "code", "side", "price", "priceTs", "chgPct", "value", "unrealPct", "liveExit",
-                                                                                  "qty", "entry", "qtyLedger", "liveAdd")}
+                                                                                  "qty", "entry", "qtyLedger", "liveAdd", "liveRealized", "liveRealizedPct")}
                           for p in ps]}
 
 

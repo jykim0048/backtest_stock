@@ -343,6 +343,25 @@ class TestBuild(unittest.TestCase):
         self.assertEqual((p["qty"], p["liveExit"]["qty"], p["liveExit"]["done"]), (70, 9, False))
         self.assertEqual(lv["equity"], round(100_000_000 + 49 * 50000 + 10 * 1000 + 20 * 400 + 9 * 1000))
 
+    def test_full_exit_shows_realized_not_unrealized(self):
+        """한화솔루션(2026-11-04) — 장중 전량 청산이 이익인데 현재가 기준 평가손익(−)이 보이던 문제."""
+        from swing import config, server
+        st = setup()
+        st.put("intraday/2026-11-03", {"vwap": {"006110": {"price": 50000.0, "ts": "2026-11-03T15:10:00+09:00"}}, "orders": {},
+                                       "exits": {"p1": {"code": "006110", "side": "long", "kind": "stop",
+                                                        "fills": [{"ts": "2026-11-03T10:52:00+09:00", "qty": 49, "price": 70000, "mode": "force"}]}}})
+        old, server.STORE = server.STORE, st
+        try:
+            p = server.api_positions({})[0]
+            lp = server.api_live({})["positions"][0]
+        finally:
+            server.STORE = old
+        want = 49 * (70000 - 65563) - 70000 * 49 * config.SELL_TAX
+        self.assertEqual((p["qty"], p["unrealPct"]), (0, None))
+        self.assertEqual(p["liveRealized"], round(want))
+        self.assertAlmostEqual(p["liveRealizedPct"], want / (49 * 65563) * 100, places=2)
+        self.assertEqual((lp["liveRealized"], lp["unrealPct"]), (round(want), None))
+
     def test_history_avg_includes_todays_topup(self):
         h = history.build(self._topup_today(), KEY, log=lambda *a: None)
         avg = (49 * 65563 + 10 * 49000 + 20 * 49600) / 79

@@ -433,6 +433,18 @@
     var x = p.liveAdd, w = sideOf(p) === "short" ? "공매도" : "매수";
     return '<span class="state ext" title="비중 채우기 장중 체결 ' + won(x.qty) + "주 @" + won(x.price) + " — 16:30 정산 때 평균단가로 합산(수량·평단은 이미 반영)" + '">오늘 추가 ' + w + " +" + won(x.qty) + "주 " + esc(x.at) + "</span>";
   }
+  // 평가손익 칸(2026-11-04 한화솔루션) — 남은 수량은 평가손익(현재가), 오늘 청산분은 '실현'으로 따로. 전량 청산이면 실현만
+  function pnlCell(p) {
+    var rz = p.liveRealized, has = rz != null && p.liveExit;
+    var rl = has ? '<small class="pnl-realized ' + signCls(rz) + '" title="오늘 장중 청산분 실현 손익(정산 전 추정 — 16:30 정산 때 확정)">실현 ' + wonS(rz) + "원" +
+      (p.liveRealizedPct != null ? " (" + pctTxt(p.liveRealizedPct) + ")" : "") + "</small>" : "";
+    if (p.unrealPct == null) {               // 전량 청산 — 실현 배지(%) + 금액만
+      return has ? '<span class="pnl-kind">실현</span>' + pnlBadge(p.liveRealizedPct, pctTxt(p.liveRealizedPct).replace(/^[+-]/, "")) +
+        '<small class="pnl-realized ' + signCls(rz) + '" title="오늘 장중 청산 실현 손익(정산 전 추정 — 16:30 정산 때 확정)">' + wonS(rz) + "원</small>"
+        : '<span class="muted">—</span>';
+    }
+    return pnlBadge(p.unrealPct, pctTxt(p.unrealPct).replace(/^[+-]/, "")) + rl;
+  }
   function posTable(el, ps, empty) {
     ps = ps.slice().sort(function (a, b) { return (a.liveEntry ? 1 : 0) - (b.liveEntry ? 1 : 0); });   // 오늘 진입 행은 맨 아래
     // 비중 = 평가금액(수량 × 현재가) ÷ 총 평가액(2026-10-16) — 상단 비중, 하단 수량(작게). 현재가 = 장중이면 Live Trader 시세(2026-11-03)
@@ -440,7 +452,7 @@
     // 현재가 기준 시각은 컬럼명 아래 한 번만, 가격 아래엔 전일대비(2026-11-04)
     var pts = ps.map(function (p) { return p.priceTs || ""; }).sort().pop();
     var pxHead = '현재가<small class="th-sub">' + (pts ? esc(pts.slice(0, 5)) + " 기준" : "종가") + "</small>";
-    table(el, [["종목"], ["섹터"], ["신호"], ["선정기준"], ["가격 레벨"], ["비중 / 수량", "r"], [pxHead, "r"], ["평가손익", "r"], ["보유일"], ["상태"]],
+    table(el, [["종목"], ["섹터"], ["신호"], ["선정기준"], ["가격 레벨"], ["비중 / 수량", "r"], [pxHead, "r"], ['평가손익<small class="th-sub">청산분은 실현</small>', "r"], ["보유일"], ["상태"]],
       ps.map(function (p) {
         var val = p.value != null ? p.value : p.qty * (p.lastClose || p.entry || 0);
         var wt = eq ? '<span class="num" title="평가금액 ' + won(val) + '원 ÷ 총 평가액">' + (val / eq * 100).toFixed(1) + "%</span>" : '<span class="num muted">—</span>';
@@ -450,7 +462,7 @@
           td(levels(p.entry, p.stop, p.target)), td(wt + '<small class="sub-qty">' + won(p.qty) + "주</small>", "r"),
           td('<span class="num live-px ' + signCls(p.chgPct) + '" data-pxid="' + esc(p.id) + '">' + won(p.price != null ? p.price : p.lastClose) + "</span>" + (p.chgPct != null ? '<small class="px-chg ' + signCls(p.chgPct) + '" title="전일 종가 대비">' + pctTxt(p.chgPct) + "</small>"
             : ""), "r"),
-          td(pnlBadge(p.unrealPct, pctTxt(p.unrealPct).replace(/^[+-]/, "")), "r"),
+          td(pnlCell(p), "r"),
           td(holdBar(p.holdDay) + (p.fillDate ? '<small class="hold-fill">체결 ' + esc(p.fillDate.slice(5)) + "</small>" : "")),
           td(p.liveEntry ? liveEntryTag(p) : p.liveExit ? liveExitTag(p) : p.liveAdd ? liveAddTag(p) : p.sellPending ? pendingTag(p)
             : (p.fillStop && !p.fillStop.reviewed) ? '<span class="state sell-next" title="체결일(' + esc((p.fillStop.date || "").slice(5)) + ") 손절가 " + won(p.fillStop.stop) + ' 도달 — 다음 영업일 종가로 재판별, 매도면 그다음 영업일 시가">손절 재판별 대기</span>'
@@ -1087,7 +1099,7 @@
           td('<span class="num">' + won(p.value) + "</span>", "r"),
           td('<span class="wbar ' + sideOf(p) + '" style="width:' + Math.max(4, (p.value || 0) / (maxV || 1) * 90) + 'px"></span>' +
             '<span class="num">' + pc(p.value || 0) + "</span>"),
-          td(pnlBadge(p.unrealPct, pctTxt(p.unrealPct).replace(/^[+-]/, "")), "r"), td(holdBar(p.holdDay))] };
+          td(pnlCell(p), "r"), td(holdBar(p.holdDay))] };
       }), "보유 종목 없음");
   }
 
