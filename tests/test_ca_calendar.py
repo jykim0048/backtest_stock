@@ -57,6 +57,8 @@ def test_importance_rules():
     # 배당락: 시가배당률 3%+ 또는 미상 → 2, 저배당 → 1
     assert imp("dividend", "ex", "배당락(추정)", {"cashYieldPct": 4.1}) == 2
     assert imp("dividend", "ex", "배당락(추정)", {}) == 2
+    assert imp("dividend", "ex", "배당락(추정)", {"faceDivPct": 566, "highDividend": "N"}) == 1
+    assert imp("dividend", "ex", "배당락(추정)", {"faceDivPct": 566, "highDividend": "Y"}) == 2
     assert imp("dividend", "ex", "배당락(추정)", {"cashYieldPct": "1.2"}) == 1
     assert imp("dividend", "pay", "지급", {"cashYieldPct": 9}) == 1
     # 추가상장: 신주 비중 5%+ → 3, 미만·미상 → 2 (문자열 '%' 허용, pctOfTotal 폴백)

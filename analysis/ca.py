@@ -200,6 +200,9 @@ def features(payload, date, close, window_bd=WINDOW_BD, holidays=None):
                 or (m.get("d_n_end") is not None and m["d_n"] <= window_bd and m["d_n_end"] >= 0))
             for m in ms)
         f = _slim_fields(e.get("fields"))
+        dps = _num(f.get("cashDps"))
+        if close_f and dps and f.get("cashYieldPct") is None:   # 허브 divi_rate 는 액면 기준(2026-11-04 실측) — 시가배당률은 현재가로
+            f["cashYieldPct"] = round(dps / close_f * 100, 2)
         it = {"type": e.get("type"), "label": e.get("label") or e.get("type"),
               "recordDate": rec, "milestones": ms, "fields": f, "stage": stage,
               "nextMilestone": nxt, "inWindow": in_win, "haltInWindow": halt}

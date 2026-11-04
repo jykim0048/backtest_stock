@@ -162,8 +162,10 @@ def _importance(typ, kind, label, fields):
         return 2 if kind in ("ex", "listing") else 1
     if typ == "dividend":
         if kind == "ex":
-            y = _num(f.get("cashYieldPct"))
-            return 2 if (y is None or y >= 3) else 1
+            y = _num(f.get("cashYieldPct"))          # 허브는 액면배당률(faceDivPct)만 준다 — 시가배당률 미상이면
+            if y is None:                            # 고배당 여부(high_divi_gb)로 가른다(2026-11-04 실측)
+                return 1 if str(f.get("highDividend") or "").upper() == "N" else 2
+            return 2 if y >= 3 else 1
         return 1
     if typ == "purreq":
         return 2 if kind == "deadline" else 1
