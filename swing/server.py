@@ -218,7 +218,7 @@ def api_queue(q):
     col = engine.collateral(L)
     subst = config.SHORT_COLLATERAL == "subst"
     budget = {"long": max(0.0, col["free"]), "short": max(0.0, col["room"] if subst else L["cash"])}
-    out = {"session": session, "live": bool(day), "asof": doc.get("asof"), "collateral": config.SHORT_COLLATERAL,
+    out = {"session": session, "live": bool(day), "asof": doc.get("asof"), "complete": bool(doc.get("complete")), "collateral": config.SHORT_COLLATERAL,
            "margin": config.SHORT_MARGIN, "ratings": {"long": list(config.BUY_RATINGS), "short": list(config.SHORT_RATINGS)}}
     for side in ("long", "short"):
         cum, rows = 0.0, []
@@ -243,23 +243,36 @@ def api_queue(q):
 def _wait_reason(o, rec, lv, side, filled, fits, complete):
     """장중 진입 주문이 왜 (더) 체결되지 않는지 — 실행기 조건(executor._advance)과 같은 순서로 짧게. (라벨, 설명) 또는 None."""
     qty = o.get("qty") or 0
-    if rec.get("done") or (qty and filled >= qty):
+    if qty and filled >= qty:
         return None
-    if complete:
-        return "장 마감", "오늘 분할 시간(15:19)이 끝나 남은 수량은 정산 때 처리"
+    why = rec.get("why") or ""
+    if rec.get("done") and "손절" in why:            # 본 포지션 손절·체결 후 손절가 도달 → 남은 분할 취소
+        return "손절로 중단", why
+    if rec.get("done") and not complete:
+        return ("중단", why) if why else None
     px, vw = lv.get("price"), lv.get("vwap")
     cap, stop = rec.get("cap") or o.get("entry"), rec.get("stop") or o.get("stop")
-    if not px:
-        return "시세 대기", "아직 이 종목 시세를 받지 못함"
     long_ = side == "long"
-    if stop and (px <= stop if long_ else px >= stop):
-        return "손절가 밖", f"현재가 {px:,.0f}가 손절가 {stop:,.0f} {'아래' if long_ else '위'} — 진입하지 않음"
-    if cap and (px > cap if long_ else px < cap):
+    word = "마감 시 " if complete else "현재가 "
+    cond = None
+    if not px:
+        cond = None if complete else ("시세 대기", "아직 이 종목 시세를 받지 못함")
+    elif stop and (px <= stop if long_ else px >= stop):
+        cond = ("손절가 밖", f"{word}{px:,.0f}가 손절가 {stop:,.0f} {'아래' if long_ else '위'} — 진입하지 않음")
+    elif cap and (px > cap if long_ else px < cap):
         g = (px / cap - 1) * 100
-        return (f"리밋 {'위' if long_ else '아래'} {g:+.1f}%",
-                f"현재가 {px:,.0f} {'>' if long_ else '<'} 진입가 리밋 {cap:,.0f} — {'내려와야' if long_ else '올라와야'} 체결")
-    if vw and (px > vw if long_ else px < vw):
-        return (f"VWAP {'위' if long_ else '아래'}", f"현재가 {px:,.0f} {'>' if long_ else '<'} VWAP {vw:,.0f} — VWAP보다 유리할 때만 분할 체결")
+        cond = (f"리밋 이탈 {g:+.1f}%",
+                f"{word}{px:,.0f} {'>' if long_ else '<'} 진입가 리밋 {cap:,.0f}" + ("" if complete else f" — {'내려와야' if long_ else '올라와야'} 체결"))
+    elif vw and (px > vw if long_ else px < vw):
+        cond = (f"VWAP {'위' if long_ else '아래'}", f"{word}{px:,.0f} {'>' if long_ else '<'} VWAP {vw:,.0f} — VWAP보다 유리할 때만 분할 체결")
+    if complete:                                       # 마감 후(2026-11-04) — 마지막 시세 기준으로 왜 못 채웠는지
+        rest = " · 남은 수량은 잔여분 추가 주문(비중 채우기)으로 이어짐"
+        if cond:
+            return cond[0], cond[1] + rest
+        return "분할 미완", ("마감 때는 조건이 맞았지만, VWAP보다 유리한 구간에서만 5분 간격으로 나눠 체결해 "
+                           "15:19 안에 다 못 채움" + rest)
+    if cond:
+        return cond
     if not fits and long_:                 # Short 는 장중에 담보로 막지 않는다 — 정산 때 담보 여력만큼 우선순위대로 반영
         return "현금 대기", "조건은 맞지만 앞 순위가 현금을 먼저 씀 — 부족분은 적시 스위칭으로 마련"
     return "분할 간격", "조건 충족 — 다음 VWAP 분할(5분 간격)을 기다리는 중"

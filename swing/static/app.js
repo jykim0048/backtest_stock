@@ -299,7 +299,7 @@
     if (!el) return;
     Q.last = q;
     if (!q || !q.session) { $("queue-sub").textContent = ""; el.innerHTML = '<div class="q-empty">대기 중인 진입 주문이 없습니다</div>'; return; }
-    $("queue-sub").textContent = q.session.slice(5).replace("-", "/") + " 주문" + (q.live && q.asof ? " · 장중 " + q.asof.slice(11, 16) + " 기준" : " · 다음 세션");
+    $("queue-sub").textContent = q.session.slice(5).replace("-", "/") + " 주문" + (q.live && q.asof ? (q.complete ? " · 장 마감(정산 전)" : " · 장중 " + q.asof.slice(11, 16) + " 기준") : " · 다음 세션");
     var rl = q.ratings || {};
     var rules = '<div class="q-rules"><span><b>①</b> PM 등급 — Long ' + esc((rl.long || []).join(" › ")) + " · Short " + esc((rl.short || []).join(" › ")) + "</span>" +
       "<span><b>②</b> 같은 등급은 높은 비중 먼저</span><span><b>③</b> 순위가 높아도 그 순간 진입가 리밋·VWAP 조건이 안 맞으면 다음 순위로 — 현금을 묶어 두지 않음</span></div>";
@@ -339,7 +339,7 @@
         ' <span class="q-n">' + n + "</span>" + (over ? '<i class="q-dot" title="필요 금액이 예산 초과"></i>' : "") + "</button>";
     }).join("") + "</div>";
     var body = block(Q.side) || '<div class="q-empty">' + (Q.side === "short" ? "Short" : "Long") + " 진입 주문이 없습니다</div>";
-    el.innerHTML = tog + rules + body +
+    el.innerHTML = tog + rules + '<div class="q-body">' + body + "</div>" +
       '<div class="q-note">Long 은 현금, Short 는 ' + (q.collateral === "subst" ? "대용 담보(증거금 " + Math.round((q.margin || 0) * 100) + "%)" : "현금 담보") +
       " — 같은 현금을 나눠 쓰므로 두 필요 금액을 함께 봐야 합니다. 비중 채우기 주문도 같은 순서로 경쟁합니다.</div>";
   }

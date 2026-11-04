@@ -808,7 +808,8 @@ td small.sub-qty { display: block; font-size: 10.5px; color: var(--text-muted); 
 .pnl-kind { font-size: 10.5px; color: var(--text-muted); margin-right: 4px; }
 /* 진입 우선순위(2026-11-04) */
 .q-sub { font-size: 11px; font-weight: 400; color: var(--text-muted); margin-left: 6px; }
-.queue { max-height: 420px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; font-size: 12px; }
+.queue { display: flex; flex-direction: column; gap: 8px; font-size: 12px; }
+.q-body { max-height: 340px; overflow-y: auto; }   /* 토글·규칙은 고정, 표만 스크롤(2026-11-04) */
 .q-empty { color: var(--text-muted); padding: 20px 0; text-align: center; }
 .q-rules { display: flex; flex-direction: column; gap: 3px; font-size: 11px; color: var(--text-muted); padding-bottom: 8px; border-bottom: 1px solid var(--border-color); }
 .q-rules b { color: var(--kospi-blue); margin-right: 3px; }

@@ -390,15 +390,17 @@ class TestBuild(unittest.TestCase):
         from swing import server
         o = {"qty": 100, "entry": 10000.0, "stop": 9000.0}
         w = lambda lv, side="long", filled=0, fits=True, rec=None, done=False: server._wait_reason(o, rec or {}, lv, side, filled, fits, done)   # noqa: E731
-        self.assertEqual(w({"price": 10300, "vwap": 10200})[0], "리밋 위 +3.0%")
+        self.assertEqual(w({"price": 10300, "vwap": 10200})[0], "리밋 이탈 +3.0%")
         self.assertEqual(server._wait_reason({"qty": 100, "entry": 10000.0, "stop": 11000.0}, {}, {"price": 9700, "vwap": 9800},
-                                             "short", 0, False, False)[0], "리밋 아래 -3.0%")   # Short 는 담보로 막지 않음
+                                             "short", 0, False, False)[0], "리밋 이탈 -3.0%")   # Short 는 담보로 막지 않음
         self.assertEqual(w({"price": 9900, "vwap": 9800})[0], "VWAP 위")
         self.assertEqual(w({"price": 8900, "vwap": 9800})[0], "손절가 밖")
         self.assertEqual(w({"price": 9700, "vwap": 9800}, fits=False)[0], "현금 대기")
         self.assertEqual(w({"price": 9700, "vwap": 9800}, filled=30)[0], "분할 간격")
         self.assertEqual(w({}, done=False)[0], "시세 대기")
-        self.assertEqual(w({"price": 9700}, done=True)[0], "장 마감")
+        self.assertEqual(w({"price": 9700}, done=True)[0], "분할 미완")         # 마감 — 조건은 맞았음
+        self.assertEqual(w({"price": 10300}, done=True, rec={"done": True, "why": "3/100주 체결"})[0], "리밋 이탈 +3.0%")   # 마감 시 리밋 밖
+        self.assertEqual(w({"price": 9700}, rec={"done": True, "why": "본 포지션 손절 — 남은 분할 취소"})[0], "손절로 중단")
         self.assertIsNone(w({"price": 9700}, filled=100))
         self.assertIsNone(w({"price": 9700}, rec={"done": True}))
 
