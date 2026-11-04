@@ -444,7 +444,7 @@
           td('<span class="sec-name">' + esc(p.sector || "—") + "</span>"), td(sig(p.signal) || '<span class="muted">—</span>'),
           td('<span class="pos-basis" data-dk="' + esc(p.decisionKey || "") + '">' + basisTag({ source: p.source }) + "</span>"),
           td(levels(p.entry, p.stop, p.target)), td(wt + '<small class="sub-qty">' + won(p.qty) + "주</small>", "r"),
-          td('<span class="num live-px" data-pxid="' + esc(p.id) + '">' + won(p.price != null ? p.price : p.lastClose) + "</span>" + (p.chgPct != null ? '<small class="px-chg ' + signCls(p.chgPct) + '" title="전일 종가 대비">' + pctTxt(p.chgPct) + "</small>"
+          td('<span class="num live-px ' + signCls(p.chgPct) + '" data-pxid="' + esc(p.id) + '">' + won(p.price != null ? p.price : p.lastClose) + "</span>" + (p.chgPct != null ? '<small class="px-chg ' + signCls(p.chgPct) + '" title="전일 종가 대비">' + pctTxt(p.chgPct) + "</small>"
             : ""), "r"),
           td(pnlBadge(p.unrealPct, pctTxt(p.unrealPct).replace(/^[+-]/, "")), "r"),
           td(holdBar(p.holdDay) + (p.fillDate ? '<small class="hold-fill">체결 ' + esc(p.fillDate.slice(5)) + "</small>" : "")),
