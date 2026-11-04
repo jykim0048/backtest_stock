@@ -184,14 +184,27 @@ class TestExecutor(unittest.TestCase):
         self.assertEqual((r["fills"], r["plan"][:2]), ([], [0, 120]))
 
     def test_fill_then_stop_opens_exit_slices(self):
-        ex = self.ex(ledger_with(order={}))
-        run(ex, path("000010", [("09:00", 10200), ("09:05", 10100), ("09:10", 9990),
-                                ("09:20", 9700, 9480),                    # 꼬리로 손절 9,500 터치
-                                ("09:25", 9000)]))                        # 손절가 대비 −5.3% → 남은 청산 전량
+        old, config.FILL_DAY_STOP = config.FILL_DAY_STOP, "same_day"      # 체결일 손절 즉시 모드(종전 동작)
+        try:
+            ex = self.ex(ledger_with(order={}))
+            run(ex, path("000010", [("09:00", 10200), ("09:05", 10100), ("09:10", 9990),
+                                    ("09:20", 9700, 9480),                # 꼬리로 손절 9,500 터치
+                                    ("09:25", 9000)]))                    # 손절가 대비 −5.3% → 남은 청산 전량
+        finally:
+            config.FILL_DAY_STOP = old
         r, x = ex.doc["orders"]["o1"], ex.doc["exits"]["o:o1"]
         self.assertTrue(r["done"])
         self.assertEqual((x["planned"], x["trigger"]), (120, "stop"))
         self.assertEqual(self.fills(x), [("09:20", 12, 9500.0, "stop"), ("09:25", 108, 9000, "force")])
+
+    def test_fill_then_stop_defers_in_review_mode(self):
+        # 기본(review, 2026-10-16 사용자 지시) — 체결일엔 손절하지 않고 남은 분할만 멈춘다(11-04 두산)
+        ex = self.ex(ledger_with(order={}))
+        run(ex, path("000010", [("09:00", 10200), ("09:05", 10100), ("09:10", 9990), ("09:20", 9700, 9480), ("09:25", 9000)]))
+        r = ex.doc["orders"]["o1"]
+        self.assertTrue(r["done"])
+        self.assertNotIn("o:o1", ex.doc["exits"])
+        self.assertEqual(r["fillStop"]["price"], 9500.0)
 
     def test_position_stop_then_vwap_sell(self):
         ex = self.ex(ledger_with(position={}))
@@ -332,6 +345,16 @@ class TestSettleIntraday(unittest.TestCase):
         self.assertFalse(L["positions"])
         self.assertEqual(ev["exits"][0]["qty"], 120)
         self.assertFalse(ev.get("deferredStops"))
+
+    def test_fill_stop_record_defers_to_review(self):
+        L = ledger_with(order={})
+        o = fills(("09:00", 30, 10100), ("09:10", 90, 9990))
+        o["fillStop"] = {"ts": ts("09:20"), "price": 9500.0}
+        ev = E.settle_day(L, D1, {"000010": b(10100, 10200, 8900, 9100)}, intraday=doc(orders={"o1": o}, watched_o=["o1"]))
+        p = L["positions"][0]
+        self.assertEqual((p["qty"], p["fillStop"]["extreme"]), (120, 9500.0))
+        self.assertFalse(ev["exits"])
+        self.assertEqual(len(ev["deferredStops"]), 1)
 
     def test_no_data_day_falls_back_to_daily(self):
         """2026-10-19 사고 재현 — 시세를 한 번도 못 받은(asof 없음) 날은 감시 주문도 일봉 규칙으로 체결."""

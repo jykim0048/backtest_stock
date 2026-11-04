@@ -42,6 +42,7 @@ Live PM 지시(2026-10-19, PLAN_LIVE_TRADER §5-2) — 매 폴링마다 livepm/<
 """
 import math
 
+from .. import config as swing_config
 from .. import engine
 from ..config import MAX_WEIGHT, SELL_TAX
 from ..intraday.feed import Tick
@@ -396,6 +397,13 @@ class Executor:
     def _entry(self, oid, r, st, ts, hm):
         if r["fills"]:
             hit = self._stop_hit(st, r["side"], r["stop"], first=False)
+            if hit and swing_config.FILL_DAY_STOP == "review" and not r.get("topupOf"):
+                # 체결일 손절 유예(2026-10-16 사용자 지시, 11-04 두산 — 실행기가 이 규칙을 앞질러 당일 손절하던 문제):
+                # 남은 분할만 멈추고 체결분은 그대로 둔다 → 정산이 fillStop 표시 → D+1 손절 유예·종가 재판별 → 매도면 D+2 시가
+                r.update(done=True, why="체결 후 손절가 도달 — 남은 분할 취소, 체결분은 체결일 손절 유예(내일 종가 재판별)",
+                         fillStop={"ts": ts, "price": hit[0]})
+                self.dirty = True
+                return
             if hit:
                 r.update(done=True, why="체결 후 손절 — 남은 분할 취소")
                 self._open_exit("o:" + oid, code=r["code"], name=r.get("name"), side=r["side"], qty=filled(r),

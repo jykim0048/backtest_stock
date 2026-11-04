@@ -517,8 +517,14 @@ def settle_day(L, date, bars, intraday=None):
         oid = (from_intraday.get(p["id"]) or {}).get("_oid")
         rec = i_exits.get(p["id"]) if (i_exits.get(p["id"]) or {}).get("trigger") == "stop" else (i_exits.get("o:" + oid) if oid else None)
         if rec:
-            # 장중 실행기 손절(체결 후 손절 포함) — 손절 도달 10% + VWAP 분할·±5% 전량 기록으로 청산, 체결일 손절 유예 규칙보다 우선
+            # 장중 실행기 손절 — 손절 도달 10% + VWAP 분할·±5% 전량 기록으로 청산(review 모드에선 체결일 손절을 실행기가 하지 않는다)
             _apply_exit(L, p, rec, date, ev, rec.get("kind") or "stop")
+            continue
+        fsr = (from_intraday.get(p["id"]) or {}).get("fillStop")
+        if fsr and config.FILL_DAY_STOP == "review" and p["id"] in new_ids:
+            # 실행기가 체결 후 손절가 도달을 기록(2026-11-04) — 일봉 규칙과 같은 체결일 손절 유예·재판별 대기
+            p["fillStop"] = {"date": date, "stop": p["stop"], "extreme": fsr.get("price")}
+            ev.setdefault("deferredStops", []).append(p)
             continue
         if p.get("sellPending") and p["id"] in i_exits:
             continue                                         # 오늘 분할 청산 중(잔여 다음 날)
