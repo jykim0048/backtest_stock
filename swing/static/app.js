@@ -292,26 +292,65 @@
     $("pf-note").textContent = "일별 평가액 " + (m.n || 0) + "영업일 기준" + (lrows !== rows ? " · 기간 수익률·현재 낙폭은 장중 " + s.liveTs + " 평가액 포함" : "") + (since ? " · * 기간 시작 전 기록이 없어 운용 시작 대비" : "") +
       ((m.n || 0) < 60 ? " · 표본이 짧아 Sharpe·Sortino 는 참고용" : "");
   }
-  function renderRules(c) {
-    if (!c) return;
-    var rows = [
-      ["초기 자본", eok(c.initialCapital)],
-      ["매수 후보", c.buySignals.join(" · ")],
-      ["진입 조건", "PM " + c.buyRatings.join("/") + " + Trader Buy"],
-      ["주문", "다음 영업일 지정가(1일)"],
-      ["보유", c.holdDays + "영업일(체결일=1) → 재판별"],
-      ["목표가 도달", "재판별 → 매도(다음 날 시가) / 보유(본전 손절)"],
-      ["연장 보유", "매일 재판별 · 최대 " + (c.maxHoldDays || 15) + "영업일"],
-      ["비중", "PM Position Weight → Trader(생략 " + (c.defaultWeight * 100) + "%, 상한 " + (c.maxWeight * 100) + "%)"],
-      ["매도 검토", c.sellSignals.join(" · ") + " → PM " + c.sellRatings.join("/")],
-      ["비용", "매도세 " + (c.sellTax * 100).toFixed(1) + "% · 슬리피지 없음"],
-      ["하루 신규 분석", "최대 " + c.maxNewPerDay + "종목"]
-    ];
-    $("rules").innerHTML = rows.map(function (r) {
-      return '<div class="rule"><span>' + r[0] + "</span><span>" + esc(r[1]) + "</span></div>";
-    }).join("") + '<div class="rule-note">체결은 trading_agent 가격 그대로(진입가·손절가·목표가). 시가가 손절가 아래면 시가 손절, ' +
-      "손절·목표 동시 도달은 손절 우선, 체결일엔 목표가 미적용. 현금 부족 시 평가손실 종목부터 시가 청산.</div>";
+  // ── 진입 우선순위(2026-11-04) — 실행기와 같은 순서(engine.entry_priority: PM 등급 → 높은 비중)로 다음/오늘 세션 주문 ──
+  var Q = { side: (function () { try { return localStorage.getItem("swing.queueSide") || "long"; } catch (e) { return "long"; } })(), last: null };
+  function renderQueue(q) {
+    var el = $("queue");
+    if (!el) return;
+    Q.last = q;
+    if (!q || !q.session) { $("queue-sub").textContent = ""; el.innerHTML = '<div class="q-empty">대기 중인 진입 주문이 없습니다</div>'; return; }
+    $("queue-sub").textContent = q.session.slice(5).replace("-", "/") + " 주문" + (q.live && q.asof ? " · 장중 " + q.asof.slice(11, 16) + " 기준" : " · 다음 세션");
+    var rl = q.ratings || {};
+    var rules = '<div class="q-rules"><span><b>①</b> PM 등급 — Long ' + esc((rl.long || []).join(" › ")) + " · Short " + esc((rl.short || []).join(" › ")) + "</span>" +
+      "<span><b>②</b> 같은 등급은 높은 비중 먼저</span><span><b>③</b> 순위가 높아도 그 순간 진입가 리밋·VWAP 조건이 안 맞으면 다음 순위로 — 현금을 묶어 두지 않음</span></div>";
+    var block = function (side) {
+      var b = q[side] || { items: [] }, it = b.items || [], short = side === "short";
+      if (!it.length) return "";
+      var res = short ? (q.collateral === "subst" ? "담보 여력" : "현금") : "가용 현금";
+      var fill = b.budget ? Math.min(100, b.need / b.budget * 100) : 100, over = b.need > b.budget;
+      var head = '<div class="q-head"><span class="q-side ' + side + '">' + (short ? "Short" : "Long") + " " + it.length + "건</span>" +
+        '<span class="q-need">필요 ' + eok(b.need) + " / " + res + " " + eok(b.budget) + (over ? ' <b class="q-over">' + eok(b.need - b.budget) + " 초과</b>" : "") + "</span></div>" +
+        '<div class="q-bar' + (over ? " over" : "") + '" title="순위대로 쌓은 필요 금액 ÷ ' + res + '"><i style="width:' + fill.toFixed(1) + '%"></i></div>';
+      var rows = it.map(function (r) {
+        var st;
+        if (q.live) {
+          var full = r.qty && r.filled >= r.qty;
+          st = full ? '<span class="q-st ok">완료</span>' : r.done ? '<span class="q-st stop" title="' + esc(r.why || "") + '">중단 ' + won(r.filled) + "/" + won(r.qty) + "</span>"
+            : r.filled ? '<span class="q-st run">' + won(r.filled) + "/" + won(r.qty) + "주</span>" : '<span class="q-st wait">대기</span>';
+          if (r.wait) st += '<small class="q-why" title="' + esc(r.waitTip || "") + '">' + esc(r.wait) + "</small>";   // 대기 사유(2026-11-04)
+        } else {
+          st = r.fits ? '<span class="q-st ok" title="누적 필요 금액이 ' + res + ' 안">' + res + " 안</span>"
+            : '<span class="q-st short" title="누적 필요 금액이 ' + res + "를 넘음 — " + (short ? "장중엔 체결되지만 정산 때 담보 여력만큼만 순위대로 진입, 나머지는 다음 영업일 추가 주문" : "그 시점 현금이 모자라면 보유 종목을 팔아 재원 마련(적시 스위칭)") + '">' + (short ? "담보 부족 예상" : "스위칭 필요") + "</span>";
+        }
+        return "<tr" + (r.fits ? "" : ' class="q-beyond"') + (r.decisionKey ? ' data-key="' + esc(r.decisionKey) + '" title="판단 원문 보기"' : "") + ">" +
+          '<td class="q-rank" title="' + (r.fits ? "누적 필요 금액이 " + res + " 안" : "여기부터 누적 필요 금액이 " + res + "를 넘음" + (short ? " — 정산 때 담보 여력만큼만 진입" : " — 현금이 모자라면 스위칭")) + '">' + r.rank + "</td>" +
+          "<td>" + '<span class="q-name">' + esc(r.name || r.code) + "</span>" + (r.topup ? ' <span class="flag">채우기 ' + r.topup + "회</span>" : "") + "</td>" +
+          "<td>" + rating(r.rating) + "</td>" +
+          '<td class="r num">' + wpct(r.weight) + '<small class="sub-qty">' + won(r.qty) + "주</small></td>" +
+          '<td class="r num">' + eok(r.need) + '<small class="sub-qty">누적 ' + eok(r.cum) + "</small></td>" +
+          '<td class="r">' + st + "</td></tr>";
+      }).join("");
+      return head + '<table class="q-table"><thead><tr><th>#</th><th>종목</th><th>PM</th><th class="r">비중/수량</th><th class="r">필요 금액</th><th class="r">' + (q.live ? "체결" : "재원") + "</th></tr></thead><tbody>" + rows + "</tbody></table>";
+    };
+    // Long / Short 토글(2026-11-04) — 버튼에 건수·예산 초과 표시, 선택은 이 브라우저에 기억
+    var tog = '<div class="q-toggle">' + ["long", "short"].map(function (sd) {
+      var b = q[sd] || { items: [] }, n = (b.items || []).length, over = b.need > b.budget;
+      return '<button type="button" data-qside="' + sd + '" class="' + sd + (Q.side === sd ? " on" : "") + '">' + (sd === "short" ? "Short" : "Long") +
+        ' <span class="q-n">' + n + "</span>" + (over ? '<i class="q-dot" title="필요 금액이 예산 초과"></i>' : "") + "</button>";
+    }).join("") + "</div>";
+    var body = block(Q.side) || '<div class="q-empty">' + (Q.side === "short" ? "Short" : "Long") + " 진입 주문이 없습니다</div>";
+    el.innerHTML = tog + rules + body +
+      '<div class="q-note">Long 은 현금, Short 는 ' + (q.collateral === "subst" ? "대용 담보(증거금 " + Math.round((q.margin || 0) * 100) + "%)" : "현금 담보") +
+      " — 같은 현금을 나눠 쓰므로 두 필요 금액을 함께 봐야 합니다. 비중 채우기 주문도 같은 순서로 경쟁합니다.</div>";
   }
+
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest("[data-qside]");
+    if (!b) return;
+    Q.side = b.getAttribute("data-qside");
+    try { localStorage.setItem("swing.queueSide", Q.side); } catch (x) { /* 저장 못 해도 화면은 바뀐다 */ }
+    renderQueue(Q.last);
+  });
 
   // ── 평가액 추이 ──
   function renderEquity(rows, cap) {
@@ -1877,6 +1916,7 @@
       Object.assign(S.summary, { equity: r.equity, retPct: r.retPct, liveTs: r.liveTs, liveDate: r.liveDate });
       renderPortfolio(S.summary); renderPositions(S.positions); renderHoldingsPF(S.positions, S.summary);
       renderEquity(liveRows(S.equity, S.summary), S.summary.capital0);
+      api("/api/swing/queue").then(renderQueue).catch(function () { /* 다음 회차 */ });
       r.positions.forEach(function (x) {
         var a = prev[x.id];
         if (a == null || x.price == null || x.price === a) return;
@@ -1905,7 +1945,8 @@
     S.summary = r[0]; S.equity = r[1]; S.positions = r[2]; S.trades = r[4]; S.config = r[5]; S.fills = r[6] || []; S.reflections = r[7] || [];
     S.heldShort = {};
     S.positions.forEach(function (p) { if (sideOf(p) === "short") S.heldShort[p.code] = 1; else S.held[p.code] = 1; });
-    renderHeader(r[0]); pollProgress(); renderPortfolio(r[0]); renderRules(r[5]);
+    renderHeader(r[0]); pollProgress(); renderPortfolio(r[0]);
+    api("/api/swing/queue").then(renderQueue).catch(function () { renderQueue(null); });
     document.querySelectorAll(".hold-n").forEach(function (x) { x.textContent = HOLD_N(); });
     if (S.config && S.config.borrowRate != null) $("cfg-borrow").textContent = +(S.config.borrowRate * 100).toFixed(2);
     if (S.config && S.config.shortFutOnly != null) $("cfg-sfut").textContent = S.config.shortFutOnly ? "주식선물 상장 종목만" : "선물 상장 무관";

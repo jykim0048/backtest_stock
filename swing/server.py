@@ -205,6 +205,66 @@ def api_live(q):
                           for p in ps]}
 
 
+def api_queue(q):
+    """진입 우선순위(2026-11-04) — 다음(또는 오늘 장중) 세션 진입 주문을 실행기와 같은 순서(engine.entry_priority:
+    PM 등급 → 높은 비중)로 줄 세우고, 누적 필요 금액을 Long 가용 현금·Short 담보 여력과 견준다. 장중이면 체결 진행도."""
+    from swing import history
+    L = _ledger()
+    day = history.live_date(STORE, L.get("asof"))
+    doc = (STORE.get(f"intraday/{day}") or {}) if day else {}
+    orders = [o for o in L.get("orders") or [] if o.get("type", "entry") == "entry" and o.get("status") == "open"]
+    session = day or min((o.get("validDate") for o in orders), default=None)
+    orders = [o for o in orders if o.get("validDate") == session]
+    col = engine.collateral(L)
+    subst = config.SHORT_COLLATERAL == "subst"
+    budget = {"long": max(0.0, col["free"]), "short": max(0.0, col["room"] if subst else L["cash"])}
+    out = {"session": session, "live": bool(day), "asof": doc.get("asof"), "collateral": config.SHORT_COLLATERAL,
+           "margin": config.SHORT_MARGIN, "ratings": {"long": list(config.BUY_RATINGS), "short": list(config.SHORT_RATINGS)}}
+    for side in ("long", "short"):
+        cum, rows = 0.0, []
+        for i, o in enumerate(sorted((o for o in orders if (o.get("side") or "long") == side), key=engine.entry_priority)):
+            notional = (o.get("qty") or 0) * (o.get("entry") or 0)
+            need = notional * (config.SHORT_MARGIN if side == "short" and subst else 1.0)
+            cum += need
+            rec = (doc.get("orders") or {}).get(o["id"]) or {}
+            filled = sum(f["qty"] for f in rec.get("fills") or [])
+            wait = _wait_reason(o, rec, (doc.get("vwap") or {}).get(o["code"]) or {}, side, filled, cum <= budget[side] + 1,
+                                bool(doc.get("complete"))) if day else None
+            rows.append({"rank": i + 1, "id": o["id"], "code": o["code"], "name": o.get("name"), "rating": o.get("rating"),
+                         "weight": o.get("weight"), "qty": o.get("qty"), "entry": o.get("entry"), "stop": o.get("stop"),
+                         "need": round(need), "cum": round(cum), "fits": cum <= budget[side] + 1,
+                         "topup": o.get("topup") if o.get("topupOf") else None, "decisionKey": o.get("decisionKey"),
+                         "filled": filled, "done": bool(rec.get("done")), "why": rec.get("why") or None,
+                         "wait": wait[0] if wait else None, "waitTip": wait[1] if wait else None})
+        out[side] = {"budget": round(budget[side]), "need": round(cum), "items": rows}
+    return out
+
+
+def _wait_reason(o, rec, lv, side, filled, fits, complete):
+    """장중 진입 주문이 왜 (더) 체결되지 않는지 — 실행기 조건(executor._advance)과 같은 순서로 짧게. (라벨, 설명) 또는 None."""
+    qty = o.get("qty") or 0
+    if rec.get("done") or (qty and filled >= qty):
+        return None
+    if complete:
+        return "장 마감", "오늘 분할 시간(15:19)이 끝나 남은 수량은 정산 때 처리"
+    px, vw = lv.get("price"), lv.get("vwap")
+    cap, stop = rec.get("cap") or o.get("entry"), rec.get("stop") or o.get("stop")
+    if not px:
+        return "시세 대기", "아직 이 종목 시세를 받지 못함"
+    long_ = side == "long"
+    if stop and (px <= stop if long_ else px >= stop):
+        return "손절가 밖", f"현재가 {px:,.0f}가 손절가 {stop:,.0f} {'아래' if long_ else '위'} — 진입하지 않음"
+    if cap and (px > cap if long_ else px < cap):
+        g = (px / cap - 1) * 100
+        return (f"리밋 {'위' if long_ else '아래'} {g:+.1f}%",
+                f"현재가 {px:,.0f} {'>' if long_ else '<'} 진입가 리밋 {cap:,.0f} — {'내려와야' if long_ else '올라와야'} 체결")
+    if vw and (px > vw if long_ else px < vw):
+        return (f"VWAP {'위' if long_ else '아래'}", f"현재가 {px:,.0f} {'>' if long_ else '<'} VWAP {vw:,.0f} — VWAP보다 유리할 때만 분할 체결")
+    if not fits and long_:                 # Short 는 장중에 담보로 막지 않는다 — 정산 때 담보 여력만큼 우선순위대로 반영
+        return "현금 대기", "조건은 맞지만 앞 순위가 현금을 먼저 씀 — 부족분은 적시 스위칭으로 마련"
+    return "분할 간격", "조건 충족 — 다음 VWAP 분할(5분 간격)을 기다리는 중"
+
+
 def api_orders(q):
     L = _ledger()
     runs = _runs()
@@ -450,7 +510,7 @@ def api_reflections(q):
 
 
 ROUTES = {"/api/swing/summary": api_summary, "/api/swing/progress": api_progress, "/api/swing/positions": api_positions,
-          "/api/swing/orders": api_orders, "/api/swing/trades": api_trades, "/api/swing/fills": api_fills,
+          "/api/swing/orders": api_orders, "/api/swing/queue": api_queue, "/api/swing/trades": api_trades, "/api/swing/fills": api_fills,
           "/api/swing/equity": lambda q: _ledger()["equity"],
           "/api/swing/runs": api_runs, "/api/swing/decision": api_decision,
           "/api/swing/signals": api_signals, "/api/swing/universe": api_universe, "/api/swing/sim": api_sim,

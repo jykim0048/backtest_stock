@@ -362,6 +362,46 @@ class TestBuild(unittest.TestCase):
         self.assertAlmostEqual(p["liveRealizedPct"], want / (49 * 65563) * 100, places=2)
         self.assertEqual((lp["liveRealized"], lp["unrealPct"]), (round(want), None))
 
+    def test_queue_follows_entry_priority_and_budget(self):
+        """진입 우선순위 패널(2026-11-04) — 실행기와 같은 순서(PM 등급 → 높은 비중), 누적 필요 금액 vs 가용 현금."""
+        from swing import server
+        st = setup()
+        L = st.get("ledger")
+        L["cash"] = 3_000_000.0
+        base = {"type": "entry", "side": "long", "status": "open", "created": "2026-11-02", "validDate": "2026-11-03", "stop": 1.0}
+        L["orders"] += [dict(base, id="a", code="000001", name="A", rating="Overweight", weight=0.05, qty=10, entry=100000.0),
+                        dict(base, id="b", code="000002", name="B", rating="Buy", weight=0.02, qty=10, entry=100000.0),
+                        dict(base, id="c", code="000003", name="C", rating="Overweight", weight=0.07, qty=20, entry=100000.0),
+                        dict(base, id="z", code="000004", name="Z", rating="Buy", weight=0.09, qty=1, entry=1.0, validDate="2026-11-04")]
+        st.put("ledger", L)
+        old, server.STORE = server.STORE, st
+        try:
+            q = server.api_queue({})
+        finally:
+            server.STORE = old
+        self.assertEqual((q["session"], q["live"]), ("2026-11-03", False))          # 가장 이른 세션만
+        it = q["long"]["items"]
+        self.assertEqual([r["id"] for r in it], ["b", "c", "a"])                     # Buy 먼저, 같은 Overweight 는 7% > 5%
+        self.assertEqual([r["cum"] for r in it], [1_000_000, 3_000_000, 4_000_000])
+        self.assertEqual([r["fits"] for r in it], [True, True, False])
+        self.assertEqual(q["short"]["items"], [])
+
+    def test_queue_wait_reason(self):
+        from swing import server
+        o = {"qty": 100, "entry": 10000.0, "stop": 9000.0}
+        w = lambda lv, side="long", filled=0, fits=True, rec=None, done=False: server._wait_reason(o, rec or {}, lv, side, filled, fits, done)   # noqa: E731
+        self.assertEqual(w({"price": 10300, "vwap": 10200})[0], "리밋 위 +3.0%")
+        self.assertEqual(server._wait_reason({"qty": 100, "entry": 10000.0, "stop": 11000.0}, {}, {"price": 9700, "vwap": 9800},
+                                             "short", 0, False, False)[0], "리밋 아래 -3.0%")   # Short 는 담보로 막지 않음
+        self.assertEqual(w({"price": 9900, "vwap": 9800})[0], "VWAP 위")
+        self.assertEqual(w({"price": 8900, "vwap": 9800})[0], "손절가 밖")
+        self.assertEqual(w({"price": 9700, "vwap": 9800}, fits=False)[0], "현금 대기")
+        self.assertEqual(w({"price": 9700, "vwap": 9800}, filled=30)[0], "분할 간격")
+        self.assertEqual(w({}, done=False)[0], "시세 대기")
+        self.assertEqual(w({"price": 9700}, done=True)[0], "장 마감")
+        self.assertIsNone(w({"price": 9700}, filled=100))
+        self.assertIsNone(w({"price": 9700}, rec={"done": True}))
+
     def test_history_avg_includes_todays_topup(self):
         h = history.build(self._topup_today(), KEY, log=lambda *a: None)
         avg = (49 * 65563 + 10 * 49000 + 20 * 49600) / 79
