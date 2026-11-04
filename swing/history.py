@@ -88,8 +88,12 @@ def live_prices(store, asof):
     out = {c: {"price": v["price"], "ts": v.get("ts")} for c, v in ((store.get(f"intraday/{day}") or {}).get("vwap") or {}).items() if v.get("price")}
     for c, v in (live_bus() or {}).items():
         ts = (v or {}).get("ts") or ""
-        if ts[:10] == day and v.get("price") and ts > ((out.get(c) or {}).get("ts") or ""):
-            out[c] = {"price": v["price"], "ts": ts, "bus": True, "prevClose": v.get("prev_close")}   # KIS 전일 종가(등락률용)
+        if ts[:10] != day or not v.get("price"):
+            continue
+        if ts > ((out.get(c) or {}).get("ts") or ""):
+            out[c] = {"price": v["price"], "ts": ts, "bus": True}
+        if v.get("prev_close"):                           # KIS 전일 종가(등락률용) — 가격을 문서에서 가져와도 붙인다
+            out.setdefault(c, {"price": v["price"], "ts": ts})["prevClose"] = v["prev_close"]
     return out
 
 
@@ -319,12 +323,15 @@ def build(store, key, *, day=None, log=print):
                            "decisionKey": x.get("decisionKey")})
     today = max((k.split("/")[1] for k in store.keys("intraday/") if k.count("/") == 1), default=None)
     if today and asof and today > asof:                   # 오늘 장중 청산(정산 전)
+        mine = {"o:" + o["id"] for o in orders}           # 오늘 체결 직후 손절(o:<주문>, 2026-11-04 두산) — 원장 포지션이 아직 없어도 이 회차
+        buys = [f for f in fills.values() if f["q"] > 0]
+        ref = (r["position"] or {}).get("entry") or (sum(f["q"] * f["px"] for f in buys) / sum(f["q"] for f in buys) if buys else None)
         for k, x in (intra(today).get("exits") or {}).items():
-            if x.get("code") == code and x.get("side", "long") == side and x.get("fills") and r["position"]:
+            if x.get("code") == code and x.get("side", "long") == side and x.get("fills") and (r["position"] or k in mine) and ref:
                 q, px = _avg(x["fills"])
                 take(x["fills"], -1)
                 word = "스위칭" if k.startswith("s:") else REASON.get(x.get("kind"), x.get("kind"))
-                pnl = sign * (px - r["position"]["entry"]) * q - (px * q * config.SELL_TAX if not short else 0)   # 정산 전 추정(Long 매도세 반영)
+                pnl = sign * (px - ref) * q - (px * q * config.SELL_TAX if not short else 0)   # 정산 전 추정(Long 매도세 반영)
                 ev.append({"date": today, "rank": 2, "label": word, "cls": "switch" if k.startswith("s:") else "stop" if x.get("kind") in STOP_REASONS else "exit", "qty": -q, "price": px,
                            "text": f"{q:,}주 청산(정산 전) · 약 {pnl / 1e4:+,.0f}만 원", "pnl": round(pnl), "sub": x.get("why") or "", "more": _splits(x["fills"]), "live": True})
                 last_day = today

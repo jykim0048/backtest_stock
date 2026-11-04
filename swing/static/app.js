@@ -413,9 +413,16 @@
   }
   // 오늘 장중 청산(정산 전) — 원장은 16:30 정산 때 반영(2026-11-03)
   function liveEntryTag(p) {                   // 오늘 장중 신규 진입(정산 전, 2026-11-04)
-    var x = p.liveEntry, w = sideOf(p) === "short" ? "공매도" : "매수";
-    return '<span class="state ext" title="장중 실행기 체결 기록 — 16:30 정산 때 원장 보유로 확정">' + (x.done ? "오늘 " + w + " 완료 " + esc(x.at)
-      : "오늘 " + w + " " + won(x.qty) + "/" + won(x.planned) + "주") + "</span>";
+    var x = p.liveEntry, w = sideOf(p) === "short" ? "공매도" : "매수", e = p.liveExit;
+    if (e) {                                   // 같은 날 체결 직후 손절 등으로 되판 경우
+      var ww = sideOf(p) === "short" ? "환매" : "매도";
+      return '<span class="state sell-next" title="오늘 ' + w + " " + won(x.qty) + "주 체결 뒤 " + esc(reasonTxt(e.kind || "", sideOf(p))) + " " + won(e.qty) + "주 " + ww +
+        (p.liveRealized ? " · 추정 손익 " + wonS(p.liveRealized) + "원" : "") + '">오늘 ' + w + " " + won(x.qty) + "주 → " + esc(reasonTxt(e.kind || "청산", sideOf(p))) +
+        (e.done ? " 전량 " + esc(e.at) : " " + won(e.qty) + "주") + "</span>";
+    }
+    var full = x.planned && x.qty >= x.planned;
+    return '<span class="state ext" title="장중 실행기 체결 기록 — 16:30 정산 때 원장 보유로 확정">' + (full ? "오늘 " + w + " 완료 " + esc(x.at)
+      : "오늘 " + w + " " + won(x.qty) + "/" + won(x.planned) + "주" + (x.done ? " · 남은 분할 중단" : "")) + "</span>";
   }
   function liveExitTag(p) {
     var x = p.liveExit, w = sideOf(p) === "short" ? "환매" : "매도", what = x.kind === "switch" ? "스위칭 " + w : reasonTxt(x.kind || "청산", sideOf(p));

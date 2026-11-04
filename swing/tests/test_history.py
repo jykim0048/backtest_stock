@@ -257,6 +257,29 @@ class TestBuild(unittest.TestCase):
         self.assertEqual((h["status"], h["qty"], h["avg"]), ("open", 40, 102250.0))
         self.assertAlmostEqual(h["vsAvgPct"], (1 - 100000 / 102250) * 100, places=1)       # Short 은 하락이 이익
 
+    def test_same_day_entry_then_stop_is_flat(self):
+        from swing import server
+        st = setup()
+        L = st.get("ledger")
+        L["orders"].append({"id": "o9", "code": "000150", "name": "두산", "side": "short", "type": "entry", "created": "2026-11-02", "validDate": "2026-11-03",
+                            "entry": 850000.0, "stop": 900000.0, "qty": 16, "status": "open", "decisionKey": "decision/2026-11-02/000150/entry-short", "weight": 0.03})
+        st.put("ledger", L)
+        st.put("intraday/2026-11-03", {"date": "2026-11-03", "vwap": {"000150": {"price": 841000.0, "ts": "2026-11-03T11:00:00+09:00"}},
+                                       "orders": {"o9": {"code": "000150", "side": "short", "planned": 16, "done": True, "fills": [
+                                           {"ts": "2026-11-03T09:00:15+09:00", "qty": 2, "price": 872000, "mode": "open"}, {"ts": "2026-11-03T09:05:00+09:00", "qty": 1, "price": 894000, "mode": "vwap"}]}},
+                                       "exits": {"o:o9": {"code": "000150", "side": "short", "kind": "stop", "trigger": "stop", "fills": [
+                                           {"ts": "2026-11-03T09:07:00+09:00", "qty": 1, "price": 900000, "mode": "stop"}, {"ts": "2026-11-03T09:22:30+09:00", "qty": 2, "price": 890500, "mode": "vwap"}]}}})
+        old, server.STORE = server.STORE, st
+        try:
+            x = next(p for p in server.api_positions({}) if p["id"] == "live:o9")
+        finally:
+            server.STORE = old
+        self.assertEqual((x["qty"], x["value"], x["liveExit"]["done"], x["liveExit"]["at"]), (0, 0, True, "09:22"))
+        self.assertEqual(x["liveRealized"], round((879333.33 - 893666.67) * 3))       # Short — 오른 만큼 손실
+        h = history.build(st, "decision/2026-11-02/000150/entry-short", log=lambda *a: None)
+        self.assertEqual((h["status"], h["qty"]), ("closed", 0))
+        self.assertLess(h["realized"], 0)
+
     def test_summary_equity_uses_live_price(self):
         from swing import server
         st = setup()

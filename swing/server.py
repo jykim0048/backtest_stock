@@ -135,13 +135,20 @@ def _live_entries(L, doc, live):
         lv = live.get(rec.get("code")) or {}
         px = lv.get("price") or fills[-1]["price"]
         r = px / avg - 1
-        rows.append({"id": "live:" + oid, "code": rec.get("code"), "name": rec.get("name") or o.get("name"), "side": side, "qty": q, "entry": avg,
+        # 같은 날 체결 직후 손절(exits['o:<주문>'], 2026-11-04 두산 3주 공매도 → 09:07 손절 전량 환매) — 남은 수량·실현 추정
+        xf = ((doc.get("exits") or {}).get("o:" + oid) or {}).get("fills") or []
+        out_q = min(q, sum(f["qty"] for f in xf))
+        sgn = -1 if side == "short" else 1
+        realized = sgn * (sum(f["qty"] * f["price"] for f in xf) / out_q - avg) * out_q if out_q else 0.0
+        held = q - out_q
+        rows.append({"id": "live:" + oid, "code": rec.get("code"), "name": rec.get("name") or o.get("name"), "side": side, "qty": held, "entry": avg,
                      "stop": rec.get("stop") or o.get("stop"), "target": o.get("target"), "sector": o.get("sector"), "signal": o.get("signal"),
                      "source": o.get("source"), "decisionKey": o.get("decisionKey"), "weight": o.get("weight") or rec.get("weight"),
                      "rating": o.get("rating") or rec.get("rating"), "fillDate": doc.get("date"), "holdDay": 1, "lastClose": None, "sellPending": None,
-                     "price": px, "priceTs": (lv.get("ts") or fills[-1]["ts"])[11:19], "value": round(q * px),
+                     "price": px, "priceTs": (lv.get("ts") or fills[-1]["ts"])[11:19], "value": round(held * px), "liveRealized": round(realized),
                      "chgPct": round((px / lv["prevClose"] - 1) * 100, 2) if lv.get("prevClose") else None,
-                     "unrealPct": round((-r if side == "short" else r) * 100, 2), "liveExit": None,
+                     "unrealPct": round((-r if side == "short" else r) * 100, 2),
+                     "liveExit": {"kind": (doc.get("exits") or {})["o:" + oid].get("kind"), "qty": out_q, "done": held == 0, "at": xf[-1]["ts"][11:16]} if out_q else None,
                      "liveEntry": {"qty": q, "planned": rec.get("planned") or o.get("qty"), "done": bool(rec.get("done")), "at": fills[-1]["ts"][11:16]}})
     return rows
 
@@ -155,7 +162,7 @@ def api_live(q):
     if not ts:
         return {"live": False}
     v = L["cash"] + sum(engine.position_value(p, p["price"]) if not p["id"].startswith("live:")
-                        else (-1 if p["side"] == "short" else 1) * (p["price"] - p["entry"]) * p["qty"] for p in ps)
+                        else (-1 if p["side"] == "short" else 1) * (p["price"] - p["entry"]) * p["qty"] + (p.get("liveRealized") or 0) for p in ps)
     live = history.live_prices(STORE, L.get("asof"))
     return {"live": True, "liveTs": ts, "liveDate": history.live_date(STORE, L.get("asof")), "source": "bus" if any(x.get("bus") for x in live.values()) else "doc",
             "equity": round(v), "retPct": round((v / L["capital0"] - 1) * 100, 2) if L.get("capital0") else None, "cash": round(L["cash"]),
