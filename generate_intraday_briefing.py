@@ -955,6 +955,117 @@ def _load_earnings_events(now):
     return ev
 
 
+CA_PATH = os.path.join(ROOT, "public", "ca_calendar.json")
+CA_HORIZON_BD = 5          # upcoming = 오늘 이후 N 영업일(주말·KRX 휴장 제외)
+CA_TODAY_MAX = 30          # 표시 상한 — 파일엔 전부 있음(연말 배당락 등 수백 건 대비)
+CA_UPCOMING_MAX = 40
+CA_UPCOMING_PER_DAY = 12
+CA_LLM_BD = 2              # LLM 입력 = 오늘 + 다음 2영업일, 영향도 2+
+CA_LLM_MAX = 25
+
+
+def _next_trading_days(d, n, hol=None):
+    """d(date) 이후 n 개 거래일(주말·KRX 휴장 제외) 목록."""
+    if hol is None:
+        try:
+            import krx_calendar
+            hol = krx_calendar.load_holidays()
+        except Exception:
+            hol = set()
+    out, x = [], d
+    for _ in range(n * 3 + 10):
+        if len(out) >= n:
+            break
+        x = x + datetime.timedelta(days=1)
+        if x.weekday() < 5 and x.strftime("%Y-%m-%d") not in hol and x not in hol:
+            out.append(x)
+    return out
+
+
+def _load_ca_events(now, path=None, hol=None):
+    """예탁원 기업행위(CA) 캘린더(public/ca_calendar.json, fetch_ca_calendar.py 갱신) 발췌.
+
+    today    = 오늘 날짜 행 + 기간 행(매매정지·청약 등 date<=오늘<=end) — 영향도 1+.
+    upcoming = 오늘 이후 CA_HORIZON_BD 영업일(그 사이 주말 포함 날짜 전부) — 영향도 2+.
+    정렬 = 날짜 → 영향도 내림차순. 표시 상한 초과분은 todayTotal/upcomingTotal 로 건수만.
+    파일 없음·깨짐·해당 행 없음 → {} (카드 숨김)."""
+    try:
+        with open(path or CA_PATH, encoding="utf-8") as f:
+            cal = json.load(f) or {}
+    except Exception as e:
+        _warn(f"ca_calendar.json 로드 실패(CA 일정 생략): {e}")
+        return {}
+    rows = [r for r in cal.get("rows") or [] if isinstance(r, dict) and r.get("date")]
+    if not rows:
+        return {}
+    today_d = now.date() if isinstance(now, datetime.datetime) else now
+    today = today_d.strftime("%Y-%m-%d")
+    days = _next_trading_days(today_d, CA_HORIZON_BD, hol)
+    horizon_end = days[-1].strftime("%Y-%m-%d") if days else today
+
+    def imp(r):
+        return r.get("importance") or 0
+
+    t_rows = [r for r in rows
+              if r["date"] == today or (r["date"] < today <= (r.get("end") or ""))]
+    t_rows.sort(key=lambda r: (-imp(r), r["date"], r.get("code") or ""))
+    u_all = [r for r in rows if today < r["date"] <= horizon_end and imp(r) >= 2]
+    u_all.sort(key=lambda r: (r["date"], -imp(r), r.get("code") or ""))
+    per_day, u_rows = {}, []
+    for r in u_all:
+        n = per_day.get(r["date"], 0)
+        if n >= CA_UPCOMING_PER_DAY or len(u_rows) >= CA_UPCOMING_MAX:
+            continue
+        per_day[r["date"]] = n + 1
+        u_rows.append(r)
+    if not t_rows and not u_rows:
+        return {}
+    return {
+        "date": today,
+        "asof": cal.get("asof"),
+        "horizonDays": CA_HORIZON_BD,
+        "horizonEnd": horizon_end,
+        "today": t_rows[:CA_TODAY_MAX],
+        "todayTotal": len(t_rows),
+        "upcoming": u_rows,
+        "upcomingTotal": len(u_all),
+    }
+
+
+_CA_LLM_FIELDS = ("newSharesPct", "discountPct", "issuePrice", "cashDps", "cashYieldPct",
+                  "buyReqPrice", "faceBefore", "faceAfter", "direction", "pctOfTotal",
+                  "offerPrice")
+
+
+def _ca_llm_view(ca, hol=None):
+    """LLM 입력용 CA 축약 — 영향도 2+, 오늘 + 다음 CA_LLM_BD 영업일, 핵심 필드만."""
+    if not ca or not ca.get("date"):
+        return []
+    try:
+        today_d = datetime.date.fromisoformat(ca["date"])
+    except ValueError:
+        return []
+    nd = _next_trading_days(today_d, CA_LLM_BD, hol)
+    until = nd[-1].strftime("%Y-%m-%d") if nd else ca["date"]
+    out = []
+    for r in (ca.get("today") or []) + (ca.get("upcoming") or []):
+        if (r.get("importance") or 0) < 2 or r.get("date", "") > until:
+            continue
+        x = {"date": r.get("date"), "stock": r.get("name") or r.get("code"),
+             "code": r.get("code"), "event": r.get("typeLabel"),
+             "milestone": r.get("milestoneLabel"), "importance": r.get("importance")}
+        if r.get("end"):
+            x["end"] = r["end"]
+        f = r.get("fields") or {}
+        kf = {k: f[k] for k in _CA_LLM_FIELDS if f.get(k) is not None}
+        if kf:
+            x["fields"] = kf
+        out.append(x)
+        if len(out) >= CA_LLM_MAX:
+            break
+    return out
+
+
 def _econ_llm_view(econ):
     """LLM 입력용 축약 — 수치 재생성 유인을 줄이기 위해 필요한 필드만."""
     def slim(r):
@@ -1085,6 +1196,10 @@ SYSTEM = (
     "surpriseVerdict(above=상회|inline=부합|below=하회)는 surpriseVs 기준을 구분해 "
     "표현할 것 — surpriseVs=forecast 면 '예상(컨센서스) 상회/하회', surpriseVs=previous 면 반드시 "
     "'이전(직전치) 대비 상회/하회'로 쓰고, 이전값 대비를 '예상치 상회/하회'라고 표현하지 말 것.\n"
+    "- caEvents(예탁원 기업행위 일정 — 유상증자 권리락·신주 상장, 합병·감자·액면교체 매매정지·재상장, "
+    "의무예치, 배당락 등 오늘~2영업일)가 있으면: 시황에서 다루는 테마·종목·촉매와 직접 관련될 때만 "
+    "해당 종목 서술이나 ⑤ 관전 포인트에 짧게 언급할 것(무관하면 언급하지 말 것). 날짜·수치는 입력값을 "
+    "그대로 인용하고, 입력에 없는 비율·가격·일정을 지어내지 말 것.\n"
     "- fxBullets 는 환율 관련 1~3개 불릿(fxNews·marketIndicators.exchange/world 근거): "
     "원/달러·달러인덱스·엔/달러 흐름과 그 배경(뉴스 근거), 국내 증시(수출주·환율 민감주)에 주는 "
     "함의를 담을 것. 근거 데이터가 전혀 없으면 빈 배열.\n"
@@ -1302,7 +1417,7 @@ def _ind_llm_view(x):
 def synthesize(indices, investors, indicators, sectors_up, sectors_down,
                movers_up, movers_down, disclosures, news, fx_news,
                prev_rounds=None, us_context=None, investor_flow=None,
-               econ_events=None):
+               econ_events=None, ca_events=None):
     # 시장지표는 핵심만 추려 LLM 에 전달 (COFIX 등 저관련 항목 제외).
     core_ind = {}
     if indicators:
@@ -1341,6 +1456,9 @@ def synthesize(indices, investors, indicators, sectors_up, sectors_down,
         raw["investorFlow"] = investor_flow     # 1분 수급 시계열 요약(전환·가속)
     if econ_events:
         raw["econEvents"] = _econ_llm_view(econ_events)   # 오늘 한국 지표 결과 + 오늘 밤 미국 예정
+    ca_llm = _ca_llm_view(ca_events) if ca_events else []
+    if ca_llm:
+        raw["caEvents"] = ca_llm                # 예탁원 CA 일정(영향도 2+, 오늘~2영업일)
     system = SYSTEM
     if prev_rounds:
         raw["previousRounds"] = prev_rounds     # 마감 시황 — 당일 회차별 다이제스트
@@ -1581,13 +1699,17 @@ def main():
         print(f"  경제지표: 한국 발표 {len(econ_events.get('korReleasedToday', []))}건, "
               f"한국 예정 {len(econ_events.get('korTodayUpcoming', []))}건, "
               f"오늘 밤 미국 예정 {len(econ_events.get('usTonight', []))}건")
+    ca_events = _load_ca_events(now)
+    if ca_events:
+        print(f"  CA 일정: 오늘 {ca_events.get('todayTotal', 0)}건, "
+              f"향후 {ca_events.get('horizonDays')}영업일 {ca_events.get('upcomingTotal', 0)}건(★2+)")
 
     _t_synth = time.time()
     briefing, fx_bullets, catalysts, model, llm_regime = synthesize(
         indices, investors, indicators, sectors_up, sectors_down,
         movers_up, movers_down, disclosures, news, fx_news,
         prev_rounds=prev_rounds, us_context=_load_us_context(),
-        investor_flow=investor_flow, econ_events=econ_events)
+        investor_flow=investor_flow, econ_events=econ_events, ca_events=ca_events)
     print(f"  [timing] synthesize {time.time() - _t_synth:.1f}s")
 
     out = {
@@ -1611,6 +1733,7 @@ def main():
         "catalysts": catalysts,
         "econEvents": econ_events,      # 오늘 한국 지표 결과 + 오늘 밤 미국 예정 (경제지표 카드)
         "earningsEvents": earnings_events,  # 실적발표 결과·예정 (표시 전용 — LLM 미전달)
+        "caEvents": ca_events,          # 예탁원 CA 일정 — 오늘 + 향후 5영업일 (CA 카드, LLM 은 축약본)
         "disclosures": disclosures[:15],
         "news": news[:10],
         "disclaimer": "네이버 금융·DART·네이버뉴스 기반 자동 생성 시황 — 투자 판단 참고용.",

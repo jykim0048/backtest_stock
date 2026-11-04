@@ -55,6 +55,7 @@ PEERS_PATH = os.path.join(ROOT, "analysis", "peers.json")
 CACHE_TTL = int(os.environ.get("RESEARCH_CACHE_TTL", "21600"))   # cache a result 6h
 # 허브 /flow 실패(공매도/대차 결손, _flowOk=False)로 불완전한 결과는 이 짧은 TTL 로만
 # 유지 — 허브 복구 후 다음 조회에서 완전 데이터로 재리서치(2026-07-27 허브 다운 6h 고착 방지).
+# 허브 /ca(예탁원 CA) 실패(_caOk=False)도 같은 TTL(2026-11-04).
 FLOW_RETRY_TTL = int(os.environ.get("RESEARCH_FLOW_RETRY_TTL", "120"))
 RL_LIMIT  = int(os.environ.get("RESEARCH_RATELIMIT", "8"))       # requests / IP / minute
 KST = datetime.timezone(datetime.timedelta(hours=9))
@@ -149,8 +150,8 @@ def _cached(code):
     with _CACHE_LOCK:
         e = _CACHE.get(code)
         if e and time.time() - e["ts"] < CACHE_TTL:
-            # 수급 결손(허브 실패) 캐시는 FLOW_RETRY_TTL 넘으면 만료 취급 → 재리서치
-            if (e["result"].get("_flowOk") is False
+            # 수급·CA 결손(허브 실패) 캐시는 FLOW_RETRY_TTL 넘으면 만료 취급 → 재리서치
+            if ((e["result"].get("_flowOk") is False or e["result"].get("_caOk") is False)
                     and time.time() - e["ts"] >= FLOW_RETRY_TTL):
                 return None
             return e

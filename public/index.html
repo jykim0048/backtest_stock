@@ -610,6 +610,17 @@
     .econ-nation.usa { background: var(--kospi-blue-dim); color: var(--kospi-blue); }
     .econ-vals { text-align: right; white-space: nowrap; }
     .econ-vals .ev-sub { color: var(--text-muted); font-size: 12px; }
+    /* CA 일정 카드 (ca_calendar.json → caEvents / 주간 upcomingCa) */
+    .ca-day td { padding: 8px 2px 3px !important; font-size: 12px !important; color: var(--kospi-blue);
+      font-weight: 600; border-bottom: 1px solid rgba(0,240,255,.14) !important; }
+    .ca-day .ca-cnt { opacity: .6; font-weight: 400; margin-left: 4px; }
+    .ca-type { font-size: 10.5px; font-weight: 700; padding: 1px 6px; border-radius: 5px; white-space: nowrap;
+      background: rgba(255,255,255,.07); color: #cbd5e1; }
+    .ca-type.warn { background: rgba(251,191,36,.14); color: #fbbf24; }
+    .ca-type.halt { background: var(--kospi-blue-dim); color: var(--kospi-blue); }
+    .ca-type.pos  { background: var(--up-red-dim); color: var(--up-red); }
+    .ca-code { color: var(--text-muted); font-size: 11px; margin-left: 3px; }
+    .ca-more td { color: var(--text-muted); font-size: 11.5px !important; padding: 3px 2px 6px !important; }
     /* 브리핑 상단 섹터분석 카드(국면·센티먼트·섹터ETF) — 구 섹터탭에서 이관 */
     .briefing-sectortop { display: flex; flex-direction: column; gap: 12px; margin-bottom: 12px; }
     /* stretch: FRED 카드는 국면 요약 문구가 더 있어 콘텐츠가 길다 — 짧은 ETF 카드를
@@ -1679,7 +1690,7 @@
         <button class="analysis-tab" data-tab="peers" onclick="selectAnalysisTab('peers')">🌐 해외 Peer</button>
         <button class="analysis-tab" data-tab="news" onclick="selectAnalysisTab('news')">📰 뉴스 분석</button>
         <button class="analysis-tab" data-tab="community" onclick="selectAnalysisTab('community')">💬 토론방</button>
-        <button class="analysis-tab" data-tab="dart" onclick="selectAnalysisTab('dart')">📑 DART</button>
+        <button class="analysis-tab" data-tab="dart" onclick="selectAnalysisTab('dart')">📑 DART · CA</button>
       </div>
       <div class="analysis-content" id="analysis-content">
         <span class="analysis-empty">종목을 선택하면 심층 리서치가 표시됩니다.</span>
@@ -3312,6 +3323,99 @@
       }).join("");
     }
 
+    // ===== CA 일정 카드 (caEvents / upcomingCa — fetch_ca_calendar.py 산출, 예탁원 via KIS 허브 /ca) =====
+    // 행 = 이벤트의 마일스톤(권리락·신주 상장·매매정지 등) 1개. 날짜별 그룹 헤더 + 행:
+    // ★(영향도 1~3) | 종목(코드) | 유형 배지 | 마일스톤(기간) | 핵심 수치. 장중 카드·주간 프리뷰 공용.
+    const _CA_WD = ["일", "월", "화", "수", "목", "금", "토"];
+    const _CA_CLS = { paidin: "warn", listing: "warn", deposit: "warn", forfeit: "warn",
+                      merger: "halt", capdcrs: "halt", revsplit: "halt",
+                      bonus: "pos", dividend: "pos" };
+    const _CA_IMP_LABEL = { 1: "참고", 2: "보통", 3: "높음" };
+    function _caImp(n) {             // 영향도 1~3 → 노란별 1~3개(경제지표 카드와 같은 서식)
+      n = Math.max(1, Math.min(3, n || 1));
+      return `<span class="econ-imp" title="CA 영향도 ${_CA_IMP_LABEL[n]}">`
+           + "★".repeat(n) + `<span class="imp-off">${"★".repeat(3 - n)}</span></span>`;
+    }
+    function _caMd(s) {
+      return s ? `${parseInt(s.slice(5, 7), 10)}/${parseInt(s.slice(8, 10), 10)}` : "";
+    }
+    function _caDayLabel(s, todayStr) {
+      if (!s) return "";
+      const dt = new Date(s + "T00:00:00");
+      const wd = isNaN(dt.getTime()) ? "" : ` (${_CA_WD[dt.getDay()]})`;
+      return `${s === todayStr ? "오늘 · " : ""}${_caMd(s)}${wd}`;
+    }
+    function _caNum(v) {
+      if (v === null || v === undefined || v === "") return null;
+      const n = Number(String(v).replace(/,/g, "").replace(/%/g, ""));
+      return isNaN(n) ? null : n;
+    }
+    function _caWon(v) { const n = _caNum(v); return n === null ? "" : Math.round(n).toLocaleString() + "원"; }
+    function _caPct(v) { const n = _caNum(v); return n === null ? "" : (Math.round(n * 100) / 100) + "%"; }
+    function _caShares(v) { const n = _caNum(v); return n === null ? "" : Math.round(n).toLocaleString() + "주"; }
+    // 유형별 핵심 수치 — 필드명은 KIS 문서 기준(실서비스 미검증): 없는 키는 조용히 생략
+    function _caKey(r) {
+      const f = r.fields || {}, p = [];
+      const add = (label, val) => { if (val) p.push(label ? `${label} <b>${val}</b>` : `<b>${val}</b>`); };
+      switch (r.type) {
+        case "paidin":
+          add("신주", _caPct(f.newSharesPct)); add("할인", _caPct(f.discountPct)); add("발행가", _caWon(f.issuePrice)); break;
+        case "bonus":
+          add("신주", _caPct(f.newSharesPct)); break;
+        case "dividend":
+          add("주당", _caWon(f.cashDps)); add("시가배당", _caPct(f.cashYieldPct)); break;
+        case "purreq":
+          add("매수청구가", _caWon(f.buyReqPrice)); break;
+        case "revsplit": {
+          const a = _caWon(f.faceBefore), b = _caWon(f.faceAfter);
+          if (a && b) add("액면", `${a}→${b}`);
+          if (f.direction) p.push(f.direction === "split" ? "분할" : (f.direction === "merge" ? "병합" : _brEsc(f.direction)));
+          break;
+        }
+        case "capdcrs":
+          if (f.reason) p.push(_brEsc(f.reason)); break;
+        case "listing":
+        case "deposit":
+          add("", _caShares(f.shares != null ? f.shares : f.newShares));
+          add("비중", _caPct(f.newSharesPct != null ? f.newSharesPct : f.pctOfTotal)); break;
+        case "ipo":
+          add("공모가", _caWon(f.offerPrice)); break;
+      }
+      return p.join(" · ");
+    }
+    // rows → 날짜 그룹 HTML. forceDay 지정 시(오늘 카드) 기간 행도 그 날짜 그룹으로 묶는다.
+    // perDay 초과분은 '외 N건' 한 줄(파일엔 전부 있음).
+    function _caRowsHtml(rows, todayStr, perDay, forceDay) {
+      const groups = new Map();
+      (rows || []).forEach(r => {
+        const k = forceDay || r.date || "";
+        if (!groups.has(k)) groups.set(k, []);
+        groups.get(k).push(r);
+      });
+      let h = "";
+      [...groups.keys()].sort().forEach(day => {
+        const arr = groups.get(day);
+        h += `<tr class="ca-day"><td colspan="5">${_caDayLabel(day, todayStr)}<span class="ca-cnt">${arr.length}건</span></td></tr>`;
+        (perDay ? arr.slice(0, perDay) : arr).forEach(r => {
+          const nm = r.name ? `${_brEsc(r.name)}<span class="ca-code">${_brEsc(r.code || "")}</span>` : _brEsc(r.code || "—");
+          const per = (r.end && r.end !== r.date)
+            ? ` <span style="font-size:11px;color:var(--text-muted)">${_caMd(r.date)}~${_caMd(r.end)}</span>` : "";
+          const tip = [r.typeLabel, r.milestoneLabel, r.note, r.carried ? "직전 수집분 이월" : ""]
+            .filter(Boolean).join(" · ");
+          h += `<tr title="${_brEsc(tip)}"><td>${_caImp(r.importance)}</td>`
+             + `<td>${nm}</td>`
+             + `<td><span class="ca-type ${_CA_CLS[r.type] || ""}">${_brEsc(r.typeLabel || r.type || "")}</span></td>`
+             + `<td>${_brEsc(r.milestoneLabel || "")}${per}</td>`
+             + `<td class="econ-vals"><span class="ev-sub">${_caKey(r)}</span></td></tr>`;
+        });
+        if (perDay && arr.length > perDay)
+          h += `<tr class="ca-more"><td colspan="5">… 외 ${arr.length - perDay}건</td></tr>`;
+      });
+      return h;
+    }
+    const _CA_NOTE = "예탁원(KSD) 기업행위 일정 · KIS 허브 · ★=영향도(자동 판정 — 유상 권리락·신주 상장·"
+      + "매매정지·재상장·의무예치 ★★★) · 배당락(추정)=기준일 기반 추정";
+
     // 테마 클릭 심층분석 모달이 참조할 섹터분석 데이터 (renderBriefing 시점의 sector_analysis.json)
     let _sectorDeepData = null;
 
@@ -4170,6 +4274,18 @@
       const earningsSection = (_earnData.rel.length || _earnData.up.length)
         ? `<div id="ib-earn">${_earnCardHtml()}</div>` : "";
 
+      // CA 일정 카드 — 오늘(기간 행 포함) + 향후 N영업일(영향도 2+). 데이터 없으면 숨김.
+      const ibCa = d.caEvents || {};
+      const caToday = ibCa.today || [], caUp = ibCa.upcoming || [];
+      const caTotal = (ibCa.todayTotal != null ? ibCa.todayTotal : caToday.length)
+                    + (ibCa.upcomingTotal != null ? ibCa.upcomingTotal : caUp.length);
+      const caRowsH = (caToday.length ? _caRowsHtml(caToday, d.date, 12, d.date) : "")
+                    + _caRowsHtml(caUp, d.date, 8);
+      const caSection = caRowsH ? _econCard(
+        `🏦 CA 일정 — 오늘 · 향후 ${ibCa.horizonDays || 5}영업일 <span style="opacity:.6;">(${caTotal})</span>`,
+        caRowsH,
+        _CA_NOTE + " · 향후 일정은 ★★ 이상만" + (ibCa.asof ? " · 수집 " + _brEsc(ibCa.asof) : "")) : "";
+
       // 장중 촉매 — 종목 단위(중복 통합) + 회차 선택 셀렉터(이전 회차 촉매 조회).
       // 행 빌드는 _ibCatRows(회차 전환 시 재사용), 셀렉터는 렌더 후 _ibLoadRounds 가 채운다.
       const catBox =
@@ -4271,6 +4387,7 @@
           ${indChips ? `<div class="briefing-chips">${indChips}</div>` : ""}
           ${econSection}
           ${earningsSection}
+          ${caSection}
           ${bullets}
           ${fxSection}
         </div>
@@ -6617,7 +6734,63 @@
               ${f.filer ? `<div class="analysis-item-meta">${escapeHtml(f.filer)}</div>` : ""}
             </div>`).join("");
         }
+        html += caResearchHTML(a);
       }
+      return html;
+    }
+
+    // 예탁원 CA 일정(딥리서치 DART · CA 탭 하단) — 표는 결정적 피처(a.ca, generate_analysis 코드 계산·LLM 미경유),
+    // 행 아래 해석은 LLM corporateActions.byItem(type+순서 매칭, 못 맞추면 빈칸). CA 기능 이전 분석(a.ca 없음)은 생략.
+    function caResearchHTML(a) {
+      const ca = a.ca;
+      if (!ca) return "";
+      const st = a.caStatus || ca.status;
+      const interp = a.corporateActions || {};
+      const md = (s) => s ? `${parseInt(s.slice(5, 7), 10)}/${parseInt(s.slice(8, 10), 10)}` : "";
+      const dn = (n) => (n == null) ? "" : (n === 0 ? "D0" : (n > 0 ? `D+${n}` : `D${n}`));
+      let html = `<div class="analysis-subhead">🏦 CA 일정 (예탁원)${ca.date ? `<span class="subhead-meta">기준일 ${md(ca.date)} · 단기 영향 구간 ${ca.windowDays || 20}영업일${ca.windowEnd ? `(~${md(ca.windowEnd)})` : ""}${ca.close ? ` · 현재가 ${Number(ca.close).toLocaleString()}원` : ""}</span>` : ""}</div>`;
+      if (st === "unavailable") {
+        return html + `<div class="analysis-item"><div class="analysis-item-head">
+            <span class="analysis-item-note">예탁원 CA 일정 수집 실패 — 일정이 없다는 뜻이 아닙니다.</span>
+            <span class="sentiment-badge neu">수집 실패</span></div></div>`;
+      }
+      const items = ca.items || [];
+      if (!items.length) {
+        return html + `<span class="analysis-empty">해당 기간 CA 일정 없음 (과거 60일 ~ 앞으로 6개월)</span>`;
+      }
+      if (interp.summary) html += `<div class="analysis-summary">💬 ${escapeHtml(interp.summary)}</div>`;
+      const by = interp.byItem || [];
+      const th = (t, al) => `<th style="text-align:${al || "left"}; padding:4px 6px; font-weight:400;">${t}</th>`;
+      const dirCls = { "호재": "pos", "악재": "neg", "중립": "neu" };
+      const rows = items.map((x, i) => {
+        const ms = (x.milestones || []).map(m =>
+          `<span style="white-space:nowrap;">${escapeHtml(m.label)} ${md(m.date)}${m.end ? "~" + md(m.end) : ""}`
+          + ` <span style="color:var(--text-muted);">(${dn(m.d_n)}${m.d_n_end != null ? "~" + dn(m.d_n_end) : ""})</span></span>`).join("<br>");
+        const chips = (x.haltInWindow
+            ? ` <span class="sentiment-badge neg" title="단기 영향 구간과 겹치는 매매정지">⛔ 매매정지 ${md(x.haltInWindow.from)}~${md(x.haltInWindow.to)}</span>` : "")
+          + (x.inWindow ? ` <span class="sentiment-badge neu" title="앞으로 ${ca.windowDays || 20}영업일 안의 일정">구간 내</span>` : "");
+        const gap = (x.gapPct != null)
+          ? `${escapeHtml(x.gapRef || "")} 대비 <span style="color:${x.gapPct >= 0 ? "var(--up-red)" : "var(--kospi-blue)"}; font-weight:600;">${x.gapPct >= 0 ? "+" : ""}${x.gapPct}%</span>` : "";
+        const it = by[i];
+        const interpRow = it
+          ? `<tr><td colspan="5" style="padding:2px 6px 8px;">
+              <span class="sentiment-badge ${dirCls[it.direction] || "neu"}">${escapeHtml(it.direction || "")}</span>
+              <span class="analysis-item-meta" style="margin-left:4px;">크기 ${escapeHtml(it.magnitude || "—")} · 영향 구간 ${escapeHtml(it.window || "—")}</span>
+              ${it.implication ? ` · <b style="color:#e2e8f0;">${escapeHtml(it.implication)}</b>` : ""}
+              ${it.rationale ? `<div class="analysis-item-note" style="margin-top:2px;">${escapeHtml(it.rationale)}</div>` : ""}</td></tr>`
+          : `<tr><td colspan="5" style="padding:0 6px 6px;"></td></tr>`;
+        return `<tr style="border-top:1px solid rgba(255,255,255,.06); vertical-align:top;">
+            <td style="padding:6px 6px 2px; white-space:nowrap;"><b>${escapeHtml(x.label || x.type || "")}</b></td>
+            <td style="padding:6px 6px 2px;">${escapeHtml(x.stage || "")}${chips}</td>
+            <td style="padding:6px 6px 2px; font-size:11.5px;">${ms}</td>
+            <td style="padding:6px 6px 2px; text-align:right; white-space:nowrap;">${x.sizePct != null ? x.sizePct + "%" : ""}</td>
+            <td style="padding:6px 6px 2px; text-align:right; white-space:nowrap;">${gap}</td>
+          </tr>${interpRow}`;
+      }).join("");
+      html += `<div style="overflow-x:auto;"><table style="width:100%; border-collapse:collapse; font-size:12px;">
+          <thead><tr style="color:var(--text-muted);">${th("유형")}${th("다음 핵심일")}${th("일정 (D-n · 기간)")}${th("물량", "right")}${th("가격 대비", "right")}</tr></thead>
+          <tbody>${rows}</tbody></table></div>`;
+      if (ca.note) html += `<div class="analysis-item-meta" style="white-space:normal; margin-top:6px; font-size:10.5px;">${escapeHtml(ca.note)}</div>`;
       return html;
     }
 
@@ -7585,7 +7758,7 @@
           <button class="analysis-tab" data-odtab="peers" onclick="odTab('peers')">🌐 해외 Peer</button>
           <button class="analysis-tab" data-odtab="news" onclick="odTab('news')">📰 뉴스 분석</button>
           <button class="analysis-tab" data-odtab="community" onclick="odTab('community')">💬 토론방</button>
-          <button class="analysis-tab" data-odtab="dart" onclick="odTab('dart')">📑 DART</button>
+          <button class="analysis-tab" data-odtab="dart" onclick="odTab('dart')">📑 DART · CA</button>
         </div>
         <div id="od-content" class="analysis-content"></div>
       </div>
@@ -8255,6 +8428,21 @@
         + '<div id="wb-tl-rows">' + wbTlRows() + "</div>";
     }
     h += bullets("🔮 " + WBP.next + " 프리뷰", syn.nextWeekPreview);
+    // 예정 CA 일정(예탁원 기업행위, 영향도 2+) — 생성기 저장값(upcomingCa). 구 아카이브는 키 없음 → 숨김.
+    var uca = d.upcomingCa || {};
+    if (typeof _caRowsHtml === "function" && ((uca.thisRest || []).length || (uca.next || []).length)) {
+      var caToday = String(d.asof || "").slice(0, 10);
+      var caSeg = function (label, arr) {
+        return (arr || []).length
+          ? '<tr><td colspan="5" style="padding:8px 2px 2px;font-size:12.5px;font-weight:700;color:#cbd5e1">'
+            + esc(label) + ' <span style="opacity:.55;font-weight:400">' + arr.length + "건</span></td></tr>"
+            + _caRowsHtml(arr, caToday, 10)
+          : "";
+      };
+      h += _econCard("🏦 " + WBP.next + ' CA 일정 <span style="opacity:.6;font-size:12px">(예탁원 기업행위 · ★★ 이상)</span>',
+        caSeg(d.period === "month" ? "이번 달 잔여" : "이번 주 잔여", uca.thisRest) + caSeg(WBP.next, uca.next),
+        _CA_NOTE);
+    }
     if (!syn.headline) h += '<div style="opacity:.6;font-size:12px">' + WBP.empty + '</div>';
     h += '<div style="opacity:.5;font-size:11px;margin-top:6px">기준: ' + esc(d.asof || "") + "</div>";
     el.innerHTML = h;

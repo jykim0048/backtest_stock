@@ -52,6 +52,12 @@ jobs:
           DART_API_KEY: ${{ secrets.DART_API_KEY }}
         run: python fetch_earnings_calendar.py
 
+      # 예탁원 기업행위(CA) 일정 — KIS 허브 /ca (권리락·신주상장·매매정지·배당락 등, caEvents)
+      - name: Fetch CA calendar (예탁원 기업행위 — KIS 허브 /ca)
+        continue-on-error: true   # best-effort; 실패 시 기존 ca_calendar.json 유지
+        timeout-minutes: 4
+        run: python fetch_ca_calendar.py
+
       - name: Generate closing market briefing (마감 시황 — 당일 회차 종합)
         timeout-minutes: 15   # LLM 정체 등으로 무한 대기 시 러너 점유 방지
         env:
@@ -70,6 +76,7 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add public/intraday_briefing.json public/reports/intraday_briefing/
           git add public/econ_calendar.json public/earnings_calendar.json 2>/dev/null || true
+          git add public/ca_calendar.json 2>/dev/null || true
           git diff --staged --quiet && echo "No changes to commit" && exit 0
           git commit -m "chore: closing market briefing $(date -u +'%Y-%m-%d %H:%MZ') [skip railway]"
           # Remote may have advanced (concurrent pushes); push, and on rejection

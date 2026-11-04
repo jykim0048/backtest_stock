@@ -31,6 +31,7 @@ import llm                           # provider-agnostic LLM with fallback chain
 
 from analysis import sources       # imports yfinance + redirects its cache to /tmp on CI
 from analysis import social        # peer 여론: StockTwits 스트림(주) + Reddit RSS 예산제(보조)
+from analysis import ca as ca_mod  # 예탁원 CA(기업행위) 일정 — 허브 /ca + 결정적 피처(d_n·창·물량·괴리)
 import yfinance as yf
 
 ROOT          = os.path.dirname(os.path.abspath(__file__))
@@ -118,7 +119,9 @@ StockTwits 여론, 국내외 뉴스, 국내 커뮤니티 글, DART 공시/재무
   "news": { "summary": "3-4문장", "items": [ {"title","source","date","sentiment","url","insight"} ] },
   "community": { "summary": "3-4문장", "sentimentLabel": "", "naver": [ {"title","url","sentiment","summary"} ] },
   "dart": { "summary": "3-4문장", "highlights": [ {"label","value","note"} ] },
-  "research": { "summary": "2-3문장", "items": [ {"note"} ] }
+  "research": { "summary": "2-3문장", "items": [ {"note"} ] },
+  "corporateActions": { "summary": "1-2문장", "items": [ {"type","stage","direction","magnitude","window",
+                        "implication","rationale"} ] }
 }
 
 - investor_flow(입력): today_rank 는 당일 장중 가집계(잠정) 순매수/순매도 랭킹(거래대금,
@@ -173,7 +176,39 @@ StockTwits 여론, 국내외 뉴스, 국내 커뮤니티 글, DART 공시/재무
   research_reports 가 비어 있으면 summary 에 "최근 60일 발간 리포트 없음"을 명시하고 items 는 빈 배열.
 - 개수 가이드: news 5-7 (국내+해외 혼합), dart highlights 4-6.
 - peers.items 는 출력하지 마라 — 코드가 입력 시세를 결정적으로 채운다. peers 는 summary/reddit/
-  stocktwits(티커별 summary) 만 작성한다."""
+  stocktwits(티커별 summary) 만 작성한다.
+- corporate_actions(입력): 예탁원(KSD) 기업행위 일정 — 코드가 계산한 값이다. d_n = 기준일(baseDate)
+  대비 영업일(+미래/−과거), stage = 다음 핵심일과 D±n, inWindow = 앞으로 windowDays(20)영업일 단기 영향
+  구간 안의 일정, haltInWindow = 그 구간과 겹치는 매매정지, sizePct = 신주·예치 물량 ÷ 총발행주식(%),
+  gapPct = 현재가 ÷ gapRef(발행가·매수청구가·공모가) − 1(%). **d_n·stage·비율·가격은 입력값 그대로 쓰고
+  다시 계산하거나 입력에 없는 수치(발행가·비율·물량·일정)를 만들지 마라** — 없으면 "확인 필요".
+  같은 사건이 DART 공시(dart.disclosures)에도 있으면 한 사건으로 묶어 공시 내용(배정 방식·자금 용도·
+  전환가)과 예탁원 일정을 함께 해석한다. 유형별 해석 기준(통상 경향이지 확정 아님 — 가격에 이미
+  반영됐을 수 있음):
+  · paidin 유상증자(주주배정·일반공모): 공시·발행가 산정·권리락·신주 상장 구간 약세. sizePct(희석률)·
+    할인율이 클수록, 자금 용도가 운영·채무상환이면, gapPct 가 작을수록(현재가≈발행가) 압박 큼. 신주 상장
+    D-3~D+2 차익 매물. 제3자배정은 대체로 강세(전략적 투자자·할증이면 더), 1년 뒤 예치 해제로 연결.
+  · bonus 무상증자: 공시 직후 단기 강세 후 되돌림. 권리락 뒤 '싸 보이는' 착시 반등과 신주 상장일 매물 구분.
+  · deposit 의무예치: 해제 전 D-5~D-1 선반영·해제 후 약세(오버행). sizePct·대상자 매입단가 대비 이익·
+    대상자 유형(FI·기관 > 최대주주)이 크기를 키운다. 예치일 기준 데이터라 해제일은 사유(reason)·공시로 확인.
+  · listing 추가상장: 상장일 전후 약세. sizePct·사유(CB·BW 전환, 유증 신주, 스톡옵션)·gapPct(전환·발행가
+    대비 이익이 클수록 매물) — 전환 물량 오버행.
+  · dividend 배당: 배당락에 배당금만큼 기술적 하락(cashYieldPct) — 실질 악재 아님. 배당기준일 변경제도로
+    연말이 아닐 수 있다.
+  · merger 합병/분할: 경우별 — 합병비율 유불리, 물적분할은 모회사 할인(약세), 인적분할은 재상장 변동성.
+  · purreq 주식매수청구: 청구가는 하단 참고선. 현재가 < 청구가(gapPct<0)면 청구 몰림 → 거래 무산 위험.
+  · revsplit 액면교체: 분할(split) 소폭 강세 / 병합(merge) 약세 경향, 매매정지·재상장 첫날 변동성.
+  · capdcrs 자본감소: 무상감자 강한 약세(결손보전·뒤따르는 유증 확인), 유상감자 강세.
+  · forfeit 실권주: 수요 부족 신호(약세), 인수단 물량. ipo 공모주청약: 자회사 상장이면 모회사 할인, 그 외 참고.
+  · meeting 주주총회: 대체로 작음 — 감자·정관변경 안건, 경영권 분쟁 표 대결만 이벤트.
+  haltInWindow 가 있거나 무상감자면 implication 은 "거래정지 주의"(정지 기간엔 매매 불가)를 우선한다.
+- corporateActions: corporate_actions.items 의 CA 마다 **같은 순서로** 1개씩(type 은 입력 type 그대로) —
+  stage(입력 stage 그대로), direction("호재"|"악재"|"중립"), magnitude("작음"|"중간"|"큼" — sizePct·gapPct·
+  할인율 근거), window(영향 구간, 예: "D-3~D+2", 과거 종료면 "종료"), implication(한 줄 — 예: "매수 감점",
+  "매도·공매도 우위", "거래정지 주의", "단기 촉매", "영향 없음"), rationale(입력 수치를 인용한 근거 1문장).
+  과거에 끝난 일정은 가격에 이미 반영됐는지 한 줄 평만. summary 는 1-2문장 — 단기 영향 구간의 가장 큰
+  CA 위험(또는 촉매) 하나. corporate_actions.status 가 "empty" 면 items=[] 이고 summary 는 정확히
+  "해당 기간 CA 일정 없음", "unavailable" 이면 items=[] 이고 summary 는 "수집 실패"."""
 
 
 # JSON Schema for the analysis call (strict structured output). peers.items and
@@ -219,6 +254,14 @@ ANALYSIS_SCHEMA = _obj({
         "summary": _STR,
         "items": _arr({"note": _STR}),
     }),
+    # 예탁원 CA 해석 — 결정적 피처(analysis["ca"])와 type+순서로 매칭(ca_mod.merge_interp)
+    "corporateActions": _obj({
+        "summary": _STR,
+        "items": _arr({"type": _STR, "stage": _STR,
+                       "direction": {"type": "string", "enum": ["호재", "악재", "중립"]},
+                       "magnitude": {"type": "string", "enum": ["작음", "중간", "큼"]},
+                       "window": _STR, "implication": _STR, "rationale": _STR}),
+    }),
 })
 
 # 후속 라운드 1차 호출용 스키마 변형: 기존 필드 + followUp(추가 조사 요청).
@@ -259,6 +302,7 @@ REFINE_SYSTEM = SYSTEM + """
 - followUpResults 가 1차 판단을 바꾸면 catalyst/direction 등 해당 필드에 구체 근거와 함께
   반영하고, 바꾸지 않으면 1차 내용을 유지한다(불필요한 재서술 금지).
 - research.items 는 1차와 같은 개수·순서를 유지한다(코드가 원문 값을 채우는 규칙 동일).
+- corporateActions 도 1차와 같은 개수·순서·type 을 유지한다(코드가 type+순서로 일정 표와 매칭).
 - followUpResults 의 수치·사실만 인용하고 지어내지 말 것. followUp 필드는 출력하지 않는다."""
 
 
@@ -635,6 +679,28 @@ def _followup_fetch(queries, code, corp):
     return out
 
 
+def build_ca_features(payload, err, close, now=None):
+    """허브 /ca 응답 → 결정적 CA 피처. 호출 실패(err)·피처 계산 예외는 status='unavailable'."""
+    if err is not None or payload is None:
+        return ca_mod.unavailable(f"{type(err).__name__}: {err}" if err else "no payload")
+    try:
+        return ca_mod.features(payload, ca_mod.base_date(now), close)
+    except Exception as e:
+        print(f"[research] ca 피처 계산 실패(unavailable): {e}", file=sys.stderr)
+        return ca_mod.unavailable(f"{type(e).__name__}: {e}")
+
+
+def _attach_ca(analysis, ca_feat):
+    """analysis 에 ca(결정적 원본)·caStatus·corporateActions(LLM 해석 + byItem 매칭) 를 싣는다."""
+    analysis["corporateActions"] = ca_mod.merge_interp(analysis.get("corporateActions"), ca_feat)
+    analysis["ca"] = ca_feat
+    analysis["caStatus"] = ca_feat.get("status", "unavailable")
+    # 허브 /ca 실패면 False — railway_server 가 짧은 TTL(FLOW_RETRY_TTL 2분)로만 캐시해 허브 복구 후
+    # 재리서치(_flowOk 와 같은 정책, 2026-11-04). 일정 없음(empty)은 정상 결과라 True.
+    analysis["_caOk"] = analysis["caStatus"] != "unavailable"
+    return analysis
+
+
 def analyze_stock(stock, peer_cfg):
     code, name = stock["code"], stock["name"]
     t0 = time.perf_counter()
@@ -674,6 +740,7 @@ def analyze_stock(stock, peer_cfg):
         f_flow  = sub("flow", fetch_investor_flow, code)
         f_trend = sub("trend", sources.naver_investor_trend_full, code)
         f_px    = sub("base_price", _fetch_base_price, stock)   # 온디맨드 컨센서스 괴리용
+        f_ca    = sub("ca", ca_mod.fetch, code)                 # 예탁원 CA 일정(허브 /ca, 종목 창)
 
         # DART: corp 코드는 정적 맵이라 ~0초 — 메인 스레드에서 확정 후 3종 병렬 제출
         dart_futs = {}
@@ -728,8 +795,17 @@ def analyze_stock(stock, peer_cfg):
         # 구간을 메운다 — 전일까지 확정치라 장중에도 항상 조회 가능.
         trend = _res(f_trend, "trend", [])
         base_px = _res(f_px, "base_price", None)
+        # CA: 실패를 빈 값으로 삼키지 않는다 — '수집 실패(unavailable)' ≠ '일정 없음(empty)'
+        try:
+            ca_payload, ca_err = f_ca.result(), None
+        except Exception as e:
+            ca_payload, ca_err = None, e
+            print(f"[research] {code} ca 실패(unavailable): {e}", file=sys.stderr)
 
     fetch_s = time.perf_counter() - t0
+    ca_feat = build_ca_features(ca_payload, ca_err,
+                                stock.get("basePrice") or stock.get("price") or base_px)
+    raw["corporate_actions"] = ca_mod.llm_view(ca_feat)
     slow = max(durations.items(), key=lambda kv: kv[1]) if durations else ("-", 0.0)
 
     if trend:
@@ -817,6 +893,8 @@ def analyze_stock(stock, peer_cfg):
     # 수급 원본(최근 20거래일 + 가집계 랭킹)은 LLM 을 거치지 않고 그대로 싣는다 — 수치 환각 방지.
     if flow:
         analysis["flow"] = flow
+    # 예탁원 CA: 결정적 피처 원본(대시보드 표, LLM 미경유) + LLM 해석을 type+순서로 매칭.
+    _attach_ca(analysis, ca_feat)
     # 허브 /flow 실패(공매도/대차 결손)면 False 로 표시 — railway_server 가 이 결과를 짧은
     # TTL 로만 캐시해 허브 복구 후 재리서치(허브 다운 시 6h 고착 방지, 2026-07-27).
     analysis["_flowOk"] = flow_ok

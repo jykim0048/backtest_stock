@@ -1692,14 +1692,21 @@ def _preview_windows(base, period="week"):
     return rest_end, rest_end + datetime.timedelta(days=7)
 
 
-def _next_week_preview(econ_n=25, earn_n=40, base=None, period="week"):
+_CA_PREVIEW_FIELDS = ("newSharesPct", "discountPct", "issuePrice", "cashDps", "cashYieldPct",
+                      "buyReqPrice", "faceBefore", "faceAfter", "direction", "shares",
+                      "pctOfTotal", "offerPrice")
+
+
+def _next_week_preview(econ_n=25, earn_n=40, base=None, period="week", ca_n=None):
     """예정 이벤트 — 경제지표·실적 캘린더에서 결정적으로 추출, **기간 구간별로 분리**.
 
     반환 {"thisRest": {econ, earnings}, "next": {...}} — thisRest = 기준일이 속한
     주(월간은 달)의 남은 일정(오늘 밤 미국 지표 포함), next = 다음 주/다음 달.
     2026-09-16 이전엔 구간 구분 없이 '다음 주 일정'으로 넘겨, 주중 회차에서 당일 밤
     FOMC 가 '다음 주 예정'으로 서술되는 문제가 있었다. 그 뒤 일정은 버린다.
-    월간은 개수 확대(econ 40·실적 60)."""
+    월간은 개수 확대(econ 40·실적 60).
+    ca = 예탁원 기업행위(CA) 일정(ca_calendar.json, fetch_ca_calendar.py) 영향도 2+ — 구간당
+    ca_n(주간 40·월간 80) 상한, 같은 구간 안에서는 영향도 우선으로 남긴 뒤 날짜순."""
     base = base or datetime.datetime.now(KST).date()
     rest_end, next_end = _preview_windows(base, period)
 
@@ -1715,7 +1722,8 @@ def _next_week_preview(econ_n=25, earn_n=40, base=None, period="week"):
         except Exception:
             return None
 
-    out = {"thisRest": {"econ": [], "earnings": []}, "next": {"econ": [], "earnings": []}}
+    out = {"thisRest": {"econ": [], "earnings": [], "ca": []},
+           "next": {"econ": [], "earnings": [], "ca": []}}
     econ = _fetch("econ_calendar.json") or {}
     for e in (econ.get("upcoming") or [])[:max(120, econ_n * 4)]:
         if not isinstance(e, dict) or (e.get("importance") or 0) < 2:
@@ -1734,6 +1742,27 @@ def _next_week_preview(econ_n=25, earn_n=40, base=None, period="week"):
             out[b]["earnings"].append({k: e.get(k) for k in
                                        ("date", "when", "name", "market")
                                        if e.get(k) is not None})
+    if ca_n is None:
+        ca_n = 80 if period == "month" else 40
+    ca = _fetch("ca_calendar.json") or {}
+    cands = {"thisRest": [], "next": []}
+    for r in ca.get("rows") or []:
+        if not isinstance(r, dict) or (r.get("importance") or 0) < 2:
+            continue
+        b = _bucket(_day(r.get("date")))
+        if b:
+            cands[b].append(r)
+    for b, rows in cands.items():
+        rows = sorted(rows, key=lambda r: (-(r.get("importance") or 0), r.get("date") or ""))[:ca_n]
+        for r in sorted(rows, key=lambda r: (r.get("date") or "", -(r.get("importance") or 0))):
+            x = {k: r.get(k) for k in ("date", "end", "name", "code", "type", "typeLabel",
+                                       "milestoneLabel", "importance")
+                 if r.get(k) is not None}
+            f = {k: (r.get("fields") or {}).get(k) for k in _CA_PREVIEW_FIELDS
+                 if (r.get("fields") or {}).get(k) is not None}
+            if f:
+                x["fields"] = f
+            out[b]["ca"].append(x)
     return out
 
 
@@ -1805,6 +1834,9 @@ _SYSTEM = (
     " thisRest 항목을 '다음 주'라고 쓰지 마라. 시점 표현은 각 이벤트의 releaseAtKST(KST)"
     " 날짜를 그대로 따르고(예: 오늘 밤·내일 새벽·이번 주 목요일·다음 주 화요일), 중요도 4"
     " 이벤트는 '(9/17 03:00 KST)' 처럼 시각을 함께 적어라"
+    "\n- upcomingEvents.*.ca(예탁원 기업행위 일정 — 유상증자 권리락·신주 상장, 매매정지·재상장,"
+    " 의무예치, 배당락 등)는 이번 주 흐름에서 다룬 종목·섹터와 직접 관련될 때만 이벤트로 언급하라."
+    " 날짜·수치는 입력값 그대로, 입력에 없는 일정·비율을 지어내지 마라"
     "\n- nextWeek: 위 프리뷰를 구조화한 필수 객체 — upside(상승 시나리오 1~2개,"
     " '~하면 ~' 조건부), downside(하방 시나리오 1~2개), signal(두 시나리오를 가르는"
     " 판별 신호 1문장), events(핵심 이벤트 1~3개). 넷 다 반드시 채워라"
@@ -1842,6 +1874,8 @@ _SYSTEM_MONTH = (
     "\n- 예정 이벤트 시점 규칙(2026-09-16): upcomingEvents 는 thisRest = **이번 달 잔여**"
     "(오늘 밤 포함) · next = **다음 달** 두 구간이다. thisRest 항목을 '다음 달'이라고 쓰지"
     " 말고, 시점 표현은 releaseAtKST(KST) 날짜를 따르며 중요도 4 는 시각을 함께 적어라"
+    "\n- upcomingEvents.*.ca(예탁원 기업행위 일정)는 이번 달 흐름에서 다룬 종목·섹터와 직접"
+    " 관련될 때만 언급하라. 날짜·수치는 입력값 그대로, 입력에 없는 일정·비율을 지어내지 마라"
     "\n- nextWeek: 위 프리뷰 구조화 — upside·downside(각 1~2), signal 1문장, events 1~3. 필수"
     "\n- watchNotes: 다음 달 관찰 후보 long·short 각 최대 5개 — sectorFlowWeekly·"
     "netbuyTotalTop/Bottom·shortLoan 근거가 뚜렷한 것만, basis 는 수치 인용 1문장, 권유 금지"
@@ -2044,7 +2078,8 @@ def main():
                else _next_week_preview(base=base))
     print(f"[weekly] 예정 이벤트: 이번 {'달' if is_month else '주'} 잔여 "
           f"{len(preview['thisRest']['econ'])}건 · 다음 {'달' if is_month else '주'} "
-          f"{len(preview['next']['econ'])}건 (중요도 2+)")
+          f"{len(preview['next']['econ'])}건 (중요도 2+) · CA 일정 "
+          f"{len(preview['thisRest']['ca'])}/{len(preview['next']['ca'])}건 (영향도 2+)")
     synthesis, generated_by = None, None
     if "--no-llm" not in args:
         if not llm.configured():
@@ -2200,6 +2235,9 @@ def main():
         "sectorFlow": sector_flow,      # 섹터 x 수급 매트릭스 (업종별 주간 등락·투자자 순매수, 억)
         "sectorScreen": sector_screen,  # 섹터 시그널 종목 관찰 4-Matrix (웹/엑셀 공용, §28)
         "breadth": _breadth_weekly(dates),   # 주간 ADR 추이 + 신고가 근접 섹터 그룹
+        # 예정 CA 일정(예탁원 기업행위, 영향도 2+) — 웹 프리뷰 카드용. econ/earnings 프리뷰는
+        # LLM 입력 전용이라 저장하지 않지만 CA 는 표로 직접 보여준다(엑셀 미반영).
+        "upcomingCa": {"thisRest": preview["thisRest"]["ca"], "next": preview["next"]["ca"]},
         "synthesis": synthesis,
     }
 

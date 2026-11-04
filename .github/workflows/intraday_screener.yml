@@ -123,6 +123,8 @@ jobs:
             t0=$SECONDS
             timeout 180 python fetch_earnings_calendar.py ; rc=$?; echo "[branchB][timing] earnings rc=$rc $((SECONDS-t0))s"
             t0=$SECONDS
+            timeout 150 python fetch_ca_calendar.py      ; rc=$?; echo "[branchB][timing] ca rc=$rc $((SECONDS-t0))s"
+            t0=$SECONDS
             timeout 720 python generate_intraday_briefing.py ; rc=$?; echo "[branchB][timing] briefing rc=$rc $((SECONDS-t0))s"
             echo "[branchB][timing] total ${SECONDS}s"
             echo done > briefing_branch.done
@@ -240,6 +242,7 @@ jobs:
           # 장중 시황 산출물 — 생성 실패 시 파일이 없으면 조용히 무시
           git add public/intraday_briefing.json public/reports/intraday_briefing/ public/econ_calendar.json 2>/dev/null || true
           git add public/earnings_calendar.json 2>/dev/null || true
+          git add public/ca_calendar.json 2>/dev/null || true
           git diff --staged --quiet && echo "No changes to commit" && exit 0
           git commit -m "chore: auto-generate intraday watchlist $(date -u +'%Y-%m-%d %H:%MZ') [skip railway]"
           # Remote may have advanced (daily report or concurrent pushes); push, and
