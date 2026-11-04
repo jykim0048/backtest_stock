@@ -790,3 +790,10 @@ td small.sub-qty { display: block; font-size: 10.5px; color: var(--text-muted); 
 .peer-table th { text-align: left; font-size: 11.5px; color: var(--text-muted); font-weight: 700; padding: 4px 8px; border-bottom: 1px solid var(--border-color); }
 .peer-table td { padding: 6px 8px; border-bottom: 1px solid var(--border-color); vertical-align: top; line-height: 1.5; }
 .peer-table td:nth-child(2), .peer-table td:nth-child(3) { white-space: nowrap; }
+.live-px { padding: 0 2px; border-radius: 3px; }
+.live-px.tick-up { color: var(--up-red); animation: px-flash-up .8s ease-out; }
+.live-px.tick-down { color: var(--down-blue); animation: px-flash-down .8s ease-out; }
+@keyframes px-flash-up { 0% { background: rgba(239, 68, 68, .35); } 100% { background: transparent; } }
+@keyframes px-flash-down { 0% { background: rgba(59, 130, 246, .35); } 100% { background: transparent; } }
+.live-dot { display: inline-block; width: 6px; height: 6px; margin-right: 4px; border-radius: 50%; background: #10b981; vertical-align: middle; animation: live-pulse 1.6s ease-in-out infinite; }
+@keyframes live-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .25; } }

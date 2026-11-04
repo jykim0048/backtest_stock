@@ -170,7 +170,7 @@ class TestBuild(unittest.TestCase):
             p = server.api_positions({})[0]
         finally:
             server.STORE = old
-        self.assertEqual((p["price"], p["priceTs"], p["value"]), (50000.0, "10:15", 49 * 50000))
+        self.assertEqual((p["price"], p["priceTs"], p["value"]), (50000.0, "10:15:30", 49 * 50000))
         self.assertAlmostEqual(p["unrealPct"], (50000 / 65563 - 1) * 100, places=1)
 
     def test_decision_api_attaches_latest_review_of_same_round(self):
@@ -200,6 +200,28 @@ class TestBuild(unittest.TestCase):
         finally:
             server.STORE = old
         self.assertEqual((lr["stop"], lr["target"], lr["trader"], lr["reviewAction"]), (57000, 71000, "Hold", "hold_updated"))   # run 기록(적용값) 우선
+
+    def test_live_api_prefers_fresher_bus_price(self):
+        from swing import server
+        st = setup()
+        st.put("intraday/2026-11-03", {"vwap": {"006110": {"price": 50000.0, "ts": "2026-11-03T10:15:00+09:00"}}, "orders": {}, "exits": {}})
+        old, server.STORE = server.STORE, st
+        old_bus, history.live_bus = history.live_bus, lambda: {"006110": {"price": 50500.0, "ts": "2026-11-03T10:15:45+09:00"},
+                                                               "000000": {"price": 1.0, "ts": "2026-11-02T15:00:00+09:00"}}
+        try:
+            r = server.api_live({})
+        finally:
+            server.STORE, history.live_bus = old, old_bus
+        p = r["positions"][0]
+        self.assertEqual((r["live"], r["source"], r["liveTs"], p["price"], p["value"]), (True, "bus", "10:15:45", 50500.0, 49 * 50500))
+
+    def test_live_api_off_after_settlement(self):
+        from swing import server
+        old, server.STORE = server.STORE, setup()
+        try:
+            self.assertEqual(server.api_live({}), {"live": False})
+        finally:
+            server.STORE = old
 
     def test_summary_equity_uses_live_price(self):
         from swing import server

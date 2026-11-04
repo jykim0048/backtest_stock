@@ -261,7 +261,7 @@
     var base = eqNow || 1, wL = lv / base * 100, wS = sv / base * 100;
     var h = '<div class="port-item wide4 hero"><div class="hero-row"><div class="hero-main"><span class="port-lbl">평가액</span><span class="port-val">' +
       '<span class="num">' + won(eqNow) + '</span><small>원</small></span><span class="port-sub">초기 ' + won(cap) + "원 대비 " +
-      pct(s.retPct) + (s.liveTs ? ' · <span title="정산 전 — 전일 보유 수량 × Live Trader 현재가(15초 폴링). 16:30 정산 뒤 종가 기준으로 바뀜">장중 ' + esc(s.liveTs) + " 시세</span>" : "") +
+      pct(s.retPct) + (s.liveTs ? ' · <span class="live-on" title="정산 전 — 전일 보유 수량 × Live Trader 현재가(15초 폴링), 화면은 장중 10초마다 갱신. 16:30 정산 뒤 종가 기준으로 바뀜"><i class="live-dot"></i>장중 ' + esc(s.liveTs.slice(0, 8)) + "</span>" : "") +
       " · 기준일 " + (s.asof || "—") + "</span></div>" +
       '<div class="hero-weight"><div class="exp-pair"><div><span class="port-lbl">총노출</span><span class="port-val num">' + (wL + wS).toFixed(1) +
       '%</span></div><div><span class="port-lbl">순노출</span><span class="port-val num ' + (wL - wS > 0 ? "up" : wL - wS < 0 ? "down" : "") + '">' +
@@ -428,7 +428,7 @@
           td('<span class="sec-name">' + esc(p.sector || "—") + "</span>"), td(sig(p.signal) || '<span class="muted">—</span>'),
           td('<span class="pos-basis" data-dk="' + esc(p.decisionKey || "") + '">' + basisTag({ source: p.source }) + "</span>"),
           td(levels(p.entry, p.stop, p.target)), td(wt + '<small class="sub-qty">' + won(p.qty) + "주</small>", "r"),
-          td('<span class="num">' + won(p.price != null ? p.price : p.lastClose) + "</span>" + (p.priceTs ? '<small class="px-ts" title="장중 시세(Live Trader 15초 폴링) — 정산 뒤 종가로 바뀜">' + esc(p.priceTs) + "</small>"
+          td('<span class="num live-px" data-pxid="' + esc(p.id) + '">' + won(p.price != null ? p.price : p.lastClose) + "</span>" + (p.priceTs ? '<small class="px-ts" title="장중 시세(Live Trader 15초 폴링) — 정산 뒤 종가로 바뀜">' + esc(p.priceTs.slice(0, 5)) + "</small>"
             : '<small class="px-ts" title="원장 종가(정산 기준)">종가</small>'), "r"),
           td(pnlBadge(p.unrealPct, pctTxt(p.unrealPct).replace(/^[+-]/, "")), "r"),
           td(holdBar(p.holdDay) + (p.fillDate ? '<small class="hold-fill">체결 ' + esc(p.fillDate.slice(5)) + "</small>" : "")),
@@ -1823,6 +1823,30 @@
   ["un-ex-held", "un-fut-only", "un-sort"].forEach(function (id) { $(id).addEventListener("change", renderUniverseTable); });
 
   // ── 기준일 로드 ──
+  // ── 장중 실시간 갱신(2026-11-04) — 평일 08:55~15:40(KST) 10초마다 /api/swing/live, 바뀐 현재가는 깜빡임(메인 대시보드와 같은 방식) ──
+  var LIVE_MS = 10000;
+  function inSession() {
+    var k = new Date(Date.now() + 9 * 3600e3), d = k.getUTCDay(), m = k.getUTCHours() * 60 + k.getUTCMinutes();
+    return d >= 1 && d <= 5 && m >= 8 * 60 + 55 && m <= 15 * 60 + 40;
+  }
+  function liveTick() {
+    if (!inSession() || document.hidden) { setTimeout(liveTick, LIVE_MS); return; }
+    api("/api/swing/live").then(function (r) {
+      if (!r || !r.live || !S.summary) return;
+      var prev = {}, by = {};
+      (S.positions || []).forEach(function (p) { prev[p.id] = p.price != null ? p.price : p.lastClose; });
+      r.positions.forEach(function (x) { by[x.id] = x; });
+      S.positions = (S.positions || []).map(function (p) { return by[p.id] ? Object.assign({}, p, by[p.id]) : p; });
+      Object.assign(S.summary, { equity: r.equity, retPct: r.retPct, liveTs: r.liveTs, liveDate: r.liveDate });
+      renderPortfolio(S.summary); renderPositions(S.positions); renderHoldingsPF(S.positions, S.summary);
+      renderEquity(liveRows(S.equity, S.summary), S.summary.capital0);
+      r.positions.forEach(function (x) {
+        var a = prev[x.id];
+        if (a == null || x.price == null || x.price === a) return;
+        document.querySelectorAll('[data-pxid="' + x.id + '"]').forEach(function (el) { el.classList.add(x.price > a ? "tick-up" : "tick-down"); });
+      });
+    }).catch(function () { /* 실시간 갱신은 보조 — 실패하면 다음 회차 */ }).then(function () { setTimeout(liveTick, LIVE_MS); });
+  }
   function loadDate(date) {
     var enc = encodeURIComponent(date);
     return Promise.all([
@@ -1853,6 +1877,7 @@
       : "진입금액 100% 현금 담보";
     if (S.config && S.config.shortMaxGross != null) $("cfg-sgross").textContent = S.config.shortMaxGross > 0 ? "평가액의 " + Math.round(S.config.shortMaxGross * 100) + "%" : "없음";
     renderEquity(liveRows(r[1], r[0]), r[0].capital0); renderPositions(r[2]); renderHoldingsPF(r[2], r[0]); renderReport();
+    setTimeout(liveTick, LIVE_MS);
     var dates = r[3].slice().reverse(), sel = $("run-date");
     sel.innerHTML = dates.length ? dates.map(function (d) { return "<option>" + d + "</option>"; }).join("") : "<option>—</option>";
     sel.addEventListener("change", function () { loadDate(sel.value); });

@@ -111,9 +111,24 @@ def api_positions(q):
         sold = sum(f["qty"] for f in fills)
         lx = {"kind": own.get("kind") if own.get("fills") else "switch", "qty": min(sold, p["qty"]), "done": sold >= p["qty"],
               "at": fills[-1]["ts"][11:16]} if sold else None
-        out.append({**p, "price": px, "priceTs": ((lv or {}).get("ts") or "")[11:16] or None, "value": round(p["qty"] * px),
+        out.append({**p, "price": px, "priceTs": ((lv or {}).get("ts") or "")[11:19] or None, "value": round(p["qty"] * px),
                     "unrealPct": round((-r if p.get("side") == "short" else r) * 100, 2), "liveExit": lx})   # 숏은 하락이 이익
     return out
+
+
+def api_live(q):
+    """장중 실시간 갱신(2026-11-04) — 대시보드가 장중 10초마다 부른다. 평가액·보유 종목 현재가·평가금액·평가손익·장중 청산만."""
+    from swing import history
+    L = _ledger()
+    ps = api_positions(q)
+    ts = max(((p.get("priceTs") or "") for p in ps), default="")
+    if not ts:
+        return {"live": False}
+    v = L["cash"] + sum(engine.position_value(p, p["price"]) for p in ps)
+    live = history.live_prices(STORE, L.get("asof"))
+    return {"live": True, "liveTs": ts, "liveDate": history.live_date(STORE, L.get("asof")), "source": "bus" if any(x.get("bus") for x in live.values()) else "doc",
+            "equity": round(v), "retPct": round((v / L["capital0"] - 1) * 100, 2) if L.get("capital0") else None, "cash": round(L["cash"]),
+            "positions": [{k: p.get(k) for k in ("id", "code", "side", "price", "priceTs", "value", "unrealPct", "liveExit")} for p in ps]}
 
 
 def api_orders(q):
@@ -368,7 +383,7 @@ ROUTES = {"/api/swing/summary": api_summary, "/api/swing/progress": api_progress
           "/admin/sim": admin_sim, "/admin/catrep": admin_catrep, "/admin/dbq": admin_dbq, "/admin/universe": admin_universe,
           "/api/swing/universe/progress": api_universe_progress, "/api/swing/config": api_config,
           "/api/swing/export": api_export, "/api/swing/intraday": api_intraday,
-          "/api/swing/reflections": api_reflections, "/api/swing/history": api_history}
+          "/api/swing/reflections": api_reflections, "/api/swing/history": api_history, "/api/swing/live": api_live}
 
 
 class Handler(BaseHTTPRequestHandler):

@@ -6,6 +6,8 @@
 분봉(2026-11-03) = Live Trader 가 저장한 15초 틱(intraday/<날짜>/ticks/<종목>)을 묶는다. 외부 호출 없음.
 카드는 보유 일수에 따라 5~60분봉(봉 120개 이하), 회차 전 기간에 틱이 있을 때만. 날짜별 5분봉은 day 로 따로 조회.
 """
+import json
+import os
 import time
 
 from . import config, engine, tradedays
@@ -48,13 +50,47 @@ def live_date(store, asof):
     return day if day and (not asof or day > asof) else None
 
 
+_bus = {"r": None, "down": 0.0, "at": 0.0, "val": None}
+BUS_TTL, BUS_RETRY = 3.0, 60.0
+
+
+def _bus_last():
+    """Live Trader 시세 버스(Redis `livetrader:last`, 폴링마다 ≈15초 갱신) — 종목별 최신 틱. Redis 가 없거나 실패하면 None
+    (intraday 문서는 60초마다 저장되니 그보다 신선하다, 2026-11-04). 3초 캐시·실패 시 60초 쉼."""
+    now = time.time()
+    if now - _bus["at"] < BUS_TTL:
+        return _bus["val"]
+    url = os.environ.get("LIVETRADER_REDIS_URL") or os.environ.get("REDIS_URL") or os.environ.get("DBHUB_REDIS_URL")
+    if not url or now < _bus["down"]:
+        return None
+    try:
+        if _bus["r"] is None:
+            import redis
+            _bus["r"] = redis.Redis.from_url(url, socket_timeout=2, decode_responses=True)
+        val = {k: json.loads(v) for k, v in (_bus["r"].hgetall("livetrader:last") or {}).items()}
+    except Exception:
+        _bus.update(r=None, down=now + BUS_RETRY)
+        return None
+    _bus.update(at=now, val=val)
+    return val
+
+
+live_bus = _bus_last                                      # 테스트는 바꿔 끼운다
+
+
 def live_prices(store, asof):
-    """장중 현재가(2026-11-03) — 정산 전(intraday 날짜 > 원장 asof) Live Trader 기록의 종목별 마지막 시세 {code: {price, ts}}.
-    15초 폴링값이라 장 마감 뒤 정산(16:30) 전까지는 15:2x 가격(종가 동시호가 전)이 남는다. 정산되면 원장 종가로 돌아간다."""
+    """장중 현재가(2026-11-03) — 정산 전(intraday 날짜 > 원장 asof) 종목별 마지막 시세 {code: {price, ts}}.
+    Live Trader 시세 버스(Redis, ≈15초)가 있으면 그 값, 없으면 intraday 문서(60초 저장). 장 마감 뒤 정산(16:30) 전까지는
+    15:2x 가격(종가 동시호가 전)이 남는다. 정산되면 원장 종가로 돌아간다."""
     day = live_date(store, asof)
     if not day:
         return {}
-    return {c: {"price": v["price"], "ts": v.get("ts")} for c, v in ((store.get(f"intraday/{day}") or {}).get("vwap") or {}).items() if v.get("price")}
+    out = {c: {"price": v["price"], "ts": v.get("ts")} for c, v in ((store.get(f"intraday/{day}") or {}).get("vwap") or {}).items() if v.get("price")}
+    for c, v in (live_bus() or {}).items():
+        ts = (v or {}).get("ts") or ""
+        if ts[:10] == day and v.get("price") and ts > ((out.get(c) or {}).get("ts") or ""):
+            out[c] = {"price": v["price"], "ts": ts, "bus": True}
+    return out
 
 
 def _mins(hm):
