@@ -32,7 +32,7 @@
     ["III. Trader", [["trader", "Trader"]]],
     ["IV. 리스크 토론", [["risk_debate", "공격 → 보수 → 중립"]]],
     ["V. Portfolio Manager", [["pm", "Portfolio Manager"]]],
-    ["부록 · 수집 정보", [["peers", "해외 비교기업"], ["collect", "수집 상태"]]]];
+    ["부록 · 수집 정보", [["peers", "해외 비교기업"], ["ca", "예탁원 CA 일정(원자료)"], ["collect", "수집 상태"]]]];
 
   function HOLD_N() { return (S.config && S.config.holdDays) || 5; }
   var S = { summary: null, positions: [], trades: [], equity: [], config: null, held: {} };
@@ -427,7 +427,11 @@
   function liveExitTag(p) {
     var x = p.liveExit, w = sideOf(p) === "short" ? "환매" : "매도", what = x.kind === "switch" ? "스위칭 " + w : reasonTxt(x.kind || "청산", sideOf(p));
     return '<span class="state sell-next" title="장중 실행기 기록 — 16:30 정산 때 원장에 반영">' + (x.done ? "오늘 " + what + " 완료 " + esc(x.at)
-      : "오늘 " + what + " " + won(x.qty) + "/" + won(p.qty) + "주") + "</span>";
+      : "오늘 " + what + " " + won(x.qty) + "/" + won((p.qtyLedger || 0) + (p.liveAdd ? p.liveAdd.qty : 0) || p.qty) + "주") + "</span>";
+  }
+  function liveAddTag(p) {                     // 오늘 장중 추가 체결(비중 채우기, 정산 전 — 2026-11-04)
+    var x = p.liveAdd, w = sideOf(p) === "short" ? "공매도" : "매수";
+    return '<span class="state ext" title="비중 채우기 장중 체결 ' + won(x.qty) + "주 @" + won(x.price) + " — 16:30 정산 때 평균단가로 합산(수량·평단은 이미 반영)" + '">오늘 추가 ' + w + " +" + won(x.qty) + "주 " + esc(x.at) + "</span>";
   }
   function posTable(el, ps, empty) {
     ps = ps.slice().sort(function (a, b) { return (a.liveEntry ? 1 : 0) - (b.liveEntry ? 1 : 0); });   // 오늘 진입 행은 맨 아래
@@ -448,7 +452,7 @@
             : ""), "r"),
           td(pnlBadge(p.unrealPct, pctTxt(p.unrealPct).replace(/^[+-]/, "")), "r"),
           td(holdBar(p.holdDay) + (p.fillDate ? '<small class="hold-fill">체결 ' + esc(p.fillDate.slice(5)) + "</small>" : "")),
-          td(p.liveEntry ? liveEntryTag(p) : p.liveExit ? liveExitTag(p) : p.sellPending ? pendingTag(p)
+          td(p.liveEntry ? liveEntryTag(p) : p.liveExit ? liveExitTag(p) : p.liveAdd ? liveAddTag(p) : p.sellPending ? pendingTag(p)
             : (p.fillStop && !p.fillStop.reviewed) ? '<span class="state sell-next" title="체결일(' + esc((p.fillStop.date || "").slice(5)) + ") 손절가 " + won(p.fillStop.stop) + ' 도달 — 다음 영업일 종가로 재판별, 매도면 그다음 영업일 시가">손절 재판별 대기</span>'
             : p.extended ? '<span class="state ext" title="목표 도달·만기 후 trading_agent 가 계속 보유로 판단 — 매일 재판별">연장 보유</span>'
             : '<span class="state hold-ok">보유</span>')] };

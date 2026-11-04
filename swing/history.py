@@ -340,6 +340,10 @@ def build(store, key, *, day=None, log=print):
     # 일별 보유 수량 → 비중(종가 평가액 / 그날 총평가액)
     p = r["position"]
     avg = p["entry"] if p else (r["trades"][-1]["entryPrice"] if r["trades"] else None)
+    live_buys = [e for e in ev if e.get("live") and (e.get("qty") or 0) > 0 and e.get("price")]
+    if p and live_buys:                                   # 오늘 장중 추가 체결(정산 전, 2026-11-04) — 정산과 같은 가중평균으로 평단 반영
+        aq = sum(e["qty"] for e in live_buys)
+        avg = (p["entry"] * p["qty"] + sum(e["qty"] * e["price"] for e in live_buys)) / (p["qty"] + aq)
     if avg is None:                                       # 오늘 장중 신규 진입(정산 전, 2026-11-04) — 오늘 체결 평균가
         buys = [f for f in fills.values() if f["q"] > 0]
         avg = sum(f["q"] * f["px"] for f in buys) / sum(f["q"] for f in buys) if buys else None
@@ -354,10 +358,12 @@ def build(store, key, *, day=None, log=print):
         delta[e["date"]] = delta.get(e["date"], 0) + (e.get("qty") or 0)
     held, days, peak, peak_day = 0, [], 0.0, None
     fill_px = {e["date"]: e["price"] for e in ev if e.get("price")}
+    lday = live_date(store, asof)                         # 오늘 장중(정산 전) 비중은 장중 현재가로(2026-11-04)
+    lvp = (live_prices(store, asof).get(code) or {}).get("price") if lday and lday in span else None
     for d in span:
         held += delta.get(d, 0)
         b = bars.get(d)
-        px = (b or {}).get("c") or fill_px.get(d) or avg
+        px = (lvp if d == lday and lvp else None) or (b or {}).get("c") or fill_px.get(d) or avg
         w = held * px / (eq.get(d) or eq_last) * 100 if held and px and (eq.get(d) or eq_last) else 0.0
         if w > peak:
             peak, peak_day = w, d

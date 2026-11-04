@@ -295,6 +295,62 @@ class TestBuild(unittest.TestCase):
         self.assertEqual((s["equity"], s["liveTs"], s["closeEquity"]), (100_000_000 + 49 * 50000, "10:15:30", 480_000_000))
         self.assertAlmostEqual(s["retPct"], ((100_000_000 + 49 * 50000) / 500_000_000 - 1) * 100, places=2)
 
+    def _topup_today(self, exit_fills=None):
+        """오늘(11-03) 비중 채우기 주문 o7(topupOf p1)이 장중 30주 체결 — 정산 전(2026-11-04)."""
+        st = setup()
+        L = st.get("ledger")
+        L.update(capital0=500_000_000, cash=100_000_000)
+        L["orders"].append(dict(order("o7", "2026-11-02", "2026-11-03", 60, None, status="open", topup=True)))
+        st.put("ledger", L)
+        doc = {"date": "2026-11-03", "vwap": {"006110": {"price": 50000.0, "ts": "2026-11-03T10:15:30+09:00"}},
+               "orders": {"o7": {"code": "006110", "side": "long", "topupOf": "p1", "planned": 60, "fills": [
+                   {"ts": "2026-11-03T09:00:15+09:00", "qty": 10, "price": 49000, "mode": "open"},
+                   {"ts": "2026-11-03T09:30:00+09:00", "qty": 20, "price": 49600, "mode": "vwap"}]}},
+               "exits": {}}
+        if exit_fills:
+            doc["exits"]["p1"] = {"code": "006110", "side": "long", "kind": "pm_sell", "fills": exit_fills}
+        st.put("intraday/2026-11-03", doc)
+        return st
+
+    def test_positions_api_merges_todays_topup_fills(self):
+        from swing import server
+        st = self._topup_today()
+        old, server.STORE = server.STORE, st
+        try:
+            p = server.api_positions({})[0]
+            lv = server.api_live({})
+        finally:
+            server.STORE = old
+        avg = (49 * 65563 + 10 * 49000 + 20 * 49600) / 79
+        self.assertEqual((p["qty"], p["qtyLedger"], p["value"]), (79, 49, 79 * 50000))
+        self.assertAlmostEqual(p["entry"], avg, places=2)
+        self.assertEqual(p["liveAdd"], {"qty": 30, "price": 49400, "at": "09:30"})
+        self.assertAlmostEqual(p["unrealPct"], (50000 / avg - 1) * 100, places=2)
+        # 평가액 = 현금 + 원장 49주 × 현재가 + 오늘 추가분의 (현재가 − 체결가)
+        self.assertEqual(lv["equity"], round(100_000_000 + 49 * 50000 + 10 * 1000 + 20 * 400))
+        lp = lv["positions"][0]
+        self.assertEqual((lp["qty"], lp["qtyLedger"], lp["liveAdd"]["qty"]), (79, 49, 30))
+
+    def test_positions_api_subtracts_todays_partial_exit(self):
+        from swing import server
+        st = self._topup_today(exit_fills=[{"ts": "2026-11-03T11:00:00+09:00", "qty": 9, "price": 51000, "mode": "vwap"}])
+        old, server.STORE = server.STORE, st
+        try:
+            p = server.api_positions({})[0]
+            lv = server.api_live({})
+        finally:
+            server.STORE = old
+        self.assertEqual((p["qty"], p["liveExit"]["qty"], p["liveExit"]["done"]), (70, 9, False))
+        self.assertEqual(lv["equity"], round(100_000_000 + 49 * 50000 + 10 * 1000 + 20 * 400 + 9 * 1000))
+
+    def test_history_avg_includes_todays_topup(self):
+        h = history.build(self._topup_today(), KEY, log=lambda *a: None)
+        avg = (49 * 65563 + 10 * 49000 + 20 * 49600) / 79
+        self.assertEqual(h["qty"], 79)
+        self.assertAlmostEqual(h["avg"], avg, places=2)
+        self.assertAlmostEqual(h["vsAvgPct"], (50000 / avg - 1) * 100, places=1)
+        self.assertAlmostEqual(h["nowWeight"], 79 * 50000 / 480_000_000 * 100, places=1)   # 오늘 비중 = 장중 현재가
+
     def test_bars_failure_falls_back_to_decision_chart(self):
         def boom(*a):
             raise RuntimeError("no token")

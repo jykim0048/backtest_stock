@@ -99,22 +99,49 @@ def api_positions(q):
     day = history.live_date(STORE, L.get("asof"))
     doc = (STORE.get(f"intraday/{day}") or {}) if day else {}
     exits = doc.get("exits") or {}
+    adds = _live_adds(L, doc)
     out = []
     for p in L["positions"]:
         lv = live.get(p["code"])
         px = (lv or {}).get("price") or p.get("lastClose") or p["entry"]
-        r = px / p["entry"] - 1
+        sgn = -1 if p.get("side") == "short" else 1
         # 오늘 장중 청산(정산 전, 2026-11-03 LG화학) — 원장은 16:30 정산 때 줄어드니 상태에 따로 표시
         own, sw = exits.get(p["id"]) or {}, exits.get("s:" + p["id"]) or {}
-        fills = sorted((own.get("fills") or []) + (sw.get("fills") or []), key=lambda f: f["ts"])
-        sold = sum(f["qty"] for f in fills)
-        lx = {"kind": own.get("kind") if own.get("fills") else "switch", "qty": min(sold, p["qty"]), "done": sold >= p["qty"],
-              "at": fills[-1]["ts"][11:16]} if sold else None
+        trims = [x for k, x in exits.items() if k.startswith("i:") and x.get("positionId") == p["id"]]   # Live PM 부분 축소
+        fills = sorted((own.get("fills") or []) + (sw.get("fills") or []) + [f for x in trims for f in x.get("fills") or []],
+                       key=lambda f: f["ts"])
+        # 오늘 장중 추가 체결(비중 채우기 topupOf, 2026-11-04) — 정산 때 평균단가로 합쳐지는 것과 같은 식으로 미리 반영
+        af = adds.get(p["id"]) or []
+        add_q = sum(f["qty"] for f in af)
+        sold = min(sum(f["qty"] for f in fills), p["qty"] + add_q)
+        qty = p["qty"] + add_q - sold
+        entry = (p["entry"] * p["qty"] + sum(f["qty"] * f["price"] for f in af)) / (p["qty"] + add_q) if add_q else p["entry"]
+        r = px / entry - 1
+        kind = own.get("kind") if own.get("fills") else "switch" if sw.get("fills") else (trims[0].get("kind") if trims else None)
+        lx = {"kind": kind, "qty": sold, "done": qty <= 0, "at": fills[-1]["ts"][11:16]} if sold else None
+        # 평가액 보정(api_live) — 원장 수량·평단 평가에 오늘 체결분 차이만 더한다: 추가 = (현재가 − 체결가), 청산 = (체결가 − 현재가)
+        adj = sgn * (sum(f["qty"] * (px - f["price"]) for f in af) + sum(f["qty"] * (f["price"] - px) for f in fills))
         prev = (lv or {}).get("prevClose") or (p.get("lastClose") if lv else None)
-        out.append({**p, "price": px, "priceTs": ((lv or {}).get("ts") or "")[11:19] or None, "value": round(p["qty"] * px),
+        out.append({**p, "qty": qty, "entry": entry, "qtyLedger": p["qty"], "entryLedger": p["entry"],
+                    "price": px, "priceTs": ((lv or {}).get("ts") or "")[11:19] or None, "value": round(qty * px),
                     "chgPct": round((px / prev - 1) * 100, 2) if prev else None,
-                    "unrealPct": round((-r if p.get("side") == "short" else r) * 100, 2), "liveExit": lx})   # 숏은 하락이 이익
+                    "unrealPct": round(sgn * r * 100, 2), "liveExit": lx,   # 숏은 하락이 이익
+                    "liveAdd": {"qty": add_q, "price": round(sum(f["qty"] * f["price"] for f in af) / add_q), "at": af[-1]["ts"][11:16]} if add_q else None,
+                    "liveAdj": round(adj)})
     out += _live_entries(L, doc, live)
+    return out
+
+
+def _live_adds(L, doc):
+    """오늘 장중 추가 체결(비중 채우기 주문 topupOf) → {포지션 id: [체결]} (2026-11-04)."""
+    orders = {o["id"]: o for o in L.get("orders") or []}
+    out = {}
+    for oid, rec in (doc.get("orders") or {}).items():
+        pid = rec.get("topupOf") or (orders.get(oid) or {}).get("topupOf")
+        if pid and rec.get("fills"):
+            out.setdefault(pid, []).extend(f for f in rec["fills"] if f.get("qty"))
+    for v in out.values():
+        v.sort(key=lambda f: f["ts"])
     return out
 
 
@@ -161,12 +188,14 @@ def api_live(q):
     ts = max(((p.get("priceTs") or "") for p in ps), default="")
     if not ts:
         return {"live": False}
-    v = L["cash"] + sum(engine.position_value(p, p["price"]) if not p["id"].startswith("live:")
+    v = L["cash"] + sum(engine.position_value({**p, "qty": p["qtyLedger"], "entry": p["entryLedger"]}, p["price"]) + (p.get("liveAdj") or 0)
+                        if not p["id"].startswith("live:")
                         else (-1 if p["side"] == "short" else 1) * (p["price"] - p["entry"]) * p["qty"] + (p.get("liveRealized") or 0) for p in ps)
     live = history.live_prices(STORE, L.get("asof"))
     return {"live": True, "liveTs": ts, "liveDate": history.live_date(STORE, L.get("asof")), "source": "bus" if any(x.get("bus") for x in live.values()) else "doc",
             "equity": round(v), "retPct": round((v / L["capital0"] - 1) * 100, 2) if L.get("capital0") else None, "cash": round(L["cash"]),
-            "positions": [p if p["id"].startswith("live:") else {k: p.get(k) for k in ("id", "code", "side", "price", "priceTs", "chgPct", "value", "unrealPct", "liveExit")}
+            "positions": [p if p["id"].startswith("live:") else {k: p.get(k) for k in ("id", "code", "side", "price", "priceTs", "chgPct", "value", "unrealPct", "liveExit",
+                                                                                  "qty", "entry", "qtyLedger", "liveAdd")}
                           for p in ps]}
 
 
