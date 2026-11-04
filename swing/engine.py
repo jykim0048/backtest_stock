@@ -384,7 +384,7 @@ def settle_day(L, date, bars, intraday=None):
         elif not o.get("topupOf") and any(p["code"] == o["code"] for p in L["positions"]):
             o.update(status="skipped", note="이미 보유")
         elif o["id"] in w_ord and not sum(f["qty"] for f in ((I["orders"].get(o["id"]) or {}).get("fills") or [])):
-            o.update(status="cancelled", note="미도달(VWAP 분할 — 진입가 상한·VWAP 조건 미충족)")
+            o.update(status="cancelled", note="미도달(VWAP 분할 — 진입가 리밋·VWAP 조건 미충족)")
         elif o["id"] not in w_ord and short and b["high"] < o["entry"]:
             o.update(status="cancelled",
                      note=f"미도달(고가 {b['high']:,.0f} < 진입 {o['entry']:,.0f})")
