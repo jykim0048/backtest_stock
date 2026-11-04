@@ -32,7 +32,7 @@ KST = datetime.timezone(datetime.timedelta(hours=9))
 NOTE = ("예탁원정보(KIS ksdinfo) 기업행위 일정. d_n = 기준일 대비 영업일(+미래/−과거), "
         f"inWindow = 앞으로 {WINDOW_BD}영업일(단기 영향 구간) 안의 일정, haltInWindow = 그 구간과 겹치는 "
         "매매정지, sizePct = 신주·예치 물량 ÷ 총발행주식(%), gapPct = 현재가 ÷ gapRef − 1(%). "
-        "배당락(추정)은 기준일 전 평일 — 공휴일 미반영. 의무예치는 예치일 기준(해제일은 사유·공시로 확인).")
+        "배당락(추정)은 기준일 전 평일 — 공휴일 미반영. 의무예치는 '보호예수 해제'(release) 일정이 해제일.")
 
 
 def fetch(code, timeout=40):

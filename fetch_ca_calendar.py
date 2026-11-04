@@ -35,7 +35,7 @@ KST = datetime.timezone(datetime.timedelta(hours=9))
 
 FLOW_API_BASE = os.environ.get(
     "FLOW_API_BASE", "https://tradingstrategies-production-09d4.up.railway.app")
-TIMEOUT = (10, 60)          # (connect, read) — 시장 전체 조회는 허브 쪽 TR 다건이라 read 를 길게
+TIMEOUT = (10, 170)          # (connect, read) — 시장 전체 조회는 허브 쪽 TR 다건이라 read 를 길게
 RETRIES = 1                 # 실패 시 1회 재시도
 RETRY_WAIT_S = 5
 MIN_INTERVAL_MIN = int(os.environ.get("CA_MIN_INTERVAL_MIN", "90"))
@@ -148,7 +148,12 @@ def _importance(typ, kind, label, fields):
             return 3
         return 2 if kind == "subscribe" else 1
     if typ == "deposit":
-        return 3
+        # 허브가 예치일~반환일을 '의무예치 시작'(deposit)·'보호예수 해제'(release)로 나눠 준다(2026-11-05).
+        # 해제가 매도 물량 일정 — 총발행 1% 이상이면 3, 그 밖 2. 예치 시작은 1(소음).
+        if kind == "release":
+            pct = _num(f.get("pctOfTotal"))
+            return 3 if (pct is None or pct >= 1) else 2
+        return 1
     if typ in ("merger", "capdcrs", "revsplit"):
         if kind == "halt" or kind == "listing" or "재상장" in label or "매매정지" in label:
             return 3

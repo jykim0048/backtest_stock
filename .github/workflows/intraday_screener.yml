@@ -123,7 +123,7 @@ jobs:
             t0=$SECONDS
             timeout 180 python fetch_earnings_calendar.py ; rc=$?; echo "[branchB][timing] earnings rc=$rc $((SECONDS-t0))s"
             t0=$SECONDS
-            timeout 150 python fetch_ca_calendar.py      ; rc=$?; echo "[branchB][timing] ca rc=$rc $((SECONDS-t0))s"
+            timeout 200 python fetch_ca_calendar.py      ; rc=$?; echo "[branchB][timing] ca rc=$rc $((SECONDS-t0))s"
             t0=$SECONDS
             timeout 720 python generate_intraday_briefing.py ; rc=$?; echo "[branchB][timing] briefing rc=$rc $((SECONDS-t0))s"
             echo "[branchB][timing] total ${SECONDS}s"

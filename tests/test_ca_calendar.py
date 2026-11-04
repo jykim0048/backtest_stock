@@ -73,7 +73,9 @@ def test_importance_rules():
     assert imp("revsplit", "halt", "매매정지", {}) == 3
     assert imp("merger", "meeting", "주주총회", {}) == 1
     # 의무예치 3 · 무상 권리락 2 · 매수청구 마감 2 · 기타 1
-    assert imp("deposit", "deposit", "의무예치", {}) == 3
+    assert imp("deposit", "deposit", "의무예치 시작", {}) == 1          # 예치 시작은 소음
+    assert imp("deposit", "release", "보호예수 해제", {"pctOfTotal": 1.87}) == 3
+    assert imp("deposit", "release", "보호예수 해제", {"pctOfTotal": 0.01}) == 2
     assert imp("bonus", "ex", "권리락", {}) == 2
     assert imp("bonus", "record", "기준일", {}) == 1
     assert imp("purreq", "deadline", "청구 마감", {}) == 2
