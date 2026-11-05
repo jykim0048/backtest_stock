@@ -97,8 +97,13 @@ def test_attach_picks_window_and_filter():
     assert n == 3, n
     assert "ca" not in picks[5]                                       # 구형 예치 기간 행 제외
     eco = picks[0]["ca"]
-    # 오늘 신주상장(★3) + D+2 보호예수 해제(★3). 배당 지급(★1)·11/16(창 밖) 제외. 날짜순.
-    assert [c["badge"] for c in eco] == ["오늘 신주상장 9.19%(유상증자)", "D+2 보호예수 해제 1.9%"], eco
+    # 오늘 신주상장(★3). 배당 지급(★1)·11/16(창 밖) 제외. 11/9(다음 주 월) 보호예수 해제는
+    # '이번 주 해제만' 규칙(2026-11-05)으로 제외 — 그 주 월요일 브리핑에선 오늘 배지로 붙는다.
+    assert [c["badge"] for c in eco] == ["오늘 신주상장 9.19%(유상증자)"], eco
+    mon = [{"code": "247540"}]
+    ce.attach_picks(mon, CAL, "2026-11-09", hol=HOL)
+    assert [c["badge"] for c in mon[0]["ca"]][0] == "오늘 보호예수 해제 1.9%", mon
+    assert mon[0]["ca"][0]["typeLabel"] == "보호예수"
     assert eco[0]["adverse"] and eco[0]["sizePct"] == 9.19 and eco[0]["dn"] == 0
     assert eco[0]["fields"] == {"reason": "유상증자", "newSharesPct": 9.19, "newShares": 9900990.0,
                                 "issuePrice": 89500.0}
@@ -108,7 +113,7 @@ def test_attach_picks_window_and_filter():
     # 휴장 반영: 창 끝 = 11/13 → 11/16 행은 여전히 밖, horizon 6 이면 포함
     p2 = [{"code": "247540"}]
     ce.attach_picks(p2, CAL, TODAY, hol=HOL, horizon_bd=6)
-    assert len(p2[0]["ca"]) == 3
+    assert len(p2[0]["ca"]) == 2
     # 상한
     p3 = [{"code": "247540"}]
     ce.attach_picks(p3, CAL, TODAY, hol=HOL, horizon_bd=6, per_pick=1)

@@ -296,7 +296,9 @@ def _day_ca(date_str, intraday):
     """그날 발생 CA — 장중 아카이브 마지막 caEvents.today(★2+ 상위 N) 우선, 없으면 캘린더 그날 행 폴백.
     경제지표 koEcon 과 같은 방식(장중 회차 아카이브에서 추출)."""
     for r in reversed((intraday or {}).get("rounds") or []):
-        t = (r.get("caEvents") or {}).get("today")
+        ce = r.get("caEvents") or {}
+        # 보호예수는 장중 카드에 '이번 주 해제' 묶음(depositWeek)으로 따로 온다 — 그날 해제분만 합친다
+        t = (ce.get("today") or []) + [x for x in ce.get("depositWeek") or [] if x.get("date") == date_str]
         if t:
             return ca_events.day_pick(t)
     rows = ca_events.rows_on(_ca_calendar(), date_str)
@@ -1772,7 +1774,10 @@ def _next_week_preview(econ_n=25, earn_n=40, base=None, period="week", ca_n=None
     ca = _fetch("ca_calendar.json") or {}
     cands = {"thisRest": [], "next": []}
     for r in ca.get("rows") or []:
-        if not isinstance(r, dict) or (r.get("importance") or 0) < 2:
+        if not isinstance(r, dict):
+            continue
+        r = ca_events.normalize_deposit(r)          # 보호예수는 해제일 1행만(시작·구형 기간 행 제외) — 구간이 주 단위라 '그 주 해제'
+        if r is None or (r.get("importance") or 0) < 2:
             continue
         b = _bucket(_day(r.get("date")))
         if b:

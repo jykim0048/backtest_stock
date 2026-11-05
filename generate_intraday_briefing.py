@@ -956,79 +956,50 @@ def _load_earnings_events(now):
 
 
 CA_PATH = os.path.join(ROOT, "public", "ca_calendar.json")
-CA_HORIZON_BD = 5          # upcoming = 오늘 이후 N 영업일(주말·KRX 휴장 제외)
 CA_TODAY_MAX = 30          # 표시 상한 — 파일엔 전부 있음(연말 배당락 등 수백 건 대비)
-CA_UPCOMING_MAX = 40
-CA_UPCOMING_PER_DAY = 12
-CA_LLM_BD = 2              # LLM 입력 = 오늘 + 다음 2영업일, 영향도 2+
+CA_DEPOSIT_MAX = 20        # 이번 주 보호예수 해제 표시 상한
 CA_LLM_MAX = 25
 
 
-def _next_trading_days(d, n, hol=None):
-    """d(date) 이후 n 개 거래일(주말·KRX 휴장 제외) 목록."""
-    if hol is None:
-        try:
-            import krx_calendar
-            hol = krx_calendar.load_holidays()
-        except Exception:
-            hol = set()
-    out, x = [], d
-    for _ in range(n * 3 + 10):
-        if len(out) >= n:
-            break
-        x = x + datetime.timedelta(days=1)
-        if x.weekday() < 5 and x.strftime("%Y-%m-%d") not in hol and x not in hol:
-            out.append(x)
-    return out
-
-
 def _load_ca_events(now, path=None, hol=None):
-    """예탁원 기업행위(CA) 캘린더(public/ca_calendar.json, fetch_ca_calendar.py 갱신) 발췌.
+    """예탁원 기업행위(CA) 캘린더(public/ca_calendar.json, fetch_ca_calendar.py 갱신) 발췌 — 장중 시황 카드.
 
-    today    = 오늘 날짜 행 + 기간 행(매매정지·청약 등 date<=오늘<=end) — 영향도 1+.
-    upcoming = 오늘 이후 CA_HORIZON_BD 영업일(그 사이 주말 포함 날짜 전부) — 영향도 2+.
-    정렬 = 날짜 → 영향도 내림차순. 표시 상한 초과분은 todayTotal/upcomingTotal 로 건수만.
-    파일 없음·깨짐·해당 행 없음 → {} (카드 숨김)."""
+    2026-11-05 사용자 결정: 장중 시황 CA 는 '당일' 일정만, 보호예수는 '이번 주 해제' 종목만.
+    today       = 오늘 날짜 행 + 기간 행(매매정지·청약 등 date<=오늘<=end) — 영향도 1+, 보호예수 제외.
+    depositWeek = 오늘이 속한 주(월~일)에 보호예수가 해제되는 종목(ca_events.deposit_week).
+    정렬 = 영향도 내림차순. 표시 상한 초과분은 todayTotal/depositWeekTotal 로 건수만.
+    hol 은 하위 호환용(미사용). 파일 없음·깨짐·해당 행 없음 → {} (카드 숨김)."""
+    import ca_events
     try:
         with open(path or CA_PATH, encoding="utf-8") as f:
             cal = json.load(f) or {}
     except Exception as e:
         _warn(f"ca_calendar.json 로드 실패(CA 일정 생략): {e}")
         return {}
-    rows = [r for r in cal.get("rows") or [] if isinstance(r, dict) and r.get("date")]
+    rows = ca_events._rows(cal)
     if not rows:
         return {}
     today_d = now.date() if isinstance(now, datetime.datetime) else now
     today = today_d.strftime("%Y-%m-%d")
-    days = _next_trading_days(today_d, CA_HORIZON_BD, hol)
-    horizon_end = days[-1].strftime("%Y-%m-%d") if days else today
 
     def imp(r):
         return r.get("importance") or 0
 
-    t_rows = [r for r in rows
-              if r["date"] == today or (r["date"] < today <= (r.get("end") or ""))]
+    t_rows = [r for r in rows if r.get("type") != "deposit" and ca_events.covers(r, today)]
     t_rows.sort(key=lambda r: (-imp(r), r["date"], r.get("code") or ""))
-    u_all = [r for r in rows if today < r["date"] <= horizon_end and imp(r) >= 2]
-    u_all.sort(key=lambda r: (r["date"], -imp(r), r.get("code") or ""))
-    per_day, u_rows = {}, []
-    for r in u_all:
-        n = per_day.get(r["date"], 0)
-        if n >= CA_UPCOMING_PER_DAY or len(u_rows) >= CA_UPCOMING_MAX:
-            continue
-        per_day[r["date"]] = n + 1
-        u_rows.append(r)
-    if not t_rows and not u_rows:
+    dep, dep_total = ca_events.deposit_week(cal, today, top=CA_DEPOSIT_MAX)
+    if not t_rows and not dep:
         return {}
+    w_from, w_to = ca_events.week_range(today)
     return {
         "date": today,
         "asof": cal.get("asof"),
-        "horizonDays": CA_HORIZON_BD,
-        "horizonEnd": horizon_end,
         "today": t_rows[:CA_TODAY_MAX],
         "todayTotal": len(t_rows),
-        "upcoming": u_rows,
-        "upcomingTotal": len(u_all),
+        "depositWeek": dep,
+        "depositWeekTotal": dep_total,
+        "weekFrom": w_from,
+        "weekTo": w_to,
     }
 
 
@@ -1038,18 +1009,12 @@ _CA_LLM_FIELDS = ("newSharesPct", "discountPct", "issuePrice", "cashDps", "cashY
 
 
 def _ca_llm_view(ca, hol=None):
-    """LLM 입력용 CA 축약 — 영향도 2+, 오늘 + 다음 CA_LLM_BD 영업일, 핵심 필드만."""
+    """LLM 입력용 CA 축약 — 오늘 일정(영향도 2+) + 이번 주 보호예수 해제, 핵심 필드만."""
     if not ca or not ca.get("date"):
         return []
-    try:
-        today_d = datetime.date.fromisoformat(ca["date"])
-    except ValueError:
-        return []
-    nd = _next_trading_days(today_d, CA_LLM_BD, hol)
-    until = nd[-1].strftime("%Y-%m-%d") if nd else ca["date"]
     out = []
-    for r in (ca.get("today") or []) + (ca.get("upcoming") or []):
-        if (r.get("importance") or 0) < 2 or r.get("date", "") > until:
+    for r in (ca.get("today") or []) + (ca.get("depositWeek") or []):
+        if (r.get("importance") or 0) < 2:
             continue
         x = {"date": r.get("date"), "stock": r.get("name") or r.get("code"),
              "code": r.get("code"), "event": r.get("typeLabel"),
@@ -1197,7 +1162,7 @@ SYSTEM = (
     "표현할 것 — surpriseVs=forecast 면 '예상(컨센서스) 상회/하회', surpriseVs=previous 면 반드시 "
     "'이전(직전치) 대비 상회/하회'로 쓰고, 이전값 대비를 '예상치 상회/하회'라고 표현하지 말 것.\n"
     "- caEvents(예탁원 기업행위 일정 — 유상증자 권리락·신주 상장, 합병·감자·액면교체 매매정지·재상장, "
-    "의무예치, 배당락 등 오늘~2영업일)가 있으면: 시황에서 다루는 테마·종목·촉매와 직접 관련될 때만 "
+    "배당락 등 오늘 일정 + 이번 주 보호예수 해제)가 있으면: 시황에서 다루는 테마·종목·촉매와 직접 관련될 때만 "
     "해당 종목 서술이나 ⑤ 관전 포인트에 짧게 언급할 것(무관하면 언급하지 말 것). 날짜·수치는 입력값을 "
     "그대로 인용하고, 입력에 없는 비율·가격·일정을 지어내지 말 것.\n"
     "- fxBullets 는 환율 관련 1~3개 불릿(fxNews·marketIndicators.exchange/world 근거): "
@@ -1458,7 +1423,7 @@ def synthesize(indices, investors, indicators, sectors_up, sectors_down,
         raw["econEvents"] = _econ_llm_view(econ_events)   # 오늘 한국 지표 결과 + 오늘 밤 미국 예정
     ca_llm = _ca_llm_view(ca_events) if ca_events else []
     if ca_llm:
-        raw["caEvents"] = ca_llm                # 예탁원 CA 일정(영향도 2+, 오늘~2영업일)
+        raw["caEvents"] = ca_llm                # 예탁원 CA 일정(영향도 2+, 오늘 + 이번 주 보호예수 해제)
     system = SYSTEM
     if prev_rounds:
         raw["previousRounds"] = prev_rounds     # 마감 시황 — 당일 회차별 다이제스트
@@ -1702,7 +1667,7 @@ def main():
     ca_events = _load_ca_events(now)
     if ca_events:
         print(f"  CA 일정: 오늘 {ca_events.get('todayTotal', 0)}건, "
-              f"향후 {ca_events.get('horizonDays')}영업일 {ca_events.get('upcomingTotal', 0)}건(★2+)")
+              f"이번 주 보호예수 해제 {ca_events.get('depositWeekTotal', 0)}건")
 
     _t_synth = time.time()
     briefing, fx_bullets, catalysts, model, llm_regime = synthesize(

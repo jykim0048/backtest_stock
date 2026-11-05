@@ -8,6 +8,7 @@ importance·fields)을 브리핑 관점으로 잘라낸다. 무거운 의존성 
   ca_today(cal, today)             오늘(기간 포함) + 다음 영업일 ★3 일정, 악재성 → 물량% 큰 순 상한 12
   llm_view(ca_today_obj)           LLM 입력 축약
   day_pick(rows) / rows_on(cal, d) 주간 브리핑 일별 CA (장중 아카이브 caEvents.today 또는 캘린더 폴백)
+  deposit_week(cal, d)             d 가 속한 주에 해제되는 보호예수(장중 시황 카드 — 보호예수는 주 단위만 표기)
   weekly_top(days)                 기간 상위 CA(★3, 악재성 → 물량% 큰 순, 중복 제거)
 
 악재성(adverse) = 유상 권리락·신주상장, 추가상장 중 유상/CB/BW/EB/전환/신주인수권/스톡옵션 사유,
@@ -172,19 +173,68 @@ def slim(row, today=None, hol=None):
     return out
 
 
+def normalize_deposit(row):
+    """보호예수(deposit) 행을 '보호예수 해제'(release) 1행으로 맞춘다 — 그 밖 행은 그대로.
+    허브 분리 전 구형 파일은 '예치일~반환일' 기간 1행(kind=deposit, end=반환일, 수년짜리 기간이 매일
+    '오늘' 행으로 잡히던 원인) → 반환일을 해제일로. 보호예수 시작(kind=deposit, end 없음)은 None(버림)."""
+    if row.get("type") != "deposit":
+        return row
+    out = {**row, "typeLabel": "보호예수"}
+    if row.get("kind") == "release":
+        out["milestoneLabel"] = "보호예수 해제"
+        return out
+    end = row.get("end")
+    if row.get("kind") == "deposit" and end:
+        out.pop("end", None)
+        f = dict(row.get("fields") or {})
+        f.setdefault("releaseDate", end)
+        out.update({"date": end, "kind": "release", "milestoneLabel": "보호예수 해제", "fields": f})
+        return out
+    return None
+
+
+def week_range(day_str):
+    """day 가 속한 주(월~일) → ('YYYY-MM-DD' 월요일, 일요일)."""
+    d = datetime.date.fromisoformat(str(day_str)[:10])
+    mon = d - datetime.timedelta(days=d.weekday())
+    return mon.isoformat(), (mon + datetime.timedelta(days=6)).isoformat()
+
+
+def in_week(row, day_str):
+    """보호예수는 '이번 주에 해제되는 종목'만 표기(2026-11-05 사용자 결정) — 해제일이 day 와 같은 주면 True.
+    다른 유형은 항상 True."""
+    if row.get("type") != "deposit":
+        return True
+    lo, hi = week_range(day_str)
+    return lo <= (row.get("date") or "") <= hi
+
+
+def deposit_week(cal, day_str, top=20):
+    """day 가 속한 주에 보호예수가 해제되는 행 — 날짜 → 물량% 큰 순. 반환 (상위 top, 전체 건수)."""
+    rows = [r for r in _rows(cal) if r.get("type") == "deposit" and in_week(r, day_str)]
+    rows.sort(key=lambda r: (r.get("date") or "", -(size_pct(r) if size_pct(r) is not None else -1),
+                             r.get("code") or ""))
+    return rows[:top], len(rows)
+
+
 def _noise(row):
-    """의무예치는 '보호예수 해제'(release)만 매도 물량 일정 — 예치 시작·구형 예치 기간 행(허브 분리 전
-    파일: 수년짜리 기간 + ★3)은 브리핑 발췌에서 제외(2026-11-05 허브 deposit/release 분리)."""
+    """보호예수는 해제(release)만 매도 물량 일정 — normalize_deposit 뒤에도 해제가 아닌 행은 제외.
+    기술적 상장(액면병합·분할·상호변경·재상장 — 물량 100%여도 희석이 아님)도 브리핑 발췌에서 뺀다(2026-11-05)."""
     if row.get("type") == "deposit" and row.get("kind") != "release":
         return True
-    # 기술적 상장(액면병합·분할·상호변경·재상장) — 물량 100%여도 희석이 아니라 브리핑 발췌에서 뚜(2026-11-05)
     rs = str(((row.get("fields") or {}).get("reason")) or "")
     return row.get("type") == "listing" and any(w in rs for w in ("액면", "상호변경", "재상장", "통일교체"))
 
 
 def _rows(cal):
-    return [r for r in (cal or {}).get("rows") or []
-            if isinstance(r, dict) and r.get("date") and not _noise(r)]
+    out = []
+    for r in (cal or {}).get("rows") or []:
+        if not isinstance(r, dict) or not r.get("date"):
+            continue
+        r = normalize_deposit(r)
+        if r is not None and not _noise(r):
+            out.append(r)
+    return out
 
 
 def attach_picks(picks, cal, today_str, hol=None, horizon_bd=HORIZON_BD, min_imp=2, per_pick=PICK_MAX):
@@ -199,7 +249,7 @@ def attach_picks(picks, cal, today_str, hol=None, horizon_bd=HORIZON_BD, min_imp
     end = days[-1].isoformat() if days else today_str
     by_code = {}
     for r in rows:
-        if (r.get("importance") or 0) < min_imp:
+        if (r.get("importance") or 0) < min_imp or not in_week(r, today_str):
             continue
         if covers(r, today_str) or today_str < r["date"] <= end:
             by_code.setdefault(str(r.get("code") or ""), []).append(r)
@@ -234,7 +284,7 @@ def ca_today(cal, today_str, hol=None, max_n=TODAY_MAX):
     nxt = nd[0].isoformat() if nd else None
     cand = []
     for r in rows:
-        if (r.get("importance") or 0) < 3:
+        if (r.get("importance") or 0) < 3 or not in_week(r, today_str):
             continue
         if covers(r, today_str):
             cand.append(("today", r))
@@ -283,8 +333,9 @@ def rows_on(cal, day):
 
 def day_pick(rows, top=DAY_TOP, min_imp=2):
     """일별 CA — 중요도 min_imp+ 를 중요도 → 물량% 순으로 상한 top. 슬림 행."""
-    rows = [r for r in rows or [] if isinstance(r, dict) and (r.get("importance") or 0) >= min_imp
-            and not _noise(r)]
+    # 그날 행 목록이라 구형 보호예수 기간 행(반환일이 그날이 아님)은 _noise 로 버리고, 해제 행만 라벨 통일
+    rows = [normalize_deposit(r) for r in rows or [] if isinstance(r, dict) and not _noise(r)]
+    rows = [r for r in rows if r and (r.get("importance") or 0) >= min_imp]
     rows.sort(key=_rank_key)
     return [slim(r) for r in rows[:top]]
 

@@ -3,7 +3,7 @@
 소스: KIS 허브(trading_strategies Railway 서비스) HTTP `GET {FLOW_API_BASE}/ca?raw=0`
   - code 생략 = 시장 전체, 기본 창 = 오늘-14일 ~ 오늘+45일 (허브 기본값).
   - 허브가 KIS 예탁원정보(ksdinfo) TR 12종(유상·무상·배당·주식매수청구·합병/분할·액면교체·
-    자본감소·상장정보·공모주청약·실권주·의무예치·주주총회)을 이벤트 단위로 정규화해 돌려준다.
+    자본감소·상장정보·공모주청약·실권주·의무예치(보호예수)·주주총회)을 이벤트 단위로 정규화해 돌려준다.
   - 응답: {"status","from","to","asof","counts":{type:n},"errors":{type:msg},
            "events":[{type,label,code,name,recordDate,milestones:[{kind,label,date,end?,note?}],fields}]}
 
@@ -44,7 +44,7 @@ SOURCE = "KIS ksdinfo via hub /ca"
 TYPE_LABELS = {
     "paidin": "유상증자", "bonus": "무상증자", "dividend": "배당", "purreq": "주식매수청구",
     "merger": "합병/분할", "revsplit": "액면교체", "capdcrs": "자본감소", "listing": "상장정보",
-    "ipo": "공모주청약", "forfeit": "실권주", "deposit": "의무예치", "meeting": "주주총회",
+    "ipo": "공모주청약", "forfeit": "실권주", "deposit": "보호예수", "meeting": "주주총회",
 }
 _FIELD_MAX = 16             # 행당 fields 키 상한 (표시용 슬림)
 _STR_MAX = 60               # 문자열 필드 길이 상한
@@ -149,7 +149,7 @@ def load_names(path=KRX_MASTER):
 def _importance(typ, kind, label, fields):
     """행 영향도 1~3.
 
-    3 = 유상증자 권리락·신주 상장, 의무예치(해제 오버행), 합병/분할·자본감소·액면교체의
+    3 = 유상증자 권리락·신주 상장, 보호예수 해제(오버행), 합병/분할·자본감소·액면교체의
         매매정지·재상장, 추가상장(신주 비중 5%+).
     2 = 무상증자 권리락·상장, 배당락(시가배당률 3%+ 또는 미상), 그 외 추가상장, 주식매수청구
         마감, 유상 청약, 합병류 권리락·마감.
@@ -226,6 +226,15 @@ def flatten(events, names=None, listed=None):
         ms = [m for m in (ev.get("milestones") or []) if isinstance(m, dict)]
         if not ms and ev.get("recordDate"):
             ms = [{"kind": "record", "label": "기준일", "date": ev.get("recordDate")}]
+        if typ == "deposit":
+            # 보호예수(의무예치)는 해제일만 캘린더 행 — 매도 물량 일정. 시작 행은 소음, 구형 허브('예치일~반환일'
+            # 기간 1행)는 반환일을 해제로 바꾼다(기간 행이 수년간 매일 '오늘'로 잡히던 문제, 2026-11-05).
+            type_label = "보호예수"
+            rel = [m for m in ms if (m.get("kind") or "") == "release"]
+            if not rel:
+                rel = [{"kind": "release", "label": "보호예수 해제", "date": m.get("end")}
+                       for m in ms if (m.get("kind") or "") == "deposit" and m.get("end")]
+            ms = rel
         has_ex = any((m.get("kind") or "") == "ex" and _norm_date(m.get("date")) for m in ms)
         for m in ms:
             kind = str(m.get("kind") or "").strip()

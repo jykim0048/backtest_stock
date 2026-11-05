@@ -3396,7 +3396,13 @@
     }
     // rows → 날짜 그룹 HTML. forceDay 지정 시(오늘 카드) 기간 행도 그 날짜 그룹으로 묶는다.
     // perDay 초과분은 '외 N건' 한 줄(파일엔 전부 있음).
-    function _caRowsHtml(rows, todayStr, perDay, forceDay) {
+    // 보호예수(구 '의무예치') 라벨 통일 — 구 아카이브 행도 같은 이름으로(2026-11-05)
+    function _caTypeLabel(r) { return r.type === "deposit" ? "보호예수" : (r.typeLabel || r.type || ""); }
+    function _caMsLabel(r) {
+      const m = r.milestoneLabel || "";
+      return (r.type === "deposit" && (m === "의무예치" || m === "의무예치 시작")) ? m.replace("의무예치", "보호예수") : m;
+    }
+    function _caRowsHtml(rows, todayStr, perDay, forceDay, groupLabel, total) {
       const groups = new Map();
       (rows || []).forEach(r => {
         const k = forceDay || r.date || "";
@@ -3406,21 +3412,24 @@
       let h = "";
       [...groups.keys()].sort().forEach(day => {
         const arr = groups.get(day);
-        h += `<tr class="ca-day"><td colspan="5">${_caDayLabel(day, todayStr)}<span class="ca-cnt">${arr.length}건</span></td></tr>`;
+        const head = groupLabel || _caDayLabel(day, todayStr);
+        h += `<tr class="ca-day"><td colspan="5">${head}<span class="ca-cnt">${total != null ? total : arr.length}건</span></td></tr>`;
         (perDay ? arr.slice(0, perDay) : arr).forEach(r => {
           const nm = r.name ? `${_brEsc(r.name)}<span class="ca-code">${_brEsc(r.code || "")}</span>` : _brEsc(r.code || "—");
           const per = (r.end && r.end !== r.date)
             ? ` <span style="font-size:11px;color:var(--text-muted)">${_caMd(r.date)}~${_caMd(r.end)}</span>` : "";
-          const tip = [r.typeLabel, r.milestoneLabel, r.note, r.carried ? "직전 수집분 이월" : ""]
+          const tip = [_caTypeLabel(r), _caMsLabel(r), r.note, r.carried ? "직전 수집분 이월" : ""]
             .filter(Boolean).join(" · ");
+          const dd = groupLabel && r.date ? ` <span style="font-size:11px;color:var(--text-muted)">${_caDayLabel(r.date, todayStr)}</span>` : "";
           h += `<tr title="${_brEsc(tip)}"><td>${_caImp(r.importance)}</td>`
              + `<td>${nm}</td>`
-             + `<td><span class="ca-type ${_CA_CLS[r.type] || ""}">${_brEsc(r.typeLabel || r.type || "")}</span></td>`
-             + `<td>${_brEsc(r.milestoneLabel || "")}${per}</td>`
+             + `<td><span class="ca-type ${_CA_CLS[r.type] || ""}">${_brEsc(_caTypeLabel(r))}</span></td>`
+             + `<td>${_brEsc(_caMsLabel(r))}${per}${dd}</td>`
              + `<td class="econ-vals"><span class="ev-sub">${_caKey(r)}</span></td></tr>`;
         });
-        if (perDay && arr.length > perDay)
-          h += `<tr class="ca-more"><td colspan="5">… 외 ${arr.length - perDay}건</td></tr>`;
+        const more = (total != null ? total : arr.length) - (perDay ? Math.min(perDay, arr.length) : arr.length);
+        if (more > 0)
+          h += `<tr class="ca-more"><td colspan="5">… 외 ${more}건</td></tr>`;
       });
       return h;
     }
@@ -3428,16 +3437,16 @@
     function _caBadge(c, prefix) {
       const strong = (c.importance || 0) >= 3 && c.adverse;
       const cls = strong ? "strong" : ((c.importance || 0) >= 3 ? "" : "mild");
-      const txt = c.badge || `${c.milestoneLabel || ""}${c.sizePct != null ? " " + c.sizePct + "%" : ""}`;
+      const txt = c.badge || `${_caMsLabel(c)}${c.sizePct != null ? " " + c.sizePct + "%" : ""}`;
       const per = c.end && c.end !== c.date ? `${_caMd(c.date)}~${_caMd(c.end)}` : _caMd(c.date);
       const key = _caKey(c).replace(/<[^>]+>/g, "");
-      const tip = [`${c.name || ""}${c.code ? " " + c.code : ""}`, `${c.typeLabel || ""} · ${c.milestoneLabel || ""} ${per}`,
+      const tip = [`${c.name || ""}${c.code ? " " + c.code : ""}`, `${_caTypeLabel(c)} · ${_caMsLabel(c)} ${per}`,
                    key, `영향도 ${"★".repeat(c.importance || 1)}${c.adverse ? " · 악재성" : ""}`]
         .filter(Boolean).join("\n");
       return `<span class="ca-pbadge ${cls}" title="${_brEsc(tip)}">${strong ? "⚠️ " : ""}${prefix || ""}${_brEsc(txt)}</span>`;
     }
     const _CA_NOTE = "예탁원(KSD) 기업행위 일정 · KIS 허브 · ★=영향도(자동 판정 — 유상 권리락·신주 상장·"
-      + "매매정지·재상장·의무예치 ★★★) · 배당락(추정)=기준일 기반 추정";
+      + "매매정지·재상장·보호예수 해제 ★★★) · 배당락(추정)=기준일 기반 추정";
 
     // 테마 클릭 심층분석 모달이 참조할 섹터분석 데이터 (renderBriefing 시점의 sector_analysis.json)
     let _sectorDeepData = null;
@@ -4310,17 +4319,21 @@
       const earningsSection = (_earnData.rel.length || _earnData.up.length)
         ? `<div id="ib-earn">${_earnCardHtml()}</div>` : "";
 
-      // CA 일정 카드 — 오늘(기간 행 포함) + 향후 N영업일(영향도 2+). 데이터 없으면 숨김.
+      // CA 일정 카드 — 당일 일정(기간 행 포함) + 이번 주 보호예수 해제. 데이터 없으면 숨김.
+      // 2026-11-05 사용자 결정: 장중 시황은 당일만(향후 N영업일 제거), 보호예수는 이번 주 해제 종목만.
+      // 구 회차(today 에 수년짜리 의무예치 기간 행·upcoming 포함)도 같은 규칙으로 걸러 그린다.
       const ibCa = d.caEvents || {};
-      const caToday = ibCa.today || [], caUp = ibCa.upcoming || [];
-      const caTotal = (ibCa.todayTotal != null ? ibCa.todayTotal : caToday.length)
-                    + (ibCa.upcomingTotal != null ? ibCa.upcomingTotal : caUp.length);
-      const caRowsH = (caToday.length ? _caRowsHtml(caToday, d.date, 12, d.date) : "")
-                    + _caRowsHtml(caUp, d.date, 8);
+      const caToday = (ibCa.today || []).filter(r => r.type !== "deposit");
+      const caDep = ibCa.depositWeek || [];
+      const caTodayN = (ibCa.depositWeek && ibCa.todayTotal != null) ? ibCa.todayTotal : caToday.length;   // 구 회차 todayTotal 은 의무예치 포함
+      const caDepN = ibCa.depositWeekTotal != null ? ibCa.depositWeekTotal : caDep.length;
+      const wk = (ibCa.weekFrom && ibCa.weekTo) ? ` (${_caMd(ibCa.weekFrom)}~${_caMd(ibCa.weekTo)})` : "";
+      const caRowsH = (caToday.length ? _caRowsHtml(caToday, d.date, 12, d.date, null, caTodayN) : "")
+                    + (caDep.length ? _caRowsHtml(caDep, d.date, 0, "deposit", `🔓 이번 주 보호예수 해제${wk}`, caDepN) : "");
       const caSection = caRowsH ? _econCard(
-        `🏦 CA 일정 — 오늘 · 향후 ${ibCa.horizonDays || 5}영업일 <span style="opacity:.6;">(${caTotal})</span>`,
+        `🏦 CA 일정 — 오늘 <span style="opacity:.6;">(${caTodayN + caDepN})</span>`,
         caRowsH,
-        _CA_NOTE + " · 향후 일정은 ★★ 이상만" + (ibCa.asof ? " · 수집 " + _brEsc(ibCa.asof) : "")) : "";
+        _CA_NOTE + " · 보호예수는 이번 주 해제 종목만" + (ibCa.asof ? " · 수집 " + _brEsc(ibCa.asof) : "")) : "";
 
       // 장중 촉매 — 종목 단위(중복 통합) + 회차 선택 셀렉터(이전 회차 촉매 조회).
       // 행 빌드는 _ibCatRows(회차 전환 시 재사용), 셀렉터는 렌더 후 _ibLoadRounds 가 채운다.
@@ -8485,7 +8498,9 @@
     if (typeof _caRowsHtml === "function" && ((uca.thisRest || []).length || (uca.next || []).length)) {
       var caToday = String(d.asof || "").slice(0, 10);
       var caSeg = function (label, arr) {
-        return (arr || []).length
+        // 보호예수는 해제일 행만(구 아카이브의 '의무예치' 기간 행 제외 — 2026-11-05)
+        arr = (arr || []).filter(function (r) { return r.type !== "deposit" || String(r.milestoneLabel || "").indexOf("해제") >= 0; });
+        return arr.length
           ? '<tr><td colspan="5" style="padding:8px 2px 2px;font-size:12.5px;font-weight:700;color:#cbd5e1">'
             + esc(label) + ' <span style="opacity:.55;font-weight:400">' + arr.length + "건</span></td></tr>"
             + _caRowsHtml(arr, caToday, 10)

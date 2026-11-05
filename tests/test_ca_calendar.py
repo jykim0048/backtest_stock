@@ -214,53 +214,61 @@ def _cal_rows():
         r("2026-11-02", 3, "000660", typ="merger", kind="halt", end="2026-11-06"),  # 기간 → 오늘
         r("2026-11-05", 2, "000003", typ="bonus"),                      # 내일 ★2 → upcoming
         r("2026-11-05", 1, "000004", kind="record"),                    # 내일 ★1 → 제외
-        r("2026-11-09", 3, "000005", typ="deposit", kind="deposit"),    # 3영업일 후 → upcoming, LLM 제외
+        r("2026-11-09", 3, "000005", typ="deposit", kind="release",
+          fields={"pctOfTotal": 4.2}),                                  # 다음 주 해제 → 장중 제외
         r("2026-11-12", 3, "000006"),                                   # 6영업일 후 → 제외
+        r("2026-11-06", 3, "000007", typ="deposit", kind="release",
+          fields={"pctOfTotal": 1.5}),                                  # 이번 주(금) 해제
+        r("2026-11-04", 1, "000009", typ="deposit", kind="deposit"),    # 보호예수 시작 → 제외
+        r("2025-11-05", 3, "000008", typ="deposit", kind="deposit", end="2026-11-05",
+          fields={"pctOfTotal": 9.0}),                                  # 구형 기간 행 → 11/5 해제로
+        r("2026-10-30", 3, "000010", typ="deposit", kind="deposit", end="2029-10-30"),  # 구형·먼 해제 → 제외
     ]
     rows += [r("2026-11-06", 2, f"1000{i:02d}", typ="dividend") for i in range(15)]  # 일 상한
     return rows
 
 
-def test_load_ca_events_windows():
+def test_load_ca_events_today_and_deposit_week():
+    """장중 시황 CA = 당일 일정만 + 이번 주 보호예수 해제(2026-11-05 사용자 결정)."""
     import generate_intraday_briefing as g
     tmp = tempfile.mkdtemp()
     path = os.path.join(tmp, "ca_calendar.json")
     with open(path, "w", encoding="utf-8") as f:
         json.dump({"asof": "2026-11-04 08:20 KST", "rows": _cal_rows()}, f, ensure_ascii=False)
     now = datetime.datetime(2026, 11, 4, 10, 7, tzinfo=KST)   # 수요일
-    ca = g._load_ca_events(now, path=path, hol=set())
+    ca = g._load_ca_events(now, path=path)
     assert ca["date"] == "2026-11-04" and ca["asof"] == "2026-11-04 08:20 KST"
-    # 5영업일 = 11/5(목)·6(금)·9(월)·10(화)·11(수)
-    assert ca["horizonEnd"] == "2026-11-11", ca["horizonEnd"]
+    assert "upcoming" not in ca and "horizonEnd" not in ca
     t_codes = [r["code"] for r in ca["today"]]
-    assert set(t_codes) == {"000002", "005930", "000660"}, t_codes
+    assert set(t_codes) == {"000002", "005930", "000660"}, t_codes     # 내일·보호예수 시작/기간 행 없음
     assert ca["today"][-1]["code"] == "000002"            # 영향도 내림차순 → ★1 마지막
     assert ca["todayTotal"] == 3
-    u = ca["upcoming"]
-    assert [r["date"] for r in u] == sorted(r["date"] for r in u)
-    assert "000004" not in {r["code"] for r in u} and "000006" not in {r["code"] for r in u}
-    assert sum(1 for r in u if r["date"] == "2026-11-06") == g.CA_UPCOMING_PER_DAY
-    assert ca["upcomingTotal"] == 1 + 15 + 1               # 상한 전 전체 건수
-    # 휴장일 반영: 11/5 휴장이면 horizon 이 하루 밀림
-    ca2 = g._load_ca_events(now, path=path, hol={"2026-11-05"})
-    assert ca2["horizonEnd"] == "2026-11-12"
-    assert "000006" in {r["code"] for r in ca2["upcoming"]}
+    # 이번 주(11/2~11/8) 해제만 — 구형 기간 행은 반환일(11/5)을 해제로, 날짜순
+    dep = ca["depositWeek"]
+    assert [(r["code"], r["date"], r["kind"]) for r in dep] == [("000008", "2026-11-05", "release"),
+                                                               ("000007", "2026-11-06", "release")], dep
+    assert all(r["typeLabel"] == "보호예수" and r["milestoneLabel"] == "보호예수 해제" for r in dep)
+    assert dep[0]["fields"]["releaseDate"] == "2026-11-05" and "end" not in dep[0]
+    assert (ca["depositWeekTotal"], ca["weekFrom"], ca["weekTo"]) == (2, "2026-11-02", "2026-11-08")
 
-    # LLM 축약: 영향도 2+, 오늘 + 2영업일(11/6)까지, 핵심 필드만
-    view = g._ca_llm_view(ca, hol=set())
+    # LLM 축약: 영향도 2+, 오늘 + 이번 주 해제, 핵심 필드만
+    view = g._ca_llm_view(ca)
     codes = {x["code"] for x in view}
-    assert "000002" not in codes and "000005" not in codes, codes
-    assert {"005930", "000660", "000003"} <= codes
+    assert codes == {"005930", "000660", "000008", "000007"}, codes
     sam = [x for x in view if x["code"] == "005930"][0]
     assert sam["stock"] == "삼성전자" and sam["fields"] == {"newSharesPct": 12.5, "issuePrice": 50000}
     assert [x for x in view if x["code"] == "000660"][0]["end"] == "2026-11-06"
     assert len(view) <= g.CA_LLM_MAX
 
-    # 파일 없음·빈 rows → {}
-    assert g._load_ca_events(now, path=os.path.join(tmp, "nope.json"), hol=set()) == {}
+    # 보호예수만 있는 날도 카드 유지 / 파일 없음·빈 rows → {}
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump({"rows": [r for r in _cal_rows() if r["code"] == "000007"]}, f)
+    only = g._load_ca_events(now, path=path)
+    assert only["today"] == [] and [r["code"] for r in only["depositWeek"]] == ["000007"]
+    assert g._load_ca_events(now, path=os.path.join(tmp, "nope.json")) == {}
     with open(path, "w", encoding="utf-8") as f:
         json.dump({"rows": []}, f)
-    assert g._load_ca_events(now, path=path, hol=set()) == {}
+    assert g._load_ca_events(now, path=path) == {}
     assert g._ca_llm_view({}) == []
 
 
@@ -275,7 +283,9 @@ def test_weekly_preview_ca_buckets():
         # 이번 주 잔여 = 11/4~11/8, 다음 주 = 11/9~11/15, 영향도 2+
         assert all("2026-11-04" <= r["date"] <= "2026-11-08" for r in rest)
         assert all("2026-11-09" <= r["date"] <= "2026-11-15" for r in nxt)
-        assert {r["code"] for r in nxt} == {"000005", "000006"}
+        assert {r["code"] for r in nxt} == {"000005", "000006"}          # 다음 주 해제 보호예수 포함
+        assert {r["code"] for r in rest if r["type"] == "deposit"} == {"000007", "000008"}  # 구형은 해제일로
+        assert all(r["milestoneLabel"] == "보호예수 해제" for r in rest + nxt if r["type"] == "deposit")
         assert all(r["importance"] >= 2 for r in rest + nxt)
         assert "000002" not in {r["code"] for r in rest}          # ★1 제외
         assert "000660" not in {r["code"] for r in rest}          # 기준일 이전 시작(11/2) → 제외
