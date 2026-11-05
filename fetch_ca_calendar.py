@@ -111,6 +111,23 @@ def _slim_fields(fields):
     return out
 
 
+KRX_CAPS = os.path.join(ROOT, "public", "assets", "krx_caps.json")
+
+
+def load_listed(path=KRX_CAPS):
+    """코스피·코스닥 상장 종목 코드 집합 — krx_caps.json(매일 갱신, 시가총액 맵). 실패·빈 파일이면 None(필터 안 함).
+    krx_companies.json 은 2026-06 이후 갱신이 멈춰 최근 상장사(인텔리빅스 등)가 빠져 있어 상장 판정엔 쓰지 않는다."""
+    try:
+        with open(path, encoding="utf-8") as f:
+            caps = (json.load(f) or {}).get("caps") or {}
+        out = {_norm_code(c) for c in caps}
+        out.discard("")
+        return out or None
+    except Exception as e:
+        _warn(f"krx_caps.json 로드 실패(상장 필터 생략): {e}")
+        return None
+
+
 def load_names(path=KRX_MASTER):
     """{code: name} — krx_companies.json(전 상장 종목). 실패 시 {}."""
     try:
@@ -148,7 +165,7 @@ def _importance(typ, kind, label, fields):
             return 3
         return 2 if kind == "subscribe" else 1
     if typ == "deposit":
-        # 허브가 예치일~반환일을 '의무예치 시작'(deposit)·'보호예수 해제'(release)로 나눠 준다(2026-11-05).
+        # 허브가 예치일~반환일을 '보호예수 시작'(deposit)·'보호예수 해제'(release)로 나눠 준다(2026-11-05).
         # 해제가 매도 물량 일정 — 총발행 1% 이상이면 3, 그 밖 2. 예치 시작은 1(소음).
         if kind == "release":
             pct = _num(f.get("pctOfTotal"))
@@ -159,6 +176,12 @@ def _importance(typ, kind, label, fields):
             return 3
         return 2 if kind in ("ex", "deadline") else 1
     if typ == "listing":
+        # 기술적 상장(액면병합·분할·상호변경·재상장 — 주식 수만 바뀌거나 이름만 바뀜)은 물량 100%여도 희석이 아니다(2026-11-05)
+        rs = str(f.get("reason") or "")
+        if any(w in rs for w in ("액면", "상호변경", "재상장", "통일교체")):
+            return 1
+        if "무상" in rs:
+            return 2
         pct = _num(f.get("newSharesPct"))
         if pct is None:
             pct = _num(f.get("pctOfTotal"))
@@ -179,7 +202,7 @@ def _importance(typ, kind, label, fields):
 
 # -- 펼치기 ----------------------------------------------------------------------
 
-def flatten(events, names=None):
+def flatten(events, names=None, listed=None):
     """이벤트 목록 → 마일스톤 행 목록(날짜·영향도 정렬). 비정상 항목은 건너뛴다.
 
     - 마일스톤이 없고 recordDate 만 있으면 '기준일' 1행.
@@ -195,6 +218,8 @@ def flatten(events, names=None):
         if not typ:
             continue
         code = _norm_code(ev.get("code"))
+        if listed is not None and code not in listed:      # 비상장·장외(예탁원은 비상장 예탁 종목도 준다 — 네파 신주 25,019% 등)
+            continue
         name = ev.get("name") or names.get(code)
         type_label = ev.get("label") or TYPE_LABELS.get(typ) or typ
         fields = _slim_fields(ev.get("fields"))
@@ -256,7 +281,7 @@ def carry_errored_types(rows, prev_rows, errors, window_from):
     return out, len(carried)
 
 
-def build(resp, prev, now_kst, names=None):
+def build(resp, prev, now_kst, names=None, listed=None):
     """허브 응답 → 저장 payload. 저장하지 말아야 하면(실패) None."""
     if not isinstance(resp, dict):
         _warn("응답이 JSON 객체가 아님 — 기존 파일 보존")
@@ -272,7 +297,8 @@ def build(resp, prev, now_kst, names=None):
     if not events and errors:
         _warn(f"events 0건 + 오류 {len(errors)}타입 — 기존 파일 보존")
         return None
-    rows = flatten(events, names)
+    rows = flatten(events, names, listed)
+    n_unlisted = 0 if listed is None else sum(1 for e in events if isinstance(e, dict) and _norm_code(e.get("code")) not in listed)
     w_from = _norm_date(resp.get("from"))
     w_to = _norm_date(resp.get("to"))
     rows, n_carry = carry_errored_types(rows, (prev or {}).get("rows") or [], errors, w_from)
@@ -290,6 +316,7 @@ def build(resp, prev, now_kst, names=None):
         "counts": resp.get("counts") if isinstance(resp.get("counts"), dict) else {},
         "rowCounts": row_counts,
         "errors": errors,
+        "unlistedSkipped": n_unlisted,        # 상장 종목만(2026-11-05) — 거른 이벤트 수
         "source": SOURCE,
     }
 
@@ -351,7 +378,7 @@ def main(argv=None):
     except Exception as e:
         _warn(f"{e} — 기존 ca_calendar.json 보존")
         return 0
-    payload = build(resp, prev, now_kst, load_names())
+    payload = build(resp, prev, now_kst, load_names(), load_listed())
     if payload is None:
         return 0
     os.makedirs(os.path.dirname(OUT_PATH), exist_ok=True)

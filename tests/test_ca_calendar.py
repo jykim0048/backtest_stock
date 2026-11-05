@@ -63,6 +63,8 @@ def test_importance_rules():
     assert imp("dividend", "pay", "지급", {"cashYieldPct": 9}) == 1
     # 추가상장: 신주 비중 5%+ → 3, 미만·미상 → 2 (문자열 '%' 허용, pctOfTotal 폴백)
     assert imp("listing", "listing", "추가 상장", {"newSharesPct": 7}) == 3
+    assert imp("listing", "listing", "추가 상장", {"newSharesPct": 100, "reason": "액면병합"}) == 1
+    assert imp("listing", "listing", "추가 상장", {"newSharesPct": 33, "reason": "무상증자"}) == 2
     assert imp("listing", "listing", "추가 상장", {"newSharesPct": "6.5%"}) == 3
     assert imp("listing", "listing", "추가 상장", {"pctOfTotal": 5}) == 3
     assert imp("listing", "listing", "추가 상장", {"newSharesPct": 2}) == 2
@@ -73,7 +75,7 @@ def test_importance_rules():
     assert imp("revsplit", "halt", "매매정지", {}) == 3
     assert imp("merger", "meeting", "주주총회", {}) == 1
     # 의무예치 3 · 무상 권리락 2 · 매수청구 마감 2 · 기타 1
-    assert imp("deposit", "deposit", "의무예치 시작", {}) == 1          # 예치 시작은 소음
+    assert imp("deposit", "deposit", "보호예수 시작", {}) == 1          # 예치 시작은 소음
     assert imp("deposit", "release", "보호예수 해제", {"pctOfTotal": 1.87}) == 3
     assert imp("deposit", "release", "보호예수 해제", {"pctOfTotal": 0.01}) == 2
     assert imp("bonus", "ex", "권리락", {}) == 2
@@ -105,6 +107,20 @@ def test_flatten_defensive():
     assert ipo["typeLabel"] == "공모주청약" and ipo["milestoneLabel"] == "subscribe"
     # 정렬: 날짜 → 영향도 내림차순
     assert [r["date"] for r in rows] == sorted(r["date"] for r in rows)
+
+
+def test_listed_only_filter():
+    """상장 종목만(2026-11-05) — 예탁원은 비상장 예탁 종목도 준다(네파 신주 25,019% 등)."""
+    evs = [{"type": "paidin", "code": "157820", "name": "네파", "milestones": [{"kind": "ex", "label": "권리락", "date": "2026-11-05"}],
+            "fields": {"newSharesPct": 25019.77}},
+           {"type": "listing", "code": "247540", "milestones": [{"kind": "listing", "label": "추가 상장", "date": "2026-11-05"}],
+            "fields": {"reason": "유상증자", "newSharesPct": 9.19}}]
+    rows = fc.flatten(evs, {}, {"247540"})
+    assert [r["code"] for r in rows] == ["247540"]
+    assert len(fc.flatten(evs, {}, None)) == 2                     # 목록 없으면 거르지 않음
+    resp = {"status": "success", "events": evs, "from": "20261101", "to": "20261130"}
+    p = fc.build(resp, None, datetime.datetime(2026, 11, 5, 9, 0), {}, {"247540"})
+    assert p["unlistedSkipped"] == 1 and len(p["rows"]) == 1
 
 
 def test_build_failures_keep_file():
