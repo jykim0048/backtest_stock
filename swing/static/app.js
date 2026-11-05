@@ -1179,23 +1179,21 @@
     return '<div class="dbar"><span class="' + (v >= 0 ? "l" : "s") + '" style="width:' + w + '%"></span></div>';
   }
   function renderAttrib() {
-    ["at-period", "at-side"].forEach(function (id) {
-      var v = id === "at-period" ? AT.period : AT.side;
-      $(id).querySelectorAll("button").forEach(function (b) { b.classList.toggle("active", b.dataset.v === v); });
-    });
     var d = AT.data;
     if (!d) return;
-    var P = d[AT.period] || {}, side = AT.side, base = P.base || 1;
+    // 당일을 낼 수 없으면(정산 뒤인데 전일 종가 기록 전) 누적으로 대신 보여준다 — 빈 표 대신(2026-11-06)
+    var per = AT.period, fallback = per === "day" && (d.day || {}).available === false;
+    if (fallback) per = "all";
+    ["at-period", "at-side"].forEach(function (id) {
+      var v = id === "at-period" ? per : AT.side;
+      $(id).querySelectorAll("button").forEach(function (b) { b.classList.toggle("active", b.dataset.v === v); });
+    });
+    var P = d[per] || {}, side = AT.side, base = P.base || 1;
     var codes = (P.byCode || []).filter(function (e) { return side === "all" || e.side === side; });
-    if (AT.period === "day" && P.available === false) {
-      $("at-sum").innerHTML = '<div class="at-note">' + esc(P.note || "당일 기여도를 계산할 수 없습니다") + "</div>";
-      $("at-sectors").innerHTML = "";
-      return;
-    }
-    var when = AT.period === "day"
+    var when = (fallback ? '<span class="at-fb">당일 기여도는 종목별 전일 종가를 기록한 정산(11/6 16:30)부터 나옵니다 — 누적을 대신 표시합니다</span><br>' : "") + (per === "day"
       ? "당일 " + (d.date || "").slice(5) + (d.live ? " 장중" + (S.summary && S.summary.liveTs ? " " + S.summary.liveTs.slice(0, 5) : "") : " 종가") +
         " · 기준 = 직전 영업일 종가 평가액 " + won(P.base) + "원"
-      : "누적(운용 시작 이후" + (d.live ? " · 오늘 장중 포함" : "") + ") · 기준 = 초기 자본 " + won(P.base) + "원";
+      : "누적(운용 시작 이후" + (d.live ? " · 오늘 장중 포함" : "") + ") · 기준 = 초기 자본 " + won(P.base) + "원");
     var sum = codes.reduce(function (a, e) { return a + e.pnl; }, 0);
     $("at-sum").innerHTML = when + " · 기여도 = 손익 ÷ 기준<br>" + (side === "all"
       ? "종목 기여 합계 <b>" + ppTxt(P.sum / base * 100) + '</b> + 기타 <span title="세금·대차료·반올림 등 종목에 나누지 않은 몫">' + ppTxt(P.residualPct) +
@@ -1247,7 +1245,8 @@
     renderAttrib();
   });
   $("at-expand").addEventListener("click", function () {
-    var P = (AT.data || {})[AT.period] || {}, secs = (P.bySector || []).map(function (x) { return x.sector; });
+    var D = AT.data || {}, per = AT.period === "day" && (D.day || {}).available === false ? "all" : AT.period;
+    var P = D[per] || {}, secs = (P.bySector || []).map(function (x) { return x.sector; });
     var allOpen = secs.length && secs.every(function (k) { return AT.open[k]; });
     AT.open = {};
     if (!allOpen) secs.forEach(function (k) { AT.open[k] = 1; });
