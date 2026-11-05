@@ -161,6 +161,19 @@ class TestBuild(unittest.TestCase):
             server.STORE = old
         self.assertEqual(p["liveExit"], {"kind": "stop", "qty": 49, "done": True, "at": "09:03"})
 
+    def test_positions_api_hold_day_counts_live_day(self):
+        """보유일(체결일=1)은 정산 때 +1 — 장중(정산 전)엔 오늘을 더해 보여 준다(2026-11-05 11/4 진입이 1칸)."""
+        from swing import server
+        st = setup()
+        old, server.STORE = server.STORE, st
+        try:
+            before = server.api_positions({})[0]["holdDay"]               # 장중 기록 없음 = 원장 그대로
+            st.put("intraday/2026-11-03", {"vwap": {}, "orders": {}, "exits": {}})
+            during = server.api_positions({})[0]["holdDay"]
+        finally:
+            server.STORE = old
+        self.assertEqual((before, during), (4, 5))
+
     def test_positions_api_uses_live_price(self):
         from swing import server
         st = setup()

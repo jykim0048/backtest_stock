@@ -100,6 +100,10 @@ def api_positions(q):
     doc = (STORE.get(f"intraday/{day}") or {}) if day else {}
     exits = doc.get("exits") or {}
     adds = _live_adds(L, doc)
+    # 보유일(체결일=1)은 원장 정산(16:30) 때 +1 — 장중엔 정산 전이라 하루 덜 보였다(2026-11-05: 11/4 진입이 11/5 장중 1칸).
+    # 장중 기록 날짜(live_date)가 원장 asof 보다 뒤면 그 사이 영업일 수만큼 더한다.
+    from swing import tradedays
+    hold_add = len(tradedays.trading_days(tradedays.next_trading_day(L["asof"]), day)) if day and L.get("asof") else 0
     out = []
     for p in L["positions"]:
         lv = live.get(p["code"])
@@ -126,6 +130,7 @@ def api_positions(q):
         adj = sgn * (sum(f["qty"] * (px - f["price"]) for f in af) + sum(f["qty"] * (f["price"] - px) for f in fills))
         prev = (lv or {}).get("prevClose") or (p.get("lastClose") if lv else None)
         out.append({**p, "qty": qty, "entry": entry, "qtyLedger": p["qty"], "entryLedger": p["entry"],
+                    "holdDay": (p.get("holdDay") or 0) + hold_add,
                     "price": px, "priceTs": ((lv or {}).get("ts") or "")[11:19] or None, "value": round(qty * px),
                     "chgPct": round((px / prev - 1) * 100, 2) if prev else None,
                     "unrealPct": round(sgn * r * 100, 2) if qty > 0 else None, "liveExit": lx,   # 숏은 하락이 이익 · 전량 청산이면 평가손익 없음
