@@ -219,6 +219,8 @@ def _close_position(L, p, date, price, reason, note=None, qty=None):
          "sector": p.get("sector"), "signal": p.get("signal"), "source": p.get("source"),
          "decisionKey": p.get("decisionKey"),
          "exitDecisionKey": (p.get("sellPending") or {}).get("decisionKey")}
+    if p.get("lastClose"):
+        t["prevClose"] = p["lastClose"]          # 청산 직전 정산 종가 — 당일 성과 기여도(청산일 손익 = 청산가 − 전일 종가, 2026-11-05)
     if fee:
         t["borrowFee"] = round(fee)
     if note:
@@ -570,6 +572,7 @@ def settle_day(L, date, bars, intraday=None):
     for p in list(L["positions"]):
         b = bars.get(p["code"])
         if b and b.get("close"):
+            p["prevClose"] = p.get("lastClose")      # 전일 종가(그날 진입이면 None) — 당일 성과 기여도용(2026-11-05)
             p["lastClose"] = float(b["close"])
         if is_short(p):
             days = 1 if p["id"] in new_ids else _days_between(prev, date)
