@@ -502,7 +502,7 @@
           td('<span class="num live-px ' + signCls(p.chgPct) + '" data-pxid="' + esc(p.id) + '">' + won(p.price != null ? p.price : p.lastClose) + "</span>" + (p.chgPct != null ? '<small class="px-chg ' + signCls(p.chgPct) + '" title="전일 종가 대비">' + pctTxt(p.chgPct) + "</small>"
             : ""), "r"),
           td(pnlCell(p), "r"),
-          td(holdBar(p.holdDay) + (p.fillDate ? '<small class="hold-fill">체결 ' + esc(p.fillDate.slice(5)) + "</small>" : "")),
+          td(holdBar(p.holdDay) + (p.fillDate ? '<small class="hold-fill">진입 ' + esc(p.fillDate.slice(5)) + "</small>" : "")),
           td(p.liveEntry ? liveEntryTag(p) : p.liveExit ? liveExitTag(p) : p.liveAdd ? liveAddTag(p) : p.sellPending ? pendingTag(p)
             : (p.fillStop && !p.fillStop.reviewed) ? '<span class="state sell-next" title="체결일(' + esc((p.fillStop.date || "").slice(5)) + ") 손절가 " + won(p.fillStop.stop) + ' 도달 — 다음 영업일 종가로 재판별, 매도면 그다음 영업일 시가">손절 재판별 대기</span>'
             : p.extended ? '<span class="state ext" title="목표 도달·만기 후 trading_agent 가 계속 보유로 판단 — 매일 재판별">연장 보유</span>'
