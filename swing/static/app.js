@@ -258,8 +258,8 @@
   }
   function renderPortfolio(s) {
     var rows = S.equity || [], cap = s.capital0, eqNow = s.equity, lrows = liveRows(rows, s);
-    var rt = [["YTD", periodReturn(lrows, cap, 0, true)], ["1W", periodReturn(lrows, cap, 7)],
-      ["1M", periodReturn(lrows, cap, 30)], ["3M", periodReturn(lrows, cap, 91)]];
+    var rt = [["1W", periodReturn(lrows, cap, 7)], ["1M", periodReturn(lrows, cap, 30)],
+      ["3M", periodReturn(lrows, cap, 91)], ["YTD", periodReturn(lrows, cap, 0, true)]];   // 당일 → 1W → 1M → 3M → YTD(2026-11-05)
     var m = riskMetrics(rows, cap), ml = riskMetrics(lrows, cap);
     function f2(v) { return v == null ? "—" : v.toFixed(2); }
     // 총노출 = (Long+Short) ÷ 평가액, 순노출 = (Long−Short) ÷ 평가액 — 막대는 Long·Short 비중
@@ -281,18 +281,18 @@
     var dr = dayReturn(lrows, cap);
     h += '<div class="port-item"><span class="port-lbl">당일' + (dr && dr.live ? " (장중)" : "") + '</span><span class="port-val">' +
       (dr ? pct(dr.v) : "—") + '</span><span class="port-sub">' + (dr ? '<span class="' + (dr.amt > 0 ? "up" : dr.amt < 0 ? "down" : "") + '">' +
-      (dr.amt > 0 ? "+" : "") + won(dr.amt) + "원</span> · 전일 종가 대비" : "") + "</span></div>";
+      (dr.amt > 0 ? "+" : "") + won(dr.amt) + "원</span>" : "") + "</span></div>";
     h += rt.map(function (x) {
       var r = x[1];
       return '<div class="port-item"><span class="port-lbl">' + x[0] + (r && r.since ? " *" : "") + '</span><span class="port-val">' +
         (r ? pct(r.v) : "—") + "</span></div>";
     }).join("");
-    var mm = [
+    var mm = [                                   // Profit Factor → Sharpe → Sortino → 변동성 → MDD(2026-11-05)
       ["Sharpe Ratio", f2(m.sharpe), "연환산 · 무위험 0%"],
       ["Sortino Ratio", f2(m.sortino), "하방 변동성 기준"],
+      ["변동성(연)", m.vol == null ? "—" : m.vol.toFixed(2) + "%", "현재 낙폭 " + (ml.curDD == null ? "—" : ml.curDD.toFixed(2) + "%") + (lrows !== rows ? "(장중)" : "")],
       ["MDD", m.mdd == null ? "—" : '<span class="' + (m.mdd < 0 ? "down" : "") + '">' + m.mdd.toFixed(2) + "%</span>",
-        m.mddSpan || "낙폭 없음"],
-      ["변동성(연)", m.vol == null ? "—" : m.vol.toFixed(2) + "%", "현재 낙폭 " + (ml.curDD == null ? "—" : ml.curDD.toFixed(2) + "%") + (lrows !== rows ? "(장중)" : "")]
+        m.mddSpan || "낙폭 없음"]
     ];
     // Profit Factor(2026-11-05) — 청산 거래(정산 반영분) 총이익 ÷ 총손실. 리포트 탭 stats() 와 같은 계산(전체 기간·Long+Short)
     // 손익비(payoff) = 평균 이익 ÷ 평균 손실(금액). PF = 손익비 × 이긴 건수 ÷ 진 건수
@@ -300,7 +300,7 @@
     var tw = trs.filter(function (t) { return t.pnl > 0; }), tl = trs.filter(function (t) { return t.pnl < 0; });
     var payoff = tw.length && tl.length ? (tw.reduce(function (a, t) { return a + t.pnl; }, 0) / tw.length) /
       (-tl.reduce(function (a, t) { return a + t.pnl; }, 0) / tl.length) : null;
-    mm.push(["Profit Factor", ts.n ? '<span class="' + (ts.pf == null ? "" : ts.pf >= 1 ? "up" : "down") + '">' + pfTxt(ts.pf) + "</span>" : "—",
+    mm.unshift(["Profit Factor", ts.n ? '<span class="' + (ts.pf == null ? "" : ts.pf >= 1 ? "up" : "down") + '">' + pfTxt(ts.pf) + "</span>" : "—",
       ts.n ? "승률 " + ts.win.toFixed(0) + "% · 손익비 " + (payoff == null ? "—" : payoff.toFixed(2)) + " · " + ts.n + "건" : "청산 거래 없음"]);
     h += mm.map(function (x) {
       return '<div class="port-item"><span class="port-lbl">' + x[0] + '</span><span class="port-val">' + x[1] +
