@@ -210,6 +210,22 @@ def api_live(q):
                           for p in ps]}
 
 
+def api_attribution(q):
+    """성과 기여도(2026-11-05, Long·Short PF 탭) — 누적·당일 섹터별·종목별 손익 기여(swing/attrib.py)."""
+    from swing import attrib, history
+    L = _ledger()
+    ps = api_positions(q)
+    day = history.live_date(STORE, L.get("asof"))
+    lv = api_live(q) if day else {}
+    if lv.get("live") and L["positions"]:
+        eq_now = lv["equity"]
+    else:
+        day = None
+        eq_now = L["equity"][-1]["equity"] if L["equity"] else L["cash"]
+    doc = STORE.get(f"intraday/{L.get('asof')}") if not day else None
+    return attrib.compute(L, ps, equity_now=eq_now, live_day=day, doc=doc)
+
+
 def api_queue(q):
     """진입 우선순위(2026-11-04) — 다음(또는 오늘 장중) 세션 진입 주문을 실행기와 같은 순서(engine.entry_priority:
     PM 등급 → 높은 비중)로 줄 세우고, 누적 필요 금액을 Long 가용 현금·Short 담보 여력과 견준다. 장중이면 체결 진행도."""
@@ -528,7 +544,7 @@ def api_reflections(q):
 
 
 ROUTES = {"/api/swing/summary": api_summary, "/api/swing/progress": api_progress, "/api/swing/positions": api_positions,
-          "/api/swing/orders": api_orders, "/api/swing/queue": api_queue, "/api/swing/trades": api_trades, "/api/swing/fills": api_fills,
+          "/api/swing/orders": api_orders, "/api/swing/queue": api_queue, "/api/swing/attribution": api_attribution, "/api/swing/trades": api_trades, "/api/swing/fills": api_fills,
           "/api/swing/equity": lambda q: _ledger()["equity"],
           "/api/swing/runs": api_runs, "/api/swing/decision": api_decision,
           "/api/swing/signals": api_signals, "/api/swing/universe": api_universe, "/api/swing/sim": api_sim,

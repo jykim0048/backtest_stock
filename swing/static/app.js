@@ -1163,6 +1163,106 @@
       }), "보유 종목 없음");
   }
 
+  // ── 성과 기여도(2026-11-05) — /api/swing/attribution(swing/attrib.py). 기여도(%p) = 손익 ÷ 기간 시작 평가액, 종목 합 + 기타 = 기간 수익률 ──
+  var AT = { period: "day", side: "all", data: null, at: 0, open: {} };
+  try { AT.period = localStorage.getItem("swing.atPeriod") || "day"; AT.side = localStorage.getItem("swing.atSide") || "all"; } catch (e) { /* 무시 */ }
+  function loadAttrib(force) {
+    if (!force && AT.data && Date.now() - AT.at < 30000) return;   // 장중 10초 갱신마다 부르지 않게 30초 간격
+    AT.at = Date.now();
+    api("/api/swing/attribution").then(function (d) { AT.data = d; renderAttrib(); }).catch(function () { /* 보조 정보 */ });
+  }
+  function ppTxt(v) { return v == null ? "—" : (v > 0 ? "+" : v < 0 ? "−" : "") + Math.abs(v).toFixed(2) + "%p"; }
+  function ppCell(v) { return '<span class="num ' + (v > 0 ? "up" : v < 0 ? "down" : "") + '">' + ppTxt(v) + "</span>"; }
+  function wonS(v) { return '<span class="num ' + (v > 0 ? "up" : v < 0 ? "down" : "") + '">' + (v > 0 ? "+" : "") + won(v) + "</span>"; }
+  function atBar(v, max) {
+    var w = Math.min(50, Math.abs(v) / (max || 1) * 50);
+    return '<div class="dbar"><span class="' + (v >= 0 ? "l" : "s") + '" style="width:' + w + '%"></span></div>';
+  }
+  function renderAttrib() {
+    ["at-period", "at-side"].forEach(function (id) {
+      var v = id === "at-period" ? AT.period : AT.side;
+      $(id).querySelectorAll("button").forEach(function (b) { b.classList.toggle("active", b.dataset.v === v); });
+    });
+    var d = AT.data;
+    if (!d) return;
+    var P = d[AT.period] || {}, side = AT.side, base = P.base || 1;
+    var codes = (P.byCode || []).filter(function (e) { return side === "all" || e.side === side; });
+    if (AT.period === "day" && P.available === false) {
+      $("at-sum").innerHTML = '<div class="at-note">' + esc(P.note || "당일 기여도를 계산할 수 없습니다") + "</div>";
+      $("at-sectors").innerHTML = "";
+      return;
+    }
+    var when = AT.period === "day"
+      ? "당일 " + (d.date || "").slice(5) + (d.live ? " 장중" + (S.summary && S.summary.liveTs ? " " + S.summary.liveTs.slice(0, 5) : "") : " 종가") +
+        " · 기준 = 직전 영업일 종가 평가액 " + won(P.base) + "원"
+      : "누적(운용 시작 이후" + (d.live ? " · 오늘 장중 포함" : "") + ") · 기준 = 초기 자본 " + won(P.base) + "원";
+    var sum = codes.reduce(function (a, e) { return a + e.pnl; }, 0);
+    $("at-sum").innerHTML = when + " · 기여도 = 손익 ÷ 기준<br>" + (side === "all"
+      ? "종목 기여 합계 <b>" + ppTxt(P.sum / base * 100) + '</b> + 기타 <span title="세금·대차료·반올림 등 종목에 나누지 않은 몫">' + ppTxt(P.residualPct) +
+        "</span> = 기간 수익률 <b>" + pctTxt(P.totalPct) + "</b> (" + wonS(P.total) + "원)"
+      : (side === "long" ? "Long" : "Short") + " 기여 합계 <b>" + ppTxt(sum / base * 100) + "</b> (" + wonS(sum) + "원) · " + codes.length + "종목");
+    // 섹터 — 합계는 서버 집계, Long/Short 는 해당 방향만 다시 묶음
+    var secs = P.bySector || [];
+    if (side !== "all") {
+      var g = {};
+      codes.forEach(function (e) {
+        var x = g[e.sector] = g[e.sector] || { sector: e.sector, long: 0, short: 0, pnl: 0, n: 0 };
+        x[e.side] += e.pnl; x.pnl += e.pnl; x.n += 1;
+      });
+      secs = Object.keys(g).map(function (k) { return g[k]; }).sort(function (a, b) { return b.pnl - a.pnl; });
+    }
+    // 섹터 행 클릭 → 그 섹터 종목 기여도 펼침(2026-11-05) — 펼친 섹터는 AT.open 에 남아 장중 갱신·토글 전환에도 유지
+    var maxS = Math.max.apply(null, secs.map(function (x) { return Math.abs(x.pnl); }).concat([1]));
+    var bySec = {};
+    codes.forEach(function (e) { (bySec[e.sector] = bySec[e.sector] || []).push(e); });
+    var h = '<thead><tr><th>섹터 · 종목</th><th class="r">종목</th><th class="r">Long</th><th class="r">Short</th><th class="r">손익(원)</th>' +
+      '<th class="r">기여도</th><th>− ◀ ▶ +</th></tr></thead><tbody>';
+    if (!secs.length) h += '<tr class="empty"><td colspan="7">기여 내역 없음</td></tr>';
+    secs.forEach(function (x) {
+      var open = !!AT.open[x.sector], kids = (bySec[x.sector] || []).slice().sort(function (a, b) { return b.pnl - a.pnl; });
+      h += '<tr class="at-sec' + (open ? " open" : "") + '" data-sec="' + esc(x.sector) + '" title="종목별 기여도 ' + (open ? "접기" : "펼치기") + '">' +
+        td('<span class="at-caret">' + (open ? "▾" : "▸") + '</span><span class="stock-name" style="font-size:13px">' + esc(x.sector) + "</span>") +
+        td('<span class="num">' + x.n + "</span>", "r") +
+        td(x.long ? ppCell(x.long / base * 100) : "—", "r") + td(x.short ? ppCell(x.short / base * 100) : "—", "r") +
+        td(wonS(x.pnl), "r") + td(ppCell(x.pnl / base * 100), "r") + td(atBar(x.pnl, maxS)) + "</tr>";
+      if (!open) return;
+      kids.forEach(function (e) {
+        var st = e.held ? (e.realized ? "보유 · 일부 실현" : "보유") : "청산", c = e.contribPct;
+        h += '<tr class="at-kid"' + (e.decisionKey ? ' data-key="' + esc(e.decisionKey) + '" title="판단 원문 보기"' : "") + ">" +
+          td('<span class="side-tag ' + e.side + '">' + e.side.toUpperCase() + "</span>" + stock(e.name || e.code, e.code)) +
+          td('<span class="at-state">' + st + "</span>", "r") +
+          td(e.side === "long" ? ppCell(c) : "", "r") + td(e.side === "short" ? ppCell(c) : "", "r") +
+          td(wonS(e.pnl), "r") + td(ppCell(c), "r") + td(atBar(e.pnl, maxS)) + "</tr>";
+      });
+    });
+    $("at-sectors").innerHTML = h + "</tbody>";
+    var allOpen = secs.length && secs.every(function (x) { return AT.open[x.sector]; });
+    $("at-expand").textContent = allOpen ? "모두 접기" : "모두 펼치기";
+  }
+  $("at-sectors").addEventListener("click", function (e) {
+    var r = e.target.closest("tr.at-sec");
+    if (!r) return;
+    var k = r.getAttribute("data-sec");
+    if (AT.open[k]) delete AT.open[k]; else AT.open[k] = 1;
+    renderAttrib();
+  });
+  $("at-expand").addEventListener("click", function () {
+    var P = (AT.data || {})[AT.period] || {}, secs = (P.bySector || []).map(function (x) { return x.sector; });
+    var allOpen = secs.length && secs.every(function (k) { return AT.open[k]; });
+    AT.open = {};
+    if (!allOpen) secs.forEach(function (k) { AT.open[k] = 1; });
+    renderAttrib();
+  });
+  ["at-period", "at-side"].forEach(function (id) {
+    $(id).addEventListener("click", function (e) {
+      var b = e.target.closest("button");
+      if (!b) return;
+      if (id === "at-period") AT.period = b.dataset.v; else AT.side = b.dataset.v;
+      try { localStorage.setItem(id === "at-period" ? "swing.atPeriod" : "swing.atSide", b.dataset.v); } catch (x) { /* 무시 */ }
+      renderAttrib();
+    });
+  });
+
   // ── I-1 기술적 분석 차트(Decision.chart — swing/chart.py, 2026-09-29) ──
   // 가격(캔들·EMA10·SMA50·SMA200·볼린저) + 진입·손절·목표 수평선 / 거래량 / RSI(30·70) / MACD. 손익 색은 한국식.
   var TC = { up: "#ef4444", down: "#3b82f6", ema10: "#00f0ff", sma50: "#fbbf24", sma200: "#a78bfa",
@@ -1937,6 +2037,7 @@
       Object.assign(S.summary, { equity: r.equity, retPct: r.retPct, liveTs: r.liveTs, liveDate: r.liveDate });
       renderPortfolio(S.summary); renderPositions(S.positions); renderHoldingsPF(S.positions, S.summary);
       renderEquity(liveRows(S.equity, S.summary), S.summary.capital0);
+      loadAttrib();
       api("/api/swing/queue").then(renderQueue).catch(function () { /* 다음 회차 */ });
       r.positions.forEach(function (x) {
         var a = prev[x.id];
@@ -1966,7 +2067,7 @@
     S.summary = r[0]; S.equity = r[1]; S.positions = r[2]; S.trades = r[4]; S.config = r[5]; S.fills = r[6] || []; S.reflections = r[7] || [];
     S.heldShort = {};
     S.positions.forEach(function (p) { if (sideOf(p) === "short") S.heldShort[p.code] = 1; else S.held[p.code] = 1; });
-    renderHeader(r[0]); pollProgress(); renderPortfolio(r[0]);
+    renderHeader(r[0]); pollProgress(); renderPortfolio(r[0]); loadAttrib(true);
     api("/api/swing/queue").then(renderQueue).catch(function () { renderQueue(null); });
     document.querySelectorAll(".hold-n").forEach(function (x) { x.textContent = HOLD_N(); });
     if (S.config && S.config.borrowRate != null) $("cfg-borrow").textContent = +(S.config.borrowRate * 100).toFixed(2);
