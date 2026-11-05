@@ -91,7 +91,7 @@ header {
 /* 2026-09-29: 사이드바 제거 — 상단(계좌·평가액) / 가운데 보드 전체 폭 / 하단(규칙·로그) */
 .main-grid { display: block; }
 .top-row { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 20px; margin-bottom: 24px; }
-.top-row .portfolio-summary-box { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.top-row .portfolio-summary-box { grid-template-columns: repeat(5, minmax(0, 1fr)); }   /* 당일·YTD·1W·1M·3M / 지표 5개(2026-11-05) */
 .top-row > .side-panel { display: flex; flex-direction: column; }
 .top-row .chart { flex: 1; height: auto; min-height: 168px; }   /* 계좌 패널 높이에 맞춰 차트가 채움 */
 .bottom-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; margin-top: 24px; }

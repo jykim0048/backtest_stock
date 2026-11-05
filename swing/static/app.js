@@ -221,6 +221,13 @@
     var since = base == null;
     return { v: ((last.equity / (since ? cap : base)) - 1) * 100, since: since };
   }
+  // 당일 수익률(2026-11-05) — 마지막 평가액(장중이면 Live) ÷ 직전 영업일 종가 평가액 − 1. 첫날이면 초기 자본 대비.
+  function dayReturn(rows, cap) {
+    if (!rows.length) return null;
+    var last = rows[rows.length - 1], prev = rows.length > 1 ? rows[rows.length - 2].equity : cap;
+    if (!prev) return null;
+    return { v: (last.equity / prev - 1) * 100, amt: last.equity - prev, date: last.date, live: !!last.live };
+  }
   function riskMetrics(rows, cap) {
     var eq = [cap].concat(rows.map(function (r) { return r.equity; }));
     var rets = [];
@@ -271,6 +278,10 @@
       (wS / Math.max(100, wL + wS) * 100) + '%"></span></div>' +
       '<span class="port-sub">Long <b class="up">' + wL.toFixed(1) + "%</b> · Short <b class=\"down\">" + wS.toFixed(1) + "%</b> · " +
       (S.positions || []).length + "종목</span></div></div></div>";
+    var dr = dayReturn(lrows, cap);
+    h += '<div class="port-item"><span class="port-lbl">당일' + (dr && dr.live ? " (장중)" : "") + '</span><span class="port-val">' +
+      (dr ? pct(dr.v) : "—") + '</span><span class="port-sub">' + (dr ? '<span class="' + (dr.amt > 0 ? "up" : dr.amt < 0 ? "down" : "") + '">' +
+      (dr.amt > 0 ? "+" : "") + won(dr.amt) + "원</span> · 전일 종가 대비" : "") + "</span></div>";
     h += rt.map(function (x) {
       var r = x[1];
       return '<div class="port-item"><span class="port-lbl">' + x[0] + (r && r.since ? " *" : "") + '</span><span class="port-val">' +
@@ -283,6 +294,14 @@
         m.mddSpan || "낙폭 없음"],
       ["변동성(연)", m.vol == null ? "—" : m.vol.toFixed(2) + "%", "현재 낙폭 " + (ml.curDD == null ? "—" : ml.curDD.toFixed(2) + "%") + (lrows !== rows ? "(장중)" : "")]
     ];
+    // Profit Factor(2026-11-05) — 청산 거래(정산 반영분) 총이익 ÷ 총손실. 리포트 탭 stats() 와 같은 계산(전체 기간·Long+Short)
+    // 손익비(payoff) = 평균 이익 ÷ 평균 손실(금액). PF = 손익비 × 이긴 건수 ÷ 진 건수
+    var trs = S.trades || [], ts = stats(trs);
+    var tw = trs.filter(function (t) { return t.pnl > 0; }), tl = trs.filter(function (t) { return t.pnl < 0; });
+    var payoff = tw.length && tl.length ? (tw.reduce(function (a, t) { return a + t.pnl; }, 0) / tw.length) /
+      (-tl.reduce(function (a, t) { return a + t.pnl; }, 0) / tl.length) : null;
+    mm.push(["Profit Factor", ts.n ? '<span class="' + (ts.pf == null ? "" : ts.pf >= 1 ? "up" : "down") + '">' + pfTxt(ts.pf) + "</span>" : "—",
+      ts.n ? "승률 " + ts.win.toFixed(0) + "% · 손익비 " + (payoff == null ? "—" : payoff.toFixed(2)) + " · " + ts.n + "건" : "청산 거래 없음"]);
     h += mm.map(function (x) {
       return '<div class="port-item"><span class="port-lbl">' + x[0] + '</span><span class="port-val">' + x[1] +
         '</span><span class="port-sub">' + x[2] + "</span></div>";
