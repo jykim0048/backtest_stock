@@ -485,7 +485,9 @@
     return pnlBadge(p.unrealPct, pctTxt(p.unrealPct).replace(/^[+-]/, "")) + rl;
   }
   function posTable(el, ps, empty) {
-    ps = ps.slice().sort(function (a, b) { return (a.liveEntry ? 1 : 0) - (b.liveEntry ? 1 : 0); });   // 오늘 진입 행은 맨 아래
+    // 비중(평가금액 = 수량 × 현재가) 큰 순(2026-11-05 사용자 요청) — 오늘 장중 진입·전량 청산 행도 같은 기준(청산은 0이라 맨 아래)
+    var pv = function (p) { return p.value != null ? p.value : p.qty * (p.lastClose || p.entry || 0); };
+    ps = ps.slice().sort(function (a, b) { return pv(b) - pv(a); });
     // 비중 = 평가금액(수량 × 현재가) ÷ 총 평가액(2026-10-16) — 상단 비중, 하단 수량(작게). 현재가 = 장중이면 Live Trader 시세(2026-11-03)
     var eq = S.summary && S.summary.equity;
     // 현재가 기준 시각은 컬럼명 아래 한 번만, 가격 아래엔 전일대비(2026-11-04)
