@@ -1,6 +1,6 @@
 {
- "date": "2026-11-05",
- "asof": "2026-11-05 15:40 KST",
+ "date": "2026-11-06",
+ "asof": "2026-11-06 07:46 KST",
  "sources": {
   "naver": true,
   "forexfactory": true
@@ -727,9 +727,7 @@
     "diff": 15.35,
     "verdict": "above"
    }
-  }
- ],
- "upcoming": [
+  },
   {
    "nation": "USA",
    "name": "Challenger 고용변화율",
@@ -738,12 +736,18 @@
    "period": "Oct 2026",
    "category": "EMPLOYMENT",
    "releaseAtKST": "2026-11-05 18:30",
+   "actual": 43.994,
    "previous": 43.281,
    "unit": "pers",
    "unitScale": "K",
    "forecast": null,
    "forecastSource": null,
-   "source": "naver"
+   "source": "naver",
+   "surprise": {
+    "vs": "previous",
+    "diff": 0.713,
+    "verdict": "above"
+   }
   },
   {
    "nation": "USA",
@@ -753,13 +757,19 @@
    "period": "31 Oct2026",
    "category": "EMPLOYMENT",
    "releaseAtKST": "2026-11-05 22:30",
+   "actual": 189,
    "previous": 194,
    "unit": "pers",
    "unitScale": "K",
    "forecast": 197.0,
    "forecastSource": "forexfactory",
    "source": "naver",
-   "forecastText": "197"
+   "forecastText": "197",
+   "surprise": {
+    "vs": "forecast",
+    "diff": -8.0,
+    "verdict": "below"
+   }
   },
   {
    "nation": "USA",
@@ -769,12 +779,18 @@
    "period": "24 Oct2026",
    "category": "EMPLOYMENT",
    "releaseAtKST": "2026-11-05 22:30",
+   "actual": 1.718,
    "previous": 1.701,
    "unit": "pers",
    "unitScale": "M",
    "forecast": null,
    "forecastSource": null,
-   "source": "naver"
+   "source": "naver",
+   "surprise": {
+    "vs": "previous",
+    "diff": 0.017,
+    "verdict": "above"
+   }
   },
   {
    "nation": "USA",
@@ -784,12 +800,18 @@
    "period": "31 Oct2026",
    "category": "EMPLOYMENT",
    "releaseAtKST": "2026-11-05 22:30",
+   "actual": 194.75,
    "previous": 196.75,
    "unit": "pers",
    "unitScale": "K",
    "forecast": null,
    "forecastSource": null,
-   "source": "naver"
+   "source": "naver",
+   "surprise": {
+    "vs": "previous",
+    "diff": -2.0,
+    "verdict": "below"
+   }
   },
   {
    "nation": "USA",
@@ -799,13 +821,21 @@
    "period": "30 Oct2026",
    "category": "EMPLOYMENT",
    "releaseAtKST": "2026-11-06 00:30",
+   "actual": 77,
    "previous": 80,
    "unit": "ft3",
    "unitScale": "B",
    "forecast": null,
    "forecastSource": null,
-   "source": "naver"
-  },
+   "source": "naver",
+   "surprise": {
+    "vs": "previous",
+    "diff": -3.0,
+    "verdict": "below"
+   }
+  }
+ ],
+ "upcoming": [
   {
    "nation": "USA",
    "name": "실업률",
@@ -1292,6 +1322,81 @@
   },
   {
    "nation": "USA",
+   "name": "MBA 구매지수",
+   "reutersCode": "USMGPI=ECIX",
+   "importance": 1,
+   "period": "06 Nov2026",
+   "category": "EMPLOYMENT",
+   "releaseAtKST": "2026-11-11 21:00",
+   "previous": 131.4,
+   "unit": "",
+   "unitScale": "",
+   "forecast": null,
+   "forecastSource": null,
+   "source": "naver"
+  },
+  {
+   "nation": "USA",
+   "name": "모기지 시장지수",
+   "reutersCode": "USMGM=ECIX",
+   "importance": 1,
+   "period": "06 Nov2026",
+   "category": "CENTRAL_BANKS",
+   "releaseAtKST": "2026-11-11 21:00",
+   "previous": 192.6,
+   "unit": "",
+   "unitScale": "",
+   "forecast": null,
+   "forecastSource": null,
+   "source": "naver"
+  },
+  {
+   "nation": "USA",
+   "name": "모기지 재융자지수",
+   "reutersCode": "USMGR=ECIX",
+   "importance": 1,
+   "period": "06 Nov2026",
+   "category": "CENTRAL_BANKS",
+   "releaseAtKST": "2026-11-11 21:00",
+   "previous": 517.5,
+   "unit": "",
+   "unitScale": "",
+   "forecast": null,
+   "forecastSource": null,
+   "source": "naver"
+  },
+  {
+   "nation": "USA",
+   "name": "모기지은행협회 30년 모기지금리",
+   "reutersCode": "USMG=ECIX",
+   "importance": 1,
+   "period": "06 Nov2026",
+   "category": "CENTRAL_BANKS",
+   "releaseAtKST": "2026-11-11 21:00",
+   "previous": 7.3,
+   "unit": "%",
+   "unitScale": "",
+   "forecast": null,
+   "forecastSource": null,
+   "source": "naver"
+  },
+  {
+   "nation": "USA",
+   "name": "모기지은행협회 모기지신청건수 (전주비)",
+   "reutersCode": "USMGA=ECIX",
+   "importance": 1,
+   "period": "06 Nov2026",
+   "category": "CENTRAL_BANKS",
+   "releaseAtKST": "2026-11-11 21:00",
+   "previous": -1.2,
+   "unit": "%",
+   "unitScale": "",
+   "forecast": null,
+   "forecastSource": null,
+   "source": "naver"
+  },
+  {
+   "nation": "USA",
    "name": "톰슨로이터 입소스(IPSOS) 1차 소비자지수(PCSI)",
    "reutersCode": "USIPSO=ECIX",
    "importance": 1,
@@ -1300,6 +1405,171 @@
    "releaseAtKST": "2026-11-12 01:00",
    "previous": 45.18,
    "unit": "",
+   "unitScale": "",
+   "forecast": null,
+   "forecastSource": null,
+   "source": "naver"
+  },
+  {
+   "nation": "USA",
+   "name": "기존주택판매",
+   "reutersCode": "USEHS=ECIX",
+   "importance": 3,
+   "period": "Oct 2026",
+   "category": "EMPLOYMENT",
+   "releaseAtKST": "2026-11-13 00:00",
+   "previous": 3.99,
+   "unit": "",
+   "unitScale": "M",
+   "forecast": null,
+   "forecastSource": null,
+   "source": "naver"
+  },
+  {
+   "nation": "USA",
+   "name": "기존주택판매 전월대비",
+   "reutersCode": "USEHSP=ECIX",
+   "importance": 2,
+   "period": "Oct 2026",
+   "category": "EMPLOYMENT",
+   "releaseAtKST": "2026-11-13 00:00",
+   "previous": 1.5,
+   "unit": "%",
+   "unitScale": "",
+   "forecast": null,
+   "forecastSource": null,
+   "source": "naver"
+  },
+  {
+   "nation": "USA",
+   "name": "연방재정수지",
+   "reutersCode": "USGDEF=ECIX",
+   "importance": 1,
+   "period": "Oct 2026",
+   "category": "PUBLIC_FINANCE",
+   "releaseAtKST": "2026-11-13 04:00",
+   "previous": -27,
+   "unit": "USD",
+   "unitScale": "B",
+   "forecast": null,
+   "forecastSource": null,
+   "source": "naver"
+  },
+  {
+   "nation": "KOR",
+   "name": "수입물가지수 전년대비",
+   "reutersCode": "KRIMPP=ECIX",
+   "importance": 4,
+   "period": "Oct 2026",
+   "category": "PRICE",
+   "releaseAtKST": "2026-11-13 06:00",
+   "previous": 17.6,
+   "unit": "%",
+   "unitScale": "",
+   "forecast": null,
+   "forecastSource": null,
+   "source": "naver"
+  },
+  {
+   "nation": "KOR",
+   "name": "수출가격지수 전년대비",
+   "reutersCode": "KREXPP=ECIX",
+   "importance": 4,
+   "period": "Oct 2026",
+   "category": "BALANCE",
+   "releaseAtKST": "2026-11-13 06:00",
+   "previous": 40.9,
+   "unit": "%",
+   "unitScale": "",
+   "forecast": null,
+   "forecastSource": null,
+   "source": "naver"
+  },
+  {
+   "nation": "KOR",
+   "name": "톰슨로이터 입소스(IPSOS) 1차 소비자지수(PCSI)",
+   "reutersCode": "KRIPSO=ECIX",
+   "importance": 1,
+   "period": "Oct 2026",
+   "category": "BSI_CSI",
+   "releaseAtKST": "2026-11-13 11:00",
+   "previous": 0,
+   "unit": "",
+   "unitScale": "",
+   "forecast": null,
+   "forecastSource": null,
+   "source": "naver"
+  },
+  {
+   "nation": "KOR",
+   "name": "M2 통화공급",
+   "reutersCode": "KRFDIQ=ECIX",
+   "importance": 4,
+   "period": "Sep 2026",
+   "category": "CENTRAL_BANKS",
+   "releaseAtKST": "2026-11-13 12:00",
+   "previous": 7.2,
+   "unit": "%",
+   "unitScale": "",
+   "forecast": null,
+   "forecastSource": null,
+   "source": "naver"
+  },
+  {
+   "nation": "USA",
+   "name": "생산자물가지수(PPI) 전월대비",
+   "reutersCode": "USPPFD=ECIX",
+   "importance": 4,
+   "period": "Oct 2026",
+   "category": "PRICE",
+   "releaseAtKST": "2026-11-13 22:30",
+   "previous": 1.3,
+   "unit": "%",
+   "unitScale": "",
+   "forecast": null,
+   "forecastSource": null,
+   "source": "naver"
+  },
+  {
+   "nation": "USA",
+   "name": "근원 생산자물가지수(PPI) 전년대비",
+   "reutersCode": "USPPEY=ECIX",
+   "importance": 2,
+   "period": "Oct 2026",
+   "category": "PRICE",
+   "releaseAtKST": "2026-11-13 22:30",
+   "previous": 5,
+   "unit": "%",
+   "unitScale": "",
+   "forecast": null,
+   "forecastSource": null,
+   "source": "naver"
+  },
+  {
+   "nation": "USA",
+   "name": "근원 생산자물가지수(PPI) 전월대비",
+   "reutersCode": "USPPIE=ECIX",
+   "importance": 2,
+   "period": "Oct 2026",
+   "category": "PRICE",
+   "releaseAtKST": "2026-11-13 22:30",
+   "previous": 0.7,
+   "unit": "%",
+   "unitScale": "",
+   "forecast": null,
+   "forecastSource": null,
+   "source": "naver"
+  },
+  {
+   "nation": "USA",
+   "name": "생산자물가지수(PPI) 전년대비",
+   "reutersCode": "USPPFY=ECIX",
+   "importance": 2,
+   "period": "Oct 2026",
+   "category": "PRICE",
+   "releaseAtKST": "2026-11-13 22:30",
+   "previous": 6.3,
+   "unit": "%",
    "unitScale": "",
    "forecast": null,
    "forecastSource": null,
