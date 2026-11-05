@@ -621,6 +621,12 @@
     .ca-type.pos  { background: var(--up-red-dim); color: var(--up-red); }
     .ca-code { color: var(--text-muted); font-size: 11px; margin-left: 3px; }
     .ca-more td { color: var(--text-muted); font-size: 11.5px !important; padding: 3px 2px 6px !important; }
+    /* 워치리스트·주간 일별 CA 배지 — ★3 + 악재성(신주·추가상장 희석, 보호예수 해제, 무상감자·매매정지)은 강조 */
+    .ca-pbadge { display: inline-block; font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 7px;
+      margin: 2px 4px 2px 0; white-space: nowrap; cursor: help;
+      background: rgba(251,191,36,.10); color: #fcd34d; border: 1px solid rgba(251,191,36,.25); }
+    .ca-pbadge.strong { background: rgba(239,68,68,.16); color: #fca5a5; border-color: rgba(239,68,68,.45); }
+    .ca-pbadge.mild { background: rgba(255,255,255,.05); color: #cbd5e1; border-color: rgba(255,255,255,.12); }
     /* 브리핑 상단 섹터분석 카드(국면·센티먼트·섹터ETF) — 구 섹터탭에서 이관 */
     .briefing-sectortop { display: flex; flex-direction: column; gap: 12px; margin-bottom: 12px; }
     /* stretch: FRED 카드는 국면 요약 문구가 더 있어 콘텐츠가 길다 — 짧은 ETF 카드를
@@ -3350,7 +3356,7 @@
       const n = Number(String(v).replace(/,/g, "").replace(/%/g, ""));
       return isNaN(n) ? null : n;
     }
-    function _caWon(v) { const n = _caNum(v); return n === null ? "" : Math.round(n).toLocaleString() + "원"; }
+    function _caWon(v) { const n = _caNum(v); return (n === null || n <= 0) ? "" : Math.round(n).toLocaleString() + "원"; }   // 0원(미정)은 숨김
     function _caPct(v) { const n = _caNum(v); return n === null ? "" : (Math.round(n * 100) / 100) + "%"; }
     function _caShares(v) { const n = _caNum(v); return n === null ? "" : Math.round(n).toLocaleString() + "주"; }
     // 유형별 핵심 수치 — 필드명은 KIS 문서 기준(실서비스 미검증): 없는 키는 조용히 생략
@@ -3373,11 +3379,16 @@
           break;
         }
         case "capdcrs":
-          if (f.reason) p.push(_brEsc(f.reason)); break;
+          if (f.reduceType || f.reason) p.push(_brEsc(f.reduceType || f.reason));
+          if (f.reduceRate != null && f.reduceRate !== "") p.push(`비율 ${_brEsc(f.reduceRate)}`);
+          break;
         case "listing":
         case "deposit":
+          if (r.type === "listing" && f.reason) p.push(_brEsc(f.reason));
           add("", _caShares(f.shares != null ? f.shares : f.newShares));
-          add("비중", _caPct(f.newSharesPct != null ? f.newSharesPct : f.pctOfTotal)); break;
+          add("비중", _caPct(f.newSharesPct != null ? f.newSharesPct : f.pctOfTotal));
+          if (r.type === "deposit" && f.releaseDate && r.kind !== "release") add("해제", _caMd(String(f.releaseDate)));
+          break;
         case "ipo":
           add("공모가", _caWon(f.offerPrice)); break;
       }
@@ -3412,6 +3423,18 @@
           h += `<tr class="ca-more"><td colspan="5">… 외 ${arr.length - perDay}건</td></tr>`;
       });
       return h;
+    }
+    // CA 배지 1개 — 생성기가 붙인 badge 문구(없으면 라벨 조합) + 툴팁(유형·일정·핵심 수치)
+    function _caBadge(c, prefix) {
+      const strong = (c.importance || 0) >= 3 && c.adverse;
+      const cls = strong ? "strong" : ((c.importance || 0) >= 3 ? "" : "mild");
+      const txt = c.badge || `${c.milestoneLabel || ""}${c.sizePct != null ? " " + c.sizePct + "%" : ""}`;
+      const per = c.end && c.end !== c.date ? `${_caMd(c.date)}~${_caMd(c.end)}` : _caMd(c.date);
+      const key = _caKey(c).replace(/<[^>]+>/g, "");
+      const tip = [`${c.name || ""}${c.code ? " " + c.code : ""}`, `${c.typeLabel || ""} · ${c.milestoneLabel || ""} ${per}`,
+                   key, `영향도 ${"★".repeat(c.importance || 1)}${c.adverse ? " · 악재성" : ""}`]
+        .filter(Boolean).join("\n");
+      return `<span class="ca-pbadge ${cls}" title="${_brEsc(tip)}">${strong ? "⚠️ " : ""}${prefix || ""}${_brEsc(txt)}</span>`;
     }
     const _CA_NOTE = "예탁원(KSD) 기업행위 일정 · KIS 허브 · ★=영향도(자동 판정 — 유상 권리락·신주 상장·"
       + "매매정지·재상장·의무예치 ★★★) · 배당락(추정)=기준일 기반 추정";
@@ -3519,10 +3542,22 @@
       };
       const rows = picks.map(p => {
         const mkColor = (p.market === "KOSDAQ") ? "var(--kosdaq-green)" : "var(--kospi-blue)";
+        // 예탁원 CA(오늘~5영업일, ★2+) — 생성기가 코드로 붙인 결정적 값(pick.ca)
+        const caB = (p.ca || []).length
+          ? `<div style="margin-bottom:3px">${p.ca.map(c => _caBadge(c)).join("")}</div>` : "";
         return `<tr><td style="font-weight:600;white-space:nowrap">${_brEsc(p.name)}${_dirBadge(p)}</td>`
              + `<td style="color:${mkColor};font-size:13px">${_brEsc(p.market)}</td>`
-             + `<td style="color:#cbd5e1">${_brEsc(p.catalyst)}</td></tr>`;
+             + `<td style="color:#cbd5e1">${caB}${_brEsc(p.catalyst)}</td></tr>`;
       }).join("");
+
+      // 오늘의 CA — 오늘(기간 포함)·다음 영업일 ★3 일정(물량% 큰 순 상한). 없으면 카드 숨김.
+      const caT = d.caToday || {};
+      const caTodayRows = ((caT.today || []).length ? _caRowsHtml(caT.today, d.date, 0, d.date) : "")
+                        + ((caT.next || []).length ? _caRowsHtml(caT.next, d.date, 0) : "");
+      const caTodayCard = caTodayRows ? _econCard(
+        `🏦 오늘의 CA — 오늘 · 다음 영업일 <span style="opacity:.6;">(★★★ ${caT.total || ((caT.today || []).length + (caT.next || []).length)})</span>`,
+        caTodayRows,
+        _CA_NOTE + " · 물량% 큰 순 상한 12" + (caT.asof ? " · 수집 " + _brEsc(caT.asof) : "")) : "";
 
       const usBullets = (d.usReview && d.usReview.bullets) || [];
       const catB = (d.krPreview && d.krPreview.catalystSummary) || "";
@@ -3552,6 +3587,7 @@
         </div>
         ${flowCols}
         ${econUpcomingCard}
+        ${caTodayCard}
         <div id="brief-uscat">${_briefUsCatHtml(d.usCatalysts)}</div>
         ${catB ? `<div class="briefing-catalyst"><div class="cat-h">⚡ 전일 장마감 후 국내 촉매</div><div class="cat-b">${_brEsc(catB)}</div></div>` : ""}
         ${picks.length ? `<div class="briefing-wl"><div class="wl-h">오늘의 워치리스트 (장전 선정 ${picks.length}종목)</div>`
@@ -8179,6 +8215,16 @@
     h += "<tr style='opacity:.65'><th style='text-align:left'>날짜</th><th>코스피" + adrNote + "</th><th>코스닥" + adrNote + "</th><th style='text-align:left'>주도 섹터</th><th style='text-align:left'>전일 미국장 → 한국장 반응</th></tr>";
     var dcMap = {};
     (syn.dailyContext || []).forEach(function (x) { if (x && x.date) dcMap[x.date] = x.note; });
+    // 그날 발생 CA 칩(★2+ 상위 — 생성기 days[].ca, 최대 3개 + 외 N)
+    function caDayChips(day) {
+      var arr = day.ca || [];
+      if (!arr.length || typeof _caBadge !== "function") return "";
+      return '<div style="margin-top:3px">' + arr.slice(0, 3).map(function (c) {
+          return _caBadge(c, (c.name || c.code || "") + " ");
+        }).join("")
+        + (arr.length > 3 ? '<span style="opacity:.55;font-size:11px">외 ' + (arr.length - 3) + "건</span>" : "")
+        + "</div>";
+    }
     (d.days || []).forEach(function (day) {
       var ks = (day.indices || {}).kospi || {}, kq = (day.indices || {}).kosdaq || {};
       var sec = (day.sectorsUp || []).slice(0, 2).map(function (s) { return esc(s.name); }).join(", ");
@@ -8189,9 +8235,15 @@
       h += "<tr style='border-top:1px solid rgba(128,128,128,.15)'><td style='padding:3px 6px 3px 0;white-space:nowrap'>" + day.date.slice(5) +
         "</td><td style='text-align:center'>" + pct(ks.rate) + adrLine(br0.kospi) +
         "</td><td style='text-align:center'>" + pct(kq.rate) + adrLine(br0.kosdaq) +
-        "</td><td style='padding-left:8px'>" + (sec || "—") + "</td><td style='padding-left:8px;color:#fff'>" + note + "</td></tr>";
+        "</td><td style='padding-left:8px'>" + (sec || "—") + "</td><td style='padding-left:8px;color:#fff'>" + note
+        + caDayChips(day) + "</td></tr>";
     });
     h += "</table>";
+    // 기간 발생 CA 상위(★3, 물량% 큰 순 — 생성기 caWeekly). 구 아카이브(키 없음)는 숨김.
+    if (typeof _caRowsHtml === "function" && (d.caWeekly || []).length) {
+      h += _econCard("🏦 " + WBP.per + " 발생 CA — 상위 <span style=\"opacity:.6;font-size:12px\">(예탁원 · ★★★ · 물량% 큰 순)</span>",
+        _caRowsHtml(d.caWeekly, "", 0), _CA_NOTE + " · 일별 칩은 위 표의 반응 코멘트 아래");
+    }
     // 신고가 근접 — 일별 표 우측 하단 앰버 접힘(2026-09-08 사용자 요청). ETF/ETN 은
     // 제외 — 생성기에서도 거르지만 필터 도입 전 산출물(9/8 오전분) 방어용 동일 필터.
     var _etfRe = /^(KODEX|TIGER|SOL|KBSTAR|RISE|ACE|PLUS|HANARO|KOSEF|ARIRANG|KIWOOM|UNICORN)\b|액티브|레버리지|인버스|ETN/i;

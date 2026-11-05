@@ -32,6 +32,7 @@ import glob
 import datetime
 
 import llm
+import ca_events                   # 예탁원 CA 캘린더 발췌(워치리스트 CA·오늘의 CA)
 
 ROOT          = os.path.dirname(os.path.abspath(__file__))
 SELECTION_DIR = os.path.join(ROOT, "public", "reports", "selection")
@@ -358,6 +359,8 @@ SYSTEM = """\
   사건의 실제 주체(해외 기업·지수·이슈, 예: CXMT·국제유가), relatedStock 은 그 촉매의
   국내 대표 관련주(매매 관점). 공통 필드 ticker/stock/relatedStock/form/kind/direction/
   summary/changePct. 없을 수 있다.
+- caToday : 예탁원 CA(기업행위) 중요 일정 — 오늘·다음 영업일의 유상증자 신주상장·추가상장(CB 등)·
+  보호예수 해제·매매정지 등(when/stock/event/milestone/sizePct=물량%). 없을 수 있다.
   **surpriseVs 가 비교 기준이다: forecast 면 '예상(컨센서스) 상회/하회', previous 면 반드시
   '이전(직전치) 대비 상회/하회'로 표현을 구분하고, 이전값 대비를 '예상치 상회/하회'라고 쓰지 말 것.**
 
@@ -386,7 +389,9 @@ SYSTEM = """\
 5) krPreview.narrative: 당일 국내 관점 1~2문장. econEvents 의 korToday·usTonight 이 있으면
    그중 중요도 높은 지표를 당일 관전 포인트로 1문장 반영한다. catalystSummary: 전일 장마감 후
    국내 촉매(picks 의 catalyst)를 1~2문장으로 압축.
-6) 과장·투자권유 표현을 피하고, 담백한 데스크 코멘트 톤으로 한국어로 쓴다.
+6) caToday 는 krPreview 에서 관련 종목·테마를 서술할 때만 짧게 언급한다(무관하면 언급하지 말 것).
+   날짜·물량% 등 수치는 입력값 그대로 쓰고 지어내지 않는다.
+7) 과장·투자권유 표현을 피하고, 담백한 데스크 코멘트 톤으로 한국어로 쓴다.
 
 반드시 아래 스키마와 정확히 동일한 JSON만 출력한다. 마크다운 펜스/설명 금지.
 {
@@ -425,7 +430,7 @@ BRIEF_SCHEMA = {
 }
 
 
-def _llm_input(sel, up_themes, down_themes, econ=None, us_cats=None):
+def _llm_input(sel, up_themes, down_themes, econ=None, us_cats=None, ca_today=None):
     us = sel.get("usMarket", {}) or {}
     payload = {
         "usMarket": {
@@ -442,6 +447,9 @@ def _llm_input(sel, up_themes, down_themes, econ=None, us_cats=None):
     }
     if econ:
         payload["econEvents"] = _econ_llm_view(econ)
+    ca_llm = ca_events.llm_view(ca_today) if ca_today else []
+    if ca_llm:
+        payload["caToday"] = ca_llm      # 워치리스트 picks 의 ca 는 코드 부착(LLM 미경유)
     if us_cats:
         payload["usCatalysts"] = [{k: c.get(k) for k in
                                    ("ticker", "stock", "relatedStock", "exchange", "form",
@@ -450,14 +458,14 @@ def _llm_input(sel, up_themes, down_themes, econ=None, us_cats=None):
     return json.dumps(payload, ensure_ascii=False)
 
 
-def llm_briefing(sel, up_themes, down_themes, econ=None, us_cats=None):
+def llm_briefing(sel, up_themes, down_themes, econ=None, us_cats=None, ca_today=None):
     """LLM 으로 stance/usReview/rationale/krPreview 생성. 실패 시 None(호출부에서 기계적 폴백)."""
     if not llm.configured():
         _warn("LLM 미설정 — 기계적 폴백 사용")
         return None, None
     try:
         data, model = llm.generate_json(
-            SYSTEM, _llm_input(sel, up_themes, down_themes, econ, us_cats),
+            SYSTEM, _llm_input(sel, up_themes, down_themes, econ, us_cats, ca_today),
             max_tokens=MAX_TOKENS, schema=BRIEF_SCHEMA, return_model=True)
         return data, model
     except Exception as e:
@@ -630,7 +638,17 @@ def main():
     if us_cats:
         print(f"  US SEC catalysts: {len(us_cats)}건")
 
-    raw, model = llm_briefing(sel, up_themes, down_themes, econ, us_cats)
+    # 예탁원 CA — 워치리스트 종목별 일정(오늘~5영업일, ★2+)은 picks[].ca 로 결정적 부착,
+    # 오늘·다음 영업일 ★3 일정은 caToday 카드. 캘린더 없으면 둘 다 생략(graceful).
+    ca_cal = ca_events.load_calendar()
+    ca_today = {}
+    if ca_cal:
+        n_ca = ca_events.attach_picks(sel.get("picks") or [], ca_cal, date_str)
+        ca_today = ca_events.ca_today(ca_cal, date_str)
+        print(f"  CA calendar    : 워치리스트 {n_ca}종목 부착 / 오늘의 CA "
+              f"{len(ca_today.get('today', []))}+{len(ca_today.get('next', []))}건 (★3)")
+
+    raw, model = llm_briefing(sel, up_themes, down_themes, econ, us_cats, ca_today)
     if raw is None:
         brief = _mechanical(sel, up_themes, down_themes, econ)
         generated_by = "mechanical"
@@ -663,6 +681,7 @@ def main():
         "marketView": sel.get("marketView", ""),
         "econEvents": econ,   # 경제지표 카드 원본 (없으면 {})
         "usCatalysts": us_cats,   # 밤사이 SEC 공시 촉매(테이블 렌더용 원본, 없으면 [])
+        "caToday": ca_today,      # 오늘의 CA(예탁원 ★3 — 오늘·다음 영업일, 없으면 {})
     }
     write_outputs(payload, date_str)
     print("=== Done ===")

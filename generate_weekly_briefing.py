@@ -31,6 +31,7 @@ ROOT = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, ROOT)
 import llm
 import krx_calendar        # KRX 휴장일 제외(_period_dates, 2026-09-24)
+import ca_events           # 예탁원 CA 일별 발췌·기간 상위(2026-11-05)
 
 KST = datetime.timezone(datetime.timedelta(hours=9))
 BASE = os.environ.get("DASHBOARD_BASE", "https://backteststock-production.up.railway.app")
@@ -281,6 +282,27 @@ def _econ_row(e, nation):
     return r
 
 
+_CA_CAL = {}
+
+
+def _ca_calendar():
+    """ca_calendar.json 1회 로드(폴백용 메모) — 실패/없음이면 {}."""
+    if "v" not in _CA_CAL:
+        _CA_CAL["v"] = _fetch("ca_calendar.json") or {}
+    return _CA_CAL["v"]
+
+
+def _day_ca(date_str, intraday):
+    """그날 발생 CA — 장중 아카이브 마지막 caEvents.today(★2+ 상위 N) 우선, 없으면 캘린더 그날 행 폴백.
+    경제지표 koEcon 과 같은 방식(장중 회차 아카이브에서 추출)."""
+    for r in reversed((intraday or {}).get("rounds") or []):
+        t = (r.get("caEvents") or {}).get("today")
+        if t:
+            return ca_events.day_pick(t)
+    rows = ca_events.rows_on(_ca_calendar(), date_str)
+    return ca_events.day_pick(rows) if rows else []
+
+
 def _day_summary(date_str):
     morning = _fetch(f"briefing/{date_str}.json")
     intraday = _fetch(f"reports/intraday_briefing/{date_str}.json")
@@ -383,6 +405,9 @@ def _day_summary(date_str):
         if kr:
             day["koEcon"] = [_econ_row(e, "KOR") for e in kr]
             break
+    ca = _day_ca(date_str, intraday)
+    if ca:
+        day["ca"] = ca
     ft = _day_flow_top(date_str)
     if ft:
         day["flowTop"] = ft
@@ -1824,6 +1849,9 @@ _SYSTEM = (
     " 미국·한국 경제지표의 실제치와 서프라이즈)로 매크로 환경을, ② sectorFlowWeekly"
     "(섹터×수급 매트릭스 — 업종별 주간 등락·투자자 순매수, 억원)로 수급 구도를 짚고"
     " 둘을 잇는 종합 관점으로 마무리. 매크로와 수급 위주로, 숫자는 입력값 그대로 인용"
+    "\n- caWeekly(이번 주 발생한 예탁원 CA — 대규모 유상증자 신주상장·CB 전환 추가상장·보호예수 해제·"
+    "매매정지 등, sizePct=물량%)는 영향이 큰 것만 해당 종목·섹터 흐름(sectorRotation·weeklyComment)의"
+    " 근거로 쓴다. 날짜·물량은 입력값 그대로, 무관하면 언급하지 마라"
     "\n- nextWeekPreview: 시나리오형 대응 관점 4~6개 불릿 —"
     " ① 다음 주 전개 시나리오 2개를 '~하면 ~ 전개' 조건부 구조로 (예: '반도체 조정에도"
     " 비테크·브레드스가 버티면 로테이션 지속, 함께 무너지면 단기 리스크오프') ② 두 시나리오를"
@@ -1874,6 +1902,8 @@ _SYSTEM_MONTH = (
     "\n- 예정 이벤트 시점 규칙(2026-09-16): upcomingEvents 는 thisRest = **이번 달 잔여**"
     "(오늘 밤 포함) · next = **다음 달** 두 구간이다. thisRest 항목을 '다음 달'이라고 쓰지"
     " 말고, 시점 표현은 releaseAtKST(KST) 날짜를 따르며 중요도 4 는 시각을 함께 적어라"
+    "\n- caWeekly(이번 달 발생한 예탁원 CA 상위 — 대규모 신주상장·보호예수 해제·매매정지 등, sizePct=물량%)는"
+    " 영향이 큰 것만 해당 종목·섹터 흐름의 근거로 쓴다. 수치는 입력값 그대로, 무관하면 언급하지 마라"
     "\n- upcomingEvents.*.ca(예탁원 기업행위 일정)는 이번 달 흐름에서 다룬 종목·섹터와 직접"
     " 관련될 때만 언급하라. 날짜·수치는 입력값 그대로, 입력에 없는 일정·비율을 지어내지 마라"
     "\n- nextWeek: 위 프리뷰 구조화 — upside·downside(각 1~2), signal 1문장, events 1~3. 필수"
@@ -2073,6 +2103,12 @@ def main():
     sector_weekly = {"up": _sector_week("sectorsUp"), "down": _sector_week("sectorsDown")}
 
 
+    # 기간 발생 CA 상위(★3, 물량% 큰 순) — 웹 요약 카드 + LLM caWeekly. 월간은 상한 확대.
+    ca_weekly = ca_events.weekly_top(days, top=15 if is_month else 10)
+    if ca_weekly:
+        print(f"[weekly] 기간 발생 CA 상위 {len(ca_weekly)}건 (일별 ca "
+              f"{sum(len(d.get('ca') or []) for d in days)}건)")
+
     _tmark("프리뷰·LLM 합성")
     preview = (_next_week_preview(40, 60, base=base, period="month") if is_month
                else _next_week_preview(base=base))
@@ -2098,7 +2134,10 @@ def main():
                            for d in days
                            for e in (d.get("usEcon") or []) + (d.get("koEcon") or [])]
             user = json.dumps({
-                "days": [_compact_day(d) for d in days] if is_month else days,
+                # 일별 ca 는 caWeekly(축약)로만 전달 — days 원문엔 빼서 토큰 중복 방지
+                "days": ([_compact_day(d) for d in days] if is_month
+                         else [{k: v for k, v in d.items() if k != "ca"} for d in days]),
+                **({"caWeekly": ca_events.weekly_llm_view(ca_weekly)} if ca_weekly else {}),
                 "upcomingEvents": preview,   # thisRest=이번 기간 잔여 · next=다음 기간
                 **({"weeklySyntheses": _period_syntheses(dates)} if is_month else {}),
                 # Phase 3 관찰 노트 근거 — 주간 결정적 집계 (전부 억원 단위)
@@ -2225,6 +2264,7 @@ def main():
                   "sectorsDown": d.get("sectorsDown") or [],
                   "usEcon": d.get("usEcon") or [],   # 전일 미국 지표(usReview 언급 기반)
                   "koEcon": d.get("koEcon") or [],   # 당일 한국 지표(★3+)
+                  "ca": d.get("ca") or [],           # 그날 발생 CA(예탁원, ★2+ 상위 8)
                   "catalysts": (d.get("catalysts") or [])[:3]} for d in days],
         "netbuyCum": netbuy_cum,        # 주체별(외인/기관/연기금) 주간 누적 순매수 상/하위
         "usWeekly": us_weekly,          # 미국 지수 기간 수익률(yfinance 종가 레벨 기반, 2026-09-22)
@@ -2238,6 +2278,7 @@ def main():
         # 예정 CA 일정(예탁원 기업행위, 영향도 2+) — 웹 프리뷰 카드용. econ/earnings 프리뷰는
         # LLM 입력 전용이라 저장하지 않지만 CA 는 표로 직접 보여준다(엑셀 미반영).
         "upcomingCa": {"thisRest": preview["thisRest"]["ca"], "next": preview["next"]["ca"]},
+        "caWeekly": ca_weekly,          # 기간 발생 CA 상위(★3, 물량% 큰 순) — 웹 요약 카드
         "synthesis": synthesis,
     }
 
