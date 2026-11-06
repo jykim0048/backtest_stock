@@ -1,65 +1,65 @@
 {
   "date": "2026-11-06",
-  "asof": "2026-11-06 09:38 KST",
+  "asof": "2026-11-06 10:08 KST",
   "final": false,
   "generatedBy": "gemini-3.1-flash-lite",
   "regime": {
     "stance": "risk_off",
-    "confidence": "low",
-    "reason": "코스피/코스닥 양 지수 4~5%대 급락 및 서킷브레이커 발동, 반도체 대장주 중심의 투매 현상이 뚜렷함. [강등: 지수평균 -5.15% · 외인+기관 672.0억 상충]",
+    "confidence": "high",
+    "reason": "양 지수가 6% 이상 폭락하며 서킷브레이커가 발동되었고, 외국인의 강한 순매도세와 미국발 AI 쇼크가 겹쳐 투자심리가 극도로 위축된 상태입니다.",
     "signals": {
-      "idxAvg": -5.15,
-      "flowSum": 672.0,
-      "demoted": true,
+      "idxAvg": -6.95,
+      "flowSum": -1666.0,
+      "demoted": false,
       "promoted": false
     }
   },
   "indices": {
     "kospi": {
-      "price": 5090.73,
-      "rate": -5.44
+      "price": 4992.39,
+      "rate": -7.27
     },
     "kosdaq": {
-      "price": 645.42,
-      "rate": -4.86
+      "price": 633.47,
+      "rate": -6.62
     }
   },
   "investors": {
     "kospi": {
-      "individual": -874.0,
-      "foreign": -157.0,
-      "institution": 829.0
+      "individual": 992.0,
+      "foreign": -5454.0,
+      "institution": 3788.0
     },
     "kosdaq": {
-      "individual": -532.0,
-      "foreign": 180.0,
-      "institution": 341.0
+      "individual": -356.0,
+      "foreign": -550.0,
+      "institution": 881.0
     }
   },
   "indicators": {
     "exchange": [
       {
         "name": "미국 USD",
-        "value": 1356.7,
-        "change": 0.3,
-        "direction": "down"
+        "value": 1357.0,
+        "change": 0.0,
+        "direction": "same"
       },
       {
         "name": "일본 JPY(100엔)",
-        "value": 860.17,
-        "change": 0.43,
+        "value": 859.68,
+        "change": 0.92,
         "direction": "down"
       },
       {
         "name": "유럽연합 EUR",
-        "value": 1522.62,
-        "change": 0.27,
-        "direction": "up"
+        "value": 1521.94,
+        "change": 0.41,
+        "direction": "down"
       },
       {
         "name": "중국 CNY",
-        "value": 203.63,
-        "change": 0.02,
+        "value": 203.64,
+        "change": 0.03,
         "direction": "up"
       }
     ],
@@ -84,23 +84,23 @@
       },
       {
         "name": "달러인덱스",
-        "value": 101.55,
-        "change": 0.0,
-        "direction": "same"
+        "value": 101.57,
+        "change": 0.02,
+        "direction": "up"
       }
     ],
     "commodities": [
       {
         "name": "WTI",
-        "value": 91.02,
-        "change": 0.5,
+        "value": 91.0,
+        "change": 0.48,
         "direction": "up"
       },
       {
         "name": "브렌트유",
         "value": 98.29,
-        "change": 3.67,
-        "direction": "up"
+        "change": 0.0,
+        "direction": "same"
       },
       {
         "name": "두바이유",
@@ -116,14 +116,14 @@
       },
       {
         "name": "국제 금",
-        "value": 4110.3,
-        "change": 3.2,
+        "value": 4102.7,
+        "change": 10.8,
         "direction": "down"
       },
       {
         "name": "국내 금",
-        "value": 178960.0,
-        "change": 500.0,
+        "value": 178550.0,
+        "change": 90.0,
         "direction": "up"
       }
     ],
@@ -154,8 +154,8 @@
       },
       {
         "name": "국고채 (10년)",
-        "value": 3.852,
-        "change": 0.04,
+        "value": 3.856,
+        "change": 0.036,
         "direction": "down"
       }
     ]
@@ -436,6 +436,226 @@
         "trust": -659,
         "pension": -413,
         "etc": 202
+      },
+      {
+        "time": "09:39",
+        "individual": -450,
+        "foreign": 203,
+        "institution": 47,
+        "finInv": 1791,
+        "insur": -2,
+        "trust": -591,
+        "pension": -970,
+        "etc": 200
+      },
+      {
+        "time": "09:40",
+        "individual": 107,
+        "foreign": -913,
+        "institution": 569,
+        "finInv": 2090,
+        "insur": -4,
+        "trust": -568,
+        "pension": -769,
+        "etc": 237
+      },
+      {
+        "time": "09:42",
+        "individual": 78,
+        "foreign": -1312,
+        "institution": 951,
+        "finInv": 2482,
+        "insur": -5,
+        "trust": -745,
+        "pension": -602,
+        "etc": 284
+      },
+      {
+        "time": "09:43",
+        "individual": 110,
+        "foreign": -1811,
+        "institution": 1360,
+        "finInv": 2819,
+        "insur": -5,
+        "trust": -740,
+        "pension": -536,
+        "etc": 341
+      },
+      {
+        "time": "09:45",
+        "individual": 195,
+        "foreign": -2069,
+        "institution": 1511,
+        "finInv": 3004,
+        "insur": -5,
+        "trust": -732,
+        "pension": -579,
+        "etc": 362
+      },
+      {
+        "time": "09:46",
+        "individual": 419,
+        "foreign": -2505,
+        "institution": 1673,
+        "finInv": 3176,
+        "insur": -6,
+        "trust": -728,
+        "pension": -593,
+        "etc": 413
+      },
+      {
+        "time": "09:48",
+        "individual": 369,
+        "foreign": -2644,
+        "institution": 1889,
+        "finInv": 3394,
+        "insur": -6,
+        "trust": -718,
+        "pension": -604,
+        "etc": 386
+      },
+      {
+        "time": "09:49",
+        "individual": 361,
+        "foreign": -2813,
+        "institution": 2045,
+        "finInv": 3500,
+        "insur": -7,
+        "trust": -723,
+        "pension": -549,
+        "etc": 407
+      },
+      {
+        "time": "09:51",
+        "individual": 257,
+        "foreign": -3020,
+        "institution": 2354,
+        "finInv": 3779,
+        "insur": -7,
+        "trust": -725,
+        "pension": -517,
+        "etc": 409
+      },
+      {
+        "time": "09:52",
+        "individual": 333,
+        "foreign": -3265,
+        "institution": 2515,
+        "finInv": 3946,
+        "insur": -8,
+        "trust": -746,
+        "pension": -500,
+        "etc": 417
+      },
+      {
+        "time": "09:54",
+        "individual": 629,
+        "foreign": -3606,
+        "institution": 2521,
+        "finInv": 4035,
+        "insur": -13,
+        "trust": -764,
+        "pension": -560,
+        "etc": 456
+      },
+      {
+        "time": "09:55",
+        "individual": 812,
+        "foreign": -3892,
+        "institution": 2610,
+        "finInv": 4101,
+        "insur": -12,
+        "trust": -788,
+        "pension": -515,
+        "etc": 471
+      },
+      {
+        "time": "09:57",
+        "individual": 656,
+        "foreign": -4108,
+        "institution": 2968,
+        "finInv": 4322,
+        "insur": -12,
+        "trust": -813,
+        "pension": -352,
+        "etc": 484
+      },
+      {
+        "time": "09:58",
+        "individual": 704,
+        "foreign": -4272,
+        "institution": 3068,
+        "finInv": 4396,
+        "insur": -13,
+        "trust": -816,
+        "pension": -322,
+        "etc": 500
+      },
+      {
+        "time": "10:00",
+        "individual": 765,
+        "foreign": -4517,
+        "institution": 3195,
+        "finInv": 4528,
+        "insur": -13,
+        "trust": -811,
+        "pension": -333,
+        "etc": 557
+      },
+      {
+        "time": "10:01",
+        "individual": 884,
+        "foreign": -4686,
+        "institution": 3231,
+        "finInv": 4579,
+        "insur": -14,
+        "trust": -775,
+        "pension": -384,
+        "etc": 571
+      },
+      {
+        "time": "10:03",
+        "individual": 1001,
+        "foreign": -4841,
+        "institution": 3236,
+        "finInv": 4616,
+        "insur": -16,
+        "trust": -773,
+        "pension": -416,
+        "etc": 603
+      },
+      {
+        "time": "10:04",
+        "individual": 1268,
+        "foreign": -5022,
+        "institution": 3107,
+        "finInv": 4630,
+        "insur": -17,
+        "trust": -749,
+        "pension": -583,
+        "etc": 647
+      },
+      {
+        "time": "10:06",
+        "individual": 1140,
+        "foreign": -5296,
+        "institution": 3493,
+        "finInv": 4794,
+        "insur": -18,
+        "trust": -741,
+        "pension": -370,
+        "etc": 663
+      },
+      {
+        "time": "10:07",
+        "individual": 992,
+        "foreign": -5454,
+        "institution": 3788,
+        "finInv": 4911,
+        "insur": -18,
+        "trust": -750,
+        "pension": -210,
+        "etc": 674
       }
     ],
     "kosdaq": [
@@ -713,378 +933,432 @@
         "trust": -160,
         "pension": -21,
         "etc": 11
+      },
+      {
+        "time": "09:39",
+        "individual": -497,
+        "foreign": 78,
+        "institution": 405,
+        "finInv": 601,
+        "insur": -8,
+        "trust": -160,
+        "pension": -26,
+        "etc": 14
+      },
+      {
+        "time": "09:40",
+        "individual": -430,
+        "foreign": -103,
+        "institution": 515,
+        "finInv": 716,
+        "insur": -8,
+        "trust": -159,
+        "pension": -32,
+        "etc": 19
+      },
+      {
+        "time": "09:42",
+        "individual": -455,
+        "foreign": -132,
+        "institution": 572,
+        "finInv": 775,
+        "insur": -9,
+        "trust": -161,
+        "pension": -31,
+        "etc": 15
+      },
+      {
+        "time": "09:43",
+        "individual": -453,
+        "foreign": -192,
+        "institution": 629,
+        "finInv": 836,
+        "insur": -9,
+        "trust": -164,
+        "pension": -31,
+        "etc": 16
+      },
+      {
+        "time": "09:45",
+        "individual": -468,
+        "foreign": -242,
+        "institution": 691,
+        "finInv": 903,
+        "insur": -10,
+        "trust": -168,
+        "pension": -32,
+        "etc": 19
+      },
+      {
+        "time": "09:46",
+        "individual": -434,
+        "foreign": -303,
+        "institution": 716,
+        "finInv": 931,
+        "insur": -10,
+        "trust": -170,
+        "pension": -34,
+        "etc": 21
+      },
+      {
+        "time": "09:48",
+        "individual": -406,
+        "foreign": -367,
+        "institution": 749,
+        "finInv": 972,
+        "insur": -11,
+        "trust": -175,
+        "pension": -37,
+        "etc": 23
+      },
+      {
+        "time": "09:49",
+        "individual": -381,
+        "foreign": -421,
+        "institution": 779,
+        "finInv": 1008,
+        "insur": -11,
+        "trust": -180,
+        "pension": -38,
+        "etc": 22
+      },
+      {
+        "time": "09:51",
+        "individual": -355,
+        "foreign": -475,
+        "institution": 807,
+        "finInv": 1045,
+        "insur": -12,
+        "trust": -187,
+        "pension": -38,
+        "etc": 23
+      },
+      {
+        "time": "09:52",
+        "individual": -351,
+        "foreign": -498,
+        "institution": 826,
+        "finInv": 1075,
+        "insur": -12,
+        "trust": -198,
+        "pension": -39,
+        "etc": 24
+      },
+      {
+        "time": "09:54",
+        "individual": -330,
+        "foreign": -523,
+        "institution": 827,
+        "finInv": 1086,
+        "insur": -12,
+        "trust": -204,
+        "pension": -42,
+        "etc": 26
+      },
+      {
+        "time": "09:55",
+        "individual": -281,
+        "foreign": -576,
+        "institution": 830,
+        "finInv": 1096,
+        "insur": -13,
+        "trust": -209,
+        "pension": -44,
+        "etc": 27
+      },
+      {
+        "time": "09:57",
+        "individual": -281,
+        "foreign": -585,
+        "institution": 839,
+        "finInv": 1114,
+        "insur": -13,
+        "trust": -216,
+        "pension": -45,
+        "etc": 27
+      },
+      {
+        "time": "09:58",
+        "individual": -268,
+        "foreign": -605,
+        "institution": 845,
+        "finInv": 1126,
+        "insur": -13,
+        "trust": -221,
+        "pension": -46,
+        "etc": 27
+      },
+      {
+        "time": "10:00",
+        "individual": -296,
+        "foreign": -584,
+        "institution": 852,
+        "finInv": 1143,
+        "insur": -14,
+        "trust": -230,
+        "pension": -47,
+        "etc": 27
+      },
+      {
+        "time": "10:01",
+        "individual": -303,
+        "foreign": -586,
+        "institution": 863,
+        "finInv": 1162,
+        "insur": -14,
+        "trust": -236,
+        "pension": -49,
+        "etc": 26
+      },
+      {
+        "time": "10:03",
+        "individual": -322,
+        "foreign": -577,
+        "institution": 872,
+        "finInv": 1179,
+        "insur": -14,
+        "trust": -241,
+        "pension": -50,
+        "etc": 26
+      },
+      {
+        "time": "10:04",
+        "individual": -310,
+        "foreign": -600,
+        "institution": 883,
+        "finInv": 1197,
+        "insur": -14,
+        "trust": -247,
+        "pension": -52,
+        "etc": 27
+      },
+      {
+        "time": "10:06",
+        "individual": -320,
+        "foreign": -587,
+        "institution": 881,
+        "finInv": 1202,
+        "insur": -15,
+        "trust": -254,
+        "pension": -52,
+        "etc": 26
+      },
+      {
+        "time": "10:07",
+        "individual": -356,
+        "foreign": -550,
+        "institution": 881,
+        "finInv": 1217,
+        "insur": -15,
+        "trust": -261,
+        "pension": -59,
+        "etc": 25
       }
     ]
   },
   "briefing": [
-    "코스피와 코스닥이 미국발 반도체 쇼크와 데이터센터 규제 우려로 각각 -5.44%, -4.86% 급락하며 서킷브레이커가 발동되었습니다. 수급은 KOSPI 기준 '개인 -874억 · 외국인 -157억 · 기관 +829억'을 기록 중이며, 외국인은 장 초반 매도세를 보이다 09:03 이후 매수 전환을 시도하는 등 변동성을 키우고 있습니다.",
-    "원/달러 환율은 1,356.7원으로 전일 대비 하락했으나 여전히 높은 수준을 유지하며 시장의 불안감을 자극하고 있고, WTI 유가는 91.02달러로 상승하며 인플레이션 경계감을 높였습니다.",
-    "음식료·담배 섹터는 시장 급락 속에서도 상대적으로 낙폭을 제한하며 방어주 성격을 보였으나, 전반적인 투자심리 위축으로 대부분 종목이 하락세를 면치 못했습니다.",
-    "전기·전자 섹터는 미국 중간선거 이후 AI 데이터센터 건설 규제 강화 우려가 확산하며 삼성전자(-9.98%), SK하이닉스(-11.71%) 등 대형주 중심으로 투매가 쏟아져 -7.05% 급락했습니다.",
-    "오늘 밤 발표될 미국의 실업률과 비농업고용지수 등 고용 지표가 향후 시장 방향성을 결정할 핵심 변수가 될 전망입니다."
+    "코스피와 코스닥이 각각 -7.27%, -6.62% 급락하며 서킷브레이커가 발동되는 등 패닉 장세가 연출되었습니다. 수급 측면에서는 외국인이 09:40을 기점으로 순매도로 전환하며 매도 폭을 키우고 있으며, 시장별 수급은 KOSPI 개인 +992억 · 외국인 -5,454억 · 기관 +3,788억, KOSDAQ 개인 -356억 · 외국인 -550억 · 기관 +881억을 기록 중입니다.",
+    "원/달러 환율은 1,357.0원으로 보합세를 보이고 있으나, 미국 기술주 급락에 따른 위험회피 심리가 시장 전반을 지배하고 있습니다.",
+    "증권, 전기·전자, 기계·장비 등 주요 섹터가 일제히 급락했습니다. 특히 미국발 AI 규제 우려와 데이터센터 투자 둔화 소식에 삼성전자, SK하이닉스 등 반도체 대형주와 전력기기 관련주가 투매의 중심에 섰습니다.",
+    "오늘 밤 발표될 미국의 실업률 및 비농업고용지수 등 고용 지표가 향후 시장 방향성을 결정할 주요 관전 포인트가 될 전망입니다."
   ],
   "fxBullets": [
-    "원/달러 환율은 1,356.7원으로 전일 대비 하락했으나, 미국 중간선거 이후 정책 불확실성과 AI 규제 우려가 겹치며 국내 증시의 변동성을 키우는 요인으로 작용하고 있습니다.",
-    "NDF 시장에서 달러-원 1개월물이 급등하는 등 대외 환경 악화가 수출주 중심의 국내 증시에 하방 압력을 가하고 있습니다."
+    "원/달러 환율은 1,357.0원으로 보합권에서 등락 중이나, 미국 기술주 폭락에 따른 위험자산 회피 심리가 강해지며 국내 증시의 외국인 자금 이탈을 부추기고 있습니다."
   ],
   "fxNews": [
     {
-      "title": "원재료 부담에 소비 둔화까지… 식품주 투자심리 얼어붙었다",
-      "link": "https://www.pinpointnews.co.kr/news/articleView.html?idxno=501816",
-      "description": "이처럼 식품 업종 전반에 매도세가 확산하는 것은 원·달러 환율과 국제 곡물 가격 등 원재료 조달 비용에 대한 부담이 커진 데 따른 것으로 풀이된다. 수입 원료 의존도가 높은 기업들은 환율 상승 시 제조원가 부담이... ",
-      "date": "Fri, 06 Nov 2026 09:38:00 +0900"
+      "title": "증시 변동성이 달러선물로…주식시장 헤지 수요에 환율도 출렁",
+      "link": "https://news.einfomax.co.kr/news/articleView.html?idxno=4443430",
+      "description": "달러-원 환율도 이달 들어 1,330원대 초반에서 지지받은 뒤 반등하는 흐름을 보이고 있다. 전일 서울장 종가는 1,342.10원으로 전 거래일 대비 0.60원 상승했다. 이후 미국 기술주 급락에 따른 위험회피 심리가 확산하면서... ",
+      "date": "Fri, 06 Nov 2026 10:06:00 +0900"
     },
     {
-      "title": "안전자산 공식 깨진 금시장…금값·ETF 동반 추락, 반등 변수는",
-      "link": "https://www.imaeil.com/page/view/2026110609204775924",
-      "description": "원·달러 환율은 최근 6개월간 하락세를 보였으며 지난 5일에는 1340.72원을 기록했다. 국제 금값이 달러로 표시되는 만큼 원화 가치가 상승하면 국내 투자자가 체감하는 금 가격의 하락 폭은 더욱 커질 수 있다.... ",
-      "date": "Fri, 06 Nov 2026 09:36:00 +0900"
+      "title": "[특징주] 고려아연 6% 급락⋯3분기 실적 쇼크에 목표가 줄하향",
+      "link": "https://www.etoday.co.kr/news/view/2644937",
+      "description": "실적 부진의 주요 원인으로는 은 가격과 원·달러 환율 하락이 꼽힌다. 상반기 높은 가격과 환율로 매입한 원재료를 3분기 낮아진 판매가격에 판매하면서 수익성이 악화됐다. 아연과 연의 현물 제련수수료(TC) 하락도... ",
+      "date": "Fri, 06 Nov 2026 10:02:00 +0900"
     },
     {
-      "title": "NDF, 1,357.90/ 1,358.30원…16.70원↑",
-      "link": "https://news.einfomax.co.kr/news/articleView.html?idxno=4443404",
-      "description": "뉴욕 차액결제선물환(NDF) 시장에서 달러-원 1개월물이 급등했다. 해외브로커들은 6일 달러-원... 29달러에 장을 끝냈다. 달러 인덱스 종가는 101.577을 기록했다. 달러-엔 환율은 157.660엔, 유로-달러 환율은 1.... ",
-      "date": "Fri, 06 Nov 2026 09:34:00 +0900"
+      "title": "[신윤우의 외환분석] '반도체 쇼크'에 감전된 원화",
+      "link": "https://news.einfomax.co.kr/news/articleView.html?idxno=4443427",
+      "description": "6일 달러-원 환율은 1,350원대로 급등한 뒤 추가 상승 여력을 살필 전망이다. 반도체주 대폭락으로 인한 위험 회피 분위기가 서울 외환시장을 지배할 것으로 보인다. 미국 민주당의 중간 선거 압승은 인공지능(AI)... ",
+      "date": "Fri, 06 Nov 2026 10:02:00 +0900"
     },
     {
-      "title": "코스피, 5000선 붕괴…삼전닉스 동반 10% 급락",
-      "link": "https://news.mtn.co.kr/article/2026110609314696357",
-      "description": "94선을 기록 중이다. 외국인이 매수 우위를 나타내는 반면 개인과 기관은 매도 우위다.서울외환시장에서 원·달러 환율은 전 거래일보다 16.7원 오른 1357.4원을 기록 중이다.임지희 머니투데이방송 MTN 기자",
-      "date": "Fri, 06 Nov 2026 09:32:00 +0900"
+      "title": "[마켓펄스] \"9개월 만에 5000포인트 증발\"...AI 버블 공포에 삼전닉스 '급...",
+      "link": "https://www.ntoday.co.kr/news/articleView.html?idxno=130671",
+      "description": "코스닥150 지수는 3% 이상하락한 후 1분간 지속되면 발동된다. 개인과 외국인은 각각 406억원, 376억원 순매도 중이고 기관은 749억원 순매수하고 있다. 한편 서울 외환시장에서 달러·원 환율은 1355.8원에 개장했다.",
+      "date": "Fri, 06 Nov 2026 09:56:00 +0900"
     },
     {
-      "title": "코스피, 9개월 만에 5천피 붕괴",
-      "link": "https://www.newsis.com/view/NISI20261106_0021521475",
-      "description": "코스피는 전거래일 보다 120.54포인트(2.24%) 내린 5263.26에 개장했다. 코스닥 지수는 전거래일보다 46.65포인트(6.88%) 하락한 631.76에 장을 시작했다. 원·달러 환율은 1357.8에 거래 중이다. 2026.11.06.",
-      "date": "Fri, 06 Nov 2026 09:30:00 +0900"
+      "title": "원달러 환율 1342.1원 마감…국제유가 하루 만에 반등, 국제 금 0.99%↑",
+      "link": "https://www.junggi.co.kr/news/articleView.html?idxno=38394",
+      "description": "5일 서울 외환시장에서 원달러 환율이 외국인 주식 순매도 속에 1342.1원에 마감했고, 뉴욕시장에서는 전날 8%대 급락했던 국제유가가 반등했다. 5일 오후 3시 30분 주간 거래 종가 기준 원달러 환율은 전 거래일보다... ",
+      "date": "Fri, 06 Nov 2026 09:56:00 +0900"
     },
     {
-      "title": "검은 금요일…코스피 급락",
-      "link": "https://www.newsis.com/view/NISI20261106_0021521476",
-      "description": "코스피는 전거래일 보다 120.54포인트(2.24%) 내린 5263.26에 개장했다. 코스닥 지수는 전거래일보다 46.65포인트(6.88%) 하락한 631.76에 장을 시작했다. 원·달러 환율은 1357.8에 거래 중이다. 2026.11.06.",
-      "date": "Fri, 06 Nov 2026 09:30:00 +0900"
+      "title": "금(금값, 금시세) 11월 6일, 뉴욕증시 '폭락' 속 흐름은?",
+      "link": "https://www.cbci.co.kr/news/articleView.html?idxno=623978",
+      "description": "국내 금 투자자들에게는 원·달러 환율도 중요한 변수다. 국내 원화 기준 금 가격은 국제 금값뿐 아니라 환율의 영향을 함께 받는다. 국제 금값이 변하지 않더라도 원·달러 환율이 상승하면 국내 금 가격은 높아질... ",
+      "date": "Fri, 06 Nov 2026 09:54:00 +0900"
     },
     {
-      "title": "美 반도체 쇼크에 코스피 폭락",
-      "link": "https://www.newsis.com/view/NISI20261106_0021521481",
-      "description": "코스피는 전거래일 보다 120.54포인트(2.24%) 내린 5263.26에 개장했다. 코스닥 지수는 전거래일보다 46.65포인트(6.88%) 하락한 631.76에 장을 시작했다. 원·달러 환율은 1357.8에 거래 중이다. 2026.11.06.",
-      "date": "Fri, 06 Nov 2026 09:30:00 +0900"
+      "title": "코스피 서킷브레이커에도…환율, 1350원대 중반서 버텨",
+      "link": "https://www.edaily.co.kr/News/Read?newsId=03873686645643096&mediaCodeNo=257&utm_source=naver&utm_medium=referral&utm_campaign=news_syndication&utm_content=original_article",
+      "description": "코스피지수가 개장 직후 8% 넘게 폭락한 가운데, 원·달러 환율은 증시 개장 이후에도 1350원대 중반의 비교적 좁은 범위에서 움직이고 있다. 6일 서울외환시장에서 오전 9시 40분 현재 원·달러 환율은 1356.... ",
+      "date": "Fri, 06 Nov 2026 09:54:00 +0900"
     },
     {
-      "title": "엘앤에프, 2026년 역대 최대 출하 눈앞…내년 성장세 이어간다",
-      "link": "https://www.epnc.co.kr/news/articleView.html?idxno=409367",
-      "description": "원·달러 환율 급락에도 Ultra 하이니켈 제품의 안정적인 판매가 이어지면서 견조한 매출 흐름을 유지했다. 특히 Ultra 하이니켈 제품의 단독 공급과 북미 신규 고객사향 46파이 제품 판매 확대가 실적 성장을... ",
-      "date": "Fri, 06 Nov 2026 09:30:00 +0900"
+      "title": "원·달러 환율, 증시 패닉에 15.7원 상승…1357.8원",
+      "link": "https://www.ziksir.com/news/articleView.html?idxno=152303",
+      "description": "[연합뉴스]  미국발 인공지능(AI) 규제 우려로 국내외 증시가 급락하면서 원·달러 환율이 장 초반 큰 폭으로 상승했다. 위험자산 회피 심리가 강해진 데다 국내 주식시장에서 외국인 자금이 빠져나갈 수 있다는 우려까지... ",
+      "date": "Fri, 06 Nov 2026 09:50:00 +0900"
     }
   ],
   "sectorHeat": [
     {
-      "name": "음식료·담배",
-      "changePct": 0.39,
-      "index": 4960.1
-    },
-    {
       "name": "제약",
-      "changePct": -0.47,
-      "index": 16602.24
+      "changePct": 0.02,
+      "index": 16684.07
     },
     {
-      "name": "섬유·의류",
-      "changePct": -0.69,
-      "index": 210.64
+      "name": "음식료·담배",
+      "changePct": -1.14,
+      "index": 4884.16
     },
     {
       "name": "종이·목재",
-      "changePct": -1.0,
-      "index": 183.35
+      "changePct": -2.53,
+      "index": 180.53
+    },
+    {
+      "name": "섬유·의류",
+      "changePct": -2.69,
+      "index": 206.39
     },
     {
       "name": "부동산",
-      "changePct": -1.96,
-      "index": 785.79
-    },
-    {
-      "name": "일반서비스",
-      "changePct": -2.08,
-      "index": 1375.87
-    },
-    {
-      "name": "비금속",
-      "changePct": -2.93,
-      "index": 3256.68
-    },
-    {
-      "name": "화학",
-      "changePct": -3.09,
-      "index": 3876.44
-    },
-    {
-      "name": "금속",
-      "changePct": -3.28,
-      "index": 5153.82
-    },
-    {
-      "name": "오락·문화",
-      "changePct": -3.29,
-      "index": 748.61
-    },
-    {
-      "name": "운송·창고",
-      "changePct": -3.52,
-      "index": 2019.79
-    },
-    {
-      "name": "IT 서비스",
-      "changePct": -3.67,
-      "index": 1034.34
+      "changePct": -2.92,
+      "index": 778.13
     },
     {
       "name": "통신",
-      "changePct": -3.83,
-      "index": 550.22
+      "changePct": -3.18,
+      "index": 553.92
+    },
+    {
+      "name": "IT 서비스",
+      "changePct": -3.23,
+      "index": 1039.1
+    },
+    {
+      "name": "오락·문화",
+      "changePct": -3.33,
+      "index": 748.32
+    },
+    {
+      "name": "일반서비스",
+      "changePct": -3.78,
+      "index": 1352.0
+    },
+    {
+      "name": "비금속",
+      "changePct": -3.86,
+      "index": 3225.67
     },
     {
       "name": "전기·가스",
-      "changePct": -4.21,
-      "index": 950.16
+      "changePct": -4.48,
+      "index": 947.41
     },
     {
-      "name": "건설",
-      "changePct": -4.33,
-      "index": 115.93
+      "name": "운송·창고",
+      "changePct": -4.6,
+      "index": 1997.28
     },
     {
-      "name": "의료·정밀기기",
-      "changePct": -4.5,
-      "index": 1435.71
+      "name": "화학",
+      "changePct": -5.46,
+      "index": 3781.49
     },
     {
-      "name": "운송장비·부품",
-      "changePct": -4.87,
-      "index": 3317.02
+      "name": "금속",
+      "changePct": -5.63,
+      "index": 5028.68
     },
     {
       "name": "유통",
-      "changePct": -5.06,
-      "index": 499.2
+      "changePct": -5.65,
+      "index": 496.12
+    },
+    {
+      "name": "운송장비·부품",
+      "changePct": -5.73,
+      "index": 3286.93
     },
     {
       "name": "금융",
-      "changePct": -5.28,
-      "index": 898.47
+      "changePct": -6.63,
+      "index": 885.68
     },
     {
-      "name": "기계·장비",
-      "changePct": -5.42,
-      "index": 1987.2
+      "name": "건설",
+      "changePct": -6.66,
+      "index": 113.11
     },
     {
       "name": "보험",
-      "changePct": -5.5,
-      "index": 40409.95
-    },
-    {
-      "name": "증권",
-      "changePct": -5.78,
-      "index": 3817.57
+      "changePct": -6.88,
+      "index": 39819.45
     },
     {
       "name": "제조",
-      "changePct": -6.13,
-      "index": 14493.48
+      "changePct": -7.56,
+      "index": 14273.82
+    },
+    {
+      "name": "의료·정밀기기",
+      "changePct": -7.72,
+      "index": 1387.39
+    },
+    {
+      "name": "기계·장비",
+      "changePct": -7.76,
+      "index": 1937.99
     },
     {
       "name": "전기·전자",
-      "changePct": -7.05,
-      "index": 76813.63
+      "changePct": -8.54,
+      "index": 75584.95
+    },
+    {
+      "name": "증권",
+      "changePct": -8.6,
+      "index": 3703.38
     }
   ],
   "sectorsUp": [
     {
-      "name": "음식료·담배",
-      "changePct": 0.39,
-      "index": 4960.1,
-      "stocks": [
-        {
-          "code": "033780",
-          "name": "KT&G",
-          "changePct": -0.25746652935118436,
-          "flow": {
-            "date": "20261105",
-            "foreign": -47313,
-            "institution": 82918
-          },
-          "news": [
-            "영업이익 5301억 찍은 KT&G, 5조원 주주환원 선언... 배당금 8,000원으로 ...",
-            "[식음료브리핑] 하이트진로그룹, 정도경영 선포 외",
-            "LS증권 “KT&G, 해외사업 성장·주주환원 확대 기대”…목표가 상향"
-          ],
-          "netBuy": {
-            "frgn": -590.0,
-            "orgn": 0.0,
-            "fund": 0.0
-          }
-        },
-        {
-          "code": "003230",
-          "name": "삼양식품",
-          "changePct": -1.2224938875305624,
-          "flow": {
-            "date": "20261105",
-            "foreign": -8070,
-            "institution": 22180
-          },
-          "news": [
-            "원재료 부담에 소비 둔화까지… 식품주 투자심리 얼어붙었다",
-            "조폐공사 'K-브랜드 정부인증제도' 홍보·'2026년 일터혁신 우수기업' 선...",
-            "하나증권 \"AI 투심 위축에 필수소비재 순환매 기대감, 관련주 KT&G 오리온..."
-          ]
-        },
-        {
-          "code": "271560",
-          "name": "오리온",
-          "changePct": -3.1404958677685952,
-          "flow": {
-            "date": "20261105",
-            "foreign": -39003,
-            "institution": 67570
-          },
-          "news": [
-            "원재료 부담에 소비 둔화까지… 식품주 투자심리 얼어붙었다",
-            "아트박스, 오리온과 '포카칩 황치즈맛 게왹이 에디션' 프로모션",
-            "[똑똑한쇼핑] 롯데면세점, 29CM ‘이구위크’, NS홈쇼핑, 롯데하이마트..."
-          ]
-        },
-        {
-          "code": "097950",
-          "name": "CJ제일제당",
-          "changePct": -3.1028851388132823,
-          "flow": {
-            "date": "20261105",
-            "foreign": 25749,
-            "institution": 19130
-          },
-          "news": [
-            "원재료 부담에 소비 둔화까지… 식품주 투자심리 얼어붙었다",
-            "[식음료브리핑] 하이트진로그룹, 정도경영 선포 외",
-            "하나증권 \"AI 투심 위축에 필수소비재 순환매 기대감, 관련주 KT&G 오리온..."
-          ]
-        },
-        {
-          "code": "004370",
-          "name": "농심",
-          "changePct": -2.3227383863080684,
-          "flow": {
-            "date": "20261105",
-            "foreign": -484,
-            "institution": 4800
-          },
-          "news": [
-            "원재료 부담에 소비 둔화까지… 식품주 투자심리 얼어붙었다",
-            "[식음료브리핑] 하이트진로그룹, 정도경영 선포 외",
-            "농심, 인도 북동부 4개 도시서 '신라면 푸드트럭' 운영…현지 시장 공략..."
-          ]
-        }
-      ],
-      "themes": [
-        {
-          "name": "음식료업종",
-          "changePct": -1.72,
-          "stocks": [
-            {
-              "code": "222980",
-              "name": "한국맥널티",
-              "changePct": 5.05
-            },
-            {
-              "code": "003230",
-              "name": "삼양식품",
-              "changePct": 2.36
-            },
-            {
-              "code": "002600",
-              "name": "조흥",
-              "changePct": 2.07
-            }
-          ],
-          "reasons": [
-            "커피 사업을 주요 사업으로 영위하는 업체. 생두에서부터 원두커피 가공제품까지 커피와 관련된 전반적인 사업 전체를 영위. 주요 상표는 맥널티(Mcnulty)임.",
-            "국내 대표적인 라면 제조업체. 국내 최초의 원조라면 삼양라면을 포함한 불닭볶음면, 짜짜로니, 간짬뽕, 맛있는라면 등 면류와 짱구, 사또밥, 별뽀빠이 등의 스낵류,"
-          ]
-        },
-        {
-          "name": "사료",
-          "changePct": -2.48,
-          "stocks": [
-            {
-              "code": "008040",
-              "name": "사조동아원",
-              "changePct": 0.0
-            },
-            {
-              "code": "036580",
-              "name": "팜스코",
-              "changePct": -0.63
-            },
-            {
-              "code": "001790",
-              "name": "대한제당",
-              "changePct": -1.09
-            }
-          ],
-          "reasons": [
-            "사조그룹 계열사로 양계, 양돈 등의 배합사료 제조 및 판매업체.",
-            "하림그룹 계열사로 배합사료(주요상표: 리더스 등) 전문업체."
-          ]
-        },
-        {
-          "name": "수산",
-          "changePct": -2.33,
-          "stocks": [
-            {
-              "code": "014710",
-              "name": "사조씨푸드",
-              "changePct": -5.26
-            },
-            {
-              "code": "003680",
-              "name": "한성기업",
-              "changePct": -4.76
-            },
-            {
-              "code": "011150",
-              "name": "CJ씨푸드",
-              "changePct": -3.61
-            }
-          ],
-          "reasons": [
-            "사조그룹 계열의 횟감용 참치 가공 및 유통업체. 수산물 가공유통 사업(횟감용 참치), 식품사업(김) 등을 영위. 주요 수출국은 일본이며 점차 시장이 커지고 있는 ",
-            "원양어업 및 수산물 가공업체. 원양어업을 통한 어획물(명태, 참치 등)을 국내 공급 및 수출하는 해외사업과 수산 및 육가공 식품을 제조, 판매하는 식품사업을 영위"
-          ]
-        }
-      ]
-    },
-    {
       "name": "제약",
-      "changePct": -0.47,
-      "index": 16602.24,
+      "changePct": 0.02,
+      "index": 16684.07,
       "stocks": [
         {
           "code": "207940",
           "name": "삼성바이오로직스",
-          "changePct": -1.710526315789474,
+          "changePct": 0.7894736842105263,
           "flow": {
             "date": "20261105",
             "foreign": -28547,
             "institution": 37910
           },
           "news": [
-            "코스피, 개장 직후 8%대 폭락…서킷브레이커 발동",
-            "[개장시황]美 반도체 쇼크에 코스피 8%대 급락…올해 11번째 서킷브레이...",
-            "삼성바이오로직스 노조, 오늘부터 3주간 2차 부분 파업"
+            "삼성바이오 노조, 파업 참여 여부 실명 투표 '논란'",
+            "\"5,000선도 무너졌다\"… 코스피 8.5% 폭락에 '서킷브레이커' 발동",
+            "[개장] AI 규제 우려에 코스피 8%대 폭락…5000선 붕괴"
           ],
           "netBuy": {
-            "frgn": 4623.0,
+            "frgn": 6216.0,
             "orgn": 0.0,
             "fund": 0.0
           }
@@ -1092,52 +1366,57 @@
         {
           "code": "068270",
           "name": "셀트리온",
-          "changePct": -3.953488372093023,
+          "changePct": -3.255813953488372,
           "flow": {
             "date": "20261105",
             "foreign": 26488,
             "institution": 1042520
           },
           "news": [
-            "코스피, 개장 직후 8%대 폭락…서킷브레이커 발동",
-            "[개장시황]美 반도체 쇼크에 코스피 8%대 급락…올해 11번째 서킷브레이...",
-            "코스피, 개장 직후 5000 붕괴 및 서킷브레이커 발동...美 반도체 폭락 직..."
+            "미국발 'AI 쇼크' 韓 증시 초토화⋯'검은 금요일' 코스피 5000선 붕괴",
+            "코스피, 장초반 8%대 폭락에 서킷브레이커 발동...장중 4900선까지 추락",
+            "불과 3분 만에 5000선 붕괴…8%대 폭락에 서킷브레이커 발동 [투자360]"
           ]
         },
         {
           "code": "000100",
           "name": "유한양행",
-          "changePct": -4.479418886198547,
+          "changePct": -3.631961259079903,
           "flow": {
             "date": "20261105",
             "foreign": -37747,
             "institution": 117927
           },
           "news": [
-            "[제약+] 동국제약, ‘센텔리안24’ 유럽시장 진출 外",
-            "유한양행, 강황 더한 '콘드로이친1200 골드스틱' 출시···온라인 시장...",
-            "제2 경쟁 심화 글로벌 GLP-1 시장… 후발주자 국내 제약·바이오 활로는"
+            "외래어종 잡고 유해식물 없애고…제약사들 생태계 보전 나섰다",
+            "[금주의 군포시] 군포시노인복지관, '2026 감사·문화페스티벌' 개최... ...",
+            "유한양행, 하루 한 포 관절 건강관리…'콘드로이친1200 골드스틱' 출시"
           ]
         },
         {
           "code": "128940",
           "name": "한미약품",
-          "changePct": -1.935483870967742,
+          "changePct": 0.8602150537634409,
           "flow": {
             "date": "20261105",
             "foreign": -34425,
             "institution": 101066
           },
           "news": [
-            "[평택시 정책 브리핑]평택-中 옌타이, 글로벌 바이오산업 육성 협력망 ...",
-            "평택, 中 옌타이와 바이오 협력망 구축…2027년 육성전략 구체화",
-            "한미약품, MSD 기술수출 MASH 신약 2b상 기대 상회-NH투자證"
-          ]
+            "첫 달은 절반 가격…국산 비만약 '에페' 효과 입증은 과제",
+            "[지역이 경쟁력이다] 평택시,'글로벌 바이오 허브' 도약 속도…'中 옌타...",
+            "모두가 날씬한 세상 속 신풍속도"
+          ],
+          "netBuy": {
+            "frgn": 480.0,
+            "orgn": 2877.0,
+            "fund": 0.0
+          }
         },
         {
           "code": "302440",
           "name": "SK바이오사이언스",
-          "changePct": -3.3829499323410013,
+          "changePct": -0.6765899864682002,
           "flow": {
             "date": "20261105",
             "foreign": 31800,
@@ -1153,47 +1432,47 @@
       "themes": [
         {
           "name": "제약업체",
-          "changePct": -2.78,
+          "changePct": -3.55,
           "stocks": [
-            {
-              "code": "207940",
-              "name": "삼성바이오로직스",
-              "changePct": 1.78
-            },
             {
               "code": "128940",
               "name": "한미약품",
-              "changePct": 1.51
+              "changePct": 2.58
             },
             {
-              "code": "004720",
-              "name": "팜젠사이언스",
-              "changePct": 0.35
+              "code": "207940",
+              "name": "삼성바이오로직스",
+              "changePct": 1.84
+            },
+            {
+              "code": "302440",
+              "name": "SK바이오사이언스",
+              "changePct": 0.54
             }
           ],
           "reasons": [
-            "삼성그룹 계열사로 국내외 제약회사의 첨단 바이오의약품을 위탁 생산하는 CMO(Contract Manufacturing Organization) 사업과 세포주 개발",
-            "2010년 7월 지주회사 체제로 전환되면서 신설된 사업회사로 기존 한미약품의 의약품 제조, 판매 사업을 영위. 주요 제품으로는 복합고혈압치료제 \"아모잘탄\", 복합"
+            "2010년 7월 지주회사 체제로 전환되면서 신설된 사업회사로 기존 한미약품의 의약품 제조, 판매 사업을 영위. 주요 제품으로는 복합고혈압치료제 \"아모잘탄\", 복합",
+            "삼성그룹 계열사로 국내외 제약회사의 첨단 바이오의약품을 위탁 생산하는 CMO(Contract Manufacturing Organization) 사업과 세포주 개발"
           ]
         },
         {
           "name": "코로나19(진단/치료제/백신 개발 등)",
-          "changePct": -3.76,
+          "changePct": -4.23,
           "stocks": [
             {
               "code": "354200",
               "name": "엔젠바이오",
-              "changePct": 5.1
+              "changePct": 10.2
             },
             {
               "code": "225220",
               "name": "제놀루션",
-              "changePct": 2.37
+              "changePct": 1.95
             },
             {
-              "code": "004720",
-              "name": "팜젠사이언스",
-              "changePct": 0.35
+              "code": "302440",
+              "name": "SK바이오사이언스",
+              "changePct": 0.54
             }
           ],
           "reasons": [
@@ -1203,22 +1482,22 @@
         },
         {
           "name": "치매",
-          "changePct": -3.34,
+          "changePct": -3.76,
           "stocks": [
             {
               "code": "354200",
               "name": "엔젠바이오",
-              "changePct": 5.1
+              "changePct": 10.2
             },
             {
               "code": "012690",
               "name": "모나리자",
-              "changePct": 0.99
+              "changePct": 0.23
             },
             {
-              "code": "069620",
-              "name": "대웅제약",
-              "changePct": 0.09
+              "code": "304840",
+              "name": "타임X AI",
+              "changePct": 0.0
             }
           ],
           "reasons": [
@@ -1229,158 +1508,324 @@
       ]
     },
     {
-      "name": "섬유·의류",
-      "changePct": -0.69,
-      "index": 210.64,
+      "name": "음식료·담배",
+      "changePct": -1.14,
+      "index": 4884.16,
       "stocks": [
         {
-          "code": "383220",
-          "name": "F&F",
-          "changePct": -3.74414976599064,
+          "code": "033780",
+          "name": "KT&G",
+          "changePct": 0.25746652935118436,
           "flow": {
             "date": "20261105",
-            "foreign": 30297,
-            "institution": -7867
+            "foreign": -47313,
+            "institution": 82918
           },
           "news": [
-            "F&F, 11일 국내 기관투자자 대상 설명회",
-            "'블루 쓰나미' 휩쓴 美 중간선거…글로벌 패션주 급등",
-            "패션주 영원 계열 큰폭 상승, 뷰티주 강세 두드러져"
+            "\"주주환원 5조 풀고 배당 두 자릿수 성장\"…키움證, KT&G 목표가 26만400...",
+            "최수종♥하희라, '러브레터' 첫 공연 성료…50년 사랑 그린 깊은 감동",
+            "법무보호공단 광주지부, 법무보호대상자 자녀공부방 만들기 지원"
+          ],
+          "netBuy": {
+            "frgn": 1165.0,
+            "orgn": 388.0,
+            "fund": 0.0
+          }
+        },
+        {
+          "code": "003230",
+          "name": "삼양식품",
+          "changePct": -1.9559902200488997,
+          "flow": {
+            "date": "20261105",
+            "foreign": -8070,
+            "institution": 22180
+          },
+          "news": [
+            "환율하락 수혜 기대에도 음식료주 부진…내수 둔화 부담 여전",
+            "원재료 부담에 소비 둔화까지… 식품주 투자심리 얼어붙었다",
+            "조폐공사 'K-브랜드 정부인증제도' 홍보·'2026년 일터혁신 우수기업' 선..."
           ]
         },
         {
-          "code": "093050",
-          "name": "LF",
-          "changePct": -3.837471783295711,
+          "code": "271560",
+          "name": "오리온",
+          "changePct": -0.9917355371900827,
           "flow": {
             "date": "20261105",
-            "foreign": 142,
-            "institution": -2027
+            "foreign": -39003,
+            "institution": 67570
           },
           "news": [
-            "일상 파고든 패팅…리복, 초경량부터 프리미엄 구스다운까지",
-            "리복, F/W 패딩 소재 차별화... 경량부터 프리미엄까지",
-            "리복, 패딩도 소재로 승부…경량부터 프리미엄 다운까지 차별화"
+            "환율하락 수혜 기대에도 음식료주 부진…내수 둔화 부담 여전",
+            "재계를 바꾸는 80년대생 오너들 ④",
+            "오리온, 중국·러시아서 잘 버네…주주에게 얼마 돌려줄까"
           ]
         },
         {
-          "code": "004700",
-          "name": "조광피혁",
-          "changePct": -2.12443095599393,
+          "code": "097950",
+          "name": "CJ제일제당",
+          "changePct": -2.6129559063690797,
           "flow": {
             "date": "20261105",
-            "foreign": -155,
-            "institution": 518
+            "foreign": 25749,
+            "institution": 19130
           },
           "news": [
-            "주식농부 박영옥과 조광피혁의 끝나지 않은 갈등...“20년 투자한 회사...",
-            "\"일감 몰아줘 사익 추구\"…뿔난 조광피혁 '개미'들, 이사회에 1억 손배소...",
-            "[데이터 뉴스룸] 섬유패션 업종 40개 주식종목 하반기 시총 7%대 하락…..."
+            "환율하락 수혜 기대에도 음식료주 부진…내수 둔화 부담 여전",
+            "원재료 부담에 소비 둔화까지… 식품주 투자심리 얼어붙었다",
+            "[식음료브리핑] 하이트진로그룹, 정도경영 선포 외"
           ]
         },
         {
-          "code": "020000",
-          "name": "한섬",
-          "changePct": -4.540481400437637,
+          "code": "004370",
+          "name": "농심",
+          "changePct": -2.2004889975550124,
           "flow": {
             "date": "20261105",
-            "foreign": -10862,
-            "institution": 2913
+            "foreign": -484,
+            "institution": 4800
           },
           "news": [
-            "유태영號 출범 앞둔 한섬…실적 반등 넘어 성장 지속성 입증할까"
-          ]
-        },
-        {
-          "code": "105630",
-          "name": "한세실업",
-          "changePct": -2.2946859903381642,
-          "flow": {
-            "date": "20261105",
-            "foreign": -1607,
-            "institution": -349
-          },
-          "news": [
-            "패션주 영원 계열 큰폭 상승, 뷰티주 강세 두드러져",
-            "패션·뷰티주 동반 약세…섬유·화학주 일부 종목 선방",
-            "LG생건·아모레 주가, 오를 일만 남았나?…국민연금, 집중 매입 나선 까..."
+            "농심, 인도 4개 도시서 신라면 푸드트럭 운영...14억 시장 공략",
+            "환율하락 수혜 기대에도 음식료주 부진…내수 둔화 부담 여전",
+            "'신라면 푸드트럭', 인도 달린다"
           ]
         }
       ],
       "themes": [
         {
-          "name": "패션/의류",
-          "changePct": -2.16,
+          "name": "음식료업종",
+          "changePct": -2.48,
           "stocks": [
             {
-              "code": "335870",
-              "name": "윙스풋",
-              "changePct": 29.97
+              "code": "290720",
+              "name": "푸드나무",
+              "changePct": 1.32
             },
             {
-              "code": "011080",
-              "name": "형지I&C",
-              "changePct": 12.8
-            },
-            {
-              "code": "093240",
-              "name": "형지엘리트",
-              "changePct": 4.77
-            }
-          ],
-          "reasons": [
-            "국내 신발 유통사업을 주 사업으로 영위. 내 독점 라이선스를 보유하고 있는 이탈리아 브랜드인 아드노(ADNO), 컬트(CULT), 페슈라(FESSURA)와 미국 ",
-            "의류 제조(외주가공) 및 도/소매 등의 사업을 영위하는 업체. 자사 브랜드로 국내 대표 셔츠 브랜드 'YEZAC', 기성 남성복 최초의 컬렉션 브랜드 'BON',"
-          ]
-        },
-        {
-          "name": "日제품 불매운동(수혜)",
-          "changePct": -0.4,
-          "stocks": [
-            {
-              "code": "004540",
-              "name": "깨끗한나라",
-              "changePct": 25.48
+              "code": "222980",
+              "name": "한국맥널티",
+              "changePct": 1.2
             },
             {
               "code": "250000",
               "name": "보라티알",
-              "changePct": 1.18
-            },
-            {
-              "code": "012690",
-              "name": "모나리자",
-              "changePct": 0.99
+              "changePct": 0.59
             }
           ],
           "reasons": [
-            "日 제품 불매 운동 확산에 일본 마미포코 기저귀 수요를 대체할 수 있는 보솜이 브랜드를 보유중인 동사가 수혜주로 부각.",
-            "식품 식자재 수입, 도소매 유통 업체. 日 제품 불매 운동으로 인한 일본 음식점 매출 감소 소식에 이탈리아와 프랑스, 스페인 등 유럽 해외 식자재 업체로부터 제품"
+            "B2C 전자상거래 플랫폼을 이용한 푸드테크 업체로 닭가슴살 가공식품 등 다이어트 및 간편건강식품의 유통과 생산(OEM)을 주요사업으로 영위.",
+            "커피 사업을 주요 사업으로 영위하는 업체. 생두에서부터 원두커피 가공제품까지 커피와 관련된 전반적인 사업 전체를 영위. 주요 상표는 맥널티(Mcnulty)임."
           ]
         },
         {
-          "name": "남북경협",
-          "changePct": -2.18,
+          "name": "아프리카 돼지열병(ASF)",
+          "changePct": -3.32,
           "stocks": [
             {
-              "code": "093240",
-              "name": "형지엘리트",
-              "changePct": 4.77
+              "code": "006980",
+              "name": "우성",
+              "changePct": 0.44
             },
             {
-              "code": "030960",
-              "name": "양지사",
-              "changePct": 4.64
+              "code": "033250",
+              "name": "체시스",
+              "changePct": 0.0
             },
             {
-              "code": "119850",
-              "name": "지엔씨에너지",
-              "changePct": 1.93
+              "code": "036480",
+              "name": "대성미생물",
+              "changePct": -0.19
             }
           ],
           "reasons": [
-            "학생복 제조 전문업체로 과거 개성공단 입주 협력사를 통해 학생복 등 제품 생산. 16년2월 우리 정부가 북한 핵실험/장거리 미사일 발사에 따른 대응조치로 개성공단",
-            "과거 개성공단 토지이용권을 보유하고 있는 점이 남북경협 수혜주로 부각."
+            "동사 및 종속기업은 배합사료 전문 업체로 가축용 배합사료 및 양어, 반려동물 사료의 제조, 판매업을 영위중. 배합사료 제조 및 판매 업체인 우성사료를 종속회사로 ",
+            "계열회사 넬바이오텍이 동물약품, 단미사료, 기능성비료, 동물약품원료 제조/도매 및 농수축산용기자재 도소매 등 동물용 의약품 제조업 영위. 아프리카돼지열병 발병소식"
+          ]
+        },
+        {
+          "name": "사료",
+          "changePct": -3.68,
+          "stocks": [
+            {
+              "code": "006980",
+              "name": "우성",
+              "changePct": 0.44
+            },
+            {
+              "code": "001790",
+              "name": "대한제당",
+              "changePct": -0.73
+            },
+            {
+              "code": "008040",
+              "name": "사조동아원",
+              "changePct": -1.16
+            }
+          ],
+          "reasons": [
+            "동사 및 종속기업은 배합사료 전문 업체로 가축용 배합사료 및 양어, 반려동물 사료의 제조, 판매업을 영위중. 배합사료 제조 및 판매 업체인 우성사료를 종속회사로 ",
+            "식품, 축산유통 사업 등을 영위하는 업체. 종속회사를 통해 사료사업부문 및 골프장, 외식업 등도 영위중. 주요 제품으로는 식품부문의 설탕 및 조제품, 사료부문의 "
+          ]
+        }
+      ]
+    },
+    {
+      "name": "종이·목재",
+      "changePct": -2.53,
+      "index": 180.53,
+      "stocks": [
+        {
+          "code": "016590",
+          "name": "신대양제지",
+          "changePct": -0.3614457831325301,
+          "flow": {
+            "date": "20261105",
+            "foreign": 10,
+            "institution": -161
+          },
+          "news": [
+            "[52주] 신고가 1개, 신저가 49개... 코스피 4%대 상승",
+            "신대양제지 자회사, 재가동 설비에 1904억원 투자",
+            "대양제지공업, 공장 재가동 설비에 1904억원 투자"
+          ]
+        },
+        {
+          "code": "002310",
+          "name": "아세아제지",
+          "changePct": -3.2394366197183095,
+          "flow": {
+            "date": "20261105",
+            "foreign": 3311,
+            "institution": 264
+          },
+          "news": [
+            "11월 3일 주식시장 주요공시",
+            "[코스피·코스닥, 삼성바이오로직스 엔비디아 엘앤에프 LG에너지솔루션...",
+            "[N2 모닝 경제 브리핑-11월 4일] 美 증시, 반도체주 강세에 나스닥 0.83%↑..."
+          ]
+        },
+        {
+          "code": "213500",
+          "name": "한솔제지",
+          "changePct": -2.727272727272727,
+          "flow": {
+            "date": "20261105",
+            "foreign": 4903,
+            "institution": -2722
+          },
+          "news": [
+            "[더벨][저PBR 기업 전략 점검] 삼양그룹, 보유 지분가치 밑돈 몸값…밸...",
+            "저PBR 딱지 붙자 주가 들썩였지만…\"현금 없는 저평가주 피해야\"",
+            "한솔제지, 7분기 만에 적자 전환…원가·소송 리스크 돌파할까"
+          ]
+        },
+        {
+          "code": "009580",
+          "name": "무림P&P",
+          "changePct": -3.9523212045169385,
+          "flow": {
+            "date": "20261105",
+            "foreign": 28184,
+            "institution": -816
+          },
+          "news": [
+            "양자컴퓨팅 기대감 확산…통신주 강세속 관련주 차익 매물",
+            "이마트 등 151개 기업 '저PBR 꼬리표'붙여 공개 망신주기",
+            "‘찍히면 오른다’…저PBR주 급등"
+          ]
+        },
+        {
+          "code": "002200",
+          "name": "한국수출포장",
+          "changePct": -0.5703422053231939,
+          "flow": {
+            "date": "20261105",
+            "foreign": -2409,
+            "institution": -53
+          },
+          "news": [
+            "[강대웅의 정문일침(頂門一鍼)] 조용호 오산시장의 10월, 발품으로 쓴 오...",
+            "오산시, 공장 화재부터 암모니아 누출까지…재난대응 안전한국훈련 실...",
+            "오산시, 화재·암모니아 누출 복합재난 대비 훈련 실시"
+          ]
+        }
+      ],
+      "themes": [
+        {
+          "name": "제지",
+          "changePct": -1.24,
+          "stocks": [
+            {
+              "code": "004540",
+              "name": "깨끗한나라",
+              "changePct": 19.31
+            },
+            {
+              "code": "001020",
+              "name": "페이퍼코리아",
+              "changePct": 0.17
+            },
+            {
+              "code": "002870",
+              "name": "신풍",
+              "changePct": -2.35
+            }
+          ],
+          "reasons": [
+            "포장재로 사용되는 백판지 등을 제조/판매하는 제지사업 등을 영위하는 업체.",
+            "신문용지 및 산업용지 전문 생산업체. 주요 매출처는 조선일보, 동아일보, 매일경제 등임."
+          ]
+        },
+        {
+          "name": "골판지 제조",
+          "changePct": -3.48,
+          "stocks": [
+            {
+              "code": "023600",
+              "name": "삼보판지",
+              "changePct": -1.39
+            },
+            {
+              "code": "002200",
+              "name": "한국수출포장",
+              "changePct": -2.47
+            },
+            {
+              "code": "017650",
+              "name": "대림제지",
+              "changePct": -2.76
+            }
+          ],
+          "reasons": [
+            "공산품, 식품, 의약품 및 농/수산물 등 각종 제품의 외부포장에 사용되는 골판지 및 골판지상자 제조업체.",
+            "골판지 상자 및 골판지 원단, 골판지 원지 제조/판매업체."
+          ]
+        },
+        {
+          "name": "리모델링/인테리어",
+          "changePct": -3.7,
+          "stocks": [
+            {
+              "code": "006570",
+              "name": "대림통상",
+              "changePct": -0.44
+            },
+            {
+              "code": "005750",
+              "name": "대림바스",
+              "changePct": -0.62
+            },
+            {
+              "code": "002820",
+              "name": "SUN&L",
+              "changePct": -1.3
+            }
+          ],
+          "reasons": [
+            "수전금구, 비데, 감지기, 샤워부스, 기타 건자재 등을 제조, 판매하는 사업 등을 영위하는 건자재 종합 전문업체. 대림 도비도스몰을 통해 욕실인테리어 제품 등을 ",
+            "위생도기 제조/판매사업 및 욕실관련 상품 판매 및 렌탈, 클린서비스 등을 영위하는 욕실관련 건축자재업체. 주요제품으로는 위생도기(양변기, 세면기, 소변기), 수전"
           ]
         }
       ]
@@ -1388,367 +1833,24 @@
   ],
   "sectorsDown": [
     {
-      "name": "전기·전자",
-      "changePct": -7.05,
-      "index": 76813.63,
-      "stocks": [
-        {
-          "code": "005930",
-          "name": "삼성전자",
-          "changePct": -9.975186104218363,
-          "flow": {
-            "date": "20261105",
-            "foreign": -5772197,
-            "institution": 75714
-          },
-          "news": [
-            "[커리어 칼럼] AI 시대의 취업 전략, '이름값'보다 '성장 생태계'를 보라",
-            "[개장시황]美 반도체 쇼크에 코스피 8%대 급락…올해 11번째 서킷브레이...",
-            "코스피, 개장 직후 8%대 폭락…서킷브레이커 발동"
-          ],
-          "netBuy": {
-            "frgn": -55964.0,
-            "orgn": 0.0,
-            "fund": 0.0
-          }
-        },
-        {
-          "code": "000660",
-          "name": "SK하이닉스",
-          "changePct": -11.708860759493671,
-          "flow": {
-            "date": "20261105",
-            "foreign": -1179521,
-            "institution": 233663
-          },
-          "news": [
-            "[커리어 칼럼] AI 시대의 취업 전략, '이름값'보다 '성장 생태계'를 보라",
-            "코스피, 개장 직후 8%대 폭락…서킷브레이커 발동",
-            "[개장시황]美 반도체 쇼크에 코스피 8%대 급락…올해 11번째 서킷브레이..."
-          ],
-          "netBuy": {
-            "frgn": 19737.0,
-            "orgn": 0.0,
-            "fund": 0.0
-          }
-        },
-        {
-          "code": "373220",
-          "name": "LG에너지솔루션",
-          "changePct": -3.4682080924855487,
-          "flow": {
-            "date": "20261105",
-            "foreign": 1342,
-            "institution": 39870
-          },
-          "netBuy": {
-            "frgn": 7119.0,
-            "orgn": 0.0,
-            "fund": 0.0
-          }
-        },
-        {
-          "code": "009150",
-          "name": "삼성전기",
-          "changePct": -14.30084745762712,
-          "flow": {
-            "date": "20261105",
-            "foreign": -350143,
-            "institution": -192559
-          },
-          "news": [
-            "[개장시황]美 반도체 쇼크에 코스피 8%대 급락…올해 11번째 서킷브레이...",
-            "코스피, 개장 직후 8%대 폭락…서킷브레이커 발동",
-            "'블루쓰나미' 한국증시도 삼켰다...개장 직후 8%대 급락, 5000선 붕괴"
-          ],
-          "netBuy": {
-            "frgn": 6912.0,
-            "orgn": 0.0,
-            "fund": 0.0
-          }
-        },
-        {
-          "code": "006400",
-          "name": "삼성SDI",
-          "changePct": -7.662082514734774,
-          "flow": {
-            "date": "20261105",
-            "foreign": 2003,
-            "institution": -26679
-          }
-        }
-      ],
-      "themes": [
-        {
-          "name": "아이폰",
-          "changePct": -5.56,
-          "stocks": [
-            {
-              "code": "272290",
-              "name": "이녹스첨단소재",
-              "changePct": -6.43
-            },
-            {
-              "code": "005930",
-              "name": "삼성전자",
-              "changePct": -6.4
-            },
-            {
-              "code": "000670",
-              "name": "영풍",
-              "changePct": -6.3
-            }
-          ],
-          "reasons": [
-            "다양한 아이폰 OLED 패널 소재를 개발 및 공급. 아이폰의 LTPS 패널용 패턴드 필름 공급.",
-            "자회사인 삼성디스플레이가 아이폰X에 곡면 유기발광다이오드(OLED) 디스플레이를 공급."
-          ]
-        },
-        {
-          "name": "온디바이스 AI",
-          "changePct": -6.45,
-          "stocks": [
-            {
-              "code": "094360",
-              "name": "칩스앤미디어",
-              "changePct": -6.83
-            },
-            {
-              "code": "394280",
-              "name": "오픈엣지테크놀로지",
-              "changePct": -6.8
-            },
-            {
-              "code": "405100",
-              "name": "큐알티",
-              "changePct": -6.63
-            }
-          ],
-          "reasons": [
-            "시스템 반도체 설계 자산(IP) 개발 및 판매업을 영위하는 반도체 설계자산 전문업체. 생성형 AI나 온디바이스 AI 서비스 중에서도 중추적인 분야라고 할 수 있는",
-            "시스템반도체 설계 IP 기술 개발 업체. 인공지능 기술을 자율주행자동차, 보안카메라 등과 같은 엣지 환경에서 구현하기 위해 반드시 필요한 시스템반도체 설계 IP("
-          ]
-        },
-        {
-          "name": "시스템반도체",
-          "changePct": -5.51,
-          "stocks": [
-            {
-              "code": "033170",
-              "name": "시그네틱스",
-              "changePct": -4.09
-            },
-            {
-              "code": "303030",
-              "name": "지니틱스",
-              "changePct": -3.94
-            },
-            {
-              "code": "093640",
-              "name": "케이알엠",
-              "changePct": -3.71
-            }
-          ],
-          "reasons": [
-            "영풍그룹의 계열의 반도체 패키징(테스트포함) 전문 업체. 독자개발 및 특허를 취득한 STBGA (signetics tape ball grid array) 양산체제",
-            "시스템 반도체 설계를 전문으로 하는 팹리스 회사로, 주요 제품으로는 시스템 반도체의 가장 기본이 되며 핵심인 터치 컨트롤러 IC, Auto Focus & OIS "
-          ]
-        }
-      ]
-    },
-    {
-      "name": "제조",
-      "changePct": -6.13,
-      "index": 14493.48,
-      "stocks": [
-        {
-          "code": "005930",
-          "name": "삼성전자",
-          "changePct": -9.975186104218363,
-          "flow": {
-            "date": "20261105",
-            "foreign": -5772197,
-            "institution": 75714
-          },
-          "news": [
-            "[커리어 칼럼] AI 시대의 취업 전략, '이름값'보다 '성장 생태계'를 보라",
-            "[개장시황]美 반도체 쇼크에 코스피 8%대 급락…올해 11번째 서킷브레이...",
-            "코스피, 개장 직후 8%대 폭락…서킷브레이커 발동"
-          ],
-          "netBuy": {
-            "frgn": -55964.0,
-            "orgn": 0.0,
-            "fund": 0.0
-          }
-        },
-        {
-          "code": "000660",
-          "name": "SK하이닉스",
-          "changePct": -11.708860759493671,
-          "flow": {
-            "date": "20261105",
-            "foreign": -1179521,
-            "institution": 233663
-          },
-          "news": [
-            "[커리어 칼럼] AI 시대의 취업 전략, '이름값'보다 '성장 생태계'를 보라",
-            "코스피, 개장 직후 8%대 폭락…서킷브레이커 발동",
-            "[개장시황]美 반도체 쇼크에 코스피 8%대 급락…올해 11번째 서킷브레이..."
-          ],
-          "netBuy": {
-            "frgn": 19737.0,
-            "orgn": 0.0,
-            "fund": 0.0
-          }
-        },
-        {
-          "code": "373220",
-          "name": "LG에너지솔루션",
-          "changePct": -3.4682080924855487,
-          "flow": {
-            "date": "20261105",
-            "foreign": 1342,
-            "institution": 39870
-          },
-          "netBuy": {
-            "frgn": 7119.0,
-            "orgn": 0.0,
-            "fund": 0.0
-          }
-        },
-        {
-          "code": "009150",
-          "name": "삼성전기",
-          "changePct": -14.30084745762712,
-          "flow": {
-            "date": "20261105",
-            "foreign": -350143,
-            "institution": -192559
-          },
-          "news": [
-            "[개장시황]美 반도체 쇼크에 코스피 8%대 급락…올해 11번째 서킷브레이...",
-            "코스피, 개장 직후 8%대 폭락…서킷브레이커 발동",
-            "'블루쓰나미' 한국증시도 삼켰다...개장 직후 8%대 급락, 5000선 붕괴"
-          ],
-          "netBuy": {
-            "frgn": 6912.0,
-            "orgn": 0.0,
-            "fund": 0.0
-          }
-        },
-        {
-          "code": "207940",
-          "name": "삼성바이오로직스",
-          "changePct": -1.710526315789474,
-          "flow": {
-            "date": "20261105",
-            "foreign": -28547,
-            "institution": 37910
-          },
-          "news": [
-            "코스피, 개장 직후 8%대 폭락…서킷브레이커 발동",
-            "[개장시황]美 반도체 쇼크에 코스피 8%대 급락…올해 11번째 서킷브레이...",
-            "삼성바이오로직스 노조, 오늘부터 3주간 2차 부분 파업"
-          ],
-          "netBuy": {
-            "frgn": 4623.0,
-            "orgn": 0.0,
-            "fund": 0.0
-          }
-        }
-      ],
-      "themes": [
-        {
-          "name": "자율주행차",
-          "changePct": -4.36,
-          "stocks": [
-            {
-              "code": "035420",
-              "name": "NAVER",
-              "changePct": -2.7
-            },
-            {
-              "code": "064800",
-              "name": "포니링크",
-              "changePct": -2.54
-            },
-            {
-              "code": "030200",
-              "name": "KT",
-              "changePct": -2.32
-            }
-          ],
-          "reasons": [
-            "자율주행 등 미래 기술을 연구하기 위해 설립된 R&D 전문 회사 네이버랩스를 자회사로 보유. 2017년 IT업계 최초로 국토부로부터 자율주행차 임시운행 허가를 받",
-            "모빌리티사업부에서 자율주행 모빌리티 서비스 운영과 데이터분석 및 부가서비스 개발을 목표로 자율주행사업을 위한 포트폴리오를 구상중에 있음. 현재 자율주행 솔루션의 "
-          ]
-        },
-        {
-          "name": "아이폰",
-          "changePct": -5.56,
-          "stocks": [
-            {
-              "code": "272290",
-              "name": "이녹스첨단소재",
-              "changePct": -6.43
-            },
-            {
-              "code": "005930",
-              "name": "삼성전자",
-              "changePct": -6.4
-            },
-            {
-              "code": "000670",
-              "name": "영풍",
-              "changePct": -6.3
-            }
-          ],
-          "reasons": [
-            "다양한 아이폰 OLED 패널 소재를 개발 및 공급. 아이폰의 LTPS 패널용 패턴드 필름 공급.",
-            "자회사인 삼성디스플레이가 아이폰X에 곡면 유기발광다이오드(OLED) 디스플레이를 공급."
-          ]
-        },
-        {
-          "name": "온디바이스 AI",
-          "changePct": -6.45,
-          "stocks": [
-            {
-              "code": "094360",
-              "name": "칩스앤미디어",
-              "changePct": -6.83
-            },
-            {
-              "code": "394280",
-              "name": "오픈엣지테크놀로지",
-              "changePct": -6.8
-            },
-            {
-              "code": "405100",
-              "name": "큐알티",
-              "changePct": -6.63
-            }
-          ],
-          "reasons": [
-            "시스템 반도체 설계 자산(IP) 개발 및 판매업을 영위하는 반도체 설계자산 전문업체. 생성형 AI나 온디바이스 AI 서비스 중에서도 중추적인 분야라고 할 수 있는",
-            "시스템반도체 설계 IP 기술 개발 업체. 인공지능 기술을 자율주행자동차, 보안카메라 등과 같은 엣지 환경에서 구현하기 위해 반드시 필요한 시스템반도체 설계 IP("
-          ]
-        }
-      ]
-    },
-    {
       "name": "증권",
-      "changePct": -5.78,
-      "index": 3817.57,
+      "changePct": -8.6,
+      "index": 3703.38,
       "stocks": [
         {
           "code": "006800",
           "name": "미래에셋증권",
-          "changePct": -9.563409563409564,
+          "changePct": -11.434511434511435,
           "flow": {
             "date": "20261105",
             "foreign": -41890,
             "institution": 160818
-          }
+          },
+          "news": [
+            "美 민주당 AI 규제 공포에…증권가 \"새로운 악재 아냐…시장 과잉반응\"",
+            "코스피 5000 붕괴…증시 멈춰도 투매 안 멈췄다",
+            "미래에셋그룹, AI·디지털 중심 조직개편…테크 리더십 강화"
+          ]
         },
         {
           "code": "005940",
@@ -1763,24 +1865,39 @@
         {
           "code": "016360",
           "name": "삼성증권",
-          "changePct": -6.979695431472082,
+          "changePct": -9.137055837563452,
           "flow": {
             "date": "20261105",
             "foreign": -11552,
             "institution": 26231
+          },
+          "news": [
+            "불안한 국제 정세…방산 테마에 주가 다시 뜰까?",
+            "한투지주 목표가 줄하향에 19% 급락…“3분기 실적 부진 여파” [이런국...",
+            "AI 규제 공포에 美증시 급락…나스닥 5.5%↓·S&P500 4.3%↓"
+          ],
+          "netBuy": {
+            "frgn": -1867.0,
+            "orgn": 0.0,
+            "fund": 0.0
           }
         },
         {
           "code": "039490",
           "name": "키움증권",
-          "changePct": -6.209313970956434,
+          "changePct": -8.362543815723585,
           "flow": {
             "date": "20261105",
             "foreign": -9548,
             "institution": 13654
           },
+          "news": [
+            "\"주주환원 5조 풀고 배당 두 자릿수 성장\"…키움證, KT&G 목표가 26만400...",
+            "소비 회복에 외국인 특수 겹친 BGF리테일…키움證, 목표가 18만2000원 상...",
+            "코스피 장중 '5000선' 9개월 만에 붕괴…개장 3분 만에 서킷브레이커"
+          ],
           "netBuy": {
-            "frgn": -566.0,
+            "frgn": -3506.0,
             "orgn": 0.0,
             "fund": 0.0
           }
@@ -1788,93 +1905,416 @@
         {
           "code": "001720",
           "name": "신영증권",
-          "changePct": -8.164983164983166,
+          "changePct": -8.080808080808081,
           "flow": {
             "date": "20261105",
             "foreign": 2604,
             "institution": 6
-          },
-          "news": [
-            "신영證, \"에코프로비엠, 3분기 기대치 부합…단기 부진 딛고 내년 회복...",
-            "뉴욕증시, AI 기술주 매도에 급락 마감",
-            "“여전히 싼 주식 많습니다…배당 받으며 기다리세요”"
-          ]
+          }
         }
       ],
       "themes": [
         {
           "name": "증권",
-          "changePct": -4.57,
+          "changePct": -7.18,
           "stocks": [
-            {
-              "code": "005940",
-              "name": "NH투자증권",
-              "changePct": -4.67
-            },
             {
               "code": "003530",
               "name": "한화투자증권",
-              "changePct": -4.64
+              "changePct": -7.47
             },
             {
-              "code": "001290",
-              "name": "상상인증권",
-              "changePct": -4.5
+              "code": "005940",
+              "name": "NH투자증권",
+              "changePct": -7.43
+            },
+            {
+              "code": "003540",
+              "name": "대신증권",
+              "changePct": -6.77
             }
           ],
           "reasons": [
-            "농협그룹 계열의 업계 상위 증권사로 투자매매업과 투자중개업 등을 주요 사업으로 영위중.",
-            "한화그룹 계열의 증권사. 한화생명, 한화손해보험, 한화자산운용, 한화저축은행과 함께 한화금융네트워크 일원으로 원-스톱 금융서비스체제를 구축."
+            "한화그룹 계열의 증권사. 한화생명, 한화손해보험, 한화자산운용, 한화저축은행과 함께 한화금융네트워크 일원으로 원-스톱 금융서비스체제를 구축.",
+            "농협그룹 계열의 업계 상위 증권사로 투자매매업과 투자중개업 등을 주요 사업으로 영위중."
           ]
         },
         {
           "name": "STO(토큰증권 발행)",
-          "changePct": -4.48,
+          "changePct": -6.27,
           "stocks": [
             {
-              "code": "063170",
-              "name": "서울옥션",
-              "changePct": -4.52
+              "code": "086790",
+              "name": "하나금융지주",
+              "changePct": -5.71
             },
             {
-              "code": "088340",
-              "name": "유라클",
-              "changePct": -4.46
+              "code": "094480",
+              "name": "갤럭시아머니트리",
+              "changePct": -5.54
             },
             {
-              "code": "105560",
-              "name": "KB금융",
-              "changePct": -4.33
+              "code": "064260",
+              "name": "다날",
+              "changePct": -5.5
             }
           ],
           "reasons": [
-            "계열사인 온라인 미술품 경매사 서울옥션블루가 미술품 공동구매 플랫폼 ‘소투’를 운영중.",
-            "23년6월 비유테크놀러지와 STO(토큰증권발행) 플랫폼 구축 등 사업 확대를 목적으로 업무 협약(MOU) 체결."
+            "하나증권이 빌딩 조각투자 플랫폼 '루센트블록'에 전략적 투자 및 STO 사업 관련 업무협약 체결. 하나은행이 음악저작권 투자 플랫폼 뮤직카우와 업무협약 체결.",
+            "23년부터 토큰증권발행(STO) 사업을 본격적으로 추진. 23년2월 가상자산 커스터디(수탁) 전문업체 카르도와 STO(증권형토큰) 플랫폼을 구축. NH농협은행 등"
           ]
         },
         {
           "name": "스페이스X(SpaceX)",
-          "changePct": -5.06,
+          "changePct": -8.13,
           "stocks": [
             {
               "code": "006800",
               "name": "미래에셋증권",
-              "changePct": -7.9
+              "changePct": -11.43
+            },
+            {
+              "code": "042700",
+              "name": "한미반도체",
+              "changePct": -10.05
             },
             {
               "code": "027360",
               "name": "아주IB투자",
-              "changePct": -6.56
-            },
-            {
-              "code": "272290",
-              "name": "이녹스첨단소재",
-              "changePct": -6.43
+              "changePct": -8.2
             }
           ],
           "reasons": [
             "미래에셋그룹의 스페이스X(SpaceX) 투자 참여 및 미래에셋그룹내 SpaceX 투자금액 기준 비중 상위 업체.",
-            "미국 법인 솔라스타벤처스를 통해 스페이스X 투자 집행."
+            "26월6월 스페이스엑스(Space X) 출자증권을 500억원에 신규 취득 결정(취득예정일:2026-06-16)."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "전기·전자",
+      "changePct": -8.54,
+      "index": 75584.95,
+      "stocks": [
+        {
+          "code": "005930",
+          "name": "삼성전자",
+          "changePct": -8.23821339950372,
+          "flow": {
+            "date": "20261105",
+            "foreign": -5772197,
+            "institution": 75714
+          },
+          "netBuy": {
+            "frgn": 2049.0,
+            "orgn": 17140.0,
+            "fund": -5030.0
+          }
+        },
+        {
+          "code": "000660",
+          "name": "SK하이닉스",
+          "changePct": -10.047468354430379,
+          "flow": {
+            "date": "20261105",
+            "foreign": -1179521,
+            "institution": 233663
+          },
+          "netBuy": {
+            "frgn": -22800.0,
+            "orgn": 21660.0,
+            "fund": -17100.0
+          }
+        },
+        {
+          "code": "373220",
+          "name": "LG에너지솔루션",
+          "changePct": -2.745664739884393,
+          "flow": {
+            "date": "20261105",
+            "foreign": 1342,
+            "institution": 39870
+          },
+          "netBuy": {
+            "frgn": 15098.0,
+            "orgn": -336.0,
+            "fund": -336.0
+          }
+        },
+        {
+          "code": "009150",
+          "name": "삼성전기",
+          "changePct": -11.970338983050848,
+          "flow": {
+            "date": "20261105",
+            "foreign": -350143,
+            "institution": -192559
+          },
+          "netBuy": {
+            "frgn": -79135.0,
+            "orgn": 833.0,
+            "fund": -833.0
+          }
+        },
+        {
+          "code": "006400",
+          "name": "삼성SDI",
+          "changePct": -8.202357563850688,
+          "flow": {
+            "date": "20261105",
+            "foreign": 2003,
+            "institution": -26679
+          },
+          "netBuy": {
+            "frgn": -5622.0,
+            "orgn": -2343.0,
+            "fund": -2343.0
+          }
+        }
+      ],
+      "themes": [
+        {
+          "name": "아이폰",
+          "changePct": -7.96,
+          "stocks": [
+            {
+              "code": "251370",
+              "name": "와이엠티",
+              "changePct": -8.67
+            },
+            {
+              "code": "263600",
+              "name": "덕우전자",
+              "changePct": -8.35
+            },
+            {
+              "code": "126700",
+              "name": "하이비젼시스템",
+              "changePct": -8.33
+            }
+          ],
+          "reasons": [
+            "FPCB 업체들에 화학소재 제품을 공급하는 2차 후방 기업으로 삼성전기 등 글로벌 Top PCB 제조사에 납품.",
+            "스마트폰 카메라모듈에 장착되어 이물, 손상 방지 및 전자파 차폐기능 등을 담당하는 Stiffener를 주요 제품으로 생산. 아울러, 듀얼카메라의 앞면부에 장착하는"
+          ]
+        },
+        {
+          "name": "온디바이스 AI",
+          "changePct": -9.94,
+          "stocks": [
+            {
+              "code": "000660",
+              "name": "SK하이닉스",
+              "changePct": -9.81
+            },
+            {
+              "code": "403870",
+              "name": "HPSP",
+              "changePct": -9.47
+            },
+            {
+              "code": "399720",
+              "name": "가온칩스",
+              "changePct": -9.15
+            }
+          ],
+          "reasons": [
+            "애플 비전 프로에 고대역 스페셜 DRAM 공급을 시작으로 온 디바이스 AI 메모리 시장 진입 전망 속 수혜주로 부각.",
+            "고압열처리용 반도체 장비 제조업체. 고압 수소 어닐링 기술을 통하여 글로벌 시스템반도체 및 메모리 반도체 기업에 반도체 전공정 중 고압열처리 공정에 필요한 고압 "
+          ]
+        },
+        {
+          "name": "시스템반도체",
+          "changePct": -8.58,
+          "stocks": [
+            {
+              "code": "429270",
+              "name": "시지트로닉스",
+              "changePct": -6.48
+            },
+            {
+              "code": "052860",
+              "name": "아이앤씨",
+              "changePct": -6.14
+            },
+            {
+              "code": "396270",
+              "name": "넥스트칩",
+              "changePct": -5.97
+            }
+          ],
+          "reasons": [
+            "반도체 소자 개발, 제조 및 판매업체. 비메모리반도체 중 광/개별소자를 개발 및 생산하는 사업을 영위하고 있으며, 주요 제품군으로는 ESD 소자, Power 소자",
+            "팹리스(Fabless) 반도체 업체. 종속회사 글로베인과 함께 스마트에너지사업(한전 AMI, 민수 AMI 등) AE사업(LED조명제어, 전기화재방지시스템), DA"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "기계·장비",
+      "changePct": -7.76,
+      "index": 1937.99,
+      "stocks": [
+        {
+          "code": "034020",
+          "name": "두산에너빌리티",
+          "changePct": -9.837728194726166,
+          "flow": {
+            "date": "20261105",
+            "foreign": -211691,
+            "institution": -232355
+          },
+          "netBuy": {
+            "frgn": 1522.0,
+            "orgn": 716.0,
+            "fund": -313.0
+          }
+        },
+        {
+          "code": "042700",
+          "name": "한미반도체",
+          "changePct": -9.580130100532228,
+          "flow": {
+            "date": "20261105",
+            "foreign": -92787,
+            "institution": -29743
+          },
+          "news": [
+            "한미반도체 주가, 11월 6일 장중 150,200원 11.18% 하락",
+            "코스피, 8% 하락에 서킷브레이커 발동",
+            "[특징주] 반도체 대형주 급락에 소부장株 '와르르'…재료·부품 13%↓"
+          ],
+          "netBuy": {
+            "frgn": -2899.0,
+            "orgn": 0.0,
+            "fund": 0.0
+          }
+        },
+        {
+          "code": "241560",
+          "name": "두산밥캣",
+          "changePct": -2.127659574468085,
+          "flow": {
+            "date": "20261105",
+            "foreign": -178933,
+            "institution": 214624
+          },
+          "news": [
+            "[코스피 지수선물 옵션] 삼성전자·SK하이닉스 선물 휘청…반도체·전력...",
+            "두산테스나, 상반기 영업현금 83% 설비에 투입···추가 투자 여력은",
+            "대동금속 상한가 직행…글로벌 인프라 투자 기대에 건설기계주 '불기둥..."
+          ],
+          "netBuy": {
+            "frgn": 0.0,
+            "orgn": -155.0,
+            "fund": 0.0
+          }
+        },
+        {
+          "code": "267270",
+          "name": "HD건설기계",
+          "changePct": -7.35826296743064,
+          "flow": {
+            "date": "20261105",
+            "foreign": -113993,
+            "institution": 66571
+          },
+          "news": [
+            "HD건설기계·HD현대사이트솔루션, 사랑의 김장 나눔…지역사회 상생 활...",
+            "HD건설기계·HD현대사이트솔루션, 김장 김치 2500박스 이웃에 전달",
+            "현대커머셜, 건설기계 10년 할부 도입…월 납입금 최대 50%↓"
+          ]
+        },
+        {
+          "code": "018880",
+          "name": "한온시스템",
+          "changePct": -6.824925816023739,
+          "flow": {
+            "date": "20261105",
+            "foreign": -1255482,
+            "institution": 377761
+          },
+          "news": [
+            "한온시스템, 협력사와 동반성장 논의···구매 전략·열관리 동향 공유",
+            "한온시스템, 전동화 비중 높이며 열관리 사업 다변화",
+            "한온시스템, 협력사와 동반성장 행사…취약계층 지원에 8000만원 기부"
+          ]
+        }
+      ],
+      "themes": [
+        {
+          "name": "반도체 장비",
+          "changePct": -9.2,
+          "stocks": [
+            {
+              "code": "178320",
+              "name": "서진시스템",
+              "changePct": -5.7
+            },
+            {
+              "code": "065130",
+              "name": "탑엔지니어링",
+              "changePct": -5.33
+            },
+            {
+              "code": "382800",
+              "name": "지앤비에스 에코",
+              "changePct": -5.2
+            }
+          ],
+          "reasons": [
+            "반도체 식각/증착 장비, 웨이퍼 이송장비 등의 반도체 장비 사업을 영위중.",
+            "반도체용 BOC(Board On Chip), Bonder 개발. 국책과제를 통해 반도체 테스트 장비 개발했으며, 반도체 Wafer TEG 특성 검사 장비 E800"
+          ]
+        },
+        {
+          "name": "HBM(고대역폭메모리)",
+          "changePct": -9.43,
+          "stocks": [
+            {
+              "code": "033160",
+              "name": "엠케이전자",
+              "changePct": -8.58
+            },
+            {
+              "code": "098460",
+              "name": "고영",
+              "changePct": -8.56
+            },
+            {
+              "code": "112290",
+              "name": "와이씨켐",
+              "changePct": -8.22
+            }
+          ],
+          "reasons": [
+            "반도체 Package의 핵심부품인 본딩와이어(Bonding Wire) 등을 생산하는 업체로 고대역폭메모리(HBM), 2.5D, 3D 시장을 타겟으로 차세대 패키지",
+            "글로벌 반도체 기업 HBM 공급 확대를 위한 어드밴스드 패키징 라인 신설 추진 속 HBM 검사 수요 증가에 따른 수혜 전망."
+          ]
+        },
+        {
+          "name": "로봇(산업용/협동로봇 등)",
+          "changePct": -7.11,
+          "stocks": [
+            {
+              "code": "004380",
+              "name": "삼익THK",
+              "changePct": -4.71
+            },
+            {
+              "code": "090710",
+              "name": "휴림로봇",
+              "changePct": -4.65
+            },
+            {
+              "code": "093640",
+              "name": "케이알엠",
+              "changePct": -4.48
+            }
+          ],
+          "reasons": [
+            "16년 삼성전자와 함께 6축 다관절 수직 로봇 개발을 완료한 바 있으며, 6축 다관절 수직 로봇은 6개의 관절을 자유자재로 움직여 정밀한 작업을 수행하는 로봇임.",
+            "산업용로봇(제조업용 로봇) 및 지능형로봇(서비스용 로봇) 전문 업체. 제조업용 로봇은 직각좌표로봇, 수평다관절로봇, 데스크탑로봇, 반도체용로봇, 리니어스테이지 등"
           ]
         }
       ]
@@ -1885,40 +2325,32 @@
       "stock": "롯데렌탈",
       "market": "KOSPI",
       "direction": "bullish",
-      "summary": "글로벌 사모펀드 TPG의 공개매수 및 자진 상장폐지 추진 소식에 급등세.",
-      "url": "https://www.newsway.co.kr/news/view?ud=2026110609253828984",
+      "summary": "최대주주인 TPG의 잔여 지분 공개매수 및 자진 상장폐지 추진 소식에 강세를 보이고 있습니다.",
+      "url": "https://www.ekn.kr/web/view.php?key=20261106024146285",
+      "kind": "news"
+    },
+    {
+      "stock": "고려아연",
+      "market": "KOSPI",
+      "direction": "bearish",
+      "summary": "3분기 실적 쇼크와 목표가 하향 리포트가 잇따르며 주가가 급락하고 있습니다.",
+      "url": "https://www.etoday.co.kr/news/view/2644937",
       "kind": "news"
     },
     {
       "stock": "씨어스",
       "market": "KOSDAQ",
       "direction": "bearish",
-      "summary": "3분기 매출 급감 및 적자전환에 따른 실적 둔화 우려로 급락.",
-      "url": "https://www.newsway.co.kr/news/view?ud=2026110609292256956",
+      "summary": "3분기 영업손실 기록 소식에 매도세가 집중되며 주가가 급락 중입니다.",
+      "url": "https://biz.chosun.com/stock/stock_general/2026/11/06/CE3YDSOQSRENLLGFQ5LE7TEZXI/?utm_source=naver&utm_medium=original&utm_campaign=biz",
       "kind": "news"
     },
     {
       "stock": "삼성전자",
       "market": "KOSPI",
       "direction": "bearish",
-      "summary": "미국 중간선거 이후 AI 데이터센터 규제 강화 우려로 인한 기술주 투매 여파.",
-      "url": "http://www.inews24.com/view/2023301",
-      "kind": "news"
-    },
-    {
-      "stock": "SK하이닉스",
-      "market": "KOSPI",
-      "direction": "bearish",
-      "summary": "미국 AI 데이터센터 건설 규제 우려 및 반도체 쇼크로 인한 동반 급락.",
-      "url": "http://www.inews24.com/view/2023301",
-      "kind": "news"
-    },
-    {
-      "stock": "삼성전기",
-      "market": "KOSPI",
-      "direction": "bearish",
-      "summary": "데이터센터 규제 리스크와 AI 피크아웃 우려가 겹치며 큰 폭의 하락세.",
-      "url": "https://www.etoday.co.kr/news/view/2644928",
+      "summary": "미국 기술주 폭락 및 AI 투자 둔화 우려가 부각되며 외국인 매도세와 함께 급락하고 있습니다.",
+      "url": "https://www.g-enews.com/view.php?ud=20261106095122655544093b5d4e_1",
       "kind": "news"
     }
   ],
@@ -2639,20 +3071,20 @@
         "period": "202609",
         "fs": "연결",
         "sales": 3497.6,
-        "op": 221.0,
-        "np": 145.0,
+        "op": 99.0,
+        "np": 79.0,
         "salesYoY": -1.7,
         "opYoY": -22.0,
         "npYoY": -29.3,
         "tag": null,
         "consensus": {
-          "op": null,
+          "op": 121.0,
           "np": null,
           "yoy": null,
           "qoq": null
         },
         "surprise": {
-          "opGap": null,
+          "opGap": -18.1,
           "npGap": null
         },
         "dartUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261105900954",
@@ -2710,7 +3142,7 @@
         "period": "202609",
         "fs": "연결",
         "sales": 36532.0,
-        "op": 1756.0,
+        "op": 1207.0,
         "np": 1424.0,
         "salesYoY": 7.1,
         "opYoY": 34.5,
@@ -2740,88 +3172,92 @@
         "date": "2026-11-06",
         "code": "161890",
         "name": "한국콜마",
-        "sector": null,
+        "sector": "경기관련소비재",
         "quarter": null,
-        "period": null,
-        "fs": null,
+        "period": "202609",
+        "fs": "연결",
         "sales": 4336.8,
-        "op": 629.1,
-        "np": 433.2,
+        "op": 629.0,
+        "np": 433.0,
         "salesYoY": 34.69,
         "opYoY": 41.95,
         "npYoY": 24.47,
         "tag": null,
         "consensus": {
-          "op": 916.0,
-          "np": 671.0
+          "op": 665.0,
+          "np": 671.0,
+          "yoy": null,
+          "qoq": null
         },
         "surprise": {
-          "opGap": -31.3,
+          "opGap": -5.4,
           "npGap": -35.4
         },
         "dartUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261106800125",
         "dartTitle": "영업(잠정)실적(공정공시)",
         "sources": [
-          "dart",
-          "dart-doc",
-          "naver"
+          "wisereport",
+          "dart"
         ],
         "market": "KOSPI",
-        "capturedDate": "2026-11-06",
-        "time": "09:12"
+        "time": "09:12",
+        "capturedDate": "2026-11-06"
       },
       {
         "date": "2026-11-06",
         "code": "214450",
         "name": "파마리서치",
-        "sector": null,
+        "sector": "건강관리",
         "quarter": null,
-        "period": null,
-        "fs": null,
+        "period": "202609",
+        "fs": "연결",
         "sales": 1715.4,
-        "op": 626.3,
-        "np": 302.3,
+        "op": 626.0,
+        "np": 302.0,
         "salesYoY": 26.7,
         "opYoY": 1.2,
         "npYoY": -40.5,
         "tag": null,
         "consensus": {
           "op": 664.0,
-          "np": 527.0
+          "np": 527.0,
+          "yoy": 3.68,
+          "qoq": -6.23
         },
         "surprise": {
-          "opGap": -5.7,
-          "npGap": -42.6
+          "opGap": -5.6,
+          "npGap": -42.7
         },
         "dartUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261106900196",
         "dartTitle": "연결재무제표기준영업(잠정)실적(공정공시)",
         "sources": [
-          "dart",
-          "dart-doc",
-          "naver"
+          "wisereport",
+          "dart"
         ],
         "market": "KOSDAQ",
-        "capturedDate": "2026-11-06",
-        "time": "09:32"
+        "time": "09:32",
+        "capturedDate": "2026-11-06"
       },
       {
         "date": "2026-11-06",
         "code": "462860",
         "name": "더즌",
-        "sector": null,
+        "sector": "IT",
         "quarter": null,
-        "period": null,
-        "fs": null,
+        "period": "202609",
+        "fs": "연결",
         "sales": 147.8,
-        "op": 29.2,
-        "np": 22.2,
+        "op": 29.0,
+        "np": 22.0,
         "salesYoY": -2.1,
         "opYoY": -30.2,
         "npYoY": -42.0,
         "tag": null,
         "consensus": {
           "op": null,
-          "np": null
+          "np": null,
+          "yoy": null,
+          "qoq": null
         },
         "surprise": {
           "opGap": null,
@@ -2830,41 +3266,85 @@
         "dartUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261106900194",
         "dartTitle": "영업(잠정)실적(공정공시)",
         "sources": [
-          "dart",
-          "dart-doc"
+          "wisereport",
+          "dart"
         ],
         "market": "KOSDAQ",
-        "capturedDate": "2026-11-06",
-        "time": "09:37"
-      }
-    ],
-    "upcomingSoon": [
+        "time": "09:37",
+        "capturedDate": "2026-11-06"
+      },
       {
         "date": "2026-11-06",
         "code": "021240",
         "name": "코웨이",
         "sector": "경기관련소비재",
-        "fs": "연결",
+        "quarter": null,
         "period": "202609",
-        "periodType": "분기",
-        "opinion": 4.0,
-        "targetPrice": 131667.0,
+        "fs": "연결",
+        "sales": 14261.1,
+        "op": 2608.0,
+        "np": 1115.0,
+        "salesYoY": 13.7,
+        "opYoY": 7.3,
+        "npYoY": -36.6,
+        "tag": null,
         "consensus": {
           "op": 2636.0,
           "np": 1915.0,
-          "yoy": 8.4,
-          "qoq": null
-        },
-        "provisional": {
-          "op": null,
-          "np": null
+          "yoy": 8.83,
+          "qoq": 7.42
         },
         "surprise": {
-          "opGap": null,
-          "npGap": null
+          "opGap": -1.1,
+          "npGap": -41.8
         },
-        "market": "KOSPI"
+        "dartUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261106800224",
+        "dartTitle": "연결재무제표기준영업(잠정)실적(공정공시)",
+        "sources": [
+          "wisereport",
+          "dart",
+          "dart-doc"
+        ],
+        "market": "KOSPI",
+        "capturedDate": "2026-11-06",
+        "time": "09:47"
       },
+      {
+        "date": "2026-11-06",
+        "code": "119610",
+        "name": "인터로조",
+        "sector": null,
+        "quarter": null,
+        "period": null,
+        "fs": null,
+        "sales": 362.4,
+        "op": 58.1,
+        "np": 30.4,
+        "salesYoY": 12.0,
+        "opYoY": 23.1,
+        "npYoY": -21.1,
+        "tag": null,
+        "consensus": {
+          "op": 73.0,
+          "np": 52.0
+        },
+        "surprise": {
+          "opGap": -20.4,
+          "npGap": -41.5
+        },
+        "dartUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261106900251",
+        "dartTitle": "연결재무제표기준영업(잠정)실적(공정공시)",
+        "sources": [
+          "dart",
+          "dart-doc",
+          "naver"
+        ],
+        "market": "KOSDAQ",
+        "capturedDate": "2026-11-06",
+        "time": "09:56"
+      }
+    ],
+    "upcomingSoon": [
       {
         "date": "2026-11-06",
         "code": "079550",
@@ -3127,32 +3607,6 @@
       },
       {
         "date": "2026-11-06",
-        "code": "119610",
-        "name": "인터로조",
-        "sector": "건강관리",
-        "fs": "연결",
-        "period": "202609",
-        "periodType": "분기",
-        "opinion": 4.0,
-        "targetPrice": 21000.0,
-        "consensus": {
-          "op": 73.0,
-          "np": 52.0,
-          "yoy": 55.3,
-          "qoq": null
-        },
-        "provisional": {
-          "op": null,
-          "np": null
-        },
-        "surprise": {
-          "opGap": null,
-          "npGap": null
-        },
-        "market": "KOSDAQ"
-      },
-      {
-        "date": "2026-11-06",
         "code": "950140",
         "name": "잉글우드랩",
         "sector": "경기관련소비재",
@@ -3309,6 +3763,66 @@
   "disclosures": [
     {
       "date": "20261106",
+      "corp": "케이지에이",
+      "stockCode": "455180",
+      "market": "KOSDAQ",
+      "title": "단일판매ㆍ공급계약체결",
+      "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261106900190",
+      "dirRule": "bullish",
+      "ruleKind": "contract"
+    },
+    {
+      "date": "20261106",
+      "corp": "인터로조",
+      "stockCode": "119610",
+      "market": "KOSDAQ",
+      "title": "연결재무제표기준영업(잠정)실적(공정공시)",
+      "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261106900251",
+      "dirRule": null,
+      "ruleKind": null
+    },
+    {
+      "date": "20261106",
+      "corp": "수산인더스트리",
+      "stockCode": "126720",
+      "market": "KOSPI",
+      "title": "[기재정정]단일판매ㆍ공급계약체결",
+      "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261106800234",
+      "dirRule": "bullish",
+      "ruleKind": "contract"
+    },
+    {
+      "date": "20261106",
+      "corp": "파두",
+      "stockCode": "440110",
+      "market": "KOSDAQ",
+      "title": "단일판매ㆍ공급계약체결",
+      "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261106900228",
+      "dirRule": "bullish",
+      "ruleKind": "contract"
+    },
+    {
+      "date": "20261106",
+      "corp": "계룡건설산업",
+      "stockCode": "013580",
+      "market": "KOSPI",
+      "title": "단일판매ㆍ공급계약체결",
+      "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261106800219",
+      "dirRule": "bullish",
+      "ruleKind": "contract"
+    },
+    {
+      "date": "20261106",
+      "corp": "코웨이",
+      "stockCode": "021240",
+      "market": "KOSPI",
+      "title": "연결재무제표기준영업(잠정)실적(공정공시)",
+      "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261106800224",
+      "dirRule": null,
+      "ruleKind": null
+    },
+    {
+      "date": "20261106",
       "corp": "더즌",
       "stockCode": "462860",
       "market": "KOSDAQ",
@@ -3400,64 +3914,64 @@
   ],
   "news": [
     {
-      "title": "씨어스, 3분기 적자전환에 27.5% 급락[특징주]",
-      "link": "https://www.newsway.co.kr/news/view?ud=2026110609292256956",
-      "description": "웨어러블 인공지능(AI) 진단 모니터링 기업 씨어스가 장 초반 급락세를 보이고 있다. 올해 3분기 매출액이 전분기보다 60% 넘게 감소하고 영업이익도 적자로 돌아서면서 실적 둔화 우려가 커진 영향으로 풀이된다.... ",
-      "date": "Fri, 06 Nov 2026 09:36:00 +0900"
+      "title": "[특징주] 고려아연 6% 급락⋯3분기 실적 쇼크에 목표가 줄하향",
+      "link": "https://www.etoday.co.kr/news/view/2644937",
+      "description": "이투데이=임하은 기자 | 고려아연이 3분기 실적 부진에 급락세다. 6일 한국거래소에 따르면 오전 9시 59분 기준 고려아연은 전 거래일 대비 6.07% 내린 92만9000원에 거래되고 있다. 이러한 하락세는 고려아연의 3분기... ",
+      "date": "Fri, 06 Nov 2026 10:02:00 +0900"
     },
     {
-      "title": "롯데렌탈, TPG 공개매수·상장폐지 추진에 10%대 급등[특징주]",
-      "link": "https://www.newsway.co.kr/news/view?ud=2026110609253828984",
-      "description": "롯데렌탈이 글로벌 사모펀드 운용사 TPG의 공개매수와 자진 상장폐지 추진 소식에 장 초반 10% 넘게 급등하고 있다. 6일 한국거래소에 따르면 오전 9시31분 기준 롯데렌탈은 전 거래일 대비 5500원(10.40%) 오른... ",
-      "date": "Fri, 06 Nov 2026 09:32:00 +0900"
+      "title": "[특징주] 윙스풋, 폭락장서 이틀 연속 상한가",
+      "link": "https://www.newstnt.com/news/articleView.html?idxno=727051",
+      "description": "코스닥지수가 6% 넘게 급락한 가운데 신발 유통업체 윙스풋(335870)이 이틀 연속 상한가를 기록했다. 최근 급등과 급락을 반복한 윙스풋은 시가총액 기준 미달로 관리종목에 지정된 상태다. 6일 오전 9시 48분 기준... ",
+      "date": "Fri, 06 Nov 2026 10:02:00 +0900"
     },
     {
-      "title": "[특징주] 오천피 깨진 코스피…삼전닉스 장 초반 급락",
-      "link": "http://www.newsdream.kr/news/articleView.html?idxno=121609",
-      "description": "코스피가 6일 장 초반 8% 급락하며 5000선 아래로 추락했다. 한국거래소에 따르면 오전 9시 23분 코스피는 직전거래일보다 460.33포인트(8.55%) 빠진 4923.47에 거래되고 있다. 이날 코스피는 5263.26으로... ",
-      "date": "Fri, 06 Nov 2026 09:30:00 +0900"
+      "title": "[특징주] '방어주' 저력 입증⋯KT&G 나홀로 '빨간불'",
+      "link": "http://www.inews24.com/view/2023341",
+      "description": "국내 증시가 장 초반 폭락하는 가운데 경기 방어주로 꼽히는 KT&G는 소폭 상승하고 있다. 6일 한국거래소에 따르면 KT&G는 이날 오전 9시 46분 현재 전 거래일 대비 1000원(0.51%) 오른 19만5200원에 거래되고 있다. 미국... ",
+      "date": "Fri, 06 Nov 2026 10:01:00 +0900"
     },
     {
-      "title": "[특징주] 반도체 기판주 약세, 삼성전기 14%대 급락…이수페타시스·심...",
-      "link": "https://www.cbci.co.kr/news/articleView.html?idxno=623961",
-      "description": "반도체 자료사진. AI가 생성한 이미지. 6일 국내 증시가 장 초반부터 급격한 하락세를 나타내고 있는 가운데 반도체 기판 관련주들도 일제히 약세를 보이고 있다. 삼성전기가 14% 넘게 급락한 것을 비롯해... ",
-      "date": "Fri, 06 Nov 2026 09:30:00 +0900"
+      "title": "[특징주] 광통신 관련주 빛샘전자·대한광통신·RFHIC 등 일제히 급락…...",
+      "link": "https://www.cbci.co.kr/news/articleView.html?idxno=623983",
+      "description": "광통신 자료사진. AI가 생성한 이미지. 6일 국내 증시가 큰 폭으로 하락하고 있는 가운데 광통신 관련주들도 일제히 약세를 나타내고 있다. 빛샘전자와 대한광통신, RFHIC 등 주요 종목들이 동반 하락하면서... ",
+      "date": "Fri, 06 Nov 2026 10:00:00 +0900"
     },
     {
-      "title": "[특징주] 美 '블루 쓰나미' 쇼크⋯삼성전자·SK하이닉스 '폭락'",
-      "link": "http://www.inews24.com/view/2023301",
-      "description": "대형 반도체주가 10% 전후로 폭락하고 있다. 미국 중간선거 여파로 간밤 뉴욕증시가 주요 기술주 중심으로 크게 밀리면서 투자심리가 흔들렸다. 6일 한국거래소에 따르면 삼성전자는 이날 오전 9시 14분 현재 전... ",
-      "date": "Fri, 06 Nov 2026 09:24:00 +0900"
+      "title": "[특징주] 삼성전자·SK하이닉스, 美 기술주 폭락.. 동반 '급락'",
+      "link": "https://www.g-enews.com/view.php?ud=20261106095122655544093b5d4e_1",
+      "description": "대형 반도체주가 폭락하고 있다. 미국 중간선거 여파로 간밤 뉴욕증시가 주요 기술주 중심으로 크게 밀리면서 투자심리가 흔들리고 있는 모양새다. 6일 한국거래소에 따르면 삼성전자는 이날 오전 9시 54분 현재 전... ",
+      "date": "Fri, 06 Nov 2026 10:00:00 +0900"
     },
     {
-      "title": "[특징주] '美 데이터센터 규제 후폭풍' 삼성전기, 장 초반 14%대 폭락",
-      "link": "https://www.etoday.co.kr/news/view/2644928",
-      "description": "이투데이=신혜주 기자 | 미국발 데이터센터 규제 리스크와 AI 피크아웃 우려가 국내 반도체 투심을 강타한 가운데, 서버용 핵심 부품을 공급하는 삼성전기가 장 초반 14%대 폭락하며 직격탄을 맞고 있다. ​6일... ",
-      "date": "Fri, 06 Nov 2026 09:24:00 +0900"
+      "title": "[특징주] 롯데렌탈, TPG가 잔여 지분 공개매수·상장 폐지 추진…두자릿...",
+      "link": "https://www.ekn.kr/web/view.php?key=20261106024146285",
+      "description": "롯데렌탈이 최대주주의 잔여 지분 공개매수와 자진 상장폐지 추진 소식에 6일 장 초반 강세를 보이고 있다. 한국거래소에 따르면 이날 오전 9시 43분 현재 롯데렌탈은 전 거래일 대비 5500원(10.40%) 오른 5만8400원에... ",
+      "date": "Fri, 06 Nov 2026 09:58:00 +0900"
     },
     {
-      "title": "[특징주] 롯데렌탈, 자진 상폐 수순에 10%대 급등",
-      "link": "https://biz.chosun.com/stock/stock_general/2026/11/06/UPAPVCKUNFFERK47GST7BJNJSY/?utm_source=naver&utm_medium=original&utm_campaign=biz",
-      "description": "TPG, 잔여 지분 38.83% 주당 5만9000원에 공개매수 완전 자회사 편입 후 자진 상장폐지 추진 롯데렌탈이 6일 장 초반 10% 넘게 급등하고 있다. 롯데렌탈 경영권을 인수한 글로벌 사모펀드(PEF) 운용사... ",
-      "date": "Fri, 06 Nov 2026 09:20:00 +0900"
+      "title": "[특징주] 롯데렌탈, 자진 상폐 추진에 공개매수가 근접",
+      "link": "http://www.metroseoul.co.kr/article/20261106500047",
+      "description": "롯데렌터카 서울역 지점 전경. 롯데렌탈 주가가 장중 10% 넘게 오르고 있다. 최대주주인 글로벌 사모펀드(PEF) 운용사 텍사스퍼시픽그룹(TPG)이 잔여 지분 공개매수에 나선 영향으로 풀이된다. 6일 한국거래소에... ",
+      "date": "Fri, 06 Nov 2026 09:58:00 +0900"
     },
     {
-      "title": "[특징주] 삼전·하닉 10%대 급락…데이터센터 건설 규제 우려",
-      "link": "https://www.ekn.kr/web/view.php?key=20261106025086245",
-      "description": "삼성전자와 SK하이닉스 주가가 6일 장 초반 급락하고 있다. 미국 뉴욕증시에서 데이터센터 건설 규제 우려로 인해 기술주가 폭락한 영향으로 풀이된다. 한국거래소에 따르면, 이날 9시 3분 현재 삼성전자 주가는... ",
-      "date": "Fri, 06 Nov 2026 09:18:00 +0900"
+      "title": "[특징주] 반도체 대형주 급락에 소부장株 '와르르'…재료·부품 13%↓",
+      "link": "https://www.newspim.com/news/view/20261106000315",
+      "description": "6일 삼성전자와 SK하이닉스의 주가 급락 여파가 반도체 소재·부품·장비(소부장) 기업 전반으로 확산되고 있다. 인공지능(AI) 투자 지속성에 대한 의구심이 커지면서 메모리 반도체뿐 아니라 장비·부품 등 관련... ",
+      "date": "Fri, 06 Nov 2026 09:56:00 +0900"
     },
     {
-      "title": "\"삼전 -10%·SK하닉 -12% 패닉 빠졌다\"…공포 휩싸인 AI 기술주",
-      "link": "https://www.mt.co.kr/stock/2026/11/06/2026110609054199437",
-      "description": "반도체 대장주인 삼성전자와 SK하이닉스가 6일 장 초반 동반 급락하고 있다. 미국 민주당이 중간선거에서 상·하원을 장악하며 데이터센터 건설 규제를 강화할 거란 우려가 시장에 퍼진 여파다. 미국... ",
-      "date": "Fri, 06 Nov 2026 09:17:00 +0900"
+      "title": "[특징주] 美 AI주 쇼크에 밸류체인 '와르르'…반도체·전력기기 동반 급...",
+      "link": "https://www.newspim.com/news/view/20261106000302",
+      "description": "미국발 인공지능(AI) 투자 둔화 우려가 확산하면서 국내 전력기기주가 장 초반 일제히 급락하고 있다. AI 데이터센터 투자 확대 기대를 바탕으로 강세를 보여온 전력 인프라 관련 종목에 매도세가 집중되는... ",
+      "date": "Fri, 06 Nov 2026 09:56:00 +0900"
     },
     {
-      "title": "[특징주] 삼성전자·SK하이닉스 동반 급락…美 AI 규제 우려에 10% 안팎 ...",
-      "link": "https://www.viva100.com/article/20261106500087",
-      "description": "국내 반도체 대장주인 삼성전자와 SK하이닉스가 6일 장 초반 급락하고 있다. 미국 중간선거에서 민주당이 상·하원 다수당을 차지하면서 인공지능(AI) 데이터센터 관련 규제가 강화될 수 있다는 우려가 투자심리를... ",
-      "date": "Fri, 06 Nov 2026 09:16:00 +0900"
+      "title": "[특징주] 씨어스, 3분기 영업손실 소식에…26% 급락",
+      "link": "https://biz.chosun.com/stock/stock_general/2026/11/06/CE3YDSOQSRENLLGFQ5LE7TEZXI/?utm_source=naver&utm_medium=original&utm_campaign=biz",
+      "description": "웨어러블 인공지능(AI) 진단·모니터링 기업 씨어스 주가가 6일 장 초반 급락 중이다. 3분기 영업손실을 기록했다는 소식에 매도세가 이어지고 있는 것으로 보인다. 이날 오전 9시 41분 기준 씨어스 주식은 코스닥... ",
+      "date": "Fri, 06 Nov 2026 09:55:00 +0900"
     }
   ],
   "disclaimer": "네이버 금융·DART·네이버뉴스 기반 자동 생성 시황 — 투자 판단 참고용."
