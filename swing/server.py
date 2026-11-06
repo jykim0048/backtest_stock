@@ -91,6 +91,10 @@ def _collateral(L, equity):
             "usePct": round(c["req"] / base * 100, 1) if base > 0 else None}
 
 
+def _today_kst():
+    return (datetime.datetime.utcnow() + datetime.timedelta(hours=9)).date().isoformat()
+
+
 def api_positions(q):
     """보유 — 현재가 = 장중이면 Live Trader 마지막 시세(15초 폴링, priceTs), 정산 뒤엔 원장 종가(2026-11-03)."""
     from swing import history
@@ -102,8 +106,11 @@ def api_positions(q):
     adds = _live_adds(L, doc)
     # 보유일(체결일=1)은 원장 정산(16:30) 때 +1 — 장중엔 정산 전이라 하루 덜 보였다(2026-11-05: 11/4 진입이 11/5 장중 1칸).
     # 장중 기록 날짜(live_date)가 원장 asof 보다 뒤면 그 사이 영업일 수만큼 더한다.
+    # 2026-11-06: 장 시작 전(장중 기록이 아직 없을 때) 연 화면은 오늘을 빼고 셌고, 장중 10초 갱신(api_live)은 보유일을 다시 안 받아
+    # 하루 덜 보인 채 남았다 → 기준 = max(장중 기록 날짜, 오늘 KST)까지의 영업일, api_live 에도 holdDay 를 싣는다.
     from swing import tradedays
-    hold_add = len(tradedays.trading_days(tradedays.next_trading_day(L["asof"]), day)) if day and L.get("asof") else 0
+    ref = max(x for x in (day, _today_kst()) if x)
+    hold_add = len(tradedays.trading_days(tradedays.next_trading_day(L["asof"]), ref)) if L.get("asof") else 0
     out = []
     for p in L["positions"]:
         lv = live.get(p["code"])
@@ -206,7 +213,7 @@ def api_live(q):
     return {"live": True, "liveTs": ts, "liveDate": history.live_date(STORE, L.get("asof")), "source": "bus" if any(x.get("bus") for x in live.values()) else "doc",
             "equity": round(v), "retPct": round((v / L["capital0"] - 1) * 100, 2) if L.get("capital0") else None, "cash": round(L["cash"]),
             "positions": [p if p["id"].startswith("live:") else {k: p.get(k) for k in ("id", "code", "side", "price", "priceTs", "chgPct", "value", "unrealPct", "liveExit",
-                                                                                  "qty", "entry", "qtyLedger", "liveAdd", "liveRealized", "liveRealizedPct")}
+                                                                                  "qty", "entry", "qtyLedger", "liveAdd", "liveRealized", "liveRealizedPct", "holdDay")}
                           for p in ps]}
 
 

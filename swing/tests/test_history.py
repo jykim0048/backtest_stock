@@ -166,13 +166,17 @@ class TestBuild(unittest.TestCase):
         from swing import server
         st = setup()
         old, server.STORE = server.STORE, st
+        old_today, asof = server._today_kst, st.get("ledger")["asof"]
         try:
-            before = server.api_positions({})[0]["holdDay"]               # 장중 기록 없음 = 원장 그대로
+            server._today_kst = lambda: asof
+            before = server.api_positions({})[0]["holdDay"]               # 정산 당일 저녁 = 원장 그대로
+            server._today_kst = lambda: "2026-11-03"
+            premarket = server.api_positions({})[0]["holdDay"]            # 장 시작 전(장중 기록 없음)도 오늘 포함(2026-11-06)
             st.put("intraday/2026-11-03", {"vwap": {}, "orders": {}, "exits": {}})
             during = server.api_positions({})[0]["holdDay"]
         finally:
-            server.STORE = old
-        self.assertEqual((before, during), (4, 5))
+            server.STORE, server._today_kst = old, old_today
+        self.assertEqual((before, premarket, during), (4, 5, 5))
 
     def test_positions_api_uses_live_price(self):
         from swing import server
