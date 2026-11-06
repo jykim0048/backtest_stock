@@ -1,4 +1,4 @@
-"""일일 작업(5단계) — 평일 16:30 KST(swing-cron). 순서:
+"""일일 작업(5단계) — 평일 17:05 KST(swing-cron, 2026-11-06 16:30 → 17:05). 순서:
   1) 원장 갱신: 오늘 일봉으로 체결·손절·매도 예약 실행, 목표가 도달·보유 만기는 재판별 표시(engine.settle_day)
   2) 매도 검토: 보유 종목 중 ① 신호 트리거(섹터 수급이탈/동반약세 전환 or 종목 하방 칸)
      ② 목표가 도달 ③ 보유 만기 ④ 연장 보유(매일) → trading_agent → PM Sell/Underweight 면 다음 영업일
@@ -319,6 +319,19 @@ def run_day(date, store, agent, prices, wb, *, force=False, log=print, uni=None,
 
     run["topups"] = _topups(L, bars, date, nxt, fut_ok, store)      # PM 비중 채우기(2026-11-03) — 재판별 뒤(오늘 매도 판정·새 손절 반영)
 
+    # 하루 판단 총량(2026-11-06, config.JUDGE_PER_DAY) — 재판별을 뺀 나머지만 신규 판단, 넘는 후보는 다음 영업일로
+    budget = max(config.ENTRY_JUDGE_MIN, config.JUDGE_PER_DAY - len(run["reviews"]))
+    (cands, ucands), (scands, uscands, ccands), over_l, over_s = judge_budget(budget, [cands, ucands], [scands, uscands, ccands])
+    if over_l or over_s:
+        over_l, over_s = over_l or [[], []], over_s or [[], [], []]
+        skipped_cap += over_l[0]; skipped_uni_cap += over_l[1]
+        skipped_short_cap += over_s[0]; skipped_uni_short_cap += over_s[1]; skipped_cat_cap += over_s[2]
+        run["judgeBudget"] = {"budget": budget, "reviews": len(run["reviews"]),
+                              "deferredLong": [c["code"] for c in sum(over_l, [])], "deferredShort": [c["code"] for c in sum(over_s, [])]}
+        run["notes"].append(f"판단 총량 {config.JUDGE_PER_DAY}건(재판별 {len(run['reviews'])}) — 신규 {budget}건만 판단, "
+                            f"Long {len(sum(over_l, []))} · Short {len(sum(over_s, []))}종목 다음 영업일로 이연")
+    prog.update(total=len(todo) + len(cands) + len(ucands) + len(scands) + len(uscands) + len(ccands))
+
     # 3) 신규 분석·주문(Long) · 4) 신규 Short — 매트릭스 후보 뒤에 유니버스 후보(독립 소스, source 로 구분)
     prog.update(phase="long")
     run["candidates"] = (_new_entries(L, store, agent, cands, bars, date, nxt, "long", prog)
@@ -476,6 +489,25 @@ def _retry_unfilled(L, ev, bars, date, nxt, backlog=(), fut_ok=None):
             row["backfill"] = True
         out.append(row)
     return out
+
+
+def judge_budget(budget, longs, shorts):
+    """신규 판단 총량 배분(2026-11-06) — longs/shorts = 우선순위 순 후보 목록들(매트릭스 → 유니버스 → 촉매).
+    Long·Short 반씩, 한쪽 후보가 모자라면 남는 자리를 다른 쪽에. 반환 (자른 longs, 자른 shorts, 넘친 longs, 넘친 shorts)."""
+    n_l, n_s = sum(len(x) for x in longs), sum(len(x) for x in shorts)
+    cap_s = min(n_s, max(budget // 2, budget - n_l))
+    cap_l = min(n_l, budget - cap_s)
+
+    def cut(lists, cap):
+        kept, over = [], []
+        for x in lists:
+            k = max(0, min(len(x), cap))
+            kept.append(x[:k]); over.append(x[k:])
+            cap -= k
+        return kept, over
+    kl, ol = cut(longs, cap_l)
+    ks, os_ = cut(shorts, cap_s)
+    return kl, ks, (ol if any(ol) else None), (os_ if any(os_) else None)
 
 
 def _new_entries(L, store, agent, cands, bars, date, nxt, side, prog=None, fut=None):

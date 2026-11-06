@@ -23,6 +23,11 @@ MAX_HOLD_DAYS = _i("SWING_MAX_HOLD_DAYS", 15)                 # 만기 후 재�
 MAX_WEIGHT = _f("SWING_MAX_WEIGHT", 0.10)                    # 종목당 비중 상한
 DEFAULT_WEIGHT = _f("SWING_DEFAULT_WEIGHT", 0.05)            # 트레이더가 비중 생략 시
 MAX_NEW_PER_DAY = _i("SWING_MAX_NEW_PER_DAY", 10)            # 하루 신규 분석 종목 상한(LLM 호출량)
+# 하루 LLM 판단 총량(2026-11-06 사용자 결정 A) — Gemini 무료 일일 한도(3.1-flash-lite 500회, 판단 1건 ≈ 10~13회) 안에서 끝나게.
+# 신규 진입 판단 수 = max(ENTRY_JUDGE_MIN, JUDGE_PER_DAY − 보유 재판별 수), Long·Short 반반(한쪽이 모자라면 남는 자리 넘김),
+# 넘는 후보는 다음 영업일로 이연(쿨다운 미적용 — 다시 후보로 올라옴). 11/5: 신규 40 + 재판별 12 = 52건에서 Short 7 판단 실패.
+JUDGE_PER_DAY = _i("SWING_JUDGE_PER_DAY", 42)
+ENTRY_JUDGE_MIN = _i("SWING_ENTRY_JUDGE_MIN", 20)
 
 BUY_SIGNALS = ("동반강세", "수급유입")                        # 롱 후보 칸
 SELL_SIGNALS = ("수급이탈", "동반약세")                       # 매도 검토 트리거(섹터 신호·종목 칸)

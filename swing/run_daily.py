@@ -1,4 +1,4 @@
-"""swing-cron 진입점 — 평일 16:30 KST.
+"""swing-cron 진입점 — 평일 17:05 KST(2026-11-06 16:30 → 17:05: Gemini 일일 한도 초기화 17:00 KST 직후).
 
   python -m swing.run_daily                         # 오늘(KST), 실서비스 설정
   python -m swing.run_daily --date 2026-09-28

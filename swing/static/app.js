@@ -274,7 +274,7 @@
     var base = eqNow || 1, wL = lv / base * 100, wS = sv / base * 100;
     var h = '<div class="port-item wide4 hero"><div class="hero-row"><div class="hero-main"><span class="port-lbl">평가액</span><span class="port-val">' +
       '<span class="num">' + won(eqNow) + '</span><small>원</small></span><span class="port-sub">초기 ' + won(cap) + "원 대비 " +
-      pct(s.retPct) + (s.liveTs ? ' · <span class="live-on" title="정산 전 — 전일 보유 수량 × Live Trader 현재가(15초 폴링), 화면은 장중 10초마다 갱신. 16:30 정산 뒤 종가 기준으로 바뀜"><i class="live-dot"></i>장중 ' + esc(s.liveTs.slice(0, 8)) + "</span>" : "") +
+      pct(s.retPct) + (s.liveTs ? ' · <span class="live-on" title="정산 전 — 전일 보유 수량 × Live Trader 현재가(15초 폴링), 화면은 장중 10초마다 갱신. 17:05 정산 뒤 종가 기준으로 바뀜"><i class="live-dot"></i>장중 ' + esc(s.liveTs.slice(0, 8)) + "</span>" : "") +
       " · 기준일 " + (s.asof || "—") + "</span></div>" +
       '<div class="hero-weight"><div class="exp-pair"><div><span class="port-lbl">총노출</span><span class="port-val num">' + (wL + wS).toFixed(1) +
       '%</span></div><div><span class="port-lbl">순노출</span><span class="port-val num ' + (wL - wS > 0 ? "up" : wL - wS < 0 ? "down" : "") + '">' +
@@ -477,7 +477,7 @@
     var t = k === "stop" || k === "stop_gap" ? "손절 분할 진행" : k === "max_hold" ? "최대 보유 · 익일 분할 " + w : "익일 분할 " + w;
     return '<span class="state sell-next" title="다음 영업일 시가 10% + VWAP 분할 ' + w + " — " + esc(sp.reason || "") + '">' + t + "</span>";
   }
-  // 오늘 장중 청산(정산 전) — 원장은 16:30 정산 때 반영(2026-11-03)
+  // 오늘 장중 청산(정산 전) — 원장은 17:05 정산 때 반영(2026-11-03)
   function liveEntryTag(p) {                   // 오늘 장중 신규 진입(정산 전, 2026-11-04)
     var x = p.liveEntry, w = sideOf(p) === "short" ? "공매도" : "매수", e = p.liveExit;
     if (e) {                                   // 같은 날 체결 직후 손절 등으로 되판 경우
@@ -487,26 +487,26 @@
         (e.done ? " 전량 " + esc(e.at) : " " + won(e.qty) + "주") + "</span>";
     }
     var full = x.planned && x.qty >= x.planned;
-    return '<span class="state ext" title="장중 실행기 체결 기록 — 16:30 정산 때 원장 보유로 확정">' + (full ? "오늘 " + w + " 완료 " + esc(x.at)
+    return '<span class="state ext" title="장중 실행기 체결 기록 — 17:05 정산 때 원장 보유로 확정">' + (full ? "오늘 " + w + " 완료 " + esc(x.at)
       : "오늘 " + w + " " + won(x.qty) + "/" + won(x.planned) + "주" + (x.done ? " · 남은 분할 중단" : "")) + "</span>";
   }
   function liveExitTag(p) {
     var x = p.liveExit, w = sideOf(p) === "short" ? "환매" : "매도", what = x.kind === "switch" ? "스위칭 " + w : reasonTxt(x.kind || "청산", sideOf(p));
-    return '<span class="state sell-next" title="장중 실행기 기록 — 16:30 정산 때 원장에 반영">' + (x.done ? "오늘 " + what + " 완료 " + esc(x.at)
+    return '<span class="state sell-next" title="장중 실행기 기록 — 17:05 정산 때 원장에 반영">' + (x.done ? "오늘 " + what + " 완료 " + esc(x.at)
       : "오늘 " + what + " " + won(x.qty) + "/" + won((p.qtyLedger || 0) + (p.liveAdd ? p.liveAdd.qty : 0) || p.qty) + "주") + "</span>";
   }
   function liveAddTag(p) {                     // 오늘 장중 추가 체결(비중 채우기, 정산 전 — 2026-11-04)
     var x = p.liveAdd, w = sideOf(p) === "short" ? "공매도" : "매수";
-    return '<span class="state ext" title="비중 채우기 장중 체결 ' + won(x.qty) + "주 @" + won(x.price) + " — 16:30 정산 때 평균단가로 합산(수량·평단은 이미 반영)" + '">오늘 추가 ' + w + " +" + won(x.qty) + "주 " + esc(x.at) + "</span>";
+    return '<span class="state ext" title="비중 채우기 장중 체결 ' + won(x.qty) + "주 @" + won(x.price) + " — 17:05 정산 때 평균단가로 합산(수량·평단은 이미 반영)" + '">오늘 추가 ' + w + " +" + won(x.qty) + "주 " + esc(x.at) + "</span>";
   }
   // 평가손익 칸(2026-11-04 한화솔루션) — 남은 수량은 평가손익(현재가), 오늘 청산분은 '실현'으로 따로. 전량 청산이면 실현만
   function pnlCell(p) {
     var rz = p.liveRealized, has = rz != null && p.liveExit;
-    var rl = has ? '<small class="pnl-realized ' + signCls(rz) + '" title="오늘 장중 청산분 실현 손익(정산 전 추정 — 16:30 정산 때 확정)">실현 ' + wonS(rz) + "원" +
+    var rl = has ? '<small class="pnl-realized ' + signCls(rz) + '" title="오늘 장중 청산분 실현 손익(정산 전 추정 — 17:05 정산 때 확정)">실현 ' + wonS(rz) + "원" +
       (p.liveRealizedPct != null ? " (" + pctTxt(p.liveRealizedPct) + ")" : "") + "</small>" : "";
     if (p.unrealPct == null) {               // 전량 청산 — 실현 배지(%) + 금액만
       return has ? '<span class="pnl-kind">실현</span>' + pnlBadge(p.liveRealizedPct, pctTxt(p.liveRealizedPct).replace(/^[+-]/, "")) +
-        '<small class="pnl-realized ' + signCls(rz) + '" title="오늘 장중 청산 실현 손익(정산 전 추정 — 16:30 정산 때 확정)">' + wonS(rz) + "원</small>"
+        '<small class="pnl-realized ' + signCls(rz) + '" title="오늘 장중 청산 실현 손익(정산 전 추정 — 17:05 정산 때 확정)">' + wonS(rz) + "원</small>"
         : '<span class="muted">—</span>';
     }
     return pnlBadge(p.unrealPct, pctTxt(p.unrealPct).replace(/^[+-]/, "")) + rl;
@@ -1228,7 +1228,7 @@
     });
     var P = d[per] || {}, side = AT.side, base = P.base || 1;
     var codes = (P.byCode || []).filter(function (e) { return side === "all" || e.side === side; });
-    var when = (fallback ? '<span class="at-fb">당일 기여도는 종목별 전일 종가를 기록한 정산(11/6 16:30)부터 나옵니다 — 누적을 대신 표시합니다</span><br>' : "") + (per === "day"
+    var when = (fallback ? '<span class="at-fb">당일 기여도는 종목별 전일 종가를 기록한 정산(11/6 17:05)부터 나옵니다 — 누적을 대신 표시합니다</span><br>' : "") + (per === "day"
       ? "당일 " + (d.date || "").slice(5) + (d.live ? " 장중" + (S.summary && S.summary.liveTs ? " " + S.summary.liveTs.slice(0, 5) : "") : " 종가") +
         " · 기준 = 직전 영업일 종가 평가액 " + won(P.base) + "원"
       : "누적(운용 시작 이후" + (d.live ? " · 오늘 장중 포함" : "") + ") · 기준 = 초기 자본 " + won(P.base) + "원");
@@ -1927,7 +1927,7 @@
     setCount("cnt-universe", doc ? doc.summary.top : 0);
     if (!doc) {
       ["un-chips", "un-kpis", "un-strip", "un-score-rules", "un-knobs", "un-log", "un-foot"].forEach(function (id) { $(id).innerHTML = ""; });
-      $("un-top-long").innerHTML = $("un-top-short").innerHTML = '<div class="mx-empty">유니버스 미산출 — 16:30 크론 이후 표시</div>';
+      $("un-top-long").innerHTML = $("un-top-short").innerHTML = '<div class="mx-empty">유니버스 미산출 — 17:05 크론 이후 표시</div>';
       $("un-table").innerHTML = '<tbody><tr class="empty"><td>이 날 유니버스 없음</td></tr></tbody>';
       $("un-log-sub").textContent = "";
       return;
@@ -1986,7 +1986,7 @@
     (dg.errors || []).slice(0, 8).forEach(function (e) { L.push('<div class="warn">⚠ ' + esc(e) + "</div>"); });
     if ((dg.errors || []).length > 8) L.push('<div class="warn">… 오류 ' + dg.errors.length + "건</div>");
     $("un-log").innerHTML = L.join("");
-    $("un-log-sub").textContent = "16:30 크론 · 매트릭스와 독립 소스 · 공통 점수";
+    $("un-log-sub").textContent = "17:05 크론 · 매트릭스와 독립 소스 · 공통 점수";
     var b = doc.basis || {};
     $("un-foot").textContent = [b.tv, b.flow, b.short, b.loan].filter(Boolean).join(" · ") + " · 리츠·ETF·우선주 제외 · 관찰 우선순위이며 매매 권유 아님";
     renderUniverseTable();
