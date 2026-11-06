@@ -247,7 +247,13 @@
     var total = eq[eq.length - 1] / eq[0] - 1, ann = Math.pow(1 + total, 252 / n) - 1;
     return { n: n, sharpe: sd > 0 ? mean / sd * Math.sqrt(252) : null, sortino: dn > 0 ? mean / dn * Math.sqrt(252) : null,
       vol: sd * Math.sqrt(252) * 100, mdd: mdd * 100, mddSpan: ddFrom == null ? "" : dates[ddFrom] + " 고점 → " + dates[ddTo] + " 저점",
-      calmar: mdd < 0 ? ann / -mdd : null, curDD: (eq[eq.length - 1] / peak - 1) * 100 };
+      calmar: mdd < 0 ? ann / -mdd : null, curDD: (eq[eq.length - 1] / peak - 1) * 100,
+      // VaR 95% 1일(2026-11-06) — 모수적 = 1.645σ − μ(일간), 역사적 = 일간 수익률 하위 5% 분위(선형 보간). 손실을 양수 %로
+      var95: (1.645 * sd - mean) * 100, var95h: -pctile(rets, 0.05) * 100 };
+  }
+  function pctile(a, p) {
+    var s = a.slice().sort(function (x, y) { return x - y; }), i = p * (s.length - 1), lo = Math.floor(i);
+    return s.length ? s[lo] + (s[Math.min(lo + 1, s.length - 1)] - s[lo]) * (i - lo) : 0;
   }
   // 장중(정산 전)이면 오늘 장중 평가액을 마지막 점으로 붙인다(2026-11-03) — 기간 수익률·현재 낙폭·추이 그래프용.
   // Sharpe·Sortino·변동성·MDD 는 하루가 덜 끝난 값이 섞이지 않게 종가 행만
@@ -287,12 +293,14 @@
       return '<div class="port-item"><span class="port-lbl">' + x[0] + (r && r.since ? " *" : "") + '</span><span class="port-val">' +
         (r ? pct(r.v) : "—") + "</span></div>";
     }).join("");
-    var mm = [                                   // Profit Factor → Sharpe → Sortino → 변동성 → MDD(2026-11-05)
+    var mm = [                                   // Profit Factor → Sharpe → Sortino → VaR → MDD(2026-11-05, 11-06 변동성 → VaR)
       ["Sharpe Ratio", f2(m.sharpe), "연환산 · 무위험 0%"],
       ["Sortino Ratio", f2(m.sortino), "하방 변동성 기준"],
-      ["변동성(연)", m.vol == null ? "—" : m.vol.toFixed(2) + "%", "현재 낙폭 " + (ml.curDD == null ? "—" : ml.curDD.toFixed(2) + "%") + (lrows !== rows ? "(장중)" : "")],
+      ["VaR 95% (1일)", m.var95 == null ? "—" : '<span class="down">−' + m.var95.toFixed(2) + "%</span>",
+        m.var95 == null ? "표본 부족" : '<span title="모수적 = 1.645 × 일간 표준편차 − 평균 · 역사적 = 실제 일간 수익률 하위 5% · 평가액 ' + won(eqNow) + '원 기준">약 '
+          + won(m.var95 / 100 * eqNow) + "원 · 역사적 −" + m.var95h.toFixed(2) + "%</span>"],
       ["MDD", m.mdd == null ? "—" : '<span class="' + (m.mdd < 0 ? "down" : "") + '">' + m.mdd.toFixed(2) + "%</span>",
-        m.mddSpan || "낙폭 없음"]
+        (m.mddSpan || "낙폭 없음") + " · 현재 " + (ml.curDD == null ? "—" : ml.curDD.toFixed(2) + "%") + (lrows !== rows ? "(장중)" : "")]
     ];
     // Profit Factor(2026-11-05) — 청산 거래(정산 반영분) 총이익 ÷ 총손실. 리포트 탭 stats() 와 같은 계산(전체 기간·Long+Short)
     // 손익비(payoff) = 평균 이익 ÷ 평균 손실(금액). PF = 손익비 × 이긴 건수 ÷ 진 건수
