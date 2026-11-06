@@ -179,6 +179,27 @@ class TestSplit(unittest.TestCase):
         self.assertIn(("2026-09-03", None), calls)                                # 장중 = 전일 → 현재 지수
         self.assertEqual(d["split"]["mkt"], round(-10 * 10300 * -0.01))           # 숏 × 지수 하락 = +
 
+    def test_exposure(self):
+        L = setup_dk()
+        E.settle_day(L, "2026-09-03", {"000001": bar(10100, 10400, 10000, 10300)})
+        p = L["positions"][0]
+        r = attrib.compute(L, [{**p, "price": 10300, "value": 103000}], equity_now=eq(L), close=closer(CL))
+        a = r["all"]["byCode"][0]
+        self.assertEqual(a["expNow"], 103000)
+        self.assertEqual((a["expCD"], a["expDays"], a["expBase"]), (10 * 10000 * 2, 2, 100000))   # 보유 기간 평균 = 투입 금액
+        self.assertEqual(r["all"]["secDays"]["all"]["전기·전자"], 2)
+        d = r["day"]["byCode"][0]
+        self.assertEqual((d["expNow"], d["expBase"]), (103000, 10 * 10100))         # 당일 = 전일 종가 × 수량
+        self.assertAlmostEqual(d["expRet"], 2000 / 101000 * 100, places=2)
+        # 청산 뒤 — 현재 노출 0, 누적 평균 노출은 남는다
+        t = E.close_position(L, p, "2026-09-04", 10500, "pm_sell")
+        E.settle_day(L, "2026-09-04", {"000001": bar(10300, 10600, 10200, 10400)})
+        r = attrib.compute(L, [], equity_now=eq(L), close=closer(CL))
+        a = r["all"]["byCode"][0]
+        self.assertEqual(a["expNow"], 0)
+        self.assertEqual((a["expBase"], a["expDays"]), (100000, 3))                # 09-02~09-04 보유, 투입 금액 그대로
+        self.assertEqual(r["day"]["byCode"][0]["expBase"], 10 * 10300)             # 청산일 = 전일 종가 × 수량
+
     def test_missing_close_leaves_unsplit(self):
         L = self.closed()
         a = attrib.compute(L, [], equity_now=eq(L), close=closer({}))["all"]

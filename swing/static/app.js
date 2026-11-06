@@ -1152,28 +1152,7 @@
       '<span><i style="background:var(--down-blue)"></i>Short<b>' + pc(sv) + "</b></span>" +
       '<span><i style="background:rgba(148,163,184,.5)"></i>현금<b>' + pc(cash) + "</b></span></div>";
 
-    var sec = {};
-    ps.forEach(function (p) {
-      var k = p.sector || "기타", e = sec[k] = sec[k] || { l: 0, s: 0, n: 0 };
-      e[sideOf(p) === "short" ? "s" : "l"] += p.value || 0;
-      e.n += 1;
-    });
-    var secRows = Object.keys(sec).map(function (k) { return [k, sec[k]]; })
-      .sort(function (a, b) { return (b[1].l + b[1].s) - (a[1].l + a[1].s); });
-    var maxAbs = Math.max.apply(null, secRows.map(function (r) { return Math.max(r[1].l, r[1].s); }).concat([1]));
-    table($("pf-sectors"), [["섹터"], ["종목", "r"], ["Long", "r"], ["Short", "r"], ["순노출", "r"], ["순비중", "r"], ["Short ◀ ▶ Long"]],
-      secRows.map(function (r) {
-        var e = r[1], net = e.l - e.s;
-        return [td('<span class="stock-name" style="font-size:13px">' + esc(r[0]) + "</span>"),
-          td('<span class="num">' + e.n + "</span>", "r"),
-          td('<span class="num up">' + (e.l ? eok(e.l) : "—") + "</span>", "r"),
-          td('<span class="num down">' + (e.s ? eok(e.s) : "—") + "</span>", "r"),
-          td('<span class="num ' + cls(net) + '">' + (net > 0 ? "+" : net < 0 ? "−" : "") + eok(Math.abs(net)) + "</span>", "r"),
-          td(pct(net / total * 100, 1), "r"),
-          td('<div class="dbar"><span class="l" style="width:' + (e.l / maxAbs * 50) + '%"></span><span class="s" style="width:' +
-            (e.s / maxAbs * 50) + '%"></span></div>')];
-      }), "보유 종목 없음");
-
+    // 섹터별 노출 표는 성과 기여도 표로 합침(2026-11-06) — renderAttrib 의 Long·Short·순노출·순비중 칸
     var sorted = ps.slice().sort(function (a, b) { return (b.value || 0) - (a.value || 0); });
     table($("pf-holdings"), [["방향"], ["종목"], ["섹터"], ["평가금액", "r"], ["비중"], ["평가손익", "r"], ["보유일"]],
       sorted.map(function (p) {
@@ -1274,42 +1253,67 @@
           T.nMktNone + "종목</span>" : "") +
         (d.closesPending ? ' <span class="at-fb">종가 ' + d.closesPending + "건 받는 중 — 잠시 후 자동 갱신</span>" : "") + "</span>";
     }
-    // 섹터 — 합계는 서버 집계, Long/Short 는 해당 방향만 다시 묶음
-    var secs = P.bySector || [];
-    if (side !== "all") {
-      var g = {};
-      codes.forEach(function (e) {
-        var x = g[e.sector] = g[e.sector] || { sector: e.sector, long: 0, short: 0, pnl: 0, n: 0 };
-        x[e.side] += e.pnl; x.pnl += e.pnl; x.n += 1;
-      });
-      secs = Object.keys(g).map(function (k) { return g[k]; }).sort(function (a, b) { return b.pnl - a.pnl; });
-    }
-    // 섹터 행 클릭 → 그 섹터 종목 기여도 펼침(2026-11-05) — 펼친 섹터는 AT.open 에 남아 장중 갱신·토글 전환에도 유지
-    var maxS = Math.max.apply(null, secs.map(function (x) { return Math.abs(x.pnl); }).concat([1]));
-    var bySec = {};
+    // 섹터 — (방향 필터된) 종목 행을 다시 묶는다: 노출(현재 Long·Short, 기간 노출) + 손익(2026-11-06 노출 표 합침)
+    var eqNow = d.equityNow || base, bySec = {};
     codes.forEach(function (e) { (bySec[e.sector] = bySec[e.sector] || []).push(e); });
+    var secs = Object.keys(bySec).map(function (k) {
+      var x = { sector: k, expL: 0, expS: 0, cd: 0, pnl: 0, pnlL: 0, pnlS: 0, codes: {} };
+      bySec[k].forEach(function (e) {
+        x[e.side === "short" ? "expS" : "expL"] += e.expNow || 0;
+        x.cd += e.expCD || 0; x.pnl += e.pnl; x[e.side === "short" ? "pnlS" : "pnlL"] += e.pnl; x.codes[e.code] = 1;
+      });
+      x.n = Object.keys(x.codes).length;
+      x.days = ((P.secDays || {})[side] || {})[k] || 1;
+      x.expB = x.cd / x.days;          // 섹터 보유 기간 평균 노출 = 자본 × 일 ÷ 그 섹터를 들고 있던 영업일
+      return x;
+    }).sort(function (a, b) { return b.pnl - a.pnl; });
+    var maxS = Math.max.apply(null, secs.map(function (x) { return Math.abs(x.pnl); }).concat([1]));
+    var expNote = per === "day" ? "장 시작 노출(전일 종가 × 수량) + 오늘 체결 금액" : "보유 기간 평균 노출(진입 금액 × 보유일 ÷ 보유 영업일)";
+    function expRetCell(pnl, eb, days) {
+      if (!eb) return td('<span class="at-mut">—</span>', "r");
+      return td('<span title="손익 ' + (pnl > 0 ? "+" : "") + won(pnl) + "원 ÷ " + expNote + " " + won(Math.round(eb)) + "원" +
+        (per === "day" ? "" : " (" + days + "영업일)") + '">' + pct(pnl / eb * 100) + "</span>", "r");
+    }
+    function netCells(l, sh) {   // 현재 노출 — 순노출(억) · 순비중(현재 평가액 대비)
+      var net = l - sh;
+      if (!l && !sh) return td('<span class="at-mut" title="현재 보유 없음(청산)">—</span>', "r") + (split ? "" : td('<span class="at-mut">—</span>', "r"));
+      var c = net > 0 ? "up" : net < 0 ? "down" : "";
+      return td('<span class="num ' + c + '" title="Long ' + eok(l) + " · Short " + eok(sh) + '">' + (net > 0 ? "+" : net < 0 ? "−" : "") + eok(Math.abs(net)) + "</span>", "r") +
+        (split ? "" : td(pct(net / eqNow * 100, 1), "r"));
+    }
+    function contribCell(pnl, pl, ps_) {
+      var tip = "손익 " + (pnl > 0 ? "+" : "") + won(pnl) + "원" + (pl && ps_ ? " · Long " + ppTxt(pl / base * 100) + " · Short " + ppTxt(ps_ / base * 100) : "");
+      return td('<span title="' + esc(tip) + '">' + ppCell(pnl / base * 100) + "</span>", "r");
+    }
     var h = '<thead><tr><th>섹터 · 종목</th><th class="r">종목</th>' + (split
-      ? '<th class="r" title="선정 중 시장(상장시장 지수) 등락 몫, β = 1">시장효과</th><th class="r" title="선정 − 시장효과 — 판단일 종가 → 끝 가격 중 지수를 넘어선 몫">PM 선정</th>' +
+      ? '<th class="r" title="현재 Long − Short 평가금액">순노출</th>' +
+        '<th class="r" title="선정 중 시장(상장시장 지수) 등락 몫, β = 1">시장효과</th><th class="r" title="선정 − 시장효과 — 판단일 종가 → 끝 가격 중 지수를 넘어선 몫">PM 선정</th>' +
         '<th class="r" title="판단일 종가 대비 체결 평단 − 미체결 기회손익">진입</th>' +
         '<th class="r" title="청산가 − 청산일 종가">청산</th><th class="r" title="거래세 + 대차료(수수료·슬리피지 미반영)">비용</th>'
-      : '<th class="r">Long</th><th class="r">Short</th>') + '<th class="r">손익(원)</th>' +
-      '<th class="r">기여도</th><th>− ◀ ▶ +</th></tr></thead><tbody>';
-    if (!secs.length) h += '<tr class="empty"><td colspan="' + (split ? 10 : 7) + '">기여 내역 없음</td></tr>';
+      : '<th class="r" title="현재 Long 평가금액">Long</th><th class="r" title="현재 Short 평가금액">Short</th><th class="r" title="Long − Short">순노출</th>' +
+        '<th class="r" title="순노출 ÷ 현재 평가액">순비중</th><th class="r">손익(원)</th>') +
+      '<th class="r">기여도</th><th class="r" title="손익 ÷ ' + expNote + '">노출 대비</th><th>− ◀ ▶ +</th></tr></thead><tbody>';
+    if (!secs.length) h += '<tr class="empty"><td colspan="' + (split ? 11 : 10) + '">기여 내역 없음</td></tr>';
     secs.forEach(function (x) {
-      var open = !!AT.open[x.sector], kids = (bySec[x.sector] || []).slice().sort(function (a, b) { return b.pnl - a.pnl; });
-      h += '<tr class="at-sec' + (open ? " open" : "") + '" data-sec="' + esc(x.sector) + '" title="종목별 기여도 ' + (open ? "접기" : "펼치기") + '">' +
+      var open = !!AT.open[x.sector], kids = bySec[x.sector].slice().sort(function (a, b) { return b.pnl - a.pnl; });
+      h += '<tr class="at-sec' + (open ? " open" : "") + '" data-sec="' + esc(x.sector) + '" title="종목별 ' + (open ? "접기" : "펼치기") + '">' +
         td('<span class="at-caret">' + (open ? "▾" : "▸") + '</span><span class="stock-name" style="font-size:13px">' + esc(x.sector) + "</span>") +
-        td('<span class="num">' + x.n + "</span>", "r") + (split ? atSplitCells(atSplitSum(bySec[x.sector] || []), base) :
-        td(x.long ? ppCell(x.long / base * 100) : "—", "r") + td(x.short ? ppCell(x.short / base * 100) : "—", "r")) +
-        td(atWon(x.pnl), "r") + td(ppCell(x.pnl / base * 100), "r") + td(atBar(x.pnl, maxS)) + "</tr>";
+        td('<span class="num">' + x.n + "</span>", "r") +
+        (split ? netCells(x.expL, x.expS) + atSplitCells(atSplitSum(bySec[x.sector]), base)
+          : td('<span class="num up">' + (x.expL ? eok(x.expL) : "—") + "</span>", "r") + td('<span class="num down">' + (x.expS ? eok(x.expS) : "—") + "</span>", "r") +
+            netCells(x.expL, x.expS) + td(atWon(x.pnl), "r")) +
+        contribCell(x.pnl, x.pnlL, x.pnlS) + expRetCell(x.pnl, x.expB, x.days) + td(atBar(x.pnl, maxS)) + "</tr>";
       if (!open) return;
       kids.forEach(function (e) {
-        var st = e.held ? (e.realized ? "보유 · 일부 실현" : "보유") : "청산", c = e.contribPct;
+        var st = e.held ? (e.realized ? "보유 · 일부 실현" : "보유") : "청산", sh = e.side === "short";
+        var l = sh ? 0 : e.expNow || 0, s2 = sh ? e.expNow || 0 : 0;
         h += '<tr class="at-kid"' + (e.decisionKey ? ' data-key="' + esc(e.decisionKey) + '" title="판단 원문 보기"' : "") + ">" +
           td('<span class="side-tag ' + e.side + '">' + e.side.toUpperCase() + "</span>" + stock(e.name || e.code, e.code)) +
           td('<span class="at-state">' + st + "</span>", "r") +
-          (split ? atSplitCells(e.split, base, e) : td(e.side === "long" ? ppCell(c) : "", "r") + td(e.side === "short" ? ppCell(c) : "", "r")) +
-          td(atWon(e.pnl), "r") + td(ppCell(c), "r") + td(atBar(e.pnl, maxS)) + "</tr>";
+          (split ? netCells(l, s2) + atSplitCells(e.split, base, e)
+            : td(l ? '<span class="num up">' + eok(l) + "</span>" : "", "r") + td(s2 ? '<span class="num down">' + eok(s2) + "</span>" : "", "r") +
+              netCells(l, s2) + td(atWon(e.pnl), "r")) +
+          contribCell(e.pnl) + expRetCell(e.pnl, e.expBase, e.expDays) + td(atBar(e.pnl, maxS)) + "</tr>";
       });
     });
     $("at-sectors").innerHTML = h + "</tbody>";

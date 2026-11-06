@@ -167,14 +167,9 @@
         </div>
         <div class="pf-tiles" id="pf-tiles"></div>
         <div class="exposure" id="pf-exposure"></div>
-        <div class="board-header mt">
-          <h2>섹터별 노출</h2>
-          <span class="board-subtitle">Long(+) · Short(−) · 순노출 = Long − Short</span>
-        </div>
-        <div class="table-wrap"><table class="stocks-table compact" id="pf-sectors"></table></div>
         <!-- 성과 기여도(2026-11-05) — /api/swing/attribution(swing/attrib.py): 당일·누적 섹터별·종목별 손익 기여(%p) -->
         <div class="board-header mt">
-          <h2>성과 기여도</h2>
+          <h2>섹터별 노출 · 성과 기여도</h2>
           <div class="at-ctl">
             <div class="seg" id="at-period" role="group" aria-label="기간">
               <button type="button" data-v="day">당일</button>
@@ -192,7 +187,7 @@
           </div>
         </div>
         <div class="at-sum" id="at-sum"></div>
-        <div class="at-sub">섹터별 기여도 <span class="at-hint">섹터를 누르면 종목별 기여도 · 종목을 누르면 판단 원문</span>
+        <div class="at-sub">섹터별 <span class="at-hint">노출 = 현재 보유 평가금액(Long·Short·순노출) · 기여도 = 기간 손익 ÷ 기준 · 노출 대비 = 기간 손익 ÷ 기간 노출 · 섹터를 누르면 종목별 · 종목을 누르면 판단 원문</span>
           <button type="button" class="at-expand" id="at-expand">모두 펼치기</button></div>
         <div class="table-wrap"><table class="stocks-table compact" id="at-sectors"></table></div>
         <div class="board-header mt">

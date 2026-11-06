@@ -23,6 +23,12 @@
   mkt(code, 기준일, 끝 날짜|None=장중) → 지수 수익률|None. 없으면 그 종목은 시장 미분리(mkt=None, PM 선정 = 선정).
   당일 보기는 B 대신 직전 영업일 종가(판단 다음날 진입이면 B 와 같다). 미체결 기회손익은 진입 주문이 끝난 회차만
   (아직 열린 주문·장중 진행 중이면 빼고). 종가는 close(code, date) 로 받는다(서버가 일봉 캐시, 없으면 그 종목은 분해 없음).
+
+노출(2026-11-06, 섹터별 노출 표와 합침) — 행마다 expNow(현재 보유 평가금액) · expCD(자본 × 일) · expDays(보유 영업일)
+  → 노출 대비 수익률 = 손익 ÷ (expCD ÷ 보유 영업일) = 보유 기간 평균 노출 대비. 종목 1회차면 = 투입 금액 대비 수익률.
+  섹터는 secDays[방향][섹터](그 섹터를 실제 들고 있던 영업일 합집합)로 나눈다 — 잠깐 든 종목이 부풀지 않게.
+  당일 = 장 시작 노출(전일 종가 × 원장 수량) + 오늘 신규·추가 체결 금액, 하루.
+  누적 = Σ(진입 금액 × 보유 영업일) — 진입가 기준 근사(매일 시가 평가 아님). 숏도 양수(금액)로 — 방향은 side.
 """
 from __future__ import annotations
 
@@ -377,9 +383,81 @@ def _split_add(dst, e):
         dst["pure"] += x["pure"]
 
 
+def _exp(acc, key, x, now=0.0, base=0.0, days=()):
+    """base = 자본 × 일(당일 보기는 그날 노출 × 1), days = 그 노출이 있던 영업일들."""
+    e = _add(acc, key, x)
+    e["expNow"] = e.get("expNow", 0.0) + (now or 0.0)
+    e["expCD"] = e.get("expCD", 0.0) + (base or 0.0)
+    e.setdefault("_days", set()).update(days)
+
+
+def _value(p):
+    return p.get("value") if p.get("value") is not None else (p.get("qty") or 0) * (p.get("price") or p.get("lastClose") or p["entry"])
+
+
+def _tdays(a, b):
+    from . import tradedays
+    return tradedays.trading_days(a, b) if a and b and a <= b else ([a] if a else [])
+
+
+def exposure_all(acc, L, ps, live_day):
+    """누적 — 자본 × 보유 영업일(진입 금액 기준), 보유 영업일 집합."""
+    end = live_day or L.get("asof")
+    for t in L.get("trades") or []:
+        ds = _tdays(t["entryDate"], t["exitDate"])
+        _exp(acc, (t["code"], t.get("side") or "long"), t, base=t["qty"] * t["entryPrice"] * len(ds), days=ds)
+    for p in ps:
+        q = (p.get("qty") or 0) + ((p.get("liveExit") or {}).get("qty") or 0)
+        ds = _tdays(p.get("fillDate") or end, end)
+        _exp(acc, (p["code"], p.get("side") or "long"), p, now=_value(p), base=q * p["entry"] * len(ds), days=ds)
+
+
+def exposure_day_live(acc, ps, day):
+    for p in ps:
+        key = (p["code"], p.get("side") or "long")
+        if str(p.get("id") or "").startswith("live:"):
+            q = (p.get("qty") or 0) + ((p.get("liveExit") or {}).get("qty") or 0)
+            _exp(acc, key, p, now=_value(p), base=q * p["entry"], days=[day])
+            continue
+        prev = p.get("lastClose") or p.get("entryLedger") or p["entry"]
+        la = p.get("liveAdd") or {}
+        _exp(acc, key, p, now=_value(p), base=(p.get("qtyLedger") or 0) * prev + (la.get("qty") or 0) * (la.get("price") or 0), days=[day])
+
+
+def exposure_day_settled(acc, L, doc):
+    d = L.get("asof")
+    adds = {}
+    for rec in ((doc or {}).get("orders") or {}).values():
+        if rec.get("topupOf") and rec.get("fills"):
+            adds.setdefault(rec["topupOf"], []).extend(f for f in rec["fills"] if f.get("qty"))
+    for p in L.get("positions") or []:
+        key = (p["code"], p.get("side") or "long")
+        now = p["qty"] * (p.get("lastClose") or p["entry"])
+        if p.get("fillDate") == d:
+            base = p["qty"] * p["entry"]
+        else:
+            af = adds.get(p["id"]) or []
+            qa = sum(f["qty"] for f in af)
+            base = (p["qty"] - qa) * (p.get("prevClose") or p.get("lastClose") or p["entry"]) + sum(f["qty"] * f["price"] for f in af)
+        _exp(acc, key, p, now=now, base=base, days=[d])
+    for t in L.get("trades") or []:
+        if t.get("exitDate") == d:
+            ref = t["entryPrice"] if t.get("entryDate") == d else (t.get("prevClose") or t["entryPrice"])
+            _exp(acc, (t["code"], t.get("side") or "long"), t, base=t["qty"] * ref, days=[d])
+
+
 def _pack(acc, base, total, side=None):
-    rows = [e for e in acc.values() if abs(e["pnl"]) >= 0.5]
+    rows = [e for e in acc.values() if abs(e["pnl"]) >= 0.5 or (e.get("expNow") or 0) >= 1]
+    sec_days = {"all": {}, "long": {}, "short": {}}
     for e in rows:
+        ds = e.pop("_days", None) or set()
+        for k in ("all", e["side"]):
+            sec_days[k].setdefault(e["sector"], set()).update(ds)
+        e["expNow"] = round(e.get("expNow") or 0)
+        e["expCD"] = round(e.get("expCD") or 0)
+        e["expDays"] = len(ds) or 1
+        e["expBase"] = round(e["expCD"] / e["expDays"])                       # 보유 기간 평균 노출
+        e["expRet"] = round(e["pnl"] / e["expBase"] * 100, 3) if e["expBase"] else None
         e["contribPct"] = round(e["pnl"] / base * 100, 4) if base else None
         for k in ("pnl", "realized", "unreal"):
             e[k] = round(e[k])
@@ -411,7 +489,7 @@ def _pack(acc, base, total, side=None):
     tot = _split_zero()
     for e in rows:
         _split_add(tot, e)
-    return {"split": tot, "base": round(base), "total": round(total), "totalPct": round(total / base * 100, 4) if base else None,
+    return {"secDays": {k: {sec: len(v) or 1 for sec, v in g.items()} for k, g in sec_days.items()}, "split": tot, "base": round(base), "total": round(total), "totalPct": round(total / base * 100, 4) if base else None,
             "sum": round(s), "residual": round(total - s), "residualPct": round((total - s) / base * 100, 4) if base else None,
             "byCode": rows, "bySector": secs}
 
@@ -426,17 +504,21 @@ def compute(L, ps, *, equity_now, live_day=None, doc=None, close=None, mkt=None)
     out = {"asof": L.get("asof"), "live": bool(live_day), "date": live_day or L.get("asof")}
     close = close or (lambda code, d: None)
     mkt = mkt or _nomkt
+    out["equityNow"] = round(equity_now)
     acc = cumulative(L, ps)
+    exposure_all(acc, L, ps, live_day)
     _apply_split(acc, split_all(L, ps, close, mkt, live=bool(live_day)))
     out["all"] = _pack(acc, cap, equity_now - cap)
     if live_day:
         base = eq[-1]["equity"] if eq else cap
         acc = day_live(ps)
+        exposure_day_live(acc, ps, live_day)
         _apply_split(acc, split_day_live(ps, close, live_day, mkt))
         out["day"] = {**_pack(acc, base, equity_now - base), "available": True}
     else:
         base = eq[-2]["equity"] if len(eq) >= 2 else cap
         acc, ok = day_settled(L, doc)
+        exposure_day_settled(acc, L, doc)
         _apply_split(acc, split_day_settled(L, doc, close, mkt))
         out["day"] = {**_pack(acc, base, equity_now - base), "available": ok}
         if not ok:
