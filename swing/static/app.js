@@ -1187,12 +1187,19 @@
   }
 
   // ── 성과 기여도(2026-11-05) — /api/swing/attribution(swing/attrib.py). 기여도(%p) = 손익 ÷ 기간 시작 평가액, 종목 합 + 기타 = 기간 수익률 ──
-  var AT = { period: "day", side: "all", data: null, at: 0, open: {} };
-  try { AT.period = localStorage.getItem("swing.atPeriod") || "day"; AT.side = localStorage.getItem("swing.atSide") || "all"; } catch (e) { /* 무시 */ }
+  var AT = { period: "day", side: "all", view: "dir", data: null, at: 0, open: {}, retry: null };
+  try {
+    AT.period = localStorage.getItem("swing.atPeriod") || "day"; AT.side = localStorage.getItem("swing.atSide") || "all";
+    AT.view = localStorage.getItem("swing.atView") || "dir";
+  } catch (e) { /* 무시 */ }
   function loadAttrib(force) {
     if (!force && AT.data && Date.now() - AT.at < 30000) return;   // 장중 10초 갱신마다 부르지 않게 30초 간격
     AT.at = Date.now();
-    api("/api/swing/attribution").then(function (d) { AT.data = d; renderAttrib(); }).catch(function () { /* 보조 정보 */ });
+    api("/api/swing/attribution").then(function (d) {
+      AT.data = d; renderAttrib();
+      // 분해용 종가를 서버가 백그라운드로 받는 중이면 잠시 뒤 다시(2026-11-06)
+      if (d.closesPending && !AT.retry) AT.retry = setTimeout(function () { AT.retry = null; loadAttrib(true); }, 8000);
+    }).catch(function () { /* 보조 정보 */ });
   }
   function ppTxt(v) { return v == null ? "—" : (v > 0 ? "+" : v < 0 ? "−" : "") + Math.abs(v).toFixed(2) + "%p"; }
   function ppCell(v) { return '<span class="num ' + (v > 0 ? "up" : v < 0 ? "down" : "") + '">' + ppTxt(v) + "</span>"; }
@@ -1201,14 +1208,34 @@
     var w = Math.min(50, Math.abs(v) / (max || 1) * 50);
     return '<div class="dbar"><span class="' + (v >= 0 ? "l" : "s") + '" style="width:' + w + '%"></span></div>';
   }
+  // 선정·트레이딩 분해(2026-11-06) — 행의 split {sel, ent, ext, miss}(원). 분해 못 한 종목(종가 미확보)은 none 으로 따로
+  function atSplitSum(rows) {
+    var T = { sel: 0, ent: 0, ext: 0, cost: 0, miss: 0, none: 0, nNone: 0, n: 0 };
+    rows.forEach(function (e) {
+      if (!e.split) { T.none += e.pnl; T.nNone += 1; return; }
+      T.sel += e.split.sel; T.ent += e.split.ent; T.ext += e.split.ext; T.cost += e.split.cost || 0; T.miss += e.split.miss || 0; T.n += 1;
+    });
+    return T;
+  }
+  function atSplitCells(x, base, e) {
+    var dash = '<span class="at-mut" title="판단일·청산일 종가를 아직 못 받아 분해하지 못함">—</span>';
+    if (!x || (e == null && !x.n)) return td(dash, "r") + td(dash, "r") + td(dash, "r") + td(dash, "r");
+    var pe = x.ent + (x.miss || 0);
+    var tip = "체결가 효과 " + (pe > 0 ? "+" : "") + won(pe) + "원" + (x.miss ? " · 미체결 기회손익 " + (x.miss > 0 ? "−" : "+") + won(Math.abs(x.miss)) + "원" : "") +
+      (e == null && x.nNone ? " · 미분해 " + x.nNone + "종목 제외" : "");
+    return td('<span title="' + won(x.sel) + '원">' + ppCell(x.sel / base * 100) + "</span>", "r") +
+      td('<span title="' + esc(tip) + '">' + ppCell(x.ent / base * 100) + (x.miss ? '<sup class="at-mut">*</sup>' : "") + "</span>", "r") +
+      td('<span title="' + won(x.ext) + '원">' + ppCell(x.ext / base * 100) + "</span>", "r") +
+      td('<span title="' + won(x.cost || 0) + '원">' + ppCell((x.cost || 0) / base * 100) + "</span>", "r");
+  }
   function renderAttrib() {
     var d = AT.data;
     if (!d) return;
     // 당일을 낼 수 없으면(정산 뒤인데 전일 종가 기록 전) 누적으로 대신 보여준다 — 빈 표 대신(2026-11-06)
     var per = AT.period, fallback = per === "day" && (d.day || {}).available === false;
     if (fallback) per = "all";
-    ["at-period", "at-side"].forEach(function (id) {
-      var v = id === "at-period" ? per : AT.side;
+    ["at-period", "at-side", "at-view"].forEach(function (id) {
+      var v = id === "at-period" ? per : id === "at-side" ? AT.side : AT.view;
       $(id).querySelectorAll("button").forEach(function (b) { b.classList.toggle("active", b.dataset.v === v); });
     });
     var P = d[per] || {}, side = AT.side, base = P.base || 1;
@@ -1222,6 +1249,18 @@
       ? "종목 기여 합계 <b>" + ppTxt(P.sum / base * 100) + '</b> + 기타 <span title="세금·대차료·반올림 등 종목에 나누지 않은 몫">' + ppTxt(P.residualPct) +
         "</span> = 기간 수익률 <b>" + pctTxt(P.totalPct) + "</b> (" + atWon(P.total) + "원)"
       : (side === "long" ? "Long" : "Short") + " 기여 합계 <b>" + ppTxt(sum / base * 100) + "</b> (" + atWon(sum) + "원) · " + codes.length + "종목");
+    var split = AT.view === "split";
+    if (split) {
+      var T = atSplitSum(codes);
+      $("at-sum").innerHTML += '<br><span class="at-split">' +
+        '<span title="판단일 종가에 계획 수량을 샀다고 치고 끝 가격(청산일 종가·현재가)까지 — PM 종목 선정 몫">선정 <b>' + ppTxt(T.sel / base * 100) + "</b></span> · " +
+        '<span title="판단일 종가 대비 실제 평단(싸게 샀으면 +) − 미체결 기회손익">진입 <b>' + ppTxt(T.ent / base * 100) + "</b></span> · " +
+        '<span title="실제 청산가 − 청산일 종가(장중 손절·익절이 종가보다 나았으면 +)">청산 <b>' + ppTxt(T.ext / base * 100) + "</b></span> · " +
+        '<span title="거래세(Long 매도·Short 진입 0.2%) + 대차료(Short 연 4%) — 수수료·슬리피지는 미반영">비용 <b>' + ppTxt(T.cost / base * 100) + "</b></span>" +
+        (T.miss ? ' <span class="at-mut">(진입 중 미체결 기회손익 ' + ppTxt(-T.miss / base * 100) + ")</span>" : "") +
+        (T.nNone ? ' · <span class="at-mut" title="판단일·청산일 종가를 아직 못 받은 종목">미분해 ' + T.nNone + "종목 " + ppTxt(T.none / base * 100) + "</span>" : "") +
+        (d.closesPending ? ' <span class="at-fb">종가 ' + d.closesPending + "건 받는 중 — 잠시 후 자동 갱신</span>" : "") + "</span>";
+    }
     // 섹터 — 합계는 서버 집계, Long/Short 는 해당 방향만 다시 묶음
     var secs = P.bySector || [];
     if (side !== "all") {
@@ -1236,15 +1275,18 @@
     var maxS = Math.max.apply(null, secs.map(function (x) { return Math.abs(x.pnl); }).concat([1]));
     var bySec = {};
     codes.forEach(function (e) { (bySec[e.sector] = bySec[e.sector] || []).push(e); });
-    var h = '<thead><tr><th>섹터 · 종목</th><th class="r">종목</th><th class="r">Long</th><th class="r">Short</th><th class="r">손익(원)</th>' +
+    var h = '<thead><tr><th>섹터 · 종목</th><th class="r">종목</th>' + (split
+      ? '<th class="r" title="판단일 종가 → 끝 가격, 계획 수량 기준">선정</th><th class="r" title="판단일 종가 대비 체결 평단 − 미체결 기회손익">진입</th>' +
+        '<th class="r" title="청산가 − 청산일 종가">청산</th><th class="r" title="거래세 + 대차료(수수료·슬리피지 미반영)">비용</th>'
+      : '<th class="r">Long</th><th class="r">Short</th>') + '<th class="r">손익(원)</th>' +
       '<th class="r">기여도</th><th>− ◀ ▶ +</th></tr></thead><tbody>';
-    if (!secs.length) h += '<tr class="empty"><td colspan="7">기여 내역 없음</td></tr>';
+    if (!secs.length) h += '<tr class="empty"><td colspan="' + (split ? 9 : 7) + '">기여 내역 없음</td></tr>';
     secs.forEach(function (x) {
       var open = !!AT.open[x.sector], kids = (bySec[x.sector] || []).slice().sort(function (a, b) { return b.pnl - a.pnl; });
       h += '<tr class="at-sec' + (open ? " open" : "") + '" data-sec="' + esc(x.sector) + '" title="종목별 기여도 ' + (open ? "접기" : "펼치기") + '">' +
         td('<span class="at-caret">' + (open ? "▾" : "▸") + '</span><span class="stock-name" style="font-size:13px">' + esc(x.sector) + "</span>") +
-        td('<span class="num">' + x.n + "</span>", "r") +
-        td(x.long ? ppCell(x.long / base * 100) : "—", "r") + td(x.short ? ppCell(x.short / base * 100) : "—", "r") +
+        td('<span class="num">' + x.n + "</span>", "r") + (split ? atSplitCells(atSplitSum(bySec[x.sector] || []), base) :
+        td(x.long ? ppCell(x.long / base * 100) : "—", "r") + td(x.short ? ppCell(x.short / base * 100) : "—", "r")) +
         td(atWon(x.pnl), "r") + td(ppCell(x.pnl / base * 100), "r") + td(atBar(x.pnl, maxS)) + "</tr>";
       if (!open) return;
       kids.forEach(function (e) {
@@ -1252,7 +1294,7 @@
         h += '<tr class="at-kid"' + (e.decisionKey ? ' data-key="' + esc(e.decisionKey) + '" title="판단 원문 보기"' : "") + ">" +
           td('<span class="side-tag ' + e.side + '">' + e.side.toUpperCase() + "</span>" + stock(e.name || e.code, e.code)) +
           td('<span class="at-state">' + st + "</span>", "r") +
-          td(e.side === "long" ? ppCell(c) : "", "r") + td(e.side === "short" ? ppCell(c) : "", "r") +
+          (split ? atSplitCells(e.split, base, e) : td(e.side === "long" ? ppCell(c) : "", "r") + td(e.side === "short" ? ppCell(c) : "", "r")) +
           td(atWon(e.pnl), "r") + td(ppCell(c), "r") + td(atBar(e.pnl, maxS)) + "</tr>";
       });
     });
@@ -1275,12 +1317,12 @@
     if (!allOpen) secs.forEach(function (k) { AT.open[k] = 1; });
     renderAttrib();
   });
-  ["at-period", "at-side"].forEach(function (id) {
+  ["at-period", "at-side", "at-view"].forEach(function (id) {
     $(id).addEventListener("click", function (e) {
       var b = e.target.closest("button");
       if (!b) return;
-      if (id === "at-period") AT.period = b.dataset.v; else AT.side = b.dataset.v;
-      try { localStorage.setItem(id === "at-period" ? "swing.atPeriod" : "swing.atSide", b.dataset.v); } catch (x) { /* 무시 */ }
+      if (id === "at-period") AT.period = b.dataset.v; else if (id === "at-side") AT.side = b.dataset.v; else AT.view = b.dataset.v;
+      try { localStorage.setItem({ "at-period": "swing.atPeriod", "at-side": "swing.atSide", "at-view": "swing.atView" }[id], b.dataset.v); } catch (x) { /* 무시 */ }
       renderAttrib();
     });
   });

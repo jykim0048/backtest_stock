@@ -189,6 +189,7 @@ def _live_entries(L, doc, live):
                      "stop": rec.get("stop") or o.get("stop"), "target": o.get("target"), "sector": o.get("sector"), "signal": o.get("signal"),
                      "source": o.get("source"), "decisionKey": o.get("decisionKey"), "weight": o.get("weight") or rec.get("weight"),
                      "rating": o.get("rating") or rec.get("rating"), "fillDate": doc.get("date"), "holdDay": 1, "lastClose": None, "sellPending": None,
+                     "dayPrev": lv.get("prevClose"),                         # 기여도 당일 분해 기준(전일 종가, 2026-11-06)
                      "price": px, "priceTs": (lv.get("ts") or fills[-1]["ts"])[11:19], "value": round(left * px), "liveRealized": round(realized),
                      "chgPct": round((px / lv["prevClose"] - 1) * 100, 2) if lv.get("prevClose") else None,
                      "unrealPct": round((-r if side == "short" else r) * 100, 2) if left > 0 else None,
@@ -230,7 +231,63 @@ def api_attribution(q):
         day = None
         eq_now = L["equity"][-1]["equity"] if L["equity"] else L["cash"]
     doc = STORE.get(f"intraday/{L.get('asof')}") if not day else None
-    return attrib.compute(L, ps, equity_now=eq_now, live_day=day, doc=doc)
+    cl = _Closes(L.get("asof"))
+    out = attrib.compute(L, ps, equity_now=eq_now, live_day=day, doc=doc, close=cl)
+    out["closesPending"] = cl.kick()
+    return out
+
+
+class _Closes:
+    """선정·트레이딩 분해용 종가 조회(2026-11-06) — 문서 attrib/closes {code: {date: 종가}} 캐시.
+    없는 (종목, 날짜)는 모아 두었다가 kick() 이 백그라운드로 일봉(history._bars, DB증권 chart_day)을 받아 채운다.
+    정산된 날짜(≤ 원장 asof)만 캐시한다. 받았는데 그날 봉이 없으면 0 을 적어 다시 받지 않는다."""
+    KEY = "attrib/closes"
+    _lock = __import__("threading").Lock()
+    _running = [False]
+
+    def __init__(self, asof):
+        self.asof = asof
+        self.cache = STORE.get(self.KEY) or {}
+        self.missing = {}
+
+    def __call__(self, code, d):
+        if not d or (self.asof and d > self.asof):
+            return None
+        v = (self.cache.get(code) or {}).get(d)
+        if v is None:
+            self.missing.setdefault(code, set()).add(d)
+        return v or None
+
+    def kick(self):
+        if not self.missing:
+            return 0
+        n = sum(len(v) for v in self.missing.values())
+        with self._lock:
+            if self._running[0]:
+                return n
+            self._running[0] = True
+        import threading
+        want = {c: sorted(v) for c, v in self.missing.items()}
+
+        def job():
+            from swing import history
+            try:
+                cache = STORE.get(self.KEY) or {}
+                for i, (code, ds) in enumerate(want.items()):
+                    bars = history._bars(code, ds[0], ds[-1], [])
+                    row = cache.setdefault(code, {})
+                    for d in ds:
+                        row[d] = float((bars.get(d) or {}).get("c") or 0)
+                    if i % 10 == 9:
+                        STORE.put(self.KEY, cache)
+                STORE.put(self.KEY, cache)
+                print(f"[swing] 기여도 분해 종가 {sum(len(v) for v in want.values())}건 / {len(want)}종목 채움", flush=True)
+            except Exception as ex:
+                print(f"[swing] 기여도 분해 종가 실패: {type(ex).__name__}: {str(ex)[:160]}", flush=True)
+            finally:
+                _Closes._running[0] = False
+        threading.Thread(target=job, daemon=True, name="swing-attrib-closes").start()
+        return n
 
 
 def api_queue(q):
