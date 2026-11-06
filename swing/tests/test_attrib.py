@@ -146,6 +146,39 @@ class TestSplit(unittest.TestCase):
         self.assertEqual(e["split"]["cost"], -round(t["tax"] + t["borrowFee"]))
         self.assertEqual(sum(e["split"][k] for k in ("sel", "ent", "ext", "cost")), e["pnl"])
 
+    def test_market_effect(self):
+        L = self.closed()
+        L["orderLog"][0]["partial"] = {"planned": 15, "filled": 10, "remain": 5}
+        seen = []
+
+        def mkt(code, d1, d2):
+            seen.append((code, d1, d2))
+            return 0.03                                                           # 판단일 → 청산일 지수 +3%
+        a = attrib.compute(L, [], equity_now=eq(L), close=closer(CL), mkt=mkt)["all"]
+        e = a["byCode"][0]
+        self.assertIn(("000001", "2026-09-01", "2026-09-04"), seen)
+        self.assertEqual(e["split"]["mkt"], round(15 * 9900 * 0.03))               # 계획 수량(미체결 포함) × 판단일 종가 × 지수
+        self.assertEqual(e["split"]["pure"], e["split"]["sel"] - e["split"]["mkt"])
+        self.assertEqual((a["split"]["mkt"], a["split"]["nMktNone"]), (e["split"]["mkt"], 0))
+        # 지수 없으면 시장 미분리 — 선정은 그대로, mkt·pure None, 합계는 mktNoneSel 로
+        a = attrib.compute(L, [], equity_now=eq(L), close=closer(CL))["all"]
+        self.assertIsNone(a["byCode"][0]["split"]["mkt"])
+        self.assertEqual((a["split"]["nMktNone"], a["split"]["mktNoneSel"]), (1, a["byCode"][0]["split"]["sel"]))
+
+    def test_market_effect_short_and_live(self):
+        L = setup_dk()
+        E.settle_day(L, "2026-09-03", {"000001": bar(10100, 10400, 10000, 10300)})
+        p = L["positions"][0]
+        row = {**p, "qty": 10, "qtyLedger": 10, "entryLedger": 10000, "price": 10600, "liveAdj": 0, "side": "short"}
+        calls = []
+
+        def mkt(code, d1, d2):
+            calls.append((d1, d2))
+            return -0.01
+        d = attrib.compute(L, [row], equity_now=eq(L), live_day="2026-09-04", close=closer(CL), mkt=mkt)["day"]["byCode"][0]
+        self.assertIn(("2026-09-03", None), calls)                                # 장중 = 전일 → 현재 지수
+        self.assertEqual(d["split"]["mkt"], round(-10 * 10300 * -0.01))           # 숏 × 지수 하락 = +
+
     def test_missing_close_leaves_unsplit(self):
         L = self.closed()
         a = attrib.compute(L, [], equity_now=eq(L), close=closer({}))["all"]

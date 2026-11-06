@@ -232,18 +232,81 @@ def api_attribution(q):
         eq_now = L["equity"][-1]["equity"] if L["equity"] else L["cash"]
     doc = STORE.get(f"intraday/{L.get('asof')}") if not day else None
     cl = _Closes(L.get("asof"))
-    out = attrib.compute(L, ps, equity_now=eq_now, live_day=day, doc=doc, close=cl)
+    live_idx = _live_index() if day else {}
+    mkts = set()
+
+    def mkt(code, d1, d2):
+        """상장시장 지수 수익률(β = 1) — 기준일 d1 종가 → d2 종가(None = 장중 현재 지수)."""
+        ic = _index_of(code)
+        mkts.add(ic)
+        i1 = cl("IDX:" + ic, d1)
+        i2 = (live_idx.get(ic) if d2 is None else cl("IDX:" + ic, d2))
+        return i2 / i1 - 1 if i1 and i2 else None
+    out = attrib.compute(L, ps, equity_now=eq_now, live_day=day, doc=doc, close=cl, mkt=mkt)
     out["closesPending"] = cl.kick()
+    out["indexLive"] = {ic: live_idx.get(ic) for ic in sorted(mkts)} if day else None
+    out["indexWait"] = sorted(ic for ic, t in _Closes._idx_fail.items() if t)
     return out
+
+
+INDEX_NAME = {"0001": "코스피", "1001": "코스닥"}
+_mkt_of = None
+
+
+def _index_of(code):
+    """종목 → 상장시장 지수 코드(KIS 업종: 0001 코스피 · 1001 코스닥). public/assets/krx_companies.json(ticker .KQ)."""
+    global _mkt_of
+    if _mkt_of is None:
+        from swing import prices
+        _mkt_of = prices.YFinancePrices()
+    return "1001" if _mkt_of._market(str(code).zfill(6)) == "KQ" else "0001"
+
+
+_live_idx_cache = [0.0, {}]
+
+
+def _live_index():
+    """장중 지수(허브 /market — kis:market:state.index {코드: {price, ctrt}}, 2026-11-06 허브 1단계) → {코드: 현재 지수}. 20초 캐시."""
+    import time as _t
+    if _t.time() - _live_idx_cache[0] < 20:
+        return _live_idx_cache[1]
+    out = {}
+    try:
+        with urllib.request.urlopen(config.FLOW_API_BASE.rstrip("/") + "/market?n=1", timeout=5) as r:
+            st = (json.loads(r.read().decode("utf-8")) or {}).get("state") or {}
+        for ic, v in (st.get("index") or {}).items():
+            if (v or {}).get("price"):
+                out[ic] = float(v["price"])
+    except Exception as ex:
+        print(f"[swing] 장중 지수(/market) 실패: {type(ex).__name__}: {str(ex)[:120]}", flush=True)
+    _live_idx_cache[0], _live_idx_cache[1] = _t.time(), out
+    return out
+
+
+def _hub_index_closes(ic, d1, d2):
+    """지수 일봉 종가 {YYYY-MM-DD: 종가} — 허브 /index-chart(KIS FHKUP03500100). 실패면 예외."""
+    url = (config.FLOW_API_BASE.rstrip("/") + "/index-chart?" +
+           urllib.parse.urlencode({"code": ic, "from": d1.replace("-", ""), "to": d2.replace("-", "")}))
+    with urllib.request.urlopen(url, timeout=30) as r:
+        d = json.loads(r.read().decode("utf-8"))
+    if d.get("status") != "success":
+        raise RuntimeError(d.get("error") or "status != success")
+    return {k: float(v) for k, v in (d.get("closes") or {}).items()}
+
+
+index_closes_fn = _hub_index_closes                         # 데모 서버는 mock 지수로 바꾼다(main)
 
 
 class _Closes:
     """선정·트레이딩 분해용 종가 조회(2026-11-06) — 문서 attrib/closes {code: {date: 종가}} 캐시.
     없는 (종목, 날짜)는 모아 두었다가 kick() 이 백그라운드로 일봉(history._bars, DB증권 chart_day)을 받아 채운다.
-    정산된 날짜(≤ 원장 asof)만 캐시한다. 받았는데 그날 봉이 없으면 0 을 적어 다시 받지 않는다."""
+    정산된 날짜(≤ 원장 asof)만 캐시한다. 받았는데 그날 봉이 없으면 0 을 적어 다시 받지 않는다.
+    지수는 code 'IDX:<0001|1001>' — 허브 /index-chart 로 받고, 실패하면(허브 배포 전 등) 5분 뒤 다시 시도한다(대기 중엔 pending 에 안 셈)."""
     KEY = "attrib/closes"
     _lock = __import__("threading").Lock()
     _running = [False]
+    _idx_fail = {}                                           # 지수 코드 → 마지막 실패 시각(성공하면 0)
+    IDX_RETRY = 300
 
     def __init__(self, asof):
         self.asof = asof
@@ -255,7 +318,9 @@ class _Closes:
             return None
         v = (self.cache.get(code) or {}).get(d)
         if v is None:
-            self.missing.setdefault(code, set()).add(d)
+            import time as _t
+            if not (code.startswith("IDX:") and _t.time() - (self._idx_fail.get(code[4:]) or 0) < self.IDX_RETRY):
+                self.missing.setdefault(code, set()).add(d)
         return v or None
 
     def kick(self):
@@ -273,7 +338,20 @@ class _Closes:
             from swing import history
             try:
                 cache = STORE.get(self.KEY) or {}
+                import time as _t
                 for i, (code, ds) in enumerate(want.items()):
+                    if code.startswith("IDX:"):
+                        try:
+                            got = index_closes_fn(code[4:], ds[0], ds[-1])
+                        except Exception as ex:
+                            _Closes._idx_fail[code[4:]] = _t.time()
+                            print(f"[swing] 기여도 지수 {code[4:]} 실패(5분 뒤 재시도): {type(ex).__name__}: {str(ex)[:120]}", flush=True)
+                            continue
+                        _Closes._idx_fail[code[4:]] = 0
+                        row = cache.setdefault(code, {})
+                        for d in ds:
+                            row[d] = float(got.get(d) or 0)
+                        continue
                     bars = history._bars(code, ds[0], ds[-1], [])
                     row = cache.setdefault(code, {})
                     for d in ds:
@@ -706,6 +784,18 @@ def main(argv=None):
                 out[d] = {"o": b["open"], "h": b["high"], "l": b["low"], "c": b["close"]}
             return out
         history.bars_fn = bars
+
+        def idx(ic, d1, d2):                                 # 데모 지수 — 날짜별 결정적 등락(코스닥이 더 출렁)
+            import hashlib
+            out, v = {}, 2500.0 if ic == "0001" else 800.0
+            for d in tradedays.trading_days("2026-01-02", d2):
+                h = int(hashlib.md5((ic + d).encode()).hexdigest()[:6], 16) / 0xFFFFFF - 0.5
+                v *= 1 + h * (0.02 if ic == "0001" else 0.03)
+                if d >= d1:
+                    out[d] = round(v, 2)
+            return out
+        global index_closes_fn
+        index_closes_fn = idx
     port = int(os.environ.get("PORT", "8124"))
     print(f"[swing-web] :{port} store={type(STORE).__name__}" + (" (demo)" if a.demo or a.rebuild_demo else ""), flush=True)
     ThreadingHTTPServer(("0.0.0.0", port), Handler).serve_forever()

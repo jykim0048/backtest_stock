@@ -1210,20 +1210,29 @@
   }
   // 선정·트레이딩 분해(2026-11-06) — 행의 split {sel, ent, ext, miss}(원). 분해 못 한 종목(종가 미확보)은 none 으로 따로
   function atSplitSum(rows) {
-    var T = { sel: 0, ent: 0, ext: 0, cost: 0, miss: 0, none: 0, nNone: 0, n: 0 };
+    var T = { sel: 0, ent: 0, ext: 0, cost: 0, miss: 0, mkt: 0, nMktNone: 0, none: 0, nNone: 0, n: 0 };
     rows.forEach(function (e) {
       if (!e.split) { T.none += e.pnl; T.nNone += 1; return; }
       T.sel += e.split.sel; T.ent += e.split.ent; T.ext += e.split.ext; T.cost += e.split.cost || 0; T.miss += e.split.miss || 0; T.n += 1;
+      if (e.split.mkt == null) T.nMktNone += 1; else T.mkt += e.split.mkt;
     });
+    T.pure = T.sel - T.mkt;          // 시장 미분리(지수 없음) 종목의 선정은 PM 선정 쪽에 남긴다
     return T;
   }
   function atSplitCells(x, base, e) {
     var dash = '<span class="at-mut" title="판단일·청산일 종가를 아직 못 받아 분해하지 못함">—</span>';
-    if (!x || (e == null && !x.n)) return td(dash, "r") + td(dash, "r") + td(dash, "r") + td(dash, "r");
+    if (!x || (e == null && !x.n)) return td(dash, "r") + td(dash, "r") + td(dash, "r") + td(dash, "r") + td(dash, "r");
     var pe = x.ent + (x.miss || 0);
     var tip = "체결가 효과 " + (pe > 0 ? "+" : "") + won(pe) + "원" + (x.miss ? " · 미체결 기회손익 " + (x.miss > 0 ? "−" : "+") + won(Math.abs(x.miss)) + "원" : "") +
       (e == null && x.nNone ? " · 미분해 " + x.nNone + "종목 제외" : "");
-    return td('<span title="' + won(x.sel) + '원">' + ppCell(x.sel / base * 100) + "</span>", "r") +
+    // 시장 = 상장시장 지수(β = 1) 같은 기간 등락 × 계획 금액, PM 선정 = 선정 − 시장효과
+    var noMkt = e != null ? x.mkt == null : !!x.nMktNone, mk = x.mkt || 0, pu = x.sel - mk;
+    var mTip = (e != null && x.mkt == null) ? "지수를 아직 못 받아 시장 효과를 나누지 못함 — PM 선정 = 선정 전체"
+      : won(mk) + "원" + (noMkt ? " · 지수 미수신 " + x.nMktNone + "종목 제외" : "");
+    return td(e != null && x.mkt == null ? '<span class="at-mut" title="' + esc(mTip) + '">—</span>'
+        : '<span title="' + esc(mTip) + '">' + ppCell(mk / base * 100) + (noMkt ? '<sup class="at-mut">†</sup>' : "") + "</span>", "r") +
+      td('<span title="선정 ' + (x.sel > 0 ? "+" : "") + won(x.sel) + "원 − 시장효과 " + (mk > 0 ? "+" : "") + won(mk) + "원 = " +
+        (pu > 0 ? "+" : "") + won(pu) + '원">' + ppCell(pu / base * 100) + "</span>", "r") +
       td('<span title="' + esc(tip) + '">' + ppCell(x.ent / base * 100) + (x.miss ? '<sup class="at-mut">*</sup>' : "") + "</span>", "r") +
       td('<span title="' + won(x.ext) + '원">' + ppCell(x.ext / base * 100) + "</span>", "r") +
       td('<span title="' + won(x.cost || 0) + '원">' + ppCell((x.cost || 0) / base * 100) + "</span>", "r");
@@ -1253,12 +1262,16 @@
     if (split) {
       var T = atSplitSum(codes);
       $("at-sum").innerHTML += '<br><span class="at-split">' +
-        '<span title="판단일 종가에 계획 수량을 샀다고 치고 끝 가격(청산일 종가·현재가)까지 — PM 종목 선정 몫">선정 <b>' + ppTxt(T.sel / base * 100) + "</b></span> · " +
+        '<span title="판단일 종가에 계획 수량을 샀다고 치고 끝 가격(청산일 종가·현재가)까지 — PM 종목 선정 몫">선정 <b>' + ppTxt(T.sel / base * 100) + "</b></span>" +
+        ' <span class="at-mut">(<span title="상장시장 지수(코스피·코스닥) 같은 기간 등락 × 계획 금액, β = 1">시장효과 ' + ppTxt(T.mkt / base * 100) +
+        '</span> · <span title="선정 − 시장효과 — 시장 대비 종목을 잘 고른 몫">PM 선정 ' + ppTxt(T.pure / base * 100) + "</span>)</span> · " +
         '<span title="판단일 종가 대비 실제 평단(싸게 샀으면 +) − 미체결 기회손익">진입 <b>' + ppTxt(T.ent / base * 100) + "</b></span> · " +
         '<span title="실제 청산가 − 청산일 종가(장중 손절·익절이 종가보다 나았으면 +)">청산 <b>' + ppTxt(T.ext / base * 100) + "</b></span> · " +
         '<span title="거래세(Long 매도·Short 진입 0.2%) + 대차료(Short 연 4%) — 수수료·슬리피지는 미반영">비용 <b>' + ppTxt(T.cost / base * 100) + "</b></span>" +
         (T.miss ? ' <span class="at-mut">(진입 중 미체결 기회손익 ' + ppTxt(-T.miss / base * 100) + ")</span>" : "") +
         (T.nNone ? ' · <span class="at-mut" title="판단일·청산일 종가를 아직 못 받은 종목">미분해 ' + T.nNone + "종목 " + ppTxt(T.none / base * 100) + "</span>" : "") +
+        (T.nMktNone ? ' · <span class="at-mut" title="지수 종가(허브 /index-chart)·장중 지수(/market)를 아직 못 받은 종목 — 그 종목 선정은 PM 선정에 포함">† 지수 미수신 ' +
+          T.nMktNone + "종목</span>" : "") +
         (d.closesPending ? ' <span class="at-fb">종가 ' + d.closesPending + "건 받는 중 — 잠시 후 자동 갱신</span>" : "") + "</span>";
     }
     // 섹터 — 합계는 서버 집계, Long/Short 는 해당 방향만 다시 묶음
@@ -1276,11 +1289,12 @@
     var bySec = {};
     codes.forEach(function (e) { (bySec[e.sector] = bySec[e.sector] || []).push(e); });
     var h = '<thead><tr><th>섹터 · 종목</th><th class="r">종목</th>' + (split
-      ? '<th class="r" title="판단일 종가 → 끝 가격, 계획 수량 기준">선정</th><th class="r" title="판단일 종가 대비 체결 평단 − 미체결 기회손익">진입</th>' +
+      ? '<th class="r" title="선정 중 시장(상장시장 지수) 등락 몫, β = 1">시장효과</th><th class="r" title="선정 − 시장효과 — 판단일 종가 → 끝 가격 중 지수를 넘어선 몫">PM 선정</th>' +
+        '<th class="r" title="판단일 종가 대비 체결 평단 − 미체결 기회손익">진입</th>' +
         '<th class="r" title="청산가 − 청산일 종가">청산</th><th class="r" title="거래세 + 대차료(수수료·슬리피지 미반영)">비용</th>'
       : '<th class="r">Long</th><th class="r">Short</th>') + '<th class="r">손익(원)</th>' +
       '<th class="r">기여도</th><th>− ◀ ▶ +</th></tr></thead><tbody>';
-    if (!secs.length) h += '<tr class="empty"><td colspan="' + (split ? 9 : 7) + '">기여 내역 없음</td></tr>';
+    if (!secs.length) h += '<tr class="empty"><td colspan="' + (split ? 10 : 7) + '">기여 내역 없음</td></tr>';
     secs.forEach(function (x) {
       var open = !!AT.open[x.sector], kids = (bySec[x.sector] || []).slice().sort(function (a, b) { return b.pnl - a.pnl; });
       h += '<tr class="at-sec' + (open ? " open" : "") + '" data-sec="' + esc(x.sector) + '" title="종목별 기여도 ' + (open ? "접기" : "펼치기") + '">' +

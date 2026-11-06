@@ -18,6 +18,9 @@
   ② 진입 = 부호 × 체결 수량 × (B − 실제 평단) − 미체결 기회손익(부호 × 미체결 수량 × (끝 가격 − B))
   ③ 청산 = 실제 청산가 − 청산일 종가 몫 (나머지)
   ④ 비용 = 거래세(Long 매도·Short 진입) + 대차료 — 음수. 수수료·슬리피지는 엔진이 계산하지 않아 없음
+  ①은 다시 시장 효과 + PM 선정으로 나눈다(β = 1): 시장 = 부호 × 계획 수량 × 기준가 × (끝 날짜 지수 ÷ 기준일 지수 − 1),
+  지수 = 상장시장(코스피 0001·코스닥 1001, KIS 업종 일봉 — 허브 /index-chart), 장중 끝 지수 = 허브 /market 실시간 지수.
+  mkt(code, 기준일, 끝 날짜|None=장중) → 지수 수익률|None. 없으면 그 종목은 시장 미분리(mkt=None, PM 선정 = 선정).
   당일 보기는 B 대신 직전 영업일 종가(판단 다음날 진입이면 B 와 같다). 미체결 기회손익은 진입 주문이 끝난 회차만
   (아직 열린 주문·장중 진행 중이면 빼고). 종가는 close(code, date) 로 받는다(서버가 일봉 캐시, 없으면 그 종목은 분해 없음).
 """
@@ -182,24 +185,29 @@ class _Split:
         self.acc, self.rounds, self.plans = {}, {}, plans
 
     def at(self, key):
-        return self.acc.setdefault(key, {"sel": 0.0, "ent": 0.0, "miss": 0.0, "cost": 0.0, "ok": True})
+        return self.acc.setdefault(key, {"sel": 0.0, "ent": 0.0, "miss": 0.0, "cost": 0.0, "mkt": 0.0, "mok": True, "ok": True})
 
     def bad(self, key):
         self.at(key)["ok"] = False
 
-    def piece(self, key, s, q, end, ref, avg, dk=None, end_d="", planned=None, open_=False, cost=0.0):
-        """체결 q 주(평단 avg)가 기준가 ref → 끝 가격 end, cost = 세금·대차료(양수). dk 를 주면 회차 미체결 계산에 쓴다."""
+    def piece(self, key, s, q, end, ref, avg, dk=None, end_d="", planned=None, open_=False, cost=0.0, mret=None):
+        """체결 q 주(평단 avg)가 기준가 ref → 끝 가격 end, cost = 세금·대차료(양수), mret = 같은 구간 지수 수익률.
+        dk 를 주면 회차 미체결 계산에 쓴다."""
         e = self.at(key)
         e["cost"] -= cost or 0.0
         e["sel"] += s * q * (end - ref)
         e["ent"] += s * q * (ref - avg)
+        if mret is None:
+            e["mok"] = False
+        else:
+            e["mkt"] += s * q * ref * mret
         if dk is None:
             return
         r = self.rounds.setdefault(dk, {"key": key, "s": s, "ref": ref, "filled": 0, "end": end, "end_d": end_d,
-                                        "planned": planned, "open": open_})
+                                        "planned": planned, "open": open_, "mret": mret})
         r["filled"] += q
         if end_d >= r["end_d"]:
-            r["end"], r["end_d"] = end, end_d
+            r["end"], r["end_d"], r["mret"] = end, end_d, mret
         r["planned"] = r["planned"] or planned
         r["open"] = r["open"] or open_
 
@@ -216,12 +224,21 @@ class _Split:
                 e["sel"] += v
                 e["ent"] -= v
                 e["miss"] += v
+                if r["mret"] is None:
+                    e["mok"] = False
+                else:
+                    e["mkt"] += r["s"] * m * r["ref"] * r["mret"]
         return self.acc
 
 
-def split_all(L, ps, close):
-    """누적 분해 — cumulative() 와 같은 원장·보유 행. close(code, date) → 종가|None."""
+def _nomkt(code, d1, d2):
+    return None
+
+
+def split_all(L, ps, close, mkt=_nomkt, live=False):
+    """누적 분해 — cumulative() 와 같은 원장·보유 행. close(code, date) → 종가|None, live = 보유 행 가격이 장중 현재가."""
     sp = _Split(_plans(L))
+    held_end = None if live else L.get("asof")
     for t in L.get("trades") or []:
         key, s, dk = (t["code"], t.get("side") or "long"), _sgn(t), t.get("decisionKey")
         ref = close(t["code"], _dk_date(dk)) if _dk_date(dk) else None
@@ -229,7 +246,8 @@ def split_all(L, ps, close):
         if not (ref and cx):
             sp.bad(key)
             continue
-        sp.piece(key, s, t["qty"], cx, ref, t["entryPrice"], dk=dk, end_d=t["exitDate"], cost=_trade_cost(t))
+        sp.piece(key, s, t["qty"], cx, ref, t["entryPrice"], dk=dk, end_d=t["exitDate"], cost=_trade_cost(t),
+                 mret=mkt(t["code"], _dk_date(dk), t["exitDate"]))
     for p in ps:
         key, s, dk = (p["code"], p.get("side") or "long"), _sgn(p), p.get("decisionKey")
         q = (p.get("qty") or 0) + ((p.get("liveExit") or {}).get("qty") or 0)      # 오늘 장중 청산분은 현재가를 끝 가격으로
@@ -239,13 +257,15 @@ def split_all(L, ps, close):
             continue
         le = p.get("liveEntry") or {}
         sp.piece(key, s, q, p.get("price") or p["entry"], ref, p["entry"], dk=dk, end_d="9999",
-                 planned=le.get("planned"), open_=bool(le) and not le.get("done"), cost=_held_cost(p))
+                 planned=le.get("planned"), open_=bool(le) and not le.get("done"), cost=_held_cost(p),
+                 mret=mkt(p["code"], _dk_date(dk), held_end))
     return sp.finish()
 
 
-def split_day_live(ps, close, day):
+def split_day_live(ps, close, day, mkt=_nomkt):
     """장중 당일 분해 — day_live() 와 같은 행. 기준 = 직전 영업일 종가."""
     sp = _Split({})
+    pdd = prev_trading_day(day)
     for p in ps:
         key, s = (p["code"], p.get("side") or "long"), _sgn(p)
         px = p.get("price") or p["entry"]
@@ -257,17 +277,18 @@ def split_day_live(ps, close, day):
             le = p.get("liveEntry") or {}
             q = (p.get("qty") or 0) + ((p.get("liveExit") or {}).get("qty") or 0)
             sp.piece(key, s, q, px, prev, p["entry"], dk="live:" + str(p["id"]), planned=le.get("planned"),
-                     open_=not le.get("done"))
+                     open_=not le.get("done"), mret=mkt(p["code"], pdd, None))
             continue
         prev = p.get("lastClose") or p.get("entryLedger") or p["entry"]
         la = p.get("liveAdd") or {}
-        sp.piece(key, s, p.get("qtyLedger") or 0, px, prev, prev)                     # 원장 보유분 = 선정(보유 판단)
+        mr = mkt(p["code"], pdd, None)
+        sp.piece(key, s, p.get("qtyLedger") or 0, px, prev, prev, mret=mr)            # 원장 보유분 = 선정(보유 판단)
         if la.get("qty"):
-            sp.piece(key, s, la["qty"], px, prev, la["price"])                        # 오늘 추가 매수 체결가 = 진입
+            sp.piece(key, s, la["qty"], px, prev, la["price"], mret=mr)               # 오늘 추가 매수 체결가 = 진입
     return sp.finish()
 
 
-def split_day_settled(L, doc, close):
+def split_day_settled(L, doc, close, mkt=_nomkt):
     """정산 뒤 당일 분해 — day_settled() 와 같은 원장 행."""
     d = L.get("asof")
     pd = prev_trading_day(d) if d else None
@@ -285,13 +306,15 @@ def split_day_settled(L, doc, close):
             if not ref:
                 sp.bad(key)
                 continue
-            sp.piece(key, s, p["qty"], cl, ref, p["entry"], dk=p.get("decisionKey"), end_d=d, cost=_short_costs(p))
+            sp.piece(key, s, p["qty"], cl, ref, p["entry"], dk=p.get("decisionKey"), end_d=d, cost=_short_costs(p),
+                     mret=mkt(p["code"], pd, d))
         elif p.get("prevClose"):
             af = adds.get(p["id"]) or []
             qa = sum(f["qty"] for f in af)
-            sp.piece(key, s, p["qty"] - qa, cl, p["prevClose"], p["prevClose"])
+            mr = mkt(p["code"], pd, d)
+            sp.piece(key, s, p["qty"] - qa, cl, p["prevClose"], p["prevClose"], mret=mr)
             for f in af:
-                sp.piece(key, s, f["qty"], cl, p["prevClose"], f["price"])
+                sp.piece(key, s, f["qty"], cl, p["prevClose"], f["price"], mret=mr)
         else:
             sp.bad(key)
     for t in L.get("trades") or []:
@@ -304,9 +327,11 @@ def split_day_settled(L, doc, close):
             if not (ref and cd):
                 sp.bad(key)
                 continue
-            sp.piece(key, s, t["qty"], cd, ref, t["entryPrice"], dk=t.get("decisionKey"), end_d=d, cost=_trade_cost(t))
+            sp.piece(key, s, t["qty"], cd, ref, t["entryPrice"], dk=t.get("decisionKey"), end_d=d, cost=_trade_cost(t),
+                     mret=mkt(t["code"], pd, d))
         elif t.get("prevClose") and cd:
-            sp.piece(key, s, t["qty"], cd, t["prevClose"], t["prevClose"], cost=(t.get("tax") or 0.0) if s > 0 else 0.0)
+            sp.piece(key, s, t["qty"], cd, t["prevClose"], t["prevClose"], cost=(t.get("tax") or 0.0) if s > 0 else 0.0,
+                     mret=mkt(t["code"], pd, d))
         else:
             sp.bad(key)
     # 당일 보기의 미체결 기회손익은 오늘 처음 체결된 회차만(이전부터 이어진 회차는 누적에서)
@@ -327,7 +352,29 @@ def _apply_split(acc, sp):
             e["split"] = None
             continue
         e["split"] = {"sel": x["sel"], "ent": x["ent"], "ext": e["pnl"] - x["sel"] - x["ent"] - x["cost"], "cost": x["cost"],
-                      "miss": x["miss"]}
+                      "miss": x["miss"], "mkt": x["mkt"] if x["mok"] else None}
+
+
+def _split_zero():
+    return {"sel": 0, "ent": 0, "ext": 0, "cost": 0, "miss": 0, "mkt": 0, "pure": 0, "mktNoneSel": 0, "nMktNone": 0,
+            "none": 0, "nNone": 0}
+
+
+def _split_add(dst, e):
+    """행 분해를 합계에 더한다 — 분해 없음(종가 미확보)은 none, 시장 미분리(지수 없음)는 mktNoneSel(그 종목 선정)으로."""
+    x = e.get("split")
+    if not x:
+        dst["none"] += e["pnl"]
+        dst["nNone"] += 1
+        return
+    for k in ("sel", "ent", "ext", "cost", "miss"):
+        dst[k] += x[k]
+    if x.get("mkt") is None:
+        dst["mktNoneSel"] += x["sel"]
+        dst["nMktNone"] += 1
+    else:
+        dst["mkt"] += x["mkt"]
+        dst["pure"] += x["pure"]
 
 
 def _pack(acc, base, total, side=None):
@@ -337,17 +384,17 @@ def _pack(acc, base, total, side=None):
         for k in ("pnl", "realized", "unreal"):
             e[k] = round(e[k])
         if e.get("split"):
-            x = {k: round(v) for k, v in e["split"].items()}
+            x = {k: (round(v) if v is not None else None) for k, v in e["split"].items()}
             x["ext"] = e["pnl"] - x["sel"] - x["ent"] - x["cost"]     # 반올림 뒤에도 합 = 손익
+            x["pure"] = x["sel"] - x["mkt"] if x["mkt"] is not None else None
             e["split"] = x
     rows.sort(key=lambda e: -e["pnl"])
     sec = {}
     for e in rows:
         g = sec.setdefault(e["sector"], {"sector": e["sector"], "long": 0.0, "short": 0.0, "pnl": 0.0, "n": 0, "codes": set(),
-                                         "split": {"sel": 0, "ent": 0, "ext": 0, "cost": 0, "miss": 0, "none": 0}})
+                                         "split": _split_zero()})
         g["long" if e["side"] == "long" else "short"] += e["pnl"]
-        for k, v in (e.get("split") or {"none": e["pnl"]}).items():
-            g["split"][k] += v
+        _split_add(g["split"], e)
         g["pnl"] += e["pnl"]
         g["codes"].add(e["code"])
     secs = []
@@ -361,39 +408,36 @@ def _pack(acc, base, total, side=None):
         secs.append(g)
     secs.sort(key=lambda g: -g["pnl"])
     s = sum(e["pnl"] for e in rows)
-    tot = {"sel": 0, "ent": 0, "ext": 0, "cost": 0, "miss": 0, "none": 0, "nNone": 0}
+    tot = _split_zero()
     for e in rows:
-        if e.get("split"):
-            for k, v in e["split"].items():
-                tot[k] += v
-        else:
-            tot["none"] += e["pnl"]
-            tot["nNone"] += 1
+        _split_add(tot, e)
     return {"split": tot, "base": round(base), "total": round(total), "totalPct": round(total / base * 100, 4) if base else None,
             "sum": round(s), "residual": round(total - s), "residualPct": round((total - s) / base * 100, 4) if base else None,
             "byCode": rows, "bySector": secs}
 
 
-def compute(L, ps, *, equity_now, live_day=None, doc=None, close=None):
+def compute(L, ps, *, equity_now, live_day=None, doc=None, close=None, mkt=None):
     """L = 원장, ps = api_positions 행(장중이면 Live 반영), equity_now = 현재 평가액(장중 Live 포함),
     live_day = 정산 전 장중 기록 날짜(없으면 정산 뒤), doc = 당일 장중 기록(intraday/<날짜>),
-    close(code, date) = 그날 종가(선정·트레이딩 분해용, 없으면 None → 그 종목 분해 생략)."""
+    close(code, date) = 그날 종가(선정·트레이딩 분해용, 없으면 None → 그 종목 분해 생략),
+    mkt(code, 기준일, 끝 날짜|None) = 그 종목 상장시장 지수 수익률(시장 효과, 없으면 None → 시장 미분리)."""
     cap = L.get("capital0") or 0.0
     eq = [r for r in L.get("equity") or [] if r.get("equity")]
     out = {"asof": L.get("asof"), "live": bool(live_day), "date": live_day or L.get("asof")}
     close = close or (lambda code, d: None)
+    mkt = mkt or _nomkt
     acc = cumulative(L, ps)
-    _apply_split(acc, split_all(L, ps, close))
+    _apply_split(acc, split_all(L, ps, close, mkt, live=bool(live_day)))
     out["all"] = _pack(acc, cap, equity_now - cap)
     if live_day:
         base = eq[-1]["equity"] if eq else cap
         acc = day_live(ps)
-        _apply_split(acc, split_day_live(ps, close, live_day))
+        _apply_split(acc, split_day_live(ps, close, live_day, mkt))
         out["day"] = {**_pack(acc, base, equity_now - base), "available": True}
     else:
         base = eq[-2]["equity"] if len(eq) >= 2 else cap
         acc, ok = day_settled(L, doc)
-        _apply_split(acc, split_day_settled(L, doc, close))
+        _apply_split(acc, split_day_settled(L, doc, close, mkt))
         out["day"] = {**_pack(acc, base, equity_now - base), "available": ok}
         if not ok:
             out["day"]["note"] = "정산 뒤 당일 기여도는 종목별 전일 종가 기록(2026-11-05 추가) 이후 정산분부터"
