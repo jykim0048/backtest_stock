@@ -569,8 +569,23 @@
             : '<span class="muted note-why" style="font-size:12px;border-bottom:1px dotted rgba(255,255,255,.35);cursor:help"' + (whyNote ? ' title="' + esc(whyNote) + '"' : "") + ">" + esc(c.why || "미주문") + "</span>")] };
       }), run.skip ? esc(run.skip) : "후보 없음");
       attachNoteTooltips($(pre + "candidates"));
+    candFold(pre);
     // '이 날 체결 결과' 표는 트레이딩 리포트 '진입 내역'으로 이동(2026-10-16)
   }
+  // 신규 후보 접기(2026-11-06) — CAND_SHOW 개만, 넘으면 '펼치기' 버튼. 펼친 상태는 Long/Short 따로 유지
+  var CAND_SHOW = 10, CAND_OPEN = { "": false, "short-": false };
+  function candFold(pre) {
+    var rows = $(pre + "candidates").querySelectorAll("tbody tr:not(.empty)"), btn = $(pre + "cand-more");
+    var open = CAND_OPEN[pre];
+    rows.forEach(function (r, i) { r.hidden = !open && i >= CAND_SHOW; });
+    if (!btn) return;
+    btn.hidden = rows.length <= CAND_SHOW;
+    btn.textContent = open ? "접기 ▲" : "전체보기 ▼ (+" + (rows.length - CAND_SHOW) + "건)";
+  }
+  ["", "short-"].forEach(function (pre) {
+    var btn = $(pre + "cand-more");
+    if (btn) btn.addEventListener("click", function () { CAND_OPEN[pre] = !CAND_OPEN[pre]; candFold(pre); });
+  });
   function reviewResult(r) {
     var a = REVIEW_ACT[r.action] || (r.sell ? REVIEW_ACT.sell : r.error ? ["skipped", "판단 실패 — 보유 유지"] : REVIEW_ACT.hold);
     if (sideOf(r) === "short") a = [a[0], String(a[1]).replace("매도", "환매")];
