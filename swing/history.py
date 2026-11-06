@@ -312,7 +312,9 @@ def build(store, key, *, day=None, log=print):
                    "qty": -q, "price": px, "text": f"{q:,}주 청산 · {pnl / 1e4:+,.0f}만 원", "pnl": pnl,
                    "sub": (f"손절가보다 {slip * 100:.1f}% 불리 · " if warn else "") + (ts[-1].get("note") or ""), "warn": warn, "more": _splits(xf)})
     last_day = max([d for d in (asof, end) if d] or [date])
-    if r["position"] and not end:                         # 보유 중이면 오늘 장중(정산 전)까지 그래프에(2026-11-03 두산에너빌리티)
+    # 보유 중이면 오늘 장중(정산 전)까지 그래프에(2026-11-03 두산에너빌리티). 원장 포지션이 아직 없어도 오늘 장중 체결이 있으면
+    # 포함(2026-11-06 녹십자 — 11/5 미체결 → 11/6 재주문 장중 체결, 그래프가 11/5 에서 끝나 매수 표시가 안 붙었다)
+    if not end and (r["position"] or any(e.get("live") for e in ev)):
         last_day = max(last_day, live_date(store, asof) or last_day)
     for d in (tradedays.trading_days(start, end or asof or last_day) if start else []):
         for x in (store.get(f"run/{d}") or {}).get("reviews") or []:

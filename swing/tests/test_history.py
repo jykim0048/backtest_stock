@@ -161,6 +161,22 @@ class TestBuild(unittest.TestCase):
             server.STORE = old
         self.assertEqual(p["liveExit"], {"kind": "stop", "qty": 49, "done": True, "at": "09:03"})
 
+    def test_retry_order_live_fill_extends_span(self):
+        """첫 주문 미체결 → 다음 날 재주문이 장중 체결(원장 포지션 없음) — 그래프가 오늘까지 이어져 매수가 붙는다(2026-11-06 녹십자)."""
+        st = store.FileStore(tempfile.mkdtemp())
+        o1 = {**order("o1", "2026-10-27", "2026-10-28", 50, None, status="cancelled"), "note": "미도달"}
+        o2 = {**order("o2", "2026-10-28", "2026-10-29", 50, None, status="open")}
+        st.put("ledger", {"cash": 0.0, "asof": "2026-10-28", "positions": [], "orders": [o2], "orderLog": [o1], "trades": [],
+                          "equity": [{"date": "2026-10-28", "equity": 480_000_000}]})
+        st.put(KEY, {"rating": "Overweight"})
+        st.put("intraday/2026-10-29", {"orders": {"o2": {"code": "006110", "fills": [{"ts": "2026-10-29T09:00:30+09:00", "qty": 5, "price": 62100, "mode": "open"}]}},
+                                       "exits": {}, "vwap": {}})
+        h = history.build(st, KEY, log=lambda *a: None)
+        self.assertIn("2026-10-29", [x["d"] for x in h["days"]])
+        buy = [e for e in h["events"] if e["label"] == "매수"][0]
+        self.assertEqual((buy["date"], buy["qty"], buy["held"]), ("2026-10-29", 5, 5))
+        self.assertGreater(buy["weight"], 0)
+
     def test_positions_api_hold_day_counts_live_day(self):
         """보유일(체결일=1)은 정산 때 +1 — 장중(정산 전)엔 오늘을 더해 보여 준다(2026-11-05 11/4 진입이 1칸)."""
         from swing import server
