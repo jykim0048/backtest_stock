@@ -1173,7 +1173,7 @@
   }
   function ppTxt(v) { return v == null ? "—" : (v > 0 ? "+" : v < 0 ? "−" : "") + Math.abs(v).toFixed(2) + "%p"; }
   function ppCell(v) { return '<span class="num ' + (v > 0 ? "up" : v < 0 ? "down" : "") + '">' + ppTxt(v) + "</span>"; }
-  function wonS(v) { return '<span class="num ' + (v > 0 ? "up" : v < 0 ? "down" : "") + '">' + (v > 0 ? "+" : "") + won(v) + "</span>"; }
+  function atWon(v) { return '<span class="num ' + (v > 0 ? "up" : v < 0 ? "down" : "") + '">' + (v > 0 ? "+" : "") + won(v) + "</span>"; }   // 기존 wonS(부호 붙은 평문)와 이름 분리 — 같은 이름이 덮어써 툴팁에 HTML 이 새던 버그(2026-11-06)
   function atBar(v, max) {
     var w = Math.min(50, Math.abs(v) / (max || 1) * 50);
     return '<div class="dbar"><span class="' + (v >= 0 ? "l" : "s") + '" style="width:' + w + '%"></span></div>';
@@ -1197,8 +1197,8 @@
     var sum = codes.reduce(function (a, e) { return a + e.pnl; }, 0);
     $("at-sum").innerHTML = when + " · 기여도 = 손익 ÷ 기준<br>" + (side === "all"
       ? "종목 기여 합계 <b>" + ppTxt(P.sum / base * 100) + '</b> + 기타 <span title="세금·대차료·반올림 등 종목에 나누지 않은 몫">' + ppTxt(P.residualPct) +
-        "</span> = 기간 수익률 <b>" + pctTxt(P.totalPct) + "</b> (" + wonS(P.total) + "원)"
-      : (side === "long" ? "Long" : "Short") + " 기여 합계 <b>" + ppTxt(sum / base * 100) + "</b> (" + wonS(sum) + "원) · " + codes.length + "종목");
+        "</span> = 기간 수익률 <b>" + pctTxt(P.totalPct) + "</b> (" + atWon(P.total) + "원)"
+      : (side === "long" ? "Long" : "Short") + " 기여 합계 <b>" + ppTxt(sum / base * 100) + "</b> (" + atWon(sum) + "원) · " + codes.length + "종목");
     // 섹터 — 합계는 서버 집계, Long/Short 는 해당 방향만 다시 묶음
     var secs = P.bySector || [];
     if (side !== "all") {
@@ -1222,7 +1222,7 @@
         td('<span class="at-caret">' + (open ? "▾" : "▸") + '</span><span class="stock-name" style="font-size:13px">' + esc(x.sector) + "</span>") +
         td('<span class="num">' + x.n + "</span>", "r") +
         td(x.long ? ppCell(x.long / base * 100) : "—", "r") + td(x.short ? ppCell(x.short / base * 100) : "—", "r") +
-        td(wonS(x.pnl), "r") + td(ppCell(x.pnl / base * 100), "r") + td(atBar(x.pnl, maxS)) + "</tr>";
+        td(atWon(x.pnl), "r") + td(ppCell(x.pnl / base * 100), "r") + td(atBar(x.pnl, maxS)) + "</tr>";
       if (!open) return;
       kids.forEach(function (e) {
         var st = e.held ? (e.realized ? "보유 · 일부 실현" : "보유") : "청산", c = e.contribPct;
@@ -1230,7 +1230,7 @@
           td('<span class="side-tag ' + e.side + '">' + e.side.toUpperCase() + "</span>" + stock(e.name || e.code, e.code)) +
           td('<span class="at-state">' + st + "</span>", "r") +
           td(e.side === "long" ? ppCell(c) : "", "r") + td(e.side === "short" ? ppCell(c) : "", "r") +
-          td(wonS(e.pnl), "r") + td(ppCell(c), "r") + td(atBar(e.pnl, maxS)) + "</tr>";
+          td(atWon(e.pnl), "r") + td(ppCell(c), "r") + td(atBar(e.pnl, maxS)) + "</tr>";
       });
     });
     $("at-sectors").innerHTML = h + "</tbody>";
@@ -1576,7 +1576,7 @@
     if (h.status === "none") { el.hidden = true; return; }
     var ws = h.side === "short" ? "SHORT" : "LONG";
     var vs = h.vsAvgPct != null ? (h.qty ? "현재가 " + won(h.last) + (h.lastTs ? "(" + h.lastTs + ")" : "") + " · 평단 대비 " : "마지막 종가 " + won(h.last) + " · 평단 대비 ") + pctTxt(h.vsAvgPct) : "";
-    var pnl = h.realized ? '<div class="hist-num"' + (h.realizedPending ? ' title="오늘 장중 청산분 ' + wonS(h.realizedPending) + '원은 정산 전 추정(매도세 반영) — 16:30 정산 뒤 확정"' : "") + '><span>실현 손익' + (h.realizedPending ? " · 정산 전 포함" : "") +
+    var pnl = h.realized ? '<div class="hist-num"><span>실현 손익' + (h.realizedPending ? " · 정산 전 포함" : "") +
       '</span><b class="' + signCls(h.realized) + '">' + wonS(h.realized) + "</b>" + (h.realizedPct != null ? "<small>" + pctTxt(h.realizedPct) + "</small>" : "") + "</div>" : "";
     if (!pnl && h.qty && h.avg && h.last) {    // 실현손익이 없으면 보유분 평가손익(2026-11-03) — 장중이면 장중 현재가 기준
       var ur = (h.side === "short" ? -1 : 1) * (h.last - h.avg) * h.qty;
