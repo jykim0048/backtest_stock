@@ -8068,7 +8068,7 @@
     return h + "</details>";
   }
   // 주간 촉매 타임라인 — 시장 필터 상태 + 행 렌더 (실적발표 토글 양식)
-  var _wbTl = [], _wbTlMkt = "전체";
+  var _wbTl = [], _wbTlMkt = "전체", _wbTlOpen = false, WB_TL_SHOW = 5;   // 기본 5개만, 나머지는 펼치기(2026-11-06)
   function wbTlRows() {
     // 장중 주요 촉매 표와 같은 테이블 구조 — 컬럼 간격 일정 (날짜는 일반 폰트).
     // 시장 이벤트 행(종목 없음 '—')은 일별 표 반응 코멘트와 중복이라 제외하고
@@ -8079,7 +8079,8 @@
     });
     // 섹터 컬럼(2026-09-09) — 생성기 저장값(t.sector). 구 아카이브(키 없음)는 미표시
     var hasSec = list.some(function (t) { return t.sector; });
-    var rows = list.map(function (t) {
+    var rows = list.map(function (t, i) {
+      var hide = !_wbTlOpen && i >= WB_TL_SHOW;
       var mk = t.market === "KOSDAQ" ? '<span style="color:var(--kosdaq-green)">KOSDAQ</span>'
         : t.market === "KOSPI" ? '<span style="color:var(--kospi-blue)">KOSPI</span>' : "";
       var star = (typeof t.star === "number" && t.star >= 1)
@@ -8096,7 +8097,7 @@
           + (t.firstDate ? esc(t.firstDate.slice(5)) + "~ " : "") + t.appearCount + "회</span>";
       }
       // 컬럼 폭 — 장중 주요 촉매 표와 유사한 간격
-      return '<tr style="border-top:1px solid rgba(128,128,128,.12)">'
+      return '<tr style="border-top:1px solid rgba(128,128,128,.12)' + (hide ? ";display:none" : "") + '">'
         + '<td style="white-space:nowrap;opacity:.7;padding:5px 0;width:56px">' + esc((t.date || "").slice(5)) + "</td>"
         + '<td style="white-space:nowrap;font-weight:700;width:170px;padding-right:10px">' + (t.stock ? esc(t.stock) : "—")
         + (t.direction === "bearish" ? ' <span class="tl-dir" title="하방 촉매(bearScore 기준 선정)" style="font-size:10px;font-weight:600;color:#3182f6;border:1px solid rgba(49,130,246,.4);border-radius:8px;padding:0 5px;vertical-align:middle">▼ 하방</span>' : "")
@@ -8112,8 +8113,17 @@
       + "<th style='text-align:left'>시장</th>"
       + (hasSec ? "<th style='text-align:left'>섹터</th>" : "")
       + "<th style='text-align:left'>별점</th><th style='text-align:left'>등락률(" + WBP.per + ")</th><th style='text-align:left'>핵심 촉매</th></tr>";
-    return '<table style="width:100%;border-collapse:collapse;font-size:13px">' + hdr + rows + "</table>";
+    var more = list.length > WB_TL_SHOW
+      ? '<div style="text-align:center;margin-top:6px"><button type="button" onclick="wbTlMore()" style="background:rgba(255,255,255,.05);'
+        + 'color:var(--text-muted);border:1px solid var(--border-color);border-radius:999px;font-size:12px;padding:3px 14px;cursor:pointer">'
+        + (_wbTlOpen ? "접기 ▲" : "펼치기 ▼ (+" + (list.length - WB_TL_SHOW) + "건)") + "</button></div>" : "";
+    return '<table style="width:100%;border-collapse:collapse;font-size:13px">' + hdr + rows + "</table>" + more;
   }
+  window.wbTlMore = function () {
+    _wbTlOpen = !_wbTlOpen;
+    var el = document.getElementById("wb-tl-rows");
+    if (el) el.innerHTML = wbTlRows();
+  };
   window.wbTlMkt = function (f) {
     _wbTlMkt = f;
     var el = document.getElementById("wb-body");   // 토글 활성색 갱신 겸 전체 리렌더
@@ -8228,16 +8238,6 @@
     h += "<tr style='opacity:.65'><th style='text-align:left'>날짜</th><th>코스피" + adrNote + "</th><th>코스닥" + adrNote + "</th><th style='text-align:left'>주도 섹터</th><th style='text-align:left'>전일 미국장 → 한국장 반응</th></tr>";
     var dcMap = {};
     (syn.dailyContext || []).forEach(function (x) { if (x && x.date) dcMap[x.date] = x.note; });
-    // 그날 발생 CA 칩(★2+ 상위 — 생성기 days[].ca, 최대 3개 + 외 N)
-    function caDayChips(day) {
-      var arr = day.ca || [];
-      if (!arr.length || typeof _caBadge !== "function") return "";
-      return '<div style="margin-top:3px">' + arr.slice(0, 3).map(function (c) {
-          return _caBadge(c, (c.name || c.code || "") + " ");
-        }).join("")
-        + (arr.length > 3 ? '<span style="opacity:.55;font-size:11px">외 ' + (arr.length - 3) + "건</span>" : "")
-        + "</div>";
-    }
     (d.days || []).forEach(function (day) {
       var ks = (day.indices || {}).kospi || {}, kq = (day.indices || {}).kosdaq || {};
       var sec = (day.sectorsUp || []).slice(0, 2).map(function (s) { return esc(s.name); }).join(", ");
@@ -8248,14 +8248,13 @@
       h += "<tr style='border-top:1px solid rgba(128,128,128,.15)'><td style='padding:3px 6px 3px 0;white-space:nowrap'>" + day.date.slice(5) +
         "</td><td style='text-align:center'>" + pct(ks.rate) + adrLine(br0.kospi) +
         "</td><td style='text-align:center'>" + pct(kq.rate) + adrLine(br0.kosdaq) +
-        "</td><td style='padding-left:8px'>" + (sec || "—") + "</td><td style='padding-left:8px;color:#fff'>" + note
-        + caDayChips(day) + "</td></tr>";
+        "</td><td style='padding-left:8px'>" + (sec || "—") + "</td><td style='padding-left:8px;color:#fff'>" + note + "</td></tr>";   // CA 칩은 빼고 아래 '발생 CA' 카드로만(2026-11-06)
     });
     h += "</table>";
     // 기간 발생 CA 상위(★3, 물량% 큰 순 — 생성기 caWeekly). 구 아카이브(키 없음)는 숨김.
     if (typeof _caRowsHtml === "function" && (d.caWeekly || []).length) {
       h += _econCard("🏦 " + WBP.per + " 발생 CA — 상위 <span style=\"opacity:.6;font-size:12px\">(예탁원 · ★★★ · 물량% 큰 순)</span>",
-        _caRowsHtml(d.caWeekly, "", 0), _CA_NOTE + " · 일별 칩은 위 표의 반응 코멘트 아래");
+        _caRowsHtml(d.caWeekly, "", 0), _CA_NOTE);
     }
     // 신고가 근접 — 일별 표 우측 하단 앰버 접힘(2026-09-08 사용자 요청). ETF/ETN 은
     // 제외 — 생성기에서도 거르지만 필터 도입 전 산출물(9/8 오전분) 방어용 동일 필터.
