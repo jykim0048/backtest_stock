@@ -355,12 +355,17 @@ def _day_summary(date_str):
     # 16:00 촉매 스코어 회차 — 타임라인 종목 행은 결정적 선별(코스피 ★4↑ / 코스닥 ★5)
     for r in reversed((intraday or {}).get("rounds") or []):
         if r.get("scoring"):
-            picks = []
+            picks, no_code = [], []
             for c in (r.get("catalysts") or []):
                 sc, mk = c.get("score"), c.get("market")
                 bs = c.get("bearScore")
                 # 하방 행(2026-10-15): bearScore 로 같은 기준(코스피 ★4↑ / 코스닥 ★5) — direction=bearish 표시
                 if bs is not None and ((mk == "KOSPI" and bs >= 4) or (mk == "KOSDAQ" and bs == 5)):
+                    # 코드 미해석 종목(마스터 미등재 우선주 등, 2026-11-09 한진칼우)은 등락률·
+                    # 주간등락·섹터를 채울 수 없어 타임라인에서 제외 — 로그만 남긴다
+                    if not c.get("code"):
+                        no_code.append(c.get("stock") or "?")
+                        continue
                     picks.append({"stock": c.get("stock"), "market": mk, "star": bs, "direction": "bearish",
                                   "changePct": c.get("changePct"), "code": c.get("code"),
                                   "event": (c.get("reason") or c.get("summary") or "")[:90]})
@@ -368,9 +373,14 @@ def _day_summary(date_str):
                 if sc is None:
                     continue
                 if (mk == "KOSPI" and sc >= 4) or (mk == "KOSDAQ" and sc == 5):
+                    if not c.get("code"):
+                        no_code.append(c.get("stock") or "?")
+                        continue
                     picks.append({"stock": c.get("stock"), "market": mk, "star": sc, "direction": "bullish",
                                   "changePct": c.get("changePct"), "code": c.get("code"),
                                   "event": (c.get("reason") or c.get("summary") or "")[:90]})
+            if no_code:
+                print(f"[weekly] {date_str} 타임라인 제외(코드 미해석): {', '.join(no_code)}", file=sys.stderr)
             if picks:
                 picks.sort(key=lambda x: (-(x["star"]), -(x.get("changePct") or 0)))
                 day["timelineStocks"] = picks

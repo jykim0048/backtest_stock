@@ -650,7 +650,12 @@ def build(d):
             sec_c = b.cell(4, sec, "tl_cell")
             fstyle(sec_c, rgb=GRAY)
             b.cell(5, ("▼" if t.get("direction") == "bearish" else "") + "★" * (t.get("star") or 0), "tl_star")   # ▼ = 하방 촉매(2026-10-15)
-            b.cell(6, t.get("changePct", ""), "num_pos", num="sign")
+            # 등락률 결손(코드 미해석 우선주 등)은 04 표와 같이 '—'(빈칸이면 10 검증에
+            # 걸려 xlsx 저장이 통째로 실패 — 2026-11-09 실측: 한진칼우 1행 → 워크플로 exit 1)
+            if t.get("changePct") is None:
+                b.cell(6, "—", "tl_cell")
+            else:
+                b.cell(6, t.get("changePct"), "num_pos", num="sign")
             ev = t.get("event", "")
             for hrow in (t.get("history") or []):
                 ev += f"\n({str(hrow.get('date', ''))[5:]}) {hrow.get('event', '')}"
