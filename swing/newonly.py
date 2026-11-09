@@ -49,7 +49,7 @@ def guard(date, store, wb, now=None):
         return f"run/{date} 없음(그날 정산 런이 없음)", None, None
     if not any(SKIP_NOTE in str(n) for n in run.get("notes") or []):
         return "그날 신규 검토가 생략되지 않음(보충 대상 아님)", run, None
-    if run.get("candidates") or run.get("shortCandidates"):
+    if prior_rows(run):
         return "이미 신규 후보 판단 있음(중복 방지)", run, None
     L = store.get("ledger")
     if not L or L.get("asof") != date:
@@ -65,6 +65,13 @@ def guard(date, store, wb, now=None):
     if now.weekday() < 5 and 900 <= hm < 1530:
         return "장중(09:00~15:30 KST) 실행 금지 — Live Trader 가 원장을 함께 씀", run, None
     return None, run, L
+
+
+def prior_rows(run):
+    """그날 run 에 이미 있는 매트릭스·유니버스 신규 후보 행 — 하방 촉매 행(source=catalyst)은 wb 게이트와 무관하게 정규 런에서
+    판단되므로 제외(2026-11-09 실측: 촉매 Short 1건이 있던 날 가드가 거부). 비어 있지 않으면 보충 대상이 아니다."""
+    return [r for r in (run.get("candidates") or []) + (run.get("shortCandidates") or [])
+            if (r.get("source") or "matrix") != "catalyst"]
 
 
 def _row(c, side):
@@ -128,7 +135,9 @@ def run_new_only(date, store, agent, prices, wb, *, uni=None, dry_run=False, log
     failed = sum(1 for r in longs + shorts if str(r.get("why") or "").startswith("판단 실패"))
     ncap = sum(1 for r in longs + shorts if r.get("stopCap"))
 
-    run["candidates"], run["shortCandidates"] = longs, shorts
+    # 정규 런의 촉매 행은 보존하고 뒤에 보충 행을 잇는다(대시보드·redo 가 같은 목록을 읽는다)
+    run["candidates"] = list(run.get("candidates") or []) + longs
+    run["shortCandidates"] = list(run.get("shortCandidates") or []) + shorts
     run["capSkipped"], run["uniCapSkipped"] = plan["skipped"]["matrixCap"], plan["skipped"]["uniCap"]
     run["shortCapSkipped"], run["uniShortCapSkipped"] = plan["skipped"]["matrixShortCap"], plan["skipped"]["uniShortCap"]
     for k in ("matrixCooldown", "shortFutSkipped", "uniCaps"):

@@ -93,6 +93,21 @@ class TestNewOnly(unittest.TestCase):
         self.assertIn("progress running", res["skip"])
         self.assertEqual(st3.get("ledger")["orders"], [])
 
+    def test_keeps_catalyst_rows_and_still_runs(self):
+        """정규 런이 하방 촉매 Short 만 판단한 날(2026-11-09 실측) — 촉매 행은 보충 대상이 아니라 보존 대상."""
+        self._stale_day()
+        run = self.st.get(f"run/{D}")
+        cat_row = {"code": "000099", "name": "촉매종목", "side": "short", "source": "catalyst", "ordered": True, "why": ""}
+        run["shortCandidates"] = [cat_row]
+        self.st.put(f"run/{D}", run)
+        res = newonly.run_new_only(D, self.st, self.ag, self.px, wb(D, buy=BUY), now=EVENING, log=lambda *a: None)
+        self.assertEqual((res["long"], res["ordered"]), (2, 2))
+        run = self.st.get(f"run/{D}")
+        self.assertEqual([r["code"] for r in run["shortCandidates"]], ["000099"])      # 촉매 행 보존
+        self.assertEqual([r["code"] for r in run["candidates"]], ["000010", "000020"])
+        res2 = newonly.run_new_only(D, self.st, self.ag, self.px, wb(D, buy=BUY), now=EVENING, log=lambda *a: None)
+        self.assertIn("이미 신규 후보 판단 있음", res2["skip"])
+
     def test_dry_run_writes_nothing(self):
         self._stale_day()
         before = _snapshot(self.root)
