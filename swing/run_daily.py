@@ -5,6 +5,7 @@
   python -m swing.run_daily --from 2026-09-07 --to 2026-09-28 --wb-dir swing/data/wb_history
   python -m swing.run_daily --agent mock --prices mock --store file:swing/data/local  # 오프라인
   python -m swing.run_daily --universe-only                                        # 유니버스만 다시 산출
+  python -m swing.run_daily --new-only [--dry-run]                                 # 생략된 신규 후보 판단·주문만 보충(PLAN_NEW_ONLY.md)
   python -m swing.run_daily --date 2026-10-16 --redo                               # 판단 실패만 재분석(swing/redo.py)
   python -m swing.run_daily --reflect-only                                         # 매매 복기만(swing/reflect.py)
 
@@ -89,6 +90,9 @@ def main(argv=None):
                     help="live(DB증권+KIS 허브) | mock(오프라인) | off")
     ap.add_argument("--universe-only", action="store_true", help="하루 처리 없이 유니버스만 산출")
     ap.add_argument("--redo", action="store_true", help="하루 처리 없이 그날 판단 실패 후보·매도 검토만 재분석")
+    ap.add_argument("--new-only", action="store_true",
+                    help="하루 처리 없이 그날 생략된 신규 후보(매트릭스·유니버스) 판단·주문만 보충(PLAN_NEW_ONLY.md)")
+    ap.add_argument("--dry-run", action="store_true", help="--new-only 와 함께: 후보·총량 배분만 출력, 판단·주문·저장 없음")
     ap.add_argument("--reflect-only", action="store_true", help="하루 처리 없이 매매 복기만")
     a = ap.parse_args(argv)
 
@@ -110,6 +114,11 @@ def main(argv=None):
             print(f"[swing] {d} 주간 브리핑 로드 실패: {ex}", file=sys.stderr)
             wb = None
         uni = _runner(st, a)
+        if a.new_only:
+            from swing import newonly
+            r = newonly.run_new_only(d, st, ag, px, wb, uni=uni, dry_run=a.dry_run)
+            print(f"[swing] {d} 신규 후보 보충{'(dry-run)' if a.dry_run else ''}: {r}")
+            continue
         if a.redo:
             r = redo.redo_failed(d, st, ag, px, uni=uni, cat=_cat_runner(st, a))
             print(f"[swing] {d} 재분석: {r}")
