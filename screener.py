@@ -369,7 +369,7 @@ def _krx_master_map():
             companies = json.load(f)
     except Exception as e:
         _warn(f"krx_companies.json 로드 실패: {e}")
-        return {}
+        companies = []
     out = {}
     for c in companies:
         code = str(c.get("code", "")).zfill(6)
@@ -378,7 +378,28 @@ def _krx_master_map():
         raw = c.get("market", "") or ""
         market = "KOSPI" if "유가" in raw else ("KOSDAQ" if "코스닥" in raw else None)
         out[code] = {"name": c.get("name"), "market": market}
+    # krx_companies.json 은 2026-06 이후 갱신이 멈춰 신규 상장·분할 종목이 없다 → 이름이 코드로 찍힘
+    # (2026-11-09 한화머시너리앤서비스홀딩스 0220W0). index_constituents.json 의 names(네이버 현재명,
+    # 유니버스=K200∪KQ150 전부 포함)로 빠진 종목·빈 이름만 채운다. market 은 SSOT 보정 대상이
+    # 아니므로 None(기존 시장 값 유지) — 기존 등재 종목의 이름·시장은 바꾸지 않는다.
+    for code, name in _constituent_names().items():
+        cur = out.get(code)
+        if cur is None:
+            out[code] = {"name": name, "market": None}
+        elif not cur.get("name"):
+            cur["name"] = name
     return out
+
+
+def _constituent_names():
+    """{6자리코드: 종목명} — data/index_constituents.json 의 names(네이버 현재명). 실패 시 빈 dict."""
+    try:
+        with open(CONSTITUENTS, encoding="utf-8") as f:
+            names = json.load(f).get("names") or {}
+    except Exception:
+        return {}
+    return {str(c).strip().upper().zfill(6): str(n).strip()
+            for c, n in names.items() if c and n and str(n).strip()}
 
 
 def _krx_name_map():
