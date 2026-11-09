@@ -783,7 +783,7 @@ def naver_theme_stocks(theme_no, limit=10):
         rows = d.get("stocks") or []
         for x in rows:
             code = str(x.get("itemCode") or "")
-            if not re.fullmatch(r"\d{6}", code):
+            if not re.fullmatch(r"[0-9A-Z]{6}", code.upper()):   # 영숫자 신형 코드(예 0220W0) 포함
                 continue
             out.append({"code": code, "name": str(x.get("stockName") or "").strip(),
                         "changePct": _fpct(x.get("fluctuationsRatio")), "reason": ""})
@@ -1096,6 +1096,9 @@ DART_CATALYST_KEYWORDS = (
     "생산재개", "생산중단", "화재", "수주",
     "교환사채", "영구", "신종자본증권", "감자", "관리종목", "불성실공시", "매매거래정지",
     "횡령", "배임", "감사의견", "상장폐지", "담보제공", "잠정실적", "영업(잠정)실적",
+    # 2026-11-09: 공개매수신고서(한화머시너리앤서비스홀딩스 2차 공개매수)가 키워드 부재로 장중 촉매 누락.
+    # 방향은 규칙 태그 없이 LLM 판단(신고서·결과보고서·의견표명서 등 성격이 달라 고정하지 않음).
+    "공개매수",
 )
 
 # 공시 제목 → 규칙 방향(LLM 판단과 별개의 결정적 태그, 2026-10-15). 희석성 자금조달·악재성 공시는 LLM 이

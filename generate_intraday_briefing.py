@@ -1330,6 +1330,30 @@ def _listed_code(stock, names):
     return None
 
 
+def _resolve_listed_alias(stock, texts, names):
+    """뉴스 약칭(예 '한화M&S') → 기사 본문에 나온 정식 상장사명 (정규화명, 코드) 또는 None.
+
+    LLM 은 뉴스 제목의 약칭을 stock 에 넣는데, 상장 검증 맵은 정식명만 갖고 있어 드롭된다
+    (2026-11-09 한화머시너리앤서비스홀딩스 '한화M&S'). 기사 텍스트(texts)에서 상장사 정식명을 찾되
+    오매칭을 막으려 ① 더 긴 이름에 포함되는 짧은 이름 제거 ② 약칭과 앞 2글자 이상 일치
+    ③ 정식명이 약칭보다 길 것(약칭이 '한화'+α 인데 '한화'로 붙는 것 차단) — 후보가 정확히 1개일 때만 채택.
+    해외 종목(키옥시아 기사에 삼성전자 언급 등)은 ② 에서 걸러진다."""
+    k = _norm_listed_name(stock)
+    if len(k) < 2 or not names:
+        return None
+    found = set()
+    for t in texts:
+        tn = _norm_listed_name(t)
+        if not tn:
+            continue
+        found.update(n for n in names if len(n) >= 2 and n in tn)
+    found = {n for n in found if not any(n != o and n in o for o in found)}
+    cands = [n for n in found if len(n) > len(k) and n[:2] == k[:2]]
+    if len(cands) != 1:
+        return None
+    return cands[0], names[cands[0]]
+
+
 def _sector_raw(s):
     """섹터 → LLM raw. 관련주는 등락률·수급(enrich_sector_stocks)까지, 테마는
     구성종목 등락률·편입사유(reasons)까지 — 섹터 등락의 '동인' 서술 근거."""
@@ -1504,8 +1528,19 @@ def synthesize(indices, investors, indicators, sectors_up, sectors_down,
         # 채우면 아래 시장 가드가 뚫린다 — 상장 유니버스(krx_listed_names) 대조로 차단.
         # 공시(d*)는 공시 기록의 market 을 쓰므로 제외, 맵 부재 시 fail-open.
         if kind != "disclosure" and listed_names and _listed_code(stock, listed_names) is None:
-            _warn(f"촉매 드롭(한국 상장사 미확인): {stock}")
-            continue
+            # 약칭 해석(2026-11-09): 인용 기사 + 같은 약칭이 나온 다른 기사 본문에서 정식 상장사명을 찾는다.
+            k_alias = _norm_listed_name(stock)
+            texts = []
+            for i, n in enumerate(news):
+                t = f"{n.get('title', '')} {n.get('description', '')}"
+                if i == idx or (k_alias and k_alias in _norm_listed_name(t)):
+                    texts.append(t)
+            hit = _resolve_listed_alias(stock, texts, listed_names)
+            if hit is None:
+                _warn(f"촉매 드롭(한국 상장사 미확인): {stock}")
+                continue
+            print(f"  촉매 약칭 해석: {stock} → {hit[0]}({hit[1]})")
+            stock = hit[0]
         if market not in ("KOSPI", "KOSDAQ"):   # 한국 상장 종목만 — 해외 종목/지수는 제외
             continue
         key = _norm(stock)                 # LLM 이 또 중복 내도 종목 단위로 한 번 더 방어

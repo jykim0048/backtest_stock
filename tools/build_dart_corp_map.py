@@ -18,6 +18,7 @@ Re-run after KRX listing changes (new IPOs / delistings) to refresh.
 """
 import io
 import os
+import re
 import sys
 import json
 import zipfile
@@ -38,6 +39,16 @@ def _norm_listed_name(s):
     return s.upper()
 
 
+def _listed_stock_code(raw):
+    """DART stock_code → 6자리 종목코드 또는 None. 숫자 코드뿐 아니라 영숫자 신형 코드(예 0220W0
+    한화머시너리앤서비스홀딩스)도 상장사 — 2026-11-09 전엔 isdigit() 로 빠져 촉매 상장 검증에서 드롭됐다."""
+    s = str(raw or "").strip().upper()
+    if not s:
+        return None
+    s = s.zfill(6)
+    return s if re.fullmatch(r"[0-9A-Z]{6}", s) and any(ch.isdigit() for ch in s) else None
+
+
 def main():
     key = os.environ.get("DART_API_KEY")
     if not key:
@@ -55,13 +66,13 @@ def main():
 
     m, names = {}, {}
     for el in root.iter("list"):
-        stock = (el.findtext("stock_code") or "").strip()
+        stock = _listed_stock_code(el.findtext("stock_code"))
         corp = (el.findtext("corp_code") or "").strip()
         name = (el.findtext("corp_name") or "").strip()
-        if stock and corp and stock.isdigit():   # only listed stocks have a stock_code
-            m[stock.zfill(6)] = corp
+        if stock and corp:                        # only listed stocks have a stock_code
+            m[stock] = corp
             if name:                              # 정규화명 → 종목코드 (상장 검증용)
-                names[_norm_listed_name(name)] = stock.zfill(6)
+                names[_norm_listed_name(name)] = stock
 
     if not m:
         print("ERROR: no listed stock codes parsed — aborting", file=sys.stderr)

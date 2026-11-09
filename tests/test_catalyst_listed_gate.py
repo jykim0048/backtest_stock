@@ -44,6 +44,39 @@ def main():
     assert g._listed_code(None, names) is None
     assert g._listed_code("우", names) is None   # '우' 제거 후 빈 문자열이어도 안전
 
+    # ── 영숫자 신형 종목코드(2026-11-09 한화머시너리앤서비스홀딩스 0220W0) ──────
+    assert b._listed_stock_code("0220W0") == "0220W0"
+    assert b._listed_stock_code(" 0220w0 ") == "0220W0"
+    assert b._listed_stock_code("5930") == "005930"
+    assert b._listed_stock_code("005930") == "005930"
+    for bad in ("", None, "   ", "ABCDEF", "12345678", "00-930"):
+        assert b._listed_stock_code(bad) is None, bad
+
+    # ── 뉴스 약칭 → 기사 본문 정식명 해석 ─────────────────────────────────────
+    names2 = dict(names)
+    names2.update({g._norm_listed_name(k): v for k, v in {
+        "한화머시너리앤서비스홀딩스": "0220W0", "한화에어로스페이스": "012450",
+        "SK스퀘어": "402340"}.items()})
+    art = "한화머시너리앤서비스홀딩스(이하 한화M&S)가 장 초반 강세다. 김동선 사장 2차 공개매수"
+    assert g._resolve_listed_alias("한화M&S", [art], names2) == ("한화머시너리앤서비스홀딩스", "0220W0")
+    # 본문이 깨져 '한화'만 보이면 채택 안 함(약칭이 더 긴데 짧은 정식명에 붙는 오매칭 차단)
+    broken = "한화(000880)머시너리앤서비스홀딩스(이하 한화M&S) 미래전략총괄 사장이"
+    assert g._resolve_listed_alias("한화M&S", [broken], names2) is None
+    # 다른 기사에 정식명이 있으면 해석
+    assert g._resolve_listed_alias("한화M&S", [broken, art], names2)[1] == "0220W0"
+    # 해외 종목 기사에 국내 상장사가 언급돼도 매칭 안 함(2026-08-27 키옥시아 유형)
+    assert g._resolve_listed_alias("키옥시아", ["키옥시아 실적 호조에 삼성전자·SK하이닉스 동반 강세"], names2) is None
+    # 후보가 둘 이상이면 채택 안 함
+    assert g._resolve_listed_alias("한화그룹주", ["한화에어로스페이스와 한화머시너리앤서비스홀딩스 동반 상승"], names2) is None
+    assert g._resolve_listed_alias("", [art], names2) is None
+    assert g._resolve_listed_alias("한화M&S", [art], {}) is None
+
+    # ── DART 촉매 키워드: 공개매수 공시 통과 ───────────────────────────────────
+    import analysis.sources as src
+    for t in ("공개매수신고서", "공개매수결과보고서", "[기재정정]공개매수신고서"):
+        assert any(k in t for k in src.DART_CATALYST_KEYWORDS), t
+    assert src.dart_rule_direction("공개매수신고서") == (None, None)   # 방향은 LLM 판단
+
     # ── 로더 fail-open: 파일 부재 시 빈 dict (검증 생략 경로) ─────────────────
     orig = g.LISTED_NAMES_PATH
     try:
