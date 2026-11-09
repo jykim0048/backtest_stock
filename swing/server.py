@@ -15,6 +15,7 @@
   GET /admin/sim?token=&from=&to=     시뮬 백그라운드 실행(SWING_ADMIN_TOKEN 필요, Railway 에서 과거 재구성 — tools/sim_universe)
   GET /admin/dbq?token=&tr=&code=     DB증권 TR 원본 응답 진단(industry|components|investor|chart|fcodes) — 필드명·구조 확인용
   GET /admin/universe?token=&date=    그 날짜 유니버스 재산출(덮어쓰기, 백그라운드) · 진행 GET /api/swing/universe/progress
+  GET /admin/new-only?token=&date=[&dry=1]  생략된 신규 후보 판단·주문 보충(PLAN_NEW_ONLY.md, 백그라운드) · 결과 GET /api/swing/newonly
   GET /api/swing/config               운용 규칙(자본·보유일·세금·비중·신호/등급 조건)
   GET /api/swing/export               전체 문서 JSON(백업)
   GET /api/swing/intraday[?date=]     Live Trader(장중 집행기) — 분할 체결·장중 손절·종목별 VWAP(PLAN_LIVE_TRADER.md)
@@ -31,6 +32,7 @@ import json
 import mimetypes
 import os
 import sys
+import traceback
 import urllib.parse
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -606,6 +608,50 @@ def api_universe_progress(q):
     return STORE.get("universe/progress") or {"status": "none"}
 
 
+def admin_newonly(q):
+    """생략된 신규 후보 판단·주문 보충(토큰 필요, PLAN_NEW_ONLY.md) — ?date=YYYY-MM-DD[&dry=1]. 백그라운드 스레드,
+    결과·로그는 GET /api/swing/newonly(newonly/progress). 가드는 newonly.run_new_only 가 본다(중복 실행·장중 등).
+    swing-web 에 swing-cron 과 같은 변수(GEMINI_API_KEY·FLOW_API_BASE·DART·NAVER·SWING_AGENT·SWING_PRICES)가 있어야
+    실제 판단이 된다(2026-11-09 변수 참조로 추가). Postgres 가 내부망 전용이라 railway run 으로는 못 돌려 여기서 돈다."""
+    if not _admin_ok(q):
+        return {"error": "token 불일치 또는 미설정"}
+    import threading
+    from swing import newonly, run_daily, universe as U
+    date = q.get("date") or datetime.date.today().isoformat()
+    dry = (q.get("dry") or "0") not in ("0", "", "false")
+    cur = STORE.get("newonly/progress") or {}
+    if cur.get("status") == "running":
+        return {"error": "이미 실행 중", "progress": cur}
+
+    def put(**kw):
+        STORE.put("newonly/progress", dict(kw, date=date, dry=dry, at=datetime.datetime.now().isoformat(timespec="seconds")))
+
+    def job():
+        logs = []
+
+        def log(msg):
+            logs.append(str(msg)[:300])
+            print(msg, flush=True)
+        try:
+            put(status="running", step="주간 브리핑 로드")
+            wb = run_daily.load_wb(date)
+            agent = run_daily.make_agent(os.environ.get("SWING_AGENT", "trading_agent"), STORE)
+            prices = run_daily.make_prices(os.environ.get("SWING_PRICES", "yfinance"))
+            uni = U.UniverseRunner(STORE, log=log) if config.UNIVERSE_ENABLED else None
+            put(status="running", step="후보 수집·판단", startedAt=datetime.datetime.now().isoformat(timespec="seconds"))
+            res = newonly.run_new_only(date, STORE, agent, prices, wb, uni=uni, dry_run=dry, log=log)
+            put(status="done", result=res, logs=logs[-120:])
+        except Exception as e:
+            traceback.print_exc()
+            put(status="failed", error=f"{type(e).__name__}: {e}"[:300], logs=logs[-120:])
+    threading.Thread(target=job, daemon=True, name="swing-new-only").start()
+    return {"started": date, "dry": dry, "progress": "/api/swing/newonly"}
+
+
+def api_newonly(q):
+    return STORE.get("newonly/progress") or {"status": "none"}
+
+
 def admin_sim(q):
     """토큰 미설정/불일치는 404 가 아니라 이유를 돌려준다(값은 노출하지 않음) — 2026-10-13 진단."""
     tok = (os.environ.get("SWING_ADMIN_TOKEN") or "").strip().strip('"').strip("'")
@@ -692,6 +738,7 @@ ROUTES = {"/api/swing/summary": api_summary, "/api/swing/progress": api_progress
           "/api/swing/signals": api_signals, "/api/swing/universe": api_universe, "/api/swing/sim": api_sim,
           "/admin/sim": admin_sim, "/admin/catrep": admin_catrep, "/admin/dbq": admin_dbq, "/admin/universe": admin_universe,
           "/api/swing/universe/progress": api_universe_progress, "/api/swing/config": api_config,
+          "/admin/new-only": admin_newonly, "/api/swing/newonly": api_newonly,
           "/api/swing/export": api_export, "/api/swing/intraday": api_intraday,
           "/api/swing/reflections": api_reflections, "/api/swing/history": api_history, "/api/swing/live": api_live}
 
