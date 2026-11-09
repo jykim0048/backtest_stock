@@ -117,7 +117,7 @@ def _backoff(attempt):
 # ---------------------------------------------------------------------------
 # Adapters: each returns a JSON string (or raises _SkipLink/_Retryable/_SwitchLink)
 # ---------------------------------------------------------------------------
-def _gemini(model, system, user, max_tokens, schema):
+def _gemini(model, system, user, max_tokens, schema, effort=None, usage=None):
     key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
     if not key:
         raise _SkipLink("GEMINI_API_KEY missing")
@@ -176,10 +176,16 @@ def _gemini(model, system, user, max_tokens, schema):
         except Exception:
             pass
         raise _SwitchLink(f"gemini {model} empty response (finish={fr})")
+    if usage is not None:
+        um = getattr(resp, "usage_metadata", None)
+        usage.update(provider="gemini", model=model,
+                     input_tokens=getattr(um, "prompt_token_count", None) or 0,
+                     output_tokens=(getattr(um, "candidates_token_count", None) or 0)
+                     + (getattr(um, "thoughts_token_count", None) or 0))
     return text
 
 
-def _anthropic(model, system, user, max_tokens, schema):
+def _anthropic(model, system, user, max_tokens, schema, effort=None, usage=None):
     if not os.environ.get("ANTHROPIC_API_KEY"):
         raise _SkipLink("ANTHROPIC_API_KEY missing")
     import anthropic
@@ -197,6 +203,8 @@ def _anthropic(model, system, user, max_tokens, schema):
     )
     if schema is not None:
         kwargs["output_config"] = {"format": {"type": "json_schema", "schema": schema}}
+    if effort:                                    # 사고량(2026-11-09, Live PM 비용) — low|medium|high|xhigh|max
+        kwargs["output_config"] = dict(kwargs.get("output_config") or {}, effort=effort)
     try:
         resp = client.messages.create(**kwargs)
     except anthropic.APIStatusError as e:
@@ -209,6 +217,13 @@ def _anthropic(model, system, user, max_tokens, schema):
     except anthropic.APIError as e:
         raise _SwitchLink(f"anthropic {model} {e}")
 
+    if usage is not None:
+        u = getattr(resp, "usage", None)
+        usage.update(provider="anthropic", model=model,
+                     input_tokens=getattr(u, "input_tokens", 0) or 0,
+                     output_tokens=getattr(u, "output_tokens", 0) or 0,
+                     cache_creation_input_tokens=getattr(u, "cache_creation_input_tokens", 0) or 0,
+                     cache_read_input_tokens=getattr(u, "cache_read_input_tokens", 0) or 0)
     if resp.stop_reason == "max_tokens":
         raise _SwitchLink(f"anthropic {model} truncated at max_tokens={max_tokens}")
     return "".join(b.text for b in resp.content if b.type == "text")
@@ -245,7 +260,7 @@ def configured(chain=None):
     return False
 
 
-def _invoke(provider, model, system, user, max_tokens, schema, primary=False):
+def _invoke(provider, model, system, user, max_tokens, schema, primary=False, opts=None):
     """Run one link with transient retries; raise _SwitchLink/_SkipLink to move on.
 
     primary=True(체인 1순위)이고 마지막 실패가 5xx 면 UNAVAIL_WAITS 만큼 더 기다리며 재시도한다(쿨다운 중이면 생략).
@@ -258,6 +273,8 @@ def _invoke(provider, model, system, user, max_tokens, schema, primary=False):
     i = 0
     while True:
         try:
+            if opts:
+                return fn(model, system, user, max_tokens, schema, **opts)
             return fn(model, system, user, max_tokens, schema)
         except (_SkipLink, _SwitchLink):
             raise
@@ -280,7 +297,8 @@ def _invoke(provider, model, system, user, max_tokens, schema, primary=False):
     raise _SwitchLink(f"retries exhausted: {last}")
 
 
-def generate_json(system, user, *, max_tokens=4096, schema=None, return_model=False, chain=None):
+def generate_json(system, user, *, max_tokens=4096, schema=None, return_model=False, chain=None,
+                  effort=None, usage=None):
     """Return parsed JSON from the first chain link that succeeds.
 
     system/user are plain strings. `schema` is a JSON-Schema dict used for strict
@@ -293,6 +311,9 @@ def generate_json(system, user, *, max_tokens=4096, schema=None, return_model=Fa
     chain = 'provider:model,...' 문자열로 이 호출만 체인을 바꾼다(Live PM 판단 등, 2026-10-18).
     없으면 LLM_CHAIN 환경변수 → DEFAULT_CHAIN.
 
+    effort = Anthropic 사고량(output_config.effort, Gemini 는 무시), usage = dict 를 주면 성공한 링크의
+    {provider, model, input_tokens, output_tokens[, cache_*_input_tokens]} 로 채운다(2026-11-09, Live PM 비용 계측).
+
     Raises LLMError if every configured link fails.
     """
     seen = []
@@ -302,7 +323,8 @@ def generate_json(system, user, *, max_tokens=4096, schema=None, return_model=Fa
             seen.append(f"{provider}:{model} skipped ({dead[1]} 이후 건너뜀)")
             continue
         try:
-            text = _invoke(provider, model, system, user, max_tokens, schema, primary=(idx == 0))
+            opts = {k: v for k, v in (("effort", effort), ("usage", usage)) if v is not None}
+            text = _invoke(provider, model, system, user, max_tokens, schema, primary=(idx == 0), opts=opts)
         except _SkipLink as e:
             seen.append(f"{provider}:{model} skipped ({e})")
             continue

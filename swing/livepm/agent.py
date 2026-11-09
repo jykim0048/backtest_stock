@@ -62,6 +62,19 @@ def estimate_cost(text_in, text_out=""):
     return tokens / 1000 * C.COST_PER_1K_TOKENS_KRW
 
 
+def usage_cost(usage):
+    """llm.generate_json(usage=) 결과 → 원. 단가표에 없는 모델이거나 usage 가 비면 None(→ 문자 수 추정)."""
+    if not usage or not usage.get("model"):
+        return None
+    price = C.PRICE_USD_PER_MTOK.get(usage["model"])
+    if price is None:
+        return None
+    pin, pout = price
+    usd = (usage.get("input_tokens", 0) * pin + usage.get("cache_creation_input_tokens", 0) * pin * 1.25
+           + usage.get("cache_read_input_tokens", 0) * pin * 0.1 + usage.get("output_tokens", 0) * pout) / 1e6
+    return usd * C.USD_KRW
+
+
 class LLMAgent:
     name = "llm"
 
@@ -73,16 +86,20 @@ class LLMAgent:
 
     def decide(self, snap_text):
         """반환 (결정 dict, 메타{model, error, costKrw})."""
+        usage = {}
         try:
             data, model = self._gen(SYSTEM, snap_text, schema=SCHEMA, max_tokens=C.LLM_MAX_TOKENS,
-                                    return_model=True, chain=C.LLM_CHAIN)
+                                    return_model=True, chain=C.LLM_CHAIN, effort=C.LLM_EFFORT, usage=usage)
         except Exception as ex:
             return {"assessment": "", "decisions": []}, {"model": None, "error": f"{type(ex).__name__}: {str(ex)[:160]}",
-                                                         "costKrw": estimate_cost(snap_text)}
+                                                         "costKrw": estimate_cost(snap_text), "usage": usage or None}
+        real = usage_cost(usage)                             # 2026-11-09: 실제 토큰 × 단가, 없으면 문자 수 추정
         if not _valid(data):
             return {"assessment": "", "decisions": []}, {"model": model, "error": "스키마 위반 → 전부 hold",
-                                                         "costKrw": estimate_cost(snap_text)}
-        return data, {"model": model, "error": None, "costKrw": estimate_cost(snap_text, str(data))}
+                                                         "costKrw": real if real is not None else estimate_cost(snap_text),
+                                                         "usage": usage or None}
+        return data, {"model": model, "error": None, "usage": usage or None,
+                      "costKrw": real if real is not None else estimate_cost(snap_text, str(data))}
 
 
 class MockLivePM:

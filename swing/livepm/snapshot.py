@@ -37,6 +37,13 @@ def build(ts, state, triggers, book, *, status=None, intraday=None, memory=None,
                "liveTrader": ({"exiting": x.get("trigger"), "filled": sum(f["qty"] for f in x.get("fills") or []),
                                "planned": x.get("planned")} if x else None),
                "lastLivePm": memory.get(pid), "triggered": pid in trig_pids}
+        if pid not in trig_pids and m["stopDistUsed"] < C.THESIS_STOP_USED:
+            # 2026-11-09 비용: 트리거 없고 손절에서 먼 포지션은 근거 한 줄만(전문은 입력의 큰 몫 — 11/6 원장 15.7k자 중 한글 3.4k)
+            th = row.pop("thesis", None)
+            row.pop("invalidation", None)
+            row.pop("horizon", None)
+            if th:
+                row["thesisShort"] = th[:60]
         positions.append({k: v for k, v in row.items() if v is not None})
     ex = book.exposure()
     snap = {"asof": ts, "state": state, "trigger": [{k: t[k] for k in ("id", "code", "detail")} for t in triggers],
@@ -47,7 +54,7 @@ def build(ts, state, triggers, book, *, status=None, intraday=None, memory=None,
             "market": {"sectorsUp": up, "sectorsDown": down},
             "today": today or {}}
     text = json.dumps(snap, ensure_ascii=False)
-    for key in ("invalidation", "thesis", "horizon"):
+    for key in ("invalidation", "thesis", "horizon", "thesisShort"):
         if len(text) <= C.SNAPSHOT_MAX_CHARS:
             break
         for row in snap["positions"]:

@@ -1,4 +1,8 @@
-"""swing-livepm 진입점 — M1: 저장된 하루 재생만. 장중 루프(버스 구독·LLM)는 M3(PLAN_PM.md).
+"""swing-livepm 진입점(PLAN_PM.md).
+
+  python -m swing.livepm --live
+      # 상시 장중 루프(M3a, 2026-11-09) — 영업일 08:55~15:30 Redis 시세 버스 구독 → 판단 → livepm/<date>/instructions.
+      # 변수 DATABASE_URL · REDIS_URL(또는 LIVETRADER_REDIS_URL) · FLOW_API_BASE · ANTHROPIC_API_KEY · GEMINI_API_KEY.
 
   python -m swing.livepm --replay 2026-10-20 --source file:<dir> --store file:<dir> [--agent mock|llm]
       # source 의 ledger·intraday/<date>(Live Trader 기록)·intraday/<date>/ticks/* 로 하루를 다시 돌려
@@ -40,7 +44,8 @@ def replay(source, target, date, agent=None, log=print):
         log(f"[livepm] {date} 저장된 틱 없음")
         return None
     intraday = source.get(f"intraday/{date}")
-    r = DayRunner(target, date, source.get("ledger"), agent, intraday_fn=lambda ts: intraday_at(intraday, ts), log=log)
+    r = DayRunner(target, date, source.get("ledger"), agent, intraday_fn=lambda ts: intraday_at(intraday, ts), log=log,
+                  resume=False)
     for e in entries_from_ticks(ticks):
         r.on_entry(e)
     r.save()
@@ -49,14 +54,20 @@ def replay(source, target, date, agent=None, log=print):
 
 
 def main(argv=None):
-    ap = argparse.ArgumentParser(description="Live PM(PLAN_PM.md) — M1 재생")
+    ap = argparse.ArgumentParser(description="Live PM(PLAN_PM.md) — 장중 루프(--live) · 재생(--replay)")
+    ap.add_argument("--live", action="store_true")
     ap.add_argument("--replay", metavar="DATE")
     ap.add_argument("--source", default="env")
     ap.add_argument("--store", default="env")
     ap.add_argument("--agent", default="mock", choices=("mock", "llm"))
     a = ap.parse_args(argv)
+    if a.live:
+        from ..intraday.bus import BusFeed
+        from .live import main_loop
+        main_loop(_store(None if a.store == "env" else a.store), BusFeed(), log=lambda m: print(m, flush=True))
+        return
     if not a.replay:
-        print("[livepm] 장중 루프는 M3 에서 구현 — 지금은 --replay 만 지원", flush=True)
+        print("[livepm] --live(장중 루프) 또는 --replay DATE 를 지정하세요", flush=True)
         return
     agent = A.LLMAgent() if a.agent == "llm" else A.MockLivePM()
     replay(_store(None if a.source == "env" else a.source), _store(None if a.store == "env" else a.store), a.replay, agent)

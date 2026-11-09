@@ -33,10 +33,17 @@ REDUCE_ACTIONS = ("tighten_stop", "trim", "exit", "flag_review")   # reducing �
 
 # 판단(§6)
 ACTIONS = ("hold", "tighten_stop", "trim", "exit", "flag_review")
-LLM_CHAIN = "anthropic:claude-sonnet-5-5,gemini:gemini-3.5-flash"
-LLM_MAX_TOKENS = 2048
-COST_PER_1K_TOKENS_KRW = 15.0   # 호출 비용 추정(입출력 합 토큰 × 단가) — M3 에서 실제 사용량으로 교체
-SNAPSHOT_MAX_CHARS = 16000      # 스냅샷 JSON 상한(약 5~6k 토큰)
+# 2026-11-09 비용 검토 결정(PLAN_PM M3-비용): Haiku 5.5 · effort low · 하루 40회·3,000원 유지
+LLM_CHAIN = "anthropic:claude-haiku-5-5,gemini:gemini-3.5-flash"
+LLM_EFFORT = "low"              # Anthropic output_config.effort — 사고 토큰도 출력 과금·max_tokens 포함
+LLM_MAX_TOKENS = 8000           # 2048 은 사고 + 31종목 결정에 잘려(max_tokens → 폴백) 늘림
+# 실제 사용량(usage) × 단가(USD / 100만 토큰) → 원. 캐시 쓰기 1.25배·읽기 0.1배(5분 TTL 기준).
+PRICE_USD_PER_MTOK = {"claude-haiku-5-5": (0.10, 0.50), "claude-sonnet-5-5": (2.0, 10.0),
+                      "gemini-3.5-flash": (0.0, 0.0)}           # Gemini 무료 티어
+USD_KRW = 1450.0                # 환율 가정(비용 상한 계산용)
+COST_PER_1K_TOKENS_KRW = 15.0   # usage 를 못 받을 때만 쓰는 문자 수 기반 추정(보수적)
+SNAPSHOT_MAX_CHARS = 16000      # 스냅샷 JSON 상한(약 6~8k 토큰)
+THESIS_STOP_USED = 0.50         # 트리거 안 걸린 포지션도 손절 거리 이만큼 소진했으면 thesis 전문 유지
 
 # RiskGate(§7)
 MIN_CONF_EXIT = 0.6             # G3

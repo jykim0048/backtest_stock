@@ -1,6 +1,6 @@
 # 장중 포트폴리오 매니저(Live PM) — 설계·구현 계획
 
-2026-10-18 작성(설계 초안 + GitHub 레퍼런스 조사 통합). **M0·M1·M2 완료(2026-10-19), M3 미구현.** §12 의 기본 가정은 사용자가 바꾸면
+2026-10-18 작성(설계 초안 + GitHub 레퍼런스 조사 통합). **M0·M1·M2 완료(2026-10-19), M3 미구현 — 2026-11-09 M3 계획 재작성(입력 확장·평가·비용 별도 검토).** §12 의 기본 가정은 사용자가 바꾸면
 해당 단계만 고친다.
 
 > **2026-10-18 역할 분리**: 장중 시스템을 **Live Trader(집행)** 와 **Live PM(판단)** 으로 나눈다 —
@@ -267,7 +267,7 @@ swing/railway.livepm.json
 | D3 | 판단 모델 | Anthropic 우선 + Gemini 폴백 | M0·M2 |
 | D4 | 실행 위치 | 새 서비스 `swing-livepm` — **2026-10-18 확정**(장애 격리·장중 배포 독립) | M3 |
 | D6 | 집행 방식 | **Live Trader 가 VWAP 분할로 집행**(2026-10-18 확정) | M2 |
-| D7 | 도입 | **shadow 없이 바로 원장 반영**(2026-10-18 확정) | M3 |
+| D7 | 도입 | **shadow 없이 바로 원장 반영**(2026-10-18 확정) — 2026-11-09 재확인: 첫날부터 전 액션 허용, 평가·화면(M3c) 제외 | M3 |
 | D5 | 방향 | Long·Short 모두(엔진이 이미 대칭이라 추가 비용 작음) | M1 |
 
 ---
@@ -345,15 +345,102 @@ swing/railway.livepm.json
 - 테스트 `test_livepm_m2.py` 12건(지시 집행·중복·trim 후 손절·exit 이 trim 대체·손절 상향 후 새 손절 도달·예약 청산 중 거부·
   정산 반영·재판별 흐름·Live PM → Live Trader → 원장 통합). 운영: Live PM 서비스(M3)가 아직 없어 지시는 비어 있다.
 
-## M3 — 서비스 운영 (M)
-| # | 작업 |
-|---|---|
-| 3-1 | `__main__.py` 장중 루프(08:55 기동, 15:30 종료, 휴장일 대기, 버스 heartbeat 확인) |
-| 3-2 | 실제 LLM 연결 + 비용 계측 + 하루 비용 상한 |
-| 3-3 | Railway `swing-livepm` 생성(시작 명령은 API 로 — 신규 서비스는 config-as-code 미적용), 변수 `DATABASE_URL`·`REDIS_URL`·LLM 키 |
-| 3-4 | 장 마감 후 평가·대사(`livepm/eval/<date>`): 지시별 반사실 손익, 지시↔원장 대사 |
-| 3-5 | API `/api/swing/livepm` + 대시보드 "Live PM" 탭, 청산 사유 라벨 |
-| 3-6 | 첫 1~2주: 매일 결정 원문을 보며 프롬프트·트리거 임계값 조정(코드 상수 변경 + 이 문서 기록) |
+## M3 — 장중 운영 (2026-11-09 재작성, L)
+
+> 2026-11-09 현황: 운영 중인 장중 판단은 Live Trader 규칙(가격·VWAP·손절가)뿐이다. `python -m swing.livepm` 은 `--replay` 만
+> 지원하고 Railway 서비스도 없어 `livepm/<date>/instructions` 를 쓰는 쪽이 없다(Live Trader 는 15초마다 빈 목록을 읽음).
+> M3 는 M1 판단 코어(`DayRunner`)를 그대로 장중 루프에 얹고(M3a), 입력을 시장 상태·backtest_stock 데이터로 넓힌다(M3b).
+> 평가·화면(M3c)은 제외. **비용(모델·호출 상한·스냅샷 크기·딥리서치 호출)은 M3-비용 에서 따로 검토 — 아래 값은 현행 상수 그대로.**
+
+### M3a — 장중 루프 + 서비스 (M)
+| # | 작업 | 파일 | 테스트 |
+|---|---|---|---|
+| 3a-1 | `--live` 모드: 08:55 기동 → 원장 1회 읽기(Live Trader 와 같은 시점·같은 보유) → `BusFeed.history(date)` 로 오늘 버스 따라잡기 → 루프(`BusFeed.poll(block 20s)` → `DayRunner.on_entry`), `/status` 60초, `intraday/<date>` 매 판단 직전 읽기, 15:30 종료·요약 저장, 휴장일·장외는 다음 개장 08:55 까지 대기(`tradedays`) | `livepm/live.py`(신규), `livepm/__main__.py` | 가짜 버스·시계로 하루(기동·따라잡기·종료·휴장일) |
+| 3a-2 | **재시작 복구** — 호출 수·추정 비용·디바운스 시각·포지션별 직전 결정·오늘 지시 id 를 `livepm/<date>/run` 에 저장(판단마다), 기동 시 복원 → 재배포·크래시 뒤 같은 트리거로 재호출·지시 중복 없음 | `runner.py`·`triggers.py` | 중간 재시작 재생 = 무중단 재생과 같은 지시 |
+| 3a-3 | 생존 신호 — `BusFeed.alive()`(Live Trader heartbeat) 끊기면 X4 halted, 복구 시 active. Live PM 자기 heartbeat `livepm/<date>/heartbeat`(대시보드 표시용) | `state.py`·`live.py` | X4 전환 |
+| 3a-4 | 실제 LLM 연결(`LLMAgent`, 체인 = `config.LLM_CHAIN`), 호출마다 모델·지연·추정 비용 기록(`livepm/<date>/calls/<n>`) | `agent.py` | 실패 → 전부 hold |
+| 3a-5 | Railway 서비스 `swing-livepm`: `swing/railway.livepm.json`(start `python -m swing.livepm --live`, restart ALWAYS). 변수 `DATABASE_URL`·`REDIS_URL`·`FLOW_API_BASE`·`ANTHROPIC_API_KEY`·`GEMINI_API_KEY`(+M3b `DART_API_KEY`·`BACKTEST_BASE`). **UI 설정이 json 보다 우선(11/6 swing-cron 사례)** — 서비스 생성 후 Settings 의 config 경로·시작 명령·Watch Paths(`swing/livepm/**`·`swing/intraday/**`·`llm.py`)를 UI 에서 확인 | 신규 json | — |
+| 3a-6 | 배포 순서: 코드 푸시는 장 마감 후~다음 날 08:50(정산 17:05 진행 중 금지). 서비스 생성 첫날은 장 시작 전 로그로 기동·버스 따라잡기 확인 | — | — |
+
+완료 기준: 테스트 통과 + 운영 첫날 `livepm/<date>/run`·`calls/*` 가 쌓이고, 트리거 → 판단 → 게이트 → 지시 → Live Trader `intraday.instructions` 결과(done/rejected)까지 한 바퀴 확인.
+
+### M3b — 입력 확장 (M)
+모두 **판단을 부르는 트리거와 스냅샷 참고 정보**로만 쓴다. 가격 판단은 15초 버스 시세. 외부 입력은 실패해도 루프를 멈추지 않고 그 필드만 비운다(신선도 `asof` 를 같이 넣고 기준 넘으면 제외).
+
+| # | 입력 | 출처(주기) | 스냅샷 | 트리거 |
+|---|---|---|---|---|
+| 3b-1 | **시장 상태** — KOSPI·KOSDAQ 지수 등락, CB·사이드카(판별 2단계 완료 후), 장운영 이벤트 | 허브 `FLOW_API_BASE/market`(60초) — 2026-11-06 배포, 장중에만 state 가 쌓임 | `market.index{kospi,kosdaq: rate}`, `market.events` 최근 3건 | **T8 지수 급변**(직전 확인 대비 ±`INDEX_MOVE_PP`, 디바운스 공용) |
+| 3b-2 | **장중 시황**(backtest_stock) — `regime{stance, confidence, reason}`, 투자자 순매수, 섹터 히트, 시장 공시·뉴스 상위 | `BACKTEST_BASE/intraday_briefing.json`(main 장중 회차 09:07~15:07 30분, 정적 서빙 60초 캐시) | `market.regime`(stance·confidence·reason 120자), 보유 종목 이름·코드가 들어간 공시·뉴스 제목만 | 없음(참고) — regime 이 바뀐 회차는 T7 정기 점검과 같은 취급 검토 |
+| 3b-3 | **투자주의·경고·위험 지정**(backtest_stock) | `BACKTEST_BASE/data/investment_warning.json`(장전 1회 갱신) — 08:55 기동 시 1회 | 보유 종목 `designation: caution\|warning\|danger` | 없음 |
+| 3b-4 | **보유 종목 신규 공시** | OpenDART `list.json`(당일 상장사) 5분마다 — 기존 `swing/catalysts.py` 조회·`rule_direction`(dilution 등 제목 규칙) 재사용 | 해당 포지션 `filings[{time, title, dir}]` 최근 3건 | **T9 신규 공시**(보유 종목, 규칙 방향이 포지션에 불리하면 우선) |
+| 3b-5 | (선택) **트리거 종목 딥리서치 요약** | backtest_stock `/api/research?code=`(동기, 6h 캐시, Gemini) | `research{direction, catalyst 150자}` | — T9·T3 에서만, 기본 꺼짐(**M3-비용 에서 결정** — main 장중 딥리서치와 Gemini 무료 한도 공유) |
+
+- main 과 코드 공유 없음(병합 금지) — main 이 이미 내보내는 JSON·API 를 HTTP 로 읽는 어댑터 `livepm/inputs.py` 한 파일로 모은다.
+- 스냅샷 길이 상한(`SNAPSHOT_MAX_CHARS`) 안에서: 줄이는 순서 = 트리거 안 걸린 포지션의 filings → thesis·invalidation → horizon → market.events.
+- 테스트: 각 입력 실패·지연(asof 오래됨)·보유 종목 매칭(이름 동음·우선주)·T8/T9 디바운스.
+
+### M3c — 평가·화면: **제외(2026-11-09 사용자 결정)**
+장 마감 후 반사실 평가(`livepm/eval/<date>`)·API·대시보드 패널은 이번 M3 범위에서 뺀다. 판단 기록은 M3a 의
+`livepm/<date>/run`·`calls/<n>`(스냅샷·결정·게이트·지시 결과)과 Live Trader `intraday.instructions` 로 남으니,
+필요하면 그 기록으로 나중에 붙인다.
+
+### M3 도입 순서 (2026-11-09 확정)
+1. M3a 배포 → **첫날부터 모든 액션(hold·tighten_stop·trim·exit·flag_review) 지시 집행**(D7 원안 — 단계적 허용 안 함).
+2. M3b 는 3b-1(시장 상태)·3b-4(공시) 먼저, 3b-2·3b-3 다음, 3b-5 는 비용 검토 뒤.
+3. 첫 1~2주는 매일 `calls/*` 결정 원문과 지시 결과를 보고 프롬프트·트리거 값을 코드 상수로 조정(이 문서에 기록).
+
+### M3-비용 — 검토 결과(2026-11-09, 결정 대기)
+현행 상수: 체인 `anthropic:claude-sonnet-5-5 → gemini:gemini-3.5-flash`, 하루 호출 40회·추정 비용 3,000원, 스냅샷 16,000자.
+
+**실측·확인**
+- 스냅샷 크기(11/6 원장 31포지션·thesis 30개로 `snapshot.build`): **15,685자**(한글 3,427자) — 상한 16,000자에 거의 닿음.
+  시스템 프롬프트 890자 + 출력 스키마 578자. 토큰 환산(추정): 한글 ≈ 1자/토큰, 나머지 JSON·숫자 ≈ 3자/토큰 →
+  **입력 약 6,500~8,500 토큰/호출**. (실측은 3a-4 에서 usage 기록 후 교체)
+- 단가(Anthropic API, 1M 토큰당): Sonnet 5.5 입력 $2 / 출력 $10, Haiku 5.5 $0.10 / $0.50(10만 토큰 이하 프롬프트),
+  Opus 5.5 $4 / $20. 캐시 읽기 ≈ 입력가의 0.1배.
+- **문제 1 — 사고(thinking) 토큰**: `llm.py` 의 Anthropic 호출은 thinking·effort 를 지정하지 않아 Sonnet 5.5 가 기본(adaptive,
+  effort `high`)으로 사고하고, 사고 토큰도 출력으로 과금되며 `max_tokens=2048` 에 포함된다 → 31포지션 판단이면 잘려
+  (`max_tokens` → `_SwitchLink`) **조용히 Gemini 폴백**(무료 20회/일)으로 넘어갈 수 있다. effort 를 명시하고 `max_tokens` 를 늘려야 함.
+- **문제 2 — 비용 추정식**: `estimate_cost` = 문자 ÷ 2.5 × 15원/1k 토큰 — 입력에도 출력 단가 수준을 매겨 실제보다 큼
+  (호출당 약 95원 추정 → 3,000원 상한에 약 30회에서 걸림). 실제 사용량 기반으로 바꿔야 상한이 의미가 있다.
+
+**호출당·하루 예상(환율 1,450원/$ 가정)**
+| 모델·설정 | 입력 8k + 출력 | 호출당 | 하루 15회(평시) | 하루 40회(상한) | 월(21영업일, 상한) |
+|---|---|---|---|---|---|
+| Sonnet 5.5, effort 기본(high) | 출력 ~4k(사고 포함) | 약 81원 | 약 1,200원 | 약 3,250원 | 약 68,000원 |
+| **Sonnet 5.5, effort low** | 출력 ~1k | 약 38원 | 약 570원 | 약 1,500원 | 약 32,000원 |
+| Sonnet 5.5 low + 스냅샷 축소(입력 ~5k) | 출력 ~1k | 약 29원 | 약 430원 | 약 1,150원 | 약 24,000원 |
+| Haiku 5.5, effort low | 출력 ~1k | 약 2원 | 약 30원 | 약 75원 | 약 1,600원 |
+(평시 15회 = T7 정기 4회 + 이벤트 트리거 ~11회 가정. 급변일엔 40회 상한까지 찰 수 있음.)
+
+**권고**
+1. **모델**: Sonnet 5.5 유지 + `effort: "low"` 명시 + `max_tokens` 8,000 — 판단 품질(청산·일부 매도가 실제 원장에 반영, D7)을 지키면서
+   비용 절반 이하, 잘림 폴백 제거. Haiku 5.5 는 약 20배 싸지만 청산 판단을 맡기기엔 품질 확인이 먼저(운영 1~2주 결정 원문 비교 후 재검토).
+2. **스냅샷 축소**: thesis·invalidation 은 트리거 걸린 포지션(+손절 거리 50% 이상 소진)만 전문, 나머지는 한 줄 요약 → 입력 30~40% 감소.
+3. **실사용량 계측·상한**: `llm.generate_json` 이 Anthropic `usage`(input/output/cache 토큰)를 돌려주게 하고(두 레포 `llm.py` 같은
+   부분만 수정 — effort 인자와 함께) 호출 기록·하루 비용 상한을 실제 토큰 × 단가로 계산. 상한은 하루 40회·3,000원 유지
+   (권고 설정이면 상한 도달 시에도 약 1,500원).
+4. **프롬프트 캐싱**: 지금은 시스템 프롬프트만 캐시 지정(약 600토큰, 모델별 최소 캐시 길이 미달이면 효과 없음). 하루 동안 바뀌지
+   않는 포지션 정적 정보(thesis 등)를 앞쪽 캐시 블록으로 분리하면 입력의 일부를 0.1배로 — 절감 폭이 작아 M3 이후로 미룸.
+5. **3b-5 딥리서치 호출**: 끔 유지 — main 장중 딥리서치·swing 정산과 Gemini 무료 한도가 겹친다(11/6 429).
+6. **Gemini 폴백**: gemini-3.5-flash 무료 한도 20회/일 — Anthropic 장애 때만 쓰이므로 유지(비용 0).
+
+**결정(2026-11-09 사용자)**: **Haiku 5.5 · effort low · 하루 40회·3,000원 유지** — 예상 하루 30~75원, 월 약 1,600원.
+1~2주 운영하며 결정 원문 품질을 보고 Sonnet 5.5 low 로 올릴지 재검토.
+
+### M3a 구현(2026-11-09, 미커밋·미배포)
+- `llm.py`(swing): `generate_json(effort=, usage=)` — Anthropic `output_config.effort`, 성공 링크의 usage(입출력·캐시 토큰) 반환.
+  옵션이 있을 때만 어댑터에 키워드로 넘겨 기존 호출·테스트 그대로. **swing 전용 기능**(Live PM `chain=` 과 같은 취급 — main 미반영).
+- `livepm/config.py`: 체인 `anthropic:claude-haiku-5-5,gemini:gemini-3.5-flash`, `LLM_EFFORT="low"`, `LLM_MAX_TOKENS=8000`,
+  단가표 `PRICE_USD_PER_MTOK`·`USD_KRW=1450`, `THESIS_STOP_USED=0.50`.
+- `livepm/agent.py`: `usage_cost` — 실제 토큰 × 단가로 `costKrw`(하루 3,000원 상한이 실사용 기준), usage 없으면 문자 수 추정.
+- `livepm/snapshot.py`: 트리거 없고 손절 거리 50% 미만인 포지션은 thesis 대신 `thesisShort`(60자) — 11/6 원장 15,685자 → 13,405자(−15%).
+- `livepm/runner.py`: 재기동 복구(`livepm/<date>/run.resume` — 디바운스·정기 점검·호출 수·비용·기억), `catch_up`(시세만), 판단마다 저장.
+- `livepm/live.py`(신규): `run_session`(08:55~15:30, 버스 따라잡기 → poll 루프, 무입력 시 step, `/status` 60초 캐시, heartbeat 60초),
+  `main_loop`(영업일 반복·세션 오류 1분 뒤 재시도). `python -m swing.livepm --live`, `swing/railway.livepm.json`.
+- 테스트 `test_livepm_m3.py` 9건(effort·usage 전달, 비용, 스냅샷 축소, 재기동, 가짜 버스·시계 하루 세션, /status 캐시). 전체 390건 통과.
+- 배포 전 남은 일: Railway `swing-livepm` 서비스 생성(사용자) — config 경로 `swing/railway.livepm.json`, 시작 명령 `python -m swing.livepm --live`,
+  변수 `DATABASE_URL`·`REDIS_URL`·`FLOW_API_BASE`·`ANTHROPIC_API_KEY`·`GEMINI_API_KEY`, Watch Paths 확인(UI 가 json 보다 우선).
 
 ## M4 — 웹소켓 게이트웨이 (선택, L, 허브 레포 `trading_bot_HUB_KIS`)
 폴링 15초가 부족하다고 판단될 때만(예: T3 급변을 자주 늦게 잡음, 평가에서 지연 손실이 큼).
@@ -371,7 +458,7 @@ swing/railway.livepm.json
   사람 승인 단계(텔레그램 등) 후 제한적 자동.
 
 ## 순서 요약
-M0(완료) → M1 → M2 → M3(운영, 바로 원장 반영) → [필요 시 M4 웹소켓] → M5 검토
+M0·M1·M2(완료) → M3a 장중 루프·서비스(첫날부터 전 액션 집행) → M3b 입력 확장(시장 상태·공시 → 장중 시황·투자경고 → 딥리서치) → [필요 시 M4 웹소켓] → M5 검토. M3c(평가·화면) 제외. M3-비용 검토는 M3a 배포 전에 결론.
 
 ## 13. 레퍼런스 (2026-10-18 조사)
 | 레포 | 가져온 아이디어 |

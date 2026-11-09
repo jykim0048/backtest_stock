@@ -28,7 +28,7 @@ def intraday_at(doc, ts):
 
 
 class DayRunner:
-    def __init__(self, store, date, ledger, agent=None, *, status_fn=None, intraday_fn=None, log=print):
+    def __init__(self, store, date, ledger, agent=None, *, status_fn=None, intraday_fn=None, log=print, resume=True):
         """status_fn(ts) → /status dict | None, intraday_fn(ts) → Live Trader intraday/<date> | None."""
         self.store, self.date, self.log = store, date, log
         self.agent = agent or A.MockLivePM()
@@ -42,6 +42,33 @@ class DayRunner:
         self.memory = {}             # pid → 마지막 결정 {ts, action, reason}
         self.decisions = []          # "HH:MM action code" 한 줄 요약(단기 기억)
         self.costs = 0.0
+        if resume:
+            self._resume()
+
+    # ── 재시작 복구(M3a, 2026-11-09) ─────────────────────────────────────────
+    def _resume(self):
+        """같은 날 재기동이면 livepm/<date>/run.resume 에서 디바운스·호출 수·비용·기억을 되살린다 —
+        재배포·크래시 뒤 같은 트리거로 LLM 을 다시 부르거나 상한을 처음부터 세지 않게."""
+        r = (self.store.get(f"livepm/{self.date}/run") or {}).get("resume") or {}
+        if not r:
+            return
+        self.trig.last = {(k[0], k[1]): k[2] for k in r.get("last") or []}
+        self.trig.sched_done = set(r.get("schedDone") or [])
+        self.trig.calls, self.trig.cost = int(r.get("calls") or 0), float(r.get("cost") or 0.0)
+        self.memory = r.get("memory") or {}
+        self.decisions = r.get("decisions") or []
+        self.log(f"[livepm] {self.date} 재기동 복구 — 호출 {self.trig.calls}회 · 비용 {self.trig.cost:.0f}원 · 지시 {len(self.instructions)}건")
+
+    def _resume_doc(self):
+        return {"last": [[k[0], k[1], v] for k, v in self.trig.last.items()], "schedDone": sorted(self.trig.sched_done),
+                "calls": self.trig.calls, "cost": round(self.trig.cost, 2), "memory": self.memory,
+                "decisions": self.decisions[-30:]}
+
+    def catch_up(self, entries):
+        """기동 전 오늘 버스 기록 — 시세(링버퍼·VWAP)만 채우고 판단은 하지 않는다(지난 시각 트리거로 LLM 호출 금지)."""
+        for e in entries:
+            self.book.update(e)
+        return len(entries)
 
     # ── 처리 ───────────────────────────────────────────────────────────────
     def on_entry(self, entry, *, trader_alive=True, feed_age_s=0):
@@ -91,6 +118,7 @@ class DayRunner:
             "instructions": [i["id"] for i in new]})
         if new:
             self.store.put(f"livepm/{self.date}/instructions", self.instructions)
+        self.save()                                          # 판단마다 요약·복구 상태 저장(재기동 대비)
         self.log(f"[livepm] {ts[11:19]} 판단 #{n} 트리거 {','.join(sorted({t['id'] for t in trigs}))} → 지시 "
                  + (", ".join(f"{i['action']} {i['code']}" for i in new) or "없음")
                  + (f" ({meta['error']})" if meta.get("error") else ""))
@@ -106,4 +134,4 @@ class DayRunner:
                 "agent": getattr(self.agent, "name", "?"), "asof": self.book.asof}
 
     def save(self):
-        self.store.put(f"livepm/{self.date}/run", self.summary())
+        self.store.put(f"livepm/{self.date}/run", dict(self.summary(), resume=self._resume_doc()))
