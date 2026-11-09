@@ -16,11 +16,14 @@ Default chain (all Gemini, separate per-model quotas). 무료 티어 실측(2026
 용량 큰 lite 를 1순위로 두고 20/일 모델들은 '비상 폴백'으로 보존한다(구 1순위
 3.5-flash 는 야간 세션에서 20회 소진 후 상시 429 → 재시도 낭비 + 폴백 쿼터 잠식):
     gemini-3.1-flash-lite -> gemini-3.5-flash-lite -> gemini-3.8-flash -> gemini-3.7-flash
-    -> gemini-3.6-flash -> gemini-3.5-flash -> gemini-3-flash-preview
+    -> gemini-3.6-flash -> gemini-3.5-flash -> gemma-4-31b-it
 2026-10-18: 2.5-flash·2.5-flash-lite 가 신규 사용자 404(폐기)라 체인에서 뺐다. 10-16 swing 런에서 1순위 lite 가
 503(구글 과부하)를 내자 20/일 폴백 2개가 앞 3~4종목에 바로 바닥나고 404 두 개만 남아 후보 13개가 판단 실패 →
 (1) 신규 모델로 폴백 층을 늘리고 (2) 1순위 링크 5xx 는 길게 기다리며 (3) 한도 소진(429)·폐기(404) 링크는
 일정 시간 건너뛴다(같은 프로세스 안에서 매 호출 재시도·대기 낭비 방지).
+2026-11-09: 마지막 gemini-3-flash-preview 가 404(not found for API version v1)만 내 Gemma 4(gemma-4-31b-it, Gemini API
+공식 제공·Flash 계열과 별도 한도 추정)로 교체 — 11/6 swing 런에서 lite 429 + 폴백 503·bad JSON + preview 404 로 1건 실패.
+JSON 모드 지원은 미확인(관용 파싱으로 받음). 이 파일은 main·swing_paper 두 레포에 따로 있음 — 같은 부분만 각각 수정.
 
 Keys: GEMINI_API_KEY (or GOOGLE_API_KEY) for gemini, ANTHROPIC_API_KEY for
 anthropic. Every link returns parsed JSON via response_mime_type=application/json
@@ -39,7 +42,7 @@ DEFAULT_CHAIN = ("gemini:gemini-3.1-flash-lite,"
                  "gemini:gemini-3.7-flash,"
                  "gemini:gemini-3.6-flash,"
                  "gemini:gemini-3.5-flash,"
-                 "gemini:gemini-3-flash-preview")
+                 "gemini:gemma-4-31b-it")
 
 MAX_RETRY = 3                                   # transient retries within one link
 RETRYABLE = {429, 500, 502, 503, 504, 529}      # HTTP codes worth retrying / then switching
