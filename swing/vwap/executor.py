@@ -118,6 +118,7 @@ class Executor:
     def _plan(self, L):
         doc, held = self.doc, {p["code"] for p in L.get("positions") or []}
         self.positions = {}                   # 손절 감시
+        self.price_only = set()               # 시세만 받는 종목(체결일 손절 재판별 대기 — 손절 유예, 2026-11-09)
         self.held = {p["id"]: p for p in L.get("positions") or []}   # Live PM 지시 대상(원장 보유 전부)
         for p in L.get("positions") or []:
             sp = p.get("sellPending")
@@ -131,7 +132,10 @@ class Executor:
                 self.positions[p["id"]] = {"code": p["code"], "side": p.get("side", "long"),
                                            "stop": mv["newStop"] if mv else p["stop"], "name": p.get("name"), "qty": p["qty"]}
             else:
-                continue                      # 체결일 손절 재판별 대기 — 그날 손절 유예(엔진과 같음)
+                # 체결일 손절 재판별 대기 — 그날 손절 유예(엔진과 같음). 손절 감시는 안 하지만 시세는 받는다:
+                # 폴링 대상에서 빠지면 대시보드 현재가가 전일 종가에 멈추고(11-09 BGF리테일·팬오션) Live PM·히스토리 틱도 비었다.
+                self.price_only.add(p["code"])
+                continue
             if p["id"] not in doc["watched"]["positions"]:
                 doc["watched"]["positions"].append(p["id"])
         self.pool = {p["id"]: p for p in L.get("positions") or []           # 스위칭 재원 후보 — 예약 청산 없는 Long
@@ -157,7 +161,7 @@ class Executor:
 
     def codes(self):
         return sorted({x["code"] for x in self.positions.values()} | {r["code"] for r in self.doc["orders"].values()}
-                      | {r["code"] for r in self.doc["exits"].values()})
+                      | {r["code"] for r in self.doc["exits"].values()} | self.price_only)
 
     def _warm(self):
         """재시작 — 오늘 저장된 틱으로 VWAP 상태만 복원(체결·손절 판정 없음)."""

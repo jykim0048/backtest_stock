@@ -197,6 +197,16 @@ class TestExecutor(unittest.TestCase):
         self.assertEqual((x["planned"], x["trigger"]), (120, "stop"))
         self.assertEqual(self.fills(x), [("09:20", 12, 9500.0, "stop"), ("09:25", 108, 9000, "force")])
 
+    def test_fill_stop_suspended_position_gets_price_but_no_stop(self):
+        # 2026-11-09 BGF리테일·팬오션: 체결일 손절 재판별 대기 포지션이 폴링 대상에서 빠져 대시보드 현재가가 전일 종가에 멈춤
+        L = ledger_with(position={"fillStop": {"date": "2026-10-16", "stop": 4800.0, "extreme": 4790.0}, "fillDate": "2026-10-16"})
+        ex = self.ex(L)
+        self.assertNotIn("p1", ex.positions)                              # 손절 감시는 유예
+        self.assertIn("000020", ex.codes())                               # 시세는 받는다
+        run(ex, path("000020", [("09:00", 4790), ("09:10", 4600)]))      # 손절가 4,800 아래여도
+        self.assertEqual(ex.doc["exits"], {})                             # 손절 청산 없음
+        self.assertEqual(ex.doc["vwap"]["000020"]["price"], 4600)         # 현재가 기록(대시보드·Live PM)
+
     def test_fill_then_stop_defers_in_review_mode(self):
         # 기본(review, 2026-10-16 사용자 지시) — 체결일엔 손절하지 않고 남은 분할만 멈춘다(11-04 두산)
         ex = self.ex(ledger_with(order={}))
