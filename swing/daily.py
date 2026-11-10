@@ -369,13 +369,13 @@ def _exposure_setup(L, store, bars, date, run, note=True):
                            "brakes": brakes, "top": top,
                            "sectorNet": {s: round(v * 100, 2) for s, v in sorted(net.items(), key=lambda kv: -abs(kv[1]))}}
         if X.GLIDE_ON:
-            # 순노출·현금 단계 한도(주당 10%p) — 처음 켠 날의 장부(청산 예약분 포함)가 출발점, 주차는 주문 진입일(다음 영업일) 기준
-            g = L.get("exposureGlide")
+            # 순노출·현금 단계 한도(주당 10%p) — 처음 켠 날의 장부(청산 예약분 포함)가 출발점, 1주차는 그날 주문의 진입일(다음 영업일)부터 7일
+            g, nxt = L.get("exposureGlide"), tradedays.next_trading_day(date)
             if not g:
                 full = X.summarize([dict(q, value=X._val(dict(p, sellPending=None), px)) for q, p in zip(ps, L["positions"])],
                                    L["cash"], eq, top)
-                g = L["exposureGlide"] = {"start": date, "net0": round(full["netPct"], 4), "cash0": round(full["cashPct"], 4)}
-            lim = X.glide_limits(g, tradedays.next_trading_day(date))
+                g = L["exposureGlide"] = {"start": nxt, "asof": date, "net0": round(full["netPct"], 4), "cash0": round(full["cashPct"], 4)}
+            lim = X.glide_limits(g, nxt)
             ctx["limits"] = lim
             ctx["boostLeft"] = max(0.0, L["cash"] - lim["cashMax"] * eq)
             run["exposure"]["limits"] = {"netMin": round(lim["netMin"] * 100, 2), "netMax": round(lim["netMax"] * 100, 2),

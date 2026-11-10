@@ -147,8 +147,9 @@ def update_brakes(prev, net_pct):
 
 
 # ── 단계 한도(2026-11-10 사용자 결정: 순노출·현금 한도는 주당 10%p 씩 단계적으로) ─────────────────────────────────
-# 시작일(원장 exposureGlide = {start, net0, cash0})의 순노출·현금 비중에서 출발해 매주(월요일 기준) GLIDE_STEP 씩 최종 한도(R1·R2)로 좁힌다.
-# 그 주의 한도 = 시작값 − 10%p × 주차(시작 주 = 1주차), 최종 한도에 닿으면 그 뒤로는 최종 한도. 주차는 주문의 진입일(다음 영업일) 기준.
+# 원장 exposureGlide = {start, net0, cash0} — start = 1주차 첫날(처음 켠 정산의 주문 진입일 = 다음 영업일, 2026-11-10 사용자 결정 "내일부터 1주차"),
+# net0·cash0 = 그 정산일 종가 장부의 순노출·현금 비중. 거기서 출발해 7일마다 GLIDE_STEP 씩 최종 한도(R1·R2)로 좁힌다.
+# 그 주의 한도 = 출발값 − 10%p × 주차(start 부터 7일 = 1주차, 다음 7일 = 2주차 …), 최종 한도에 닿으면 그 뒤로는 최종 한도. 주차는 주문의 진입일 기준.
 # 맞추는 장치(보유 강제 축소 없음 — 신규 주문만 조절):
 #   · 방향 게이트(R1): 순노출이 그 주 상한을 넘기게 되는 Long 주문은 축소·중단(하한이면 Short). 보수적으로 본다 —
 #     같은 방향 대기 주문은 전량 체결, 반대 방향 대기 주문은 미체결로 가정(Short 체결률이 낮아 계획만 믿으면 상한을 넘는다).
@@ -158,14 +159,10 @@ GLIDE_STEP = 0.10              # 주당 좁히는 폭(10%p)
 BOOST_MAX = 2.0                # 비중 확대 배수 상한(1.0 = 확대 없음)
 
 
-def _monday(d):
-    x = datetime.date.fromisoformat(str(d)[:10])
-    return x - datetime.timedelta(days=x.weekday())
-
-
 def glide_week(start, date):
-    """단계 주차 — 시작일이 속한 주 = 1, 다음 주 월요일부터 2 …"""
-    return max(0, (_monday(date) - _monday(start)).days // 7) + 1
+    """단계 주차 — 시작일부터 7일 = 1, 그다음 7일 = 2 … (시작일 전 날짜도 1)."""
+    d0, d1 = datetime.date.fromisoformat(str(start)[:10]), datetime.date.fromisoformat(str(date)[:10])
+    return max(0, (d1 - d0).days // 7) + 1
 
 
 def glide_limits(g, date):

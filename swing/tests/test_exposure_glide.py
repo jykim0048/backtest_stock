@@ -8,7 +8,7 @@ from swing import engine as E
 from swing import exposure as X
 
 TOP = ["005930", "000660"]
-G = {"start": "2026-11-10", "net0": 0.378, "cash0": 0.395}      # 2026-11-10(화) 장부에서 출발
+G = {"start": "2026-11-11", "net0": 0.378, "cash0": 0.395}      # 2026-11-10(화) 종가 장부에서 출발, 1주차 = 11/11(수)부터 7일
 
 
 def pos(code, side, sector, qty, price, **kw):
@@ -21,17 +21,18 @@ def order(code, side, sector, qty, entry, **kw):
 
 
 class TestGlideLimits(unittest.TestCase):
-    def test_week_counts_from_start_week_monday(self):
-        self.assertEqual([X.glide_week("2026-11-10", d) for d in ("2026-11-10", "2026-11-11", "2026-11-13", "2026-11-15")], [1, 1, 1, 1])
-        self.assertEqual([X.glide_week("2026-11-10", d) for d in ("2026-11-16", "2026-11-20", "2026-11-23", "2026-12-07")], [2, 2, 3, 5])
-        self.assertEqual(X.glide_week("2026-11-10", "2026-11-02"), 1)             # 시작 전 날짜도 1주차로
+    def test_week_is_seven_days_from_start(self):
+        self.assertEqual([X.glide_week("2026-11-11", d) for d in ("2026-11-11", "2026-11-13", "2026-11-16", "2026-11-17")], [1, 1, 1, 1])
+        self.assertEqual([X.glide_week("2026-11-11", d) for d in ("2026-11-18", "2026-11-24", "2026-11-25", "2026-12-09")], [2, 2, 3, 5])
+        self.assertEqual(X.glide_week("2026-11-11", "2026-11-10"), 1)             # 시작 전 날짜(정산 당일 저녁 대시보드)도 1주차
 
     def test_limits_step_10pp_per_week_to_final(self):
         w1 = X.glide_limits(G, "2026-11-11")
         self.assertEqual((w1["netMax"], w1["netMin"], w1["cashMax"], w1["week"], w1["final"]), (0.278, -0.10, 0.295, 1, False))
-        w2 = X.glide_limits(G, "2026-11-16")                                      # 금요일 정산의 주문(월요일 진입)부터 2주차
+        self.assertEqual(X.glide_limits(G, "2026-11-17")["netMax"], 0.278)        # 다음 주 화요일까지 1주차
+        w2 = X.glide_limits(G, "2026-11-18")                                      # 11/17 정산의 주문(11/18 진입)부터 2주차
         self.assertEqual((w2["netMax"], w2["cashMax"], w2["final"]), (0.178, 0.195, False))
-        w3 = X.glide_limits(G, "2026-11-23")
+        w3 = X.glide_limits(G, "2026-11-25")
         self.assertEqual((w3["netMax"], w3["cashMax"], w3["final"]), (0.15, 0.10, True))     # 3주차에 최종 한도
         self.assertEqual(X.glide_limits(G, "2027-01-04")["netMax"], 0.15)
 
@@ -151,7 +152,7 @@ class TestRunDayGlide(unittest.TestCase):
         px = prices.DictPrices({"2026-09-21": flat(codes), "2026-09-22": flat(codes)})
         r1 = daily.run_day("2026-09-21", self.st, ag, px, wb("2026-09-21", up=[("000010", "화학"), ("000030", "건설")]))
         L = self.st.get("ledger")
-        self.assertEqual(L["exposureGlide"], {"start": "2026-09-21", "net0": 0.0, "cash0": 1.0})      # 출발점은 처음 켠 날 한 번만
+        self.assertEqual(L["exposureGlide"], {"start": "2026-09-22", "asof": "2026-09-21", "net0": 0.0, "cash0": 1.0})   # 1주차 = 주문 진입일부터, 한 번만 기록
         self.assertEqual([(o["code"], o["qty"]) for o in L["orders"]], [("000010", 2500), ("000030", 1500)])   # 5%(종목 상한) + 3%(순노출 여유)
         self.assertIn("순노출 한도 +8.0%", L["orders"][1]["guard"])
         self.assertEqual((r1["exposure"]["limits"]["netMax"], r1["exposure"]["limits"]["cashMax"], r1["exposure"]["limits"]["week"]), (8.0, 90.0, 1))
@@ -166,7 +167,7 @@ class TestRunDayGlide(unittest.TestCase):
         self.assertIn("순노출 한도 +8.0% — Long 신규 중단(판단 생략)", row["why"])
         self.assertTrue(r2["shortCandidates"][0]["ordered"])
         self.assertTrue(any("Long 신규 중단" in x for x in r2["notes"]))
-        self.assertEqual(self.st.get("ledger")["exposureGlide"]["start"], "2026-09-21")               # 출발점 유지
+        self.assertEqual(self.st.get("ledger")["exposureGlide"]["start"], "2026-09-22")               # 출발점 유지
         self.assertIsNone(E.EXPOSURE_CTX)
 
     def test_cash_over_stage_cap_boosts_weight(self):
