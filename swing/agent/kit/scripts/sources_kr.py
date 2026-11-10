@@ -600,12 +600,41 @@ def naver_investor_trend_full(code, rows=20):
 # ----------------------------------------------------------------------------
 # 3) 웹 검색 (해외 뉴스) — Tavily 우선, Brave 폴백
 # ----------------------------------------------------------------------------
+# main analysis/sources.DART_CATALYST_KEYWORDS 와 같은 목록(두 레포가 독립이라 복제 — 바꾸면 양쪽 같이). 2026-11-10 동기화:
+# 종전엔 2026-10-15 하방 보강분(교환사채·감자·관리종목 …)·공개매수(11-09)·소각(11-10)이 빠져 있었다.
+# 여기서는 공시를 걸러내지 않고 05_disclosures.json 의 catalyst_keywords·tone 표시에만 쓴다(collect._flag_disclosures).
 DART_CATALYST_KEYWORDS = (
     "공급계약", "단일판매", "유상증자", "무상증자", "합병", "분할", "소송",
     "특허", "임상", "품목허가", "자기주식", "전환사채", "신주인수권",
     "최대주주", "경영권", "영업정지", "파산", "회생", "투자판단", "조회공시",
     "생산재개", "생산중단", "화재", "수주",
+    "교환사채", "영구", "신종자본증권", "감자", "관리종목", "불성실공시", "매매거래정지",
+    "횡령", "배임", "감사의견", "상장폐지", "담보제공", "잠정실적", "영업(잠정)실적",
+    "공개매수",
+    "소각",
 )
+# 표시용 방향(tone) — 호재 먼저, 그다음 악재. 자기주식처분은 "자기주식"(호재)보다 먼저 악재로 본다(disclosure_tone).
+DART_BULL_KEYWORDS = ("공급계약", "단일판매", "수주", "무상증자", "자기주식", "자사주", "주식소각", "품목허가", "특허")
+DART_BEAR_KEYWORDS = ("유상증자", "전환사채", "신주인수권", "교환사채", "영구", "신종자본증권", "감자", "소송", "횡령", "배임",
+                      "영업정지", "파산", "회생", "생산중단", "화재", "관리종목", "불성실공시", "매매거래정지",
+                      "감사의견", "상장폐지", "담보제공")
+
+
+def disclosure_flags(title):
+    """공시 제목 → (catalyst_keywords, tone). tone = bull | bear | neutral | correction(정정 공시)."""
+    t = "".join(str(title or "").split())
+    flags = [k for k in DART_CATALYST_KEYWORDS if k in t]
+    if "정정" in t:
+        tone = "correction"
+    elif "자기주식처분" in t:                               # 자사주 처분은 물량 부담 — "자기주식"(호재) 일치보다 먼저
+        tone = "bear"
+    elif any(k in t for k in DART_BULL_KEYWORDS):
+        tone = "bull"
+    elif any(k in t for k in DART_BEAR_KEYWORDS):
+        tone = "bear"
+    else:
+        tone = "neutral"
+    return flags, tone
 
 
 def tavily_search(query, max_results=5, include_domains=None):

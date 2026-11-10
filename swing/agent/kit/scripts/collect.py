@@ -37,14 +37,6 @@ from resolve import candidates, resolve                   # noqa: E402
 
 FLOW_API_BASE = os.environ.get("FLOW_API_BASE", "https://tradingstrategies-production-09d4.up.railway.app")
 
-CATALYST_KW = getattr(sources, "DART_CATALYST_KEYWORDS", (
-    "공급계약", "단일판매", "유상증자", "무상증자", "합병", "분할", "소송", "특허", "임상", "품목허가",
-    "자기주식", "전환사채", "신주인수권", "최대주주", "경영권", "영업정지", "파산", "회생", "투자판단",
-    "조회공시", "생산재개", "생산중단", "화재", "수주"))
-_BULL_KW = ("공급계약", "단일판매", "수주", "무상증자", "자기주식", "자사주", "품목허가", "특허")
-_BEAR_KW = ("유상증자", "전환사채", "신주인수권", "교환사채", "감자", "소송", "횡령", "배임",
-            "영업정지", "파산", "회생", "생산중단", "화재")
-
 
 def _hub_flow(code: str, rows: int = 30, timeout: int = 15) -> dict:
     r = requests.get(f"{FLOW_API_BASE}/flow", params={"code": code, "rows": rows}, timeout=timeout)
@@ -59,11 +51,7 @@ def _hub_flow(code: str, rows: int = 30, timeout: int = 15) -> dict:
 def _flag_disclosures(items: list[dict]) -> list[dict]:
     out = []
     for it in items:
-        t = it.get("title") or ""
-        flags = [k for k in CATALYST_KW if k in t]
-        tone = "bull" if any(k in t for k in _BULL_KW) else ("bear" if any(k in t for k in _BEAR_KW) else "neutral")
-        if "정정" in t:
-            tone = "correction"
+        flags, tone = sources.disclosure_flags(it.get("title"))   # 키워드·방향 표는 sources_kr(main 과 같은 목록, 2026-11-10)
         out.append({**it, "catalyst_keywords": flags, "tone": tone})
     return out
 
