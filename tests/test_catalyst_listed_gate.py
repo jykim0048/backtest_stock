@@ -77,6 +77,16 @@ def main():
         assert any(k in t for k in src.DART_CATALYST_KEYWORDS), t
     assert src.dart_rule_direction("공개매수신고서") == (None, None)   # 방향은 LLM 판단
 
+    # ── DART 촉매 키워드: 주식소각결정(자사주 소각, 2026-11-10) ─────────────────
+    for t in ("주식소각결정", "[기재정정]주식소각결정", "주요사항보고서(자기주식취득결정)", "전환사채(해외전환사채포함)발행후만기전사채취득(소각)"):
+        assert any(k in t for k in src.DART_CATALYST_KEYWORDS), t
+    assert src.dart_rule_direction("주식소각결정") == ("bullish", "buyback")
+    assert src.dart_rule_direction("주식 소각 결정") == ("bullish", "buyback")          # 제목 공백 무시
+    assert src.dart_rule_direction("감자결정") == ("bearish", "distress")               # 감자는 그대로 악재 태그
+    assert src.dart_rule_direction("자기주식처분결정") == ("bearish", "dilution")
+    assert src.dart_rule_direction("주식소각결정 철회") == (None, None)                 # 철회·취소는 LLM 판단
+    assert src.dart_rule_direction("전환사채발행후만기전사채취득(소각)") == (None, None)   # 사채 소각은 규칙 태그 없음
+
     # ── 로더 fail-open: 파일 부재 시 빈 dict (검증 생략 경로) ─────────────────
     orig = g.LISTED_NAMES_PATH
     try:
