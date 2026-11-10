@@ -85,3 +85,11 @@ run_new_only(date, store, agent, prices, wb, *, uni=None, dry_run=False, log=pri
 - 유니버스 재산출(21:4x)은 wbAsof 11/09 기준 — new-only 는 그 문서를 그대로 쓴다(재산출 안 함).
 - 이 모드는 "생략된 날 보충" 전용이다. 정상 런이 있던 날은 가드 1·2 에서 거부된다.
 - 회사 PC 에서는 하지 않는다(개인 PC 전용). 토큰·키는 채팅·파일에 적지 않는다.
+
+## 7. 브레이크 행 재판단(2026-11-10 저녁 추가, `newonly.run_rebrake`)
+- 11/10 첫 적용 정산에서 섹터 브레이크(R6)가 제약 Long 4종목(휴젤·한올바이오파마·현대약품·삼성바이오로직스)의 판단을 생략 → 사용자가 섹터 한도를
+  끈 뒤(`exposure.SECTOR_BRAKE_ON` 기본 False) 그 행만 다시 판단하길 원함.
+- 대상 = run 의 `braked=True` 이고 판단 없는 행. 후보는 run_day 와 같은 함수로 재수집해(행엔 판단 근거가 없다) 코드가 맞는 것만 판단 → 같은 자리 교체,
+  주문은 `run.entryDate` 1일 유효. 노출 가드(종목 상한·단계 한도)는 정규 런과 같게, 섹터 브레이크는 스위치대로.
+- 가드: run 존재 · 브레이크 행 있음 · 원장 asof == date · 브리핑 asof == date · progress running 아님 · 장중 아님. 총량 = JUDGE_PER_DAY − 재판별 − 이미 판단한 신규 행.
+- 실행: `python -m swing.run_daily --rebrake [--dry-run]` / swing-web `GET /admin/new-only?token=&date=&mode=braked[&dry=1]` → `/api/swing/newonly`.

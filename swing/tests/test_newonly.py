@@ -6,6 +6,7 @@ import unittest
 from unittest import mock
 
 from swing import config, daily, engine, newonly, prices, store
+from swing import exposure as X
 from swing.tests.test_daily import FixedAgent, b, wb
 
 D, N = "2026-09-21", "2026-09-22"                     # 월 → 화
@@ -133,6 +134,78 @@ class TestNewOnly(unittest.TestCase):
         self.assertEqual([r["code"] for r in run["candidates"]], ["000020"])
         self.assertEqual(run["judgeBudget"]["deferredLong"], ["000030"])
         self.assertEqual(sorted(o["code"] for o in self.st.get("ledger")["orders"]), ["000010", "000020"])
+
+
+class TestRebrake(unittest.TestCase):
+    """섹터 브레이크 행 재판단(2026-11-10 저녁, newonly.run_rebrake) — 브레이크로 판단을 못 받은 행만 다시 판단·주문."""
+    D1, D2, D3 = "2026-09-21", "2026-09-22", "2026-09-23"
+    EVE = datetime.datetime(2026, 9, 22, 23, 0)
+    CH = (("000010", "화학"), ("000030", "화학"))
+
+    def setUp(self):
+        self._g, self._sb = X.GUARD_ON, X.SECTOR_BRAKE_ON
+        self.root = tempfile.mkdtemp()
+        self.st = store.FileStore(self.root)
+        bars = {"000010": b(10000, 10100, 9900, 10050), "000030": b(20000, 20100, 19900, 20000), "000050": b(5000, 5050, 4950, 5000)}
+        self.px = prices.DictPrices({d: dict(bars) for d in (self.D1, self.D2, self.D3)})
+        self.ag = FixedAgent({"000010": ("Buy", "Buy", 10000, 9500, 10600), "000030": ("Buy", "Buy", 20000, 19000, 22000),
+                              "000050": ("Buy", "Buy", 5000, 4700, 5400)})
+        # D1: 화학 두 종목 종목 상한 5% 씩 주문 → D2 체결로 화학 순노출 +10% → 브레이크 → 새 화학 후보 000050 은 판단 생략(braked)
+        X.GUARD_ON, X.SECTOR_BRAKE_ON = True, True
+        daily.run_day(self.D1, self.st, self.ag, self.px, wb(self.D1, buy=self.CH), log=lambda *a: None)
+        run = daily.run_day(self.D2, self.st, self.ag, self.px, wb(self.D2, buy=self.CH + (("000050", "화학"),)), log=lambda *a: None)
+        self.assertEqual(run["exposure"]["brakes"], {"화학": "long"})
+        self.assertEqual([r["code"] for r in run["candidates"] if r.get("braked")], ["000050"])
+        self.assertEqual(self.st.get("ledger")["sectorBrake"], {"화학": "long"})
+        X.SECTOR_BRAKE_ON = False                                   # 사용자 결정: 섹터 한도 끔 → 그 행을 다시 판단
+
+    def tearDown(self):
+        X.GUARD_ON, X.SECTOR_BRAKE_ON = self._g, self._sb
+        engine.EXPOSURE_CTX = None
+
+    def _wb(self, date=None):
+        return wb(date or self.D2, buy=self.CH + (("000050", "화학"),))
+
+    def test_rejudges_braked_rows_in_place(self):
+        res = newonly.run_rebrake(self.D2, self.st, self.ag, self.px, self._wb(), now=self.EVE, log=lambda *a: None)
+        self.assertEqual((res["long"], res["short"], res["ordered"], res["entryDate"], res["missing"]), (1, 0, 1, self.D3, []))
+        run = self.st.get(f"run/{self.D2}")
+        row = [r for r in run["candidates"] if r["code"] == "000050"][0]
+        self.assertEqual((row["rating"], row["ordered"], row.get("braked")), ("Buy", True, None))
+        self.assertTrue(row["decisionKey"])
+        L = self.st.get("ledger")
+        o = [o for o in L["orders"] if o["code"] == "000050"][0]
+        self.assertEqual(o["validDate"], self.D3)
+        self.assertIn("종목 상한 5%", o["guard"])                    # 종목 상한(R3)은 그대로 지난다(PM 비중 10% → 5%)
+        self.assertEqual(L["sectorBrake"], {})                        # 끈 뒤 원장 브레이크 잔재 정리
+        self.assertTrue(any("브레이크 행 재판단" in n and "끔" in n for n in run["notes"]))
+        self.assertEqual(run["rebrake"]["ordered"], 1)
+        self.assertEqual(self.st.get("progress")["status"], "done")
+        self.assertIsNone(engine.EXPOSURE_CTX)
+        res2 = newonly.run_rebrake(self.D2, self.st, self.ag, self.px, self._wb(), now=self.EVE, log=lambda *a: None)
+        self.assertIn("재판단할 브레이크 행 없음", res2["skip"])
+        self.assertEqual(len([o for o in self.st.get("ledger")["orders"] if o["code"] == "000050"]), 1)
+
+    def test_switch_on_blocks_again(self):
+        X.SECTOR_BRAKE_ON = True                                    # 켜 둔 채 돌리면 주문 단계에서 다시 막힌다(행은 판단 결과로 교체)
+        res = newonly.run_rebrake(self.D2, self.st, self.ag, self.px, self._wb(), now=self.EVE, log=lambda *a: None)
+        self.assertEqual((res["long"], res["ordered"]), (1, 0))
+        row = [r for r in self.st.get(f"run/{self.D2}")["candidates"] if r["code"] == "000050"][0]
+        self.assertIn("섹터 화학 순노출 한도", row["why"])
+
+    def test_dry_run_and_guards(self):
+        before = _snapshot(self.root)
+        res = newonly.run_rebrake(self.D2, self.st, self.ag, self.px, self._wb(), dry_run=True, now=self.EVE, log=lambda *a: None)
+        self.assertTrue(res["dryRun"])
+        self.assertEqual(([r["code"] for r in res["plan"]["long"]], res["plan"]["missing"]), (["000050"], []))
+        self.assertEqual(_snapshot(self.root), before)
+        self.assertEqual([c for c, p in self.ag.calls if p == "entry" and c == "000050"], [])   # 판단(LLM) 호출 없음
+        r = newonly.run_rebrake(self.D2, self.st, self.ag, self.px, self._wb(), now=datetime.datetime(2026, 9, 22, 10, 0), log=lambda *a: None)
+        self.assertIn("장중", r["skip"])
+        r = newonly.run_rebrake(self.D2, self.st, self.ag, self.px, self._wb(self.D1), now=self.EVE, log=lambda *a: None)
+        self.assertIn("주간 브리핑 asof", r["skip"])
+        r = newonly.run_rebrake(self.D1, self.st, self.ag, self.px, self._wb(self.D1), now=self.EVE, log=lambda *a: None)
+        self.assertIn("재판단할 브레이크 행 없음", r["skip"])         # D1 엔 브레이크 행이 없다(원장 asof 보다 먼저 본다)
 
 
 if __name__ == "__main__":

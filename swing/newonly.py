@@ -13,10 +13,12 @@
   새 브리핑 asof == date · progress 가 running 아님 · 장중(평일 09:00~15:30 KST) 아님.
 - --dry-run 은 후보·총량 배분만 출력하고 store 에 아무것도 쓰지 않는다(읽기 전용 래퍼).
 - 판단 실패 행은 그대로 남겨 기존 --redo 가 재분석할 수 있게 한다.
+- run_rebrake(--rebrake, 2026-11-10 저녁): 섹터 브레이크로 판단을 못 받은 행(braked)만 재수집·재판단·주문 — 파일 끝 참고.
 """
 import datetime
 
-from . import config, daily, signals, tradedays
+from . import config, daily, engine, signals, tradedays
+from . import exposure as X
 
 KST = datetime.timezone(datetime.timedelta(hours=9))
 SKIP_NOTE = "신규·신호 매도 검토 생략"          # daily.run_day 가 wb 게이트에서 남기는 노트의 공통 꼬리
@@ -161,4 +163,123 @@ def run_new_only(date, store, agent, prices, wb, *, uni=None, dry_run=False, log
     res = {"date": date, "at": at, "entryDate": nxt, "long": len(longs), "short": len(shorts),
            "ordered": ordered, "failed": failed, "budget": budget}
     log(f"[swing] {date} 신규 후보 보충 끝 — {res}")
+    return res
+
+
+# ── 섹터 브레이크 행 재판단(2026-11-10 저녁 사용자 결정) ─────────────────────────────────────────────────
+# 11/10 첫 적용 정산에서 섹터 브레이크(R6)가 제약 Long 4종목의 판단을 생략했고, 사용자가 섹터 한도를 끈 뒤 그 4종목을 다시 판단하길 원했다.
+# 행에는 판단 근거(reason·metrics·catalyst)가 없으므로 후보를 run_day 와 같은 함수로 재수집해 코드가 맞는 것만 쓴다.
+# 노출 가드(종목 상한·단계 한도)는 정규 런과 같게 지나고, 섹터 브레이크는 exposure.SECTOR_BRAKE_ON 스위치대로(켜져 있으면 다시 막힌다).
+#   python -m swing.run_daily --rebrake [--dry-run] [--date YYYY-MM-DD]   /   swing-web GET /admin/new-only?token=&date=&mode=braked[&dry=1]
+
+REBRAKE_NOTE = "브레이크 행 재판단"
+
+
+def braked_rows(run):
+    """그날 run 에 남은 섹터 브레이크 '판단 생략' 행(braked=True, 판단 없음)."""
+    return [r for side in ("candidates", "shortCandidates") for r in (run.get(side) or [])
+            if r.get("braked") and r.get("rating") is None and not r.get("decisionKey")]
+
+
+def guard_braked(date, store, wb, now=None):
+    """재판단 가능 여부 — (거부 사유 | None, run, ledger). 브리핑이 그날 것이어야 같은 기준으로 후보를 재수집할 수 있다."""
+    run = store.get(f"run/{date}")
+    if not run:
+        return f"run/{date} 없음(그날 정산 런이 없음)", None, None
+    if not braked_rows(run):
+        return "재판단할 브레이크 행 없음", run, None
+    L = store.get("ledger")
+    if not L or L.get("asof") != date:
+        return f"원장 asof {(L or {}).get('asof')} ≠ {date} — 이후 런이 돌아 소급 불가", run, None
+    wa = signals.asof_date(wb)
+    if not wb or wa != date:
+        return f"주간 브리핑 asof {wa} ≠ {date} — 같은 기준으로 후보를 재수집할 수 없음", run, None
+    prog = store.get("progress") or {}
+    if prog.get("status") == "running":
+        return "다른 실행 진행 중(progress running)", run, None
+    now = now or datetime.datetime.now(KST)
+    hm = now.hour * 100 + now.minute
+    if now.weekday() < 5 and 900 <= hm < 1530:
+        return "장중(09:00~15:30 KST) 실행 금지 — Live Trader 가 원장을 함께 씀", run, None
+    return None, run, L
+
+
+def run_rebrake(date, store, agent, prices, wb, *, uni=None, dry_run=False, log=print, now=None):
+    """섹터 브레이크로 판단을 받지 못한 행을 다시 판단·주문 → 요약 dict. dry_run 이면 대상·총량만 반환(쓰기 없음).
+    행은 같은 자리에서 판단 결과로 교체하고(재수집에 없던 행은 그대로), 주문은 run.entryDate 1일 유효 지정가."""
+    why, run, L = guard_braked(date, store, wb, now)
+    if why:
+        return {"skip": why}
+    if dry_run:
+        store = _ReadOnlyStore(store)
+    nxt = run.get("entryDate") or tradedays.next_trading_day(date)
+    targets = braked_rows(run)
+    tmp = {"notes": []}
+    if uni is not None and not store.get(f"universe/{date}"):
+        tmp["notes"].append("유니버스 문서 없음 — 유니버스 후보 재수집 생략")
+        uni = None
+    cands, scands, fut_set, held, pend = daily.collect_matrix_candidates(L, store, wb, date, True, uni, tmp)
+    bars = {}
+    ucands, uscands, sk_u, sk_us = daily.collect_universe_candidates(
+        L, store, wb, date, True, uni, tmp, cands, scands, held, pend, bars, prices)
+    pool = {"long": {c["code"]: c for c in cands + ucands + sk_u}, "short": {c["code"]: c for c in scands + uscands + sk_us}}
+    found, missing = {"long": [], "short": []}, []
+    for r in targets:
+        c = pool.get(r.get("side") or "long", {}).get(r["code"])
+        if c:
+            found[r.get("side") or "long"].append(c)
+        else:
+            missing.append(f"{r['code']} {r.get('name')}")
+    n_rev = len(run.get("reviews") or [])
+    budget = max(config.ENTRY_JUDGE_MIN, config.JUDGE_PER_DAY - n_rev)
+    judged = sum(1 for s in ("candidates", "shortCandidates") for r in (run.get(s) or []) if r.get("decisionKey"))
+    room = max(0, budget - judged)
+    deferred = []
+    if len(found["long"]) + len(found["short"]) > room:
+        kl = found["long"][:room]
+        ks = found["short"][:max(0, room - len(kl))]
+        deferred = [c["code"] for c in found["long"][len(kl):] + found["short"][len(ks):]]
+        found = {"long": kl, "short": ks}
+    plan = {"date": date, "entryDate": nxt, "budget": budget, "judged": judged, "room": room,
+            "long": [_row(c, "long") for c in found["long"]], "short": [_row(c, "short") for c in found["short"]],
+            "missing": missing, "deferred": deferred, "notes": list(tmp["notes"])}
+    for side in ("long", "short"):
+        for r in plan[side]:
+            log(f"[swing] {date} 재판단 대상 {side} {r['code']} {r['name']} ({r['source']}·{r['signal']}·점수 {r['score']})")
+    log(f"[swing] {date} 재판단 총량 여유 {room}(한도 {budget} − 판단 {judged}) — Long {len(plan['long'])} · Short {len(plan['short'])}"
+        + (f" · 재수집에 없음 {len(missing)}" if missing else "") + (f" · 이연 {len(deferred)}" if deferred else ""))
+    if dry_run:
+        return {"dryRun": True, "long": len(plan["long"]), "short": len(plan["short"]), "plan": plan,
+                "storeWritesDropped": store.dropped}
+
+    codes = sorted({c["code"] for c in found["long"] + found["short"]} - set(bars))
+    if codes:
+        bars.update(prices.daily_bars(codes, date))
+    prog = daily.Progress(store, date, getattr(agent, "name", ""))
+    prog.update(phase="rebrake", total=len(found["long"]) + len(found["short"]))
+    daily._exposure_setup(L, store, bars, date, {"notes": []}, note=False)   # 종목 상한·단계 한도는 정규 런과 같게(섹터는 스위치대로)
+    try:
+        longs = daily._new_entries(L, store, agent, found["long"], bars, date, nxt, "long", prog)
+        sfut = (uni.fut_set(date) if config.UNI_SHORT_FUT_ONLY and uni is not None and found["short"] else None)
+        shorts = daily._new_entries(L, store, agent, found["short"], bars, date, nxt, "short", prog, fut=sfut)
+    finally:
+        engine.EXPOSURE_CTX = None
+    new = {(r["code"], r["side"]): r for r in longs + shorts}
+    for s in ("candidates", "shortCandidates"):
+        run[s] = [new.get((r["code"], r.get("side") or "long"), r) if r.get("braked") else r for r in (run.get(s) or [])]
+    ordered = sum(1 for r in longs + shorts if r.get("ordered"))
+    failed = sum(1 for r in longs + shorts if str(r.get("why") or "").startswith("판단 실패"))
+    at = _now()
+    run["rebrake"] = {"at": at, "long": len(longs), "short": len(shorts), "ordered": ordered, "failed": failed,
+                      "missing": missing, "deferred": deferred, "sectorBrakeOn": X.SECTOR_BRAKE_ON}
+    run["notes"] = list(run.get("notes") or []) + tmp["notes"] + [
+        f"{REBRAKE_NOTE}({at[11:16]}, 섹터 브레이크 {'켬' if X.SECTOR_BRAKE_ON else '끔'}) Long {len(longs)}(주문 {sum(1 for r in longs if r.get('ordered'))}) · "
+        f"Short {len(shorts)}(주문 {sum(1 for r in shorts if r.get('ordered'))}) · 판단 실패 {failed}"
+        + (f" · 재수집에 없음 {', '.join(missing)}" if missing else "")]
+    store.put("ledger", L)
+    store.put(f"run/{date}", run)
+    prog.update(status="done", phase="done", finishedAt=_now())
+    res = {"date": date, "at": at, "entryDate": nxt, "long": len(longs), "short": len(shorts),
+           "ordered": ordered, "failed": failed, "missing": missing, "deferred": deferred}
+    log(f"[swing] {date} 브레이크 행 재판단 끝 — {res}")
     return res

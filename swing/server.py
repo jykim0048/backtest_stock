@@ -648,7 +648,8 @@ def api_universe_progress(q):
 
 
 def admin_newonly(q):
-    """생략된 신규 후보 판단·주문 보충(토큰 필요, PLAN_NEW_ONLY.md) — ?date=YYYY-MM-DD[&dry=1]. 백그라운드 스레드,
+    """생략된 신규 후보 판단·주문 보충(토큰 필요, PLAN_NEW_ONLY.md) — ?date=YYYY-MM-DD[&dry=1][&mode=new|braked]. 백그라운드 스레드,
+    mode=braked 면 섹터 브레이크로 판단을 못 받은 행만 재판단(newonly.run_rebrake, 2026-11-10 저녁).
     결과·로그는 GET /api/swing/newonly(newonly/progress). 가드는 newonly.run_new_only 가 본다(중복 실행·장중 등).
     swing-web 에 swing-cron 과 같은 변수(GEMINI_API_KEY·FLOW_API_BASE·DART·NAVER·SWING_AGENT·SWING_PRICES)가 있어야
     실제 판단이 된다(2026-11-09 변수 참조로 추가). Postgres 가 내부망 전용이라 railway run 으로는 못 돌려 여기서 돈다."""
@@ -658,12 +659,15 @@ def admin_newonly(q):
     from swing import newonly, run_daily, universe as U
     date = q.get("date") or datetime.date.today().isoformat()
     dry = (q.get("dry") or "0") not in ("0", "", "false")
+    mode = (q.get("mode") or "new").strip()
+    if mode not in ("new", "braked"):
+        return {"error": "mode 는 new | braked"}
     cur = STORE.get("newonly/progress") or {}
     if cur.get("status") == "running":
         return {"error": "이미 실행 중", "progress": cur}
 
     def put(**kw):
-        STORE.put("newonly/progress", dict(kw, date=date, dry=dry, at=datetime.datetime.now().isoformat(timespec="seconds")))
+        STORE.put("newonly/progress", dict(kw, date=date, dry=dry, mode=mode, at=datetime.datetime.now().isoformat(timespec="seconds")))
 
     def job():
         logs = []
@@ -678,13 +682,14 @@ def admin_newonly(q):
             prices = run_daily.make_prices(os.environ.get("SWING_PRICES", "yfinance"))
             uni = U.UniverseRunner(STORE, log=log) if config.UNIVERSE_ENABLED else None
             put(status="running", step="후보 수집·판단", startedAt=datetime.datetime.now().isoformat(timespec="seconds"))
-            res = newonly.run_new_only(date, STORE, agent, prices, wb, uni=uni, dry_run=dry, log=log)
+            fn = newonly.run_rebrake if mode == "braked" else newonly.run_new_only
+            res = fn(date, STORE, agent, prices, wb, uni=uni, dry_run=dry, log=log)
             put(status="done", result=res, logs=logs[-120:])
         except Exception as e:
             traceback.print_exc()
             put(status="failed", error=f"{type(e).__name__}: {e}"[:300], logs=logs[-120:])
     threading.Thread(target=job, daemon=True, name="swing-new-only").start()
-    return {"started": date, "dry": dry, "progress": "/api/swing/newonly"}
+    return {"started": date, "dry": dry, "mode": mode, "progress": "/api/swing/newonly"}
 
 
 def api_newonly(q):
