@@ -2,6 +2,7 @@
 import tempfile
 import unittest
 
+from swing import exposure as _X
 from swing import agent_iface as A
 from swing import config, daily, prices, store, universe as U, universe_mock as M
 
@@ -119,6 +120,13 @@ class TestCandidates(unittest.TestCase):
 
 
 class TestRunDay(unittest.TestCase):
+    def setUp(self):
+        # 노출 한도(종목 상한·섹터 브레이크, 2026-11-10)는 test_exposure_guard 에서 따로 검증 — 여기선 꺼서 종전 수량 기준 유지
+        self._guard, _X.GUARD_ON = _X.GUARD_ON, False
+
+    def tearDown(self):
+        _X.GUARD_ON = self._guard
+
     def test_run_day_two_sources(self):
         st = store.FileStore(tempfile.mkdtemp())
         ag, px = AnyAgent(), prices.MockPrices()

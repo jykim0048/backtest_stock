@@ -385,7 +385,8 @@
     }).join("") + "</div>";
     var body = block(Q.side) || '<div class="q-empty">' + (Q.side === "short" ? "Short" : "Long") + " 진입 주문이 없습니다</div>";
     el.innerHTML = tog + rules + '<div class="q-body">' + body + "</div>" +
-      '<div class="q-note">Long 은 현금, Short 는 ' + (q.collateral === "subst" ? "대용 담보(증거금 " + Math.round((q.margin || 0) * 100) + "%)" : "현금 담보") +
+      '<div class="q-note">Long 은 현금, Short 는 ' + (q.collateralPolicy === "cash_first" ? "현금 담보 먼저 · 모자라면 대용 담보(증거금 " + Math.round((q.margin || 0) * 100) + "%)"
+        : q.collateral === "subst" ? "대용 담보(증거금 " + Math.round((q.margin || 0) * 100) + "%)" : "현금 담보") +
       " — 같은 현금을 나눠 쓰므로 두 필요 금액을 함께 봐야 합니다. 비중 채우기 주문도 같은 순서로 경쟁합니다.</div>";
   }
 
@@ -2238,7 +2239,9 @@
     document.querySelectorAll(".hold-n").forEach(function (x) { x.textContent = HOLD_N(); });
     if (S.config && S.config.borrowRate != null) $("cfg-borrow").textContent = +(S.config.borrowRate * 100).toFixed(2);
     if (S.config && S.config.shortFutOnly != null) $("cfg-sfut").textContent = S.config.shortFutOnly ? "주식선물 상장 종목만" : "선물 상장 무관";
-    if (S.config && S.config.shortCollateral) $("cfg-scol").textContent = S.config.shortCollateral === "subst"
+    if (S.config && S.config.shortCollateral) $("cfg-scol").textContent = S.config.shortCollateral === "cash_first"
+      ? "현금 담보 먼저(그날 Long 진입 몫을 뺀 여유 현금) → 모자라면 주식 대용(보유 Long 평가액 × " + Math.round((S.config.shortSubstRate || 0) * 100) + "%, 요구 담보 = Short 평가액 × " + Math.round((S.config.shortMargin || 0) * 100) + "%)"
+      : S.config.shortCollateral === "subst"
       ? "주식 대용 담보(보유 Long 평가액 × " + Math.round((S.config.shortSubstRate || 0) * 100) + "% + 현금, 요구 담보 = Short 평가액 × " + Math.round((S.config.shortMargin || 0) * 100) + "%)"
       : "진입금액 100% 현금 담보";
     if (S.config && S.config.shortMaxGross != null) $("cfg-sgross").textContent = S.config.shortMaxGross > 0 ? "평가액의 " + Math.round(S.config.shortMaxGross * 100) + "%" : "없음";

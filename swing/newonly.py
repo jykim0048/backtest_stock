@@ -126,11 +126,13 @@ def run_new_only(date, store, agent, prices, wb, *, uni=None, dry_run=False, log
         bars.update(prices.daily_bars(codes, date))
     prog = daily.Progress(store, date, getattr(agent, "name", ""))
     prog.update(phase="new-only", total=len(cands) + len(ucands) + len(scands) + len(uscands))
+    daily._exposure_setup(L, store, bars, date, tmp)        # 보충 주문도 종목 상한·섹터 브레이크 적용(2026-11-10, engine.place_entry)
     longs = (daily._new_entries(L, store, agent, cands, bars, date, nxt, "long", prog)
              + daily._new_entries(L, store, agent, ucands, bars, date, nxt, "long", prog))
     sfut = (uni.fut_set(date) if config.UNI_SHORT_FUT_ONLY and uni is not None and (scands or uscands) else None)
     shorts = (daily._new_entries(L, store, agent, scands, bars, date, nxt, "short", prog, fut=sfut)
               + daily._new_entries(L, store, agent, uscands, bars, date, nxt, "short", prog, fut=sfut))
+    daily.engine.EXPOSURE_CTX = None
     ordered = sum(1 for r in longs + shorts if r.get("ordered"))
     failed = sum(1 for r in longs + shorts if str(r.get("why") or "").startswith("판단 실패"))
     ncap = sum(1 for r in longs + shorts if r.get("stopCap"))

@@ -19,6 +19,7 @@ import datetime
 import traceback
 
 from . import agent_iface as A
+from . import exposure as X
 from . import chart, config, engine, signals, tradedays, universe
 
 
@@ -113,6 +114,7 @@ def run_day(date, store, agent, prices, wb, *, force=False, log=print, uni=None,
     fut_ok = None                                             # Short 재주문·추가 주문 선물 확인(선물 한정 켜짐 + 목록 있을 때)
     if config.UNI_SHORT_FUT_ONLY and uni is not None and any(engine.is_short(o) for o in (ev.get("cancelled") or []) + backlog + L["positions"]):
         fut_ok = uni.fut_set(date)
+    _exposure_setup(L, store, bars, date, run, note=False)   # 재주문도 종목 상한·섹터 브레이크를 지나게(재판별 뒤 다시 세운다)
     run["retries"] = _retry_unfilled(L, ev, bars, date, nxt, backlog, fut_ok)   # 미도달 재주문(2026-10-16, 방식 A)
     retried = {r["code"] for r in run["retries"] if r["ok"]}
     if retried:                                               # 재주문 종목은 오늘 신규 후보에서 뺀다(대기 주문 = pend)
@@ -259,32 +261,47 @@ def run_day(date, store, agent, prices, wb, *, force=False, log=print, uni=None,
                                "error": d.error, "target": p.get("target"), "stop": p.get("stop"),
                                "decisionKey": key})
 
+    # 노출 한도(2026-11-10, PLAN_EXPOSURE.md) — 오늘 종가 기준 섹터 브레이크·종목 상한을 세운다. 이후 내는 모든 진입 주문
+    # (비중 채우기·신규·재시도)이 engine.place_entry 에서 이 한도를 지난다. 재판별 뒤(오늘 매도 판정 반영)에 세운다.
+    brakes = _exposure_setup(L, store, bars, date, run)
     run["topups"] = _topups(L, bars, date, nxt, fut_ok, store)      # PM 비중 채우기(2026-11-03) — 재판별 뒤(오늘 매도 판정·새 손절 반영)
 
     # 하루 판단 총량(2026-11-06, config.JUDGE_PER_DAY) — 재판별을 뺀 나머지만 신규 판단, 넘는 후보는 다음 영업일로
     budget = max(config.ENTRY_JUDGE_MIN, config.JUDGE_PER_DAY - len(run["reviews"]))
-    (cands, ucands), (scands, uscands, ccands), over_l, over_s = judge_budget(budget, [cands, ucands], [scands, uscands, ccands])
+    # 섹터 브레이크(2026-11-10): 한도에 닿은 섹터의 같은 방향 후보는 판단하지 않고(행만 남김), 반대 방향 후보는 판단 순서 맨 앞으로
+    (cands, ucands), prio_l, braked_l = _sector_split([cands, ucands], "long", brakes)
+    (scands, uscands, ccands), prio_s, braked_s = _sector_split([scands, uscands, ccands], "short", brakes)
+    if braked_l or braked_s or prio_l or prio_s:
+        run["notes"].append(f"섹터 브레이크 {len(brakes)}개 섹터 — 같은 방향 후보 판단 생략 Long {len(braked_l)} · Short {len(braked_s)}, "
+                            f"반대 방향 우선 검토 Long {len(prio_l)} · Short {len(prio_s)}")
+    (prio_l, cands, ucands), (prio_s, scands, uscands, ccands), over_l, over_s = judge_budget(
+        budget, [prio_l, cands, ucands], [prio_s, scands, uscands, ccands])
     if over_l or over_s:
-        over_l, over_s = over_l or [[], []], over_s or [[], [], []]
-        skipped_cap += over_l[0]; skipped_uni_cap += over_l[1]
-        skipped_short_cap += over_s[0]; skipped_uni_short_cap += over_s[1]; skipped_cat_cap += over_s[2]
+        over_l, over_s = over_l or [[], [], []], over_s or [[], [], [], []]
+        skipped_cap += over_l[0] + over_l[1]; skipped_uni_cap += over_l[2]
+        skipped_short_cap += over_s[0] + over_s[1]; skipped_uni_short_cap += over_s[2]; skipped_cat_cap += over_s[3]
         run["judgeBudget"] = {"budget": budget, "reviews": len(run["reviews"]),
                               "deferredLong": [c["code"] for c in sum(over_l, [])], "deferredShort": [c["code"] for c in sum(over_s, [])]}
         run["notes"].append(f"판단 총량 {config.JUDGE_PER_DAY}건(재판별 {len(run['reviews'])}) — 신규 {budget}건만 판단, "
                             f"Long {len(sum(over_l, []))} · Short {len(sum(over_s, []))}종목 다음 영업일로 이연")
-    prog.update(total=len(todo) + len(cands) + len(ucands) + len(scands) + len(uscands) + len(ccands))
+    prog.update(total=len(todo) + len(prio_l) + len(cands) + len(ucands) + len(prio_s) + len(scands) + len(uscands) + len(ccands))
 
     # 3) 신규 분석·주문(Long) · 4) 신규 Short — 매트릭스 후보 뒤에 유니버스 후보(독립 소스, source 로 구분)
     prog.update(phase="long")
-    run["candidates"] = (_new_entries(L, store, agent, cands, bars, date, nxt, "long", prog)
-                         + _new_entries(L, store, agent, ucands, bars, date, nxt, "long", prog))
+    run["candidates"] = (_new_entries(L, store, agent, prio_l, bars, date, nxt, "long", prog)
+                         + _new_entries(L, store, agent, cands, bars, date, nxt, "long", prog)
+                         + _new_entries(L, store, agent, ucands, bars, date, nxt, "long", prog)
+                         + [_braked_row(c, "long") for c in braked_l])
     run["capSkipped"] = [c["code"] for c in skipped_cap]
     run["uniCapSkipped"] = [c["code"] for c in skipped_uni_cap]
     prog.update(phase="short")
-    sfut = (uni.fut_set(date) if config.UNI_SHORT_FUT_ONLY and uni is not None and (scands or uscands or ccands) else None)
-    run["shortCandidates"] = (_new_entries(L, store, agent, scands, bars, date, nxt, "short", prog, fut=sfut)
+    sfut = (uni.fut_set(date) if config.UNI_SHORT_FUT_ONLY and uni is not None and (prio_s or scands or uscands or ccands) else None)
+    run["shortCandidates"] = (_new_entries(L, store, agent, prio_s, bars, date, nxt, "short", prog, fut=sfut)
+                              + _new_entries(L, store, agent, scands, bars, date, nxt, "short", prog, fut=sfut)
                               + _new_entries(L, store, agent, uscands, bars, date, nxt, "short", prog, fut=sfut)
-                              + _new_entries(L, store, agent, ccands, bars, date, nxt, "short", prog, fut=sfut))
+                              + _new_entries(L, store, agent, ccands, bars, date, nxt, "short", prog, fut=sfut)
+                              + [_braked_row(c, "short") for c in braked_s])
+    engine.EXPOSURE_CTX = None                               # 주문 단계 끝 — 한도 컨텍스트 해제
     ncap = sum(1 for r in run["candidates"] + run["shortCandidates"] if r.get("stopCap"))
     if ncap:
         run["notes"].append(f"손절 폭 상한 적용 {ncap}종목")
@@ -308,6 +325,70 @@ def run_day(date, store, agent, prices, wb, *, force=False, log=print, uni=None,
         f"평가 {run['equity']['equity'] if run['equity'] else '-'}")
     return run
 
+
+
+def _exposure_setup(L, store, bars, date, run, note=True):
+    """노출 한도 컨텍스트(2026-11-10, PLAN_EXPOSURE.md) — 오늘 종가 기준 섹터 순노출로 브레이크를 갱신하고(원장 sectorBrake 에 유지 —
+    ±10% 에 걸고 ±8% 에 푼다), 종목 상한 대상(코스피 시총 1·2위)을 정해 engine.EXPOSURE_CTX 에 건다. run["exposure"] 에 현황을 남긴다.
+    실패해도 정산은 계속한다(한도 미적용 + 노트). 반환 = 브레이크 {섹터: 'long'|'short'}."""
+    engine.EXPOSURE_CTX = None
+    if not X.GUARD_ON:
+        return {}
+    try:
+        px = {c: b["close"] for c, b in (bars or {}).items() if b and b.get("close")}
+        eq = engine.equity_now(L)
+        try:
+            from swing import prices as _prices
+            mk = _prices.YFinancePrices()
+            top = X.top_cap_codes(store.get(f"universe/{date}"), lambda c: mk._market(str(c).zfill(6)) != "KQ")
+        except Exception:
+            top = list(X.DEFAULT_TOP)
+        net = X.sector_net_pct(X.book(L["positions"], [], px), eq)
+        brakes = X.update_brakes(L.get("sectorBrake") or {}, net)
+        L["sectorBrake"] = brakes
+        engine.EXPOSURE_CTX = {"eq": eq, "top": top, "brakes": brakes, "px": px}
+        ps = [{"code": p["code"], "name": p.get("name"), "side": p.get("side", "long"), "sector": p.get("sector"), "value": X._val(p, px)}
+              for p in L["positions"]]
+        sm = X.summarize(ps, L["cash"], eq, top)
+        run["exposure"] = {"netPct": round(sm["netPct"] * 100, 2), "cashPct": round(sm["cashPct"] * 100, 2),
+                           "longPct": round(sm["longPct"] * 100, 2), "shortPct": round(sm["shortPct"] * 100, 2),
+                           "brakes": brakes, "top": top,
+                           "sectorNet": {s: round(v * 100, 2) for s, v in sorted(net.items(), key=lambda kv: -abs(kv[1]))}}
+        if brakes and note:
+            run["notes"].append("섹터 순노출 한도(±%d%%) 도달 — %s" % (
+                X.SECTOR_NET_MAX * 100, " · ".join(f"{s} {net.get(s, 0) * 100:+.1f}%({'Long' if d == 'long' else 'Short'} 중단)"
+                                                   for s, d in brakes.items())))
+        return brakes
+    except Exception as ex:
+        traceback.print_exc()
+        engine.EXPOSURE_CTX = None
+        run["notes"].append(f"노출 한도 설정 실패(한도 미적용): {type(ex).__name__}: {str(ex)[:120]}")
+        return {}
+
+
+def _sector_split(lists, side, brakes):
+    """후보 목록들 → (남은 목록들, 우선 검토, 브레이크로 뺀 후보). 브레이크 방향과 같은 후보(그 섹터 same-side)는 판단하지 않고,
+    한도에 닿은 섹터의 반대 방향 후보는 우선 검토로 뽑아 판단 순서 맨 앞에 둔다(진입 여부는 평소대로 PM 등급이 정한다 — 강제 진입 없음)."""
+    if not brakes:
+        return [list(x) for x in lists], [], []
+    opp = "short" if side == "long" else "long"
+    kept, prio, braked = [], [], []
+    for xs in lists:
+        k = []
+        for c in xs:
+            b = brakes.get(c.get("sector"))
+            (braked if b == side else prio if b == opp else k).append(c)
+        kept.append(k)
+    return kept, prio, braked
+
+
+def _braked_row(c, side):
+    """섹터 브레이크로 판단하지 않은 후보 — 표시용 행(주식선물 미상장 행과 같은 모양)."""
+    return {"code": c["code"], "name": c["name"], "side": side, "signal": c.get("signal"), "sector": c.get("sector"),
+            "source": c.get("source") or "matrix", "rankAll": c.get("rankAll"), "score": c.get("score"),
+            "rating": None, "action": None, "weight": None, "entry": None, "stop": None, "target": None,
+            "ordered": False, "why": f"섹터 {c.get('sector')} 순노출 한도 — {'Short' if side == 'short' else 'Long'} 신규 중단(판단 생략)",
+            "decisionKey": None, "braked": True}
 
 
 def collect_matrix_candidates(L, store, wb, date, wb_ok, uni, run):

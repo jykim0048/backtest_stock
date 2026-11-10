@@ -2,6 +2,7 @@
 import tempfile
 import unittest
 
+from swing import exposure as _X
 from swing import config, daily, engine as E, prices, store
 from swing.tests.test_daily import FixedAgent, b, wb
 
@@ -59,6 +60,13 @@ class TestEnginePartial(unittest.TestCase):
 
 
 class TestDailyTopup(unittest.TestCase):
+    def setUp(self):
+        # 노출 한도(종목 상한·섹터 브레이크, 2026-11-10)는 test_exposure_guard 에서 따로 검증 — 여기선 꺼서 종전 수량 기준 유지
+        self._guard, _X.GUARD_ON = _X.GUARD_ON, False
+
+    def tearDown(self):
+        _X.GUARD_ON = self._guard
+
     def test_partial_then_topup_next_day(self):
         st = store.FileStore(tempfile.mkdtemp())
         ag = FixedAgent({"000010": ("Buy", "Buy", 10000, 9500, 10600)})

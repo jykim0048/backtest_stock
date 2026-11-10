@@ -2,6 +2,8 @@ import sqlite3
 import tempfile
 import unittest
 
+from swing import engine
+from swing import exposure as _X
 from swing import agent_iface as A
 from swing import daily, prices, store
 
@@ -44,7 +46,31 @@ class FixedAgent:
 
 class TestDaily(unittest.TestCase):
     def setUp(self):
+        # 노출 한도(종목 상한·섹터 브레이크, 2026-11-10)는 test_exposure_guard 에서 따로 검증 — 여기선 꺼서 종전 수량 기준 유지
+        self._guard, _X.GUARD_ON = _X.GUARD_ON, False
         self.st = store.FileStore(tempfile.mkdtemp())
+
+    def tearDown(self):
+        _X.GUARD_ON = self._guard
+
+    def test_run_day_applies_exposure_guard(self):
+        # 노출 한도(2026-11-10): 종목 상한 5% → 10% 주문이 절반으로, 체결 뒤 화학 순노출이 +5% 라 브레이크는 아직 없음
+        _X.GUARD_ON = True
+        ag = FixedAgent({"000010": ("Buy", "Buy", 10000, 9500, 10600), "000030": ("Buy", "Buy", 20000, 19000, 22000)})
+        px = prices.DictPrices({
+            "2026-09-21": {"000010": b(10000, 10100, 9900, 10050), "000030": b(20000, 20100, 19900, 20000)},
+            "2026-09-22": {"000010": b(10050, 10100, 9950, 10000), "000030": b(20000, 20100, 19900, 20000)}})
+        r1 = daily.run_day("2026-09-21", self.st, ag, px, wb("2026-09-21", buy=[("000010", "화학"), ("000030", "화학")]))
+        L = self.st.get("ledger")
+        self.assertEqual([(o["code"], o["qty"]) for o in L["orders"]], [("000010", 2500), ("000030", 1250)])   # 5% × 5억
+        self.assertIn("종목 상한 5%", L["orders"][0]["guard"])
+        self.assertEqual((r1["exposure"]["brakes"], r1["exposure"]["top"]), ({}, list(_X.DEFAULT_TOP)))
+        self.assertIsNone(engine.EXPOSURE_CTX)                                    # 정산 뒤 컨텍스트 해제
+        # D2: 두 종목 체결 → 화학 순노출 +10% 도달 → 브레이크, 원장에 유지
+        r2 = daily.run_day("2026-09-22", self.st, ag, px, wb("2026-09-22", buy=[("000010", "화학"), ("000030", "화학")]))
+        self.assertEqual(r2["exposure"]["brakes"], {"화학": "long"})
+        self.assertEqual(self.st.get("ledger")["sectorBrake"], {"화학": "long"})
+        self.assertTrue(any("섹터 순노출 한도" in n for n in r2["notes"]))
 
     def test_flow_entry_review_sell(self):
         ag = FixedAgent({"000010": ("Buy", "Buy", 10000, 9500, 10600),

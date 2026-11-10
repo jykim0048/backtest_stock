@@ -88,7 +88,9 @@ def _collateral(L, equity):
     """Short 담보 현황(2026-10-18) — 대용가·요구 담보·여력·사용률. 대용 모드가 아니면 mode 만."""
     c = engine.collateral(L)
     base = L["cash"] + c["subst"]                       # 담보 총액(현금 + 대용가)
-    return {"mode": config.SHORT_COLLATERAL, "substRate": config.SHORT_SUBST_RATE, "margin": config.SHORT_MARGIN,
+    # mode = 화면 분기용(대용을 쓰면 subst — cash_first 도 현금이 모자라면 대용이므로 subst), policy = 설정값 그대로
+    return {"mode": "cash" if config.SHORT_COLLATERAL == "cash" else "subst", "policy": config.SHORT_COLLATERAL,
+            "substRate": config.SHORT_SUBST_RATE, "margin": config.SHORT_MARGIN,
             "cash": round(L["cash"]), "subst": round(c["subst"]), "req": round(c["req"]), "pledged": round(c["pledged"]),
             "room": round(c["room"]), "roomPct": round(c["room"] / equity * 100, 1) if equity else None,
             "usePct": round(c["req"] / base * 100, 1) if base > 0 else None}
@@ -412,9 +414,9 @@ def api_queue(q):
     session = day or min((o.get("validDate") for o in orders), default=None)
     orders = [o for o in orders if o.get("validDate") == session]
     col = engine.collateral(L)
-    subst = config.SHORT_COLLATERAL == "subst"
+    subst = config.SHORT_COLLATERAL != "cash"            # cash_first(2026-11-10)도 현금 + 대용 여력으로 본다
     budget = {"long": max(0.0, col["free"]), "short": max(0.0, col["room"] if subst else L["cash"])}
-    out = {"session": session, "live": bool(day), "asof": doc.get("asof"), "complete": bool(doc.get("complete")), "collateral": config.SHORT_COLLATERAL,
+    out = {"session": session, "live": bool(day), "asof": doc.get("asof"), "complete": bool(doc.get("complete")), "collateral": "subst" if subst else "cash", "collateralPolicy": config.SHORT_COLLATERAL,
            "margin": config.SHORT_MARGIN, "ratings": {"long": list(config.BUY_RATINGS), "short": list(config.SHORT_RATINGS)}}
     for side in ("long", "short"):
         cum, rows = 0.0, []

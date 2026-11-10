@@ -33,6 +33,10 @@ import datetime
 import math
 
 from . import config
+from . import exposure
+
+
+EXPOSURE_CTX = None            # {eq, top, brakes, px} — daily.run_day 가 주문을 내기 전에 세우고 끝나면 지운다(없으면 가드 미적용)
 
 
 def new_ledger(capital=None, start=None):
@@ -122,6 +126,14 @@ def place_entry(L, *, code, name, date, valid_date, entry, stop, target, weight,
         note = "수량 0(비중·가격)"
     elif side == "short" and config.SHORT_MAX_GROSS > 0 and short_exposure(L) + qty * entry > config.SHORT_MAX_GROSS * eq:
         note = f"Short 총노출 상한 {config.SHORT_MAX_GROSS * 100:.0f}% 초과"
+    elif EXPOSURE_CTX is not None and exposure.GUARD_ON:
+        # 노출 한도(2026-11-10, PLAN_EXPOSURE.md) — 종목 상한(시총 1·2위 10%/그 외 5%)·섹터 순노출 ±10% 브레이크.
+        # 신규·비중 채우기·재시도 주문이 모두 이 함수를 지나므로 여기 한 곳에서 건다. ctx 는 daily.run_day 가 그날 종가 기준으로 세운다.
+        q2, why = exposure.guard_order(EXPOSURE_CTX, L["positions"], L["orders"], o)
+        if q2 <= 0:
+            note = why
+        elif q2 < qty:
+            o.update(qty=q2, guard=why, guardFrom=qty)
     if note:
         o.update(status="skipped", note=note)
         L["orderLog"].append(o)
@@ -376,7 +388,14 @@ def settle_day(L, date, bars, intraday=None):
         L["orderLog"].append(o)
         ev["cancelled"].append(o)
     new_ids = set()
+    # 오늘 Long 진입이 쓸 현금(cash_first 담보 선택용) — 장중 체결 기록이 있으면 체결 금액, 없으면 계획 금액. 처리한 주문은 뺀다
+    long_left = {}
+    for o in todays:
+        if not is_short(o):
+            fl = ((I["orders"].get(o["id"]) or {}).get("fills") or []) if o["id"] in w_ord else None
+            long_left[o["id"]] = (sum(f["qty"] * f["price"] for f in fl) if fl is not None else o["qty"] * o["entry"])
     for o in sorted(todays, key=entry_priority):
+        long_left.pop(o["id"], None)
         b = bars.get(o["code"])
         short = is_short(o)
         if not b or b.get("low") is None or (short and b.get("high") is None):
@@ -407,7 +426,14 @@ def settle_day(L, date, bars, intraday=None):
                 o["qty"] = fq
             else:
                 px = o["entry"]
-            if short and (o.get("collateral") or config.SHORT_COLLATERAL) == "subst":
+            mode = (o.get("collateral") or config.SHORT_COLLATERAL) if short else None
+            if mode == "cash_first":
+                # 현금 담보 먼저(2026-11-10 사용자 결정): 오늘 남은 Long 진입에 쓸 현금을 뺀 여유 현금이 진입 금액(+매도세) 이상이면
+                # 현금 담보, 모자라면 주식 대용(증거금률 SHORT_MARGIN). 주문 단위로 고른다(한 주문을 둘로 쪼개지 않음).
+                need = o["qty"] * px * (1 + config.SELL_TAX)
+                mode = "cash" if _free_cash(L) - sum(long_left.values()) >= need else "subst"
+                o["collateral"] = mode
+            if short and mode == "subst":
                 # 주식 대용 담보(2026-10-18): 주당 요구 담보 = 진입가 × SHORT_MARGIN, 현금은 매도세만 나감
                 o["collateral"] = "subst"
                 unit = px * config.SHORT_MARGIN

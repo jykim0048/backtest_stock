@@ -45,9 +45,11 @@ BORROW_RATE = _f("SWING_BORROW_RATE", 0.04)                  # 대차수수료 �
 # Short 담보(2026-10-18 사용자 지시: 현금 100% → 주식 대용) — subst = 보유 Long 평가액 × SHORT_SUBST_RATE(대용가) + 현금을
 # 담보로 쓰고, 요구 담보 = Short 평가액(수량 × 현재가) × SHORT_MARGIN. 공매도 대금은 현금에 넣지 않는다(레버리지 아님).
 # cash = 종전(진입금액 100% 현금 담보). 기존 포지션은 진입 당시 방식(p["collateral"])으로 정산.
-SHORT_COLLATERAL = os.environ.get("SWING_SHORT_COLLATERAL", "subst")   # subst | cash
+# 2026-11-10 사용자 결정(PLAN_EXPOSURE.md R4): cash_first = 현금 담보 먼저(그날 Long 진입에 쓸 현금을 뺀 여유 현금이 진입 금액 이상이면
+# 현금 100% 담보) → 모자라면 주식 대용(증거금률 50%). 종전 기본 = subst · 증거금률 100%.
+SHORT_COLLATERAL = os.environ.get("SWING_SHORT_COLLATERAL", "cash_first")   # cash_first | subst | cash
 SHORT_SUBST_RATE = _f("SWING_SHORT_SUBST_RATE", 0.70)        # 대용가 비율(주식 평가액 대비, KRX 사정비율 근사)
-SHORT_MARGIN = _f("SWING_SHORT_MARGIN", 1.0)                 # 요구 담보 = Short 평가액 × 이 비율
+SHORT_MARGIN = _f("SWING_SHORT_MARGIN", 0.5)                 # 대용 Short 요구 담보 = Short 평가액 × 이 비율(2026-11-10 1.0 → 0.5)
 
 # main 브랜치 산출물(읽기 전용) — 주간 브리핑은 16:10 런이 ~16:14 커밋
 MAIN_RAW_BASE = os.environ.get(
