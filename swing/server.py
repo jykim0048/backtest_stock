@@ -21,6 +21,7 @@
   GET /api/swing/intraday[?date=]     Live Trader(장중 집행기) — 분할 체결·장중 손절·종목별 VWAP(PLAN_LIVE_TRADER.md)
   GET /api/swing/reflections[?from=&to=]  매매 복기(reflection/<청산일>, swing/reflect.py) — 최근 청산일 순
   GET /api/swing/history?key=         트레이딩 히스토리(swing/history.py) — 그 판단이 속한 포지션 회차의 체결·재판별·청산·비중·일봉
+  GET /api/swing/benchmark            평가액 추이 비교선 — 코스피 일별 종가(평가 기록 날짜)·기준 종가·장중 현재 지수
   GET /api/prices?codes=              장중 시세 — SWING_PRICES_PROXY(main 대시보드) 중계, 표시 전용
   GET /healthz
 
@@ -248,6 +249,36 @@ def api_attribution(q):
     out["closesPending"] = cl.kick()
     out["indexLive"] = {ic: live_idx.get(ic) for ic in sorted(mkts)} if day else None
     out["indexWait"] = sorted(ic for ic, t in _Closes._idx_fail.items() if t)
+    return out
+
+
+def api_benchmark(q):
+    """평가액 추이 비교선(2026-11-10) — 코스피 일별 종가를 평가액 기록 날짜에 맞춰 준다.
+    기준 = 첫 평가 기록 직전 영업일 종가(운용 시작 = 초기 자본). 화면은 '초기 자본을 코스피에 넣었다면'(초기 자본 × 종가 ÷ 기준)으로 그린다.
+    종가는 성과 기여도와 같은 캐시(attrib/closes 의 IDX:0001, 허브 /index-chart) — 없는 날짜는 백그라운드로 채우고 pending 으로 알린다.
+    정산 전 장중이면 live(허브 /market 현재 지수)를 liveDate 점으로 붙인다."""
+    from swing import history, tradedays
+    ic = "0001"
+    L = _ledger()
+    eq = L.get("equity") or []
+    out = {"code": ic, "name": INDEX_NAME[ic], "baseDate": None, "base": None, "closes": {}, "live": None, "liveDate": None,
+           "pending": 0, "wait": False}
+    if not eq:
+        return out
+    first = eq[0]["date"]
+    prev = tradedays.trading_days((datetime.date.fromisoformat(first) - datetime.timedelta(days=14)).isoformat(), first)
+    base_day = prev[-2] if len(prev) >= 2 and prev[-1] == first else (prev[-1] if prev and prev[-1] < first else None)
+    cl = _Closes(L.get("asof"))
+    out["baseDate"], out["base"] = base_day, (cl("IDX:" + ic, base_day) if base_day else None)
+    for r in eq:
+        v = cl("IDX:" + ic, r["date"])
+        if v:
+            out["closes"][r["date"]] = v
+    out["pending"] = cl.kick()
+    out["wait"] = bool(_Closes._idx_fail.get(ic))
+    day = history.live_date(STORE, L.get("asof"))
+    if day:
+        out["liveDate"], out["live"] = day, _live_index().get(ic)
     return out
 
 
@@ -740,7 +771,8 @@ ROUTES = {"/api/swing/summary": api_summary, "/api/swing/progress": api_progress
           "/api/swing/universe/progress": api_universe_progress, "/api/swing/config": api_config,
           "/admin/new-only": admin_newonly, "/api/swing/newonly": api_newonly,
           "/api/swing/export": api_export, "/api/swing/intraday": api_intraday,
-          "/api/swing/reflections": api_reflections, "/api/swing/history": api_history, "/api/swing/live": api_live}
+          "/api/swing/reflections": api_reflections, "/api/swing/history": api_history, "/api/swing/live": api_live,
+          "/api/swing/benchmark": api_benchmark}
 
 
 class Handler(BaseHTTPRequestHandler):

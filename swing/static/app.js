@@ -380,12 +380,35 @@
   });
 
   // ── 평가액 추이 ──
+  // 코스피 비교선(2026-11-10) — '초기 자본을 코스피에 넣었다면' = 초기 자본 × 그날 종가 ÷ 기준 종가(첫 평가 기록 직전 영업일).
+  // 같은 축(원)에 그려 수익률을 그대로 비교한다. 장중 점은 현재 지수. 종가가 없는 날은 건너뛰고 잇는다. 데이터가 없으면 null
+  function benchSeries(rows, cap) {
+    var b = S.bench;
+    if (!b || !b.base || !cap) return null;
+    var out = rows.map(function (r) {
+      var k = r.live ? (b.liveDate === r.date ? b.live : null) : (b.closes || {})[r.date];
+      return k ? { idx: k, v: cap * k / b.base, ret: (k / b.base - 1) * 100 } : null;
+    });
+    return out.some(Boolean) ? out : null;
+  }
+  function loadBench(tries) {
+    return api("/api/swing/benchmark").then(function (b) {
+      S.bench = b; S.benchAt = Date.now();
+      if (S.summary) renderEquity(liveRows(S.equity || [], S.summary), S.summary.capital0);
+      // 종가를 백그라운드로 받는 중이면 잠시 뒤 다시(최대 5회) — 허브가 실패 중(wait)이면 기다리지 않는다
+      if (b && b.pending && !b.wait && (tries || 0) < 5) setTimeout(function () { loadBench((tries || 0) + 1); }, 4000);
+    }).catch(function () { /* 비교선은 보조 — 없으면 평가액만 */ });
+  }
   function renderEquity(rows, cap) {
     var box = $("equity-chart");
     if (!rows.length) { box.innerHTML = '<div class="empty-chart">평가 기록이 없습니다</div>'; return; }
-    $("eq-caption").textContent = rows[0].date.slice(5) + " ~ " + rows[rows.length - 1].date.slice(5);
+    var bm = benchSeries(rows, cap), bname = (S.bench && S.bench.name) || "코스피";
+    $("eq-caption").innerHTML = (bm ? '<span class="eq-lg"><i class="eq"></i>평가액<i class="bm"></i><span title="초기 자본을 ' + esc(bname) +
+      "에 넣었다면 — 기준 " + esc(S.bench.baseDate || "") + " 종가 " + (S.bench.base || 0).toLocaleString("ko-KR", { maximumFractionDigits: 2 }) + '">' + esc(bname) + "</span></span>" : "") +
+      esc(rows[0].date.slice(5) + " ~ " + rows[rows.length - 1].date.slice(5));
     var W = box.clientWidth || 320, H = box.clientHeight || 190, m = { l: 44, r: 8, t: 10, b: 22 };
     var vals = rows.map(function (r) { return r.equity; }).concat([cap]);
+    if (bm) bm.forEach(function (p) { if (p) vals.push(p.v); });
     var lo = Math.min.apply(null, vals), hi = Math.max.apply(null, vals);
     var pad = (hi - lo) * 0.15 || cap * 0.005; lo -= pad; hi += pad;
     var x = function (i) { return m.l + (rows.length === 1 ? (W - m.l - m.r) / 2 : i * (W - m.l - m.r) / (rows.length - 1)); };
@@ -406,28 +429,43 @@
     var pts = rows.map(function (r, i) { return x(i) + "," + y(r.equity); });
     var live = rows.length > 1 && rows[rows.length - 1].live, solid = live ? pts.slice(0, -1) : pts;   // 장중 점은 점선으로 이어 붙임
     svg += '<path class="area" d="M' + pts.join("L") + "L" + x(rows.length - 1) + "," + (H - m.b) + "L" + x(0) + "," + (H - m.b) + 'Z"/>';
+    if (bm) {                                                  // 코스피 비교선 — 평가액 선 아래에 깔고, 장중 점은 점선
+      var bpts = [];
+      bm.forEach(function (p, i) { if (p) bpts.push({ i: i, s: x(i) + "," + y(p.v) }); });
+      var blive = live && bpts.length > 1 && bpts[bpts.length - 1].i === rows.length - 1;
+      var bsolid = (blive ? bpts.slice(0, -1) : bpts).map(function (p) { return p.s; });
+      if (bsolid.length > 1) svg += '<path class="ln-bm" d="M' + bsolid.join("L") + '"/>';
+      else if (bsolid.length === 1) svg += '<circle class="dot-bm" r="2.5" cx="' + bsolid[0].split(",")[0] + '" cy="' + bsolid[0].split(",")[1] + '"/>';
+      if (blive) svg += '<path class="ln-bm" stroke-dasharray="4 3" d="M' + bpts.slice(-2).map(function (p) { return p.s; }).join("L") + '"/>';
+    }
     svg += '<path class="ln" d="M' + solid.join("L") + '"/>';
     if (live) svg += '<path class="ln" stroke-dasharray="4 3" d="M' + pts.slice(-2).join("L") + '"/>';
     svg += '<line class="cross" id="eq-cross" y1="' + m.t + '" y2="' + (H - m.b) + '" visibility="hidden"/>';
+    svg += '<circle class="dot-bm" id="eq-dot-bm" r="3.5" visibility="hidden"/>';
     svg += '<circle class="dot" id="eq-dot" r="4.5" visibility="hidden"/>';
     svg += '<rect x="' + m.l + '" y="0" width="' + (W - m.l - m.r) + '" height="' + H + '" fill="transparent" id="eq-hit"/></svg>';
     box.innerHTML = svg + '<div class="tip" id="eq-tip" hidden></div>';
-    var hit = $("eq-hit"), cross = $("eq-cross"), dot = $("eq-dot"), tip = $("eq-tip");
+    var hit = $("eq-hit"), cross = $("eq-cross"), dot = $("eq-dot"), dotBm = $("eq-dot-bm"), tip = $("eq-tip");
     hit.addEventListener("mousemove", function (ev) {
       var rect = box.getBoundingClientRect(), px = (ev.clientX - rect.left) * W / rect.width;
       var i = rows.length === 1 ? 0 : Math.round((px - m.l) / ((W - m.l - m.r) / (rows.length - 1)));
       i = Math.max(0, Math.min(rows.length - 1, i));
-      var r = rows[i];
+      var r = rows[i], b = bm && bm[i];
       cross.setAttribute("x1", x(i)); cross.setAttribute("x2", x(i)); cross.setAttribute("visibility", "visible");
       dot.setAttribute("cx", x(i)); dot.setAttribute("cy", y(r.equity)); dot.setAttribute("visibility", "visible");
+      if (b) { dotBm.setAttribute("cx", x(i)); dotBm.setAttribute("cy", y(b.v)); }
+      dotBm.setAttribute("visibility", b ? "visible" : "hidden");
       tip.hidden = false;
-      tip.innerHTML = "<b>" + r.date + (r.live ? " 장중 " + r.live : "") + "</b>" + won(r.equity) + "원 · " + pctTxt(r.retPct) + "<br>현금 " + eok(r.cash) + " · 보유 " + r.positions;
+      var ex = b && r.retPct != null ? r.retPct - b.ret : null;   // 초과 수익(%p) = 평가액 수익률 − 코스피 같은 기간 수익률
+      tip.innerHTML = "<b>" + r.date + (r.live ? " 장중 " + r.live : "") + "</b>" + won(r.equity) + "원 · " + pctTxt(r.retPct) + "<br>현금 " + eok(r.cash) + " · 보유 " + r.positions +
+        (b ? '<br><span class="tip-bm">' + esc(bname) + " " + b.idx.toLocaleString("ko-KR", { maximumFractionDigits: 2 }) + " · " + pctTxt(b.ret) +
+          (ex == null ? "" : ' · 초과 <span class="' + signCls(ex) + '">' + (ex > 0 ? "+" : "") + ex.toFixed(2) + "%p</span>") + "</span>" : "");
       var left = x(i) * rect.width / W + 10;
       if (left + tip.offsetWidth > rect.width) left -= tip.offsetWidth + 20;
       tip.style.left = left + "px"; tip.style.top = "4px";
     });
     hit.addEventListener("mouseleave", function () {
-      cross.setAttribute("visibility", "hidden"); dot.setAttribute("visibility", "hidden"); tip.hidden = true;
+      cross.setAttribute("visibility", "hidden"); dot.setAttribute("visibility", "hidden"); dotBm.setAttribute("visibility", "hidden"); tip.hidden = true;
     });
   }
 
@@ -2119,6 +2157,7 @@
       Object.assign(S.summary, { equity: r.equity, retPct: r.retPct, liveTs: r.liveTs, liveDate: r.liveDate });
       renderPortfolio(S.summary); renderPositions(S.positions); renderHoldingsPF(S.positions, S.summary);
       renderEquity(liveRows(S.equity, S.summary), S.summary.capital0);
+      if (Date.now() - (S.benchAt || 0) > 60000) loadBench();   // 코스피 장중 점은 1분마다 갱신
       loadAttrib();
       api("/api/swing/queue").then(renderQueue).catch(function () { /* 다음 회차 */ });
       r.positions.forEach(function (x) {
@@ -2159,6 +2198,7 @@
       : "진입금액 100% 현금 담보";
     if (S.config && S.config.shortMaxGross != null) $("cfg-sgross").textContent = S.config.shortMaxGross > 0 ? "평가액의 " + Math.round(S.config.shortMaxGross * 100) + "%" : "없음";
     renderEquity(liveRows(r[1], r[0]), r[0].capital0); renderPositions(r[2]); renderHoldingsPF(r[2], r[0]); renderReport();
+    loadBench();                                             // 코스피 비교선 — 첫 화면을 막지 않게 따로 받아 다시 그린다
     setTimeout(liveTick, LIVE_MS);
     var dates = r[3].slice().reverse(), sel = $("run-date");
     sel.innerHTML = dates.length ? dates.map(function (d) { return "<option>" + d + "</option>"; }).join("") : "<option>—</option>";

@@ -454,6 +454,14 @@ button.reason.name-link:hover { filter: brightness(1.25); }
 .chart .area { fill: url(#eqfill); }
 .chart .cross { stroke: rgba(148, 163, 184, .5); stroke-width: 1; }
 .chart .dot { fill: var(--kospi-blue); stroke: #0b1222; stroke-width: 2; }
+/* 평가액 추이 코스피 비교선(2026-11-10) — 초기 자본을 코스피에 넣었다면. 평가액 선(청록)보다 가늘게 */
+.chart .ln-bm { fill: none; stroke: var(--amber); stroke-width: 1.5; stroke-linejoin: round; opacity: .9; }
+.chart .dot-bm { fill: var(--amber); stroke: #0b1222; stroke-width: 2; }
+.eq-lg { display: inline-flex; align-items: center; gap: 5px; margin-right: 10px; color: var(--text-muted); }
+.eq-lg i { display: inline-block; width: 12px; height: 2px; border-radius: 1px; }
+.eq-lg i.eq { background: var(--kospi-blue); }
+.eq-lg i.bm { background: var(--amber); margin-left: 6px; }
+.tip .tip-bm { color: var(--amber); }
 .tip {
   position: absolute; pointer-events: none; background: #0f172a; border: 1px solid var(--border-color);
   border-radius: 8px; padding: 6px 9px; font-size: 11px; box-shadow: 0 6px 18px rgba(0, 0, 0, .4);
