@@ -1312,6 +1312,7 @@
     // (종목 행도 같은 눈금 — 넘으면 칸 끝에서 잘린다)
     var maxPos = Math.max.apply(null, secs.map(function (x) { return Math.max(x.expL, x.expS); }).concat([1]));
     var maxRet = Math.max.apply(null, secs.map(function (x) { return x.expB ? Math.abs(x.pnl / x.expB) : 0; }).concat([1e-9]));
+    var maxPnl = Math.max.apply(null, secs.map(function (x) { return Math.abs(x.pnl); }).concat([1]));   // 기여도 막대 눈금 = 섹터 중 가장 큰 |손익|
     var expNote = per === "day" ? "장 시작 노출(전일 종가 × 수량) + 오늘 체결 금액" : "보유 기간 평균 노출(진입 금액 × 보유일 ÷ 보유 영업일)";
     function expRetCell(pnl, eb, days) {
       if (!eb) return td('<span class="at-mut">—</span>', "r");
@@ -1330,7 +1331,10 @@
     }
     function contribCell(pnl, pl, ps_) {
       var tip = "손익 " + (pnl > 0 ? "+" : "") + won(pnl) + "원" + (pl && ps_ ? " · Long " + ppTxt(pl / base * 100) + " · Short " + ppTxt(ps_ / base * 100) : "");
-      return td('<span title="' + esc(tip) + '">' + ppCell(pnl / base * 100) + "</span>", "r");
+      // 숫자 뒤 막대(2026-11-10, 노출 대비와 같은 방식) — 길이 = |손익| ÷ 섹터 최대, 색 = 부호. 종목 행도 같은 눈금
+      var w = Math.min(100, Math.abs(pnl) / maxPnl * 100);
+      return td('<span class="at-cellbar ' + (pnl > 0 ? "up" : pnl < 0 ? "down" : "") + '" style="width:' + w.toFixed(1) + '%"></span>' +
+        '<span class="at-cellnum" title="' + esc(tip) + '">' + ppCell(pnl / base * 100) + "</span>", "r at-ret");
     }
     var h = '<thead><tr><th>섹터 · 종목</th><th class="r">종목</th>' + (split
       ? '<th class="r" title="현재 Long − Short 평가금액">순노출</th>' +
@@ -1339,7 +1343,7 @@
         '<th class="r" title="청산가 − 청산일 종가">청산</th><th class="r" title="거래세 + 대차료(수수료·슬리피지 미반영)">비용</th>'
       : '<th class="r" title="현재 Long 평가금액">Long</th><th class="r" title="현재 Short 평가금액">Short</th><th class="r" title="Long − Short">순노출</th>' +
         '<th class="r" title="순노출 ÷ 현재 평가액">순비중</th><th class="r">손익(원)</th>') +
-      '<th class="r">기여도</th><th class="r" title="손익 ÷ ' + expNote + ' — 숫자 뒤 막대 = 섹터 최대 대비 크기">노출 대비</th>' +
+      '<th class="r" title="손익 ÷ 기준 — 숫자 뒤 막대 = 섹터 최대 대비 크기">기여도</th><th class="r" title="손익 ÷ ' + expNote + ' — 숫자 뒤 막대 = 섹터 최대 대비 크기">노출 대비</th>' +
       '<th title="현재 보유 평가금액 — 가운데에서 왼쪽 파랑 = Short, 오른쪽 빨강 = Long"><span class="at-poshead"><span class="down">Short ◀</span><span class="up">▶ Long</span></span></th></tr></thead><tbody>';
     if (!secs.length) h += '<tr class="empty"><td colspan="' + (split ? 11 : 10) + '">기여 내역 없음</td></tr>';
     secs.forEach(function (x) {
