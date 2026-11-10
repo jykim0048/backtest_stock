@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>종목 타임라인 미리보기</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Noto+Sans+KR:wght@300;400;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #070a13; --panel: rgba(15, 23, 42, .75); --line: rgba(255, 255, 255, .08); --text: #f8fafc; --muted: #94a3b8;
+  --cyan: #00f0ff; --green: #10b981; --red: #ef4444; --blue: #3b82f6; --amber: #fbbf24; --violet: #c4b5fd;
+  --num: 'Outfit', 'Noto Sans KR', sans-serif;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font-family: 'Noto Sans KR', sans-serif; font-size: 14px; }
+.wrap { max-width: 920px; margin: 0 auto; padding: 20px 16px 48px; }
+.note { color: var(--muted); font-size: 12.5px; margin: 0 0 14px; }
+.picker { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+.picker button { font: inherit; font-size: 13px; color: var(--muted); background: rgba(255, 255, 255, .03); border: 1px solid var(--line); border-radius: 8px; padding: 6px 12px; cursor: pointer; }
+.picker button.on { color: var(--cyan); border-color: rgba(0, 240, 255, .4); background: rgba(0, 240, 255, .08); }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 18px; }
+.head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.head h2 { margin: 0; font-size: 20px; }
+.code { color: var(--muted); font-family: var(--num); font-size: 13px; }
+.tag { font-family: var(--num); font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 4px; color: var(--red); background: rgba(239, 68, 68, .12); }
+.chip { font-size: 11.5px; font-weight: 700; padding: 2px 8px; border-radius: 6px; color: var(--muted); background: rgba(255, 255, 255, .06); }
+.thesis { margin: 10px 0 0; color: var(--muted); font-size: 13px; line-height: 1.6; }
+.kpis { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; margin: 14px 0; }
+.kpi { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; min-width: 0; }
+.kpi span { display: block; font-size: 11.5px; color: var(--muted); }
+.kpi b { display: block; font-family: var(--num); font-size: 18px; margin-top: 3px; }
+.kpi small { color: var(--muted); font-size: 11px; }
+.pos { color: var(--red); } .neg { color: var(--blue); }
+.chart { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px 6px; }
+.chart h3, .tl-h h3 { margin: 0; font-size: 13.5px; }
+.chart svg { display: block; width: 100%; height: 130px; margin-top: 6px; }
+.tl-h { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; margin: 18px 0 8px; }
+.seg button { font: inherit; font-size: 12px; color: var(--muted); background: none; border: 1px solid var(--line); padding: 3px 10px; cursor: pointer; }
+.seg button:first-child { border-radius: 7px 0 0 7px; } .seg button:last-child { border-radius: 0 7px 7px 0; border-left: 0; }
+.seg button.on { color: var(--cyan); background: rgba(0, 240, 255, .08); }
+.row { display: grid; grid-template-columns: 52px 84px minmax(0, 1fr) 92px 62px 60px; gap: 8px; align-items: center; padding: 9px 4px; border-top: 1px solid var(--line); }
+.row.h { color: var(--muted); font-size: 11.5px; border-top: 0; padding-top: 0; }
+.row .r { text-align: right; font-family: var(--num); }
+.row .d { font-family: var(--num); color: var(--muted); font-size: 12.5px; }
+.ev { font-size: 11.5px; font-weight: 700; padding: 2px 7px; border-radius: 6px; justify-self: start; white-space: nowrap; }
+.ev.plan { color: var(--muted); background: rgba(255, 255, 255, .06); }
+.ev.buy { color: var(--red); background: rgba(239, 68, 68, .12); }
+.ev.review { color: var(--cyan); background: rgba(0, 240, 255, .1); }
+.ev.switch { color: var(--amber); background: rgba(251, 191, 36, .12); }
+.ev.stop { color: var(--blue); background: rgba(59, 130, 246, .14); }
+.ev.exit { color: var(--violet); background: rgba(139, 92, 246, .14); }
+.why { font-size: 13px; line-height: 1.5; min-width: 0; overflow-wrap: anywhere; }
+.why small { display: block; color: var(--muted); font-size: 11.5px; }
+.why small.warn { color: var(--amber); }
+.row[data-more] { cursor: pointer; } .row[data-more]:hover { background: rgba(255, 255, 255, .03); }
+.more { display: none; padding: 2px 4px 10px 148px; font-size: 12px; color: var(--muted); line-height: 1.7; }
+.more.on { display: block; }
+.foot { margin-top: 14px; color: var(--muted); font-size: 12px; }
+@media (max-width: 680px) {
+  .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .row { grid-template-columns: 44px 76px minmax(0, 1fr) 62px; }
+  .row .c-px, .row .c-qty { display: none; }
+  .more { padding-left: 4px; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p class="note">미리보기 — 실제 운영 기록(11-03 10:15 기준)으로 채웠습니다. 비중은 체결가 기준 근사치입니다. 행을 누르면 분할 내역이 펼쳐집니다.</p>
+  <div class="picker" id="picker"></div>
+  <div class="panel" id="panel"></div>
+</div>
+<script>
+var DATA = [
+  { name: "삼아알미늄", code: "006110", side: "LONG", status: "청산 중 · 오늘 마지막 49주 매도(정산 전)", sector: "금속", signal: "수급유입", source: "유니버스",
+    thesis: "Overweight · 기술적 반등과 숏커버링 모멘텀을 노린 5거래일 스윙. 진입 62,300 · 손절 56,000 · 목표 70,000, 비중 3%.",
+    target: 3.0, peak: 3.2, now: 0.0, avg: "65,563", pnl: "−235만", ret: "−15.5%", retCls: "neg", hold: "5영업일",
+    rows: [
+      { d: "10-27", ev: "판단", c: "plan", why: "PM Overweight · 계획 232주(3%)", sub: "유효일 10-28 · 진입가 상한 62,300", px: "—", qty: "—", w: 0 },
+      { d: "10-28", ev: "매수", c: "buy", why: "27 / 232주 체결", sub: "시가가 상한보다 5.6% 위 · 잔여 205주 다음 날로", px: "65,281", qty: 27, w: 0.37, warn: true,
+        more: "시가 첫 분할 + VWAP 1회 · 09:00~15:09 · 기준가 65,800" },
+      { d: "10-29", ev: "추가 매수", c: "buy", why: "205주 체결 → 목표 비중 도달", sub: "09:01 기준가 대비 +6.3%로 남은 수량 전량 · 상한보다 5.9% 위", px: "65,600", qty: 232, w: 3.2, warn: true,
+        more: "09:00 시가 21주 @62,100 · 09:01 전량 184주 @66,000" },
+      { d: "10-30", ev: "손절", c: "stop", why: "10:08 손절가 56,000 도달 · 115주 청산", sub: "손절도 분할이라 하루에 다 못 팖 · 117주 이월", px: "57,558", qty: 117, w: 1.41,
+        more: "손절 첫 분할 23주 @56,000 · 이후 VWAP 23회 13:14~15:14 · 실현 −12.39%" },
+      { d: "11-02", ev: "손절 이월", c: "stop", why: "68주 청산 · 49주 이월", sub: "조건이 맞을 때만 분할 체결", px: "57,026", qty: 49, w: 0.59,
+        more: "시가 + VWAP 28회 09:00~15:18 · 실현 −13.19%" },
+      { d: "11-03", ev: "손절 이월", c: "stop", why: "마지막 49주 청산 — 포지션 종료", sub: "09:03 기준가 대비 −5.8%로 남은 수량 전량", px: "48,651", qty: 0, w: 0, warn: true,
+        more: "09:02 시가 5주 @51,300 · 09:03 전량 44주 @48,350 · 손절가보다 13.7% 낮은 체결" }
+    ] },
+  { name: "스튜디오드래곤", code: "253450", side: "LONG", status: "청산 완료", sector: "오락·문화", signal: "수급유입", source: "매트릭스",
+    thesis: "Overweight · 19,000원 지지선을 활용한 단기 기술적 반등 스윙. 진입 20,700 · 손절 19,000 · 목표 23,000, 주문 비중 5%.",
+    target: 5.0, peak: 5.1, now: 0.0, avg: "20,700", pnl: "+329만", ret: "+12.9%", retCls: "pos", hold: "17영업일",
+    rows: [
+      { d: "10-08", ev: "매수", c: "buy", why: "1,230주 체결 → 목표 비중 도달", sub: "진입 20,700 · 손절 19,000 · 목표 23,000", px: "20,700", qty: 1230, w: 5.1 },
+      { d: "10-15", ev: "재판별", c: "review", kind: "r", why: "만기 5/5 · Overweight 유지", sub: "손절 20,500 · 목표 24,500", px: "—", qty: 1230, w: 5.1 },
+      { d: "10-16", ev: "재판별", c: "review", kind: "r", why: "Overweight 유지", sub: "손절 21,800 · 목표 25,000", px: "—", qty: 1230, w: 5.1 },
+      { d: "10-19", ev: "재판별", c: "review", kind: "r", why: "Overweight 유지", sub: "손절 22,000 · 목표 26,000", px: "—", qty: 1230, w: 5.1 },
+      { d: "10-20", ev: "스위칭", c: "switch", why: "953주 재원 매도 · +13.99%", sub: "신규 매수 재원 · 비중 5.1% → 1.4%", px: "23,643", qty: 277, w: 1.39,
+        more: "구 스위칭 규칙 · 지금 규칙이면 승자 보호(D) 등급이라 PM 비중 초과분만 매도" },
+      { d: "10-20", ev: "재판별", c: "review", kind: "r", why: "Hold로 하향", sub: "손절 21,870 · 목표 24,500", px: "—", qty: 277, w: 1.39 },
+      { d: "10-21", ev: "재판별", c: "review", kind: "r", why: "Hold 유지 · 10-28까지 매일 6회", sub: "손절 21,500~21,800 · 목표 24,000~26,000", px: "—", qty: 277, w: 1.39 },
+      { d: "10-29", ev: "청산 예약", c: "plan", why: "보유 15일 도달 → 최대 보유 청산 예약", sub: "재판별 없이 다음 영업일부터 청산", px: "—", qty: 277, w: 1.39 },
+      { d: "10-30", ev: "청산", c: "exit", why: "117주 청산 · 160주 이월", sub: "조건이 맞을 때만 분할 체결", px: "22,777", qty: 160, w: 0.76, more: "시가 + VWAP 20회 09:00~15:14 · 실현 +9.82%" },
+      { d: "11-02", ev: "청산", c: "exit", why: "나머지 160주 청산 — 포지션 종료", sub: "보유 17영업일", px: "22,583", qty: 0, w: 0, more: "시가 + VWAP 60회 09:00~14:30 · 실현 +8.88%" }
+    ] }
+];
+var cur = 0, mode = "all";
+function fmt(v) { return typeof v === "number" ? v.toLocaleString("ko-KR") : v; }
+function chart(s) {
+  var pts = s.rows.filter(function (r) { return r.ev !== "판단"; });
+  var W = 860, H = 130, L = 34, R = 26, T = 10, B = 22, max = Math.max(s.peak, s.target) * 1.2;
+  var x = function (i) { return L + (W - L - R) * (pts.length > 1 ? i / (pts.length - 1) : 0); };
+  var y = function (v) { return T + (H - T - B) * (1 - v / max); };
+  var path = pts.map(function (p, i) { return (i ? "H" + x(i) + "V" : "M" + x(i) + " ") + y(p.w); }).join("");
+  var dots = pts.map(function (p, i) { return '<circle cx="' + x(i) + '" cy="' + y(p.w) + '" r="3" fill="#00f0ff"/>'; }).join("");
+  var seen = {}, labels = pts.map(function (p, i) {
+    if (seen[p.d]) return ""; seen[p.d] = 1;
+    return '<text x="' + x(i) + '" y="' + (H - 6) + '" fill="#94a3b8" font-size="11" text-anchor="middle">' + p.d + "</text>";
+  }).join("");
+  return '<svg viewBox="0 0 ' + W + " " + H + '" preserveAspectRatio="none" role="img" aria-label="비중 변화">' +
+    '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + y(s.target) + '" y2="' + y(s.target) + '" stroke="#fbbf24" stroke-dasharray="5 4"/>' +
+    '<text x="2" y="' + (y(s.target) + 4) + '" fill="#fbbf24" font-size="11">' + s.target + "%</text>" +
+    '<path d="' + path + '" fill="none" stroke="#00f0ff" stroke-width="2"/>' + dots + labels + "</svg>";
+}
+function render() {
+  var s = DATA[cur];
+  document.getElementById("picker").innerHTML = DATA.map(function (d, i) {
+    return '<button type="button" data-i="' + i + '" class="' + (i === cur ? "on" : "") + '">' + d.name + "</button>";
+  }).join("");
+  var rows = s.rows.filter(function (r) { return mode === "all" || r.kind !== "r"; });
+  document.getElementById("panel").innerHTML =
+    '<div class="head"><span class="tag">' + s.side + "</span><h2>" + s.name + '</h2><span class="code">' + s.code + '</span><span class="chip">' + s.status + "</span></div>" +
+    '<p class="thesis">' + s.sector + " · " + s.signal + " · " + s.source + " 선정 — " + s.thesis + "</p>" +
+    '<div class="kpis">' +
+      '<div class="kpi"><span>PM 목표 비중</span><b>' + s.target.toFixed(1) + "%</b></div>" +
+      '<div class="kpi"><span>최고 도달 비중</span><b>' + s.peak.toFixed(1) + "%</b><small>" + (s.peak >= s.target ? "목표 도달" : "목표 미달") + "</small></div>" +
+      '<div class="kpi"><span>현재 비중</span><b>' + s.now.toFixed(1) + "%</b></div>" +
+      '<div class="kpi"><span>평단</span><b>' + s.avg + "</b><small>보유 " + s.hold + "</small></div>" +
+      '<div class="kpi"><span>실현 손익</span><b class="' + s.retCls + '">' + s.ret + "</b><small>" + s.pnl + "원</small></div></div>" +
+    '<div class="chart"><h3>비중 변화 <span class="code">점선 = PM 목표</span></h3>' + chart(s) + "</div>" +
+    '<div class="tl-h"><h3>타임라인</h3><div class="seg"><button type="button" data-m="all" class="' + (mode === "all" ? "on" : "") + '">전체</button><button type="button" data-m="trade" class="' + (mode === "trade" ? "on" : "") + '">매매만</button></div></div>' +
+    '<div class="row h"><span>날짜</span><span>사건</span><span>내용</span><span class="r c-px">평균가</span><span class="r c-qty">보유</span><span class="r">비중</span></div>' +
+    rows.map(function (r, i) {
+      return '<div class="row"' + (r.more ? ' data-more="' + i + '"' : "") + '><span class="d">' + r.d + '</span><span class="ev ' + r.c + '">' + r.ev + '</span>' +
+        '<div class="why">' + r.why + (r.more ? " ›" : "") + "<small" + (r.warn ? ' class="warn"' : "") + ">" + r.sub + "</small></div>" +
+        '<span class="r c-px">' + r.px + '</span><span class="r c-qty">' + fmt(r.qty) + '</span><span class="r">' + r.w.toFixed(1) + "%</span></div>" +
+        (r.more ? '<div class="more" id="m' + i + '">' + r.more + "</div>" : "");
+    }).join("") +
+    '<p class="foot">노란 글씨 = 계획과 달라진 체결. 판단 원문은 실제 패널에서 사건을 누르면 열립니다.</p>';
+}
+document.addEventListener("click", function (e) {
+  var b = e.target.closest("[data-i]"); if (b) { cur = +b.dataset.i; render(); return; }
+  var m = e.target.closest("[data-m]"); if (m) { mode = m.dataset.m; render(); return; }
+  var r = e.target.closest("[data-more]"); if (r) document.getElementById("m" + r.dataset.more).classList.toggle("on");
+});
+render();
+if (/embed/.test(location.search)) {          // 판단 원문 팝업의 카드 안에 넣을 때는 타임라인 표만
+  var st = document.createElement("style");
+  st.textContent = ".note,.picker,.head,.thesis,.kpis,.chart,.foot{display:none}.wrap{padding:0}.panel{border:0;padding:0;background:none}.tl-h{margin-top:4px}body{background:transparent}";
+  document.head.appendChild(st);
+}
+</script>
+</body>
+</html>

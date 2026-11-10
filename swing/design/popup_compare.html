@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>판단 원문 비중 변화 카드</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Noto+Sans+KR:wght@300;400;700&display=swap" rel="stylesheet">
+<style>
+:root { --bg: #070a13; --panel: #0d1424; --line: rgba(255, 255, 255, .08); --text: #f8fafc; --muted: #94a3b8; --cyan: #00f0ff; --green: #10b981; --amber: #fbbf24; --num: 'Outfit', 'Noto Sans KR', sans-serif; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font-family: 'Noto Sans KR', sans-serif; font-size: 14px; }
+.wrap { max-width: 820px; margin: 0 auto; padding: 18px 16px 40px; }
+.note { color: var(--muted); font-size: 12.5px; margin: 0 0 12px; }
+.pop { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+.head { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--line); }
+.head h2 { margin: 0; font-size: 15.5px; }
+.head i { font-style: normal; color: var(--muted); }
+.body { padding: 14px 16px 16px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; }
+.item { border: 1px solid var(--line); border-radius: 10px; padding: 9px 11px; }
+.item span { display: block; font-size: 11.5px; color: var(--muted); }
+.item b { display: block; margin-top: 3px; font-family: var(--num); font-size: 15px; }
+.rating { color: var(--green); }
+.sec h4 { margin: 16px 0 6px; font-size: 13px; color: var(--muted); }
+.report { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; font-size: 13px; line-height: 1.65; background: rgba(0, 0, 0, .2); }
+.wcard { display: block; width: 100%; margin-top: 8px; text-align: left; font: inherit; color: inherit; cursor: pointer; border: 1px solid rgba(0, 240, 255, .28); border-radius: 10px; padding: 11px 12px; background: rgba(0, 240, 255, .04); }
+.wcard:hover { border-color: rgba(0, 240, 255, .55); background: rgba(0, 240, 255, .07); }
+.wtop { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.wtop strong { font-size: 13.5px; }
+.wtop em { font-style: normal; font-size: 12px; color: var(--cyan); white-space: nowrap; }
+.wmain { display: grid; grid-template-columns: repeat(3, minmax(0, auto)) minmax(0, 1fr); gap: 18px; align-items: center; margin-top: 8px; }
+.wnum span { display: block; font-size: 11.5px; color: var(--muted); }
+.wnum b { font-family: var(--num); font-size: 17px; }
+.wmain svg { display: block; width: 100%; height: 46px; }
+.wsub { margin-top: 7px; font-size: 12px; color: var(--muted); }
+.wsub b { color: var(--amber); font-weight: 400; }
+.tl { display: none; margin-top: 8px; border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; background: rgba(0, 0, 0, .2); }
+.tl.on { display: block; }
+iframe { display: block; width: 100%; height: 360px; border: 0; background: transparent; }
+.stage { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin-top: 6px; font-size: 13.5px; font-weight: 700; }
+.stage em { font-style: normal; color: var(--muted); font-weight: 400; margin-left: 4px; font-family: var(--num); }
+.muted { color: var(--muted); font-size: 11px; margin: 12px 0 0; }
+@media (max-width: 560px) { .wmain { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; } .wmain svg { grid-column: 1 / -1; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p class="note">미리보기 — 삼아알미늄 실제 기록. 판단 원문 팝업의 PM 요약 아래에 비중 변화 카드가 붙습니다. 카드를 누르면 타임라인이 그 자리에서 펼쳐집니다.</p>
+  <div class="pop">
+    <div class="head"><h2>006110 · 2026-10-27 · 신규 진입</h2><i>✕</i></div>
+    <div class="body">
+      <div class="grid">
+        <div class="item"><span>PM 등급</span><b class="rating">Overweight</b></div>
+        <div class="item"><span>Trader</span><b>Buy</b></div>
+        <div class="item"><span>진입가</span><b>62,300</b></div>
+        <div class="item"><span>손절가</span><b>56,000</b></div>
+        <div class="item"><span>목표가(PM)</span><b>70,000</b></div>
+        <div class="item"><span>비중</span><b>PM 3.0% · Trader 5.0%</b></div>
+      </div>
+      <div class="sec">
+        <h4>PM 요약</h4>
+        <div class="report">5거래일 단기 스윙 전략으로, 기술적 반등과 숏커버링 모멘텀을 활용합니다. 진입가 62,300원, 손절가 56,000원을 설정하며, 펀더멘털 리스크와 변동성을 고려하여 비중은 3%로 조정합니다. 50일 이동평균선 돌파 시 추가 상승을 기대합니다.</div>
+        <button type="button" class="wcard" id="wcard" aria-expanded="false" aria-controls="tl">
+          <div class="wtop"><strong>비중 변화</strong><em id="wmore">타임라인 펼치기 ▾</em></div>
+          <div class="wmain">
+            <div class="wnum"><span>PM 목표</span><b>3.0%</b></div>
+            <div class="wnum"><span>최고 도달</span><b>3.2%</b></div>
+            <div class="wnum"><span>현재</span><b>0.0%</b></div>
+            <svg id="spark" viewBox="0 0 300 46" preserveAspectRatio="none" role="img" aria-label="비중 변화 요약"></svg>
+          </div>
+          <div class="wsub">10-29 목표 도달 → 10-30 손절 시작 → 11-03 전량 청산 · 스위칭 없음 · 평단 65,563 · <b>계획과 다른 체결 3건</b></div>
+        </button>
+        <div class="tl" id="tl"><iframe id="frame" title="종목 타임라인"></iframe></div>
+      </div>
+      <div class="sec"><h4>종합 리포트</h4><div id="stages"></div></div>
+      <p class="muted">판단 엔진 trading_agent@951c796</p>
+    </div>
+  </div>
+</div>
+<script>
+var STAGES = [["I. 애널리스트 리포트", 5], ["II. 강세·약세 토론과 Research Manager", 2], ["III. Trader", 0], ["IV. 리스크 토론", 0], ["V. Portfolio Manager", 0], ["부록 · 수집 정보", 2]];
+document.getElementById("stages").innerHTML = STAGES.map(function (g) {
+  return '<div class="stage">▸ ' + g[0] + (g[1] ? "<em>" + g[1] + "</em>" : "") + "</div>";
+}).join("");
+(function spark() {
+  var w = [0.37, 3.2, 1.41, 0.59, 0], target = 3.0, W = 300, H = 46, max = 3.8;
+  var x = function (i) { return 4 + (W - 8) * i / (w.length - 1); }, y = function (v) { return 4 + (H - 8) * (1 - v / max); };
+  var d = w.map(function (v, i) { return (i ? "H" + x(i) + "V" : "M" + x(i) + " ") + y(v); }).join("");
+  document.getElementById("spark").innerHTML = '<line x1="0" x2="' + W + '" y1="' + y(target) + '" y2="' + y(target) + '" stroke="#fbbf24" stroke-dasharray="4 3"/>' +
+    '<path d="' + d + '" fill="none" stroke="#00f0ff" stroke-width="2" vector-effect="non-scaling-stroke"/>';
+})();
+var frame = document.getElementById("frame"), loaded = false;
+function fit() {
+  try { frame.style.height = frame.contentDocument.documentElement.scrollHeight + "px"; } catch (e) { /* 파일로 직접 열면 높이는 기본값 */ }
+}
+frame.addEventListener("load", function () {
+  fit();
+  frame.contentDocument.addEventListener("click", function () { setTimeout(fit, 30); });
+});
+document.getElementById("wcard").addEventListener("click", function () {
+  var tl = document.getElementById("tl"), on = tl.classList.toggle("on");
+  if (on && !loaded) { frame.src = "timeline_preview.html?embed"; loaded = true; }
+  this.setAttribute("aria-expanded", on);
+  document.getElementById("wmore").textContent = on ? "타임라인 접기 ▴" : "타임라인 펼치기 ▾";
+  if (on) setTimeout(fit, 50);
+});
+</script>
+</body>
+</html>

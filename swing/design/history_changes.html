@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>트레이딩 히스토리 변경내역</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&family=Noto+Sans+KR:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root { --bg: #070a13; --panel: #0d1424; --line: rgba(255, 255, 255, .08); --text: #f8fafc; --muted: #94a3b8; --cyan: #00f0ff; --amber: #fbbf24; --violet: #c4b5fd; --red: #f87171; --green: #34d399; --num: 'Outfit', 'Noto Sans KR', sans-serif; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font-family: 'Noto Sans KR', sans-serif; font-size: 14px; line-height: 1.6; }
+.wrap { max-width: 1180px; margin: 0 auto; padding: 22px 16px 48px; }
+h1 { margin: 0 0 4px; font-size: 22px; }
+h2 { margin: 30px 0 10px; font-size: 16px; }
+h2 small { font-weight: 400; color: var(--muted); font-size: 12.5px; margin-left: 6px; }
+.lead { color: var(--muted); font-size: 13px; margin: 0; }
+.note { margin-top: 12px; padding: 9px 12px; border: 1px solid rgba(251, 191, 36, .35); background: rgba(251, 191, 36, .06); border-radius: 10px; font-size: 12.5px; color: #fde68a; }
+.pair { display: grid; grid-template-columns: 1fr; gap: 12px; max-width: 740px; }
+.shot { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 10px; }
+.shot h3 { margin: 0 0 8px; font-size: 12.5px; color: var(--muted); font-weight: 700; display: flex; gap: 8px; align-items: center; }
+.tag { font-size: 11px; padding: 1px 7px; border-radius: 6px; font-weight: 700; }
+.tag.b { color: var(--muted); background: rgba(255, 255, 255, .07); }
+.tag.a { color: var(--cyan); background: rgba(0, 240, 255, .12); }
+.shot img { display: block; width: 100%; height: auto; border-radius: 8px; }
+.shot ul { margin: 8px 0 0; padding-left: 18px; font-size: 12.5px; color: var(--muted); }
+.shot ul b { color: var(--text); font-weight: 700; }
+table { width: 100%; border-collapse: collapse; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; font-size: 13px; }
+th, td { text-align: left; padding: 8px 12px; border-top: 1px solid var(--line); vertical-align: top; }
+th { color: var(--muted); font-weight: 700; font-size: 12px; border-top: 0; background: rgba(255, 255, 255, .02); }
+td.k { white-space: nowrap; font-weight: 700; }
+td.old { color: var(--muted); }
+.num { font-family: var(--num); }
+.y { color: var(--amber); } .v { color: var(--violet); } .c { color: var(--cyan); }
+.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.box { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; font-size: 13px; }
+.box h4 { margin: 0 0 6px; font-size: 13px; }
+.box ul { margin: 0; padding-left: 18px; color: var(--muted); }
+.box ul b { color: var(--text); }
+code { font-family: Consolas, monospace; font-size: 12px; color: #e2e8f0; background: rgba(255, 255, 255, .06); padding: 0 4px; border-radius: 4px; }
+@media (max-width: 860px) { .pair, .cols { grid-template-columns: 1fr; } td.k { white-space: normal; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>트레이딩 히스토리 카드 변경내역</h1>
+  <p class="lead">변경 전 = 운영 배포본 <code>87f20bb2</code>(11-03 11:22) · 변경 후 = 로컬 작업본(미커밋) · 판단 원문 팝업의 PM 요약 아래 카드</p>
+  <div class="note">변경 후 화면은 운영 백업(11-03 13시경)으로 띄웠습니다. 일봉·체결 시각·가격·수량은 실제 기록이고, <b>분봉 모양만 합성 틱</b>입니다(운영 틱은 백업에 없음). 배포하면 Live Trader 가 저장한 실제 15초 틱으로 그려집니다.</div>
+
+  <h2>① 롱 — 삼아알미늄 006110 <small>보유 5일 → 30분봉</small></h2>
+  <div class="pair">
+    <div class="shot"><h3><span class="tag b">변경 전</span>일봉 + 비중 선(따로 아래 칸)</h3><img src="history_changes/before_long.png" alt="변경 전 삼아알미늄 카드">
+      <ul><li>카드 높이 396px · 일봉 5개 · 체결은 날짜별 화살표 하나</li><li>비중 선이 목표선·봉과 겹쳐 잘 안 보임</li></ul></div>
+    <div class="shot"><h3><span class="tag a">변경 후</span>30분봉 + 체결 세모 + 비중 막대</h3><img src="history_changes/after_long.png" alt="변경 후 삼아알미늄 카드">
+      <ul><li>카드 높이 <b>280px</b> · 30분봉 65개 · 체결 59건을 봉마다 묶어 세모로</li><li>비중은 아래 <b>막대 띠 + 값</b>, 목표 도달일(10-29)만 진하게</li></ul></div>
+  </div>
+
+  <h2>② 공매도 — 코오롱인더 120110 <small>화살표 방향 수정</small></h2>
+  <div class="pair">
+    <div class="shot"><h3><span class="tag b">변경 전</span>공매도 진입이 ▲(매수처럼)</h3><img src="history_changes/before_short.png" alt="변경 전 코오롱인더 카드"></div>
+    <div class="shot"><h3><span class="tag a">변경 후</span>공매도 ▼ · 환매 ▲</h3><img src="history_changes/after_short.png" alt="변경 후 코오롱인더 카드">
+      <ul><li>범례도 종목 방향대로 <span class="y">▼공매도</span> <span class="v">▲환매</span></li><li>10-27 2.5% → 10-28 이후 목표 5% 도달이 막대로 바로 보임</li></ul></div>
+  </div>
+
+  <h2>③ 신규 — 날짜별 5분봉 <small>타임라인 펼치기 → 날짜 버튼</small></h2>
+  <div class="shot"><h3><span class="tag a">신규</span>삼아알미늄 10-30 · 손절 분할 매도</h3><img src="history_changes/after_day.png" alt="10-30 5분봉과 체결">
+    <ul><li>분할 1회 = 5분봉 1개. <b>VWAP(당일 누적)선</b>과 체결 위치를 비교 — "VWAP 보다 불리하게 팔았나"</li>
+      <li>10:08 <span style="color:#f97316">주황 테두리</span> = 손절 체결, 이후 보라 ▼ = VWAP 분할 매도</li>
+      <li>평단이 그날 가격대 밖이면 선 대신 오른쪽 위 <span class="c">↑ 평단 65,563</span> 표시(봉이 납작해지지 않게)</li>
+      <li>마지막 봉 종가 = KRX 확정 종가(틱엔 종가 동시호가가 없음) · 시가·전량 체결은 같은 봉이어도 따로 표시</li></ul></div>
+
+  <h2>변경 항목</h2>
+  <table>
+    <tr><th>항목</th><th>변경 전</th><th>변경 후</th></tr>
+    <tr><td class="k">카드 크기</td><td class="old">396px</td><td>280px(약 2/3) — 차트 높이·평단 숫자·여백 축소</td></tr>
+    <tr><td class="k">주가 봉</td><td class="old">일봉만</td><td>회차 전 기간에 틱이 있으면 보유 일수별 분봉(아래 표), 아니면 일봉</td></tr>
+    <tr><td class="k">체결 표시</td><td class="old">날짜별 화살표 1개</td><td>봉마다 세모 — 방향 = 실제 매매(▲매수·환매 / ▼매도·공매도), 색 = <span class="y">진입·추가</span> / <span class="v">청산·축소</span>, 크기 = 수량, 테두리 = <b style="color:#fff">시가</b>·<b style="color:#f472b6">전량</b>·<b style="color:#f97316">손절</b>·<b style="color:#a3e635">스위칭</b>, 마우스 = 횟수·수량·평균가·시각</td></tr>
+    <tr><td class="k">비중</td><td class="old">계단 선(봉·목표선과 겹침)</td><td>주가 아래 막대 띠(같은 날짜 축) + 날짜별 값, 목표 95%↑ 날 진하게, 목표선은 띠 안에만</td></tr>
+    <tr><td class="k">공매도 화살표</td><td class="old">공매도 진입도 ▲</td><td>▼(실제 매매 방향)</td></tr>
+    <tr><td class="k">최고 도달</td><td class="old">비중 최고치·날짜 칸</td><td>제거 — 날짜별 비중 막대·값으로 확인</td></tr>
+    <tr><td class="k">범례</td><td class="old">없음</td><td>카드 오른쪽 아래 — 30분봉 · ▲매수 ▼매도 · 비중</td></tr>
+    <tr><td class="k">타임라인</td><td class="old">표만</td><td>위에 날짜 버튼 → 그날 5분봉 + VWAP + 체결(누를 때 조회)</td></tr>
+  </table>
+
+  <h2>분봉 간격 <small>봉 120개 이하(카드 폭 ≈ 730px, 봉당 6px↑)</small></h2>
+  <table>
+    <tr><th>보유 일수</th><th>카드 분봉</th><th>미리보기 예</th></tr>
+    <tr><td class="num">1일</td><td>5분</td><td>한국전력 015760</td></tr>
+    <tr><td class="num">2일</td><td>10분</td><td>SK증권 001510</td></tr>
+    <tr><td class="num">3~4일</td><td>15분</td><td>—</td></tr>
+    <tr><td class="num">5~9일</td><td>30분</td><td>삼아알미늄 · 코오롱인더</td></tr>
+    <tr><td class="num">10~17일</td><td>60분</td><td>셀트리온 068270</td></tr>
+    <tr><td class="num">18일↑ / 틱 없는 날 포함</td><td>일봉(화살표)</td><td>10-19 이전 진입 회차 · 날짜별 5분봉은 틱 있는 날만</td></tr>
+  </table>
+
+  <h2>데이터 · 파일</h2>
+  <div class="cols">
+    <div class="box"><h4>분봉 출처 — 외부 호출 없음</h4><ul>
+      <li>Live Trader 가 저장하는 <code>intraday/&lt;날짜&gt;/ticks/&lt;종목&gt;</code>(15초 틱)을 묶음</li>
+      <li>틱은 표본이라 고가·저가가 실제보다 약간 좁을 수 있음</li>
+      <li>첫 봉 시가·마지막 봉 종가는 DB증권 일봉(KRX 확정)으로 덮음</li>
+      <li>API: <code>/api/swing/history?key=</code>에 <code>step·ibars·fills·tickDays</code> 추가, <code>&amp;day=</code>로 그날 5분봉(<code>dayView</code>)</li></ul></div>
+    <div class="box"><h4>수정 파일 · 검증</h4><ul>
+      <li><code>swing/history.py</code> 분봉 집계·간격 선택·체결 수집 · <code>swing/server.py</code> day 인자</li>
+      <li><code>swing/static/app.js</code> 공용 봉차트·카드·5분봉 · <code>style.css</code> 범례·버튼</li>
+      <li><code>tests/test_history.py</code> 7건 추가 → <b>전체 326건 통과</b></li>
+      <li>배포 후 확인: 60분봉(틱 문서 최대 17개) 응답 시간, 5분봉 버튼 응답</li></ul></div>
+  </div>
+</div>
+</body>
+</html>
