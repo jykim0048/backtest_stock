@@ -1338,12 +1338,13 @@
     }).sort(function (a, b) { return b.pnl - a.pnl; });
     // 막대 눈금(2026-11-10) — 포지션 막대 = 섹터 중 가장 큰 한쪽(Long 또는 Short) 노출, 노출 대비 막대 = 섹터 중 가장 큰 |노출 대비|
     // (종목 행도 같은 눈금 — 넘으면 칸 끝에서 잘린다)
-    var EL = expLim(), secLim = EL ? EL.sectorNetMax : null;
-    var secTip = EL ? "섹터 순노출 ±" + (EL.sectorNetMax * 100).toFixed(0) + "% 도달 — 같은 방향 신규·비중 채우기 중단, 반대 방향 후보 우선 검토(±" + (EL.sectorNetRelease * 100).toFixed(0) + "% 안으로 오면 해제)" : "";
-    if (EL && side === "all") {                               // 섹터 한도(±10%) 도달 목록 — 방향 필터가 걸리면 순노출이 아니라 생략
+    // 섹터 브레이크(R6)가 꺼져 있으면 서버가 sectorNetMax 를 null 로 준다(2026-11-10 저녁 사용자 결정) — 섹터 '한도' 표시·요약 줄 생략
+    var EL = expLim(), secLim = EL && EL.sectorNetMax ? EL.sectorNetMax : null;
+    var secTip = secLim ? "섹터 순노출 ±" + (secLim * 100).toFixed(0) + "% 도달 — 같은 방향 신규·비중 채우기 중단, 반대 방향 후보 우선 검토(±" + (EL.sectorNetRelease * 100).toFixed(0) + "% 안으로 오면 해제)" : "";
+    if (secLim && side === "all") {                           // 섹터 한도(±10%) 도달 목록 — 방향 필터가 걸리면 순노출이 아니라 생략
       var overS = secs.map(function (x) { return { s: x.sector, n: (x.expL - x.expS) / eqNow * 100 }; })
-        .filter(function (x) { return Math.abs(x.n) >= EL.sectorNetMax * 100 - 1e-9; }).sort(function (p1, p2) { return Math.abs(p2.n) - Math.abs(p1.n); });
-      $("at-sum").innerHTML += '<br><span class="lim-line" title="' + esc(secTip) + '">섹터 순노출 한도 ±' + (EL.sectorNetMax * 100).toFixed(0) + "% — " +
+        .filter(function (x) { return Math.abs(x.n) >= secLim * 100 - 1e-9; }).sort(function (p1, p2) { return Math.abs(p2.n) - Math.abs(p1.n); });
+      $("at-sum").innerHTML += '<br><span class="lim-line" title="' + esc(secTip) + '">섹터 순노출 한도 ±' + (secLim * 100).toFixed(0) + "% — " +
         (overS.length ? '<b class="lim-bad">' + overS.length + "개 섹터 도달</b> " + overS.map(function (x) { return esc(x.s) + " " + (x.n > 0 ? "+" : "") + x.n.toFixed(1) + "%"; }).join(" · ")
           : '<b class="lim-ok">전 섹터 안</b>') + "</span>";
     }

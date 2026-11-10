@@ -6,6 +6,17 @@ from swing import engine as E
 from swing import exposure as X
 
 TOP = ["005930", "000660"]
+_SB = None
+
+
+def setUpModule():
+    """섹터 브레이크(R6)는 2026-11-10 저녁부터 기본 꺼짐 — 이 모듈의 브레이크 테스트는 켜고 본다."""
+    global _SB
+    _SB, X.SECTOR_BRAKE_ON = X.SECTOR_BRAKE_ON, True
+
+
+def tearDownModule():
+    X.SECTOR_BRAKE_ON = _SB
 
 
 def bar(o, h, l, c):
@@ -123,6 +134,42 @@ class TestPlaceEntryGuard(unittest.TestCase):
             self.assertEqual(o["qty"], 10)
         finally:
             X.GUARD_ON = old
+
+
+class TestSectorBrakeOff(unittest.TestCase):
+    """섹터 브레이크 스위치 꺼짐(기본값, 2026-11-10 저녁 사용자 결정) — 브레이크·섹터 축소 없이 종목 상한만 본다."""
+    def setUp(self):
+        self._old, X.SECTOR_BRAKE_ON = X.SECTOR_BRAKE_ON, False
+
+    def tearDown(self):
+        X.SECTOR_BRAKE_ON = self._old
+        E.EXPOSURE_CTX = None
+
+    def test_no_brakes_limits_summary(self):
+        self.assertEqual(X.update_brakes({"IT": "long"}, {"IT": 0.143, "전기전자": -0.112}), {})      # 걸려 있던 것도 푼다
+        lim = X.limits(TOP)
+        self.assertEqual((lim["sectorNetMax"], lim["sectorNetRelease"], lim["sectorBrake"]), (None, None, False))
+        sm = X.summarize([{"code": "A", "name": "A", "side": "long", "sector": "IT", "value": 150_000}], 0, 1_000_000, TOP)
+        self.assertEqual((sm["sectors"][0]["over"], sm["sectors"][0]["brake"]), (False, None))
+        X.SECTOR_BRAKE_ON = True
+        self.assertEqual(X.limits(TOP)["sectorNetMax"], X.SECTOR_NET_MAX)
+
+    def test_guard_order_keeps_only_stock_cap(self):
+        ctx = {"eq": 1_000_000, "top": TOP, "brakes": {}, "px": {}}
+        ps = [pos("A", "long", "IT", 90, 1000)]                                   # IT Long 9% 보유
+        o = order("B", "long", "IT", 50, 1000)                                    # 5% 주문 = 종목 상한 딱
+        self.assertEqual(X.guard_order(ctx, ps, [], o), (50, None))               # 섹터 ±10% 를 안 보니 그대로
+        X.SECTOR_BRAKE_ON = True
+        q, why = X.guard_order(ctx, ps, [], o)
+        self.assertEqual(q, 10)                                                  # 켜면 섹터 여유 1% → 10주로 축소
+        self.assertIn("섹터 IT 순노출 한도", why)
+        X.SECTOR_BRAKE_ON = False
+        L = E.new_ledger(1_000_000, start="2026-09-01")
+        E.EXPOSURE_CTX = ctx
+        o2 = E.place_entry(L, code="035720", name="K", date="2026-09-01", valid_date="2026-09-02", entry=10000, stop=9500, target=11000,
+                           weight=0.10, sector="IT 서비스")
+        self.assertEqual((o2["qty"], o2["guardFrom"]), (5, 10))                   # 종목 상한(R3)은 그대로 산다
+        self.assertIn("종목 상한 5%", o2["guard"])
 
 
 class TestSectorSplit(unittest.TestCase):

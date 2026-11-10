@@ -10,7 +10,7 @@
 | R3 | 종목당 비중 상한 | **코스피 시총 1·2위 10% / 그 외 5%** (종전 전 종목 10%) |
 | R4 | Short 담보 | **현금 담보 먼저 → 현금이 모자라면 주식 대용(증거금률 50%)** (종전 대용·증거금률 100%) |
 | R5 | 진입 첫날 손절가 도달 | 남은 분할을 취소하지 않고, **손절가 너머에서도 VWAP 조건(리밋 안쪽 · VWAP 보다 유리)이면 체결** — `vwap/config.FILL_STOP_KEEP_ENTRY` |
-| R6 | 섹터별 순노출 ±10% | **브레이크(같은 방향 신규·채우기 중단) + 반대 방향 후보 우선 검토, 강제 진입 없음** — 6절 제안대로 확정. 발동 ±10% / 해제 ±8% |
+| R6 | 섹터별 순노출 ±10% | **브레이크(같은 방향 신규·채우기 중단) + 반대 방향 후보 우선 검토, 강제 진입 없음** — 6절 제안대로 확정. 발동 ±10% / 해제 ±8%. **→ 2026-11-10 저녁 사용자 결정: 끔**(첫 정산에서 제약 Long 4종목이 판단도 못 받음 — `exposure.SECTOR_BRAKE_ON` 기본 False, 켜려면 Railway 변수 `SWING_SECTOR_BRAKE=1`) |
 
 ### 구현 현황 (2026-11-10)
 | 규칙 | 상태 | 위치 |
@@ -19,7 +19,7 @@
 | R3 종목 상한 | **적용** — 신규·비중 채우기·재주문·보충 주문 모두(`engine.place_entry` 한 곳). 보유 + 대기 주문 + 이 주문 ≤ 상한이 되게 수량 축소, 여유 0.3% 미만이면 주문 안 함. 이미 넘은 보유는 추가만 막음 | `exposure.guard_order` |
 | R4 Short 담보 | **적용** — `SHORT_COLLATERAL=cash_first`(그날 Long 진입 몫을 뺀 여유 현금 ≥ 진입 금액이면 현금 담보, 아니면 대용) · `SHORT_MARGIN=0.5`. 주문 단위 선택. 기존 대용 Short 는 그대로 정산(요구 담보만 50%로) | `engine.settle_day` |
 | R5 | **적용** | `vwap/executor.py` |
-| R6 섹터 | **적용** — 브레이크: 그 섹터 같은 방향 후보는 판단 생략(행만 남김)·주문 차단, 한도 안 섹터도 ±10%를 넘기는 주문은 수량 축소. 우선 검토: **이미 후보에 오른** 반대 방향 종목을 판단 순서 맨 앞으로. 브레이크 상태는 원장 `sectorBrake`(해제 ±8%) | `daily._exposure_setup`·`_sector_split`, `exposure.update_brakes` |
+| R6 섹터 | **구현됨 · 기본 꺼짐(2026-11-10 저녁 사용자 결정, `SWING_SECTOR_BRAKE=1` 로 켬)** — 켜면 브레이크: 그 섹터 같은 방향 후보는 판단 생략(행만 남김)·주문 차단, 한도 안 섹터도 ±10%를 넘기는 주문은 수량 축소. 우선 검토: **이미 후보에 오른** 반대 방향 종목을 판단 순서 맨 앞으로. 브레이크 상태는 원장 `sectorBrake`(해제 ±8%) | `daily._exposure_setup`·`_sector_split`, `exposure.update_brakes` |
 - **R6 우선 검토의 한계(다음 단계)**: 유니버스는 섹터마다 한 방향(강한 섹터 = Long, 약한 섹터 = Short)만 채점한다. 그래서 Long 이 쏠린 강한 섹터에는
   Short 후보가 애초에 잘 올라오지 않는다 — 지금 구현은 매트릭스·유니버스·촉매가 이미 낸 후보 중에서만 앞세운다. 한도 섹터에서 반대 방향 종목을
   새로 찾으려면 유니버스가 그 섹터를 반대 방향으로도 채점해야 한다(P0 에서 필요성 확인 후).
@@ -37,7 +37,7 @@
     실제로 체결돼야 내려간다(Long 이 막힌 주에는 청산 대금이 현금으로 쌓임) — Short 체결률이 낮으면 현금은 단계 한도를 넘은 채 남을 수 있다.
     장중 체결 직전 검사(P4)는 아직 없다 — 가격 변동·Short 환매로 벗어난 건 다음 정산에서 신규 주문으로만 조정.
 - 끄는 스위치: Railway 변수 `SWING_EXPOSURE_GLIDE=0`(R1·R2 를 표시 전용으로 — 방향 게이트·비중 확대 해제), `exposure.BOOST_MAX=1.0`(비중 확대만 해제 — 코드 수정),
-  `SWING_EXPOSURE_GUARD=0`(R1~R3·R6 주문 단계 적용 전부 해제), `SWING_SHORT_COLLATERAL=subst`·`SWING_SHORT_MARGIN=1.0`(R4 종전),
+  `SWING_EXPOSURE_GUARD=0`(R1~R3·R6 주문 단계 적용 전부 해제), `SWING_SECTOR_BRAKE=1`(R6 켜기 — 기본 꺼짐), `SWING_SHORT_COLLATERAL=subst`·`SWING_SHORT_MARGIN=1.0`(R4 종전),
   `vwap/config.FILL_STOP_KEEP_ENTRY=False`(R5 종전 — 코드 수정).
 - 정산 기록: `run/<date>.exposure`{netPct, cashPct, longPct, shortPct, brakes, top, sectorNet, limits{netMin, netMax, cashMax, week, final}, gate} ·
   주문의 `guard`(축소 사유)·`boostFrom`(확대 전 PM 비중)·`collateral`(cash|subst).

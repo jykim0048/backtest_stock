@@ -5,10 +5,11 @@
   R3 종목당 비중 상한               : 코스피 시총 상위 TOP_N(2) 종목 WEIGHT_MAX_TOP(10%), 그 외 WEIGHT_MAX(5%)
   R1·R2 는 주당 10%p 씩 단계적으로 좁힌다(glide_limits — 아래 "단계 한도").
   섹터 순노출                      : ±SECTOR_NET_MAX(10%)에 닿으면 같은 방향 신규·채우기 중단(브레이크), ±SECTOR_NET_RELEASE(8%) 안으로 오면 해제
+                                   ※ 2026-11-10 저녁 사용자 결정으로 **기본 꺼짐**(SECTOR_BRAKE_ON — Railway 변수 SWING_SECTOR_BRAKE=1 로 켬)
 
 이 모듈은 한도와 계산만 담는다. 대시보드는 표시(monitor)에 쓰고, 주문 단계의 적용(브레이크·상한)은 daily·engine 이 부른다.
 값을 바꿀 땐 이 파일을 고치고 PLAN_EXPOSURE.md 에 함께 기록한다(환경변수로 덮어쓰지 않는다 — 규칙 변경이 git 이력에 남게).
-주문 단계 적용을 통째로 끄는 스위치만 환경변수(SWING_EXPOSURE_GUARD=0)로 둔다.
+주문 단계 적용을 통째로 끄는 스위치(SWING_EXPOSURE_GUARD=0)와 섹터 브레이크 스위치(SWING_SECTOR_BRAKE=1)만 환경변수로 둔다.
 """
 import datetime
 import os
@@ -55,7 +56,8 @@ def weight_cap(code, top=DEFAULT_TOP):
 def limits(top=DEFAULT_TOP):
     """대시보드·API 용 한도 묶음."""
     return {"netMin": NET_MIN, "netMax": NET_MAX, "cashMax": CASH_MAX,
-            "sectorNetMax": SECTOR_NET_MAX, "sectorNetRelease": SECTOR_NET_RELEASE,
+            "sectorNetMax": SECTOR_NET_MAX if SECTOR_BRAKE_ON else None,          # None = 섹터 브레이크 꺼짐(대시보드 '한도' 표시 없음)
+            "sectorNetRelease": SECTOR_NET_RELEASE if SECTOR_BRAKE_ON else None, "sectorBrake": SECTOR_BRAKE_ON,
             "weightMax": WEIGHT_MAX, "weightMaxTop": WEIGHT_MAX_TOP, "topCodes": list(top or ())}
 
 
@@ -79,8 +81,8 @@ def summarize(positions, cash, equity, top=DEFAULT_TOP):
     for name, s in secs.items():
         n = (s["long"] - s["short"]) / eq
         rows.append({"sector": name, "long": s["long"], "short": s["short"], "net": s["long"] - s["short"], "netPct": n,
-                     "over": abs(n) >= SECTOR_NET_MAX,
-                     "brake": ("long" if n >= SECTOR_NET_MAX else "short" if n <= -SECTOR_NET_MAX else None)})
+                     "over": SECTOR_BRAKE_ON and abs(n) >= SECTOR_NET_MAX,
+                     "brake": (("long" if n >= SECTOR_NET_MAX else "short" if n <= -SECTOR_NET_MAX else None) if SECTOR_BRAKE_ON else None)})
     rows.sort(key=lambda r: -abs(r["netPct"]))
     over_w = []
     for p in positions:
@@ -98,6 +100,10 @@ def summarize(positions, cash, equity, top=DEFAULT_TOP):
 # ── 주문 단계 적용(2026-11-10) — engine.place_entry 가 EXPOSURE_CTX 가 있을 때 guard_order 를 부른다 ─────────────────
 
 GUARD_ON = os.environ.get("SWING_EXPOSURE_GUARD", "1") != "0"   # 급할 때 Railway 변수로 끄는 스위치(0 = 종목 상한·섹터 브레이크 미적용)
+# 섹터 브레이크(R6) 스위치 — 2026-11-10 저녁 사용자 결정 "섹터 한도를 아예 끈다": 기본 꺼짐, 켜려면 Railway 변수 SWING_SECTOR_BRAKE=1.
+# 꺼지면 브레이크 갱신(원장 sectorBrake 는 {} 로)·같은 방향 판단 생략·반대 방향 우선 검토·주문 단계 섹터 ±10% 축소를 모두 하지 않는다.
+# 종목 상한(R3)·순노출 단계 한도(R1)·비중 확대(R2)는 그대로. 대시보드의 섹터 '한도' 표시도 끈다(limits().sectorNetMax = None).
+SECTOR_BRAKE_ON = os.environ.get("SWING_SECTOR_BRAKE", "0") != "0"
 MIN_ORDER_PCT = 0.003          # 한도 여유가 평가액의 0.3% 미만이면 주문하지 않는다(자투리 주문 방지)
 
 
@@ -135,8 +141,10 @@ def sector_net_pct(b, eq):
 
 def update_brakes(prev, net_pct):
     """섹터 브레이크 갱신 — ±SECTOR_NET_MAX 도달이면 건다, 걸려 있던 건 ±SECTOR_NET_RELEASE 안으로 와야 푼다.
-    반환 {섹터: 'long'|'short'} — 그 방향의 신규·비중 채우기를 멈춘다."""
+    반환 {섹터: 'long'|'short'} — 그 방향의 신규·비중 채우기를 멈춘다. 스위치가 꺼져 있으면 항상 {}(걸려 있던 것도 푼다)."""
     out = {}
+    if not SECTOR_BRAKE_ON:
+        return out
     for s, n in (net_pct or {}).items():
         was = (prev or {}).get(s)
         if n >= SECTOR_NET_MAX or (was == "long" and n > SECTOR_NET_RELEASE):
@@ -222,7 +230,8 @@ def boost_weight(ctx, weight, code):
 def guard_order(ctx, positions, orders, o):
     """진입 주문 한 건에 종목 상한(R3)·섹터 브레이크·순노출 (단계) 한도(R1)를 적용 → (허용 수량, 사유 또는 None).
     ctx = {eq, top, brakes, px[, limits, boostLeft]}. 보유 + 이미 낸 대기 주문 + 이 주문이 종목 상한·섹터 ±10%·순노출 한도를 넘지 않게
-    수량을 줄이고, 여유가 MIN_ORDER_PCT 미만이거나 섹터가 같은 방향으로 브레이크 중이면 0. limits 가 없으면 순노출은 보지 않는다."""
+    수량을 줄이고, 여유가 MIN_ORDER_PCT 미만이거나 섹터가 같은 방향으로 브레이크 중이면 0. limits 가 없으면 순노출은 보지 않고,
+    섹터 ±10% 는 SECTOR_BRAKE_ON 일 때만 본다."""
     qty, entry, eq = int(o.get("qty") or 0), float(o.get("entry") or 0), float((ctx or {}).get("eq") or 0)
     if not ctx or qty <= 0 or entry <= 0 or eq <= 0:
         return qty, None
@@ -233,10 +242,12 @@ def guard_order(ctx, positions, orders, o):
     b = book(positions, orders, ctx.get("px"))
     cap = weight_cap(code, ctx.get("top"))
     room_code = cap * eq - b["code"].get(code, 0.0)
-    s = b["sector"].get(sector) or {"long": 0.0, "short": 0.0}
-    net = s["long"] - s["short"]
-    room_sec = SECTOR_NET_MAX * eq - net if side == "long" else SECTOR_NET_MAX * eq + net
-    rooms = [(room_code, f"종목 상한 {cap * 100:.0f}%"), (room_sec, f"섹터 {sector} 순노출 한도 ±{SECTOR_NET_MAX * 100:.0f}%")]
+    rooms = [(room_code, f"종목 상한 {cap * 100:.0f}%")]
+    if SECTOR_BRAKE_ON:
+        s = b["sector"].get(sector) or {"long": 0.0, "short": 0.0}
+        net = s["long"] - s["short"]
+        room_sec = SECTOR_NET_MAX * eq - net if side == "long" else SECTOR_NET_MAX * eq + net
+        rooms.append((room_sec, f"섹터 {sector} 순노출 한도 ±{SECTOR_NET_MAX * 100:.0f}%"))
     room_net = net_room(ctx, positions, orders, side)
     if room_net is not None:
         rooms.append((room_net, net_label(ctx, side)))

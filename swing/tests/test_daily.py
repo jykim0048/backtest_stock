@@ -48,14 +48,15 @@ class TestDaily(unittest.TestCase):
     def setUp(self):
         # 노출 한도(종목 상한·섹터 브레이크, 2026-11-10)는 test_exposure_guard 에서 따로 검증 — 여기선 꺼서 종전 수량 기준 유지
         self._guard, _X.GUARD_ON = _X.GUARD_ON, False
+        self._sb = _X.SECTOR_BRAKE_ON                       # 섹터 브레이크는 기본 꺼짐(2026-11-10 저녁) — 아래 테스트가 켜서 본다
         self.st = store.FileStore(tempfile.mkdtemp())
 
     def tearDown(self):
-        _X.GUARD_ON = self._guard
+        _X.GUARD_ON, _X.SECTOR_BRAKE_ON = self._guard, self._sb
 
     def test_run_day_applies_exposure_guard(self):
         # 노출 한도(2026-11-10): 종목 상한 5% → 10% 주문이 절반으로, 체결 뒤 화학 순노출이 +5% 라 브레이크는 아직 없음
-        _X.GUARD_ON = True
+        _X.GUARD_ON, _X.SECTOR_BRAKE_ON = True, True
         ag = FixedAgent({"000010": ("Buy", "Buy", 10000, 9500, 10600), "000030": ("Buy", "Buy", 20000, 19000, 22000)})
         px = prices.DictPrices({
             "2026-09-21": {"000010": b(10000, 10100, 9900, 10050), "000030": b(20000, 20100, 19900, 20000)},
@@ -71,6 +72,22 @@ class TestDaily(unittest.TestCase):
         self.assertEqual(r2["exposure"]["brakes"], {"화학": "long"})
         self.assertEqual(self.st.get("ledger")["sectorBrake"], {"화학": "long"})
         self.assertTrue(any("섹터 순노출 한도" in n for n in r2["notes"]))
+
+    def test_run_day_sector_brake_off_clears_ledger_brake(self):
+        # 섹터 브레이크 꺼짐(기본값): 화학 +10% 에 닿아도 브레이크 없음, 원장에 남아 있던 브레이크도 지운다. 종목 상한은 그대로
+        _X.GUARD_ON, _X.SECTOR_BRAKE_ON = True, False
+        ag = FixedAgent({"000010": ("Buy", "Buy", 10000, 9500, 10600), "000030": ("Buy", "Buy", 20000, 19000, 22000)})
+        px = prices.DictPrices({
+            "2026-09-21": {"000010": b(10000, 10100, 9900, 10050), "000030": b(20000, 20100, 19900, 20000)},
+            "2026-09-22": {"000010": b(10050, 10100, 9950, 10000), "000030": b(20000, 20100, 19900, 20000)}})
+        daily.run_day("2026-09-21", self.st, ag, px, wb("2026-09-21", buy=[("000010", "화학"), ("000030", "화학")]))
+        L = self.st.get("ledger")
+        self.assertEqual([(o["code"], o["qty"]) for o in L["orders"]], [("000010", 2500), ("000030", 1250)])   # 종목 상한 5%
+        L["sectorBrake"] = {"화학": "long"}                                            # 켜져 있던 때의 잔재
+        self.st.put("ledger", L)
+        r2 = daily.run_day("2026-09-22", self.st, ag, px, wb("2026-09-22", buy=[("000010", "화학"), ("000030", "화학")]))
+        self.assertEqual((r2["exposure"]["brakes"], self.st.get("ledger")["sectorBrake"]), ({}, {}))
+        self.assertFalse(any("섹터" in n for n in r2["notes"]))
 
     def test_flow_entry_review_sell(self):
         ag = FixedAgent({"000010": ("Buy", "Buy", 10000, 9500, 10600),

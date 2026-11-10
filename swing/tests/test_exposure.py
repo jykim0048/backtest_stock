@@ -9,6 +9,13 @@ def pos(code, side, sector, value, name=None):
 
 
 class TestExposure(unittest.TestCase):
+    def setUp(self):
+        # 섹터 브레이크(R6)는 2026-11-10 저녁부터 기본 꺼짐 — 여기선 켜서 정한 값·현황 계산을 본다(꺼짐은 test_exposure_guard)
+        self._sb, X.SECTOR_BRAKE_ON = X.SECTOR_BRAKE_ON, True
+
+    def tearDown(self):
+        X.SECTOR_BRAKE_ON = self._sb
+
     def test_limits_are_the_decided_rules(self):
         L = X.limits(["005930", "000660"])
         self.assertEqual((L["netMin"], L["netMax"], L["cashMax"]), (-0.10, 0.15, 0.10))
