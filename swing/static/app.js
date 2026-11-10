@@ -1221,9 +1221,12 @@
   function ppTxt(v) { return v == null ? "—" : (v > 0 ? "+" : v < 0 ? "−" : "") + Math.abs(v).toFixed(2) + "%p"; }
   function ppCell(v) { return '<span class="num ' + (v > 0 ? "up" : v < 0 ? "down" : "") + '">' + ppTxt(v) + "</span>"; }
   function atWon(v) { return '<span class="num ' + (v > 0 ? "up" : v < 0 ? "down" : "") + '">' + (v > 0 ? "+" : "") + won(v) + "</span>"; }   // 기존 wonS(부호 붙은 평문)와 이름 분리 — 같은 이름이 덮어써 툴팁에 HTML 이 새던 버그(2026-11-06)
-  function atBar(v, max) {
-    var w = Math.min(50, Math.abs(v) / (max || 1) * 50);
-    return '<div class="dbar"><span class="' + (v >= 0 ? "l" : "s") + '" style="width:' + w + '%"></span></div>';
+  // Long·Short 포지션 막대(2026-11-10) — 가운데 기준 오른쪽 빨강 = Long, 왼쪽 파랑 = Short 현재 평가금액. max = 표에서 가장 큰 한쪽 노출
+  function atPosBar(l, s, max) {
+    if (!l && !s) return '<div class="dbar" title="현재 보유 없음(청산)"></div>';
+    var w = function (v) { return Math.min(50, v / (max || 1) * 50); };
+    return '<div class="dbar" title="Long ' + (l ? eok(l) : "—") + " · Short " + (s ? eok(s) : "—") + '">' +
+      (s ? '<span class="s" style="width:' + w(s) + '%"></span>' : "") + (l ? '<span class="l" style="width:' + w(l) + '%"></span>' : "") + "</div>";
   }
   // 선정·트레이딩 분해(2026-11-06) — 행의 split {sel, ent, ext, miss}(원). 분해 못 한 종목(종가 미확보)은 none 으로 따로
   function atSplitSum(rows) {
@@ -1305,12 +1308,18 @@
       x.expB = x.cd / x.days;          // 섹터 보유 기간 평균 노출 = 자본 × 일 ÷ 그 섹터를 들고 있던 영업일
       return x;
     }).sort(function (a, b) { return b.pnl - a.pnl; });
-    var maxS = Math.max.apply(null, secs.map(function (x) { return Math.abs(x.pnl); }).concat([1]));
+    // 막대 눈금(2026-11-10) — 포지션 막대 = 섹터 중 가장 큰 한쪽(Long 또는 Short) 노출, 노출 대비 막대 = 섹터 중 가장 큰 |노출 대비|
+    // (종목 행도 같은 눈금 — 넘으면 칸 끝에서 잘린다)
+    var maxPos = Math.max.apply(null, secs.map(function (x) { return Math.max(x.expL, x.expS); }).concat([1]));
+    var maxRet = Math.max.apply(null, secs.map(function (x) { return x.expB ? Math.abs(x.pnl / x.expB) : 0; }).concat([1e-9]));
     var expNote = per === "day" ? "장 시작 노출(전일 종가 × 수량) + 오늘 체결 금액" : "보유 기간 평균 노출(진입 금액 × 보유일 ÷ 보유 영업일)";
     function expRetCell(pnl, eb, days) {
       if (!eb) return td('<span class="at-mut">—</span>', "r");
-      return td('<span title="손익 ' + (pnl > 0 ? "+" : "") + won(pnl) + "원 ÷ " + expNote + " " + won(Math.round(eb)) + "원" +
-        (per === "day" ? "" : " (" + days + "영업일)") + '">' + pct(pnl / eb * 100) + "</span>", "r");
+      // 숫자 뒤에 깔리는 막대 — 길이 = |노출 대비| ÷ 섹터 최대, 색 = 부호(빨강 +, 파랑 −), 칸 오른쪽 끝에서 왼쪽으로 자란다
+      var r = pnl / eb, w = Math.min(100, Math.abs(r) / maxRet * 100);
+      return td('<span class="at-cellbar ' + (r > 0 ? "up" : r < 0 ? "down" : "") + '" style="width:' + w.toFixed(1) + '%"></span>' +
+        '<span class="at-cellnum" title="손익 ' + (pnl > 0 ? "+" : "") + won(pnl) + "원 ÷ " + expNote + " " + won(Math.round(eb)) + "원" +
+        (per === "day" ? "" : " (" + days + "영업일)") + '">' + pct(r * 100) + "</span>", "r at-ret");
     }
     function netCells(l, sh) {   // 현재 노출 — 순노출(억) · 순비중(현재 평가액 대비)
       var net = l - sh;
@@ -1330,7 +1339,8 @@
         '<th class="r" title="청산가 − 청산일 종가">청산</th><th class="r" title="거래세 + 대차료(수수료·슬리피지 미반영)">비용</th>'
       : '<th class="r" title="현재 Long 평가금액">Long</th><th class="r" title="현재 Short 평가금액">Short</th><th class="r" title="Long − Short">순노출</th>' +
         '<th class="r" title="순노출 ÷ 현재 평가액">순비중</th><th class="r">손익(원)</th>') +
-      '<th class="r">기여도</th><th class="r" title="손익 ÷ ' + expNote + '">노출 대비</th><th>− ◀ ▶ +</th></tr></thead><tbody>';
+      '<th class="r">기여도</th><th class="r" title="손익 ÷ ' + expNote + ' — 숫자 뒤 막대 = 섹터 최대 대비 크기">노출 대비</th>' +
+      '<th title="현재 보유 평가금액 — 가운데에서 왼쪽 파랑 = Short, 오른쪽 빨강 = Long"><span class="at-poshead"><span class="down">Short ◀</span><span class="up">▶ Long</span></span></th></tr></thead><tbody>';
     if (!secs.length) h += '<tr class="empty"><td colspan="' + (split ? 11 : 10) + '">기여 내역 없음</td></tr>';
     secs.forEach(function (x) {
       var open = !!AT.open[x.sector], kids = bySec[x.sector].slice().sort(function (a, b) { return b.pnl - a.pnl; });
@@ -1340,7 +1350,7 @@
         (split ? netCells(x.expL, x.expS) + atSplitCells(atSplitSum(bySec[x.sector]), base)
           : td('<span class="num up">' + (x.expL ? eok(x.expL) : "—") + "</span>", "r") + td('<span class="num down">' + (x.expS ? eok(x.expS) : "—") + "</span>", "r") +
             netCells(x.expL, x.expS) + td(atWon(x.pnl), "r")) +
-        contribCell(x.pnl, x.pnlL, x.pnlS) + expRetCell(x.pnl, x.expB, x.days) + td(atBar(x.pnl, maxS)) + "</tr>";
+        contribCell(x.pnl, x.pnlL, x.pnlS) + expRetCell(x.pnl, x.expB, x.days) + td(atPosBar(x.expL, x.expS, maxPos)) + "</tr>";
       if (!open) return;
       kids.forEach(function (e) {
         var st = e.held ? (e.realized ? "보유 · 일부 실현" : "보유") : "청산", sh = e.side === "short";
@@ -1351,7 +1361,7 @@
           (split ? netCells(l, s2) + atSplitCells(e.split, base, e)
             : td(l ? '<span class="num up">' + eok(l) + "</span>" : "", "r") + td(s2 ? '<span class="num down">' + eok(s2) + "</span>" : "", "r") +
               netCells(l, s2) + td(atWon(e.pnl), "r")) +
-          contribCell(e.pnl) + expRetCell(e.pnl, e.expBase, e.expDays) + td(atBar(e.pnl, maxS)) + "</tr>";
+          contribCell(e.pnl) + expRetCell(e.pnl, e.expBase, e.expDays) + td(atPosBar(l, s2, maxPos)) + "</tr>";
       });
     });
     $("at-sectors").innerHTML = h + "</tbody>";

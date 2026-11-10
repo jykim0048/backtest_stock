@@ -864,6 +864,14 @@ td small.sub-qty { display: block; font-size: 10.5px; color: var(--text-muted); 
 .at-sub { font-size: 13px; font-weight: 700; color: #cbd5e1; margin: 14px 0 6px; }
 #at-sectors .dbar .l { background: var(--up-red); }
 #at-sectors .dbar .s { background: var(--down-blue); }
+/* 노출 대비 — 숫자 뒤에 깔리는 막대(2026-11-10): 칸 오른쪽 끝에서 왼쪽으로, 길이 = 섹터 최대 대비, 색 = 부호 */
+#at-sectors td.at-ret { position: relative; min-width: 84px; }
+#at-sectors .at-cellbar { position: absolute; right: 6px; top: 50%; height: 18px; transform: translateY(-50%); max-width: calc(100% - 12px); border-radius: 3px; background: rgba(148, 163, 184, .18); }
+#at-sectors .at-cellbar.up { background: rgba(239, 68, 68, .26); }
+#at-sectors .at-cellbar.down { background: rgba(59, 130, 246, .28); }
+#at-sectors .at-cellnum { position: relative; }
+/* 포지션 막대 머리글 — 왼쪽 Short · 오른쪽 Long */
+#at-sectors .at-poshead { display: flex; justify-content: space-between; gap: 8px; font-size: 11px; }
 #at-sectors tr.at-sec { cursor: pointer; }
 #at-sectors tr.at-sec:hover .stock-name { color: var(--kospi-blue); }
 #at-sectors tr.at-sec.open { background: rgba(0, 240, 255, .04); }
