@@ -1180,15 +1180,15 @@
       font-weight: bold;
     }
 
-    /* Premium Sliding Drawer for Stock Analysis Reports */
+    /* Stock Analysis Report — centered popup (2026-11-10: swing-web 판단 팝업과 같은 가운데 모달, 종전 우측 슬라이드 드로어) */
     .detail-drawer-overlay {
       position: fixed;
       top: 0;
       left: 0;
       width: 100%;
       height: 100%;
-      background: rgba(3, 7, 18, 0.5);
-      backdrop-filter: blur(4px);
+      background: rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(3px);
       z-index: 1000;
       opacity: 0;
       visibility: hidden;
@@ -1202,16 +1202,20 @@
 
     .detail-drawer {
       position: fixed;
-      top: 0;
-      right: -550px;
-      width: 520px;
-      height: 100%;
-      background: rgba(15, 23, 42, 0.95);
-      border-left: 1px solid var(--border-color);
-      box-shadow: -10px 0 30px rgba(0, 0, 0, 0.5);
+      top: 50%;
+      left: 50%;
+      width: min(900px, calc(100vw - 32px));
+      max-height: 86vh;
+      background: rgba(11, 18, 34, 0.97);
+      border: 1px solid var(--border-color);
+      border-radius: 20px;
+      box-shadow: 0 24px 70px rgba(0, 0, 0, 0.6);
       z-index: 1001;
-      transition: right 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-      padding: 30px;
+      opacity: 0;
+      visibility: hidden;
+      transform: translate(-50%, -50%) scale(0.97);
+      transition: opacity 0.25s ease, transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.35s;
+      padding: 0 30px 30px;
       overflow-y: auto;
       backdrop-filter: blur(20px);
       display: flex;
@@ -1221,21 +1225,40 @@
 
     @media (max-width: 550px) {
       .detail-drawer {
-        width: 100%;
-        right: -100%;
+        width: calc(100vw - 16px);
+        max-height: 92vh;
+        padding: 0 16px 20px;
+        border-radius: 14px;
       }
     }
 
     .detail-drawer.active {
-      right: 0;
+      opacity: 1;
+      visibility: visible;
+      transform: translate(-50%, -50%) scale(1);
     }
 
+    /* 제목 줄은 스크롤해도 위에 붙어 있다(swing-web .dlg-head) — 팝업 좌우 패딩까지 덮는 배경 */
     .drawer-header {
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
       border-bottom: 1px solid var(--border-color);
-      padding-bottom: 20px;
+      padding: 24px 30px 18px;
+      margin: 0 -30px;
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      background: rgba(11, 18, 34, 0.97);
+      border-radius: 20px 20px 0 0;
+    }
+
+    @media (max-width: 550px) {
+      .drawer-header {
+        padding: 18px 16px 14px;
+        margin: 0 -16px;
+        border-radius: 14px 14px 0 0;
+      }
     }
 
     .drawer-title-sec {
@@ -6438,6 +6461,10 @@
       document.getElementById("detail-drawer").classList.remove("active");
       document.getElementById("drawer-overlay").classList.remove("active");
     }
+    // 가운데 팝업(2026-11-10) — Esc 로도 닫는다
+    document.addEventListener("keydown", e => {
+      if (e.key === "Escape" && document.getElementById("detail-drawer").classList.contains("active")) closeDetailDrawer();
+    });
 
     // ===== Top-level drawer panes (Account / Deep Research) =====
     function selectDrawerPane(pane) {
