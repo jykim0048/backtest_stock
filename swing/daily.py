@@ -368,9 +368,10 @@ def _exposure_setup(L, store, bars, date, run, note=True):
                            "longPct": round(sm["longPct"] * 100, 2), "shortPct": round(sm["shortPct"] * 100, 2),
                            "brakes": brakes, "top": top,
                            "sectorNet": {s: round(v * 100, 2) for s, v in sorted(net.items(), key=lambda kv: -abs(kv[1]))}}
-        if X.GLIDE_ON:
-            # 순노출·현금 단계 한도(주당 10%p) — 처음 켠 날의 장부(청산 예약분 포함)가 출발점, 1주차는 그날 주문의 진입일(다음 영업일)부터 7일
-            g, nxt = L.get("exposureGlide"), tradedays.next_trading_day(date)
+        nxt = tradedays.next_trading_day(date)
+        if X.GLIDE_ON and nxt >= X.GLIDE_START:
+            # 순노출·현금 단계 한도(주당 10%p) — 진입일이 GLIDE_START 이후인 첫 정산의 장부(청산 예약분 포함)가 출발점, 1주차는 그 진입일부터 7일
+            g = L.get("exposureGlide")
             if not g:
                 full = X.summarize([dict(q, value=X._val(dict(p, sellPending=None), px)) for q, p in zip(ps, L["positions"])],
                                    L["cash"], eq, top)
@@ -386,6 +387,9 @@ def _exposure_setup(L, store, bars, date, run, note=True):
                     ("순노출·현금 한도" if lim["final"] else f"순노출·현금 단계 한도 {lim['week']}주차(주당 {X.GLIDE_STEP * 100:.0f}%p)")
                     + f" — 순노출 {lim['netMin'] * 100:+.1f} ~ {lim['netMax'] * 100:+.1f}%(지금 {sm['netPct'] * 100:+.1f}%)"
                     + f" · 현금 {lim['cashMax'] * 100:.1f}% 이하(지금 {sm['cashPct'] * 100:.1f}%)")
+        elif X.GLIDE_ON and note and (sm["netOver"] or sm["cashOver"]):
+            run["notes"].append(f"순노출 {sm['netPct'] * 100:+.1f}% · 현금 {sm['cashPct'] * 100:.1f}% — 한도 밖(표시만). "
+                                f"단계 한도는 {X.GLIDE_START} 진입분부터 적용")
         engine.EXPOSURE_CTX = ctx
         if brakes and note:
             run["notes"].append("섹터 순노출 한도(±%d%%) 도달 — %s" % (
