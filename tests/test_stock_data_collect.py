@@ -75,7 +75,16 @@ def test_dart_rows_and_ca_key():
 def test_universe():
     uni = C.build_universe(mode="index")
     assert 300 <= len(uni) <= 400 and all(len(c) == 6 for c in uni) and "005930" in uni
-    assert set(uni) <= set(C.build_universe(mode="archive"))
+    arch = C.build_universe(mode="archive")
+    assert set(uni) <= set(arch)
+    listed = C.load_listed()
+    assert listed and set(arch) <= listed and "000060" not in arch            # 상장폐지 종목(메리츠화재)은 빠진다
+    saved = C.load_listed
+    C.load_listed = lambda root=C.ROOT: None                                   # 상장 목록을 못 읽으면 필터하지 않는다
+    try:
+        assert len(C.build_universe(mode="archive")) >= len(arch)
+    finally:
+        C.load_listed = saved
 
 
 def test_normalize():

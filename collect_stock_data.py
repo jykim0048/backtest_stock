@@ -64,8 +64,21 @@ def _get_json(url, timeout=30, retries=2, headers=None):
 
 
 # ── 유니버스 ─────────────────────────────────────────────────────────────────────────────────
+def load_listed(root=ROOT):
+    """현재 상장 종목 코드 집합 — public/assets/krx_caps.json(매일 갱신, 보통주+우선주 전 종목). 못 읽으면 None(필터 안 함)."""
+    try:
+        with open(os.path.join(root, "public", "assets", "krx_caps.json"), encoding="utf-8") as f:
+            caps = (json.load(f) or {}).get("caps") or {}
+        out = {str(c).zfill(6) for c in caps}
+        return out if len(out) >= 1000 else None     # 비정상적으로 작으면 깨진 파일로 보고 필터하지 않는다
+    except Exception as e:                           # noqa: BLE001
+        log(f"krx_caps 로드 실패(상장 필터 생략): {e}")
+        return None
+
+
 def build_universe(root=ROOT, mode="archive"):
-    """수급 수집 대상 코드 집합. index = 지수 구성(KOSPI200 ∪ KOSDAQ150), archive(기본) = + netbuy_rank 아카이브 등재 ∪ 워치리스트."""
+    """수급 수집 대상 코드 집합. index = 지수 구성(KOSPI200 ∪ KOSDAQ150), archive(기본) = + netbuy_rank 아카이브 등재 ∪ 워치리스트.
+    아카이브에는 상장폐지 종목이 남아 있으므로(메리츠화재 000060 등) 현재 상장 종목(krx_caps)만 남긴다 — 2026-11-11."""
     uni = set()
     try:
         with open(os.path.join(root, "public", "assets", "index_constituents.json"), encoding="utf-8") as f:
@@ -93,7 +106,14 @@ def build_universe(root=ROOT, mode="archive"):
                 uni.update(str(s.get("code") or "").zfill(6) for s in json.load(f) if isinstance(s, dict) and s.get("code"))
         except Exception:                            # noqa: BLE001
             pass
-    return sorted(c for c in uni if len(c) == 6)
+    uni = {c for c in uni if len(c) == 6}
+    listed = load_listed(root)
+    if listed is not None:
+        gone = uni - listed
+        if gone:
+            log(f"상장폐지·미상장 {len(gone)}종목 제외(예: {', '.join(sorted(gone)[:5])})")
+        uni &= listed
+    return sorted(uni)
 
 
 # ── 응답 → 행(순수 함수) ─────────────────────────────────────────────────────────────────────
