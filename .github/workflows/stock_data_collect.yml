@@ -1,0 +1,68 @@
+name: Stock Data Collect
+
+on:
+  # Railway 상시 서버 스케줄러(railway_server._scheduler)가 평일 18:10 KST 에 트리거한다(휴장일 제외).
+  # 전종목 원본(DART 공시 · 일별 수급 · CA)을 모아 Railway Postgres 의 행 테이블로 보낸다 — PLAN_STOCK_DB.md.
+  # 리포트 파이프라인과 무관한 별도 단계라 git 커밋이 없다(산출물은 DB 뿐).
+  workflow_dispatch:
+    inputs:
+      parts:
+        description: "수집 파트 (dart,flow,naver,ca 중 쉼표로)"
+        required: false
+        default: "dart,flow,naver,ca"
+      dry_run:
+        description: "true = 전송 없이 건수만 출력"
+        required: false
+        default: "false"
+      force:
+        description: "true = 장 마감 전·휴장일에도 수급 파트 실행"
+        required: false
+        default: "false"
+      limit:
+        description: "유니버스 앞 N종목만(시험용, 0 = 전체)"
+        required: false
+        default: "0"
+      extra:
+        description: "추가 인자 (예: --dart-from 2025-11-11 --dart-to 2026-11-10 / --ca-from 20251111 --ca-to 20270511 / --naver-pages 3)"
+        required: false
+        default: ""
+
+concurrency:
+  group: stock-data
+  cancel-in-progress: false
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      # 표준 라이브러리만 쓴다(fetch_ca_calendar 의 flatten 재사용도 순수 함수) — 설치 단계 없음
+      - name: Collect stock data (공시 · 수급 · CA → Postgres)
+        env:
+          DART_API_KEY: ${{ secrets.DART_API_KEY }}
+          INGEST_TOKEN: ${{ secrets.REPORT_INGEST_TOKEN }}
+          PARTS: ${{ github.event.inputs.parts || 'dart,flow,naver,ca' }}
+          DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
+          FORCE: ${{ github.event.inputs.force || 'false' }}
+          LIMIT: ${{ github.event.inputs.limit || '0' }}
+          EXTRA: ${{ github.event.inputs.extra || '' }}
+        run: |
+          ARGS="--parts $PARTS --limit $LIMIT"
+          if [ "$DRY_RUN" = "true" ]; then ARGS="$ARGS --dry-run"; fi
+          if [ "$FORCE" = "true" ]; then ARGS="$ARGS --force"; fi
+          python collect_stock_data.py $ARGS $EXTRA
+
+      - name: Coverage (적재 현황)
+        if: always()
+        run: |
+          curl -sS --max-time 30 https://backteststock-production.up.railway.app/api/stockdata/status | python -m json.tool --no-ensure-ascii || true

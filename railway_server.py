@@ -12,6 +12,8 @@ research SYNCHRONOUSLY and keep an in-memory cache + the DART corp map warm.
                                  (60s TTL 캐시. [skip railway] 커밋으로 컨테이너
                                  스냅샷이 얼어붙는 문제 대응)
   POST /api/ingest             -> 파이프라인 리포트 업서트 (Bearer INGEST_TOKEN)
+  POST /api/ingest/rows        -> 전종목 원본 행 업서트 — 공시·일별 수급·CA (stock_db.py, Bearer INGEST_TOKEN)
+  GET  /api/stockdata/status   -> 원본 테이블 커버리지(공개) · /flow|disclosures|ca|bundle?code= (읽기 토큰)
   GET /api/prices[?codes=..]  -> 실시간 시세 (Vercel api/index.py 이식,
                                  4s TTL 캐시로 다중 탭 대응)
   GET /api/research?q=<name|code>
@@ -46,6 +48,7 @@ sys.path.insert(0, ROOT)
 
 import generate_analysis as ga          # heavy import once at boot — keeps the worker warm
 import report_db                        # 리포트 Postgres 저장소 (DATABASE_URL 미설정 시 자동 비활성)
+import stock_db                         # 전종목 원본(공시·수급·CA) 행 저장소 — 같은 풀 사용(PLAN_STOCK_DB.md)
 import krx_calendar                     # KRX 휴장일 캘린더 — KR 파이프라인 dispatch 게이트(2026-09-24)
 import press_news                       # 한경·매경 종목 뉴스 수집 스레드 (DATABASE_URL 미설정 시 비활성)
 
@@ -217,6 +220,8 @@ _RAW_TOKEN = os.environ.get("GH_RAW_TOKEN") or os.environ.get("GH_DISPATCH_TOKEN
 DATA_TTL   = int(os.environ.get("STATIC_DATA_TTL", "60"))   # 데이터 파일 raw 캐시(초)
 INGEST_TOKEN = os.environ.get("INGEST_TOKEN", "")           # POST /api/ingest 인증 (PG 쓰기)
 INGEST_MAX_BODY = int(os.environ.get("INGEST_MAX_BODY", str(64 * 1024 * 1024)))
+# /api/stockdata/* 읽기 토큰 — 미설정이면 INGEST_TOKEN 으로 읽는다(둘 다 없으면 읽기 차단). status 만 공개.
+STOCKDATA_READ_TOKEN = os.environ.get("STOCKDATA_READ_TOKEN", "")
 
 _RAW_CACHE = {}          # relpath -> {"body": bytes|None, "ts": float}
 _RAW_LOCK  = threading.Lock()
@@ -478,7 +483,67 @@ class Handler(BaseHTTPRequestHandler):
         u = urlparse(self.path)
         if u.path == "/api/ingest":
             return self._ingest()
+        if u.path == "/api/ingest/rows":
+            return self._ingest_rows()
         return self._send(404, {"status": "error", "message": "not found"})
+
+    def _ingest_rows(self):
+        """전종목 원본 행 업서트(2026-11-11, PLAN_STOCK_DB.md) — 수집 워크플로(collect_stock_data.py) 전용.
+
+        POST /api/ingest/rows  (Authorization: Bearer $INGEST_TOKEN)
+        {"table": "flow" | "disclosures" | "ca" | "runs", "rows": [...]}
+        행 검증·화이트리스트는 stock_db 가 한다 — 형식이 틀린 행은 버리고 건수만 돌려준다."""
+        try:
+            if not INGEST_TOKEN or \
+               self.headers.get("Authorization", "") != f"Bearer {INGEST_TOKEN}":
+                return self._send(401, {"status": "error", "message": "unauthorized"})
+            if not stock_db.enabled():
+                return self._send(503, {"status": "error", "message": "DATABASE_URL 미설정 — DB 비활성"})
+            try:
+                length = int(self.headers.get("Content-Length", "0"))
+            except ValueError:
+                length = 0
+            if length <= 0 or length > INGEST_MAX_BODY:
+                return self._send(400, {"status": "error", "message": f"invalid content-length: {length}"})
+            data = json.loads(self.rfile.read(length).decode("utf-8"))
+            table, rows = str(data.get("table", "")), data.get("rows")
+            if table not in ("flow", "disclosures", "ca", "runs") or not isinstance(rows, list) or len(rows) > stock_db.MAX_ROWS:
+                return self._send(400, {"status": "error", "message": f"table·rows 형식 오류(rows ≤ {stock_db.MAX_ROWS})"})
+            res = stock_db.upsert_rows(table, rows)
+            if res is None:
+                return self._send(500, {"status": "error", "message": "DB 업서트 실패", "db": report_db.status()})
+            return self._send(200, {"status": "ok", "table": table, **res})
+        except Exception as ex:
+            return self._send(500, {"status": "error", "message": str(ex)[:300]})
+
+    def _stockdata(self, u):
+        """전종목 원본 조회 — /api/stockdata/status(공개) · flow|disclosures|ca|bundle?code=&from=&to=|days= (읽기 토큰)."""
+        try:
+            what = u.path[len("/api/stockdata/"):].strip("/")
+            if not stock_db.enabled():
+                return self._send(503, {"status": "error", "message": "DATABASE_URL 미설정 — DB 비활성"})
+            if what == "status":
+                st = stock_db.status()
+                return self._send(200 if st is not None else 500,
+                                  {"status": "ok" if st is not None else "error", "tables": st, "db": report_db.status()})
+            q = {k: v[0] for k, v in parse_qs(u.query).items()}
+            want = STOCKDATA_READ_TOKEN or INGEST_TOKEN
+            got = self.headers.get("Authorization", "")
+            got = got[len("Bearer "):] if got.startswith("Bearer ") else q.get("token", "")
+            if not want or got != want:
+                return self._send(401, {"status": "error", "message": "unauthorized"})
+            fn = {"flow": lambda: stock_db.flow(q.get("code"), q.get("from"), q.get("to")),
+                  "disclosures": lambda: stock_db.disclosures(q.get("code"), q.get("from"), q.get("to")),
+                  "ca": lambda: stock_db.ca(q.get("code"), q.get("from"), q.get("to")),
+                  "bundle": lambda: stock_db.bundle(q.get("code"), q.get("days") or 120)}.get(what)
+            if fn is None:
+                return self._send(404, {"status": "error", "message": "not found"})
+            out = fn()
+            if out is None:
+                return self._send(400, {"status": "error", "message": "code 형식 오류 또는 DB 조회 실패"})
+            return self._send(200, {"status": "ok", "code": q.get("code"), "data": out})
+        except Exception as ex:
+            return self._send(500, {"status": "error", "message": str(ex)[:300]})
 
     def _ingest(self):
         """파이프라인 → Postgres 업서트 창구 (dual-write / 백필).
@@ -547,6 +612,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(500, {"status": "error", "message": str(ex)[:300]})
         if u.path == "/api/research":
             return self._research(u)
+        if u.path.startswith("/api/stockdata/"):
+            return self._stockdata(u)
         if u.path.startswith("/api/"):
             return self._send(404, {"status": "error", "message": "not found"})
         # API 외 경로는 대시보드 정적 서빙 ("/" → public/index.html)
@@ -676,6 +743,7 @@ CORPMAP_WF   = "build_corp_map.yml"
 INDEXCON_WF  = "index_constituents.yml"
 THEMEMAP_WF  = "theme_map.yml"
 USNIGHT_WF   = "us_night_catalysts.yml"
+STOCKDATA_WF = "stock_data_collect.yml"   # 18:10 전종목 원본 수집(공시·수급·CA → Postgres, PLAN_STOCK_DB.md)
 XLSXREF_WF   = "weekly_xlsx_refresh.yml"  # 주간 엑셀 재빌드 — swing 유니버스 오늘자 생성 후 1회(2026-10-14)
 SWING_API    = os.environ.get("SWING_API_BASE", "https://swing-web-production.up.railway.app").rstrip("/")
 INTRADAY_MIN = {7, 37}            # KST 09:07~14:37, 30분 간격 (장전 08:37·15:07 은 단독 조건)
@@ -826,6 +894,12 @@ def _scheduler():
                     key = (today, "monthly-review")
                     if key not in fired and _dispatch(MONTHLY_WF):
                         fired.add(key)
+                # 전종목 원본 수집 18:10 (2026-11-11, PLAN_STOCK_DB.md) — KIS 확정(15:40+)·네이버 당일 반영 뒤,
+                # 마감 파이프라인(16:00~16:30)·swing 정산(17:05)과 허브 부하가 겹치지 않는 시각. 하루 1회.
+                if now.hour == 18 and now.minute == 10:
+                    key = (today, "stock-data")
+                    if key not in fired and _dispatch(STOCKDATA_WF):
+                        fired.add(key)
                 # 테마·섹터맵 평일 매일 06:30 KST (2026-09-22 주 1회→매일: 신규 상장·분류 변경
                 # 종목이 다음 월요일까지 촉매 타임라인 섹터 결측이던 공백 축소, 빌드 ~3분)
                 if now.hour == 6 and now.minute == 30:
@@ -892,6 +966,8 @@ def main():
         ok = report_db.init_schema()
         print(f"[db] Postgres {'ready (스키마 확인 완료)' if ok else 'INIT FAILED — raw 폴백으로 동작'}"
               f" {report_db.status()}", flush=True)
+        ok2 = stock_db.init_schema()                 # 전종목 원본 테이블(없으면 생성) — 실패해도 리포트 서빙과 무관
+        print(f"[db] stock_db {'ready' if ok2 else 'INIT FAILED — /api/stockdata·ingest/rows 비활성'}", flush=True)
 
     threading.Thread(target=_warmup, daemon=True).start()
     threading.Thread(target=_scheduler, daemon=True).start()
