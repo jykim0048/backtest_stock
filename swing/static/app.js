@@ -270,12 +270,18 @@
   function limLine(net, cashPct) {
     var L = expLim();
     if (!L) return "";
-    var lo = L.netMin * 100, hi = L.netMax * 100, over = net > hi ? net - hi : net < lo ? net - lo : 0;
-    var h = '<span class="port-sub lim-line"><span title="순노출 한도 — (Long − Short) ÷ 평가액">순노출 한도 ' + (lo > 0 ? "+" : "") + lo.toFixed(0) + " ~ +" + hi.toFixed(0) + "% " +
+    // 단계 한도(주당 10%p, 2026-11-10) — 최종 한도에 닿기 전엔 이번 주 한도 대비 초과 폭을 보여 준다
+    var st = L.stage && !L.stage.final ? L.stage : null, E = st || L;
+    function sg(v) { v = Math.round(v * 10) / 10; return (v > 0 ? "+" : "") + v.toFixed(v % 1 ? 1 : 0); }
+    var lo = E.netMin * 100, hi = E.netMax * 100, over = net > hi ? net - hi : net < lo ? net - lo : 0;
+    var stTip = st ? " · 주당 10%p 씩 좁히는 단계 한도 " + st.week + "주차(시작 " + st.start + ")" : "";
+    var h = '<span class="port-sub lim-line"><span title="순노출 한도 — (Long − Short) ÷ 평가액' + stTip + '">순노출 한도 ' + sg(L.netMin * 100) + " ~ " + sg(L.netMax * 100) + "% " +
+      (st ? "(이번 주 " + sg(lo) + " ~ " + sg(hi) + "%) " : "") +
       (over ? '<b class="lim-bad">' + (over > 0 ? "+" : "") + over.toFixed(1) + "%p 초과</b>" : '<b class="lim-ok">안</b>') + "</span>";
     if (cashPct != null) {
-      var co = cashPct - L.cashMax * 100;
-      h += ' · <span title="현금 한도 — 원장 현금 ÷ 평가액">현금 ' + cashPct.toFixed(1) + "% / 한도 " + (L.cashMax * 100).toFixed(0) + "% " +
+      var cm = E.cashMax * 100, co = cashPct - cm;
+      h += ' · <span title="현금 한도 — 원장 현금 ÷ 평가액' + stTip + '">현금 ' + cashPct.toFixed(1) + "% / 한도 " + (L.cashMax * 100).toFixed(0) + "% " +
+        (st ? "(이번 주 " + cm.toFixed(1) + "%) " : "") +
         (co > 0 ? '<b class="lim-bad">+' + co.toFixed(1) + "%p 초과</b>" : '<b class="lim-ok">안</b>') + "</span>";
     }
     return h + "</span>";

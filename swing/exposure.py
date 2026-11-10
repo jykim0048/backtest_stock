@@ -3,12 +3,14 @@
   R1 순노출 (Long − Short) ÷ 평가액 : NET_MIN ~ NET_MAX (−10% ~ +15%)
   R2 현금 ÷ 평가액                 : CASH_MAX (10%) 이하 — 현금 = 원장 현금(담보로 묶이지 않은 몫)
   R3 종목당 비중 상한               : 코스피 시총 상위 TOP_N(2) 종목 WEIGHT_MAX_TOP(10%), 그 외 WEIGHT_MAX(5%)
+  R1·R2 는 주당 10%p 씩 단계적으로 좁힌다(glide_limits — 아래 "단계 한도").
   섹터 순노출                      : ±SECTOR_NET_MAX(10%)에 닿으면 같은 방향 신규·채우기 중단(브레이크), ±SECTOR_NET_RELEASE(8%) 안으로 오면 해제
 
 이 모듈은 한도와 계산만 담는다. 대시보드는 표시(monitor)에 쓰고, 주문 단계의 적용(브레이크·상한)은 daily·engine 이 부른다.
 값을 바꿀 땐 이 파일을 고치고 PLAN_EXPOSURE.md 에 함께 기록한다(환경변수로 덮어쓰지 않는다 — 규칙 변경이 git 이력에 남게).
 주문 단계 적용을 통째로 끄는 스위치만 환경변수(SWING_EXPOSURE_GUARD=0)로 둔다.
 """
+import datetime
 import os
 
 NET_MIN = -0.10
@@ -144,10 +146,84 @@ def update_brakes(prev, net_pct):
     return out
 
 
+# ── 단계 한도(2026-11-10 사용자 결정: 순노출·현금 한도는 주당 10%p 씩 단계적으로) ─────────────────────────────────
+# 시작일(원장 exposureGlide = {start, net0, cash0})의 순노출·현금 비중에서 출발해 매주(월요일 기준) GLIDE_STEP 씩 최종 한도(R1·R2)로 좁힌다.
+# 그 주의 한도 = 시작값 − 10%p × 주차(시작 주 = 1주차), 최종 한도에 닿으면 그 뒤로는 최종 한도. 주차는 주문의 진입일(다음 영업일) 기준.
+# 맞추는 장치(보유 강제 축소 없음 — 신규 주문만 조절):
+#   · 방향 게이트(R1): 순노출이 그 주 상한을 넘기게 되는 Long 주문은 축소·중단(하한이면 Short). 보수적으로 본다 —
+#     같은 방향 대기 주문은 전량 체결, 반대 방향 대기 주문은 미체결로 가정(Short 체결률이 낮아 계획만 믿으면 상한을 넘는다).
+#   · 비중 확대(R2): 현금이 그 주 한도를 넘는 동안 신규 주문 비중을 최대 BOOST_MAX 배(종목 상한 R3 안), 확대분 합계는 현금 초과분까지.
+GLIDE_ON = os.environ.get("SWING_EXPOSURE_GLIDE", "1") != "0"   # 0 = 순노출·현금 한도는 표시만(방향 게이트·비중 확대 미적용)
+GLIDE_STEP = 0.10              # 주당 좁히는 폭(10%p)
+BOOST_MAX = 2.0                # 비중 확대 배수 상한(1.0 = 확대 없음)
+
+
+def _monday(d):
+    x = datetime.date.fromisoformat(str(d)[:10])
+    return x - datetime.timedelta(days=x.weekday())
+
+
+def glide_week(start, date):
+    """단계 주차 — 시작일이 속한 주 = 1, 다음 주 월요일부터 2 …"""
+    return max(0, (_monday(date) - _monday(start)).days // 7) + 1
+
+
+def glide_limits(g, date):
+    """그 날짜(주문 진입일)에 적용할 한도. g = 원장 exposureGlide{start, net0, cash0}(없으면 최종 한도 그대로).
+    반환 {netMin, netMax, cashMax, week, final(최종 한도 도달), start, net0, cash0}."""
+    out = {"netMin": NET_MIN, "netMax": NET_MAX, "cashMax": CASH_MAX, "week": None, "final": True}
+    if not g or not g.get("start"):
+        return out
+    k = glide_week(g["start"], date)
+    net0, cash0 = float(g.get("net0") or 0.0), float(g.get("cash0") or 0.0)
+    if net0 > NET_MAX:
+        out["netMax"] = max(NET_MAX, round(net0 - GLIDE_STEP * k, 4))
+    if net0 < NET_MIN:
+        out["netMin"] = min(NET_MIN, round(net0 + GLIDE_STEP * k, 4))
+    if cash0 > CASH_MAX:
+        out["cashMax"] = max(CASH_MAX, round(cash0 - GLIDE_STEP * k, 4))
+    out.update(week=k, start=g["start"], net0=net0, cash0=cash0,
+               final=(out["netMin"], out["netMax"], out["cashMax"]) == (NET_MIN, NET_MAX, CASH_MAX))
+    return out
+
+
+def net_room(ctx, positions, orders, side):
+    """순노출 한도(ctx["limits"])까지 그 방향으로 더 낼 수 있는 금액(음수 = 이미 초과). 한도가 없으면 None.
+    보유(종가 평가, 청산 예약분 제외) + 같은 방향 대기 주문 전량 기준 — 반대 방향 대기 주문은 미체결로 본다."""
+    lim, eq = (ctx or {}).get("limits"), float((ctx or {}).get("eq") or 0)
+    if not lim or eq <= 0:
+        return None
+
+    def tot(b, k):
+        return sum(v[k] for v in b["sector"].values())
+    bp, bo = book(positions, [], ctx.get("px")), book([], orders)
+    net = tot(bp, "long") - tot(bp, "short")
+    if side == "short":
+        return (net - tot(bo, "short")) - lim["netMin"] * eq
+    return lim["netMax"] * eq - (net + tot(bo, "long"))
+
+
+def net_label(ctx, side):
+    lim = (ctx or {}).get("limits") or {}
+    v = lim.get("netMin" if side == "short" else "netMax") or 0.0
+    last = NET_MIN if side == "short" else NET_MAX                 # 순노출 쪽이 최종 한도에 닿았으면 '한도', 아직 좁히는 중이면 '단계 한도'
+    return f"순노출 {'한도' if abs(v - last) < 1e-9 else '단계 한도'} {v * 100:+.1f}%"
+
+
+def boost_weight(ctx, weight, code):
+    """현금이 그 주 한도를 넘는 동안 신규 주문 비중 확대(R2) → 확대한 비중(확대 없으면 그대로).
+    배수 상한 BOOST_MAX · 종목 상한(R3) 안 · 확대분은 남은 현금 초과분 ctx["boostLeft"](금액) 안. 차감은 주문을 낸 쪽(daily)이 실제 주문 금액으로 한다."""
+    left, eq = float((ctx or {}).get("boostLeft") or 0), float((ctx or {}).get("eq") or 0)
+    if not ctx or not weight or eq <= 0 or BOOST_MAX <= 1 or left < MIN_ORDER_PCT * eq:
+        return weight
+    w = min(weight * BOOST_MAX, weight_cap(code, ctx.get("top")), weight + left / eq)
+    return round(w, 4) if w > weight + 1e-9 else weight
+
+
 def guard_order(ctx, positions, orders, o):
-    """진입 주문 한 건에 종목 상한(R3)·섹터 브레이크를 적용 → (허용 수량, 사유 또는 None).
-    ctx = {eq, top, brakes, px}. 보유 + 이미 낸 대기 주문 + 이 주문이 종목 상한·섹터 ±10% 를 넘지 않게 수량을 줄이고,
-    여유가 MIN_ORDER_PCT 미만이거나 섹터가 같은 방향으로 브레이크 중이면 0."""
+    """진입 주문 한 건에 종목 상한(R3)·섹터 브레이크·순노출 (단계) 한도(R1)를 적용 → (허용 수량, 사유 또는 None).
+    ctx = {eq, top, brakes, px[, limits, boostLeft]}. 보유 + 이미 낸 대기 주문 + 이 주문이 종목 상한·섹터 ±10%·순노출 한도를 넘지 않게
+    수량을 줄이고, 여유가 MIN_ORDER_PCT 미만이거나 섹터가 같은 방향으로 브레이크 중이면 0. limits 가 없으면 순노출은 보지 않는다."""
     qty, entry, eq = int(o.get("qty") or 0), float(o.get("entry") or 0), float((ctx or {}).get("eq") or 0)
     if not ctx or qty <= 0 or entry <= 0 or eq <= 0:
         return qty, None
@@ -161,11 +237,14 @@ def guard_order(ctx, positions, orders, o):
     s = b["sector"].get(sector) or {"long": 0.0, "short": 0.0}
     net = s["long"] - s["short"]
     room_sec = SECTOR_NET_MAX * eq - net if side == "long" else SECTOR_NET_MAX * eq + net
-    room = min(room_code, room_sec)
+    rooms = [(room_code, f"종목 상한 {cap * 100:.0f}%"), (room_sec, f"섹터 {sector} 순노출 한도 ±{SECTOR_NET_MAX * 100:.0f}%")]
+    room_net = net_room(ctx, positions, orders, side)
+    if room_net is not None:
+        rooms.append((room_net, net_label(ctx, side)))
+    room, why = min(rooms, key=lambda x: x[0])               # 같으면 앞의 것(종목 → 섹터 → 순노출)
     max_qty = int(room // entry) if room > 0 else 0
     if max_qty >= qty:
         return qty, None
-    why = f"종목 상한 {cap * 100:.0f}%" if room_code <= room_sec else f"섹터 {sector} 순노출 한도 ±{SECTOR_NET_MAX * 100:.0f}%"
     if max_qty * entry < MIN_ORDER_PCT * eq:
         return 0, f"{why} 도달 — 주문 안 함"
     return max_qty, f"{why} — {max_qty:,}/{qty:,}주로 축소"

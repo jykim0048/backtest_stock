@@ -747,7 +747,14 @@ _top_cap_cache = [0.0, None]
 
 def api_config(q):
     from swing import exposure
-    return {"exposure": exposure.limits(_top_cap_codes()),
+    lim = exposure.limits(_top_cap_codes())
+    try:                                                     # 단계 한도(주당 10%p) — 오늘 적용 중인 값. 원장에 출발점이 있을 때만
+        g = (STORE.get("ledger") or {}).get("exposureGlide")
+        if g and exposure.GLIDE_ON:
+            lim["stage"] = exposure.glide_limits(g, _today_kst())
+    except Exception as ex:
+        print(f"[swing] 단계 한도 조회 실패: {type(ex).__name__}: {str(ex)[:120]}", flush=True)
+    return {"exposure": lim,
             "initialCapital": config.INITIAL_CAPITAL, "sellTax": config.SELL_TAX,
             "holdDays": config.HOLD_DAYS, "maxHoldDays": config.MAX_HOLD_DAYS, "maxWeight": config.MAX_WEIGHT,
             "defaultWeight": config.DEFAULT_WEIGHT, "maxNewPerDay": config.MAX_NEW_PER_DAY,

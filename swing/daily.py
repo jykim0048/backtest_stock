@@ -274,6 +274,20 @@ def run_day(date, store, agent, prices, wb, *, force=False, log=print, uni=None,
     if braked_l or braked_s or prio_l or prio_s:
         run["notes"].append(f"섹터 브레이크 {len(brakes)}개 섹터 — 같은 방향 후보 판단 생략 Long {len(braked_l)} · Short {len(braked_s)}, "
                             f"반대 방향 우선 검토 Long {len(prio_l)} · Short {len(prio_s)}")
+    # 방향 게이트(2026-11-10, 순노출 단계 한도): 그 방향으로 더 낼 여유가 없으면(비중 채우기까지 낸 뒤 기준) 후보를 판단하지 않는다 —
+    # 판단 자리는 반대 방향으로 넘어간다(judge_budget). 주문 단계 차단은 engine.place_entry 의 가드가 맡는다.
+    gated_l, gated_s, gate_why = [], [], None
+    for g_side in ("long", "short"):
+        g_room = X.net_room(engine.EXPOSURE_CTX, L["positions"], L["orders"], g_side) if engine.EXPOSURE_CTX else None
+        if g_room is None or g_room >= X.MIN_ORDER_PCT * engine.EXPOSURE_CTX["eq"]:
+            continue
+        gate_why = f"{X.net_label(engine.EXPOSURE_CTX, g_side)} — {'Short' if g_side == 'short' else 'Long'} 신규 중단(판단 생략)"
+        if g_side == "long":
+            gated_l, prio_l, cands, ucands = prio_l + cands + ucands, [], [], []
+        else:
+            gated_s, prio_s, scands, uscands, ccands = prio_s + scands + uscands + ccands, [], [], [], []
+        run["exposure"]["gate"] = g_side
+        run["notes"].append(f"{gate_why} · 후보 {len(gated_l if g_side == 'long' else gated_s)}종목")
     (prio_l, cands, ucands), (prio_s, scands, uscands, ccands), over_l, over_s = judge_budget(
         budget, [prio_l, cands, ucands], [prio_s, scands, uscands, ccands])
     if over_l or over_s:
@@ -291,7 +305,7 @@ def run_day(date, store, agent, prices, wb, *, force=False, log=print, uni=None,
     run["candidates"] = (_new_entries(L, store, agent, prio_l, bars, date, nxt, "long", prog)
                          + _new_entries(L, store, agent, cands, bars, date, nxt, "long", prog)
                          + _new_entries(L, store, agent, ucands, bars, date, nxt, "long", prog)
-                         + [_braked_row(c, "long") for c in braked_l])
+                         + [_braked_row(c, "long") for c in braked_l] + [_braked_row(c, "long", gate_why) for c in gated_l])
     run["capSkipped"] = [c["code"] for c in skipped_cap]
     run["uniCapSkipped"] = [c["code"] for c in skipped_uni_cap]
     prog.update(phase="short")
@@ -300,7 +314,7 @@ def run_day(date, store, agent, prices, wb, *, force=False, log=print, uni=None,
                               + _new_entries(L, store, agent, scands, bars, date, nxt, "short", prog, fut=sfut)
                               + _new_entries(L, store, agent, uscands, bars, date, nxt, "short", prog, fut=sfut)
                               + _new_entries(L, store, agent, ccands, bars, date, nxt, "short", prog, fut=sfut)
-                              + [_braked_row(c, "short") for c in braked_s])
+                              + [_braked_row(c, "short") for c in braked_s] + [_braked_row(c, "short", gate_why) for c in gated_s])
     engine.EXPOSURE_CTX = None                               # 주문 단계 끝 — 한도 컨텍스트 해제
     ncap = sum(1 for r in run["candidates"] + run["shortCandidates"] if r.get("stopCap"))
     if ncap:
@@ -346,7 +360,7 @@ def _exposure_setup(L, store, bars, date, run, note=True):
         net = X.sector_net_pct(X.book(L["positions"], [], px), eq)
         brakes = X.update_brakes(L.get("sectorBrake") or {}, net)
         L["sectorBrake"] = brakes
-        engine.EXPOSURE_CTX = {"eq": eq, "top": top, "brakes": brakes, "px": px}
+        ctx = {"eq": eq, "top": top, "brakes": brakes, "px": px}
         ps = [{"code": p["code"], "name": p.get("name"), "side": p.get("side", "long"), "sector": p.get("sector"), "value": X._val(p, px)}
               for p in L["positions"]]
         sm = X.summarize(ps, L["cash"], eq, top)
@@ -354,6 +368,25 @@ def _exposure_setup(L, store, bars, date, run, note=True):
                            "longPct": round(sm["longPct"] * 100, 2), "shortPct": round(sm["shortPct"] * 100, 2),
                            "brakes": brakes, "top": top,
                            "sectorNet": {s: round(v * 100, 2) for s, v in sorted(net.items(), key=lambda kv: -abs(kv[1]))}}
+        if X.GLIDE_ON:
+            # 순노출·현금 단계 한도(주당 10%p) — 처음 켠 날의 장부(청산 예약분 포함)가 출발점, 주차는 주문 진입일(다음 영업일) 기준
+            g = L.get("exposureGlide")
+            if not g:
+                full = X.summarize([dict(q, value=X._val(dict(p, sellPending=None), px)) for q, p in zip(ps, L["positions"])],
+                                   L["cash"], eq, top)
+                g = L["exposureGlide"] = {"start": date, "net0": round(full["netPct"], 4), "cash0": round(full["cashPct"], 4)}
+            lim = X.glide_limits(g, tradedays.next_trading_day(date))
+            ctx["limits"] = lim
+            ctx["boostLeft"] = max(0.0, L["cash"] - lim["cashMax"] * eq)
+            run["exposure"]["limits"] = {"netMin": round(lim["netMin"] * 100, 2), "netMax": round(lim["netMax"] * 100, 2),
+                                         "cashMax": round(lim["cashMax"] * 100, 2), "week": lim["week"], "final": lim["final"],
+                                         "start": lim.get("start")}
+            if note and (not lim["final"] or sm["netOver"] or sm["cashOver"]):
+                run["notes"].append(
+                    ("순노출·현금 한도" if lim["final"] else f"순노출·현금 단계 한도 {lim['week']}주차(주당 {X.GLIDE_STEP * 100:.0f}%p)")
+                    + f" — 순노출 {lim['netMin'] * 100:+.1f} ~ {lim['netMax'] * 100:+.1f}%(지금 {sm['netPct'] * 100:+.1f}%)"
+                    + f" · 현금 {lim['cashMax'] * 100:.1f}% 이하(지금 {sm['cashPct'] * 100:.1f}%)")
+        engine.EXPOSURE_CTX = ctx
         if brakes and note:
             run["notes"].append("섹터 순노출 한도(±%d%%) 도달 — %s" % (
                 X.SECTOR_NET_MAX * 100, " · ".join(f"{s} {net.get(s, 0) * 100:+.1f}%({'Long' if d == 'long' else 'Short'} 중단)"
@@ -382,12 +415,12 @@ def _sector_split(lists, side, brakes):
     return kept, prio, braked
 
 
-def _braked_row(c, side):
-    """섹터 브레이크로 판단하지 않은 후보 — 표시용 행(주식선물 미상장 행과 같은 모양)."""
+def _braked_row(c, side, why=None):
+    """섹터 브레이크·순노출 방향 게이트(why)로 판단하지 않은 후보 — 표시용 행(주식선물 미상장 행과 같은 모양)."""
     return {"code": c["code"], "name": c["name"], "side": side, "signal": c.get("signal"), "sector": c.get("sector"),
             "source": c.get("source") or "matrix", "rankAll": c.get("rankAll"), "score": c.get("score"),
             "rating": None, "action": None, "weight": None, "entry": None, "stop": None, "target": None,
-            "ordered": False, "why": f"섹터 {c.get('sector')} 순노출 한도 — {'Short' if side == 'short' else 'Long'} 신규 중단(판단 생략)",
+            "ordered": False, "why": why or f"섹터 {c.get('sector')} 순노출 한도 — {'Short' if side == 'short' else 'Long'} 신규 중단(판단 생략)",
             "decisionKey": None, "braked": True}
 
 
@@ -643,11 +676,20 @@ def _new_entries(L, store, agent, cands, bars, date, nxt, side, prog=None, fut=N
             stop, cap = A.capped_stop(d.entry, d.stop, side, chart.last_atr(d.chart))   # 손절 폭 상한(2026-11-03)
             if cap:
                 row.update(stop=stop, stopCap=cap)
+            # 비중 확대(2026-11-10, 현금 단계 한도): 현금이 그 주 한도를 넘는 동안 PM 비중을 최대 2배(종목 상한 안)로 — 주문·포지션의
+            # weight 는 확대한 값(승자 보호·비중 채우기가 이 값을 목표로 본다), 원래 PM 비중은 boostFrom 에 남긴다.
+            w0 = A.effective_weight(d)
+            ctx = engine.EXPOSURE_CTX
+            w = X.boost_weight(ctx, w0, c["code"]) if ctx else w0
             o = engine.place_entry(L, code=c["code"], name=c["name"], date=date, valid_date=nxt,
                                    entry=d.entry, stop=stop, target=A.effective_target(d),
-                                   weight=A.effective_weight(d), sector=c["sector"],
+                                   weight=w, sector=c["sector"],
                                    signal=c["signal"], decision_key=key, side=side, source=c.get("source") or "matrix",
-                                   extra=dict(A.thesis_fields(d) or {}, rating=d.rating, **({"stopCap": cap} if cap else {})))
+                                   extra=dict(A.thesis_fields(d) or {}, rating=d.rating, **({"stopCap": cap} if cap else {}),
+                                              **({"boostFrom": w0} if w > w0 else {})))
+            if w > w0 and o["status"] == "open":
+                ctx["boostLeft"] = max(0.0, ctx["boostLeft"] - max(0.0, o["qty"] * o["entry"] - w0 * ctx["eq"]))
+                row.update(weight=w, boostFrom=w0)
             row.update(ordered=o["status"] == "open", orderId=o["id"], qty=o["qty"],
                        why=o.get("note", ""))
         rows.append(row)
