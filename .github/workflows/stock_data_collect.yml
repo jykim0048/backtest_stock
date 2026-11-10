@@ -66,3 +66,19 @@ jobs:
         if: always()
         run: |
           curl -sS --max-time 30 https://backteststock-production.up.railway.app/api/stockdata/status | python -m json.tool --no-ensure-ascii || true
+
+      # 읽기 경로 표본 확인 — 삼성전자 묶음 조회(행 수와 최신 행만 출력). 토큰은 로그에 남지 않는다(헤더 전달).
+      - name: Sample read (005930 bundle)
+        if: always()
+        env:
+          INGEST_TOKEN: ${{ secrets.REPORT_INGEST_TOKEN }}
+        run: |
+          curl -sS --max-time 30 -H "Authorization: Bearer $INGEST_TOKEN"             "https://backteststock-production.up.railway.app/api/stockdata/bundle?code=005930&days=60" | python -c "
+          import sys, json
+          d = json.load(sys.stdin)
+          b = d.get('data') or {}
+          print('status', d.get('status'), '| flow', len(b.get('flow') or []), '| disclosures', len(b.get('disclosures') or []), '| ca', len(b.get('ca') or []))
+          for k in ('flow', 'disclosures', 'ca'):
+              rows = b.get(k) or []
+              if rows: print(k, 'latest:', json.dumps(rows[0], ensure_ascii=False)[:600])
+          " || true
