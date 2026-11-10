@@ -268,13 +268,14 @@ def collect_flow(codes, parts, flow_rows_n, naver_size, naver_pages, workers=6):
     return rows, stat
 
 
-def collect_dart(bgn, end):
-    """[bgn, end](date) 구간 시장 전체 공시 → 행. corp_code 없는 조회는 3개월 창 제한이라 90일씩 끊는다."""
+def collect_dart(bgn, end, on_chunk=None, chunk_days=30):
+    """[bgn, end](date) 구간 시장 전체 공시 → (행, 호출 수). corp_code 없는 조회는 3개월 창 제한이라 끊어서 조회한다.
+    on_chunk(rows) 를 주면 창 하나(chunk_days)가 끝날 때마다 넘기고 비운다 — 긴 백필이 중간에 끊겨도 앞부분은 적재된다."""
     if not DART_KEY:
         raise RuntimeError("DART_API_KEY 미설정")
     rows, calls, d = [], 0, bgn
     while d <= end:
-        e = min(end, d + datetime.timedelta(days=89))
+        e = min(end, d + datetime.timedelta(days=chunk_days - 1))
         for cls in ("Y", "K"):
             page = 1
             while True:
@@ -291,6 +292,9 @@ def collect_dart(bgn, end):
                     break
                 page += 1
                 time.sleep(0.12)
+        if on_chunk is not None:
+            on_chunk(rows, d, e)
+            rows = []
         d = e + datetime.timedelta(days=1)
     return rows, calls
 
@@ -402,10 +406,16 @@ def main(argv=None):
         try:
             end = datetime.date.fromisoformat(a.dart_to) if a.dart_to else today
             bgn = datetime.date.fromisoformat(a.dart_from) if a.dart_from else end - datetime.timedelta(days=max(1, a.dart_days) - 1)
-            rows, calls = collect_dart(bgn, end)
-            acc, rej = post_rows("disclosures", rows, a.dry_run)
-            log(f"공시 {bgn}~{end} {len(rows)}행({calls}콜) → accepted {acc} · rejected {rej}")
-            runs.append({"date": iso, "part": "dart", "ok": 1, "failed": 0, "rows": len(rows), "note": f"{bgn}~{end} {calls}콜 accepted {acc}"})
+            tot = {"rows": 0, "acc": 0, "rej": 0}
+
+            def _send(chunk, d0, d1):                # 창 하나씩 바로 적재(백필이 끊겨도 앞부분은 남는다)
+                acc, rej = post_rows("disclosures", chunk, a.dry_run)
+                tot["rows"] += len(chunk); tot["acc"] += acc; tot["rej"] += rej
+                if (end - bgn).days > 31:
+                    log(f"공시 {d0}~{d1} {len(chunk)}행 → accepted {acc} · rejected {rej}")
+            _, calls = collect_dart(bgn, end, on_chunk=_send)
+            log(f"공시 {bgn}~{end} {tot['rows']}행({calls}콜) → accepted {tot['acc']} · rejected {tot['rej']}")
+            runs.append({"date": iso, "part": "dart", "ok": 1, "failed": 0, "rows": tot["rows"], "note": f"{bgn}~{end} {calls}콜 accepted {tot['acc']}"})
         except Exception as e:                       # noqa: BLE001
             log(f"공시 실패: {e}")
             failed_parts.append("dart")

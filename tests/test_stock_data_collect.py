@@ -171,7 +171,11 @@ def test_main_guards_and_dry_run():
     C.collect_flow = lambda codes, parts, *a, **k: (calls.append(("flow", len(codes), tuple(parts))) or
                                                     ([{"code": "036540", "date": "2026-11-10", "close": 1}],
                                                      {p: {"ok": len(codes), "failed": 0, "rows": 1} for p in parts}))
-    C.collect_dart = lambda bgn, end: (calls.append(("dart", str(bgn), str(end))) or ([{"rcept_no": "1"}], 2))
+    def fake_dart(bgn, end, on_chunk=None, chunk_days=30):
+        calls.append(("dart", str(bgn), str(end)))
+        on_chunk([{"rcept_no": "1"}], bgn, end)      # 창 하나씩 넘긴다
+        return [], 2
+    C.collect_dart = fake_dart
     C.collect_ca = lambda today, f=None, t=None: (calls.append(("ca", f, t)) or ([], 0, []))
     posted = []
     C.post_rows = lambda table, rows, dry=False: (posted.append((table, len(rows), dry)) or (len(rows), 0))
