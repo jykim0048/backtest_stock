@@ -427,7 +427,9 @@ class TestBuild(unittest.TestCase):
         self.assertEqual(server._wait_reason({"qty": 100, "entry": 10000.0, "stop": 11000.0}, {}, {"price": 9700, "vwap": 9800},
                                              "short", 0, False, False)[0], "리밋 이탈 -3.0%")   # Short 는 담보로 막지 않음
         self.assertEqual(w({"price": 9900, "vwap": 9800})[0], "VWAP 위")
-        self.assertEqual(w({"price": 8900, "vwap": 9800})[0], "손절가 밖")
+        # 2026-11-10: 신규 진입 주문은 진입 첫날 손절가 너머에서도 VWAP 분할을 계속 → '손절가 밖' 으로 막지 않는다(비중 채우기는 종전대로)
+        self.assertEqual(w({"price": 8900, "vwap": 9800})[0], "분할 간격")
+        self.assertEqual(server._wait_reason({**o, "topupOf": "p1"}, {}, {"price": 8900, "vwap": 9800}, "long", 0, True, False)[0], "손절가 밖")
         self.assertEqual(w({"price": 9700, "vwap": 9800}, fits=False)[0], "현금 대기")
         self.assertEqual(w({"price": 9700, "vwap": 9800}, filled=30)[0], "분할 간격")
         self.assertEqual(w({}, done=False)[0], "시세 대기")

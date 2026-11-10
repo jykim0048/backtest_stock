@@ -436,6 +436,12 @@ def api_queue(q):
     return out
 
 
+def _stop_free(o):
+    """진입 첫날 VWAP 분할이 손절가를 보지 않는 주문인가 — 실행기(executor._stop_free)와 같은 규칙(2026-11-10)."""
+    from swing.vwap import config as VC
+    return bool(VC.FILL_STOP_KEEP_ENTRY and config.FILL_DAY_STOP == "review" and not o.get("topupOf"))
+
+
 def _wait_reason(o, rec, lv, side, filled, fits, complete):
     """장중 진입 주문이 왜 (더) 체결되지 않는지 — 실행기 조건(executor._advance)과 같은 순서로 짧게. (라벨, 설명) 또는 None."""
     qty = o.get("qty") or 0
@@ -453,7 +459,7 @@ def _wait_reason(o, rec, lv, side, filled, fits, complete):
     cond = None
     if not px:
         cond = None if complete else ("시세 대기", "아직 이 종목 시세를 받지 못함")
-    elif stop and (px <= stop if long_ else px >= stop):
+    elif stop and (px <= stop if long_ else px >= stop) and not _stop_free(o):
         cond = ("손절가 밖", f"{word}{px:,.0f}가 손절가 {stop:,.0f} {'아래' if long_ else '위'} — 진입하지 않음")
     elif cap and (px > cap if long_ else px < cap):
         g = (px / cap - 1) * 100

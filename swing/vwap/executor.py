@@ -403,18 +403,44 @@ class Executor:
             hit = self._stop_hit(st, r["side"], r["stop"], first=False)
             if hit and swing_config.FILL_DAY_STOP == "review" and not r.get("topupOf"):
                 # 체결일 손절 유예(2026-10-16 사용자 지시, 11-04 두산 — 실행기가 이 규칙을 앞질러 당일 손절하던 문제):
-                # 남은 분할만 멈추고 체결분은 그대로 둔다 → 정산이 fillStop 표시 → D+1 손절 유예·종가 재판별 → 매도면 D+2 시가
-                r.update(done=True, why="체결 후 손절가 도달 — 남은 분할 취소, 체결분은 체결일 손절 유예(내일 종가 재판별)",
-                         fillStop={"ts": ts, "price": hit[0]})
-                self.dirty = True
-                return
-            if hit:
+                # 체결분은 그대로 둔다 → 정산이 fillStop 표시 → D+1 손절 유예·종가 재판별 → 매도면 D+2 시가
+                if not C.FILL_STOP_KEEP_ENTRY:                # 종전: 남은 분할 취소
+                    r.update(done=True, why="체결 후 손절가 도달 — 남은 분할 취소, 체결분은 체결일 손절 유예(내일 종가 재판별)",
+                             fillStop={"ts": ts, "price": hit[0]})
+                    self.dirty = True
+                    return
+                # 2026-11-10 사용자 지시: 진입 첫날은 손절가에 닿아도 남은 분할을 취소하지 않고 VWAP 분할을 계속한다
+                # (손절가 도달은 처음 한 번만 기록 — 정산의 체결일 손절 유예·재판별은 그대로). 손절가 너머 가격에서도
+                # 평소 VWAP 분할 조건(진입가 리밋·VWAP 보다 유리한 가격)이면 체결한다(_advance 의 stop_free).
+                self._mark_fill_stop(r, hit, ts)
+            elif hit:
                 r.update(done=True, why="체결 후 손절 — 남은 분할 취소")
                 self._open_exit("o:" + oid, code=r["code"], name=r.get("name"), side=r["side"], qty=filled(r),
                                 price=hit[0], kind=hit[1], ts=ts)
                 self.dirty = True
                 return
+        n0 = len(r["fills"])
         self._advance(r, st, ts, hm, "entry")
+        if len(r["fills"]) > n0 and not r.get("fillStop") and self._stop_free(r):
+            # 손절가 너머에서 체결됐으면(첫 체결 포함) 그 자리에서 기록 — 마지막 틱 체결이어도 정산이 체결일 손절 유예로 처리하게
+            hit = self._stop_hit(st, r["side"], r["stop"], first=False)
+            if hit:
+                self._mark_fill_stop(r, hit, ts)
+
+    @staticmethod
+    def _stop_free(r):
+        """진입 첫날 VWAP 분할이 손절가를 보지 않는 주문인가(2026-11-10) — 체결일 손절 유예(review) 대상 신규 진입만.
+        비중 채우기(topup)는 본 포지션 손절 규칙을 따르므로 제외."""
+        return bool(C.FILL_STOP_KEEP_ENTRY and swing_config.FILL_DAY_STOP == "review" and not r.get("topupOf"))
+
+    def _mark_fill_stop(self, r, hit, ts):
+        if r.get("fillStop"):
+            return
+        r["fillStop"] = {"ts": ts, "price": hit[0]}
+        if not r.get("done"):
+            r["why"] = "체결일 손절가 도달 — 손절 유예(내일 종가 재판별), 남은 분할은 VWAP 조건으로 계속"
+        self.dirty = True
+        self.log(f"[vwap] {ts[11:19]} 체결일 손절가 도달 {r['code']} {r['side']} @ {hit[0]:,.0f} — 손절 유예, 분할 계속")
 
     def _fill(self, r, q, px, ts, mode, vwap):
         r["fills"].append({"ts": ts, "qty": q, "price": px, "mode": mode, "vwap": vwap})
@@ -495,7 +521,7 @@ class Executor:
             return                                               # 간격은 VWAP 분할끼리만(같은 폴링 재시도는 이어서)
         if entry:
             ok = (px <= r["cap"] and px <= st.vwap) if long_ else (px >= r["cap"] and px >= st.vwap)
-            ok = ok and inside(px)
+            ok = ok and (inside(px) or self._stop_free(r))       # 진입 첫날 VWAP 분할은 손절가 너머에서도 체결(2026-11-10)
         else:
             ok = px >= st.vwap if long_ else px <= st.vwap
         if not ok or r["next"] >= len(r["plan"]):

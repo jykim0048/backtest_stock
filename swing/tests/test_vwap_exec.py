@@ -208,13 +208,60 @@ class TestExecutor(unittest.TestCase):
         self.assertEqual(ex.doc["vwap"]["000020"]["price"], 4600)         # 현재가 기록(대시보드·Live PM)
 
     def test_fill_then_stop_defers_in_review_mode(self):
-        # 기본(review, 2026-10-16 사용자 지시) — 체결일엔 손절하지 않고 남은 분할만 멈춘다(11-04 두산)
+        # 기본(review, 2026-10-16 사용자 지시) — 체결일엔 손절하지 않는다(11-04 두산).
+        # 2026-11-10 사용자 지시: 손절가에 닿아도 남은 분할을 취소하지 않고, 손절가 너머에서도 VWAP 조건(리밋·VWAP 보다 유리)이면 체결한다
         ex = self.ex(ledger_with(order={}))
-        run(ex, path("000010", [("09:00", 10200), ("09:05", 10100), ("09:10", 9990), ("09:20", 9700, 9480), ("09:25", 9000)]))
+        run(ex, path("000010", [("09:00", 10200), ("09:05", 10100), ("09:10", 9990),
+                                ("09:35", 9700, 9480),                # 꼬리로 손절 9,500 터치 — 분할 계속
+                                ("10:00", 9000),                      # 손절가 아래지만 VWAP 아래·리밋 아래 → 체결
+                                ("10:25", 9600)]))
+        r = ex.doc["orders"]["o1"]
+        self.assertNotIn("o:o1", ex.doc["exits"])                         # 당일 손절 청산 없음
+        self.assertEqual(r["fillStop"], {"ts": ts("09:35"), "price": 9500.0})   # 처음 닿은 시각·가격만 기록(정산의 체결일 손절 유예용)
+        self.assertEqual(self.fills(r), [("09:10", 120, 9990, "vwap"), ("09:35", 90, 9700, "vwap"), ("10:00", 90, 9000, "vwap")])
+        self.assertEqual((r["done"], r["why"]), (True, "분할 완료"))        # 손절가에 닿은 뒤에도 계획 수량을 다 채움
+
+    def test_first_fill_beyond_stop_records_fill_stop(self):
+        # 시가부터 손절가 아래 — 시가 분할은 건너뛰고(종전 그대로) VWAP 분할은 손절가 너머에서도 체결, 그 자리에서 fillStop 기록
+        ex = self.ex(ledger_with(order={}))
+        run(ex, path("000010", [("09:00", 9400), ("09:05", 9450), ("09:30", 9300)]))
+        r = ex.doc["orders"]["o1"]
+        self.assertEqual(self.fills(r), [("09:30", 120, 9300, "vwap")])
+        self.assertEqual(r["fillStop"], {"ts": ts("09:30"), "price": 9500.0})
+        self.assertNotIn("o:o1", ex.doc["exits"])
+
+    def test_topup_still_respects_stop(self):
+        # 비중 채우기 주문은 종전 그대로 — 손절가 너머에서는 체결하지 않는다
+        ex = self.ex(ledger_with(order={"topupOf": "p9", "topup": 1}))
+        run(ex, path("000010", [("09:00", 9400), ("09:05", 9450), ("09:30", 9300)]))
+        self.assertEqual(ex.doc["orders"]["o1"]["fills"], [])
+
+    def test_fill_then_stop_cancels_rest_when_keep_entry_off(self):
+        # 되돌림 스위치(vwap/config.FILL_STOP_KEEP_ENTRY = False) — 종전: 남은 분할 취소
+        from swing.vwap import config as VC
+        old, VC.FILL_STOP_KEEP_ENTRY = VC.FILL_STOP_KEEP_ENTRY, False
+        try:
+            ex = self.ex(ledger_with(order={}))
+            run(ex, path("000010", [("09:00", 10200), ("09:05", 10100), ("09:10", 9990), ("09:35", 9700, 9480), ("10:00", 9000), ("10:25", 9600)]))
+        finally:
+            VC.FILL_STOP_KEEP_ENTRY = old
         r = ex.doc["orders"]["o1"]
         self.assertTrue(r["done"])
         self.assertNotIn("o:o1", ex.doc["exits"])
         self.assertEqual(r["fillStop"]["price"], 9500.0)
+        self.assertEqual([f[0] for f in self.fills(r)], ["09:10"])
+
+    def test_short_fill_then_stop_keeps_entry(self):
+        # Short 대칭 — 손절가(위)에 닿은 뒤에도, 손절가 위에서도 진입가 리밋 위·VWAP 위면 분할 계속
+        ex = self.ex(ledger_with(order={"side": "short", "entry": 10000.0, "stop": 10500.0}))
+        run(ex, path("000010", [("09:00", 9800), ("09:10", 9950), ("09:20", 10010),
+                                ("09:45", 10300, None, 10520),            # 고가로 손절 10,500 터치 — 분할 계속
+                                ("10:10", 10600),                         # 손절가 위지만 리밋 위·VWAP 위 → 체결
+                                ("10:35", 10400)]))
+        r = ex.doc["orders"]["o1"]
+        self.assertEqual(r["fillStop"]["price"], 10500.0)
+        self.assertEqual(sum(f[1] for f in self.fills(r)), 300)           # 계획 수량을 다 채움
+        self.assertEqual([(f[0], f[2]) for f in self.fills(r)], [("09:20", 10010), ("09:45", 10300), ("10:10", 10600)])
 
     def test_position_stop_then_vwap_sell(self):
         ex = self.ex(ledger_with(position={}))
