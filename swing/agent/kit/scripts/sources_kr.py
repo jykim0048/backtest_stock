@@ -613,7 +613,7 @@ DART_CATALYST_KEYWORDS = (
     "공개매수",
     "소각",
 )
-# 표시용 방향(tone) — 호재 먼저, 그다음 악재. 자기주식처분은 "자기주식"(호재)보다 먼저 악재로 본다(disclosure_tone).
+# 표시용 방향(tone) — 호재 먼저, 그다음 악재. 자기주식처분은 "자기주식"(호재)에 걸리지 않게 먼저 중립으로 뺀다(disclosure_flags).
 DART_BULL_KEYWORDS = ("공급계약", "단일판매", "수주", "무상증자", "자기주식", "자사주", "주식소각", "품목허가", "특허")
 DART_BEAR_KEYWORDS = ("유상증자", "전환사채", "신주인수권", "교환사채", "영구", "신종자본증권", "감자", "소송", "횡령", "배임",
                       "영업정지", "파산", "회생", "생산중단", "화재", "관리종목", "불성실공시", "매매거래정지",
@@ -626,8 +626,8 @@ def disclosure_flags(title):
     flags = [k for k in DART_CATALYST_KEYWORDS if k in t]
     if "정정" in t:
         tone = "correction"
-    elif "자기주식처분" in t:                               # 자사주 처분은 물량 부담 — "자기주식"(호재) 일치보다 먼저
-        tone = "bear"
+    elif "자기주식처분" in t:                               # 자사주 처분 — 제목만으론 방향을 정하지 않는다(2026-11-10 사용자 결정:
+        tone = "neutral"                                    # 성과급 지급·지분 교환 등 성격이 달라 분석가 판단에). "자기주식"(호재) 일치보다 먼저
     elif any(k in t for k in DART_BULL_KEYWORDS):
         tone = "bull"
     elif any(k in t for k in DART_BEAR_KEYWORDS):

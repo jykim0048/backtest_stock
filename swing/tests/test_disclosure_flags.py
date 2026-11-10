@@ -43,7 +43,7 @@ class TestDisclosureFlags(unittest.TestCase):
     def test_tone_table(self):
         f = self.S.disclosure_flags
         self.assertEqual(f("주요사항보고서(자기주식취득결정)"), (["자기주식"], "bull"))
-        self.assertEqual(f("주요사항보고서(자기주식처분결정)"), (["자기주식"], "bear"))           # 종전엔 bull 로 표시되던 것
+        self.assertEqual(f("주요사항보고서(자기주식처분결정)"), (["자기주식"], "neutral"))        # 종전엔 bull — 방향은 분석가 판단에
         self.assertEqual(f("공개매수신고서"), (["공개매수"], "neutral"))
         self.assertEqual(f("감자결정"), (["감자"], "bear"))
         self.assertEqual(f("관리종목지정"), (["관리종목"], "bear"))
