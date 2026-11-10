@@ -870,6 +870,12 @@ td small.sub-qty { display: block; font-size: 10.5px; color: var(--text-muted); 
 #at-sectors .at-cellbar.up { background: rgba(239, 68, 68, .26); }
 #at-sectors .at-cellbar.down { background: rgba(59, 130, 246, .28); }
 #at-sectors .at-cellnum { position: relative; }
+/* 노출·현금 한도 표시(2026-11-10, PLAN_EXPOSURE.md) */
+.lim-line { display: block; margin-top: 4px; }
+.lim-bad { color: var(--amber); font-weight: 700; }
+.lim-ok { color: var(--text-muted); font-weight: 600; }
+.lim-flag { display: inline-block; margin-left: 4px; padding: 0 5px; border-radius: 8px; font-size: 10px; font-weight: 700; line-height: 15px;
+  color: var(--amber); border: 1px solid rgba(251, 191, 36, .5); background: rgba(251, 191, 36, .1); vertical-align: 1px; }
 /* 포지션 막대 머리글 — 왼쪽 Short · 오른쪽 Long */
 #at-sectors .at-poshead { display: flex; justify-content: space-between; gap: 8px; font-size: 11px; }
 #at-sectors tr.at-sec { cursor: pointer; }

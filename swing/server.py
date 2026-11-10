@@ -717,8 +717,30 @@ def api_progress(q):
     return STORE.get("progress")
 
 
+def _top_cap_codes():
+    """코스피 시총 상위 2종목(종목당 상한 10% 대상) — 최신 유니버스 문서의 시가총액으로 판정, 5분 캐시. 못 구하면 기본값."""
+    import time as _t
+    from swing import exposure
+    if _t.time() - _top_cap_cache[0] < 300 and _top_cap_cache[1]:
+        return _top_cap_cache[1]
+    top = list(exposure.DEFAULT_TOP)
+    try:
+        ds = _universe_dates()
+        if ds:
+            top = exposure.top_cap_codes(STORE.get(f"universe/{ds[-1]}"), lambda c: _index_of(c) == "0001")
+    except Exception as ex:
+        print(f"[swing] 시총 상위 판정 실패(기본값 사용): {type(ex).__name__}: {str(ex)[:120]}", flush=True)
+    _top_cap_cache[0], _top_cap_cache[1] = _t.time(), top
+    return top
+
+
+_top_cap_cache = [0.0, None]
+
+
 def api_config(q):
-    return {"initialCapital": config.INITIAL_CAPITAL, "sellTax": config.SELL_TAX,
+    from swing import exposure
+    return {"exposure": exposure.limits(_top_cap_codes()),
+            "initialCapital": config.INITIAL_CAPITAL, "sellTax": config.SELL_TAX,
             "holdDays": config.HOLD_DAYS, "maxHoldDays": config.MAX_HOLD_DAYS, "maxWeight": config.MAX_WEIGHT,
             "defaultWeight": config.DEFAULT_WEIGHT, "maxNewPerDay": config.MAX_NEW_PER_DAY,
             "buySignals": config.BUY_SIGNALS, "sellSignals": config.SELL_SIGNALS,

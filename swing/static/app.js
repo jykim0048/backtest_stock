@@ -262,6 +262,24 @@
     if (!s || !s.liveTs || !s.liveDate || (last && last.date >= s.liveDate)) return rows;
     return rows.concat([{ date: s.liveDate, equity: s.equity, retPct: s.retPct, cash: s.cash, positions: s.positions, live: s.liveTs }]);
   }
+  // 노출·현금 한도(PLAN_EXPOSURE.md, 2026-11-10) — /api/swing/config 의 exposure. 표시 전용(주문 단계 적용은 서버)
+  function expLim() { return (S.config && S.config.exposure) || null; }
+  function wCap(code) { var L = expLim(); return L ? ((L.topCodes || []).indexOf(code) >= 0 ? L.weightMaxTop : L.weightMax) : null; }
+  function limFlag(txt, tip) { return ' <span class="lim-flag" title="' + esc(tip) + '">' + esc(txt) + "</span>"; }
+  // 순노출 밴드·현금 한도 한 줄 — 안이면 회색, 벗어나면 노랑으로 초과 폭
+  function limLine(net, cashPct) {
+    var L = expLim();
+    if (!L) return "";
+    var lo = L.netMin * 100, hi = L.netMax * 100, over = net > hi ? net - hi : net < lo ? net - lo : 0;
+    var h = '<span class="port-sub lim-line"><span title="순노출 한도 — (Long − Short) ÷ 평가액">순노출 한도 ' + (lo > 0 ? "+" : "") + lo.toFixed(0) + " ~ +" + hi.toFixed(0) + "% " +
+      (over ? '<b class="lim-bad">' + (over > 0 ? "+" : "") + over.toFixed(1) + "%p 초과</b>" : '<b class="lim-ok">안</b>') + "</span>";
+    if (cashPct != null) {
+      var co = cashPct - L.cashMax * 100;
+      h += ' · <span title="현금 한도 — 원장 현금 ÷ 평가액">현금 ' + cashPct.toFixed(1) + "% / 한도 " + (L.cashMax * 100).toFixed(0) + "% " +
+        (co > 0 ? '<b class="lim-bad">+' + co.toFixed(1) + "%p 초과</b>" : '<b class="lim-ok">안</b>') + "</span>";
+    }
+    return h + "</span>";
+  }
   function renderPortfolio(s) {
     var rows = S.equity || [], cap = s.capital0, eqNow = s.equity, lrows = liveRows(rows, s);
     var rt = [["1W", periodReturn(lrows, cap, 7)], ["1M", periodReturn(lrows, cap, 30)],
@@ -283,7 +301,7 @@
       '<div class="wt-bar"><span class="b-long" style="width:' + (wL / Math.max(100, wL + wS) * 100) + '%"></span><span class="b-short" style="width:' +
       (wS / Math.max(100, wL + wS) * 100) + '%"></span></div>' +
       '<span class="port-sub">Long <b class="up">' + wL.toFixed(1) + "%</b> · Short <b class=\"down\">" + wS.toFixed(1) + "%</b> · " +
-      (S.positions || []).length + "종목</span></div></div></div>";
+      (S.positions || []).length + "종목</span>" + limLine(wL - wS, s.cash != null && base ? s.cash / base * 100 : null) + "</div></div></div>";
     var dr = dayReturn(lrows, cap);
     h += '<div class="port-item"><span class="port-lbl">당일' + (dr && dr.live ? " (장중)" : "") + '</span><span class="port-val">' +
       (dr ? pct(dr.v) : "—") + '</span><span class="port-sub">' + (dr ? '<span class="' + (dr.amt > 0 ? "up" : dr.amt < 0 ? "down" : "") + '">' +
@@ -561,7 +579,10 @@
     table(el, [["종목"], ["섹터"], ["신호"], ["선정기준"], ["가격 레벨"], ["비중 / 수량", "r"], [pxHead, "r"], ['평가손익<small class="th-sub">청산분은 실현</small>', "r"], ["보유일"], ["상태"]],
       ps.map(function (p) {
         var val = p.value != null ? p.value : p.qty * (p.lastClose || p.entry || 0);
-        var wt = eq ? '<span class="num" title="평가금액 ' + won(val) + '원 ÷ 총 평가액">' + (val / eq * 100).toFixed(1) + "%</span>" : '<span class="num muted">—</span>';
+        var cap = wCap(p.code), wpc = eq ? val / eq * 100 : null;
+        var wt = eq ? '<span class="num" title="평가금액 ' + won(val) + '원 ÷ 총 평가액' + (cap ? " · 종목 상한 " + (cap * 100).toFixed(0) + "%" : "") + '">' + wpc.toFixed(1) + "%</span>" +
+          (cap && wpc > cap * 100 + 1e-9 ? limFlag("상한 " + (cap * 100).toFixed(0) + "%", "종목당 상한 " + (cap * 100).toFixed(0) + "% 초과 — 추가 매수 중단 대상(강제 축소는 하지 않음)") : "")
+          : '<span class="num muted">—</span>';
         return { key: p.decisionKey, cells: [td(stock(p.name, p.code, null, null, testTag(p))),
           td('<span class="sec-name">' + esc(p.sector || "—") + "</span>"), td(sig(p.signal) || '<span class="muted">—</span>'),
           td('<span class="pos-basis" data-dk="' + esc(p.decisionKey || "") + '">' + basisTag({ source: p.source }) + "</span>"),
@@ -1310,6 +1331,15 @@
     }).sort(function (a, b) { return b.pnl - a.pnl; });
     // 막대 눈금(2026-11-10) — 포지션 막대 = 섹터 중 가장 큰 한쪽(Long 또는 Short) 노출, 노출 대비 막대 = 섹터 중 가장 큰 |노출 대비|
     // (종목 행도 같은 눈금 — 넘으면 칸 끝에서 잘린다)
+    var EL = expLim(), secLim = EL ? EL.sectorNetMax : null;
+    var secTip = EL ? "섹터 순노출 ±" + (EL.sectorNetMax * 100).toFixed(0) + "% 도달 — 같은 방향 신규·비중 채우기 중단, 반대 방향 후보 우선 검토(±" + (EL.sectorNetRelease * 100).toFixed(0) + "% 안으로 오면 해제)" : "";
+    if (EL && side === "all") {                               // 섹터 한도(±10%) 도달 목록 — 방향 필터가 걸리면 순노출이 아니라 생략
+      var overS = secs.map(function (x) { return { s: x.sector, n: (x.expL - x.expS) / eqNow * 100 }; })
+        .filter(function (x) { return Math.abs(x.n) >= EL.sectorNetMax * 100 - 1e-9; }).sort(function (p1, p2) { return Math.abs(p2.n) - Math.abs(p1.n); });
+      $("at-sum").innerHTML += '<br><span class="lim-line" title="' + esc(secTip) + '">섹터 순노출 한도 ±' + (EL.sectorNetMax * 100).toFixed(0) + "% — " +
+        (overS.length ? '<b class="lim-bad">' + overS.length + "개 섹터 도달</b> " + overS.map(function (x) { return esc(x.s) + " " + (x.n > 0 ? "+" : "") + x.n.toFixed(1) + "%"; }).join(" · ")
+          : '<b class="lim-ok">전 섹터 안</b>') + "</span>";
+    }
     var maxPos = Math.max.apply(null, secs.map(function (x) { return Math.max(x.expL, x.expS); }).concat([1]));
     var maxRet = Math.max.apply(null, secs.map(function (x) { return x.expB ? Math.abs(x.pnl / x.expB) : 0; }).concat([1e-9]));
     var maxPnl = Math.max.apply(null, secs.map(function (x) { return Math.abs(x.pnl); }).concat([1]));   // 기여도 막대 눈금 = 섹터 중 가장 큰 |손익|
@@ -1322,12 +1352,13 @@
         '<span class="at-cellnum" title="손익 ' + (pnl > 0 ? "+" : "") + won(pnl) + "원 ÷ " + expNote + " " + won(Math.round(eb)) + "원" +
         (per === "day" ? "" : " (" + days + "영업일)") + '">' + pct(r * 100) + "</span>", "r at-ret");
     }
-    function netCells(l, sh) {   // 현재 노출 — 순노출(억) · 순비중(현재 평가액 대비)
+    function netCells(l, sh, lim, limTip) {   // 현재 노출 — 순노출(억) · 순비중(현재 평가액 대비). lim(비율) 이상이면 한도 표시(2026-11-10)
       var net = l - sh;
       if (!l && !sh) return td('<span class="at-mut" title="현재 보유 없음(청산)">—</span>', "r") + (split ? "" : td('<span class="at-mut">—</span>', "r"));
-      var c = net > 0 ? "up" : net < 0 ? "down" : "";
-      return td('<span class="num ' + c + '" title="Long ' + eok(l) + " · Short " + eok(sh) + '">' + (net > 0 ? "+" : net < 0 ? "−" : "") + eok(Math.abs(net)) + "</span>", "r") +
-        (split ? "" : td(pct(net / eqNow * 100, 1), "r"));
+      var c = net > 0 ? "up" : net < 0 ? "down" : "", np = net / eqNow * 100;
+      var flag = lim && Math.abs(np) >= lim * 100 - 1e-9 ? limFlag("한도", limTip) : "";
+      return td('<span class="num ' + c + '" title="Long ' + eok(l) + " · Short " + eok(sh) + '">' + (net > 0 ? "+" : net < 0 ? "−" : "") + eok(Math.abs(net)) + "</span>" + (split ? flag : ""), "r") +
+        (split ? "" : td(pct(np, 1) + flag, "r"));
     }
     function contribCell(pnl, pl, ps_) {
       var tip = "손익 " + (pnl > 0 ? "+" : "") + won(pnl) + "원" + (pl && ps_ ? " · Long " + ppTxt(pl / base * 100) + " · Short " + ppTxt(ps_ / base * 100) : "");
@@ -1351,9 +1382,9 @@
       h += '<tr class="at-sec' + (open ? " open" : "") + '" data-sec="' + esc(x.sector) + '" title="종목별 ' + (open ? "접기" : "펼치기") + '">' +
         td('<span class="at-caret">' + (open ? "▾" : "▸") + '</span><span class="stock-name" style="font-size:13px">' + esc(x.sector) + "</span>") +
         td('<span class="num">' + x.n + "</span>", "r") +
-        (split ? netCells(x.expL, x.expS) + atSplitCells(atSplitSum(bySec[x.sector]), base)
+        (split ? netCells(x.expL, x.expS, secLim, secTip) + atSplitCells(atSplitSum(bySec[x.sector]), base)
           : td('<span class="num up">' + (x.expL ? eok(x.expL) : "—") + "</span>", "r") + td('<span class="num down">' + (x.expS ? eok(x.expS) : "—") + "</span>", "r") +
-            netCells(x.expL, x.expS) + td(atWon(x.pnl), "r")) +
+            netCells(x.expL, x.expS, secLim, secTip) + td(atWon(x.pnl), "r")) +
         contribCell(x.pnl, x.pnlL, x.pnlS) + expRetCell(x.pnl, x.expB, x.days) + td(atPosBar(x.expL, x.expS, maxPos)) + "</tr>";
       if (!open) return;
       kids.forEach(function (e) {
