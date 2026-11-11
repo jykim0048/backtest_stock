@@ -163,3 +163,21 @@ CREATE TABLE stock_collect_runs (
   - 허브 `/flow` 의 `rows` 는 30 을 기본으로(확정 대금 30거래일 재업서트 — 자가 복구 창이 넓어진다). 공매도·대차는 허브가 max(rows, 20).
   - 수급 파트는 거래일 15:40 KST 이후에만 돈다(`--force` 로 무시). 공시·CA 는 언제든.
 
+## 12. 추가 기록(2026-11-11 오후)
+- **유니버스**: 수급은 상장폐지·미상장을 뺀 648종목(krx_caps 기준).
+- **CA 백필 실측**: 허브 시장 전체 `/ca` 는 총 120초·종류별 30콜 상한이라 1년을 한 번에 받을 수 없다 → 수집기가 36일 창·28일 간격(첫 창 −7일)으로 나눈다.
+  2025-11-11 ~ 2026-11-11 = 14창, 7,407 이벤트 → 6,927행. 다만 **상장정보(listing)는 거의 매일 하루 100행 상한에 걸리고**, 창 뒤쪽은 시간 상한으로 빠졌다
+  (배당 일부 구간·의무예치 조각도 시간 상한). 잘린 종류는 `--ca-types <종류> [--ca-window N]` 으로 그 종류만 다시 받는다(허브 120초를 그 종류가 다 쓴다).
+  하루 100행 상한 자체는 KIS 한계라 못 넘는다.
+- **소스 3종 추가**(KRX 로 받을 수 있는 수급 계열 — netbuy 아카이브 이관·네이버 수급 더 깊게 — 은 제외):
+  | 파트 | 테이블(키) | 소스 | 매일 | 백필 |
+  |---|---|---|---|---|
+  | `financials` | `stock_financials`(code, bsns_year, reprt_code, fs_div) | DART 다중회사 주요계정 `fnlttMultiAcnt`(100개사/콜), 상장 전 종목 | 결산일이 최근 200일 안인 보고서(~55콜) | `--fin-years 2023,2024,2025` |
+  | `holders` | `stock_major_holders`(rcept_no, reporter) | DART `majorstock`(종목당 1콜 = 5% 보고 전체 이력) | 최근 공시 제목에 '대량보유'가 뜬 종목만 | `--holders-all` |
+  | `research` | `stock_research`(report_key = `naver:<id>`) | 네이버 리서치 종목 목록 + 상세(목표주가·의견·본문) | 유니버스 × 최근 3일 | `--research-days 365 --research-pages 20` |
+  - 재무의 숫자 컬럼(매출·영업이익·세전이익·순이익·자산·부채·자본)은 당기 금액(원), 받은 계정 전체는 `payload`(jsonb) — 분기 보고서의 누적은 `thAdd`.
+  - 리포트 업서트는 컬럼별 COALESCE — 상세 조회가 막혀 목록만 들어간 행도 다음 실행이 목표주가를 채운다. 상세가 40번 연달아 실패하면 상세만 그만둔다.
+  - 조회: `/api/stockdata/financials|holders|research?code=`, `bundle` 에도 포함. `status` 에 세 테이블의 행 수·기간(재무는 보고서별 종목 수).
+- **워크플로 줄(lane)**: `stock_data_collect.yml` 의 concurrency 그룹이 `stock-data-<lane>`. 같은 줄은 대기가 1건뿐이라(새 대기가 앞 대기를 취소)
+  허브를 쓰지 않는 긴 백필(DART·네이버)은 `lane=backfill` 로 돌려 18:10 수집과 겹쳐도 서로 밀어내지 않게 한다. 허브를 쓰는 백필(CA)은 daily 줄에서.
+- **백필 불가(지금부터 쌓을 수밖에 없는 것)**: 종토방·카페·뉴스 검색·Reddit/StockTwits·밸류에이션 스냅샷. KIS 대금·공매도·대차의 30거래일 이전은 KRX 뿐(클라우드 IP 차단).

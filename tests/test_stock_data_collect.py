@@ -177,12 +177,21 @@ def test_main_guards_and_dry_run():
     """main — 장 마감 전이면 수급 파트를 건너뛰고(외부 호출 없음), dry-run 은 전송하지 않는다."""
     calls = []
     saved = (C.collect_flow, C.collect_dart, C.collect_ca, C.post_rows, C._is_trading_day)
+    saved_new = (C.collect_financials, C.collect_holders, C.collect_research, C.load_corp_map)
+    C.load_corp_map = lambda root=None: {"005930": "00126380", "000660": "00164779"}
+    C.collect_financials = lambda corps, periods, on_chunk=None, chunk=100: (calls.append(("financials", len(corps), len(periods))) or ([], 1))
+    C.collect_holders = lambda pairs, workers=4, on_chunk=None, chunk=200: (calls.append(("holders", [c for c, _ in pairs])) or
+                                                                            {"ok": len(pairs), "failed": 0, "rows": 0, "errs": []})
+    C.collect_research = lambda codes, cutoff, pages=1, workers=6, detail=True, on_chunk=None, **k: (
+        calls.append(("research", len(codes), cutoff, pages)) or
+        {"ok": len(codes), "failed": 0, "rows": 0, "detail_ok": 0, "detail_failed": 0, "max_pages": 1, "errs": []})
     C.collect_flow = lambda codes, parts, *a, **k: (calls.append(("flow", len(codes), tuple(parts))) or
                                                     ([{"code": "036540", "date": "2026-11-10", "close": 1}],
                                                      {p: {"ok": len(codes), "failed": 0, "rows": 1} for p in parts}))
     def fake_dart(bgn, end, on_chunk=None, chunk_days=30):
         calls.append(("dart", str(bgn), str(end)))
-        on_chunk([{"rcept_no": "1"}], bgn, end)      # 창 하나씩 넘긴다
+        on_chunk([{"rcept_no": "1", "stock_code": "005930", "title": "주식등의대량보유상황보고서(약식)"},
+                  {"rcept_no": "2", "stock_code": "000660", "title": "분기보고서"}], bgn, end)      # 창 하나씩 넘긴다
         return [], 2
     C.collect_dart = fake_dart
     C.collect_ca = lambda today, f=None, t=None: (calls.append(("ca", f, t)) or ([], 0, [], {}))
@@ -197,6 +206,10 @@ def test_main_guards_and_dry_run():
         assert ("flow" in kinds) == ((now.hour, now.minute) >= (15, 40))                 # 마감 전에는 수급 생략
         assert ("dart", "2026-11-01", "2026-11-10") in calls and ("ca", None, None) in calls
         assert all(dry for _, _, dry in posted) and not any(t == "runs" for t, _, _ in posted)   # dry-run 은 실행 기록도 안 보냄
+        assert ("holders", ["005930"]) in calls                                          # 공시 제목에 '대량보유'가 뜬 종목만 다시 받는다
+        fin = [c for c in calls if c[0] == "financials"][0]
+        assert fin[1] == 2 and fin[2] == len(C.fin_periods(now.date()))                  # 고유번호 2개 × 최근 결산 보고서
+        assert [c for c in calls if c[0] == "research"][0][3] == 1
         calls.clear(); posted.clear()
         rc = C.main(["--parts", "flow,naver", "--force", "--limit", "3"])
         assert rc == 0 and calls[0][0] == "flow" and calls[0][1] == 3 and calls[0][2] == ("flow", "naver")
@@ -210,6 +223,7 @@ def test_main_guards_and_dry_run():
         assert C.main(["--parts", "flow"]) == 0 and calls == []
     finally:
         C.collect_flow, C.collect_dart, C.collect_ca, C.post_rows, C._is_trading_day = saved
+        C.collect_financials, C.collect_holders, C.collect_research, C.load_corp_map = saved_new
 
 
 def test_ca_windows_and_backfill():
@@ -224,6 +238,10 @@ def test_ca_windows_and_backfill():
     # 의무예치 해제 목표(창 시작 +7 ~ +35일)가 빈틈 없이 이어진다
     assert all(d(b[0]) + datetime.timedelta(days=7) <= d(a[0]) + datetime.timedelta(days=35) + datetime.timedelta(days=1)
                for a, b in zip(wins, wins[1:]))
+
+    narrow = C.ca_windows("20251111", "20251210", 10)                                    # --ca-window: 겹치지 않는 좁은 창
+    assert narrow == [("20251111", "20251120"), ("20251121", "20251130"), ("20251201", "20251210")]
+    assert C.ca_windows("20251111", "20251115", 10) == [("20251111", "20251115")]
 
     calls, posted = [], []
     saved = (C.collect_ca, C.post_rows, C.time.sleep)
@@ -246,6 +264,111 @@ def test_ca_windows_and_backfill():
         assert "truncated 1" in run["note"] and "실패창" in run["note"] and len(run["note"]) <= 200
     finally:
         C.collect_ca, C.post_rows, C.time.sleep = saved
+
+
+FIN = [  # DART fnlttMultiAcnt 응답 형태(다중회사 주요계정)
+    {"rcept_no": "20260315000123", "bsns_year": "2025", "stock_code": "005930", "reprt_code": "11011", "account_nm": "자산총계",
+     "fs_div": "CFS", "sj_div": "BS", "thstrm_dt": "2025.12.31 현재", "thstrm_amount": "514,531,948,000,000",
+     "frmtrm_amount": "455,905,980,000,000", "bfefrmtrm_amount": "448,424,507,000,000", "currency": "KRW"},
+    {"rcept_no": "20260315000123", "bsns_year": "2025", "stock_code": "005930", "reprt_code": "11011", "account_nm": "매출액",
+     "fs_div": "CFS", "sj_div": "IS", "thstrm_dt": "2025.01.01 ~ 2025.12.31", "thstrm_amount": "300,870,903,000,000",
+     "frmtrm_amount": "258,935,494,000,000", "currency": "KRW"},
+    {"rcept_no": "20260315000123", "bsns_year": "2025", "stock_code": "005930", "reprt_code": "11011", "account_nm": "당기순이익(손실)",
+     "fs_div": "CFS", "sj_div": "IS", "thstrm_amount": "-1,000", "thstrm_add_amount": "-", "currency": "KRW"},
+    {"rcept_no": "20260315000123", "bsns_year": "2025", "stock_code": "005930", "reprt_code": "11011", "account_nm": "법인세차감전 순이익",
+     "fs_div": "OFS", "sj_div": "IS", "thstrm_amount": "5", "currency": "KRW"},
+    {"bsns_year": "2025", "stock_code": "", "reprt_code": "11011", "account_nm": "매출액", "fs_div": "CFS", "thstrm_amount": "1"},
+]
+HOLD = [{"rcept_no": "20261105000321", "rcept_dt": "2026-11-05", "corp_code": "00126380", "report_tp": "약식", "repror": "국민연금공단",
+         "stkqy": "452,817,480", "stkqy_irds": "-3,112,000", "stkrt": "7.68", "stkrt_irds": "-0.05", "ctr_stkqy": "-", "ctr_stkrt": "-",
+         "report_resn": "단순 장내 매매"},
+        {"rcept_no": "", "rcept_dt": "2026-11-05", "repror": "x"}]
+RSCH = [{"researchId": 96231, "writeDate": "2026-11-10", "title": " 4Q 프리뷰:  기대 이상 ", "brokerName": "미래에셋증권",
+         "previewContent": "요약\n본문"},
+        {"researchId": 90001, "writeDate": "2025-10-01", "title": "오래된 리포트", "brokerName": "키움증권"},
+        {"researchId": "", "writeDate": "2026-11-10", "title": "id 없음"}]
+
+
+def test_financials_holders_research_rows():
+    """새 3종(재무·대량보유·증권사 리포트) — 응답 → 행 변환과 서버 검증."""
+    fin = {(r["code"], r["fs_div"]): r for r in C.fin_rows(FIN)}
+    c = fin[("005930", "CFS")]
+    assert c["year"] == 2025 and c["reprt"] == "11011" and c["assets"] == 514531948000000 and c["revenue"] == 300870903000000
+    assert c["net_income"] == -1000 and c["period_end"] == "2025-12-31" and c["rcept_no"] == "20260315000123"
+    assert c["payload"]["자산총계"] == {"sj": "BS", "th": 514531948000000, "frm": 455905980000000, "bfe": 448424507000000}
+    assert c["payload"]["당기순이익"] == {"sj": "IS", "th": -1000}                          # '(손실)' 제거, '-' 는 값 없음
+    assert fin[("005930", "OFS")]["pretax_income"] == 5 and len(fin) == 2                  # 계정명 공백 제거, 종목코드 없는 행은 버림
+    n = S.normalize_financial(c)
+    assert n["bsns_year"] == 2025 and n["revenue"] == 300870903000000.0 and n["period_end"] == "2025-12-31" and '"자산총계"' in n["payload"]
+    assert S.normalize_financial(dict(c, reprt="99999")) is None and S.normalize_financial(dict(c, payload={})) is None
+    # 보고서 선택: 백필은 연도 × 4종, 매일은 결산일이 최근 200일 안인 것만
+    assert C.fin_periods(datetime.date(2026, 11, 11), [2024]) == [(2024, r) for r in C.FIN_REPRT]
+    assert C.fin_periods(datetime.date(2026, 11, 11)) == [(2026, "11012"), (2026, "11014")]
+    assert C.fin_periods(datetime.date(2026, 4, 1)) == [(2025, "11014"), (2025, "11011"), (2026, "11013")]
+
+    h = C.holder_rows("005930", HOLD)
+    assert len(h) == 1 and h[0]["shares"] == 452817480 and h[0]["shares_chg"] == -3112000 and h[0]["stake_pct"] == 7.68
+    assert h[0]["ctr_shares"] is None and h[0]["date"] == "2026-11-05"
+    nh = S.normalize_holder(h[0])
+    assert nh["report_date"] == "2026-11-05" and nh["reporter"] == "국민연금공단" and nh["stake_chg"] == -0.05
+    assert S.normalize_holder(dict(h[0], reporter="")) is None and S.normalize_holder(dict(h[0], rcept_no="1")) is None
+
+    r = C.research_rows("005930", RSCH)
+    assert [x["report_key"] for x in r] == ["naver:96231", "naver:90001"] and r[0]["title"] == "4Q 프리뷰: 기대 이상"
+    assert r[0]["summary"] == "요약 본문" and r[0]["url"].endswith("/company/96231") and "target_price" not in r[0]
+    C._research_fill(r[0], {"goalPrice": "95,000", "opinion": " 매수 ", "attachUrl": "https://x/y.pdf"})
+    nr = S.normalize_research(r[0])
+    assert nr["target_price"] == 95000.0 and nr["opinion"] == "매수" and nr["pdf_url"] == "https://x/y.pdf" and nr["source"] == "naver"
+    assert S.normalize_research(dict(r[0], report_key="bad key")) is None and S.normalize_research(dict(r[0], target_price=0))["target_price"] is None
+    assert C.research_rows("005930", {"error": 1}) == [] and C._plain("<p>a&amp;b</p><br/>c", 10) == "a&b c"
+
+    # 목록을 cutoff 까지만 거슬러 받는다(오래된 행이 나오면 멈춤)
+    saved = (C._get_json, C.time.sleep)
+    pages = []
+
+    def fake(url, timeout=30, retries=2, headers=None):
+        pages.append(url)
+        return RSCH[:2] + [{"researchId": 100 + i, "writeDate": "2026-11-09", "title": f"t{i}"} for i in range(18)] if "page=1&" in url else []
+    C._get_json, C.time.sleep = fake, (lambda s: None)
+    try:
+        rows, last = C.fetch_research("005930", "2026-01-01", pages=5)
+        assert last == 1 and len(pages) == 1 and len(rows) == 19 and all(x["date"] >= "2026-01-01" for x in rows)
+    finally:
+        C._get_json, C.time.sleep = saved
+
+
+def test_upsert_new_tables():
+    """재무는 같은 키면 덮어쓰기(정정), 대량보유는 DO NOTHING, 리포트는 COALESCE(목록만 본 행이 목표주가를 지우지 않게)."""
+    seen = {}
+
+    def fake_run(op, *a):
+        import psycopg2.extras as ex
+        orig = ex.execute_values
+        ex.execute_values = lambda cur, sql, rows, template=None, page_size=100: seen.update(sql=sql, rows=list(rows), template=template)
+        try:
+            return op(_Cur(), *a)
+        finally:
+            ex.execute_values = orig
+    saved = S.report_db._run
+    S.report_db._run = fake_run
+    try:
+        try:
+            import psycopg2  # noqa: F401
+        except ImportError:
+            print("    (psycopg2 없음 — SQL 실행 경로 생략)")
+            return
+        fin = C.fin_rows(FIN)
+        out = S.upsert_rows("financials", fin + [dict(fin[0])])
+        assert out == {"accepted": 2, "rejected": 0} and "ON CONFLICT (code, bsns_year, reprt_code, fs_div) DO UPDATE" in seen["sql"]
+        assert seen["template"].endswith("%s::jsonb)") and seen["template"].count("%s") == len(seen["rows"][0])
+        out = S.upsert_rows("holders", C.holder_rows("005930", HOLD))
+        assert out == {"accepted": 1, "rejected": 0} and "DO NOTHING" in seen["sql"] and "stock_major_holders" in seen["sql"]
+        out = S.upsert_rows("research", C.research_rows("005930", RSCH))
+        assert out["accepted"] == 2 and "target_price = COALESCE(EXCLUDED.target_price, stock_research.target_price)" in seen["sql"]
+        assert S.normalize_run({"date": "2026-11-11", "part": "research", "ok": 1})["part"] == "research"
+        assert set(S.TABLES) >= {"financials", "holders", "research"}
+    finally:
+        S.report_db._run = saved
 
 
 def test_server_routes():

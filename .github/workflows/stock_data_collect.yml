@@ -2,14 +2,14 @@ name: Stock Data Collect
 
 on:
   # Railway 상시 서버 스케줄러(railway_server._scheduler)가 평일 18:10 KST 에 트리거한다(휴장일 제외).
-  # 전종목 원본(DART 공시 · 일별 수급 · CA)을 모아 Railway Postgres 의 행 테이블로 보낸다 — PLAN_STOCK_DB.md.
+  # 전종목 원본(DART 공시 · 일별 수급 · CA · 재무 · 대량보유 · 증권사 리포트)을 모아 Railway Postgres 의 행 테이블로 보낸다 — PLAN_STOCK_DB.md.
   # 리포트 파이프라인과 무관한 별도 단계라 git 커밋이 없다(산출물은 DB 뿐).
   workflow_dispatch:
     inputs:
       parts:
-        description: "수집 파트 (dart,flow,naver,ca 중 쉼표로)"
+        description: "수집 파트 (dart,flow,naver,ca,financials,holders,research 중 쉼표로)"
         required: false
-        default: "dart,flow,naver,ca"
+        default: "dart,flow,naver,ca,financials,holders,research"
       dry_run:
         description: "true = 전송 없이 건수만 출력"
         required: false
@@ -23,18 +23,23 @@ on:
         required: false
         default: "0"
       extra:
-        description: "추가 인자 (예: --dart-from 2025-11-11 --dart-to 2026-11-10 / --ca-from 20251111 --ca-to 20270511 / --naver-pages 3)"
+        description: "추가 인자 (예: --dart-from 2025-11-11 --dart-to 2026-11-10 / --ca-from 20251111 --ca-to 20270511 / --fin-years 2023,2024,2025 / --holders-all / --research-days 365 --research-pages 20)"
         required: false
         default: ""
+      lane:
+        description: "실행 줄 — daily(기본, 18:10 수집과 같은 줄) / backfill(허브를 쓰지 않는 긴 백필을 따로 돌릴 때)"
+        required: false
+        default: "daily"
 
+# 같은 줄(lane)끼리만 순서대로 돈다. 대기는 줄마다 1건뿐이라(새 대기가 앞 대기를 취소) 긴 백필은 backfill 줄로 보낸다.
 concurrency:
-  group: stock-data
+  group: stock-data-${{ github.event.inputs.lane || 'daily' }}
   cancel-in-progress: false
 
 jobs:
   collect:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 120
 
     permissions:
       contents: read
@@ -51,7 +56,7 @@ jobs:
         env:
           DART_API_KEY: ${{ secrets.DART_API_KEY }}
           INGEST_TOKEN: ${{ secrets.REPORT_INGEST_TOKEN }}
-          PARTS: ${{ github.event.inputs.parts || 'dart,flow,naver,ca' }}
+          PARTS: ${{ github.event.inputs.parts || 'dart,flow,naver,ca,financials,holders,research' }}
           DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
           FORCE: ${{ github.event.inputs.force || 'false' }}
           LIMIT: ${{ github.event.inputs.limit || '0' }}
@@ -77,8 +82,9 @@ jobs:
           import sys, json
           d = json.load(sys.stdin)
           b = d.get('data') or {}
-          print('status', d.get('status'), '| flow', len(b.get('flow') or []), '| disclosures', len(b.get('disclosures') or []), '| ca', len(b.get('ca') or []))
-          for k in ('flow', 'disclosures', 'ca'):
+          keys = ('flow', 'disclosures', 'ca', 'financials', 'holders', 'research')
+          print('status', d.get('status'), '|', ' | '.join(f'{k} {len(b.get(k) or [])}' for k in keys))
+          for k in keys:
               rows = b.get(k) or []
               if rows: print(k, 'latest:', json.dumps(rows[0], ensure_ascii=False)[:600])
           " || true

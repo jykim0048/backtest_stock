@@ -12,8 +12,8 @@ research SYNCHRONOUSLY and keep an in-memory cache + the DART corp map warm.
                                  (60s TTL 캐시. [skip railway] 커밋으로 컨테이너
                                  스냅샷이 얼어붙는 문제 대응)
   POST /api/ingest             -> 파이프라인 리포트 업서트 (Bearer INGEST_TOKEN)
-  POST /api/ingest/rows        -> 전종목 원본 행 업서트 — 공시·일별 수급·CA (stock_db.py, Bearer INGEST_TOKEN)
-  GET  /api/stockdata/status   -> 원본 테이블 커버리지(공개) · /flow|disclosures|ca|bundle?code= (읽기 토큰)
+  POST /api/ingest/rows        -> 전종목 원본 행 업서트 — 공시·일별 수급·CA·재무·대량보유·리포트 (stock_db.py, Bearer INGEST_TOKEN)
+  GET  /api/stockdata/status   -> 원본 테이블 커버리지(공개) · /flow|disclosures|ca|financials|holders|research|bundle?code= (읽기 토큰)
   GET /api/prices[?codes=..]  -> 실시간 시세 (Vercel api/index.py 이식,
                                  4s TTL 캐시로 다중 탭 대응)
   GET /api/research?q=<name|code>
@@ -491,7 +491,7 @@ class Handler(BaseHTTPRequestHandler):
         """전종목 원본 행 업서트(2026-11-11, PLAN_STOCK_DB.md) — 수집 워크플로(collect_stock_data.py) 전용.
 
         POST /api/ingest/rows  (Authorization: Bearer $INGEST_TOKEN)
-        {"table": "flow" | "disclosures" | "ca" | "runs", "rows": [...]}
+        {"table": "flow" | "disclosures" | "ca" | "runs" | "financials" | "holders" | "research", "rows": [...]}
         행 검증·화이트리스트는 stock_db 가 한다 — 형식이 틀린 행은 버리고 건수만 돌려준다."""
         try:
             if not INGEST_TOKEN or \
@@ -507,7 +507,7 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(400, {"status": "error", "message": f"invalid content-length: {length}"})
             data = json.loads(self.rfile.read(length).decode("utf-8"))
             table, rows = str(data.get("table", "")), data.get("rows")
-            if table not in ("flow", "disclosures", "ca", "runs") or not isinstance(rows, list) or len(rows) > stock_db.MAX_ROWS:
+            if table not in stock_db.TABLES or not isinstance(rows, list) or len(rows) > stock_db.MAX_ROWS:
                 return self._send(400, {"status": "error", "message": f"table·rows 형식 오류(rows ≤ {stock_db.MAX_ROWS})"})
             res = stock_db.upsert_rows(table, rows)
             if res is None:
@@ -517,7 +517,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(500, {"status": "error", "message": str(ex)[:300]})
 
     def _stockdata(self, u):
-        """전종목 원본 조회 — /api/stockdata/status(공개) · flow|disclosures|ca|bundle?code=&from=&to=|days= (읽기 토큰)."""
+        """전종목 원본 조회 — /api/stockdata/status(공개) ·
+        flow|disclosures|ca|financials|holders|research|bundle?code=&from=&to=|days=|years= (읽기 토큰)."""
         try:
             what = u.path[len("/api/stockdata/"):].strip("/")
             if not stock_db.enabled():
@@ -535,6 +536,9 @@ class Handler(BaseHTTPRequestHandler):
             fn = {"flow": lambda: stock_db.flow(q.get("code"), q.get("from"), q.get("to")),
                   "disclosures": lambda: stock_db.disclosures(q.get("code"), q.get("from"), q.get("to")),
                   "ca": lambda: stock_db.ca(q.get("code"), q.get("from"), q.get("to")),
+                  "financials": lambda: stock_db.financials(q.get("code"), q.get("years") or 5),
+                  "holders": lambda: stock_db.holders(q.get("code"), q.get("from"), q.get("to")),
+                  "research": lambda: stock_db.research(q.get("code"), q.get("from"), q.get("to")),
                   "bundle": lambda: stock_db.bundle(q.get("code"), q.get("days") or 120)}.get(what)
             if fn is None:
                 return self._send(404, {"status": "error", "message": "not found"})

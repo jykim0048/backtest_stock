@@ -8,6 +8,9 @@
   flow  : KIS 허브 /flow × 유니버스 → stock_flow_daily 의 확정 대금 9주체·공매도·대차  (종목당 1콜, 허브가 KIS 4~5 TR)
   naver : 네이버 trend × 유니버스 → stock_flow_daily 의 순매매량(주)·외국인 보유율·종가   (종목당 1콜)
   ca    : KIS 허브 /ca 시장 전체 → stock_ca_events                                   (1콜, 이벤트 키로 누적)
+  financials : DART 다중회사 주요계정(100개사/콜) × 최근 결산 보고서 → stock_financials   (상장 전 종목, 하루 ~55콜)
+  holders    : DART 대량보유(5%) — 최근 공시 제목에 '대량보유'가 뜬 종목만 → stock_major_holders (종목당 1콜 = 전체 이력)
+  research   : 네이버 리서치 종목 목록(+상세의 목표주가·의견) × 유니버스 → stock_research  (종목당 1콜 + 리포트당 1콜)
 
 수급 소스는 매번 수십 거래일을 주므로 그 창 전체를 다시 업서트한다(서버가 컬럼별 COALESCE) — 하루 이틀 빠져도 다음 실행이 메운다.
 PC 실행 금지(네트워크 규칙) — Actions 에서만. 로컬에서는 --dry-run 도 외부 호출을 하므로 테스트(tests/test_stock_data_collect.py)만 돌린다.
@@ -18,6 +21,10 @@ PC 실행 금지(네트워크 규칙) — Actions 에서만. 로컬에서는 --d
   python collect_stock_data.py --dry-run --limit 5          # 전송 없이 5종목만 건수 출력
   python collect_stock_data.py --parts dart --dart-from 2025-11-11 --dart-to 2026-11-10   # 공시 백필(90일씩 끊어 조회)
   python collect_stock_data.py --parts ca --ca-from 20251111 --ca-to 20270511             # CA 과거 창(60일 이상은 36일 창으로 나눠 조회)
+  python collect_stock_data.py --parts ca --ca-types listing --ca-window 10 --ca-from 20251111 --ca-to 20261111   # 잘린 종류만 좁은 창으로 다시
+  python collect_stock_data.py --parts financials --fin-years 2023,2024,2025              # 재무 백필(연도 × 보고서 4종)
+  python collect_stock_data.py --parts holders --holders-all                              # 대량보유 전 종목 백필
+  python collect_stock_data.py --parts research --research-days 365 --research-pages 20   # 증권사 리포트 1년 백필
 
 Env: DART_API_KEY · INGEST_TOKEN(또는 REPORT_INGEST_TOKEN) · FLOW_API_BASE(선택) · INGEST_ROWS_URL(선택)
 """
@@ -27,6 +34,7 @@ import glob
 import hashlib
 import json
 import os
+import re
 import sys
 import time
 import urllib.error
@@ -43,6 +51,7 @@ UA = {"User-Agent": "Mozilla/5.0 (backtest-stock stock-data-collect)"}
 BATCH = 2000                    # ingest 요청 한 건의 행 수
 MIN_COVERAGE = 0.8              # 유니버스 대비 수급 성공 종목 비율이 이보다 낮으면 실패 종료
 KIS_KEYS = ("prsn", "frgn", "orgn", "fund", "scrt", "insu", "ivtr", "pe", "etc")
+ALL_PARTS = ("dart", "flow", "naver", "ca", "financials", "holders", "research")
 
 
 def log(msg):
@@ -325,29 +334,34 @@ CA_STEP_DAYS = 28       # 창 간격 — 허브의 의무예치 조회는 '창 �
 CA_LEAD_DAYS = 7        # 같은 이유로 첫 창은 from 보다 7일 앞에서 시작한다
 
 
-def ca_windows(ca_from=None, ca_to=None):
+def ca_windows(ca_from=None, ca_to=None, window=None):
     """[from, to](YYYYMMDD) → 허브에 보낼 창 [(from, to)]. 한쪽이 없거나 CA_SPAN_MAX 일보다 좁으면 그대로 한 번.
-    넓은 구간을 한 번에 물으면 허브가 시간 상한(120초)·종류별 호출 상한(30)에서 잘라 뒷부분이 조용히 빠진다."""
+    넓은 구간을 한 번에 물으면 허브가 시간 상한(120초)·종류별 호출 상한(30)에서 잘라 뒷부분이 조용히 빠진다.
+    window(일)를 주면 그 길이로 겹치지 않게 자른다 — 건수가 많은 종류(상장정보)만 좁게 다시 받을 때(--ca-types 와 함께).
+    의무예치는 기본 창(36일·28일 간격)이어야 해제일이 이어지므로 window 를 주지 않는다."""
     if not (ca_from and ca_to):
         return [(ca_from, ca_to)]
     a = datetime.datetime.strptime(ca_from, "%Y%m%d").date()
     b = datetime.datetime.strptime(ca_to, "%Y%m%d").date()
-    if (b - a).days < CA_SPAN_MAX:
+    if (b - a).days < (window or CA_SPAN_MAX):
         return [(ca_from, ca_to)]
-    out, d = [], a - datetime.timedelta(days=CA_LEAD_DAYS)
+    span, step, lead = (window, window, 0) if window else (CA_WINDOW_DAYS, CA_STEP_DAYS, CA_LEAD_DAYS)
+    out, d = [], a - datetime.timedelta(days=lead)
     while True:
-        e = min(b, d + datetime.timedelta(days=CA_WINDOW_DAYS - 1))
+        e = min(b, d + datetime.timedelta(days=span - 1))
         out.append((d.strftime("%Y%m%d"), e.strftime("%Y%m%d")))
         if e >= b:
             return out
-        d += datetime.timedelta(days=CA_STEP_DAYS)
+        d += datetime.timedelta(days=step)
 
 
-def collect_ca(today, ca_from=None, ca_to=None):
-    """허브 /ca 한 번 → (행, 이벤트 수, 오류 종류, 잘림 기록 {종류: [구간…]}).
+def collect_ca(today, ca_from=None, ca_to=None, types=None):
+    """허브 /ca 한 번 → (행, 이벤트 수, 오류 종류, 잘림 기록 {종류: [구간…]}). types = 'listing,dividend' 처럼 종류를 좁힌다
+    (허브의 120초를 그 종류가 다 쓴다 — 전 종류 조회에서 시간 상한에 잘린 종류를 다시 받을 때).
     잘림 = 허브가 시간·호출 상한이나 KIS 하루 100행 상한에 걸려 다 못 받은 구간(diag.truncated)."""
     import fetch_ca_calendar as cal                  # flatten·상장 필터·종목명 규칙을 캘린더와 똑같이
-    url = f"{FLOW_API_BASE}/ca?raw=0" + (f"&from={ca_from}" if ca_from else "") + (f"&to={ca_to}" if ca_to else "")
+    url = (f"{FLOW_API_BASE}/ca?raw=0" + (f"&from={ca_from}" if ca_from else "") + (f"&to={ca_to}" if ca_to else "")
+           + (f"&types={types}" if types else ""))
     # 허브 시간 상한이 120초라 그보다 길게 기다린다(종전 90초는 창이 무거우면 응답 전에 끊겼다). 재시도는 허브 6시간 캐시가 받는다.
     resp = _get_json(url, timeout=170, retries=1, headers={"User-Agent": "backtest-stock-stock-data"})
     if resp.get("status") not in (None, "success"):
@@ -359,6 +373,261 @@ def collect_ca(today, ca_from=None, ca_to=None):
     flat = cal.flatten(resp.get("events") or [], names=names, listed=listed)
     trunc = {k: v["truncated"] for k, v in (resp.get("diag") or {}).items() if isinstance(v, dict) and v.get("truncated")}
     return ca_rows(flat, today), len(resp.get("events") or []), sorted((resp.get("errors") or {}).keys()), trunc
+
+
+# ── DART 재무·대량보유 / 증권사 리포트(2026-11-11 추가) ─────────────────────────────────────────
+DART_API = "https://opendart.fss.or.kr/api"
+RESEARCH_API = "https://m.stock.naver.com/api/research"
+FIN_REPRT = ("11013", "11012", "11014", "11011")     # 1분기 · 반기 · 3분기 · 사업보고서
+FIN_END = {"11013": (3, 31), "11012": (6, 30), "11014": (9, 30), "11011": (12, 31)}
+FIN_MAIN = {"매출액": "revenue", "영업이익": "op_income", "법인세차감전순이익": "pretax_income", "당기순이익": "net_income",
+            "자산총계": "assets", "부채총계": "liabilities", "자본총계": "equity"}
+HOLDER_TITLE = "대량보유"                             # 공시 제목에 이 말이 있으면 그 종목의 5% 보고를 다시 받는다
+
+
+def load_corp_map(root=ROOT):
+    """종목코드 → DART 고유번호(public/assets/dart_corp_map.json), 현재 상장 종목(krx_caps)만."""
+    with open(os.path.join(root, "public", "assets", "dart_corp_map.json"), encoding="utf-8") as f:
+        m = {str(k).zfill(6): str(v) for k, v in (json.load(f) or {}).items() if v}
+    listed = load_listed(root)
+    return {k: v for k, v in m.items() if listed is None or k in listed}
+
+
+def _amt(v):
+    s = str(v if v is not None else "").replace(",", "").strip()
+    if not s or s == "-":
+        return None
+    try:
+        return int(s)
+    except ValueError:
+        try:
+            return float(s)
+        except ValueError:
+            return None
+
+
+def _acct(name):
+    """계정명 정규화 — 공백·'(손실)' 제거('법인세차감전 순이익' → '법인세차감전순이익', '당기순이익(손실)' → '당기순이익')."""
+    return re.sub(r"\(손실\)|\s", "", str(name or ""))
+
+
+def fin_rows(items):
+    """DART 다중회사 주요계정(fnlttMultiAcnt) list → (종목·사업연도·보고서·연결/별도) 한 행.
+    숫자 컬럼 = 당기 금액(분기 보고서의 손익은 그 분기 3개월치, 누적은 payload 의 thAdd), payload = 받은 계정 전부."""
+    out = {}
+    for it in items or []:
+        code, year = (it.get("stock_code") or "").strip(), str(it.get("bsns_year") or "").strip()
+        reprt, fs, name = str(it.get("reprt_code") or "").strip(), (it.get("fs_div") or "").strip().upper(), _acct(it.get("account_nm"))
+        if not code or not year.isdigit() or reprt not in FIN_REPRT or fs not in ("CFS", "OFS") or not name:
+            continue
+        row = out.setdefault((code, year, reprt, fs), {"code": code, "year": int(year), "reprt": reprt, "fs_div": fs,
+                                                       "rcept_no": (it.get("rcept_no") or "").strip() or None,
+                                                       "currency": it.get("currency"), "payload": {}})
+        if name in row["payload"]:                   # 같은 계정이 두 번 오면 첫 행만
+            continue
+        th = _amt(it.get("thstrm_amount"))
+        acc = {"sj": it.get("sj_div"), "th": th, "thAdd": _amt(it.get("thstrm_add_amount")), "frm": _amt(it.get("frmtrm_amount")),
+               "frmAdd": _amt(it.get("frmtrm_add_amount")), "bfe": _amt(it.get("bfefrmtrm_amount"))}
+        row["payload"][name] = {k: v for k, v in acc.items() if v is not None}
+        col = FIN_MAIN.get(name)
+        if col and th is not None:
+            row[col] = th
+        if it.get("sj_div") == "BS" and not row.get("period_end"):
+            m = re.findall(r"(\d{4})\.(\d{2})\.(\d{2})", str(it.get("thstrm_dt") or ""))
+            if m:
+                row["period_end"] = "-".join(m[-1])
+    return list(out.values())
+
+
+def fin_periods(today, years=None, lookback=200):
+    """조회할 (사업연도, 보고서) 목록. years 를 주면 그 연도의 4개 보고서 전부(백필),
+    없으면 결산일이 최근 lookback 일 안인 보고서만(매일 — 새로 나온 보고서·정정을 받는다)."""
+    if years:
+        return [(y, r) for y in years for r in FIN_REPRT]
+    out = []
+    for y in (today.year - 1, today.year):
+        for r in FIN_REPRT:
+            if 0 < (today - datetime.date(y, *FIN_END[r])).days <= lookback:
+                out.append((y, r))
+    return out
+
+
+def collect_financials(corps, periods, on_chunk=None, chunk=100):
+    """고유번호 목록 × (연도, 보고서) → (행, 호출 수). 다중회사 API 는 한 번에 100개사."""
+    if not DART_KEY:
+        raise RuntimeError("DART_API_KEY 미설정")
+    rows, calls = [], 0
+    for y, r in periods:
+        got = []
+        for i in range(0, len(corps), chunk):
+            data = _get_json(f"{DART_API}/fnlttMultiAcnt.json?crtfc_key={DART_KEY}&corp_code={','.join(corps[i:i + chunk])}"
+                             f"&bsns_year={y}&reprt_code={r}", timeout=40)
+            calls += 1
+            st = data.get("status")
+            if st not in ("000", "013"):             # 013 = 조회된 데이터 없음
+                raise RuntimeError(f"DART status {st}: {data.get('message')}")
+            got.extend(fin_rows(data.get("list")))
+            time.sleep(0.15)
+        if on_chunk is not None:
+            on_chunk(got, y, r)
+        else:
+            rows.extend(got)
+    return rows, calls
+
+
+def holder_rows(code, items):
+    """DART 대량보유 상황보고(majorstock) list → 행. 응답에는 종목코드가 없어 요청한 코드를 붙인다."""
+    out = []
+    for it in items or []:
+        rno, who, date = (it.get("rcept_no") or "").strip(), " ".join(str(it.get("repror") or "").split()), _iso(it.get("rcept_dt"))
+        if not rno or not who or not date:
+            continue
+        out.append({"rcept_no": rno, "reporter": who, "code": code, "date": date, "report_type": it.get("report_tp"),
+                    "shares": _amt(it.get("stkqy")), "shares_chg": _amt(it.get("stkqy_irds")),
+                    "stake_pct": _amt(it.get("stkrt")), "stake_chg": _amt(it.get("stkrt_irds")),
+                    "ctr_shares": _amt(it.get("ctr_stkqy")), "ctr_pct": _amt(it.get("ctr_stkrt")),
+                    "reason": " ".join(str(it.get("report_resn") or "").split()) or None})
+    return out
+
+
+def fetch_holders(pair):
+    data = _get_json(f"{DART_API}/majorstock.json?crtfc_key={DART_KEY}&corp_code={pair[1]}", timeout=25)
+    st = data.get("status")
+    if st == "013":
+        return []
+    if st != "000":
+        raise RuntimeError(f"DART status {st}: {data.get('message')}")
+    return holder_rows(pair[0], data.get("list"))
+
+
+def collect_holders(pairs, workers=4, on_chunk=None, chunk=200):
+    """[(종목코드, 고유번호)] → 통계. 종목당 1콜(그 회사의 5% 보고 전체 이력). 한 묶음이 절반 넘게 실패하면 중단(한도 초과 등)."""
+    if not DART_KEY:
+        raise RuntimeError("DART_API_KEY 미설정")
+    stat = {"ok": 0, "failed": 0, "rows": 0, "errs": []}
+    for i in range(0, len(pairs), chunk):
+        part, rows, bad = pairs[i:i + chunk], [], 0
+
+        def one(p):
+            try:
+                return fetch_holders(p)
+            except Exception as e:                   # noqa: BLE001
+                return e
+        with ThreadPoolExecutor(max_workers=max(1, workers)) as ex:
+            for p, got in zip(part, ex.map(one, part)):
+                if isinstance(got, Exception):
+                    bad += 1
+                    if len(stat["errs"]) < 5:
+                        stat["errs"].append(f"{p[0]}: {got}")
+                else:
+                    stat["ok"] += 1
+                    rows.extend(got)
+        stat["failed"] += bad
+        stat["rows"] += len(rows)
+        if on_chunk is not None:
+            on_chunk(rows, i + len(part), len(pairs))
+        if bad > len(part) / 2:
+            raise RuntimeError(f"대량보유 조회 실패가 절반을 넘어 중단({bad}/{len(part)}) — {stat['errs'][:1]}")
+    return stat
+
+
+def _plain(html_body, n):
+    import html as _html
+    text = re.sub(r"<br\s*/?>|</p>|</div>|</li>", " ", str(html_body or ""), flags=re.I)
+    return " ".join(_html.unescape(re.sub(r"<[^>]+>", " ", text)).split())[:n]
+
+
+def research_rows(code, items):
+    """네이버 리서치 종목 목록 응답 → 행(목표주가·의견은 상세에서 채운다. 목록에 있으면 그대로 쓴다)."""
+    out = []
+    for it in items if isinstance(items, list) else []:
+        rid, date = str(it.get("researchId") or "").strip(), str(it.get("writeDate") or "").strip()[:10]
+        title = " ".join(str(it.get("title") or "").split())
+        if not rid.isdigit() or _iso(date) != date or date[4] != "-" or not title:
+            continue
+        row = {"report_key": f"naver:{rid}", "code": code, "date": date, "broker": (it.get("brokerName") or "").strip() or None,
+               "title": title, "summary": " ".join(str(it.get("previewContent") or "").split())[:500] or None,
+               "url": f"https://stock.naver.com/research/company/{rid}", "source": "naver"}
+        _research_fill(row, it)
+        out.append(row)
+    return out
+
+
+def _research_fill(row, rc):
+    goal = str(rc.get("goalPrice") or "").replace(",", "").strip()
+    if goal.isdigit() and int(goal) > 0:
+        row["target_price"] = int(goal)
+    if str(rc.get("opinion") or "").strip():
+        row["opinion"] = str(rc["opinion"]).strip()
+    if rc.get("attachUrl"):
+        row["pdf_url"] = rc["attachUrl"]
+
+
+def fetch_research(code, cutoff, pages=1, page_size=20):
+    """종목의 리포트 목록을 cutoff(YYYY-MM-DD) 까지 거슬러 받는다(최신순 페이지) → (행, 본 페이지 수)."""
+    rows, seen, page = [], set(), 0
+    for page in range(1, max(1, pages) + 1):
+        items = _get_json(f"{RESEARCH_API}/stock/{code}?page={page}&pageSize={page_size}", timeout=15)
+        got = research_rows(code, items)
+        fresh = [r for r in got if r["report_key"] not in seen]
+        seen.update(r["report_key"] for r in fresh)
+        rows.extend(r for r in fresh if r["date"] >= cutoff)
+        # 끝: 빈 장 · 덜 찬 장 · 새 행 없음(같은 장 반복) · cutoff 보다 오래된 행이 나옴
+        if not isinstance(items, list) or len(items) < page_size or not fresh or min(r["date"] for r in got) < cutoff:
+            break
+        time.sleep(0.1)
+    return rows, page
+
+
+def fetch_research_detail(row):
+    rc = (_get_json(f"{RESEARCH_API}/company/{row['report_key'].split(':')[1]}", timeout=15, retries=1) or {}).get("researchContent") or {}
+    _research_fill(row, rc)
+    body = _plain(rc.get("content"), 1000)
+    if body:
+        row["summary"] = body
+    return row
+
+
+def collect_research(codes, cutoff, pages=1, workers=6, detail=True, on_chunk=None, chunk=60, detail_stop=40):
+    """유니버스 × 리포트 목록(+상세) → 통계. 상세가 detail_stop 번 연달아 실패하면(차단) 상세만 그만두고 목록은 계속 쌓는다
+    — 목표주가가 빈 행은 다음 실행이 채운다(서버 COALESCE)."""
+    stat = {"ok": 0, "failed": 0, "rows": 0, "detail_ok": 0, "detail_failed": 0, "max_pages": 0, "errs": []}
+    streak = 0
+    for i in range(0, len(codes), chunk):
+        part, rows = codes[i:i + chunk], []
+
+        def one(code):
+            try:
+                return fetch_research(code, cutoff, pages)
+            except Exception as e:                   # noqa: BLE001
+                return e
+        with ThreadPoolExecutor(max_workers=max(1, workers)) as ex:
+            for code, got in zip(part, ex.map(one, part)):
+                if isinstance(got, Exception):
+                    stat["failed"] += 1
+                    if len(stat["errs"]) < 5:
+                        stat["errs"].append(f"{code}: {got}")
+                else:
+                    stat["ok"] += 1
+                    rows.extend(got[0])
+                    stat["max_pages"] = max(stat["max_pages"], got[1])
+        if detail and streak < detail_stop and rows:
+            def det(row):
+                try:
+                    fetch_research_detail(row)
+                    return True
+                except Exception:                    # noqa: BLE001
+                    return False
+            with ThreadPoolExecutor(max_workers=max(1, workers)) as ex:
+                for ok in ex.map(det, rows):
+                    stat["detail_ok" if ok else "detail_failed"] += 1
+                    streak = 0 if ok else streak + 1
+            if streak >= detail_stop:
+                log(f"리포트 상세가 {streak}번 연달아 실패 — 상세 조회를 그만두고 목록만 쌓는다")
+        stat["rows"] += len(rows)
+        if on_chunk is not None:
+            on_chunk(rows, i + len(part), len(codes))
+    return stat
 
 
 # ── 전송 ─────────────────────────────────────────────────────────────────────────────────────
@@ -404,7 +673,7 @@ def _is_trading_day(d):
 
 def main(argv=None):
     ap = argparse.ArgumentParser()
-    ap.add_argument("--parts", default="dart,flow,naver,ca")
+    ap.add_argument("--parts", default=",".join(ALL_PARTS))
     ap.add_argument("--universe", default="archive", choices=("index", "archive"))
     ap.add_argument("--limit", type=int, default=0, help="유니버스 앞 N종목만(시험용)")
     ap.add_argument("--flow-rows", type=int, default=30, help="허브 /flow daily 거래일 수(공매도·대차는 허브가 max(rows,20))")
@@ -415,11 +684,19 @@ def main(argv=None):
     ap.add_argument("--dart-to")
     ap.add_argument("--ca-from", help="YYYYMMDD (허브 기본 = 오늘−14일)")
     ap.add_argument("--ca-to", help="YYYYMMDD (허브 기본 = 오늘+45일)")
+    ap.add_argument("--ca-types", help="CA 종류만(listing,dividend,…) — 시간 상한에 잘린 종류를 다시 받을 때")
+    ap.add_argument("--ca-window", type=int, default=0, help="CA 창 길이(일)를 직접 지정 — 겹치지 않게 자른다(의무예치에는 쓰지 않는다)")
+    ap.add_argument("--fin-years", help="재무 백필 사업연도(예: 2023,2024,2025) — 없으면 최근 결산 보고서만")
+    ap.add_argument("--holders-all", action="store_true", help="대량보유를 상장 전 종목에서 받는다(백필) — 없으면 최근 공시에 대량보유가 뜬 종목만")
+    ap.add_argument("--research-days", type=int, default=3, help="증권사 리포트를 오늘부터 N일 전까지")
+    ap.add_argument("--research-pages", type=int, default=1, help="종목당 리포트 목록 페이지 수 상한(20건/장)")
+    ap.add_argument("--no-research-detail", action="store_true", help="리포트 상세(목표주가·의견) 조회 생략")
     ap.add_argument("--workers", type=int, default=6)
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--force", action="store_true", help="장 마감(15:40) 전·휴장일에도 수급 파트 실행")
     a = ap.parse_args(argv)
-    parts = [p for p in (x.strip() for x in a.parts.split(",")) if p in ("dart", "flow", "naver", "ca")]
+    parts = [p for p in (x.strip() for x in a.parts.split(",")) if p in ALL_PARTS]
+    holder_codes = set()                             # 최근 공시 제목에 '대량보유'가 뜬 종목(공시 파트가 채운다)
     now = datetime.datetime.now(KST)
     today = now.date()
     iso = today.isoformat()
@@ -459,6 +736,7 @@ def main(argv=None):
             def _send(chunk, d0, d1):                # 창 하나씩 바로 적재(백필이 끊겨도 앞부분은 남는다)
                 acc, rej = post_rows("disclosures", chunk, a.dry_run)
                 tot["rows"] += len(chunk); tot["acc"] += acc; tot["rej"] += rej
+                holder_codes.update(r["stock_code"] for r in chunk if HOLDER_TITLE in (r.get("title") or ""))
                 if (end - bgn).days > 31:
                     log(f"공시 {d0}~{d1} {len(chunk)}행 → accepted {acc} · rejected {rej}")
             _, calls = collect_dart(bgn, end, on_chunk=_send)
@@ -470,12 +748,13 @@ def main(argv=None):
             runs.append({"date": iso, "part": "dart", "ok": 0, "failed": 1, "rows": 0, "note": str(e)[:200]})
 
     if "ca" in parts:
-        wins = ca_windows(a.ca_from, a.ca_to)        # 넓은 구간(백필)은 창으로 나눠 창마다 바로 적재
+        wins = ca_windows(a.ca_from, a.ca_to, a.ca_window or None)   # 넓은 구간(백필)은 창으로 나눠 창마다 바로 적재
+        ca_kw = {"types": a.ca_types} if a.ca_types else {}
         tot = {"rows": 0, "ev": 0, "acc": 0, "rej": 0, "trunc": 0}
         errs_all, bad, last_err = set(), [], ""
         for i, (f, t) in enumerate(wins):
             try:
-                rows, n_ev, errs, trunc = collect_ca(iso, f, t)
+                rows, n_ev, errs, trunc = collect_ca(iso, f, t, **ca_kw)
                 acc, rej = post_rows("ca", rows, a.dry_run)
                 tot["rows"] += len(rows); tot["ev"] += n_ev; tot["acc"] += acc; tot["rej"] += rej
                 tot["trunc"] += sum(len(v) for v in trunc.values())
@@ -493,6 +772,7 @@ def main(argv=None):
             log(f"CA 합계 {len(wins)}창(실패 {len(bad)}) 이벤트 {tot['ev']}건 → {tot['rows']}행 → accepted {tot['acc']} · rejected {tot['rej']}"
                 f" · 잘린 구간 {tot['trunc']}")
         note = (f"events {tot['ev']}" + (f" {a.ca_from}~{a.ca_to} {len(wins)}창" if len(wins) > 1 else "")
+                + (f" types {a.ca_types}" if a.ca_types else "")
                 + (f" errors {','.join(sorted(errs_all))}" if errs_all else "") + (f" truncated {tot['trunc']}" if tot["trunc"] else "")
                 + (f" 실패창 {','.join(bad)[:80]} {last_err}" if bad else ""))
         if len(wins) == 1:                           # 매일 실행 — 종전 기록 형식 그대로(ok 1/0, failed = 오류 종류 수)
@@ -502,6 +782,90 @@ def main(argv=None):
             runs.append({"date": iso, "part": "ca", "ok": len(wins) - len(bad), "failed": len(bad), "rows": tot["rows"], "note": note[:200]})
         if bad:
             failed_parts.append("ca" if len(wins) == 1 else f"ca {len(bad)}/{len(wins)}창")
+
+    if "financials" in parts:
+        try:
+            corps = sorted(set(load_corp_map().values()))
+            if a.limit:
+                corps = corps[:a.limit]
+            years = [int(y) for y in (a.fin_years or "").split(",") if y.strip().isdigit()]
+            periods = fin_periods(today, years)
+            tot = {"rows": 0, "acc": 0, "rej": 0, "codes": set()}
+
+            def _send_fin(chunk, y, r):
+                acc, rej = post_rows("financials", chunk, a.dry_run)
+                tot["rows"] += len(chunk); tot["acc"] += acc; tot["rej"] += rej
+                tot["codes"].update(x["code"] for x in chunk)
+                log(f"재무 {y} {r} {len({x['code'] for x in chunk})}종목 {len(chunk)}행 → accepted {acc} · rejected {rej}")
+            _, calls = collect_financials(corps, periods, on_chunk=_send_fin)
+            log(f"재무 {len(periods)}개 보고서 × {len(corps)}개사 {tot['rows']}행({calls}콜) → accepted {tot['acc']} · rejected {tot['rej']}")
+            runs.append({"date": iso, "part": "financials", "universe": len(corps), "ok": len(tot["codes"]), "failed": 0, "rows": tot["rows"],
+                         "note": f"{','.join(f'{y}-{r}' for y, r in periods)[:140]} {calls}콜 accepted {tot['acc']}"})
+        except Exception as e:                       # noqa: BLE001
+            log(f"재무 실패: {e}")
+            failed_parts.append("financials")
+            runs.append({"date": iso, "part": "financials", "ok": 0, "failed": 1, "rows": 0, "note": str(e)[:200]})
+
+    if "holders" in parts:
+        try:
+            cmap = load_corp_map()
+            if a.holders_all:
+                codes = sorted(cmap)[:a.limit or None]
+            else:
+                codes = sorted(c for c in holder_codes if c in cmap)
+                if "dart" not in parts:
+                    log("대량보유: 공시 파트 없이 실행 — 대상 종목을 알 수 없어 생략(--holders-all 로 전 종목)")
+            tot = {"acc": 0, "rej": 0}
+
+            def _send_h(chunk, done, total):
+                acc, rej = post_rows("holders", chunk, a.dry_run)
+                tot["acc"] += acc; tot["rej"] += rej
+                if total > 200:
+                    log(f"대량보유 {done}/{total}종목 {len(chunk)}행 → accepted {acc} · rejected {rej}")
+            if codes:
+                stat = collect_holders([(c, cmap[c]) for c in codes], workers=min(a.workers, 4), on_chunk=_send_h)
+            else:
+                stat = {"ok": 0, "failed": 0, "rows": 0, "errs": []}
+            for e in stat["errs"]:
+                log(f"실패 예: {e}")
+            log(f"대량보유 {len(codes)}종목(성공 {stat['ok']} · 실패 {stat['failed']}) {stat['rows']}행 → accepted {tot['acc']} · rejected {tot['rej']}")
+            runs.append({"date": iso, "part": "holders", "universe": len(codes), "ok": stat["ok"], "failed": stat["failed"], "rows": stat["rows"],
+                         "note": ("전 종목 " if a.holders_all else "공시 종목 ") + f"accepted {tot['acc']}"})
+            if codes and stat["ok"] / len(codes) < MIN_COVERAGE:
+                failed_parts.append(f"holders 커버리지 {stat['ok']}/{len(codes)}")
+        except Exception as e:                       # noqa: BLE001
+            log(f"대량보유 실패: {e}")
+            failed_parts.append("holders")
+            runs.append({"date": iso, "part": "holders", "ok": 0, "failed": 1, "rows": 0, "note": str(e)[:200]})
+
+    if "research" in parts:
+        try:
+            codes = build_universe(mode=a.universe)
+            if a.limit:
+                codes = codes[:a.limit]
+            cutoff = (today - datetime.timedelta(days=max(1, a.research_days))).isoformat()
+            tot = {"acc": 0, "rej": 0, "tp": 0}
+
+            def _send_r(chunk, done, total):
+                acc, rej = post_rows("research", chunk, a.dry_run)
+                tot["acc"] += acc; tot["rej"] += rej
+                tot["tp"] += sum(1 for x in chunk if x.get("target_price"))
+                if a.research_pages > 1:
+                    log(f"리포트 {done}/{total}종목 {len(chunk)}행 → accepted {acc} · rejected {rej}")
+            stat = collect_research(codes, cutoff, a.research_pages, a.workers, detail=not a.no_research_detail, on_chunk=_send_r)
+            for e in stat["errs"]:
+                log(f"실패 예: {e}")
+            log(f"리포트 {len(codes)}종목(성공 {stat['ok']} · 실패 {stat['failed']}) {cutoff}~ {stat['rows']}행 · 목표주가 {tot['tp']}건"
+                f" · 상세 성공 {stat['detail_ok']} 실패 {stat['detail_failed']} · 최대 {stat['max_pages']}장"
+                f" → accepted {tot['acc']} · rejected {tot['rej']}")
+            runs.append({"date": iso, "part": "research", "universe": len(codes), "ok": stat["ok"], "failed": stat["failed"], "rows": stat["rows"],
+                         "note": f"{cutoff}~ 목표주가 {tot['tp']} 상세실패 {stat['detail_failed']} 최대 {stat['max_pages']}장 accepted {tot['acc']}"})
+            if codes and stat["ok"] / len(codes) < MIN_COVERAGE:
+                failed_parts.append(f"research 커버리지 {stat['ok']}/{len(codes)}")
+        except Exception as e:                       # noqa: BLE001
+            log(f"리포트 실패: {e}")
+            failed_parts.append("research")
+            runs.append({"date": iso, "part": "research", "ok": 0, "failed": 1, "rows": 0, "note": str(e)[:200]})
 
     if runs and not a.dry_run:
         try:

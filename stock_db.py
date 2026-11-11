@@ -69,6 +69,35 @@ CREATE TABLE IF NOT EXISTS stock_collect_runs (
   finished_at timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (run_date, part)
 );
+
+CREATE TABLE IF NOT EXISTS stock_financials (
+  code text NOT NULL, bsns_year int NOT NULL, reprt_code text NOT NULL, fs_div text NOT NULL,
+  period_end date, rcept_no text, currency text,
+  revenue numeric, op_income numeric, pretax_income numeric, net_income numeric,
+  assets numeric, liabilities numeric, equity numeric,
+  payload jsonb NOT NULL,
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (code, bsns_year, reprt_code, fs_div)
+);
+
+CREATE TABLE IF NOT EXISTS stock_major_holders (
+  rcept_no text NOT NULL, reporter text NOT NULL,
+  code text NOT NULL, report_date date NOT NULL, report_type text,
+  shares bigint, shares_chg bigint, stake_pct numeric, stake_chg numeric,
+  ctr_shares bigint, ctr_pct numeric, reason text,
+  collected_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (rcept_no, reporter)
+);
+CREATE INDEX IF NOT EXISTS stock_major_holders_code_date ON stock_major_holders (code, report_date DESC);
+
+CREATE TABLE IF NOT EXISTS stock_research (
+  report_key text PRIMARY KEY,
+  code text NOT NULL, report_date date NOT NULL,
+  broker text, title text NOT NULL, target_price numeric, opinion text, summary text,
+  url text, pdf_url text, source text,
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS stock_research_code_date ON stock_research (code, report_date DESC);
 """
 
 _CODE_RE = re.compile(r"^[0-9A-Z]{6}$")            # 0220W0 같은 영문 혼합 코드 포함
@@ -81,7 +110,13 @@ FLOW_NUM = ("close", "change_pct", "amt_prsn", "amt_frgn", "amt_orgn", "amt_fund
             "amt_ivtr", "amt_pe", "amt_etc", "hold_ratio", "short_amt", "short_vol_pct", "short_amt_pct", "loan_bal_amt")
 FLOW_INT = ("qty_prsn", "qty_frgn", "qty_orgn", "short_qty", "loan_new", "loan_rdmp", "loan_bal_chg", "loan_bal_qty")
 FLOW_COLS = FLOW_NUM + FLOW_INT
-PARTS = ("dart", "flow", "naver", "ca")
+PARTS = ("dart", "flow", "naver", "ca", "financials", "holders", "research")
+TABLES = ("flow", "disclosures", "ca", "runs", "financials", "holders", "research")
+FIN_NUM = ("revenue", "op_income", "pretax_income", "net_income", "assets", "liabilities", "equity")
+FIN_REPRT = ("11013", "11012", "11014", "11011")   # 1분기 · 반기 · 3분기 · 사업보고서
+HOLDER_INT = ("shares", "shares_chg", "ctr_shares")
+HOLDER_NUM = ("stake_pct", "stake_chg", "ctr_pct")
+_RKEY_RE = re.compile(r"^[a-z]{2,12}:[0-9A-Za-z_-]{1,40}$")
 
 
 def enabled():
@@ -179,6 +214,51 @@ def normalize_run(row):
             "failed": _int(row.get("failed")), "rows": _int(row.get("rows")), "note": _text(row.get("note"), 300)}
 
 
+def normalize_financial(row):
+    """DART 주요계정 한 묶음(종목·사업연도·보고서·연결/별도). 숫자 컬럼은 당기 금액(원), 전체 계정은 payload."""
+    code, year = _code(row.get("code")), _int(row.get("year") or row.get("bsns_year"))
+    reprt, fs = str(row.get("reprt") or row.get("reprt_code") or ""), str(row.get("fs_div") or "").upper()
+    payload = row.get("payload")
+    if not code or not year or not 2000 <= year <= 2100 or reprt not in FIN_REPRT or fs not in ("CFS", "OFS") \
+            or not isinstance(payload, dict) or not payload:
+        return None
+    rno = str(row.get("rcept_no") or "").strip()
+    out = {"code": code, "bsns_year": year, "reprt_code": reprt, "fs_div": fs, "period_end": _date(row.get("period_end")),
+           "rcept_no": rno if _RCEPT_RE.match(rno) else None, "currency": _text(row.get("currency"), 8),
+           "payload": json.dumps(payload, ensure_ascii=False)}
+    for k in FIN_NUM:
+        out[k] = _num(row.get(k))
+    return out
+
+
+def normalize_holder(row):
+    """DART 대량보유(5%) 보고 한 건 — (접수번호, 대표보고자) 가 키."""
+    rno, who = str(row.get("rcept_no") or "").strip(), _text(row.get("reporter"), 100)
+    code, date = _code(row.get("code")), _date(row.get("date") or row.get("report_date"))
+    if not _RCEPT_RE.match(rno) or not who or not code or not date:
+        return None
+    out = {"rcept_no": rno, "reporter": who, "code": code, "report_date": date,
+           "report_type": _text(row.get("report_type"), 20), "reason": _text(row.get("reason"), 500)}
+    for k in HOLDER_INT:
+        out[k] = _int(row.get(k))
+    for k in HOLDER_NUM:
+        out[k] = _num(row.get(k))
+    return out
+
+
+def normalize_research(row):
+    """증권사 리포트 한 건 — report_key = '<소스>:<리포트 id>'(naver:96231)."""
+    key, code, date = str(row.get("report_key") or "").strip(), _code(row.get("code")), _date(row.get("date") or row.get("report_date"))
+    title = _text(row.get("title"), 300)
+    if not _RKEY_RE.match(key) or not code or not date or not title:
+        return None
+    tp = _num(row.get("target_price"))
+    return {"report_key": key, "code": code, "report_date": date, "broker": _text(row.get("broker"), 60), "title": title,
+            "target_price": tp if tp and tp > 0 else None, "opinion": _text(row.get("opinion"), 40),
+            "summary": _text(row.get("summary"), 1200), "url": _text(row.get("url"), 300), "pdf_url": _text(row.get("pdf_url"), 400),
+            "source": _text(row.get("source"), 20)}
+
+
 def _tagger():
     try:                                           # 서버는 analysis.sources 를 이미 올려 둔다. 없으면(경량 환경) 태그 없이
         from analysis.sources import dart_rule_direction
@@ -196,11 +276,12 @@ def flow_upsert_sql():
 
 
 def upsert_rows(table, rows):
-    """{"accepted", "rejected"} 또는 실패 시 None. table = flow | disclosures | ca | runs."""
-    if table not in ("flow", "disclosures", "ca", "runs") or not isinstance(rows, list) or len(rows) > MAX_ROWS:
+    """{"accepted", "rejected"} 또는 실패 시 None. table = TABLES 중 하나."""
+    if table not in TABLES or not isinstance(rows, list) or len(rows) > MAX_ROWS:
         return None
     tagger = _tagger() if table == "disclosures" else None
     norm = {"flow": normalize_flow, "ca": normalize_ca, "runs": normalize_run,
+            "financials": normalize_financial, "holders": normalize_holder, "research": normalize_research,
             "disclosures": lambda r: normalize_disclosure(r, tagger)}[table]
     good = []
     for r in rows:
@@ -214,7 +295,9 @@ def upsert_rows(table, rows):
     if not good:
         return {"accepted": 0, "rejected": rejected}
     # 같은 키가 한 배치에 두 번 오면 ON CONFLICT 가 같은 행을 두 번 건드려 실패한다 — 마지막 것만 남긴다
-    pk = {"flow": ("code", "trade_date"), "disclosures": ("rcept_no",), "ca": ("event_key",), "runs": ("run_date", "part")}[table]
+    pk = {"flow": ("code", "trade_date"), "disclosures": ("rcept_no",), "ca": ("event_key",), "runs": ("run_date", "part"),
+          "financials": ("code", "bsns_year", "reprt_code", "fs_div"), "holders": ("rcept_no", "reporter"),
+          "research": ("report_key",)}[table]
     good = list({tuple(g[k] for k in pk): g for g in good}.values())
 
     def _op(cur):
@@ -235,6 +318,23 @@ def upsert_rows(table, rows):
                 [(g["event_key"], g["code"], g["ca_type"], g["kind"], g["event_date"], g["record_date"], g["importance"],
                   g["payload"], g["seen"], g["seen"]) for g in good],
                 template="(%s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s, %s)", page_size=500)
+        elif table == "financials":                  # 정정 공시가 나오면 같은 키로 다시 와서 덮어쓴다(최신 값이 맞다)
+            cols = ("code", "bsns_year", "reprt_code", "fs_div", "period_end", "rcept_no", "currency") + FIN_NUM + ("payload",)
+            sets = ", ".join(f"{c} = EXCLUDED.{c}" for c in cols[4:])
+            execute_values(cur, f"INSERT INTO stock_financials ({', '.join(cols)}) VALUES %s"
+                           f" ON CONFLICT (code, bsns_year, reprt_code, fs_div) DO UPDATE SET {sets}, updated_at = now()",
+                           [tuple(g[c] for c in cols) for g in good],
+                           template="(" + ", ".join(["%s"] * (len(cols) - 1)) + ", %s::jsonb)", page_size=300)
+        elif table == "holders":
+            cols = ("rcept_no", "reporter", "code", "report_date", "report_type") + HOLDER_INT + HOLDER_NUM + ("reason",)
+            execute_values(cur, f"INSERT INTO stock_major_holders ({', '.join(cols)}) VALUES %s"
+                           " ON CONFLICT (rcept_no, reporter) DO NOTHING", [tuple(g[c] for c in cols) for g in good], page_size=500)
+        elif table == "research":                    # 목록만 본 행(목표주가 없음)이 상세를 본 행을 지우지 않게 COALESCE
+            cols = ("report_key", "code", "report_date", "broker", "title", "target_price", "opinion", "summary", "url", "pdf_url", "source")
+            sets = ", ".join(f"{c} = COALESCE(EXCLUDED.{c}, stock_research.{c})" for c in cols[3:])
+            execute_values(cur, f"INSERT INTO stock_research ({', '.join(cols)}) VALUES %s"
+                           f" ON CONFLICT (report_key) DO UPDATE SET {sets}, updated_at = now()",
+                           [tuple(g[c] for c in cols) for g in good], page_size=500)
         else:
             cols = ("run_date", "part", "universe", "ok", "failed", "rows", "note")
             execute_values(cur, f"INSERT INTO stock_collect_runs ({', '.join(cols)}) VALUES %s"
@@ -317,12 +417,55 @@ def ca(code, frm=None, to=None):
     return report_db._run(_op)
 
 
+def financials(code, years=5):
+    """최근 years 사업연도의 주요계정(연결 우선으로 정렬). payload 에 전체 계정."""
+    code = _code(code)
+    if not code:
+        return None
+    cols = ("bsns_year", "reprt_code", "fs_div", "period_end", "rcept_no", "currency") + FIN_NUM + ("payload",)
+
+    def _op(cur):
+        cur.execute(f"SELECT {', '.join(cols)} FROM stock_financials WHERE code=%s AND bsns_year >= %s"
+                    " ORDER BY period_end DESC NULLS LAST, bsns_year DESC, fs_div", (code, datetime.date.today().year - max(1, int(years or 5))))
+        return _rows(cur, cols)
+    return report_db._run(_op)
+
+
+def holders(code, frm=None, to=None):
+    code = _code(code)
+    if not code:
+        return None
+    f, t = _window(frm, to, days=365 * 3)
+    cols = ("report_date", "reporter", "report_type") + HOLDER_INT + HOLDER_NUM + ("reason", "rcept_no")
+
+    def _op(cur):
+        cur.execute(f"SELECT {', '.join(cols)} FROM stock_major_holders WHERE code=%s AND report_date BETWEEN %s AND %s"
+                    " ORDER BY report_date DESC, rcept_no DESC LIMIT 300", (code, f, t))
+        return _rows(cur, cols)
+    return report_db._run(_op)
+
+
+def research(code, frm=None, to=None):
+    code = _code(code)
+    if not code:
+        return None
+    f, t = _window(frm, to, days=365)
+    cols = ("report_date", "broker", "title", "target_price", "opinion", "summary", "url", "pdf_url", "source", "report_key")
+
+    def _op(cur):
+        cur.execute(f"SELECT {', '.join(cols)} FROM stock_research WHERE code=%s AND report_date BETWEEN %s AND %s"
+                    " ORDER BY report_date DESC, report_key DESC LIMIT 500", (code, f, t))
+        return _rows(cur, cols)
+    return report_db._run(_op)
+
+
 def bundle(code, days=120):
     code = _code(code)
     if not code:
         return None
     frm = (datetime.date.today() - datetime.timedelta(days=max(1, min(int(days or 120), 800)))).isoformat()
-    return {"code": code, "from": frm, "flow": flow(code, frm), "disclosures": disclosures(code, frm), "ca": ca(code, frm)}
+    return {"code": code, "from": frm, "flow": flow(code, frm), "disclosures": disclosures(code, frm), "ca": ca(code, frm),
+            "financials": financials(code, 3), "holders": holders(code), "research": research(code, frm)}
 
 
 def status():
@@ -341,8 +484,19 @@ def status():
                     " count(*) FILTER (WHERE short_qty IS NOT NULL), count(*) FILTER (WHERE loan_bal_qty IS NOT NULL) FROM stock_flow_daily")
         k, nv, sh, ln = cur.fetchone()
         out["flow"]["filled"] = {"kis": k, "naver": nv, "short": sh, "loan": ln}
+        for name, table, dcol in (("holders", "stock_major_holders", "report_date"), ("research", "stock_research", "report_date")):
+            cur.execute(f"SELECT count(*), min({dcol}), max({dcol}), count(DISTINCT code) FROM {table}")
+            n, lo, hi, codes = cur.fetchone()
+            out[name] = {"rows": n, "from": lo.isoformat() if lo else None, "to": hi.isoformat() if hi else None, "codes": codes}
+        cur.execute("SELECT count(*) FILTER (WHERE target_price IS NOT NULL) FROM stock_research")
+        out["research"]["withTarget"] = cur.fetchone()[0]
+        cur.execute("SELECT count(*), min(bsns_year), max(bsns_year), count(DISTINCT code) FROM stock_financials")
+        n, lo, hi, codes = cur.fetchone()
+        out["financials"] = {"rows": n, "fromYear": lo, "toYear": hi, "codes": codes}
+        cur.execute("SELECT bsns_year, reprt_code, count(DISTINCT code) FROM stock_financials GROUP BY 1, 2 ORDER BY 1 DESC, 2 LIMIT 24")
+        out["financials"]["periods"] = [{"year": y, "reprt": r, "codes": c} for y, r, c in cur.fetchall()]
         cur.execute("SELECT run_date, part, universe, ok, failed, rows, note, finished_at FROM stock_collect_runs"
-                    " ORDER BY run_date DESC, part LIMIT 12")
+                    " ORDER BY run_date DESC, part LIMIT 21")
         out["runs"] = _rows(cur, ("run_date", "part", "universe", "ok", "failed", "rows", "note", "finished_at"))
         return out
     return report_db._run(_op)
