@@ -37,11 +37,35 @@ def test_clean_filters_and_caps():
     assert len(PF.clean(wide)) == PF.MAX_TOTAL
 
 
-def test_basis_takes_latest_row_with_rate():
-    flow = {"trend": [{"date": "20261110", "rate": 9.7, "close": 27150}, {"date": "20261109", "rate": 1.03}]}
-    assert PF.basis(flow) == {"date": "2026-11-10", "ratePct": 9.7}
-    assert PF.basis({"trend": [{"date": "20261110", "rate": None}, {"date": "2026-11-09", "rate": -1.2}]}) == {"date": "2026-11-09", "ratePct": -1.2}
+KST = __import__("datetime").timezone(__import__("datetime").timedelta(hours=9))
+
+
+def at(y, m, d, hh, mm):
+    return __import__("datetime").datetime(y, m, d, hh, mm, tzinfo=KST)
+
+
+def test_basis_falls_back_to_latest_row():
+    night = at(2026, 11, 10, 20, 0)                                                   # 장 마감 뒤 — 표의 최신 행이 오늘
+    flow = {"trend": [{"date": "20261110", "rate": 9.7, "close": 27150}, {"date": "20261109", "rate": 1.03, "close": 24600}]}
+    assert PF.basis(flow, None, night) == {"date": "2026-11-10", "ratePct": 9.7, "kind": "today"}
+    early = at(2026, 11, 11, 8, 40)                                                   # 장 시작 전 — 현재가가 있어도 당일 등락으로 보지 않는다
+    assert PF.basis(flow, 27400, early) == {"date": "2026-11-10", "ratePct": 9.7, "kind": "last"}
+    assert PF.basis(flow, None, at(2026, 11, 11, 10, 40)) == {"date": "2026-11-10", "ratePct": 9.7, "kind": "last"}   # 현재가 모름
+    assert PF.basis({"trend": [{"date": "20261110", "rate": None}, {"date": "2026-11-09", "rate": -1.2}]}, None, early) == {"date": "2026-11-09", "ratePct": -1.2, "kind": "last"}
     assert PF.basis({"trend": []}) is None and PF.basis(None) is None and PF.basis({"trend": [{"date": "x", "rate": 1.0}]}) is None
+
+
+def test_today_move_from_current_price():
+    flow = {"trend": [{"date": "20261110", "rate": 9.7, "close": 27150}, {"date": "20261109", "rate": 1.03, "close": 24600}]}
+    now = at(2026, 11, 11, 10, 40)
+    tm = PF.today_move(flow, 26900, now)                                              # 26,900 ÷ 27,150 − 1 = −0.92%
+    assert tm == {"date": "2026-11-11", "ratePct": -0.92, "price": 26900.0, "prevClose": 27150.0}, tm
+    assert PF.basis(flow, 26900, now) == {"date": "2026-11-11", "ratePct": -0.92, "kind": "today"}
+    assert PF.today_move(flow, 26900, at(2026, 11, 11, 9, 0)) is None                 # 09:05 전
+    assert PF.today_move(flow, 26900, at(2026, 11, 14, 11, 0)) is None                # 토요일
+    assert PF.today_move(flow, None, now) is None and PF.today_move({"trend": [{"date": "20261110", "rate": 9.7}]}, 26900, now) is None   # 현재가·종가 없음
+    after = {"trend": [{"date": "20261111", "rate": -1.1, "close": 26850}, {"date": "20261110", "rate": 9.7, "close": 27150}]}
+    assert PF.today_move(after, 99999, at(2026, 11, 11, 16, 0)) == {"date": "2026-11-11", "ratePct": -1.1, "price": 26850.0, "prevClose": 27150.0}   # 표에 오늘 행이 있으면 그 값
 
 
 def test_attribute_sums_to_rate_and_keeps_signs():
@@ -100,10 +124,12 @@ def test_attribute_flat_day_and_rounding():
 
 
 def test_build_document():
-    flow = {"trend": [{"date": "20261110", "rate": 9.7}]}
+    flow = {"trend": [{"date": "20261110", "rate": 9.7, "close": 27150}]}
     raw = [f("flow", "외국인 순매수", "up", 4, "11/10 +8.8만 주"), f("dart", "영업이익 하회", "down", 3)]
-    doc = PF.build(raw, flow)
-    assert doc["basis"] == {"date": "2026-11-10", "ratePct": 9.7} and doc["estimated"] is True
+    doc = PF.build(raw, flow, None, at(2026, 11, 11, 8, 40))
+    assert doc["basis"] == {"date": "2026-11-10", "ratePct": 9.7, "kind": "last"} and doc["estimated"] is True
+    live = PF.build(raw, flow, 26900, at(2026, 11, 11, 10, 40))                       # 장중 — 당일 등락(−0.92%)에 맞춘다
+    assert live["basis"] == {"date": "2026-11-11", "ratePct": -0.92, "kind": "today"} and round(sum(x["pp"] for x in live["items"]), 1) == -0.9
     assert round(sum(doc["byCat"].values()), 1) == 9.7 and set(doc["byCat"]) == {"flow", "dart"}
     assert doc["items"][0]["evidence"] == "11/10 +8.8만 주" and set(doc["items"][0]) == {"cat", "title", "dir", "strength", "evidence", "pp"}
     assert PF.build(raw, None) is None and PF.build([], flow) is None and PF.build("x", flow) is None
@@ -120,10 +146,11 @@ def test_schema_wiring():
     assert "priceFactors" in G.ANALYSIS_SCHEMA["properties"] and "priceFactors" in G.ANALYSIS_SCHEMA["required"]
     assert "priceFactors" in G.ANALYSIS_SCHEMA_FU["properties"]
     assert "priceFactors:" in G.SYSTEM and "priceFactors:" in G.REFINE_SYSTEM
+    assert "여섯 항목 각각에 1~4개씩" in G.SYSTEM and "price_today" in G.SYSTEM                 # 항목별 요인 확대 · 당일 기준
 
 
-def test_reanalyze_once_when_factors_missing():
-    """증분 모드: 요인이 없는 이월 분석은 한 번만 재분석 — 새로 분석해 _meta.pf 가 붙으면 요인이 없어도 다시 하지 않는다."""
+def test_reanalyze_once_when_factors_missing_or_old():
+    """증분 모드: 요인이 없거나 옛 판으로 만든 이월 분석은 한 번만 재분석 — 새로 분석해 _meta.pf 에 판 번호가 붙으면 다시 하지 않는다."""
     try:
         import generate_analysis as G
     except ImportError as e:
@@ -136,13 +163,13 @@ def test_reanalyze_once_when_factors_missing():
     G._latest_filing_key = lambda code: "k1"                 # 신규 공시 없음(외부 호출 차단)
     try:
         stock = {"code": "082740", "name": "한화엔진"}
-        old = {"analysis": {"catalyst": "x", "_meta": {"asOf": fresh, "filingKey": "k1", "price": 100}}, "basePrice": 100}
-        assert G._needs_analysis(stock, old, now) == (True, "요인없음(1회)")
-        tried = {"analysis": {"catalyst": "x", "_meta": {"asOf": fresh, "filingKey": "k1", "price": 100, "pf": 1}}, "basePrice": 100}
-        need, why = G._needs_analysis(stock, tried, now)
+
+        def entry(meta, **extra):
+            return {"analysis": dict({"catalyst": "x", "_meta": dict({"asOf": fresh, "filingKey": "k1", "price": 100}, **meta)}, **extra), "basePrice": 100}
+        assert G._needs_analysis(stock, entry({}), now) == (True, "요인갱신(1회)")                                   # 요인 출력 이전 분석
+        assert G._needs_analysis(stock, entry({"pf": 1}, priceFactors={"items": []}), now) == (True, "요인갱신(1회)")   # 옛 판(요인이 있어도)
+        need, why = G._needs_analysis(stock, entry({"pf": PF.VERSION}), now)                                        # 새 판으로 분석됨(요인이 없어도 반복 안 함)
         assert need is False and why.startswith("캐시"), (need, why)
-        has = {"analysis": {"catalyst": "x", "priceFactors": {"items": []}, "_meta": {"asOf": fresh, "filingKey": "k1", "price": 100}}, "basePrice": 100}
-        assert G._needs_analysis(stock, has, now)[0] is False
     finally:
         G._latest_filing_key = keep
 

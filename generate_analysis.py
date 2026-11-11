@@ -482,10 +482,10 @@ def _needs_analysis(stock, entry, now):
         age_h = (now - datetime.datetime.fromisoformat(asof)).total_seconds() / 3600
     except Exception:
         return True, "asOf파싱실패"
-    # 주가 영향 분해(2026-11-11): 요인 출력이 생기기 전에 만든 분석은 한 번만 다시 분석한다.
-    # 새로 분석하면 _meta.pf 가 붙으므로(요인이 안 나와도) 같은 종목을 이 사유로 되풀이하지 않는다.
-    if PRICE_FACTORS_ON and not meta.get("pf") and "priceFactors" not in a:
-        return True, "요인없음(1회)"
+    # 주가 영향 분해(2026-11-11): 요인 출력이 없거나 옛 판(price_factors.VERSION 과 다름)으로 만든 분석은 한 번만 다시 분석한다.
+    # 새로 분석하면 _meta.pf 에 판 번호가 붙으므로(요인이 안 나와도) 같은 종목을 이 사유로 되풀이하지 않는다.
+    if PRICE_FACTORS_ON and meta.get("pf") != price_factors.VERSION:
+        return True, "요인갱신(1회)"
     if age_h >= TTL_HOURS:
         return True, f"TTL({age_h:.1f}h≥{TTL_HOURS}h)"
     base, cur = meta.get("price"), (entry or {}).get("basePrice")
@@ -830,6 +830,17 @@ def analyze_stock(stock, peer_cfg):
                                 "loans_recent": (flow.get("loans") or [])[:10],
                                 "naver_trend": (flow.get("trend") or [])[:10]}
 
+    # 주가 영향 분해(당일 기준): 분석 시점의 당일 등락을 LLM 에도 알려 준다 — 요인을 '오늘 움직임' 기준으로 고르게
+    pf_now = datetime.datetime.now(KST)
+    pf_cur = stock.get("basePrice") or stock.get("price") or base_px
+    if PRICE_FACTORS_ON:
+        try:
+            tm = price_factors.today_move(flow, pf_cur, pf_now)
+        except Exception:
+            tm = None
+        if tm:
+            raw["price_today"] = tm
+
     user = (f"종목: {stock['name']} ({stock['code']}, {stock['market']})\n"
             f"RAW 데이터(JSON):\n{json.dumps(raw, ensure_ascii=False)}")
 
@@ -906,9 +917,9 @@ def analyze_stock(stock, peer_cfg):
     # 수급 원본(최근 20거래일 + 가집계 랭킹)은 LLM 을 거치지 않고 그대로 싣는다 — 수치 환각 방지.
     if flow:
         analysis["flow"] = flow
-    # 주가 영향 분해(추정): LLM 요인 목록 → 기준일 등락률(수급 일별 최신 행)에 맞춘 %p. 요인·수급이 없으면 키를 뺀다.
+    # 주가 영향 분해(추정): LLM 요인 목록 → 기준 등락률(당일, 없으면 최근 거래일)에 맞춘 %p. 요인·수급이 없으면 키를 뺀다.
     try:
-        pf = price_factors.build(analysis.pop("priceFactors", None), flow)
+        pf = price_factors.build(analysis.pop("priceFactors", None), flow, pf_cur, pf_now)
     except Exception as e:                                  # 분해 실패가 분석 전체를 깨지 않게
         print(f"[research] {code} priceFactors 실패(생략): {type(e).__name__}: {e}", file=sys.stderr)
         pf = None
@@ -958,7 +969,7 @@ def analyze_stock(stock, peer_cfg):
         res["consensus"] = cons
     # 증분 분석용 메타: 최신 공시 시그니처(신규 공시 감지). asOf/price 는 main 에서 채운다.
     if INCREMENTAL:
-        analysis["_meta"] = {"filingKey": _filing_key(disclosures), **({"pf": 1} if PRICE_FACTORS_ON else {})}
+        analysis["_meta"] = {"filingKey": _filing_key(disclosures), **({"pf": price_factors.VERSION} if PRICE_FACTORS_ON else {})}
     return analysis
 
 

@@ -5497,7 +5497,7 @@
             if (apiStock) {
               const prevPrice = stock.price;
               stock.price = apiStock.price || stock.basePrice;
-              stock.rate = apiStock.rate || 0;
+              stock.rate = apiStock.rate || 0; stock._liveAt = Date.now();
               
               // Map open/prevClose if provided by API to calculate openingGap
               if (apiStock.open && apiStock.prevClose) {
@@ -5580,7 +5580,7 @@
             if (!apiStock) return;
             const prevPrice = stock.price;
             stock.price = apiStock.price || stock.basePrice;
-            stock.rate = apiStock.rate || 0;
+            stock.rate = apiStock.rate || 0; stock._liveAt = Date.now();
 
             if (isMarketOpen()) {
               stock.history.push(stock.price);
@@ -5635,7 +5635,7 @@
             if (!apiStock) return;
             const prevPrice = stock.price;
             stock.price = apiStock.price || stock.basePrice;
-            stock.rate = apiStock.rate || 0;
+            stock.rate = apiStock.rate || 0; stock._liveAt = Date.now();
             if (isMarketOpen() && stock.direction !== "bearish") {
               stock.history.push(stock.price);
               if (stock.history.length > 8) stock.history.shift();
@@ -6503,7 +6503,10 @@
       drawer.classList.add("active");
 
       // 주가 영향 분해 3D — 요인 데이터가 있는 종목만(없으면 블록이 숨겨진 채로 남는다)
-      if (window.PF3D) { try { PF3D.show(stock); } catch (e) { console.warn("[PF3D]", e); } }
+      if (window.PF3D) {
+        const liveOk = !useSimulatedData && isLiveView && stock._liveAt && typeof stock.rate === "number" && isFinite(stock.rate);
+        try { PF3D.show(stock, liveOk ? stock.rate : null); } catch (e) { console.warn("[PF3D]", e); }
+      }
 
       // Log action
       const logsBox = document.getElementById("logs-box");
@@ -9141,6 +9144,42 @@ window.PF3D = (function () {
   function pp(v, unit) { var a = Math.abs(v) < 0.05 ? 0 : v; return (a > 0 ? "+" : a < 0 ? "−" : "±") + Math.abs(a).toFixed(1) + (unit === false ? "" : "%p"); }
   function colorOf(v) { return v > 0.0001 ? RED : v < -0.0001 ? BLUE : GRAY; }
 
+  // 요인별 %p 배분 — analysis/price_factors.py attribute() 와 같은 규칙(바꾸면 양쪽 같이). 실시간 등락률에 다시 맞출 때 쓴다
+  var GROSS_CAP = 3.0, GROSS_MISSING = 2.0, GROSS_FLOOR = 1.0;
+  function attribute(items, r) {
+    var U = 0, D = 0, i, x;
+    for (i = 0; i < items.length; i++) { x = items[i]; if (x.dir > 0) U += x.strength; else if (x.dir < 0) D += x.strength; }
+    var missing = (r > 0 && U === 0) || (r < 0 && D === 0), gross;
+    if (missing) gross = Math.abs(r) * GROSS_MISSING;
+    else {
+      gross = (U || D) ? Math.abs(r) * Math.min((U + D) / Math.max(Math.abs(U - D), 1e-9), GROSS_CAP) : Math.abs(r);
+      if (U && D) gross = Math.max(gross, GROSS_FLOOR);
+    }
+    gross = Math.max(gross, Math.abs(r));
+    var u = (gross + r) / 2, d = (gross - r) / 2, resid = 0;
+    if (U === 0) { resid += u; u = 0; }
+    if (D === 0) { resid -= d; d = 0; }
+    function r1(v) { return Math.round(v * 10) / 10; }
+    var out = items.map(function (f) {
+      var o = {}; for (var k in f) o[k] = f[k];
+      o.pp = r1(f.dir > 0 ? u * f.strength / U : f.dir < 0 ? -d * f.strength / D : 0); return o;
+    });
+    if (Math.abs(resid) >= 0.05) out.push({ cat: "etc", title: "요인으로 설명되지 않은 변동", dir: resid > 0 ? 1 : -1, strength: 0,
+      evidence: "제시된 요인의 방향만으로는 등락률을 설명할 수 없어 남은 부분(시장·업종 흐름 등).", pp: r1(resid) });
+    var sum = 0; out.forEach(function (o) { sum += o.pp; });
+    var diff = r1(r1(r) - sum);
+    if (out.length && Math.abs(diff) >= 0.05) { var big = out[0]; out.forEach(function (o) { if (Math.abs(o.pp) > Math.abs(big.pp)) big = o; }); big.pp = r1(big.pp + diff); }
+    return out;
+  }
+  // 3D 에서 항목·요인을 누르면 아래 딥리서치 탭도 그 항목으로 연다
+  function syncTab(cat) {
+    if (!cat || cat === "etc") return;
+    try {
+      if (typeof selectDrawerPane === "function") selectDrawerPane("research");
+      if (typeof selectAnalysisTab === "function") selectAnalysisTab(cat);
+    } catch (e) {}
+  }
+
   function loadThree(cb) {
     if (window.THREE) return cb(true);
     waiters.push(cb);
@@ -9331,8 +9370,8 @@ window.PF3D = (function () {
       if (moved < 6 && !e.target.closest(".pf3d-tools")) {
         var n = pick(e);
         if (!n) reset();
-        else if (n.kind === "cat") { if (catFocus === n.cat && selected != null) { selected = null; applyVisual(); renderInfo(); } else focusCat(n.cat); }
-        else select(n.idx);
+        else if (n.kind === "cat") { if (catFocus === n.cat && selected != null) { selected = null; applyVisual(); renderInfo(); } else focusCat(n.cat); syncTab(n.cat); }
+        else { select(n.idx); syncTab(n.cat); }
         idleAt = performance.now() + 4000;
       }
     }
@@ -9430,15 +9469,25 @@ window.PF3D = (function () {
     clearScene();
   }
   // 종목 상세 팝업을 열 때 부른다 — 요인 데이터가 없거나 3D 를 못 쓰면 블록 전체를 숨긴다(기존 화면 그대로)
-  function show(stock) {
+  function show(stock, liveRate) {
     if (!els()) return;
     hide();
     var pf = stock && stock.analysis && stock.analysis.priceFactors;
     if (!pf || !Array.isArray(pf.items) || !pf.items.length) return;
-    var my = ++token, b = pf.basis || {};
-    capEl.innerHTML = "🧭 주가 영향 분해" + (b.date ? ' <span class="pf3d-cap-s">기준 ' + esc(String(b.date).slice(5).replace("-", "/")) + " 등락률 " +
-      (typeof b.ratePct === "number" ? pp(b.ratePct, false) + "%" : "") + "</span>" : "") +
-      ' <span class="pf3d-est" title="딥리서치 LLM 이 고른 요인과 강도를 기준일 등락률에 맞춰 나눈 추정치입니다. 측정값이 아닙니다.">추정</span>';
+    var my = ++token, b = pf.basis || {}, basisTxt;
+    // 실시간 등락률이 있으면 그 값에 다시 맞춘다(당일 기준) — 없으면 분석 시점에 계산해 둔 값 그대로
+    if (typeof liveRate === "number" && isFinite(liveRate)) {
+      var src = pf.items.filter(function (f) { return f && f.cat !== "etc" && typeof f.strength === "number"; });
+      if (src.length) {
+        pf = { basis: { date: "", ratePct: Math.round(liveRate * 100) / 100, kind: "live" }, items: attribute(src, liveRate) };
+        b = pf.basis;
+      }
+    }
+    basisTxt = b.kind === "live" ? "당일 등락률(실시간) " : b.kind === "today" ? "당일 등락률(분석 시점) " :
+               (b.date ? esc(String(b.date).slice(5).replace("-", "/")) + " 등락률 " : "등락률 ");
+    capEl.innerHTML = "🧭 주가 영향 분해" + ' <span class="pf3d-cap-s">기준 ' + basisTxt +
+      (typeof b.ratePct === "number" ? pp(b.ratePct, false) + "%" : "") + "</span>" +
+      ' <span class="pf3d-est" title="딥리서치 LLM 이 고른 요인과 강도를 기준 등락률에 맞춰 나눈 추정치입니다. 측정값이 아닙니다.">추정</span>';
     loadThree(function (ok) {
       if (my !== token) return;                              // 그 사이 다른 종목을 열었거나 닫았다
       if (!ok) return;
@@ -9452,7 +9501,7 @@ window.PF3D = (function () {
     });
   }
   return { show: show, hide: hide, _state: function () { return { running: running, nodes: nodes.length, cats: CATS.length, catFocus: catFocus, selected: selected }; },
-           _focus: function (id) { focusCat(id); }, _select: function (i) { select(i); } };
+           _focus: function (id) { focusCat(id); syncTab(id); }, _select: function (i) { select(i); if (F[i]) syncTab(F[i].cat); } };
 })();
 </script>
 </body>

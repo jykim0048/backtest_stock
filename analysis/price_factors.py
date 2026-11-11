@@ -1,11 +1,14 @@
-"""주가 영향 분해(추정) — 딥리서치 LLM 이 낸 요인 목록을 기준일 등락률에 맞춰 %p 로 환산한다 (2026-11-11).
+"""주가 영향 분해(추정) — 딥리서치 LLM 이 낸 요인 목록을 기준 등락률(당일)에 맞춰 %p 로 환산한다 (2026-11-11).
 
 대시보드 종목 상세 팝업의 3D 요인 그림(종목 → 딥리서치 항목 ⊃ 요인)이 쓰는 데이터.
 
 흐름
   1) LLM(generate_analysis) 이 priceFactors = [{category, title, direction, strength(1~5), evidence}] 를 낸다(PROMPT · ITEM_SCHEMA).
      %p 는 LLM 이 쓰지 않는다 — 수치 환각 방지.
-  2) 코드(build)가 정리(clean) → 기준일 등락률(basis: 수급 일별 표의 가장 최근 행) → 배분(attribute).
+  2) 코드(build)가 정리(clean) → 기준 등락률(basis) → 배분(attribute).
+     기준 = **당일 등락**(today_move: 분석 시점 현재가 ÷ 직전 거래일 종가 − 1, 수급 표 최신 행이 오늘이면 그 등락률).
+     장 시작 전이거나 현재가를 모르면 가장 최근 거래일 등락률로 대신한다(basis.kind = "last").
+     대시보드는 실시간 시세가 있으면 같은 규칙(attribute — index.html PF3D 에 같은 식)으로 그 순간 등락률에 다시 맞춘다.
 
 배분 규칙(attribute) — **측정이 아니라 추정**이다(화면에도 '추정'으로 표시)
   U = 상승 요인 강도 합, D = 하락 요인 강도 합, r = 기준일 등락률(%).
@@ -16,11 +19,14 @@
   반올림 뒤 합계는 r 과 같게 맞춘다. 순수 함수 · 외부 호출 없음.
 """
 
+import datetime
+
 CATS = ("research", "flow", "peers", "news", "community", "dart")
 CAT_LABEL = {"research": "증권사 리포트", "flow": "수급", "peers": "해외 Peer", "news": "뉴스 분석",
              "community": "토론방", "dart": "DART · CA", "etc": "기타·시장"}
 MAX_PER_CAT = 4
-MAX_TOTAL = 16
+MAX_TOTAL = 24
+VERSION = 2              # 요인 출력 형식·프롬프트 판 — 증분 분석의 _meta.pf 와 다르면 한 번 재분석(generate_analysis._needs_analysis)
 GROSS_CAP = 3.0          # 상승 몫 + 하락 몫 ≤ |등락률| × 이 배수
 GROSS_MISSING = 2.0      # 필요한 방향의 요인이 없을 때의 배수(반대 방향 요인에도 몫을 조금 남긴다)
 GROSS_FLOOR = 1.0        # 등락률이 0 에 가까워도 상승·하락 요인이 둘 다 있으면 이만큼(%p)은 서로 상쇄한 것으로 본다
@@ -39,14 +45,15 @@ ITEM_SCHEMA = {
 }
 
 PROMPT = """
-- priceFactors: 가장 최근 거래일의 주가 움직임에 영향을 준 요인을 딥리서치 항목별로 나눈 목록(전체 6~14개, 항목당 0~4개).
-  category = 근거가 나온 항목 — research(증권사 리포트) | flow(수급) | peers(해외 Peer) | news(뉴스) |
-  community(토론방) | dart(DART 공시·재무·CA). title = 20자 안팎의 구체적인 한 줄(수치를 넣으면 좋다).
-  direction = 주가에 준 방향 up | down | neutral. strength = 그 요인이 최근 주가 움직임에 준 상대적 영향
-  "1"(미미) ~ "5"(결정적). evidence = RAW 의 수치·사실을 인용한 근거 1문장.
-  같은 사건을 여러 항목에 겹쳐 넣지 말고 가장 직접적인 항목 하나에만 둔다. RAW 에 근거가 없는 요인은 만들지 말고,
-  근거가 없는 항목은 비워 둔다. 상승·하락 요인을 모두 찾되 억지로 균형을 맞추지 않는다.
-  %p 같은 기여도 수치는 코드가 계산하므로 쓰지 않는다."""
+- price_today(입력, 있을 때만): 분석 시점의 당일 등락 — price(현재가)·prevClose(직전 거래일 종가)·ratePct(등락률 %).
+- priceFactors: **오늘**(price_today 가 있으면 그 등락, 없으면 가장 최근 거래일) 주가 움직임에 영향을 준 요인을 딥리서치 항목별로 나눈 목록.
+  category = research(증권사 리포트) | flow(수급) | peers(해외 Peer) | news(뉴스) | community(토론방) | dart(DART 공시·재무·CA).
+  **여섯 항목 각각에 1~4개씩** 넣는다(전체 8~20개) — 그 항목의 RAW 가 비었거나 수집 실패일 때만 그 항목을 생략한다.
+  영향이 작아도 그 항목에서 가장 의미 있는 사실을 strength "1"~"2" 로 넣고, 방향이 불분명하면 direction 을 neutral 로 한다.
+  title = 20자 안팎의 구체적인 한 줄(수치를 넣으면 좋다). direction = 주가에 준 방향 up | down | neutral.
+  strength = 그 요인이 오늘 주가 움직임에 준 상대적 영향 "1"(미미) ~ "5"(결정적). evidence = RAW 의 수치·사실을 인용한 근거 1문장(40자 안팎).
+  같은 사건을 여러 항목에 겹쳐 넣지 말고 가장 직접적인 항목 하나에만 둔다. RAW 에 근거가 없는 요인은 만들지 않는다.
+  상승·하락 요인을 모두 찾되 억지로 균형을 맞추지 않는다. %p 같은 기여도 수치는 코드가 계산하므로 쓰지 않는다."""
 
 _DIR = {"up": 1, "down": -1, "neutral": 0, "상승": 1, "하락": -1, "중립": 0, "bullish": 1, "bearish": -1}
 
@@ -83,18 +90,51 @@ def clean(raw):
     return [out[i] for i in range(len(out)) if i in keep]
 
 
-def basis(flow):
-    """기준일 등락률 — 수급 일별 표(flow.trend, 최신순)에서 등락률이 있는 첫 행. 없으면 None."""
+def _rows(flow):
+    """수급 일별 표(최신순)에서 날짜(YYYY-MM-DD)를 읽을 수 있는 행만."""
+    out = []
     for row in (flow or {}).get("trend") or []:
         if not isinstance(row, dict):
             continue
-        r, d = row.get("rate"), str(row.get("date") or "")
-        if isinstance(r, bool) or not isinstance(r, (int, float)):
-            continue
-        digits = "".join(ch for ch in d if ch.isdigit())
-        if len(digits) != 8:
-            continue
-        return {"date": f"{digits[:4]}-{digits[4:6]}-{digits[6:]}", "ratePct": round(float(r), 2)}
+        digits = "".join(ch for ch in str(row.get("date") or "") if ch.isdigit())
+        if len(digits) == 8:
+            out.append((f"{digits[:4]}-{digits[4:6]}-{digits[6:]}", row))
+    return out
+
+
+def _num(v):
+    return float(v) if isinstance(v, (int, float)) and not isinstance(v, bool) else None
+
+
+def today_move(flow, cur_price=None, now=None):
+    """당일 등락(분석 시점) → {date, ratePct, price, prevClose} | None.
+    수급 일별 표의 최신 행이 오늘이면 그 등락률을 쓴다. 아니면 현재가 ÷ 최신 행 종가 − 1 —
+    평일 09:05(KST) 이후에만(장 시작 전의 현재가는 전일 종가·예상가라 당일 등락이 아니다). now = KST 시각(없으면 지금)."""
+    if now is None:
+        now = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=9)))
+    today = now.strftime("%Y-%m-%d")
+    rows = _rows(flow)
+    if not rows:
+        return None
+    d0, r0 = rows[0]
+    if d0 == today and _num(r0.get("rate")) is not None:
+        prev = _num(rows[1][1].get("close")) if len(rows) > 1 else None
+        return {"date": today, "ratePct": round(_num(r0["rate"]), 2), "price": _num(r0.get("close")), "prevClose": prev}
+    cur, close = _num(cur_price), _num(r0.get("close"))
+    if d0 < today and cur and close and close > 0 and now.weekday() < 5 and (now.hour, now.minute) >= (9, 5):
+        return {"date": today, "ratePct": round((cur / close - 1) * 100, 2), "price": cur, "prevClose": close}
+    return None
+
+
+def basis(flow, cur_price=None, now=None):
+    """기준 등락률 — 당일 등락(today_move, kind "today")이 있으면 그것, 없으면 수급 일별 표에서 등락률이 있는 가장 최근 행(kind "last")."""
+    tm = today_move(flow, cur_price, now)
+    if tm:
+        return {"date": tm["date"], "ratePct": tm["ratePct"], "kind": "today"}
+    for d, row in _rows(flow):
+        r = _num(row.get("rate"))
+        if r is not None:
+            return {"date": d, "ratePct": round(r, 2), "kind": "last"}
     return None
 
 
@@ -135,10 +175,10 @@ def attribute(items, rate):
     return out
 
 
-def build(raw, flow):
+def build(raw, flow, cur_price=None, now=None):
     """analysis["priceFactors"] 문서 — 요인이 없거나 기준 등락률을 못 구하면 None(대시보드는 그림을 숨긴다)."""
     items = clean(raw)
-    b = basis(flow)
+    b = basis(flow, cur_price, now)
     if not items or not b:
         return None
     rows = attribute(items, b["ratePct"])
@@ -146,4 +186,4 @@ def build(raw, flow):
     for x in rows:
         by[x["cat"]] = round(by.get(x["cat"], 0.0) + x["pp"], 1)
     return {"basis": b, "items": rows, "byCat": by, "estimated": True,
-            "method": "LLM 이 낸 요인 강도를 기준일 등락률에 맞춰 배분한 추정치"}
+            "method": "LLM 이 낸 요인 강도를 기준 등락률(당일, 없으면 최근 거래일)에 맞춰 배분한 추정치"}
