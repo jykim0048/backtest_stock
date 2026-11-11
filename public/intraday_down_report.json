@@ -1,1959 +1,130 @@
 [
   {
-    "code": "030200",
-    "name": "케이티",
-    "market": "KOSPI",
-    "selectedDate": "2026-11-11",
-    "basePrice": 50800,
-    "entry": 51100,
-    "target": 55000,
-    "stop": 47700,
-    "stars": "⭐⭐⭐",
-    "catalyst": "3분기 영업이익이 5,053억 원으로 시장 기대치를 하회하며 단기 주가 변동성을 유발함. 다만, 무선 사업의 ARPU 회복과 AX(AI 전환) 사업의 견조한 성장세가 확인되어 중장기적 턴어라운드 기대감은 유효함.",
-    "scenario": "<b>[하락 관찰 종목]</b><br>하방 재료가 관찰된 참고용 종목입니다 — 자동매매(매수) 대상이 아닙니다. 전일 종가 50,800원. 반등 전환 시 관찰 레벨: 51,100원.",
-    "reason": "3분기 실적 부진 및 규제 리스크 우려로 인한 투자 심리 위축.",
-    "analysis": {
-      "catalyst": "3분기 영업이익이 5,053억 원으로 시장 기대치를 하회하며 단기 주가 변동성을 유발함. 다만, 무선 사업의 ARPU 회복과 AX(AI 전환) 사업의 견조한 성장세가 확인되어 중장기적 턴어라운드 기대감은 유효함.",
-      "direction": "neutral",
-      "flowComment": "최근 공매도 거래 비중이 10~20% 수준으로 높게 유지되고 있으며, 대차잔고 또한 3,494억 원 규모로 누증되는 추세임. 11월 10일 외국인은 순매수했으나 기관은 순매도하며 수급 공방이 이어지고 있음.",
-      "peers": {
-        "summary": "Reddit 여론 데이터 수집 실패. StockTwits에서는 미국 통신주(VZ, T)에 대해 중립 내지 완만한 강세 의견이 관측됨.",
-        "reddit": [],
-        "stocktwits": [
-          {
-            "ticker": "VZ",
-            "name": "Verizon Communications",
-            "status": "ok",
-            "bullish": 7,
-            "bearish": 6,
-            "unlabeled": 17,
-            "total": 30,
-            "labeled": 13,
-            "bullPct": 54,
-            "windowDays": 7,
-            "newest": "2026-11-11 09:14",
-            "oldest": "2026-11-10 07:57",
-            "samples": [
-              {
-                "createdAt": "2026-11-11 09:14",
-                "user": "IBott",
-                "sentiment": null,
-                "body": "$VZ Sold my VZ and moved it into $SPACEX Feeling pretty good."
-              },
-              {
-                "createdAt": "2026-11-11 09:09",
-                "user": "10D_west",
-                "sentiment": null,
-                "body": "$SPY $SPCX $VZ Will be changing over as soon as it&#39;s available fuk you verizon"
-              },
-              {
-                "createdAt": "2026-11-11 09:04",
-                "user": "WallStreet711",
-                "sentiment": null,
-                "body": "$SPCX $T $TMUS $VZ Too FUNNY."
-              }
-            ],
-            "summary": "표본 부족으로 방향성 판단 유보, 중립적 의견 우세"
-          },
-          {
-            "ticker": "T",
-            "name": "AT&T",
-            "status": "ok",
-            "bullish": 9,
-            "bearish": 4,
-            "unlabeled": 17,
-            "total": 30,
-            "labeled": 13,
-            "bullPct": 69,
-            "windowDays": 7,
-            "newest": "2026-11-11 09:04",
-            "oldest": "2026-11-09 22:36",
-            "samples": [
-              {
-                "createdAt": "2026-11-11 09:04",
-                "user": "WallStreet711",
-                "sentiment": null,
-                "body": "$SPCX $T $TMUS $VZ Too FUNNY."
-              },
-              {
-                "createdAt": "2026-11-11 09:04",
-                "user": "WallStreet711",
-                "sentiment": "Bullish",
-                "body": "$SPCX $T $TMUS $VZ What’s the end game?"
-              },
-              {
-                "createdAt": "2026-11-11 07:33",
-                "user": "SargeSchultz",
-                "sentiment": "Bullish",
-                "body": "$T needs to be at least $35 plus"
-              }
-            ],
-            "summary": "완만한 강세 의견이 우세하며 장기적 주가 상승 기대감 존재"
-          }
-        ],
-        "items": [
-          {
-            "name": "Verizon Communications",
-            "ticker": "VZ",
-            "price": 46.31,
-            "changePct": 0.54,
-            "note": "미국 최대 통신사 중 하나로, 유무선 통신 서비스 및 네트워크 인프라 사업 모델이 유사함"
-          },
-          {
-            "name": "AT&T",
-            "ticker": "T",
-            "price": 21.94,
-            "changePct": 0.64,
-            "note": "미국을 대표하는 종합 통신 기업으로, KT와 유사한 유선 전화, 초고속 인터넷, 무선 통신 사업을 영위함"
-          },
-          {
-            "name": "Nippon Telegraph and Telephone",
-            "ticker": "9432.T",
-            "price": 163.1,
-            "changePct": -0.85,
-            "note": "일본 최대 통신 그룹으로, 유선 및 무선 통신 인프라를 기반으로 한 사업 구조가 KT와 매우 흡사함"
-          },
-          {
-            "name": "BT Group",
-            "ticker": "BT-A.L",
-            "price": 213.4,
-            "changePct": 0.0,
-            "note": "영국의 대표적인 통신 사업자로, 유선망 기반의 통신 서비스와 기업용 솔루션 사업 비중이 높음"
-          },
-          {
-            "name": "Deutsche Telekom",
-            "ticker": "DTE.DE",
-            "price": 26.16,
-            "changePct": 0.0,
-            "note": "독일 및 유럽 전역에서 통신 서비스를 제공하며, 유무선 통합 서비스와 ICT 사업을 병행하는 구조가 유사함"
-          }
-        ],
-        "socialStatus": {
-          "reddit": "unavailable",
-          "redditQueried": [
-            "VZ@stocks",
-            "web:Verizon Communications",
-            "web:AT&T"
-          ],
-          "stocktwits": {
-            "VZ": "ok",
-            "T": "ok"
-          }
-        }
-      },
-      "news": {
-        "summary": "3분기 실적 발표가 핵심이며, 일회성 비용 반영으로 인한 이익 감소가 주요 이슈임. 전북 스마트팜 투자 등 신사업 관련 소식도 있으나 주가 영향력은 제한적임.",
-        "items": [
-          {
-            "title": "케이티, 3분기 영업이익 5,053억 원…전년비 6.1% 감소",
-            "source": "DART",
-            "date": "2026-11-10",
-            "sentiment": "부정",
-            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261110800104",
-            "insight": "일회성 비용 반영으로 시장 기대치를 하회하는 실적 기록"
-          },
-          {
-            "title": "전북 농생명산업지구 6곳 기반 조성…익산 410억원 투자협약",
-            "source": "국민일보",
-            "date": "2026-11-11",
-            "sentiment": "중립",
-            "url": "https://www.kmib.co.kr/article/20261111500525",
-            "insight": "케이티팜훼밀리를 통한 스마트팜 투자 유치, 본업과 무관한 신사업"
-          }
-        ]
-      },
-      "community": {
-        "summary": "실적 부진에 대한 실망감과 경영진에 대한 비판이 주를 이루며, 배당 매력과 장기 우상향을 기대하는 의견이 공존함.",
-        "sentimentLabel": "부정",
-        "naver": [
-          {
-            "title": "무능 대표! 뽑지 말자!",
-            "url": "https://stock.naver.com/domestic/stock/030200/discussion/431933821",
-            "sentiment": "부정",
-            "summary": "경영진에 대한 강한 불만 표출"
-          },
-          {
-            "title": "실적이 개판이네",
-            "url": "https://stock.naver.com/domestic/stock/030200/discussion/431932780",
-            "sentiment": "부정",
-            "summary": "3분기 실적에 대한 실망감"
-          },
-          {
-            "title": "국내 주식중 제일 안정 우상향이라",
-            "url": "https://stock.naver.com/domestic/stock/030200/discussion/431812737",
-            "sentiment": "긍정",
-            "summary": "장기적 관점의 안정성 강조"
-          }
-        ]
-      },
-      "dart": {
-        "summary": "3분기 연결 영업이익 5,053억 원을 기록하며 전년 동기 대비 감소함. 일회성 비용을 제외하면 컨센서스에 부합하는 수준으로 평가됨.",
-        "highlights": [
-          {
-            "label": "3분기 매출액",
-            "value": "6조 9,775억 원",
-            "note": "전년 동기 대비 1.8% 감소"
-          },
-          {
-            "label": "3분기 영업이익",
-            "value": "5,053억 원",
-            "note": "전년 동기 대비 6.1% 감소"
-          },
-          {
-            "label": "주요 공시",
-            "value": "연결재무제표기준영업(잠정)실적",
-            "note": "11월 10일 공시"
-          },
-          {
-            "label": "배당 결정",
-            "value": "분기 배당",
-            "note": "10월 13일 결정, 11월 12일 지급 예정"
-          }
-        ],
-        "recentFilings": [
-          {
-            "date": "2026-11-10",
-            "title": "연결재무제표기준영업(잠정)실적(공정공시)              ",
-            "filer": "케이티",
-            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261110800104"
-          },
-          {
-            "date": "2026-11-10",
-            "title": "영업(잠정)실적(공정공시)              ",
-            "filer": "케이티",
-            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261110800099"
-          },
-          {
-            "date": "2026-11-03",
-            "title": "기업설명회(IR)개최(안내공시)              ",
-            "filer": "케이티",
-            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261103800232"
-          },
-          {
-            "date": "2026-10-30",
-            "title": "주식등의대량보유상황보고서(약식)",
-            "filer": "WellingtonManagementCompanyLLP",
-            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261030000044"
-          },
-          {
-            "date": "2026-10-27",
-            "title": "불성실공시법인지정예고              ",
-            "filer": "유가증권시장본부",
-            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261027800532"
-          }
-        ]
-      },
-      "research": {
-        "summary": "증권가에서는 일회성 비용으로 인한 실적 미스를 인정하면서도, 본업인 무선 사업의 회복과 AX 사업의 성장성을 긍정적으로 평가함.",
-        "items": [
-          {
-            "title": "2026년 3분기 컨퍼런스콜 요약",
-            "broker": "하나증권",
-            "date": "2026-11-11",
-            "url": "https://stock.naver.com/research/company/98010",
-            "pdfUrl": "https://stock.pstatic.net/stock-research/company/57/20261111_company_791138000.pdf",
-            "targetPrice": 76000,
-            "opinion": "Buy",
-            "note": "일회성 비용 반영으로 컨센서스 하회했으나 본업 회복세 확인"
-          },
-          {
-            "title": "본업 회복세 확인, 구체화된 AX 사업",
-            "broker": "유안타증권",
-            "date": "2026-11-11",
-            "url": "https://stock.naver.com/research/company/98004",
-            "pdfUrl": "https://stock.pstatic.net/stock-research/company/18/20261111_company_479329000.pdf",
-            "targetPrice": 73000,
-            "opinion": "Buy",
-            "note": "AX 사업의 견조한 성장세와 그룹사 이익 기여 지속"
-          },
-          {
-            "title": "본업 정상화와 ktCloud 성장을 기대",
-            "broker": "iM증권",
-            "date": "2026-11-11",
-            "url": "https://stock.naver.com/research/company/97988",
-            "pdfUrl": "",
-            "targetPrice": null,
-            "opinion": "",
-            "note": "무선 본업 부진하나 개선되는 흐름"
-          },
-          {
-            "title": "이제는 안정적인 맛",
-            "broker": "신한투자증권",
-            "date": "2026-11-11",
-            "url": "https://stock.naver.com/research/company/97979",
-            "pdfUrl": "",
-            "targetPrice": null,
-            "opinion": "",
-            "note": "통신 3사 중 가장 높은 주주환원수익률 전망"
-          },
-          {
-            "title": "힘든 시기는 지났다",
-            "broker": "IBK투자증권",
-            "date": "2026-11-11",
-            "url": "https://stock.naver.com/research/company/97972",
-            "pdfUrl": "",
-            "targetPrice": null,
-            "opinion": "",
-            "note": "3분기 영업이익 시장 기대치 약 5% 하회"
-          },
-          {
-            "title": "턴어운드 임박한 시점",
-            "broker": "SK증권",
-            "date": "2026-11-11",
-            "url": "https://stock.naver.com/research/company/97971",
-            "pdfUrl": "",
-            "targetPrice": null,
-            "opinion": "",
-            "note": "고객보답 프로모션 등 일회성 비용 영향"
-          },
-          {
-            "title": "강해지는 아시아 DC 수요, 구체화되는 증설",
-            "broker": "미래에셋증권",
-            "date": "2026-11-11",
-            "url": "https://stock.naver.com/research/company/97962",
-            "pdfUrl": "",
-            "targetPrice": null,
-            "opinion": "",
-            "note": "무선서비스 회복 및 KT클라우드 성장 지속"
-          }
-        ],
-        "consensus": {
-          "avg": 74500,
-          "high": 76000,
-          "low": 73000,
-          "n": 2,
-          "upsidePct": 46.4,
-          "opinions": {
-            "매수": 2
-          }
-        }
-      },
-      "corporateActions": {
-        "summary": "11월 12일 분기 배당금 지급 예정.",
-        "items": [
-          {
-            "type": "dividend",
-            "stage": "배당금 지급 D+1",
-            "direction": "호재",
-            "magnitude": "작음",
-            "window": "D+1",
-            "implication": "단기 촉매",
-            "rationale": "분기 배당금 지급으로 주주환원 정책 이행"
-          }
-        ],
-        "byItem": [
-          {
-            "type": "dividend",
-            "stage": "배당금 지급 D+1",
-            "direction": "호재",
-            "magnitude": "작음",
-            "window": "D+1",
-            "implication": "단기 촉매",
-            "rationale": "분기 배당금 지급으로 주주환원 정책 이행"
-          }
-        ]
-      },
-      "generatedBy": "gemini-3.1-flash-lite",
-      "flow": {
-        "rank": [],
-        "shorts": [
-          {
-            "date": "20261110",
-            "qty": 80492.0,
-            "volRlim": 12.82,
-            "pbmn": 41.2,
-            "pbmnRlim": 12.85
-          },
-          {
-            "date": "20261109",
-            "qty": 102710.0,
-            "volRlim": 19.72,
-            "pbmn": 54.2,
-            "pbmnRlim": 19.74
-          },
-          {
-            "date": "20261106",
-            "qty": 163808.0,
-            "volRlim": 13.84,
-            "pbmn": 86.9,
-            "pbmnRlim": 14.01
-          },
-          {
-            "date": "20261105",
-            "qty": 39033.0,
-            "volRlim": 6.46,
-            "pbmn": 19.9,
-            "pbmnRlim": 6.46
-          },
-          {
-            "date": "20261104",
-            "qty": 42895.0,
-            "volRlim": 8.16,
-            "pbmn": 20.9,
-            "pbmnRlim": 8.13
-          },
-          {
-            "date": "20261103",
-            "qty": 41164.0,
-            "volRlim": 10.51,
-            "pbmn": 19.5,
-            "pbmnRlim": 10.49
-          },
-          {
-            "date": "20261102",
-            "qty": 11506.0,
-            "volRlim": 2.67,
-            "pbmn": 5.4,
-            "pbmnRlim": 2.67
-          },
-          {
-            "date": "20261030",
-            "qty": 20258.0,
-            "volRlim": 5.85,
-            "pbmn": 9.3,
-            "pbmnRlim": 5.84
-          },
-          {
-            "date": "20261029",
-            "qty": 34261.0,
-            "volRlim": 7.72,
-            "pbmn": 15.6,
-            "pbmnRlim": 7.71
-          },
-          {
-            "date": "20261028",
-            "qty": 17857.0,
-            "volRlim": 4.95,
-            "pbmn": 8.1,
-            "pbmnRlim": 4.95
-          },
-          {
-            "date": "20261027",
-            "qty": 85386.0,
-            "volRlim": 20.85,
-            "pbmn": 38.5,
-            "pbmnRlim": 20.87
-          },
-          {
-            "date": "20261026",
-            "qty": 30480.0,
-            "volRlim": 6.59,
-            "pbmn": 14.0,
-            "pbmnRlim": 6.58
-          },
-          {
-            "date": "20261023",
-            "qty": 38019.0,
-            "volRlim": 10.88,
-            "pbmn": 17.9,
-            "pbmnRlim": 10.88
-          },
-          {
-            "date": "20261022",
-            "qty": 9689.0,
-            "volRlim": 2.01,
-            "pbmn": 4.6,
-            "pbmnRlim": 1.99
-          },
-          {
-            "date": "20261021",
-            "qty": 71371.0,
-            "volRlim": 17.97,
-            "pbmn": 35.4,
-            "pbmnRlim": 17.97
-          },
-          {
-            "date": "20261020",
-            "qty": 52466.0,
-            "volRlim": 20.33,
-            "pbmn": 26.7,
-            "pbmnRlim": 20.35
-          },
-          {
-            "date": "20261019",
-            "qty": 32130.0,
-            "volRlim": 11.45,
-            "pbmn": 16.4,
-            "pbmnRlim": 11.48
-          },
-          {
-            "date": "20261016",
-            "qty": 71060.0,
-            "volRlim": 14.91,
-            "pbmn": 36.2,
-            "pbmnRlim": 14.9
-          },
-          {
-            "date": "20261015",
-            "qty": 7278.0,
-            "volRlim": 1.27,
-            "pbmn": 3.7,
-            "pbmnRlim": 1.27
-          },
-          {
-            "date": "20261014",
-            "qty": 36898.0,
-            "volRlim": 11.14,
-            "pbmn": 18.4,
-            "pbmnRlim": 11.13
-          }
-        ],
-        "loans": [
-          {
-            "date": "20261110",
-            "newQty": 316344.0,
-            "rdmpQty": 184124.0,
-            "rmndChg": 132220.0,
-            "rmndQty": 6851267.0,
-            "rmndAmt": 3494.1
-          },
-          {
-            "date": "20261109",
-            "newQty": 298800.0,
-            "rdmpQty": 228569.0,
-            "rmndChg": 70231.0,
-            "rmndQty": 6719047.0,
-            "rmndAmt": 3507.3
-          },
-          {
-            "date": "20261106",
-            "newQty": 144950.0,
-            "rdmpQty": 25061.0,
-            "rmndChg": 119889.0,
-            "rmndQty": 6648816.0,
-            "rmndAmt": 3543.8
-          },
-          {
-            "date": "20261105",
-            "newQty": 8651.0,
-            "rdmpQty": 60539.0,
-            "rmndChg": -51888.0,
-            "rmndQty": 6528927.0,
-            "rmndAmt": 3382.0
-          },
-          {
-            "date": "20261104",
-            "newQty": 21035.0,
-            "rdmpQty": 62728.0,
-            "rmndChg": -41693.0,
-            "rmndQty": 6580815.0,
-            "rmndAmt": 3231.2
-          },
-          {
-            "date": "20261103",
-            "newQty": 124153.0,
-            "rdmpQty": 111113.0,
-            "rmndChg": 13040.0,
-            "rmndQty": 6622508.0,
-            "rmndAmt": 3145.7
-          },
-          {
-            "date": "20261102",
-            "newQty": 73596.0,
-            "rdmpQty": 86546.0,
-            "rmndChg": -12950.0,
-            "rmndQty": 6609468.0,
-            "rmndAmt": 3086.6
-          },
-          {
-            "date": "20261030",
-            "newQty": 6450.0,
-            "rdmpQty": 45648.0,
-            "rmndChg": -39198.0,
-            "rmndQty": 6622418.0,
-            "rmndAmt": 3066.2
-          },
-          {
-            "date": "20261029",
-            "newQty": 111869.0,
-            "rdmpQty": 388.0,
-            "rmndChg": 111481.0,
-            "rmndQty": 6661616.0,
-            "rmndAmt": 3047.7
-          },
-          {
-            "date": "20261028",
-            "newQty": 115165.0,
-            "rdmpQty": 91785.0,
-            "rmndChg": 23380.0,
-            "rmndQty": 6550135.0,
-            "rmndAmt": 2970.5
-          },
-          {
-            "date": "20261027",
-            "newQty": 122250.0,
-            "rdmpQty": 63390.0,
-            "rmndChg": 58860.0,
-            "rmndQty": 6526755.0,
-            "rmndAmt": 2917.4
-          },
-          {
-            "date": "20261026",
-            "newQty": 221639.0,
-            "rdmpQty": 186497.0,
-            "rmndChg": 35142.0,
-            "rmndQty": 6467895.0,
-            "rmndAmt": 2955.8
-          },
-          {
-            "date": "20261023",
-            "newQty": 162133.0,
-            "rdmpQty": 59934.0,
-            "rmndChg": 102199.0,
-            "rmndQty": 6432753.0,
-            "rmndAmt": 3010.5
-          },
-          {
-            "date": "20261022",
-            "newQty": 29484.0,
-            "rdmpQty": 77487.0,
-            "rmndChg": -48003.0,
-            "rmndQty": 6330554.0,
-            "rmndAmt": 3010.2
-          },
-          {
-            "date": "20261021",
-            "newQty": 126337.0,
-            "rdmpQty": 30662.0,
-            "rmndChg": 95675.0,
-            "rmndQty": 6378557.0,
-            "rmndAmt": 3131.9
-          },
-          {
-            "date": "20261020",
-            "newQty": 33469.0,
-            "rdmpQty": 2752.0,
-            "rmndChg": 30717.0,
-            "rmndQty": 6282882.0,
-            "rmndAmt": 3179.1
-          },
-          {
-            "date": "20261019",
-            "newQty": 206722.0,
-            "rdmpQty": 311410.0,
-            "rmndChg": -104688.0,
-            "rmndQty": 6252165.0,
-            "rmndAmt": 3169.8
-          },
-          {
-            "date": "20261016",
-            "newQty": 83216.0,
-            "rdmpQty": 7542.0,
-            "rmndChg": 75674.0,
-            "rmndQty": 6356853.0,
-            "rmndAmt": 3203.8
-          },
-          {
-            "date": "20261015",
-            "newQty": 112530.0,
-            "rdmpQty": 12769.0,
-            "rmndChg": 99761.0,
-            "rmndQty": 6281179.0,
-            "rmndAmt": 3172.0
-          },
-          {
-            "date": "20261014",
-            "newQty": 128980.0,
-            "rdmpQty": 38394.0,
-            "rmndChg": 90586.0,
-            "rmndQty": 6181418.0,
-            "rmndAmt": 3084.5
-          }
-        ],
-        "rankAsof": "15:09",
-        "trend": [
-          {
-            "date": "20261110",
-            "frgn": 113108,
-            "orgn": -148714,
-            "prsn": 35465,
-            "holdRatio": 48.79,
-            "close": 50900,
-            "rate": -2.49
-          },
-          {
-            "date": "20261109",
-            "frgn": -116370,
-            "orgn": 213226,
-            "prsn": -95285,
-            "holdRatio": 48.74,
-            "close": 52800,
-            "rate": -0.94
-          },
-          {
-            "date": "20261106",
-            "frgn": 40435,
-            "orgn": 255742,
-            "prsn": -278382,
-            "holdRatio": 48.78,
-            "close": 52500,
-            "rate": 1.35
-          },
-          {
-            "date": "20261105",
-            "frgn": -20260,
-            "orgn": 236033,
-            "prsn": -215807,
-            "holdRatio": 48.74,
-            "close": 51500,
-            "rate": 4.89
-          },
-          {
-            "date": "20261104",
-            "frgn": -37067,
-            "orgn": 147304,
-            "prsn": -105726,
-            "holdRatio": 48.71,
-            "close": 49700,
-            "rate": 4.63
-          },
-          {
-            "date": "20261103",
-            "frgn": -12977,
-            "orgn": 71886,
-            "prsn": -58195,
-            "holdRatio": 48.7,
-            "close": 47500,
-            "rate": 1.71
-          },
-          {
-            "date": "20261102",
-            "frgn": -52605,
-            "orgn": 77336,
-            "prsn": -24055,
-            "holdRatio": 48.69,
-            "close": 46800,
-            "rate": 1.08
-          },
-          {
-            "date": "20261030",
-            "frgn": -94597,
-            "orgn": 165466,
-            "prsn": -70776,
-            "holdRatio": 48.71,
-            "close": 46250,
-            "rate": 1.09
-          },
-          {
-            "date": "20261029",
-            "frgn": 16242,
-            "orgn": 16554,
-            "prsn": -29806,
-            "holdRatio": 48.74,
-            "close": 45850,
-            "rate": 1.1
-          },
-          {
-            "date": "20261028",
-            "frgn": 30161,
-            "orgn": -15345,
-            "prsn": -27844,
-            "holdRatio": 48.73,
-            "close": 45250,
-            "rate": 1.23
-          },
-          {
-            "date": "20261027",
-            "frgn": -26963,
-            "orgn": -88248,
-            "prsn": 114210,
-            "holdRatio": 48.72,
-            "close": 44800,
-            "rate": -1.97
-          },
-          {
-            "date": "20261026",
-            "frgn": -85440,
-            "orgn": 98033,
-            "prsn": -21637,
-            "holdRatio": 48.74,
-            "close": 45800,
-            "rate": -2.14
-          },
-          {
-            "date": "20261023",
-            "frgn": -35004,
-            "orgn": -7901,
-            "prsn": 33175,
-            "holdRatio": 48.78,
-            "close": 46700,
-            "rate": -1.79
-          },
-          {
-            "date": "20261022",
-            "frgn": -198422,
-            "orgn": 98424,
-            "prsn": 84264,
-            "holdRatio": 48.8,
-            "close": 47500,
-            "rate": -3.26
-          },
-          {
-            "date": "20261021",
-            "frgn": -99539,
-            "orgn": -129768,
-            "prsn": 221221,
-            "holdRatio": 48.89,
-            "close": 49200,
-            "rate": -2.77
-          },
-          {
-            "date": "20261020",
-            "frgn": -50098,
-            "orgn": 67152,
-            "prsn": -11875,
-            "holdRatio": 48.94,
-            "close": 51000,
-            "rate": 0.59
-          },
-          {
-            "date": "20261019",
-            "frgn": -19849,
-            "orgn": 53488,
-            "prsn": -33577,
-            "holdRatio": 48.96,
-            "close": 50600,
-            "rate": 0.4
-          },
-          {
-            "date": "20261016",
-            "frgn": -47957,
-            "orgn": 53765,
-            "prsn": -5189,
-            "holdRatio": 48.97,
-            "close": 50400,
-            "rate": -0.2
-          },
-          {
-            "date": "20261015",
-            "frgn": -43459,
-            "orgn": 265608,
-            "prsn": -216901,
-            "holdRatio": 48.99,
-            "close": 51000,
-            "rate": 2.2
-          },
-          {
-            "date": "20261014",
-            "frgn": -15093,
-            "orgn": 56448,
-            "prsn": -41020,
-            "holdRatio": 48.99,
-            "close": 49950,
-            "rate": 0.4
-          }
-        ]
-      },
-      "priceFactors": {
-        "basis": {
-          "date": "2026-11-11",
-          "ratePct": 0.0,
-          "kind": "today"
-        },
-        "items": [
-          {
-            "cat": "research",
-            "title": "3분기 실적 컨센서스 하회",
-            "dir": -1,
-            "strength": 4,
-            "evidence": "영업이익 5,053억 원으로 시장 기대치 하회",
-            "pp": -0.2
-          },
-          {
-            "cat": "research",
-            "title": "무선 ARPU 회복 및 AX 성장",
-            "dir": 1,
-            "strength": 3,
-            "evidence": "본업 회복세 및 AX 사업 매출 성장 확인",
-            "pp": 0.2
-          },
-          {
-            "cat": "flow",
-            "title": "공매도 비중 및 대차잔고 증가",
-            "dir": -1,
-            "strength": 3,
-            "evidence": "공매도 거래 비중 10~20% 및 대차잔고 3,494억 원",
-            "pp": -0.2
-          },
-          {
-            "cat": "flow",
-            "title": "외국인 순매수세",
-            "dir": 1,
-            "strength": 2,
-            "evidence": "11월 10일 외국인 순매수 기록",
-            "pp": 0.2
-          },
-          {
-            "cat": "community",
-            "title": "실적 실망감 및 경영진 비판",
-            "dir": -1,
-            "strength": 2,
-            "evidence": "종목토론방 내 실적 부진에 대한 부정적 여론",
-            "pp": -0.1
-          },
-          {
-            "cat": "dart",
-            "title": "분기 배당 지급",
-            "dir": 1,
-            "strength": 1,
-            "evidence": "11월 12일 배당금 지급 예정",
-            "pp": 0.1
-          }
-        ],
-        "byCat": {
-          "research": 0.0,
-          "flow": 0.0,
-          "community": -0.1,
-          "dart": 0.1
-        },
-        "estimated": true,
-        "method": "LLM 이 낸 요인 강도를 기준 등락률(당일, 없으면 최근 거래일)에 맞춰 배분한 추정치"
-      },
-      "ca": {
-        "status": "ok",
-        "asof": "2026-11-11 08:40",
-        "date": "2026-11-11",
-        "windowDays": 20,
-        "windowEnd": "2026-12-09",
-        "close": 50900.0,
-        "items": [
-          {
-            "type": "dividend",
-            "label": "배당",
-            "recordDate": "2026-10-28",
-            "milestones": [
-              {
-                "kind": "ex",
-                "label": "배당락(추정)",
-                "date": "2026-10-27",
-                "note": "기준일 전 영업일 — 공휴일 미반영 추정",
-                "d_n": -11
-              },
-              {
-                "kind": "record",
-                "label": "배당기준일",
-                "date": "2026-10-28",
-                "d_n": -10
-              },
-              {
-                "kind": "pay",
-                "label": "배당금 지급",
-                "date": "2026-11-12",
-                "d_n": 1
-              }
-            ],
-            "fields": {
-              "cashDps": 600.0,
-              "faceDivPct": 12.0,
-              "stockDivPct": 0.0,
-              "kind": "분기",
-              "faceValue": 5000.0,
-              "highDividend": "Y",
-              "cashYieldPct": 1.18
-            },
-            "stage": "배당금 지급 D+1",
-            "nextMilestone": {
-              "kind": "pay",
-              "label": "배당금 지급",
-              "date": "2026-11-12",
-              "d_n": 1
-            },
-            "inWindow": true,
-            "haltInWindow": null
-          }
-        ],
-        "inWindow": 1,
-        "haltInWindow": false,
-        "hubErrors": {},
-        "note": "예탁원정보(KIS ksdinfo) 기업행위 일정. d_n = 기준일 대비 영업일(+미래/−과거), inWindow = 앞으로 20영업일(단기 영향 구간) 안의 일정, haltInWindow = 그 구간과 겹치는 매매정지, sizePct = 신주·예치 물량 ÷ 총발행주식(%), gapPct = 현재가 ÷ gapRef − 1(%). 배당락(추정)은 기준일 전 평일 — 공휴일 미반영. 의무예치는 '보호예수 해제'(release) 일정이 해제일."
-      },
-      "caStatus": "ok",
-      "_caOk": true,
-      "_flowOk": true,
-      "_meta": {
-        "filingKey": "2026-11-10|연결재무제표기준영업(잠정)실적(공정공시)              ",
-        "pf": 2,
-        "asOf": "2026-11-11T13:41:29.667444+09:00",
-        "price": 50900
-      }
-    },
-    "direction": "neutral"
-  },
-  {
-    "code": "095660",
-    "name": "네오위즈",
-    "market": "KOSDAQ",
-    "selectedDate": "2026-11-11",
-    "basePrice": 17110,
-    "entry": 17200,
-    "target": 18700,
-    "stop": 15900,
-    "stars": "⭐⭐⭐",
-    "catalyst": "3분기 영업이익이 전년 동기 대비 64% 급감하며 시장 기대치를 하회한 실적 쇼크가 주가 하락의 핵심 원인입니다. 신작 모멘텀 부재와 실적 부진이 겹치며 투자 심리가 단기적으로 위축되었습니다.",
-    "scenario": "<b>[하락 관찰 종목]</b><br>하방 재료가 관찰된 참고용 종목입니다 — 자동매매(매수) 대상이 아닙니다. 전일 종가 17,110원. 반등 전환 시 관찰 레벨: 17,200원.",
-    "reason": "3분기 영업이익이 전년 대비 64% 급감하는 실적 쇼크를 기록하여 투자 심리가 크게 위축되었습니다.",
-    "analysis": {
-      "catalyst": "3분기 영업이익이 전년 동기 대비 64% 급감하며 시장 기대치를 하회한 실적 쇼크가 주가 하락의 핵심 원인입니다. 신작 모멘텀 부재와 실적 부진이 겹치며 투자 심리가 단기적으로 위축되었습니다.",
-      "direction": "bearish",
-      "flowComment": "외국인의 지속적인 순매도세가 주가 상단을 제한하고 있으며, 기관이 매수세로 대응하고 있으나 실적 악재를 방어하기엔 역부족입니다. 대차잔고가 최근 증가 추세를 보이고 있어 하방 압력이 다소 존재합니다.",
-      "peers": {
-        "summary": "글로벌 게임사들은 신작 기대감으로 움직이나, 네오위즈는 실적 부진으로 인해 차별화된 약세를 보입니다.",
-        "reddit": [],
-        "stocktwits": [
-          {
-            "ticker": "TTWO",
-            "name": "Take-Two Interactive Software, Inc.",
-            "status": "ok",
-            "bullish": 10,
-            "bearish": 0,
-            "unlabeled": 20,
-            "total": 30,
-            "labeled": 10,
-            "bullPct": 100,
-            "windowDays": 7,
-            "newest": "2026-11-11 13:06",
-            "oldest": "2026-11-11 08:33",
-            "samples": [
-              {
-                "createdAt": "2026-11-11 13:06",
-                "user": "ValueFinderTrader",
-                "sentiment": "Bullish",
-                "body": "$TTWO :^) feels good to have bought in the high 180&#39;s"
-              },
-              {
-                "createdAt": "2026-11-11 13:04",
-                "user": "Gb1122",
-                "sentiment": "Bullish",
-                "body": "$TTWO green before GTA VI"
-              },
-              {
-                "createdAt": "2026-11-11 12:47",
-                "user": "quadacesAAAA",
-                "sentiment": null,
-                "body": "$TTWO"
-              }
-            ],
-            "summary": "GTA VI 기대감으로 강세를 보이나, 네오위즈와는 직접적인 연관성이 낮음."
-          }
-        ],
-        "items": [
-          {
-            "name": "Capcom Co., Ltd.",
-            "ticker": "9697.T",
-            "price": 4403.0,
-            "changePct": -0.27,
-            "note": "콘솔 및 PC 게임 개발 역량이 뛰어나며, 글로벌 IP를 보유한 일본의 대표 게임사입니다."
-          },
-          {
-            "name": "Nexon Co., Ltd.",
-            "ticker": "3659.T",
-            "price": 3028.0,
-            "changePct": 4.52,
-            "note": "한국계 기업이지만 일본 증시에 상장되어 있으며, 온라인/모바일 게임 서비스 모델이 유사합니다."
-          },
-          {
-            "name": "Square Enix Holdings Co., Ltd.",
-            "ticker": "9684.T",
-            "price": 3171.0,
-            "changePct": -1.03,
-            "note": "다양한 장르의 게임을 개발 및 퍼블리싱하며, 글로벌 시장을 타겟으로 하는 일본 게임사입니다."
-          },
-          {
-            "name": "Ubisoft Entertainment SA",
-            "ticker": "UBI.PA",
-            "price": 4.5,
-            "changePct": 0.0,
-            "note": "PC 및 콘솔 플랫폼 중심의 게임 개발사로, 네오위즈의 'P의 거짓'과 같은 AAA급 게임 전략과 유사합니다."
-          },
-          {
-            "name": "Take-Two Interactive Software, Inc.",
-            "ticker": "TTWO",
-            "price": 224.64,
-            "changePct": 8.31,
-            "note": "글로벌 PC/콘솔 게임 시장에서 강력한 IP를 기반으로 사업을 영위하는 미국 게임사입니다."
-          }
-        ],
-        "socialStatus": {
-          "reddit": "unavailable",
-          "redditQueried": [
-            "web:Capcom Co., Ltd.",
-            "web:Nexon Co., Ltd."
-          ],
-          "stocktwits": {
-            "TTWO": "ok"
-          }
-        }
-      },
-      "news": {
-        "summary": "3분기 매출과 영업이익이 전년 대비 크게 감소하며 실적 부진이 확인되었습니다. 내년 신작 라인업에 대한 기대감은 있으나 단기적인 실적 모멘텀은 약화된 상태입니다.",
-        "items": [
-          {
-            "title": "네오위즈, 3분기 영업이익 96억원…전년比 64% 감소",
-            "source": "메트로신문",
-            "date": "2026-11-11",
-            "sentiment": "부정",
-            "url": "http://www.metroseoul.co.kr/article/20261111500204",
-            "insight": "실적 쇼크로 인한 투자 심리 악화의 직접적 원인."
-          },
-          {
-            "title": "네오위즈, 3분기 영업익 96억원…'P의 거짓' 차기작 등 신작 초점",
-            "source": "아이뉴스24",
-            "date": "2026-11-11",
-            "sentiment": "중립",
-            "url": "http://www.inews24.com/view/2024998",
-            "insight": "실적 부진을 신작 개발로 만회하겠다는 경영진의 의지 표명."
-          },
-          {
-            "title": "네오위즈·무신사리테일, 장애인 고용 확대 노동부 장관상",
-            "source": "연합뉴스",
-            "date": "2026-11-11",
-            "sentiment": "중립",
-            "url": "https://www.yna.co.kr/view/AKR20261111086300530?input=1195m",
-            "insight": "ESG 경영 성과이나 주가에 미치는 영향은 제한적."
-          }
-        ]
-      },
-      "community": {
-        "summary": "실적 발표 이후 주주들의 실망감이 커지고 있으며, 신작에 대한 구체적인 정보 부재를 지적하는 의견이 많습니다. 전반적으로 부정적인 여론이 우세합니다.",
-        "sentimentLabel": "부정",
-        "naver": [
-          {
-            "title": "어리둥절 주주..",
-            "url": "https://stock.naver.com/domestic/stock/095660/discussion/432002674",
-            "sentiment": "부정",
-            "summary": "실적 발표 후 주가 흐름에 대한 당혹감 표출."
-          },
-          {
-            "title": "실적나옴",
-            "url": "https://stock.naver.com/domestic/stock/095660/discussion/431989937",
-            "sentiment": "부정",
-            "summary": "실적 부진에 대한 실망 섞인 반응."
-          },
-          {
-            "title": "겜주는 답이 없단다~ AI, 데이터센터",
-            "url": "https://stock.naver.com/domestic/stock/095660/discussion/431993976",
-            "sentiment": "부정",
-            "summary": "게임주 전반에 대한 회의적인 시각."
-          }
-        ]
-      },
-      "dart": {
-        "summary": "3분기 연결 기준 매출 1,105억 원, 영업이익 96억 원을 기록하며 전년 동기 대비 실적이 크게 악화되었습니다.",
-        "highlights": [
-          {
-            "label": "매출액",
-            "value": "1,105억 원",
-            "note": "전년 동기 대비 감소세 지속."
-          },
-          {
-            "label": "영업이익",
-            "value": "96억 원",
-            "note": "전년 동기 대비 64% 급감."
-          },
-          {
-            "label": "당기순손실",
-            "value": "103억 원",
-            "note": "적자 전환."
-          },
-          {
-            "label": "IR 개최",
-            "value": "2026-11-11",
-            "note": "실적 발표 관련 기업설명회 진행."
-          }
-        ],
-        "recentFilings": [
-          {
-            "date": "2026-11-11",
-            "title": "기업설명회(IR)개최              ",
-            "filer": "네오위즈",
-            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261111900045"
-          },
-          {
-            "date": "2026-11-11",
-            "title": "연결재무제표기준영업(잠정)실적(공정공시)              ",
-            "filer": "네오위즈",
-            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261111900039"
-          },
-          {
-            "date": "2026-10-22",
-            "title": "자기주식처분결과보고서",
-            "filer": "네오위즈",
-            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261022000338"
-          },
-          {
-            "date": "2026-10-20",
-            "title": "주요사항보고서(자기주식처분결정)",
-            "filer": "네오위즈",
-            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261020000323"
-          },
-          {
-            "date": "2026-10-20",
-            "title": "결산실적공시예고              ",
-            "filer": "네오위즈",
-            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261020900613"
-          }
-        ]
-      },
-      "research": {
-        "summary": "증권가는 신작 가시화와 AI를 통한 개발 효율화를 중장기 과제로 제시하며 보수적인 접근을 권고하고 있습니다.",
-        "items": [
-          {
-            "title": "기다림의 시기",
-            "broker": "미래에셋증권",
-            "date": "2026-10-22",
-            "url": "https://stock.naver.com/research/company/96956",
-            "pdfUrl": "https://stock.pstatic.net/stock-research/company/56/20261022_company_61651000.pdf",
-            "targetPrice": 24000,
-            "opinion": "매수",
-            "note": "AI 기반 개발 효율화는 긍정적이나 신작 공급 역량 강화가 선행되어야 함."
-          },
-          {
-            "title": "방향보다는 타이밍의 문제",
-            "broker": "교보증권",
-            "date": "2026-10-21",
-            "url": "https://stock.naver.com/research/company/96918",
-            "pdfUrl": "https://stock.pstatic.net/stock-research/company/62/20261021_company_445613000.pdf",
-            "targetPrice": 27000,
-            "opinion": "Buy",
-            "note": "3분기 실적은 컨센서스를 하회할 것으로 예상되며 타이밍이 중요함."
-          },
-          {
-            "title": "인게임 영상 확인이 맥점",
-            "broker": "키움증권",
-            "date": "2026-10-21",
-            "url": "https://stock.naver.com/research/company/96888",
-            "pdfUrl": "https://stock.pstatic.net/stock-research/company/39/20261021_company_758302000.pdf",
-            "targetPrice": 30000,
-            "opinion": "Buy",
-            "note": "신작 정보가 제한적이어서 내재가치 평가가 어려운 상황."
-          },
-          {
-            "title": "대형 퍼블리싱 신작 가시화가 필요",
-            "broker": "유진투자증권",
-            "date": "2026-10-12",
-            "url": "https://stock.naver.com/research/company/96607",
-            "pdfUrl": "",
-            "targetPrice": null,
-            "opinion": "",
-            "note": "대형 퍼블리싱 신작의 가시화가 주가 반등의 핵심."
-          }
-        ],
-        "consensus": {
-          "avg": 27000,
-          "high": 30000,
-          "low": 24000,
-          "n": 3,
-          "upsidePct": 58.0,
-          "opinions": {
-            "매수": 3
-          }
-        }
-      },
-      "corporateActions": {
-        "summary": "해당 기간 CA 일정 없음",
-        "items": [],
-        "byItem": []
-      },
-      "generatedBy": "gemini-3.1-flash-lite",
-      "flow": {
-        "rank": [],
-        "shorts": [
-          {
-            "date": "20261110",
-            "qty": 2354.0,
-            "volRlim": 3.89,
-            "pbmn": 0.4,
-            "pbmnRlim": 3.87
-          },
-          {
-            "date": "20261109",
-            "qty": 2052.0,
-            "volRlim": 3.35,
-            "pbmn": 0.4,
-            "pbmnRlim": 3.36
-          },
-          {
-            "date": "20261106",
-            "qty": 6849.0,
-            "volRlim": 6.41,
-            "pbmn": 1.2,
-            "pbmnRlim": 6.49
-          },
-          {
-            "date": "20261105",
-            "qty": 10239.0,
-            "volRlim": 13.9,
-            "pbmn": 1.8,
-            "pbmnRlim": 13.89
-          },
-          {
-            "date": "20261104",
-            "qty": 2865.0,
-            "volRlim": 6.97,
-            "pbmn": 0.5,
-            "pbmnRlim": 6.98
-          },
-          {
-            "date": "20261103",
-            "qty": 7855.0,
-            "volRlim": 14.53,
-            "pbmn": 1.3,
-            "pbmnRlim": 14.53
-          },
-          {
-            "date": "20261102",
-            "qty": 5761.0,
-            "volRlim": 7.34,
-            "pbmn": 1.0,
-            "pbmnRlim": 7.33
-          },
-          {
-            "date": "20261030",
-            "qty": 8069.0,
-            "volRlim": 20.49,
-            "pbmn": 1.4,
-            "pbmnRlim": 20.44
-          },
-          {
-            "date": "20261029",
-            "qty": 7546.0,
-            "volRlim": 17.18,
-            "pbmn": 1.3,
-            "pbmnRlim": 17.15
-          },
-          {
-            "date": "20261028",
-            "qty": 6168.0,
-            "volRlim": 11.83,
-            "pbmn": 1.1,
-            "pbmnRlim": 11.84
-          },
-          {
-            "date": "20261027",
-            "qty": 6454.0,
-            "volRlim": 10.71,
-            "pbmn": 1.1,
-            "pbmnRlim": 10.74
-          },
-          {
-            "date": "20261026",
-            "qty": 4266.0,
-            "volRlim": 9.79,
-            "pbmn": 0.8,
-            "pbmnRlim": 9.79
-          },
-          {
-            "date": "20261023",
-            "qty": 4144.0,
-            "volRlim": 10.88,
-            "pbmn": 0.8,
-            "pbmnRlim": 10.89
-          },
-          {
-            "date": "20261022",
-            "qty": 6613.0,
-            "volRlim": 15.72,
-            "pbmn": 1.2,
-            "pbmnRlim": 15.75
-          },
-          {
-            "date": "20261021",
-            "qty": 3211.0,
-            "volRlim": 7.7,
-            "pbmn": 0.6,
-            "pbmnRlim": 7.69
-          },
-          {
-            "date": "20261020",
-            "qty": 3583.0,
-            "volRlim": 6.96,
-            "pbmn": 0.7,
-            "pbmnRlim": 6.96
-          },
-          {
-            "date": "20261019",
-            "qty": 1920.0,
-            "volRlim": 4.35,
-            "pbmn": 0.4,
-            "pbmnRlim": 4.35
-          },
-          {
-            "date": "20261016",
-            "qty": 1615.0,
-            "volRlim": 2.65,
-            "pbmn": 0.3,
-            "pbmnRlim": 2.65
-          },
-          {
-            "date": "20261015",
-            "qty": 2781.0,
-            "volRlim": 3.17,
-            "pbmn": 0.5,
-            "pbmnRlim": 3.17
-          },
-          {
-            "date": "20261014",
-            "qty": 2105.0,
-            "volRlim": 3.47,
-            "pbmn": 0.4,
-            "pbmnRlim": 3.46
-          }
-        ],
-        "loans": [
-          {
-            "date": "20261110",
-            "newQty": 22900.0,
-            "rdmpQty": 4695.0,
-            "rmndChg": 18205.0,
-            "rmndQty": 861580.0,
-            "rmndAmt": 151.1
-          },
-          {
-            "date": "20261109",
-            "newQty": 14531.0,
-            "rdmpQty": 11857.0,
-            "rmndChg": 2674.0,
-            "rmndQty": 843375.0,
-            "rmndAmt": 147.4
-          },
-          {
-            "date": "20261106",
-            "newQty": 4224.0,
-            "rdmpQty": 224.0,
-            "rmndChg": 4000.0,
-            "rmndQty": 840701.0,
-            "rmndAmt": 152.3
-          },
-          {
-            "date": "20261105",
-            "newQty": 1888.0,
-            "rdmpQty": 0.0,
-            "rmndChg": 1888.0,
-            "rmndQty": 836701.0,
-            "rmndAmt": 148.7
-          },
-          {
-            "date": "20261104",
-            "newQty": 24716.0,
-            "rdmpQty": 266.0,
-            "rmndChg": 24450.0,
-            "rmndQty": 834813.0,
-            "rmndAmt": 142.4
-          },
-          {
-            "date": "20261103",
-            "newQty": 3642.0,
-            "rdmpQty": 0.0,
-            "rmndChg": 3642.0,
-            "rmndQty": 810363.0,
-            "rmndAmt": 137.3
-          },
-          {
-            "date": "20261102",
-            "newQty": 12685.0,
-            "rdmpQty": 12935.0,
-            "rmndChg": -250.0,
-            "rmndQty": 806721.0,
-            "rmndAmt": 135.4
-          },
-          {
-            "date": "20261030",
-            "newQty": 0.0,
-            "rdmpQty": 0.0,
-            "rmndChg": 0.0,
-            "rmndQty": 806971.0,
-            "rmndAmt": 137.8
-          },
-          {
-            "date": "20261029",
-            "newQty": 0.0,
-            "rdmpQty": 0.0,
-            "rmndChg": 0.0,
-            "rmndQty": 806971.0,
-            "rmndAmt": 137.3
-          },
-          {
-            "date": "20261028",
-            "newQty": 251.0,
-            "rdmpQty": 1251.0,
-            "rmndChg": -1000.0,
-            "rmndQty": 806971.0,
-            "rmndAmt": 138.7
-          },
-          {
-            "date": "20261027",
-            "newQty": 800.0,
-            "rdmpQty": 1300.0,
-            "rmndChg": -500.0,
-            "rmndQty": 807971.0,
-            "rmndAmt": 141.6
-          },
-          {
-            "date": "20261026",
-            "newQty": 55848.0,
-            "rdmpQty": 19557.0,
-            "rmndChg": 36291.0,
-            "rmndQty": 808471.0,
-            "rmndAmt": 144.5
-          },
-          {
-            "date": "20261023",
-            "newQty": 434.0,
-            "rdmpQty": 692.0,
-            "rmndChg": -258.0,
-            "rmndQty": 772180.0,
-            "rmndAmt": 141.2
-          },
-          {
-            "date": "20261022",
-            "newQty": 32391.0,
-            "rdmpQty": 12197.0,
-            "rmndChg": 20194.0,
-            "rmndQty": 772438.0,
-            "rmndAmt": 142.4
-          },
-          {
-            "date": "20261021",
-            "newQty": 109900.0,
-            "rdmpQty": 103562.0,
-            "rmndChg": 6338.0,
-            "rmndQty": 752244.0,
-            "rmndAmt": 138.8
-          },
-          {
-            "date": "20261020",
-            "newQty": 264.0,
-            "rdmpQty": 1028.0,
-            "rmndChg": -764.0,
-            "rmndQty": 745906.0,
-            "rmndAmt": 137.6
-          },
-          {
-            "date": "20261019",
-            "newQty": 9735.0,
-            "rdmpQty": 9735.0,
-            "rmndChg": 0.0,
-            "rmndQty": 746670.0,
-            "rmndAmt": 137.8
-          },
-          {
-            "date": "20261016",
-            "newQty": 1255.0,
-            "rdmpQty": 1315.0,
-            "rmndChg": -60.0,
-            "rmndQty": 746670.0,
-            "rmndAmt": 135.5
-          },
-          {
-            "date": "20261015",
-            "newQty": 184.0,
-            "rdmpQty": 0.0,
-            "rmndChg": 184.0,
-            "rmndQty": 746730.0,
-            "rmndAmt": 133.2
-          },
-          {
-            "date": "20261014",
-            "newQty": 2134.0,
-            "rdmpQty": 0.0,
-            "rmndChg": 2134.0,
-            "rmndQty": 746546.0,
-            "rmndAmt": 133.6
-          }
-        ],
-        "rankAsof": "15:09",
-        "trend": [
-          {
-            "date": "20261110",
-            "frgn": -14363,
-            "orgn": 10820,
-            "prsn": 3563,
-            "holdRatio": 19.97,
-            "close": 17530,
-            "rate": 0.29
-          },
-          {
-            "date": "20261109",
-            "frgn": -22923,
-            "orgn": 10065,
-            "prsn": 12818,
-            "holdRatio": 20.05,
-            "close": 17690,
-            "rate": -2.37
-          },
-          {
-            "date": "20261106",
-            "frgn": -8513,
-            "orgn": 35253,
-            "prsn": -26720,
-            "holdRatio": 20.16,
-            "close": 17950,
-            "rate": 1.01
-          },
-          {
-            "date": "20261105",
-            "frgn": 13689,
-            "orgn": 13154,
-            "prsn": -26743,
-            "holdRatio": 20.17,
-            "close": 17580,
-            "rate": 3.05
-          },
-          {
-            "date": "20261104",
-            "frgn": -12530,
-            "orgn": 10111,
-            "prsn": 2477,
-            "holdRatio": 20.06,
-            "close": 17050,
-            "rate": 0.65
-          },
-          {
-            "date": "20261103",
-            "frgn": -2369,
-            "orgn": 12707,
-            "prsn": -10298,
-            "holdRatio": 19.99,
-            "close": 16840,
-            "rate": 0.3
-          },
-          {
-            "date": "20261102",
-            "frgn": -7152,
-            "orgn": 2158,
-            "prsn": 4974,
-            "holdRatio": 20.0,
-            "close": 16890,
-            "rate": -1.11
-          },
-          {
-            "date": "20261030",
-            "frgn": 289,
-            "orgn": -549,
-            "prsn": 240,
-            "holdRatio": 20.05,
-            "close": 16970,
-            "rate": -0.29
-          },
-          {
-            "date": "20261029",
-            "frgn": 3161,
-            "orgn": -5767,
-            "prsn": 2586,
-            "holdRatio": 20.05,
-            "close": 17100,
-            "rate": -0.52
-          },
-          {
-            "date": "20261028",
-            "frgn": -20871,
-            "orgn": 2156,
-            "prsn": 18675,
-            "holdRatio": 20.04,
-            "close": 17200,
-            "rate": -1.88
-          },
-          {
-            "date": "20261027",
-            "frgn": -8603,
-            "orgn": 2672,
-            "prsn": 6097,
-            "holdRatio": 20.15,
-            "close": 17650,
-            "rate": -1.23
-          },
-          {
-            "date": "20261026",
-            "frgn": -3525,
-            "orgn": 5410,
-            "prsn": -1905,
-            "holdRatio": 20.21,
-            "close": 18000,
-            "rate": -1.59
-          },
-          {
-            "date": "20261023",
-            "frgn": -16801,
-            "orgn": 17170,
-            "prsn": -369,
-            "holdRatio": 20.21,
-            "close": 18170,
-            "rate": -1.46
-          },
-          {
-            "date": "20261022",
-            "frgn": -14865,
-            "orgn": 14476,
-            "prsn": 349,
-            "holdRatio": 20.29,
-            "close": 18400,
-            "rate": -0.27
-          },
-          {
-            "date": "20261021",
-            "frgn": -9947,
-            "orgn": 12885,
-            "prsn": -2917,
-            "holdRatio": 20.3,
-            "close": 18380,
-            "rate": -0.38
-          },
-          {
-            "date": "20261020",
-            "frgn": -8778,
-            "orgn": 13217,
-            "prsn": -4439,
-            "holdRatio": 20.61,
-            "close": 18500,
-            "rate": 0.27
-          },
-          {
-            "date": "20261019",
-            "frgn": -10218,
-            "orgn": 19620,
-            "prsn": -9382,
-            "holdRatio": 20.66,
-            "close": 18400,
-            "rate": 1.38
-          },
-          {
-            "date": "20261016",
-            "frgn": -1174,
-            "orgn": 14726,
-            "prsn": -13491,
-            "holdRatio": 20.7,
-            "close": 18100,
-            "rate": 1.46
-          },
-          {
-            "date": "20261015",
-            "frgn": -4016,
-            "orgn": 31023,
-            "prsn": -27027,
-            "holdRatio": 20.66,
-            "close": 17900,
-            "rate": 0.0
-          },
-          {
-            "date": "20261014",
-            "frgn": 7030,
-            "orgn": 6612,
-            "prsn": -13602,
-            "holdRatio": 20.64,
-            "close": 18170,
-            "rate": 2.31
-          }
-        ]
-      },
-      "priceFactors": {
-        "basis": {
-          "date": "2026-11-11",
-          "ratePct": -2.51,
-          "kind": "today"
-        },
-        "items": [
-          {
-            "cat": "research",
-            "title": "3분기 실적 컨센서스 하회",
-            "dir": -1,
-            "strength": 5,
-            "evidence": "영업이익 96억 원으로 전년 대비 64% 감소.",
-            "pp": -0.5
-          },
-          {
-            "cat": "flow",
-            "title": "외국인 순매도 지속",
-            "dir": -1,
-            "strength": 4,
-            "evidence": "최근 며칠간 외국인 매도세가 지속됨.",
-            "pp": -0.5
-          },
-          {
-            "cat": "news",
-            "title": "실적 쇼크",
-            "dir": -1,
-            "strength": 5,
-            "evidence": "매출 및 영업이익 동반 감소.",
-            "pp": -0.6
-          },
-          {
-            "cat": "community",
-            "title": "주주 실망감 확산",
-            "dir": -1,
-            "strength": 3,
-            "evidence": "종목토론방 내 부정적 여론 우세.",
-            "pp": -0.4
-          },
-          {
-            "cat": "dart",
-            "title": "당기순손실 적자 전환",
-            "dir": -1,
-            "strength": 4,
-            "evidence": "103억 원 순손실 기록.",
-            "pp": -0.5
-          }
-        ],
-        "byCat": {
-          "research": -0.5,
-          "flow": -0.5,
-          "news": -0.6,
-          "community": -0.4,
-          "dart": -0.5
-        },
-        "estimated": true,
-        "method": "LLM 이 낸 요인 강도를 기준 등락률(당일, 없으면 최근 거래일)에 맞춰 배분한 추정치"
-      },
-      "ca": {
-        "status": "empty",
-        "asof": "2026-11-11 09:09",
-        "date": "2026-11-11",
-        "windowDays": 20,
-        "windowEnd": "2026-12-09",
-        "close": 17090.0,
-        "items": [],
-        "inWindow": 0,
-        "haltInWindow": false,
-        "hubErrors": {},
-        "note": "예탁원정보(KIS ksdinfo) 기업행위 일정. d_n = 기준일 대비 영업일(+미래/−과거), inWindow = 앞으로 20영업일(단기 영향 구간) 안의 일정, haltInWindow = 그 구간과 겹치는 매매정지, sizePct = 신주·예치 물량 ÷ 총발행주식(%), gapPct = 현재가 ÷ gapRef − 1(%). 배당락(추정)은 기준일 전 평일 — 공휴일 미반영. 의무예치는 '보호예수 해제'(release) 일정이 해제일."
-      },
-      "caStatus": "empty",
-      "_caOk": true,
-      "_flowOk": true,
-      "_meta": {
-        "filingKey": "2026-11-11|기업설명회(IR)개최              ",
-        "pf": 2,
-        "asOf": "2026-11-11T13:41:29.667444+09:00",
-        "price": 17090
-      }
-    },
-    "direction": "bearish"
-  },
-  {
     "code": "139480",
     "name": "이마트",
     "market": "KOSPI",
-    "selectedDate": "2026-11-11",
-    "basePrice": 65000,
-    "entry": 65300,
-    "target": 72000,
-    "stop": 59700,
+    "selectedDate": "2026-11-12",
+    "basePrice": 65100,
+    "entry": 65400,
+    "target": 72100,
+    "stop": 59800,
     "stars": "⭐⭐⭐⭐⭐",
-    "catalyst": "3분기 연결 영업이익이 전년 동기 대비 69.6% 급감하며 시장 기대치를 크게 하회하는 어닝 쇼크를 기록함. 본업인 별도 부문의 매출 성장은 긍정적이나, 스타벅스 등 자회사의 부진이 연결 실적을 훼손하며 투자 심리가 급격히 악화됨.",
-    "scenario": "<b>[하락 관찰 종목]</b><br>하방 재료가 관찰된 참고용 종목입니다 — 자동매매(매수) 대상이 아닙니다. 전일 종가 65,000원. 반등 전환 시 관찰 레벨: 65,300원.",
-    "reason": "3분기 영업이익 69.6% 급감 및 스타벅스 적자 전환 등 실적 쇼크 발생.",
+    "catalyst": "3분기 실적 발표에서 본업인 할인점과 트레이더스의 견조한 성장에도 불구하고, 신세계건설과 스타벅스 등 자회사의 부진으로 인한 어닝 쇼크가 발생했습니다. 이로 인해 증권사들의 목표주가 하향 조정이 잇따르고 있어 단기적인 주가 하방 압력이 강합니다.",
+    "scenario": "<b>[하락 관찰 종목]</b><br>하방 재료가 관찰된 참고용 종목입니다 — 자동매매(매수) 대상이 아닙니다. 전일 종가 65,100원. 반등 전환 시 관찰 레벨: 65,400원.",
+    "reason": "본업 개선에도 불구하고 자회사들의 부진으로 인한 어닝 쇼크가 발생하여 투자 심리가 급격히 악화되었습니다.",
     "analysis": {
-      "catalyst": "3분기 연결 영업이익이 전년 동기 대비 69.6% 급감하며 시장 기대치를 크게 하회하는 어닝 쇼크를 기록함. 본업인 별도 부문의 매출 성장은 긍정적이나, 스타벅스 등 자회사의 부진이 연결 실적을 훼손하며 투자 심리가 급격히 악화됨.",
+      "catalyst": "3분기 실적 발표에서 본업인 할인점과 트레이더스의 견조한 성장에도 불구하고, 신세계건설과 스타벅스 등 자회사의 부진으로 인한 어닝 쇼크가 발생했습니다. 이로 인해 증권사들의 목표주가 하향 조정이 잇따르고 있어 단기적인 주가 하방 압력이 강합니다.",
       "direction": "bearish",
-      "flowComment": "최근 외국인과 기관의 동반 매도세가 이어지는 가운데, 금일 실적 발표 직후 실망 매물이 쏟아지며 주가가 10% 가까이 급락함. 수급상 매수 주체가 부재한 상황에서 당분간 하방 압력이 지속될 가능성이 높음.",
+      "flowComment": "11월 11일 외국인과 기관의 동반 대규모 순매도로 주가가 6.78% 급락했습니다. 공매도 거래대금 비중이 8.5%로 급증하고 대차잔고도 소폭 증가하는 등 수급 측면에서 하방 압력이 뚜렷합니다.",
       "peers": {
-        "summary": "해외 유통 피어 그룹인 Walmart와 Target은 인플레이션과 소비 둔화 우려로 인해 투자 심리가 위축된 상태임. Reddit 여론 데이터는 수집 실패로 확인 불가함.",
+        "summary": "글로벌 유통업체인 월마트와 타겟은 긍정적인 여론이 우세하나, 이마트는 국내 계열사 리스크라는 개별 악재가 지배적입니다.",
         "reddit": [],
         "stocktwits": [
           {
             "ticker": "WMT",
             "name": "Walmart Inc.",
             "status": "ok",
-            "bullish": 12,
-            "bearish": 2,
+            "bullish": 10,
+            "bearish": 4,
             "unlabeled": 16,
             "total": 30,
             "labeled": 14,
-            "bullPct": 86,
+            "bullPct": 71,
             "windowDays": 7,
-            "newest": "2026-11-11 13:11",
-            "oldest": "2026-11-10 03:47",
+            "newest": "2026-11-12 08:06",
+            "oldest": "2026-11-11 20:51",
             "samples": [
               {
-                "createdAt": "2026-11-11 13:11",
-                "user": "ABV55921",
-                "sentiment": "Bullish",
-                "body": "$WMT $RMNST.X $ZVIA $POET $DUOT"
-              },
-              {
-                "createdAt": "2026-11-11 13:09",
-                "user": "DidYouReadThis",
+                "createdAt": "2026-11-12 08:06",
+                "user": "openclassaction2",
                 "sentiment": null,
-                "body": "Does $TGT $AMZN $WMT have your favorite #thanksgiving #meal?"
+                "body": "$WMT the $100 million spark driver settlement, $79 million in direct driver payments, no claim form, per open class actions. seems like gig savings booked early get paid out later"
               },
               {
-                "createdAt": "2026-11-11 10:48",
-                "user": "Just_Passing_By_88",
-                "sentiment": "Bearish",
-                "body": "$WMT Earnings next week I see. With high inflation and immenent rate hike. Less consumer spending and prices will rise. Not a good future outlook..."
+                "createdAt": "2026-11-12 07:45",
+                "user": "WorldwideWesley",
+                "sentiment": "Bullish",
+                "body": "If $WMT had a 5 or 10% sale storewide, you wouldn’t even be able to get your items because the place would be so packed Yet when there’s a sale in the stock market (much less with the most valuable publicly traded company $NVDA) people complain and get scared and sell at the bott…"
+              },
+              {
+                "createdAt": "2026-11-12 06:27",
+                "user": "Buttered_Lobstah",
+                "sentiment": "Bullish",
+                "body": "$WMT hoping for another rinse and repeat for what it was doing every week prior to last week. Give us $129 by Friday"
               }
             ],
-            "summary": "인플레이션과 금리 인상에 따른 소비 둔화 우려가 지속되며 향후 전망에 대한 경계감이 존재함."
+            "summary": "71%의 Bullish 비율로 긍정적이나, 이마트와는 직접적인 연관성이 낮음."
           },
           {
             "ticker": "TGT",
             "name": "Target Corporation",
             "status": "ok",
-            "bullish": 6,
+            "bullish": 5,
             "bearish": 1,
-            "unlabeled": 23,
+            "unlabeled": 24,
             "total": 30,
-            "labeled": 7,
-            "bullPct": 86,
+            "labeled": 6,
+            "bullPct": 83,
             "windowDays": 7,
-            "newest": "2026-11-11 13:09",
-            "oldest": "2026-11-05 16:19",
+            "newest": "2026-11-12 02:15",
+            "oldest": "2026-11-05 23:57",
             "samples": [
               {
-                "createdAt": "2026-11-11 13:09",
-                "user": "DidYouReadThis",
+                "createdAt": "2026-11-12 02:15",
+                "user": "Unhappytrader28",
                 "sentiment": null,
-                "body": "Does $TGT $AMZN $WMT have your favorite #thanksgiving #meal?"
+                "body": "Contracts up 30% since⬇️ $NFLX $TGT $MSFT 7 bangers sent out this week 🔥"
               },
               {
-                "createdAt": "2026-11-11 06:35",
-                "user": "DefenseMania",
-                "sentiment": "Bullish",
-                "body": "$COST $KR $TGT $WMT Ok there I have ot Now ￼just waiting for the 10-1 split 😉"
+                "createdAt": "2026-11-12 00:01",
+                "user": "Chrissixddd",
+                "sentiment": null,
+                "body": "Walmart $WMT is the biggest customer of $GIS Interesting supply chain to look at $TGT $ACI"
               },
               {
-                "createdAt": "2026-11-10 23:19",
-                "user": "theoptionsplug",
+                "createdAt": "2026-11-11 19:15",
+                "user": "Unhappytrader28",
                 "sentiment": null,
-                "body": "Told you! It&#39;s that easy when you follow Diamond! $TGT down -2.6% since yesterday&#39;s analysis! @Stocktwits"
+                "body": "Last month’s trades ⬇️ $NVDA $ORCL $AAPL $PLTR $TGT"
               }
             ],
-            "summary": "소비자들의 가격 민감도가 높아진 가운데, 인플레이션 지표와 실적에 대한 시장의 관심이 집중됨."
+            "summary": "83%의 Bullish 비율로 긍정적이나, 이마트와는 직접적인 연관성이 낮음."
           }
         ],
         "items": [
           {
             "name": "Walmart Inc.",
             "ticker": "WMT",
-            "price": 125.55,
-            "changePct": -0.09,
+            "price": 125.67,
+            "changePct": 0.1,
             "note": "세계 최대의 오프라인 대형마트 운영사로 이마트의 사업 모델과 가장 유사함"
           },
           {
             "name": "Seven & i Holdings Co., Ltd.",
             "ticker": "3382.T",
-            "price": 2148.0,
-            "changePct": -1.49,
+            "price": 2135.0,
+            "changePct": -2.09,
             "note": "일본의 대형 유통 그룹으로 편의점과 슈퍼마켓, 백화점 등 종합 유통업을 영위함"
           },
           {
             "name": "Target Corporation",
             "ticker": "TGT",
-            "price": 161.78,
-            "changePct": -1.8,
+            "price": 162.7,
+            "changePct": 0.57,
             "note": "미국의 대형 할인점 체인으로 이마트와 유사한 오프라인 기반의 유통 사업을 운영함"
           },
           {
             "name": "Carrefour SA",
             "ticker": "CA.PA",
-            "price": 13.59,
+            "price": 13.93,
             "changePct": 0.0,
             "note": "유럽을 대표하는 대형 할인점 및 슈퍼마켓 체인으로 이마트의 하이퍼마켓 모델과 유사함"
           },
           {
             "name": "Woolworths Group Limited",
             "ticker": "WOW.AX",
-            "price": 42.05,
-            "changePct": -0.07,
+            "price": 42.06,
+            "changePct": -0.05,
             "note": "호주의 최대 유통업체로 식료품 중심의 대형마트와 슈퍼마켓 사업을 주력으로 함"
           }
         ],
@@ -1971,83 +142,97 @@
         }
       },
       "news": {
-        "summary": "이마트의 3분기 실적은 연결 기준 영업이익이 69.6% 급감하며 어닝 쇼크를 기록함. 별도 기준으로는 매출 5조 원을 돌파하며 본업 경쟁력을 입증했으나, 자회사들의 부진이 전체 실적을 끌어내림.",
+        "summary": "3분기 실적 발표 이후 본업 회복세에도 불구하고 자회사 손실로 인한 어닝 쇼크가 부각되었습니다. 하나증권 등 주요 증권사는 목표주가를 하향하며 계열사 불확실성을 경고했습니다.",
         "items": [
           {
-            "title": "이마트 3분기 영업익 461억원…작년 동기 대비 69.6%↓",
-            "source": "포쓰저널",
-            "date": "2026-11-11",
+            "title": "이마트, 본업 개선...계열사 적자는 부담-하나증권",
+            "source": "프레스나인",
+            "date": "2026-11-12",
             "sentiment": "부정",
-            "url": "http://www.4th.kr/news/articleView.html?idxno=2121603",
-            "insight": "연결 실적 부진으로 인한 어닝 쇼크가 주가 급락의 직접적 원인."
+            "url": "http://www.press9.kr/news/articleView.html?idxno=86084",
+            "insight": "본업의 실적 개선에도 불구하고 계열사 손실이 수익성 회복을 저해하고 있음."
           },
           {
-            "title": "이마트, 3분기 별도 영업익 1660억·전년比 46.3%↑",
-            "source": "팝콘뉴스",
-            "date": "2026-11-11",
-            "sentiment": "긍정",
-            "url": "http://www.popcornnews.net/news/articleView.html?idxno=139556",
-            "insight": "본업인 별도 부문의 수익성 개선은 긍정적이나 연결 실적 부진에 묻힘."
+            "title": "이마트, 본업 살아났지만 계열사 손실에 어닝쇼크…목표가 ↓-하나",
+            "source": "이데일리",
+            "date": "2026-11-12",
+            "sentiment": "부정",
+            "url": "https://www.edaily.co.kr/News/Read?newsId=02279606645645064&mediaCodeNo=257",
+            "insight": "실적 불확실성 확대로 인해 증권사들이 목표주가를 하향 조정함."
           },
           {
-            "title": "이마트, 스벅 손실 속 본업은 버텼다…분기 매출 사상 첫 5조",
-            "source": "연합인포맥스",
-            "date": "2026-11-11",
+            "title": "LS증권 \"이마트, 본업 호조에도 자회사 부진…스타벅스 회복 관건\"",
+            "source": "이투데이",
+            "date": "2026-11-12",
             "sentiment": "중립",
-            "url": "https://news.einfomax.co.kr/news/articleView.html?idxno=4444198",
-            "insight": "자회사 리스크가 본업의 성장을 상쇄하는 구조적 문제 지속."
+            "url": "https://www.etoday.co.kr/news/view/2647127",
+            "insight": "할인점과 트레이더스의 본업 호조는 긍정적이나 스타벅스 등 자회사 회복이 관건."
+          },
+          {
+            "title": "이마트, 김장재료 한자리에…배추 3포기 3485원",
+            "source": "파이낸셜포스트",
+            "date": "2026-11-12",
+            "sentiment": "긍정",
+            "url": "https://www.financialpost.co.kr/news/articleView.html?idxno=300292",
+            "insight": "김장철을 맞아 대규모 할인 행사를 진행하며 집객 효과를 노리고 있음."
           }
         ]
       },
       "community": {
-        "summary": "개인 투자자들은 실적 발표 이후 자회사 부진과 경영진에 대한 실망감을 강하게 표출하고 있음. 주가 급락에 따른 공포감과 비판적인 여론이 지배적임.",
+        "summary": "종목토론방에서는 실적 부진에 대한 실망감과 함께 '빅배스' 여부에 대한 논쟁이 활발합니다. 계열사 리스크가 해소되지 않는 한 주가 반등이 어렵다는 부정적 여론이 우세합니다.",
         "sentimentLabel": "부정",
         "naver": [
           {
-            "title": "IR자료보니 자회사들이 다 깽판친거네 ㅋ",
-            "url": "https://stock.naver.com/domestic/stock/139480/discussion/432019189",
-            "sentiment": "부정",
-            "summary": "자회사 실적 부진에 대한 강한 불만 표출."
+            "title": "신세계건설 충당금은 3분기로 마무리. 스타벅스건도 4분기 복구",
+            "url": "https://stock.naver.com/domestic/stock/139480/discussion/432045180",
+            "sentiment": "중립",
+            "summary": "악재가 마무리 단계라는 의견과 여전히 불확실하다는 의견이 대립함."
           },
           {
-            "title": "52주 최저가 63700원에 근접하네,무능한 정용진이다",
-            "url": "https://stock.naver.com/domestic/stock/139480/discussion/432018740",
+            "title": "3분기 누적 결산 ( 연결 ) 순이익 적자",
+            "url": "https://stock.naver.com/domestic/stock/139480/discussion/432043238",
             "sentiment": "부정",
-            "summary": "경영진 책임론과 주가 하락에 대한 비판."
+            "summary": "연결 기준 순이익 적자에 대한 실망감이 표출됨."
           },
           {
-            "title": "개인적으로 어닝 서프라이즈라고 본다.",
-            "url": "https://stock.naver.com/domestic/stock/139480/discussion/432019509",
+            "title": "이제 악재 끝-빅배스 한 것 같다",
+            "url": "https://stock.naver.com/domestic/stock/139480/discussion/432051037",
             "sentiment": "긍정",
-            "summary": "본업의 성장에 주목하는 소수의견."
+            "summary": "이번 실적 발표를 계기로 악재를 모두 털어냈다는 긍정적 해석."
           }
         ]
       },
       "dart": {
-        "summary": "3분기 잠정 실적 공시를 통해 연결 영업이익 급감 사실이 확인됨. 본업의 외형 성장에도 불구하고 자회사 손실이 연결 재무제표에 큰 부담으로 작용함.",
+        "summary": "11월 11일 3분기 잠정 실적 공시를 통해 연결 기준 실적을 발표했습니다. 본업의 개선세와 자회사의 부진이 공존하는 실적 구조가 확인되었습니다.",
         "highlights": [
           {
-            "label": "3Q26 연결 영업이익",
-            "value": "461억원",
-            "note": "전년 동기 대비 69.6% 감소."
+            "label": "연결 영업실적",
+            "value": "공시 완료",
+            "note": "11월 11일 3분기 잠정 실적 공시."
           },
           {
-            "label": "3Q26 별도 총매출",
-            "value": "5조 1,040억원",
-            "note": "사상 첫 5조 돌파, 본업 경쟁력 강화."
+            "label": "IR 개최",
+            "value": "안내",
+            "note": "11월 11일 기업설명회 개최 안내 공시."
           },
           {
-            "label": "3Q26 별도 영업이익",
-            "value": "1,660억원",
-            "note": "전년 동기 대비 46.3% 증가."
+            "label": "주식소각",
+            "value": "결정",
+            "note": "10월 15일 주식소각 결정 공시."
           },
           {
-            "label": "주요 이슈",
-            "value": "자회사 부진",
-            "note": "스타벅스 등 자회사 손실이 연결 이익 훼손의 주원인."
+            "label": "특수관계인 출자",
+            "value": "공시",
+            "note": "10월 29일 특수관계인에 대한 출자 공시."
           }
         ],
         "recentFilings": [
+          {
+            "date": "2026-11-11",
+            "title": "기업설명회(IR)개최(안내공시)              ",
+            "filer": "이마트",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261111800556"
+          },
           {
             "date": "2026-11-11",
             "title": "영업(잠정)실적(공정공시)              ",
@@ -2071,17 +256,11 @@
             "title": "임원ㆍ주요주주특정증권등소유상황보고서",
             "filer": "최재순",
             "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261029000510"
-          },
-          {
-            "date": "2026-10-29",
-            "title": "임원ㆍ주요주주특정증권등소유상황보고서",
-            "filer": "박승학",
-            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261029000493"
           }
         ]
       },
       "research": {
-        "summary": "최근 증권사 리포트들은 본업의 견조한 성장과 자회사 부진 사이의 괴리를 지적함. 실적 발표 전에는 본업 개선에 기대를 걸었으나, 실제 연결 실적은 자회사 부진이 더 크게 작용함.",
+        "summary": "증권가는 본업인 할인점과 트레이더스의 영업 환경 개선을 긍정적으로 평가하나, 자회사 실적 부진이 연결 이익을 훼손하고 있다고 분석합니다.",
         "items": [
           {
             "title": "3Q26 Preview: 빛나는 본업의 존재감",
@@ -2091,7 +270,7 @@
             "pdfUrl": "https://stock.pstatic.net/stock-research/company/62/20261019_company_841110000.pdf",
             "targetPrice": 110000,
             "opinion": "Buy",
-            "note": "본업의 견조한 성장세는 긍정적이나 스타벅스 등 자회사 실적 부진이 연결 실적의 발목을 잡고 있음."
+            "note": "본업의 견조한 성장세는 긍정적이나 스타벅스 실적 부진이 연결 실적에 부담으로 작용함."
           },
           {
             "title": "3Q26 Preview : 본업 개선>자회사 부진",
@@ -2101,7 +280,7 @@
             "pdfUrl": "https://stock.pstatic.net/stock-research/company/16/20261007_company_896829000.pdf",
             "targetPrice": 100000,
             "opinion": "Buy",
-            "note": "전 사업부의 기존점 성장률은 양호하나 자회사 부진이 지속되어 연결 실적 개선을 제한함."
+            "note": "전 사업부의 기존점 성장률은 양호하나 자회사 실적 부진이 지속되어 컨센서스 상회 여부가 불투명함."
           }
         ],
         "consensus": {
@@ -2109,7 +288,7 @@
           "high": 110000,
           "low": 100000,
           "n": 2,
-          "upsidePct": 63.8,
+          "upsidePct": 61.3,
           "opinions": {
             "매수": 2
           }
@@ -2122,16 +301,15 @@
       },
       "generatedBy": "gemini-3.1-flash-lite",
       "flow": {
-        "rank": [
-          {
-            "list": "외국인 순매도상위",
-            "rank": 15,
-            "frgn": -9815.0,
-            "orgn": -910.0,
-            "fund": -65.0
-          }
-        ],
+        "rank": [],
         "shorts": [
+          {
+            "date": "20261111",
+            "qty": 47690.0,
+            "volRlim": 8.5,
+            "pbmn": 31.7,
+            "pbmnRlim": 8.5
+          },
           {
             "date": "20261110",
             "qty": 13812.0,
@@ -2264,16 +442,17 @@
             "volRlim": 10.28,
             "pbmn": 10.2,
             "pbmnRlim": 10.27
-          },
-          {
-            "date": "20261014",
-            "qty": 18774.0,
-            "volRlim": 12.59,
-            "pbmn": 13.3,
-            "pbmnRlim": 12.55
           }
         ],
         "loans": [
+          {
+            "date": "20261111",
+            "newQty": 41547.0,
+            "rdmpQty": 34418.0,
+            "rmndChg": 7129.0,
+            "rmndQty": 661405.0,
+            "rmndAmt": 430.6
+          },
           {
             "date": "20261110",
             "newQty": 6835.0,
@@ -2425,18 +604,19 @@
             "rmndChg": -11339.0,
             "rmndQty": 998371.0,
             "rmndAmt": 691.9
-          },
-          {
-            "date": "20261014",
-            "newQty": 4634.0,
-            "rdmpQty": 493.0,
-            "rmndChg": 4141.0,
-            "rmndQty": 1009710.0,
-            "rmndAmt": 712.9
           }
         ],
-        "rankAsof": "15:09",
+        "rankAsof": "08:38",
         "trend": [
+          {
+            "date": "20261111",
+            "frgn": -204950,
+            "orgn": -49844,
+            "prsn": 253237,
+            "holdRatio": 21.91,
+            "close": 66000,
+            "rate": -6.78
+          },
           {
             "date": "20261110",
             "frgn": -2408,
@@ -2607,82 +787,82 @@
             "holdRatio": 22.74,
             "close": 69100,
             "rate": -2.12
-          },
-          {
-            "date": "20261014",
-            "frgn": -51914,
-            "orgn": 27931,
-            "prsn": 27892,
-            "holdRatio": 22.86,
-            "close": 70800,
-            "rate": -2.34
           }
         ]
       },
       "priceFactors": {
         "basis": {
           "date": "2026-11-11",
-          "ratePct": -9.97,
-          "kind": "today"
+          "ratePct": -6.78,
+          "kind": "last"
         },
         "items": [
-          {
-            "cat": "news",
-            "title": "3분기 연결 영업이익 69.6% 급감",
-            "dir": -1,
-            "strength": 5,
-            "evidence": "연결 기준 영업이익이 시장 기대치를 하회하는 어닝 쇼크 기록.",
-            "pp": -3.8
-          },
-          {
-            "cat": "news",
-            "title": "별도 매출 5조 돌파",
-            "dir": 1,
-            "strength": 2,
-            "evidence": "본업의 외형 성장은 긍정적이나 연결 실적 악화에 묻힘.",
-            "pp": 1.5
-          },
           {
             "cat": "flow",
             "title": "외국인·기관 동반 매도",
             "dir": -1,
-            "strength": 4,
-            "evidence": "실적 발표 직후 기관과 외국인의 매도세가 주가 급락을 주도.",
-            "pp": -3.1
+            "strength": 5,
+            "evidence": "11월 11일 외국인 -204,950주, 기관 -49,844주 순매도.",
+            "pp": -1.6
           },
           {
-            "cat": "community",
-            "title": "투자자 실망감 확산",
+            "cat": "news",
+            "title": "3분기 어닝 쇼크",
             "dir": -1,
-            "strength": 3,
-            "evidence": "종목토론방 내 자회사 부진 및 경영진 비판 여론 팽배.",
-            "pp": -2.3
+            "strength": 5,
+            "evidence": "본업 호조에도 자회사 부진으로 인한 실적 실망감 확산.",
+            "pp": -1.6
           },
           {
             "cat": "research",
-            "title": "자회사 부진 지속",
+            "title": "목표주가 하향 조정",
+            "dir": -1,
+            "strength": 4,
+            "evidence": "하나증권 등 주요 증권사들의 실적 불확실성 반영.",
+            "pp": -1.3
+          },
+          {
+            "cat": "flow",
+            "title": "공매도 비중 급증",
+            "dir": -1,
+            "strength": 4,
+            "evidence": "11월 11일 공매도 거래대금 비중 8.5% 기록.",
+            "pp": -1.3
+          },
+          {
+            "cat": "community",
+            "title": "부정적 투자 심리",
             "dir": -1,
             "strength": 3,
-            "evidence": "증권사 리포트에서 지속적으로 지적된 자회사 리스크 현실화.",
-            "pp": -2.3
+            "evidence": "종목토론방 내 실적 부진 및 계열사 리스크 우려 확산.",
+            "pp": -1.0
+          },
+          {
+            "cat": "dart",
+            "title": "실적 공시",
+            "dir": 0,
+            "strength": 2,
+            "evidence": "11월 11일 3분기 잠정 실적 공시 완료.",
+            "pp": 0.0
           }
         ],
         "byCat": {
-          "news": -2.3,
-          "flow": -3.1,
-          "community": -2.3,
-          "research": -2.3
+          "flow": -2.9,
+          "news": -1.6,
+          "research": -1.3,
+          "community": -1.0,
+          "dart": 0.0
         },
         "estimated": true,
         "method": "LLM 이 낸 요인 강도를 기준 등락률(당일, 없으면 최근 거래일)에 맞춰 배분한 추정치"
       },
       "ca": {
         "status": "empty",
-        "asof": "2026-11-11 13:41",
-        "date": "2026-11-11",
+        "asof": "2026-11-12 08:40",
+        "date": "2026-11-12",
         "windowDays": 20,
-        "windowEnd": "2026-12-09",
-        "close": 64100.0,
+        "windowEnd": "2026-12-10",
+        "close": 65100.0,
         "items": [],
         "inWindow": 0,
         "haltInWindow": false,
@@ -2693,302 +873,294 @@
       "_caOk": true,
       "_flowOk": true,
       "_meta": {
-        "filingKey": "2026-11-11|영업(잠정)실적(공정공시)              ",
+        "filingKey": "2026-11-11|기업설명회(IR)개최(안내공시)              ",
         "pf": 2,
-        "asOf": "2026-11-11T13:41:29.667444+09:00",
-        "price": 64100
+        "asOf": "2026-11-12T08:40:54.969983+09:00",
+        "price": 65100
       }
     },
     "direction": "bearish"
   },
   {
-    "code": "036570",
-    "name": "NC",
+    "code": "000810",
+    "name": "삼성화재해상보험",
     "market": "KOSPI",
-    "selectedDate": "2026-11-11",
-    "basePrice": 210500,
-    "entry": 211600,
-    "target": 231100,
-    "stop": 195100,
-    "stars": "⭐⭐⭐",
-    "catalyst": "3분기 영업이익 1,196억 원으로 흑자 전환에 성공하며 시장 기대치를 상회하는 어닝 서프라이즈를 기록함. '아이온2' 글로벌 성과와 리니지 클래식의 견조한 트래픽을 바탕으로 올해 및 내년 매출 전망치를 상향 조정하며 실적 턴어라운드 모멘텀이 강화됨.",
-    "scenario": "<b>[하락 관찰 종목]</b><br>하방 재료가 관찰된 참고용 종목입니다 — 자동매매(매수) 대상이 아닙니다. 전일 종가 210,500원. 반등 전환 시 관찰 레벨: 211,600원.",
-    "reason": "실적 전망 공시 이후 시장 기대치 하회 우려로 인한 매도세 출회.",
+    "selectedDate": "2026-11-12",
+    "basePrice": 566000,
+    "entry": 568800,
+    "target": 627600,
+    "stop": 519800,
+    "stars": "⭐⭐⭐⭐",
+    "catalyst": "3분기 연결 기준 순이익이 4,931억 원으로 전년 동기 대비 8.3% 감소하며 시장 예상치를 하회한 것이 주가에 직접적인 하방 압력으로 작용하고 있습니다. 최근 외국인의 지속적인 매도세와 맞물려 실적 부진에 대한 실망 매물이 출회되는 모습입니다.",
+    "scenario": "<b>[하락 관찰 종목]</b><br>하방 재료가 관찰된 참고용 종목입니다 — 자동매매(매수) 대상이 아닙니다. 전일 종가 566,000원. 반등 전환 시 관찰 레벨: 568,800원.",
+    "reason": "3분기 순이익이 시장 예상치를 하회하며 실적 부진에 따른 매도세가 출회되고 있습니다.",
     "analysis": {
-      "catalyst": "3분기 영업이익 1,196억 원으로 흑자 전환에 성공하며 시장 기대치를 상회하는 어닝 서프라이즈를 기록함. '아이온2' 글로벌 성과와 리니지 클래식의 견조한 트래픽을 바탕으로 올해 및 내년 매출 전망치를 상향 조정하며 실적 턴어라운드 모멘텀이 강화됨.",
-      "direction": "bullish",
-      "flowComment": "외국인 투자자가 최근 매수 우위를 보이며 수급 개선 흐름을 나타내고 있으나, 11월 10일 공매도 거래대금 비중이 26%까지 급증하고 대차잔고가 1.5만 주 이상 증가하는 등 단기 하방 압력도 공존함. 실적 개선에 따른 외국인 수급 유입과 공매도 세력 간의 힘겨루기가 예상됨.",
+      "catalyst": "3분기 연결 기준 순이익이 4,931억 원으로 전년 동기 대비 8.3% 감소하며 시장 예상치를 하회한 것이 주가에 직접적인 하방 압력으로 작용하고 있습니다. 최근 외국인의 지속적인 매도세와 맞물려 실적 부진에 대한 실망 매물이 출회되는 모습입니다.",
+      "direction": "bearish",
+      "flowComment": "외국인은 최근 며칠간 매도 우위를 보이며 보유율이 소폭 하락하는 추세입니다. 기관은 매수세를 유지하다 11월 11일 순매도로 전환하며 수급이 악화되었습니다. 공매도 대금은 감소세이나, 전반적인 수급 환경은 매도 압력이 우세합니다.",
       "peers": {
-        "summary": "해외 게임사들은 신작 기대감과 IP 경쟁력을 바탕으로 강세를 보임. Reddit 여론 데이터 수집 실패.",
+        "summary": "글로벌 손해보험사들은 견조한 흐름을 보이고 있으나, 삼성화재는 실적 부진으로 인해 차별화된 약세를 보이고 있습니다.",
         "reddit": [],
         "stocktwits": [
           {
-            "ticker": "TTWO",
-            "name": "Take-Two Interactive Software, Inc.",
+            "ticker": "CB",
+            "name": "Chubb Limited",
             "status": "ok",
-            "bullish": 11,
-            "bearish": 1,
-            "unlabeled": 18,
-            "total": 30,
-            "labeled": 12,
-            "bullPct": 92,
+            "bullish": 0,
+            "bearish": 0,
+            "unlabeled": 7,
+            "total": 7,
+            "labeled": 0,
+            "bullPct": null,
             "windowDays": 7,
-            "newest": "2026-11-11 14:59",
-            "oldest": "2026-11-11 09:49",
+            "newest": "2026-11-11 21:58",
+            "oldest": "2026-11-05 16:18",
             "samples": [
               {
-                "createdAt": "2026-11-11 14:59",
-                "user": "Ryuk",
-                "sentiment": "Bearish",
-                "body": "$TTWO Lies. The target demographic is busy working 2 jobs to pay rent."
+                "createdAt": "2026-11-11 21:58",
+                "user": "BDipNRip",
+                "sentiment": null,
+                "body": "$CB wtf happened here?"
               },
               {
-                "createdAt": "2026-11-11 13:48",
-                "user": "SquawkAlley",
-                "sentiment": "Bullish",
-                "body": "$TTWO $MSFT $SONY $GRPN BULLISH GTA VI: The Features That Will Redefine the Open World https://open.spotify.com/show/0G9148Ojkq6zlouHf9AKiN"
+                "createdAt": "2026-11-09 06:11",
+                "user": "GTA_Terminal",
+                "sentiment": null,
+                "body": "Dark pool check on $CB: what traded off the exchanges in the latest session. The stock moved -1.8% on the day, so this wasn&#39;t happening in a quiet tape. Look up any stock&#39;s options flow and dark pools on the GTA Terminal, free for 7 days: https://globaltradersacademy.com/…"
               },
               {
-                "createdAt": "2026-11-11 13:06",
-                "user": "ValueFinderTrader",
-                "sentiment": "Bullish",
-                "body": "$TTWO :^) feels good to have bought in the high 180&#39;s"
+                "createdAt": "2026-11-06 02:27",
+                "user": "Stocktwits",
+                "sentiment": null,
+                "body": "$CB bucking the trend and hitting a fresh 52-week high today"
               }
             ],
-            "summary": "GTA VI 출시 기대감으로 92%의 높은 Bullish 비율을 기록하며 강한 매수 심리가 형성됨."
+            "summary": "52주 신고가를 경신하며 견조한 흐름을 보이고 있습니다."
+          },
+          {
+            "ticker": "TRV",
+            "name": "Travelers Companies",
+            "status": "ok",
+            "bullish": 2,
+            "bearish": 0,
+            "unlabeled": 1,
+            "total": 3,
+            "labeled": 2,
+            "bullPct": 100,
+            "windowDays": 7,
+            "newest": "2026-11-12 03:00",
+            "oldest": "2026-11-06 15:46",
+            "samples": [
+              {
+                "createdAt": "2026-11-12 03:00",
+                "user": "Orbit100",
+                "sentiment": "Bullish",
+                "body": "$TRV Continue adding on every pull back. My favorite insurance holding. TRV, ALL and THG."
+              },
+              {
+                "createdAt": "2026-11-10 12:45",
+                "user": "Thinking101",
+                "sentiment": "Bullish",
+                "body": "$JBLU still undervalued by 2x $AIRL $QQQ $SPY $TRV"
+              },
+              {
+                "createdAt": "2026-11-06 15:46",
+                "user": "GTA_Terminal",
+                "sentiment": null,
+                "body": "Off-exchange trading in $TRV was above normal at about 1.4x. The full read shows the session-by-session dark pool share and which institutions are adding or cutting. Look up any stock&#39;s options flow and dark pools on the GTA Terminal, free for 14 days: https://globaltradersac…"
+              }
+            ],
+            "summary": "조정 시마다 매수 기회로 보는 긍정적인 의견이 우세합니다."
           }
         ],
         "items": [
           {
-            "name": "Nexon Co., Ltd.",
-            "ticker": "3659.T",
-            "price": 3028.0,
-            "changePct": 4.52,
-            "note": "한국 게임사와 유사한 비즈니스 모델을 공유하며 아시아 시장에서 강력한 MMORPG 라인업 보유"
+            "name": "Chubb Limited",
+            "ticker": "CB",
+            "price": 370.33,
+            "changePct": 0.33,
+            "note": "글로벌 손해보험 시장을 선도하며 삼성화재와 유사한 포트폴리오를 보유한 세계 최대 상장 손보사"
           },
           {
-            "name": "Take-Two Interactive Software, Inc.",
-            "ticker": "TTWO",
-            "price": 224.64,
-            "changePct": 8.31,
-            "note": "장기 흥행 IP를 기반으로 한 게임 개발 및 퍼블리싱 역량을 보유한 글로벌 기업"
+            "name": "Tokio Marine Holdings",
+            "ticker": "8766.T",
+            "price": 591.9,
+            "changePct": 1.3,
+            "note": "일본 최대 손해보험사로, 아시아 시장 내에서 삼성화재와 유사한 사업 구조와 시장 지위를 가짐"
           },
           {
-            "name": "Capcom Co., Ltd.",
-            "ticker": "9697.T",
-            "price": 4390.0,
-            "changePct": -0.57,
-            "note": "강력한 IP 자산을 활용하여 콘솔 및 PC 플랫폼에서 지속적인 매출을 창출하는 게임사"
+            "name": "Allianz SE",
+            "ticker": "ALV.DE",
+            "price": 463.5,
+            "changePct": 0.0,
+            "note": "독일 기반의 글로벌 보험사로, 손해보험 부문에서 강력한 경쟁력을 갖추고 있어 사업 모델이 유사함"
+          },
+          {
+            "name": "Travelers Companies",
+            "ticker": "TRV",
+            "price": 399.46,
+            "changePct": -0.33,
+            "note": "미국 내 주요 손해보험사로서, 기업 및 개인 보험 분야에서 삼성화재와 유사한 비즈니스 모델을 운영"
+          },
+          {
+            "name": "MS&AD Insurance Group Holdings",
+            "ticker": "8725.T",
+            "price": 5217.0,
+            "changePct": 1.32,
+            "note": "일본의 대형 손해보험 그룹으로, 삼성화재와 같이 다양한 보험 상품군과 안정적인 언더라이팅 역량을 보유"
           }
         ],
         "socialStatus": {
           "reddit": "unavailable",
           "redditQueried": [
-            "TTWO@stocks",
-            "web:Nexon Co., Ltd.",
-            "web:Take-Two Interactive Software, Inc."
+            "CB@stocks",
+            "web:Chubb Limited",
+            "web:Tokio Marine Holdings"
           ],
           "stocktwits": {
-            "TTWO": "ok"
+            "CB": "ok",
+            "TRV": "ok"
           }
         }
       },
       "news": {
-        "summary": "3분기 실적 흑자 전환과 신작 '아이온2'의 글로벌 성과가 핵심. 매출 전망 상향으로 향후 성장성에 대한 기대감이 고조됨.",
+        "summary": "3분기 실적 발표 결과가 시장 기대치를 하회하며 투자 심리가 위축되었습니다. 이와 함께 캐노피우스 지분 취득 등 사업 확장 소식이 있으나 실적 부진 이슈에 묻히는 형국입니다.",
         "items": [
           {
-            "title": "NC, 환율 변동에 3Q 순익 85%↓…올해와 내년 매출 전망 상향(종합)",
-            "source": "이데일리",
-            "date": "2026-11-11",
-            "sentiment": "긍정",
-            "url": "https://news.einfomax.co.kr/news/articleView.html?idxno=4444214",
-            "insight": "순이익은 환율 영향으로 부진했으나 매출 전망 상향이 긍정적."
+            "title": "삼성화재, 3분기 순익 4931억 8.3%↓..예상치 하회",
+            "source": "스마트투데이",
+            "date": "2026-11-12",
+            "sentiment": "부정",
+            "url": "https://www.smarttoday.co.kr/ko-kr/articles/113664",
+            "insight": "실적 부진이 확인되며 단기 주가 하방 압력으로 작용."
           },
           {
-            "title": "NC, '아이온2' 효과 톡톡…내년 3조 매출 목표",
-            "source": "머니투데이",
-            "date": "2026-11-11",
-            "sentiment": "긍정",
-            "url": "https://www.mt.co.kr/tech/2026/11/11/2026111114482159101",
-            "insight": "아이온2의 글로벌 성과가 실적 개선의 핵심 동력으로 작용."
+            "title": "[오늘의 IR] 신세계ㆍ달바글로벌ㆍ대한조선 등",
+            "source": "이투데이",
+            "date": "2026-11-12",
+            "sentiment": "중립",
+            "url": "https://www.etoday.co.kr/news/view/2647097",
+            "insight": "경영실적 발표 일정에 따른 시장의 관심 집중."
           },
           {
-            "title": "엔씨, 3Q 영업이익 1196억원으로 흑자 전환···연 매출 목표 상향",
-            "source": "서울파이낸스",
+            "title": "이찬희 삼성준법위원장 \"AI 시대 거대한 기회이자 리스크…선제적 대응\"",
+            "source": "파이낸셜포스트",
             "date": "2026-11-11",
-            "sentiment": "긍정",
-            "url": "https://www.seoulfn.com/news/articleView.html?idxno=642527",
-            "insight": "영업이익 흑자 전환으로 실적 턴어라운드 확인."
-          },
-          {
-            "title": "엔씨, '리니지 클래식·아이온2' 성과에 3분기 흑자전환(종합)",
-            "source": "연합뉴스",
-            "date": "2026-11-11",
-            "sentiment": "긍정",
-            "url": "https://www.yna.co.kr/view/AKR20261111112251527?input=1195m",
-            "insight": "주요 게임들의 성과가 전년 대비 대폭적인 실적 개선을 견인."
+            "sentiment": "중립",
+            "url": "https://www.financialpost.co.kr/news/articleView.html?idxno=300074",
+            "insight": "그룹 차원의 준법 경영 강조, 직접적인 주가 영향은 제한적."
           }
         ]
       },
       "community": {
-        "summary": "3분기 어닝 서프라이즈에 대한 개인 투자자들의 환호가 지배적임. 실적 개선과 향후 매출 목표 달성에 대한 기대감이 매우 높음.",
-        "sentimentLabel": "긍정",
+        "summary": "실적 발표 전후로 주가 하락에 대한 개인 투자자들의 불만과 실망감이 팽배합니다. 주가 조작 의혹이나 실적과 무관한 하락에 대한 의구심도 제기되고 있습니다.",
+        "sentimentLabel": "부정",
         "naver": [
           {
-            "title": "NC 3분기 영업이익 400억이상으로 컨센 상회",
-            "url": "https://stock.naver.com/domestic/stock/036570/discussion/432023807",
-            "sentiment": "긍정",
-            "summary": "실적 컨센서스 상회에 대한 긍정적 반응."
+            "title": "실적과 관련없는 주가하락",
+            "url": "https://stock.naver.com/domestic/stock/000810/discussion/432012588",
+            "sentiment": "부정",
+            "summary": "실적 발표를 앞두고 주가가 하락하는 것에 대한 의구심 표출."
           },
           {
-            "title": "■이번 분기도 영익이 1천억 넘다니 대단하다!",
-            "url": "https://stock.naver.com/domestic/stock/036570/discussion/432023142",
-            "sentiment": "긍정",
-            "summary": "영업이익 1천억 돌파에 대한 놀라움과 기대감."
+            "title": "내일 실적발표인데 이게 맞나",
+            "url": "https://stock.naver.com/domestic/stock/000810/discussion/432011375",
+            "sentiment": "부정",
+            "summary": "실적 발표 전 주가 흐름에 대한 실망감."
           },
           {
-            "title": "게임주 유일 3분기 어닝서프라이즈",
-            "url": "https://stock.naver.com/domestic/stock/036570/discussion/432023423",
+            "title": "삼성화재, 영국 보험사 80%인수",
+            "url": "https://stock.naver.com/domestic/stock/000810/discussion/431902605",
             "sentiment": "긍정",
-            "summary": "게임 섹터 내 독보적인 실적 개선에 대한 평가."
-          },
-          {
-            "title": "NC 올해 목표매출 조기 초과달성",
-            "url": "https://stock.naver.com/domestic/stock/036570/discussion/432026402",
-            "sentiment": "긍정",
-            "summary": "매출 목표 조기 달성에 대한 긍정적 전망."
+            "summary": "해외 기업 인수 소식에 대한 기대감."
           }
         ]
       },
       "dart": {
-        "summary": "3분기 연결 기준 영업이익 1,196억 원으로 흑자 전환 공시. 매출 전망 상향 조정 및 기업설명회 개최를 통해 시장 소통 강화.",
+        "summary": "캐노피우스 지분 추가 취득을 통해 글로벌 사업 역량을 강화하고 있습니다. 그 외 특수관계인 거래 등 일상적인 공시가 주를 이룹니다.",
         "highlights": [
           {
-            "label": "3Q26 영업이익",
-            "value": "1,196억 원",
-            "note": "전년 동기 대비 흑자 전환 성공."
+            "label": "타법인주식취득",
+            "value": "2.26조원",
+            "note": "캐노피우스 지분 40.53% 추가 취득 결정."
           },
           {
-            "label": "3Q26 매출액",
-            "value": "6,865억 원",
-            "note": "전년 동기 대비 91% 증가."
+            "label": "기업설명회",
+            "value": "안내공시",
+            "note": "2026년 10월 30일 IR 개최 안내."
           },
           {
-            "label": "매출 전망",
-            "value": "상향 조정",
-            "note": "핵심 사업 확장세 고려하여 올해 및 내년 전망 상향."
-          },
-          {
-            "label": "주요 공시",
-            "value": "영업실적 공정공시",
-            "note": "11월 11일 실적 발표를 통해 시장 기대치 부합 및 상회 확인."
+            "label": "주요주주",
+            "value": "GIC 5.012%",
+            "note": "GIC Private Limited의 신규 지분 보고."
           }
         ],
         "recentFilings": [
           {
-            "date": "2026-11-11",
-            "title": "연결재무제표기준영업실적등에대한전망(공정공시)              ",
-            "filer": "NC",
-            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261111800334"
-          },
-          {
-            "date": "2026-11-11",
-            "title": "[기재정정]연결재무제표기준영업실적등에대한전망(공정공시)              ",
-            "filer": "NC",
-            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261111800327"
-          },
-          {
-            "date": "2026-11-11",
-            "title": "연결재무제표기준영업(잠정)실적(공정공시)              ",
-            "filer": "NC",
-            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261111800311"
+            "date": "2026-11-10",
+            "title": "타법인주식및출자증권취득결정              ",
+            "filer": "삼성화재해상보험",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261110800003"
           },
           {
             "date": "2026-10-30",
             "title": "기업설명회(IR)개최(안내공시)              ",
-            "filer": "NC",
-            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261030800706"
+            "filer": "삼성화재해상보험",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261030801167"
           },
           {
-            "date": "2026-10-22",
-            "title": "[기재정정]기업설명회(IR)개최(안내공시)              ",
-            "filer": "NC",
-            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261022800314"
+            "date": "2026-10-30",
+            "title": "특수관계인에대한증여",
+            "filer": "삼성화재해상보험",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261030000511"
+          },
+          {
+            "date": "2026-10-30",
+            "title": "특수관계인과의수익증권거래",
+            "filer": "삼성화재해상보험",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261030000393"
+          },
+          {
+            "date": "2026-10-16",
+            "title": "계열금융회사의약관에의한금융거래-[유가증권-수익증권]",
+            "filer": "삼성화재해상보험",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261016000422"
           }
         ]
       },
       "research": {
-        "summary": "AI 도입을 통한 비용 효율화와 신작 '아이온2'의 글로벌 성과를 긍정적으로 평가함. 일부 목표주가 하향 조정이 있었으나, 전반적인 실적 턴어라운드 기조는 유효함.",
+        "summary": "3분기 실적은 컨센서스를 하회할 것으로 예상되었으며, 실제 발표 결과도 부진했습니다. 캐노피우스 지분 취득은 장기적인 ROE 개선 요인으로 평가받습니다.",
         "items": [
           {
-            "title": "과도기적 단계",
-            "broker": "키움증권",
-            "date": "2026-11-05",
-            "url": "https://stock.naver.com/research/company/97644",
-            "pdfUrl": "https://stock.pstatic.net/stock-research/company/39/20261105_company_399684000.pdf",
-            "targetPrice": 290000,
-            "opinion": "Buy",
-            "note": "신작 매출 지속성 우려로 목표주가 하향 조정되었으나, 서브컬처 장르 내 니치마켓 접점은 긍정적."
+            "title": "캐노피우스 지분 취득: ROE 개선에 기여할 것으로 기대",
+            "broker": "한화투자증권",
+            "date": "2026-11-11",
+            "url": "https://stock.naver.com/research/company/98012",
+            "pdfUrl": "https://stock.pstatic.net/stock-research/company/16/20261111_company_629690000.pdf",
+            "targetPrice": 700000,
+            "opinion": "Hold",
+            "note": "캐노피우스 지분 확대로 인한 장기적 ROE 개선 기대."
           },
           {
-            "title": "AI 시대, 우월전략을 갖춘 게임사",
-            "broker": "미래에셋증권",
-            "date": "2026-10-22",
-            "url": "https://stock.naver.com/research/company/96950",
-            "pdfUrl": "https://stock.pstatic.net/stock-research/company/56/20261022_company_461380000.pdf",
-            "targetPrice": 300000,
-            "opinion": "매수",
-            "note": "AI 기반 개발 효율화와 인건비 절감으로 신작 레버리지 효과 극대화 전망."
-          },
-          {
-            "title": "첫 단추는 잘 끼웠다",
-            "broker": "유안타증권",
-            "date": "2026-10-13",
-            "url": "https://stock.naver.com/research/company/96663",
-            "pdfUrl": "https://stock.pstatic.net/stock-research/company/18/20261013_company_251073000.pdf",
-            "targetPrice": 370000,
-            "opinion": "Buy",
-            "note": "TL 글로벌 서비스 이관 등 일회성 매출 반영으로 영업이익 컨센서스 상회 예상."
-          },
-          {
-            "title": "아이온2 글로벌의 성공적 성과로 신뢰도 상승",
-            "broker": "교보증권",
-            "date": "2026-10-12",
-            "url": "https://stock.naver.com/research/company/96627",
-            "pdfUrl": "",
-            "targetPrice": null,
-            "opinion": "",
-            "note": "아이온2 글로벌 성과가 시장 예상치를 상회하며 실적 개선 견인."
-          },
-          {
-            "title": "아이온2 글로벌 성공적 출시, 글로벌 성과 이어갈 것",
+            "title": "3Q26 Pre - 단기 실적보다 중요한 것은",
             "broker": "하나증권",
-            "date": "2026-10-12",
-            "url": "https://stock.naver.com/research/company/96623",
-            "pdfUrl": "",
-            "targetPrice": null,
-            "opinion": "",
-            "note": "아이온2 글로벌 성과가 시장 예상치를 상회하며 실적 개선 견인."
-          },
-          {
-            "title": "아이온2글로벌, 기대 이상의 지표",
-            "broker": "유진투자증권",
-            "date": "2026-10-06",
-            "url": "https://stock.naver.com/research/company/96441",
-            "pdfUrl": "",
-            "targetPrice": null,
-            "opinion": "",
-            "note": "3분기 영업이익 컨센서스 상회 전망 및 실적 턴어라운드 가시화."
+            "date": "2026-10-14",
+            "url": "https://stock.naver.com/research/company/96711",
+            "pdfUrl": "https://stock.pstatic.net/stock-research/company/57/20261014_company_935637000.pdf",
+            "targetPrice": 785000,
+            "opinion": "Buy",
+            "note": "3분기 실적 부진 및 투자손익 악화 우려."
           }
         ],
         "consensus": {
-          "avg": 320000,
-          "high": 370000,
-          "low": 290000,
-          "n": 3,
-          "upsidePct": 52.0,
+          "avg": 742500,
+          "high": 785000,
+          "low": 700000,
+          "n": 2,
+          "upsidePct": 31.2,
           "opinions": {
-            "매수": 3
+            "중립": 1,
+            "매수": 1
           }
         }
       },
@@ -3002,565 +1174,564 @@
         "rank": [],
         "shorts": [
           {
+            "date": "20261111",
+            "qty": 7313.0,
+            "volRlim": 3.46,
+            "pbmn": 41.8,
+            "pbmnRlim": 3.48
+          },
+          {
             "date": "20261110",
-            "qty": 18515.0,
-            "volRlim": 26.07,
-            "pbmn": 39.6,
-            "pbmnRlim": 26.07
+            "qty": 6434.0,
+            "volRlim": 4.11,
+            "pbmn": 39.0,
+            "pbmnRlim": 4.13
           },
           {
             "date": "20261109",
-            "qty": 8412.0,
-            "volRlim": 9.8,
-            "pbmn": 18.0,
-            "pbmnRlim": 9.85
+            "qty": 6342.0,
+            "volRlim": 4.19,
+            "pbmn": 38.5,
+            "pbmnRlim": 4.19
           },
           {
             "date": "20261106",
-            "qty": 3145.0,
-            "volRlim": 3.67,
-            "pbmn": 6.5,
-            "pbmnRlim": 3.66
+            "qty": 9206.0,
+            "volRlim": 5.15,
+            "pbmn": 55.6,
+            "pbmnRlim": 5.14
           },
           {
             "date": "20261105",
-            "qty": 4052.0,
-            "volRlim": 4.85,
-            "pbmn": 8.5,
-            "pbmnRlim": 4.87
+            "qty": 11843.0,
+            "volRlim": 13.14,
+            "pbmn": 78.0,
+            "pbmnRlim": 13.13
           },
           {
             "date": "20261104",
-            "qty": 6828.0,
-            "volRlim": 8.84,
-            "pbmn": 13.5,
-            "pbmnRlim": 8.82
+            "qty": 13159.0,
+            "volRlim": 17.32,
+            "pbmn": 85.6,
+            "pbmnRlim": 17.29
           },
           {
             "date": "20261103",
-            "qty": 4863.0,
-            "volRlim": 14.43,
-            "pbmn": 9.6,
-            "pbmnRlim": 14.42
+            "qty": 8828.0,
+            "volRlim": 10.52,
+            "pbmn": 57.6,
+            "pbmnRlim": 10.53
           },
           {
             "date": "20261102",
-            "qty": 7123.0,
-            "volRlim": 10.83,
-            "pbmn": 14.2,
-            "pbmnRlim": 10.83
+            "qty": 12574.0,
+            "volRlim": 17.8,
+            "pbmn": 81.9,
+            "pbmnRlim": 17.81
           },
           {
             "date": "20261030",
-            "qty": 14236.0,
-            "volRlim": 20.7,
-            "pbmn": 28.5,
-            "pbmnRlim": 20.67
+            "qty": 18916.0,
+            "volRlim": 19.67,
+            "pbmn": 123.5,
+            "pbmnRlim": 19.62
           },
           {
             "date": "20261029",
-            "qty": 17264.0,
-            "volRlim": 25.4,
-            "pbmn": 34.3,
-            "pbmnRlim": 25.37
+            "qty": 21006.0,
+            "volRlim": 16.45,
+            "pbmn": 135.6,
+            "pbmnRlim": 16.5
           },
           {
             "date": "20261028",
-            "qty": 7297.0,
-            "volRlim": 11.23,
-            "pbmn": 14.8,
-            "pbmnRlim": 11.23
+            "qty": 10234.0,
+            "volRlim": 9.57,
+            "pbmn": 65.2,
+            "pbmnRlim": 9.62
           },
           {
             "date": "20261027",
-            "qty": 16688.0,
-            "volRlim": 16.93,
-            "pbmn": 33.3,
-            "pbmnRlim": 16.9
+            "qty": 14549.0,
+            "volRlim": 13.58,
+            "pbmn": 86.5,
+            "pbmnRlim": 13.56
           },
           {
             "date": "20261026",
-            "qty": 10962.0,
-            "volRlim": 22.09,
-            "pbmn": 22.1,
-            "pbmnRlim": 22.11
+            "qty": 5651.0,
+            "volRlim": 9.21,
+            "pbmn": 33.8,
+            "pbmnRlim": 9.19
           },
           {
             "date": "20261023",
-            "qty": 8059.0,
-            "volRlim": 16.17,
-            "pbmn": 16.5,
-            "pbmnRlim": 16.16
+            "qty": 11254.0,
+            "volRlim": 13.25,
+            "pbmn": 67.6,
+            "pbmnRlim": 13.26
           },
           {
             "date": "20261022",
-            "qty": 14486.0,
-            "volRlim": 23.45,
-            "pbmn": 30.6,
-            "pbmnRlim": 23.48
+            "qty": 6646.0,
+            "volRlim": 8.14,
+            "pbmn": 40.6,
+            "pbmnRlim": 8.16
           },
           {
             "date": "20261021",
-            "qty": 12423.0,
-            "volRlim": 16.53,
-            "pbmn": 26.8,
-            "pbmnRlim": 16.51
+            "qty": 2955.0,
+            "volRlim": 4.04,
+            "pbmn": 17.8,
+            "pbmnRlim": 4.03
           },
           {
             "date": "20261020",
-            "qty": 25705.0,
-            "volRlim": 27.29,
-            "pbmn": 56.4,
-            "pbmnRlim": 27.27
+            "qty": 6184.0,
+            "volRlim": 7.38,
+            "pbmn": 37.2,
+            "pbmnRlim": 7.38
           },
           {
             "date": "20261019",
-            "qty": 11401.0,
-            "volRlim": 13.91,
-            "pbmn": 24.6,
-            "pbmnRlim": 13.97
+            "qty": 2509.0,
+            "volRlim": 3.81,
+            "pbmn": 15.0,
+            "pbmnRlim": 3.82
           },
           {
             "date": "20261016",
-            "qty": 8585.0,
-            "volRlim": 6.76,
-            "pbmn": 18.1,
-            "pbmnRlim": 6.75
+            "qty": 5895.0,
+            "volRlim": 6.82,
+            "pbmn": 34.8,
+            "pbmnRlim": 6.78
           },
           {
             "date": "20261015",
-            "qty": 4782.0,
-            "volRlim": 3.99,
-            "pbmn": 9.6,
-            "pbmnRlim": 4.0
-          },
-          {
-            "date": "20261014",
-            "qty": 7254.0,
-            "volRlim": 9.03,
-            "pbmn": 15.0,
-            "pbmnRlim": 9.04
+            "qty": 3773.0,
+            "volRlim": 3.03,
+            "pbmn": 21.7,
+            "pbmnRlim": 3.02
           }
         ],
         "loans": [
           {
+            "date": "20261111",
+            "newQty": 5677.0,
+            "rdmpQty": 17329.0,
+            "rmndChg": -11652.0,
+            "rmndQty": 919348.0,
+            "rmndAmt": 5203.5
+          },
+          {
             "date": "20261110",
-            "newQty": 17627.0,
-            "rdmpQty": 1732.0,
-            "rmndChg": 15895.0,
-            "rmndQty": 569336.0,
-            "rmndAmt": 1215.5
+            "newQty": 7643.0,
+            "rdmpQty": 11235.0,
+            "rmndChg": -3592.0,
+            "rmndQty": 931000.0,
+            "rmndAmt": 5576.7
           },
           {
             "date": "20261109",
-            "newQty": 23170.0,
-            "rdmpQty": 21300.0,
-            "rmndChg": 1870.0,
-            "rmndQty": 553441.0,
-            "rmndAmt": 1156.7
+            "newQty": 26830.0,
+            "rdmpQty": 25807.0,
+            "rmndChg": 1023.0,
+            "rmndQty": 934592.0,
+            "rmndAmt": 5663.6
           },
           {
             "date": "20261106",
-            "newQty": 4221.0,
-            "rdmpQty": 981.0,
-            "rmndChg": 3240.0,
-            "rmndQty": 551571.0,
-            "rmndAmt": 1150.0
+            "newQty": 13453.0,
+            "rdmpQty": 6521.0,
+            "rmndChg": 6932.0,
+            "rmndQty": 933569.0,
+            "rmndAmt": 5638.8
           },
           {
             "date": "20261105",
-            "newQty": 337.0,
-            "rdmpQty": 8327.0,
-            "rmndChg": -7990.0,
-            "rmndQty": 548331.0,
-            "rmndAmt": 1148.8
+            "newQty": 1918.0,
+            "rdmpQty": 94.0,
+            "rmndChg": 1824.0,
+            "rmndQty": 926637.0,
+            "rmndAmt": 6041.7
           },
           {
             "date": "20261104",
-            "newQty": 133.0,
-            "rdmpQty": 17622.0,
-            "rmndChg": -17489.0,
-            "rmndQty": 556321.0,
-            "rmndAmt": 1106.0
+            "newQty": 5546.0,
+            "rdmpQty": 27569.0,
+            "rmndChg": -22023.0,
+            "rmndQty": 924813.0,
+            "rmndAmt": 6039.0
           },
           {
             "date": "20261103",
-            "newQty": 2283.0,
-            "rdmpQty": 8966.0,
-            "rmndChg": -6683.0,
-            "rmndQty": 573810.0,
-            "rmndAmt": 1120.7
+            "newQty": 22101.0,
+            "rdmpQty": 2923.0,
+            "rmndChg": 19178.0,
+            "rmndQty": 946836.0,
+            "rmndAmt": 6163.9
           },
           {
             "date": "20261102",
-            "newQty": 3029.0,
-            "rdmpQty": 42044.0,
-            "rmndChg": -39015.0,
-            "rmndQty": 580493.0,
-            "rmndAmt": 1152.3
+            "newQty": 14398.0,
+            "rdmpQty": 31354.0,
+            "rmndChg": -16956.0,
+            "rmndQty": 927658.0,
+            "rmndAmt": 6039.1
           },
           {
             "date": "20261030",
-            "newQty": 7602.0,
-            "rdmpQty": 0.0,
-            "rmndChg": 7602.0,
-            "rmndQty": 619508.0,
-            "rmndAmt": 1248.3
+            "newQty": 9082.0,
+            "rdmpQty": 4292.0,
+            "rmndChg": 4790.0,
+            "rmndQty": 944614.0,
+            "rmndAmt": 6225.0
           },
           {
             "date": "20261029",
-            "newQty": 20695.0,
-            "rdmpQty": 99.0,
-            "rmndChg": 20596.0,
-            "rmndQty": 611906.0,
-            "rmndAmt": 1220.8
+            "newQty": 10712.0,
+            "rdmpQty": 396.0,
+            "rmndChg": 10316.0,
+            "rmndQty": 939824.0,
+            "rmndAmt": 6118.2
           },
           {
             "date": "20261028",
-            "newQty": 208.0,
-            "rdmpQty": 328.0,
-            "rmndChg": -120.0,
-            "rmndQty": 591310.0,
-            "rmndAmt": 1188.5
+            "newQty": 132072.0,
+            "rdmpQty": 121961.0,
+            "rmndChg": 10111.0,
+            "rmndQty": 929508.0,
+            "rmndAmt": 5921.0
           },
           {
             "date": "20261027",
-            "newQty": 39296.0,
-            "rdmpQty": 51410.0,
-            "rmndChg": -12114.0,
-            "rmndQty": 591430.0,
-            "rmndAmt": 1175.2
+            "newQty": 6202.0,
+            "rdmpQty": 4137.0,
+            "rmndChg": 2065.0,
+            "rmndQty": 919397.0,
+            "rmndAmt": 5488.8
           },
           {
             "date": "20261026",
-            "newQty": 13830.0,
-            "rdmpQty": 5333.0,
-            "rmndChg": 8497.0,
-            "rmndQty": 603544.0,
-            "rmndAmt": 1216.1
+            "newQty": 14462.0,
+            "rdmpQty": 10378.0,
+            "rmndChg": 4084.0,
+            "rmndQty": 917332.0,
+            "rmndAmt": 5458.1
           },
           {
             "date": "20261023",
-            "newQty": 11321.0,
-            "rdmpQty": 1068.0,
-            "rmndChg": 10253.0,
-            "rmndQty": 595047.0,
-            "rmndAmt": 1219.8
+            "newQty": 1338.0,
+            "rdmpQty": 1141.0,
+            "rmndChg": 197.0,
+            "rmndQty": 913248.0,
+            "rmndAmt": 5497.8
           },
           {
             "date": "20261022",
-            "newQty": 2886.0,
-            "rdmpQty": 1234.0,
-            "rmndChg": 1652.0,
-            "rmndQty": 584794.0,
-            "rmndAmt": 1236.8
+            "newQty": 5251.0,
+            "rdmpQty": 35.0,
+            "rmndChg": 5216.0,
+            "rmndQty": 913051.0,
+            "rmndAmt": 5551.4
           },
           {
             "date": "20261021",
-            "newQty": 9521.0,
-            "rdmpQty": 20724.0,
-            "rmndChg": -11203.0,
-            "rmndQty": 583142.0,
-            "rmndAmt": 1247.9
+            "newQty": 33233.0,
+            "rdmpQty": 19443.0,
+            "rmndChg": 13790.0,
+            "rmndQty": 907835.0,
+            "rmndAmt": 5456.1
           },
           {
             "date": "20261020",
-            "newQty": 3182.0,
-            "rdmpQty": 9120.0,
-            "rmndChg": -5938.0,
-            "rmndQty": 594345.0,
-            "rmndAmt": 1310.5
+            "newQty": 2464.0,
+            "rdmpQty": 8854.0,
+            "rmndChg": -6390.0,
+            "rmndQty": 894045.0,
+            "rmndAmt": 5382.1
           },
           {
             "date": "20261019",
-            "newQty": 25103.0,
-            "rdmpQty": 24181.0,
-            "rmndChg": 922.0,
-            "rmndQty": 600283.0,
-            "rmndAmt": 1308.6
+            "newQty": 23282.0,
+            "rdmpQty": 24448.0,
+            "rmndChg": -1166.0,
+            "rmndQty": 900435.0,
+            "rmndAmt": 5465.6
           },
           {
             "date": "20261016",
-            "newQty": 1712.0,
-            "rdmpQty": 25315.0,
-            "rmndChg": -23603.0,
-            "rmndQty": 599361.0,
-            "rmndAmt": 1240.7
+            "newQty": 3915.0,
+            "rdmpQty": 3514.0,
+            "rmndChg": 401.0,
+            "rmndQty": 901601.0,
+            "rmndAmt": 5283.4
           },
           {
             "date": "20261015",
-            "newQty": 19044.0,
-            "rdmpQty": 7870.0,
-            "rmndChg": 11174.0,
-            "rmndQty": 622964.0,
-            "rmndAmt": 1252.2
-          },
-          {
-            "date": "20261014",
-            "newQty": 6019.0,
-            "rdmpQty": 18727.0,
-            "rmndChg": -12708.0,
-            "rmndQty": 611790.0,
-            "rmndAmt": 1263.3
+            "newQty": 5919.0,
+            "rdmpQty": 6621.0,
+            "rmndChg": -702.0,
+            "rmndQty": 901200.0,
+            "rmndAmt": 5227.0
           }
         ],
-        "rankAsof": "15:09",
+        "rankAsof": "08:38",
         "trend": [
           {
+            "date": "20261111",
+            "frgn": 5115,
+            "orgn": -22560,
+            "prsn": 16982,
+            "holdRatio": 57.0,
+            "close": 568000,
+            "rate": -5.18
+          },
+          {
             "date": "20261110",
-            "frgn": 5800,
-            "orgn": -1875,
-            "prsn": -3971,
-            "holdRatio": 38.92,
-            "close": 211000,
-            "rate": 0.96
+            "frgn": -13697,
+            "orgn": 7823,
+            "prsn": 6104,
+            "holdRatio": 57.0,
+            "close": 601000,
+            "rate": -0.83
           },
           {
             "date": "20261109",
-            "frgn": -17613,
-            "orgn": 27681,
-            "prsn": -9957,
-            "holdRatio": 38.87,
-            "close": 211500,
-            "rate": 1.44
+            "frgn": -12386,
+            "orgn": 13935,
+            "prsn": -1536,
+            "holdRatio": 57.03,
+            "close": 616000,
+            "rate": 1.99
           },
           {
             "date": "20261106",
-            "frgn": 6862,
-            "orgn": 19262,
-            "prsn": -25883,
-            "holdRatio": 38.95,
-            "close": 207500,
-            "rate": -0.95
+            "frgn": -28071,
+            "orgn": 20638,
+            "prsn": 6789,
+            "holdRatio": 57.06,
+            "close": 602000,
+            "rate": -7.67
           },
           {
             "date": "20261105",
-            "frgn": 30155,
-            "orgn": -3435,
-            "prsn": -26617,
-            "holdRatio": 38.92,
-            "close": 209000,
-            "rate": 5.13
+            "frgn": -13990,
+            "orgn": 15603,
+            "prsn": -1615,
+            "holdRatio": 57.12,
+            "close": 658000,
+            "rate": 0.77
           },
           {
             "date": "20261104",
-            "frgn": 7517,
-            "orgn": 594,
-            "prsn": -8060,
-            "holdRatio": 38.72,
-            "close": 201000,
-            "rate": 2.92
+            "frgn": -9071,
+            "orgn": 10265,
+            "prsn": -1144,
+            "holdRatio": 57.16,
+            "close": 663000,
+            "rate": 1.84
           },
           {
             "date": "20261103",
-            "frgn": 1694,
-            "orgn": -689,
-            "prsn": -993,
-            "holdRatio": 38.67,
-            "close": 197000,
-            "rate": -0.76
+            "frgn": -8282,
+            "orgn": 10559,
+            "prsn": -2300,
+            "holdRatio": 57.18,
+            "close": 654000,
+            "rate": 0.46
           },
           {
             "date": "20261102",
-            "frgn": 9185,
-            "orgn": -22021,
-            "prsn": 12902,
-            "holdRatio": 38.66,
-            "close": 199100,
-            "rate": -1.19
+            "frgn": -669,
+            "orgn": 1214,
+            "prsn": -545,
+            "holdRatio": 57.19,
+            "close": 653000,
+            "rate": -0.91
           },
           {
             "date": "20261030",
-            "frgn": -3147,
-            "orgn": 12285,
-            "prsn": -9396,
-            "holdRatio": 38.68,
-            "close": 200000,
-            "rate": 0.25
+            "frgn": -26744,
+            "orgn": 30519,
+            "prsn": -3611,
+            "holdRatio": 57.24,
+            "close": 655000,
+            "rate": 0.61
           },
           {
             "date": "20261029",
-            "frgn": 9942,
-            "orgn": -9785,
-            "prsn": -120,
-            "holdRatio": 38.68,
-            "close": 200000,
-            "rate": -0.5
+            "frgn": 16013,
+            "orgn": -7997,
+            "prsn": -7609,
+            "holdRatio": 57.3,
+            "close": 653000,
+            "rate": 2.51
           },
           {
             "date": "20261028",
-            "frgn": 27274,
-            "orgn": -20993,
-            "prsn": -6099,
-            "holdRatio": 38.65,
-            "close": 201500,
-            "rate": 1.41
+            "frgn": 15261,
+            "orgn": -2955,
+            "prsn": -12241,
+            "holdRatio": 57.26,
+            "close": 629000,
+            "rate": 5.36
           },
           {
             "date": "20261027",
-            "frgn": 20064,
-            "orgn": -29865,
-            "prsn": 9801,
-            "holdRatio": 38.51,
-            "close": 199000,
-            "rate": -1.24
+            "frgn": 3687,
+            "orgn": -1303,
+            "prsn": -91,
+            "holdRatio": 57.21,
+            "close": 597000,
+            "rate": 0.34
           },
           {
             "date": "20261026",
-            "frgn": 11251,
-            "orgn": -13563,
-            "prsn": 2194,
-            "holdRatio": 38.45,
-            "close": 201500,
-            "rate": -1.71
+            "frgn": -8542,
+            "orgn": 9090,
+            "prsn": -551,
+            "holdRatio": 57.21,
+            "close": 600000,
+            "rate": -0.33
           },
           {
             "date": "20261023",
-            "frgn": 5178,
-            "orgn": -11559,
-            "prsn": 6381,
-            "holdRatio": 38.41,
-            "close": 204000,
-            "rate": -3.55
+            "frgn": -15813,
+            "orgn": 15876,
+            "prsn": -65,
+            "holdRatio": 57.23,
+            "close": 602000,
+            "rate": -0.99
           },
           {
             "date": "20261022",
-            "frgn": 22550,
-            "orgn": -14605,
-            "prsn": -7695,
-            "holdRatio": 38.36,
-            "close": 213000,
-            "rate": -0.47
+            "frgn": -13388,
+            "orgn": 15817,
+            "prsn": -2398,
+            "holdRatio": 57.26,
+            "close": 607000,
+            "rate": 1.0
           },
           {
             "date": "20261021",
-            "frgn": 12181,
-            "orgn": -13915,
-            "prsn": 1851,
-            "holdRatio": 38.27,
-            "close": 213500,
-            "rate": -3.17
+            "frgn": 8729,
+            "orgn": -8867,
+            "prsn": 128,
+            "holdRatio": 57.29,
+            "close": 597000,
+            "rate": -0.83
           },
           {
             "date": "20261020",
-            "frgn": -8323,
-            "orgn": 23494,
-            "prsn": -15165,
-            "holdRatio": 38.25,
-            "close": 218500,
-            "rate": 0.23
+            "frgn": -14576,
+            "orgn": 16284,
+            "prsn": -1683,
+            "holdRatio": 57.28,
+            "close": 605000,
+            "rate": -0.33
           },
           {
             "date": "20261019",
-            "frgn": -6572,
-            "orgn": 28610,
-            "prsn": -21985,
-            "holdRatio": 38.28,
-            "close": 215500,
-            "rate": 4.11
+            "frgn": -8972,
+            "orgn": 10796,
+            "prsn": -1753,
+            "holdRatio": 57.31,
+            "close": 598000,
+            "rate": 2.05
           },
           {
             "date": "20261016",
-            "frgn": 14060,
-            "orgn": 13370,
-            "prsn": -27524,
-            "holdRatio": 38.29,
-            "close": 208500,
-            "rate": 3.73
+            "frgn": 4239,
+            "orgn": -2990,
+            "prsn": -1251,
+            "holdRatio": 57.33,
+            "close": 585000,
+            "rate": 0.86
           },
           {
             "date": "20261015",
-            "frgn": 11368,
-            "orgn": 2380,
-            "prsn": -13847,
-            "holdRatio": 38.25,
-            "close": 199000,
-            "rate": -3.63
-          },
-          {
-            "date": "20261014",
-            "frgn": 11862,
-            "orgn": -7555,
-            "prsn": -3593,
-            "holdRatio": 38.09,
-            "close": 206500,
-            "rate": -0.24
+            "frgn": -20946,
+            "orgn": 24971,
+            "prsn": -3796,
+            "holdRatio": 57.32,
+            "close": 587000,
+            "rate": 0.86
           }
         ]
       },
       "priceFactors": {
         "basis": {
           "date": "2026-11-11",
-          "ratePct": -0.24,
-          "kind": "today"
+          "ratePct": -5.18,
+          "kind": "last"
         },
         "items": [
           {
             "cat": "research",
-            "title": "AI 효율화 및 신작 성과",
-            "dir": 1,
-            "strength": 4,
-            "evidence": "인건비 비중 하락 및 아이온2 글로벌 성과가 긍정적.",
-            "pp": 0.1
-          },
-          {
-            "cat": "flow",
-            "title": "외국인 매수세 유입",
-            "dir": 1,
-            "strength": 3,
-            "evidence": "최근 외국인 투자자의 순매수 기조가 확인됨.",
-            "pp": 0.1
-          },
-          {
-            "cat": "flow",
-            "title": "공매도 및 대차잔고 증가",
+            "title": "3분기 실적 컨센서스 하회",
             "dir": -1,
-            "strength": 3,
-            "evidence": "11월 10일 공매도 비중 26% 급증 및 대차잔고 증가.",
-            "pp": -0.6
-          },
-          {
-            "cat": "news",
-            "title": "3분기 어닝 서프라이즈",
-            "dir": 1,
             "strength": 5,
-            "evidence": "영업이익 1,196억 원 흑자 전환 및 매출 전망 상향.",
-            "pp": 0.1
+            "evidence": "연결 지배순이익 4,931억 원으로 시장 예상치 하회.",
+            "pp": -1.3
           },
           {
-            "cat": "community",
-            "title": "개인 투자자 기대감 고조",
-            "dir": 1,
+            "cat": "research",
+            "title": "캐노피우스 지분 취득",
+            "dir": 0,
             "strength": 2,
-            "evidence": "실적 턴어라운드에 대한 토론방 내 긍정적 여론 형성.",
+            "evidence": "장기적인 ROE 개선 요인이지만 단기 실적 이슈에 묻힘.",
             "pp": 0.0
           },
           {
-            "cat": "dart",
-            "title": "실적 공정공시",
-            "dir": 1,
+            "cat": "flow",
+            "title": "외국인 매도세 지속",
+            "dir": -1,
             "strength": 4,
-            "evidence": "3분기 실적 발표를 통해 시장 기대치 상회 확인.",
-            "pp": 0.1
+            "evidence": "최근 며칠간 외국인 순매도 우위 및 보유율 하락.",
+            "pp": -1.2
+          },
+          {
+            "cat": "flow",
+            "title": "기관 매수세 약화",
+            "dir": -1,
+            "strength": 3,
+            "evidence": "11월 11일 기관 순매도로 전환.",
+            "pp": -0.9
+          },
+          {
+            "cat": "news",
+            "title": "실적 부진 뉴스",
+            "dir": -1,
+            "strength": 4,
+            "evidence": "전년 동기 대비 8.3% 감소 보도.",
+            "pp": -1.2
+          },
+          {
+            "cat": "community",
+            "title": "투자자 실망감 확산",
+            "dir": -1,
+            "strength": 2,
+            "evidence": "종목토론방 내 실적 및 주가 하락에 대한 부정적 여론.",
+            "pp": -0.6
           }
         ],
         "byCat": {
-          "research": 0.1,
-          "flow": -0.5,
-          "news": 0.1,
-          "community": 0.0,
-          "dart": 0.1
+          "research": -1.3,
+          "flow": -2.1,
+          "news": -1.2,
+          "community": -0.6
         },
         "estimated": true,
         "method": "LLM 이 낸 요인 강도를 기준 등락률(당일, 없으면 최근 거래일)에 맞춰 배분한 추정치"
       },
       "ca": {
         "status": "empty",
-        "asof": "2026-11-11 15:09",
-        "date": "2026-11-11",
+        "asof": "2026-11-12 08:40",
+        "date": "2026-11-12",
         "windowDays": 20,
-        "windowEnd": "2026-12-09",
-        "close": 210500.0,
+        "windowEnd": "2026-12-10",
+        "close": 566000.0,
         "items": [],
         "inWindow": 0,
         "haltInWindow": false,
@@ -3571,12 +1742,12 @@
       "_caOk": true,
       "_flowOk": true,
       "_meta": {
-        "filingKey": "2026-11-11|연결재무제표기준영업실적등에대한전망(공정공시)              ",
+        "filingKey": "2026-11-10|타법인주식및출자증권취득결정              ",
         "pf": 2,
-        "asOf": "2026-11-11T15:09:31.120359+09:00",
-        "price": 210500
+        "asOf": "2026-11-12T08:40:54.969983+09:00",
+        "price": 566000
       }
     },
-    "direction": "bullish"
+    "direction": "bearish"
   }
 ]
