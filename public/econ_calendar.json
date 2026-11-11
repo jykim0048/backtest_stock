@@ -1,6 +1,6 @@
 {
- "date": "2026-11-11",
- "asof": "2026-11-11 15:40 KST",
+ "date": "2026-11-12",
+ "asof": "2026-11-12 07:46 KST",
  "sources": {
   "naver": true,
   "forexfactory": true
@@ -301,9 +301,7 @@
     "diff": -0.1,
     "verdict": "below"
    }
-  }
- ],
- "upcoming": [
+  },
   {
    "nation": "USA",
    "name": "MBA 구매지수",
@@ -312,12 +310,18 @@
    "period": "06 Nov2026",
    "category": "EMPLOYMENT",
    "releaseAtKST": "2026-11-11 21:00",
+   "actual": 141.2,
    "previous": 131.4,
    "unit": "",
    "unitScale": "",
    "forecast": null,
    "forecastSource": null,
-   "source": "naver"
+   "source": "naver",
+   "surprise": {
+    "vs": "previous",
+    "diff": 9.8,
+    "verdict": "above"
+   }
   },
   {
    "nation": "USA",
@@ -327,12 +331,18 @@
    "period": "06 Nov2026",
    "category": "CENTRAL_BANKS",
    "releaseAtKST": "2026-11-11 21:00",
+   "actual": 204.6,
    "previous": 192.6,
    "unit": "",
    "unitScale": "",
    "forecast": null,
    "forecastSource": null,
-   "source": "naver"
+   "source": "naver",
+   "surprise": {
+    "vs": "previous",
+    "diff": 12.0,
+    "verdict": "above"
+   }
   },
   {
    "nation": "USA",
@@ -342,12 +352,18 @@
    "period": "06 Nov2026",
    "category": "CENTRAL_BANKS",
    "releaseAtKST": "2026-11-11 21:00",
+   "actual": 540.7,
    "previous": 517.5,
    "unit": "",
    "unitScale": "",
    "forecast": null,
    "forecastSource": null,
-   "source": "naver"
+   "source": "naver",
+   "surprise": {
+    "vs": "previous",
+    "diff": 23.2,
+    "verdict": "above"
+   }
   },
   {
    "nation": "USA",
@@ -357,12 +373,18 @@
    "period": "06 Nov2026",
    "category": "CENTRAL_BANKS",
    "releaseAtKST": "2026-11-11 21:00",
+   "actual": 7.21,
    "previous": 7.3,
    "unit": "%",
    "unitScale": "",
    "forecast": null,
    "forecastSource": null,
-   "source": "naver"
+   "source": "naver",
+   "surprise": {
+    "vs": "previous",
+    "diff": -0.09,
+    "verdict": "below"
+   }
   },
   {
    "nation": "USA",
@@ -372,12 +394,18 @@
    "period": "06 Nov2026",
    "category": "CENTRAL_BANKS",
    "releaseAtKST": "2026-11-11 21:00",
+   "actual": 6.2,
    "previous": -1.2,
    "unit": "%",
    "unitScale": "",
    "forecast": null,
    "forecastSource": null,
-   "source": "naver"
+   "source": "naver",
+   "surprise": {
+    "vs": "previous",
+    "diff": 7.4,
+    "verdict": "above"
+   }
   },
   {
    "nation": "USA",
@@ -387,13 +415,21 @@
    "period": "Nov 2026",
    "category": "BSI_CSI",
    "releaseAtKST": "2026-11-12 01:00",
+   "actual": 49.2,
    "previous": 45.18,
    "unit": "",
    "unitScale": "",
    "forecast": null,
    "forecastSource": null,
-   "source": "naver"
-  },
+   "source": "naver",
+   "surprise": {
+    "vs": "previous",
+    "diff": 4.02,
+    "verdict": "above"
+   }
+  }
+ ],
+ "upcoming": [
   {
    "nation": "USA",
    "name": "신규 실업수당청구건수",
@@ -954,6 +990,21 @@
   },
   {
    "nation": "USA",
+   "name": "레드북 소매판매지수 전년대비",
+   "reutersCode": "USREDY=ECIX",
+   "importance": 1,
+   "period": "14 Nov2026",
+   "category": "BSI_CSI",
+   "releaseAtKST": "2026-11-17 22:55",
+   "previous": 10.1,
+   "unit": "%",
+   "unitScale": "",
+   "forecast": null,
+   "forecastSource": null,
+   "source": "naver"
+  },
+  {
+   "nation": "USA",
    "name": "산업생산 전월대비",
    "reutersCode": "USIP=ECIX",
    "importance": 3,
@@ -1086,6 +1137,186 @@
    "forecast": null,
    "forecastSource": null,
    "source": "naver"
+  },
+  {
+   "nation": "USA",
+   "name": "잠정주택매매 전월대비",
+   "reutersCode": "USNCH=ECIX",
+   "importance": 2,
+   "period": "Oct 2026",
+   "category": "EMPLOYMENT",
+   "releaseAtKST": "2026-11-19 00:00",
+   "previous": -7.3,
+   "unit": "%",
+   "unitScale": "",
+   "forecast": null,
+   "forecastSource": null,
+   "source": "naver"
+  },
+  {
+   "nation": "USA",
+   "name": "잠정주택판매지수",
+   "reutersCode": "USNAR=ECIX",
+   "importance": 1,
+   "period": "Oct 2026",
+   "category": "EMPLOYMENT",
+   "releaseAtKST": "2026-11-19 00:00",
+   "previous": 66,
+   "unit": "",
+   "unitScale": "",
+   "forecast": null,
+   "forecastSource": null,
+   "source": "naver"
+  },
+  {
+   "nation": "USA",
+   "name": "국제자본유출입 장기순거래 (스왑 거래 포함)",
+   "reutersCode": "USNCIS=ECIX",
+   "importance": 1,
+   "period": "Sep 2026",
+   "category": "BALANCE",
+   "releaseAtKST": "2026-11-19 06:00",
+   "previous": 279.2,
+   "unit": "USD",
+   "unitScale": "B",
+   "forecast": null,
+   "forecastSource": null,
+   "source": "naver"
+  },
+  {
+   "nation": "USA",
+   "name": "순자본흐름 총액",
+   "reutersCode": "USNCIO=ECIX",
+   "importance": 1,
+   "period": "Sep 2026",
+   "category": "CENTRAL_BANKS",
+   "releaseAtKST": "2026-11-19 06:00",
+   "previous": 199.8,
+   "unit": "USD",
+   "unitScale": "B",
+   "forecast": null,
+   "forecastSource": null,
+   "source": "naver"
+  },
+  {
+   "nation": "USA",
+   "name": "외국인 미국 국채 매입",
+   "reutersCode": "USFBT=ECIX",
+   "importance": 1,
+   "period": "Sep 2026",
+   "category": "CENTRAL_BANKS",
+   "releaseAtKST": "2026-11-19 06:00",
+   "previous": 108.9,
+   "unit": "USD",
+   "unitScale": "B",
+   "forecast": null,
+   "forecastSource": null,
+   "source": "naver"
+  },
+  {
+   "nation": "USA",
+   "name": "장기 해외자본 순거래",
+   "reutersCode": "USNCI=ECIX",
+   "importance": 1,
+   "period": "Sep 2026",
+   "category": "BALANCE",
+   "releaseAtKST": "2026-11-19 06:00",
+   "previous": 279.2,
+   "unit": "USD",
+   "unitScale": "B",
+   "forecast": null,
+   "forecastSource": null,
+   "source": "naver"
+  },
+  {
+   "nation": "USA",
+   "name": "필라델피아 연준 제조업활동지수",
+   "reutersCode": "USPFDB=ECIX",
+   "importance": 3,
+   "period": "Nov 2026",
+   "category": "EMPLOYMENT",
+   "releaseAtKST": "2026-11-19 22:30",
+   "previous": 20.9,
+   "unit": "",
+   "unitScale": "",
+   "forecast": null,
+   "forecastSource": null,
+   "source": "naver"
+  },
+  {
+   "nation": "USA",
+   "name": "필라델피아 연준 경기동향",
+   "reutersCode": "USPFBC=ECIX",
+   "importance": 1,
+   "period": "Nov 2026",
+   "category": "BSI_CSI",
+   "releaseAtKST": "2026-11-19 22:30",
+   "previous": 33,
+   "unit": "",
+   "unitScale": "",
+   "forecast": null,
+   "forecastSource": null,
+   "source": "naver"
+  },
+  {
+   "nation": "USA",
+   "name": "필라델피아 연준 고용률",
+   "reutersCode": "USPFEI=ECIX",
+   "importance": 1,
+   "period": "Nov 2026",
+   "category": "EMPLOYMENT",
+   "releaseAtKST": "2026-11-19 22:30",
+   "previous": 9.1,
+   "unit": "",
+   "unitScale": "",
+   "forecast": null,
+   "forecastSource": null,
+   "source": "naver"
+  },
+  {
+   "nation": "USA",
+   "name": "필라델피아 연준 신규주문",
+   "reutersCode": "USPFNO=ECIX",
+   "importance": 1,
+   "period": "Nov 2026",
+   "category": "EMPLOYMENT",
+   "releaseAtKST": "2026-11-19 22:30",
+   "previous": 4.3,
+   "unit": "",
+   "unitScale": "",
+   "forecast": null,
+   "forecastSource": null,
+   "source": "naver"
+  },
+  {
+   "nation": "USA",
+   "name": "필라델피아 연준 자본지출지수",
+   "reutersCode": "USPFCO=ECIX",
+   "importance": 1,
+   "period": "Nov 2026",
+   "category": "EMPLOYMENT",
+   "releaseAtKST": "2026-11-19 22:30",
+   "previous": 34.9,
+   "unit": "",
+   "unitScale": "",
+   "forecast": null,
+   "forecastSource": null,
+   "source": "naver"
+  },
+  {
+   "nation": "USA",
+   "name": "필라델피아 연준 지불가격",
+   "reutersCode": "USPFPP=ECIX",
+   "importance": 1,
+   "period": "Nov 2026",
+   "category": "EMPLOYMENT",
+   "releaseAtKST": "2026-11-19 22:30",
+   "previous": 43.2,
+   "unit": "",
+   "unitScale": "",
+   "forecast": null,
+   "forecastSource": null,
+   "source": "naver"
   }
  ],
  "trade": {
@@ -1179,6 +1410,6 @@
     }
    ]
   },
-  "asof": "2026-11-11 15:08 KST"
+  "asof": "2026-11-12 07:46 KST"
  }
 }
