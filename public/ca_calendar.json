@@ -1,6 +1,6 @@
 {
- "asof": "2026-11-11 12:40 KST",
- "hubAsof": "2026-11-11 07:14",
+ "asof": "2026-11-11 14:39 KST",
+ "hubAsof": "2026-11-11 14:39",
  "from": "2026-10-28",
  "to": "2026-12-26",
  "rows": [
@@ -606,6 +606,22 @@
   },
   {
    "date": "2026-10-20",
+   "end": "2026-11-10",
+   "kind": "halt",
+   "milestoneLabel": "매매정지",
+   "type": "revsplit",
+   "typeLabel": "액면교체",
+   "code": "288980",
+   "name": "모아데이타",
+   "importance": 3,
+   "fields": {
+    "faceBefore": 500.0,
+    "faceAfter": 2500.0,
+    "direction": "merge"
+   }
+  },
+  {
+   "date": "2026-10-20",
    "kind": "ex",
    "milestoneLabel": "권리락",
    "type": "bonus",
@@ -647,6 +663,21 @@
    "fields": {
     "faceBefore": 1000.0,
     "faceAfter": 5000.0,
+    "direction": "merge"
+   }
+  },
+  {
+   "date": "2026-10-21",
+   "kind": "record",
+   "milestoneLabel": "기준일",
+   "type": "revsplit",
+   "typeLabel": "액면교체",
+   "code": "288980",
+   "name": "모아데이타",
+   "importance": 1,
+   "fields": {
+    "faceBefore": 500.0,
+    "faceAfter": 2500.0,
     "direction": "merge"
    }
   },
@@ -1730,23 +1761,6 @@
    "milestoneLabel": "보호예수 해제",
    "type": "deposit",
    "typeLabel": "보호예수",
-   "code": "188260",
-   "name": "세니젠",
-   "importance": 3,
-   "fields": {
-    "shares": 2193047.0,
-    "reason": "-",
-    "pctOfTotal": 32.82,
-    "depositFrom": "2023-11-03",
-    "releaseDate": "2026-11-03"
-   }
-  },
-  {
-   "date": "2026-11-03",
-   "kind": "release",
-   "milestoneLabel": "보호예수 해제",
-   "type": "deposit",
-   "typeLabel": "보호예수",
    "code": "452200",
    "name": "민테크",
    "importance": 3,
@@ -2713,6 +2727,21 @@
    "name": "애경케미칼",
    "importance": 1,
    "fields": {}
+  },
+  {
+   "date": "2026-11-11",
+   "kind": "listing",
+   "milestoneLabel": "재상장",
+   "type": "revsplit",
+   "typeLabel": "액면교체",
+   "code": "288980",
+   "name": "모아데이타",
+   "importance": 3,
+   "fields": {
+    "faceBefore": 500.0,
+    "faceAfter": 2500.0,
+    "direction": "merge"
+   }
   },
   {
    "date": "2026-11-11",
@@ -5303,28 +5332,28 @@
   "dividend": 194,
   "purreq": 35,
   "merger": 1,
-  "revsplit": 23,
+  "revsplit": 24,
   "capdcrs": 9,
   "listing": 75,
   "ipo": 7,
   "forfeit": 0,
-  "deposit": 65,
+  "deposit": 63,
   "meeting": 15
  },
  "rowCounts": {
-  "revsplit": 52,
+  "revsplit": 55,
   "paidin": 23,
   "capdcrs": 13,
   "bonus": 10,
   "dividend": 56,
   "listing": 56,
   "purreq": 47,
-  "deposit": 44,
+  "deposit": 43,
   "ipo": 3,
   "meeting": 26,
   "merger": 2
  },
  "errors": {},
- "unlistedSkipped": 214,
+ "unlistedSkipped": 213,
  "source": "KIS ksdinfo via hub /ca"
 }
