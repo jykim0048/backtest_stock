@@ -1649,6 +1649,7 @@
     .pf3d-info-t b.up { color: var(--up-red); } .pf3d-info-t b.down { color: var(--down-blue); } .pf3d-info-t b.neu { color: var(--text-muted); }
     .pf3d-info-e { color: #cbd5e1; margin-top: 2px; }
     @media (max-width: 550px) { .pf3d-stage { height: 300px; } .pf3d-hint { display: none; } .pf3d-lbl { font-size: 10.5px; } }
+    #od-pf3d-host .pf3d { margin: 12px 0 14px; }
   </style>
 </head>
 <body>
@@ -6503,16 +6504,20 @@
       drawer.classList.add("active");
 
       // 주가 영향 분해 3D — 요인 데이터가 있는 종목만(없으면 블록이 숨겨진 채로 남는다)
-      if (window.PF3D) {
-        const liveOk = !useSimulatedData && isLiveView && stock._liveAt && typeof stock.rate === "number" && isFinite(stock.rate);
-        try { PF3D.show(stock, liveOk ? stock.rate : null); } catch (e) { console.warn("[PF3D]", e); }
-      }
+      pf3dShowDrawer(stock);
 
       // Log action
       const logsBox = document.getElementById("logs-box");
       const time = new Date().toTimeString().split(" ")[0];
       logsBox.innerHTML += `<div class="log-line"><span class="log-time">[${time}]</span> [USER INTERACTION] Expanded research report for <b>${stock.name} (${stock.code})</b>.</div>`;
       logsBox.scrollTop = logsBox.scrollHeight;
+    }
+
+    // 종목 상세 팝업의 3D — 실시간 시세가 들어온 종목이면 그 등락률을 넘긴다(모의 시세·과거 리포트 열람 중에는 넘기지 않음)
+    function pf3dShowDrawer(stock) {
+      if (!window.PF3D || !stock) return;
+      const liveOk = !useSimulatedData && isLiveView && stock._liveAt && typeof stock.rate === "number" && isFinite(stock.rate);
+      try { PF3D.show(stock, liveOk ? stock.rate : null); } catch (e) { console.warn("[PF3D]", e); }
     }
 
     function closeDetailDrawer() {
@@ -7566,7 +7571,15 @@
     const odState = { analysis: null };
 
     function odOpen()  { document.getElementById("od-overlay").classList.add("active"); }
-    function odClose() { document.getElementById("od-overlay").classList.remove("active"); }
+    function odClose() {
+      document.getElementById("od-overlay").classList.remove("active");
+      if (window.PF3D) {
+        try {
+          PF3D.hide();
+          if (document.getElementById("detail-drawer").classList.contains("active")) pf3dShowDrawer(selectedList()[selectedStockIndex]);
+        } catch (e) {}
+      }
+    }
 
     // ===== 섹터 심층분석 모달 (모닝브리핑 테마 클릭 → sector_analysis 3~5단계 결과) =====
     function sdClose() { document.getElementById("sd-overlay").classList.remove("active"); }
@@ -7801,12 +7814,20 @@
       } else { cbox.style.display = "none"; }
       document.getElementById("od-body").style.display = "";
       odTab("research");
+      // 주가 영향 분해 3D — 검색 창에는 실시간 시세가 없어 분석 시점의 기준 등락률 그대로. 항목·요인을 누르면 이 창의 탭이 바뀐다
+      if (window.PF3D) {
+        try {
+          PF3D.show({ name: document.getElementById("od-name").innerText, analysis: a }, null,
+                    { host: document.getElementById("od-pf3d-host"), onPick: odTab });
+        } catch (e) { console.warn("[PF3D]", e); }
+      }
     }
 
     async function odRun() {
       const q = document.getElementById("od-input").value.trim();
       if (!q) return;
       odOpen();
+      if (window.PF3D) { try { PF3D.hide(); } catch (e) {} }
       document.getElementById("od-body").style.display = "none";
       document.getElementById("od-catalyst-box").style.display = "none";
       odSetHeader({ name: q, code: "", market: "" });
@@ -7882,6 +7903,8 @@
         <button class="od-close" onclick="odClose()" title="닫기">✕</button>
       </div>
       <div id="od-status" class="od-status"></div>
+      <!-- 주가 영향 분해 3D 자리 — 결과에 요인(priceFactors)이 있으면 PF3D 가 3D 블록을 여기로 옮겨 연다 -->
+      <div id="od-pf3d-host"></div>
       <div id="od-catalyst-box" class="drawer-catalyst-box" style="display:none;">
         <h4>🎯 Market Moving Catalyst</h4>
         <p id="od-catalyst"></p>
@@ -9138,6 +9161,7 @@ window.PF3D = (function () {
   var catFocus = null, selected = null, hovered = null, drag = null, moved = 0, idleAt = 0, narrow = false;
   var HOME = { z: 17, rx: 0.3, ry: -0.18 }, zoom = 17, spinTo = null, panTo = 0, panX = 0;
   var auto = !(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+  var homeParent = null, homeNext = null, onPick = null;      // 3D 블록의 원래 자리(상세 팝업) · 지금 창의 탭 연동 함수
 
   function esc(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
   function sgn(v) { return v > 0.0001 ? "up" : v < -0.0001 ? "down" : "neu"; }
@@ -9175,6 +9199,7 @@ window.PF3D = (function () {
   function syncTab(cat) {
     if (!cat || cat === "etc") return;
     try {
+      if (onPick) { onPick(cat); return; }                    // 검색 창 등 — 그 창의 탭 함수
       if (typeof selectDrawerPane === "function") selectDrawerPane("research");
       if (typeof selectAnalysisTab === "function") selectAnalysisTab(cat);
     } catch (e) {}
@@ -9194,6 +9219,7 @@ window.PF3D = (function () {
   function els() {
     if (box) return true;
     box = document.getElementById("pf3d"); if (!box) return false;
+    homeParent = box.parentNode; homeNext = box.nextSibling;
     stage = document.getElementById("pf3d-stage"); canvas = document.getElementById("pf3d-cv"); labelBox = document.getElementById("pf3d-labels");
     capEl = document.getElementById("pf3d-cap"); infoEl = document.getElementById("pf3d-info"); btnRot = document.getElementById("pf3d-rot");
     return true;
@@ -9469,9 +9495,15 @@ window.PF3D = (function () {
     clearScene();
   }
   // 종목 상세 팝업을 열 때 부른다 — 요인 데이터가 없거나 3D 를 못 쓰면 블록 전체를 숨긴다(기존 화면 그대로)
-  function show(stock, liveRate) {
+  // opts.host = 3D 블록을 둘 자리(없으면 종목 상세 팝업의 원래 자리) · opts.onPick(cat) = 항목·요인을 눌렀을 때 부를 탭 함수
+  function show(stock, liveRate, opts) {
     if (!els()) return;
     hide();
+    opts = opts || {};
+    onPick = typeof opts.onPick === "function" ? opts.onPick : null;
+    var host = opts.host || null;
+    if (host) { if (box.parentNode !== host) host.appendChild(box); }
+    else if (box.parentNode !== homeParent && homeParent) homeParent.insertBefore(box, homeNext && homeNext.parentNode === homeParent ? homeNext : null);
     var pf = stock && stock.analysis && stock.analysis.priceFactors;
     if (!pf || !Array.isArray(pf.items) || !pf.items.length) return;
     var my = ++token, b = pf.basis || {}, basisTxt;
