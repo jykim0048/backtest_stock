@@ -98,6 +98,14 @@ CREATE TABLE IF NOT EXISTS stock_research (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS stock_research_code_date ON stock_research (code, report_date DESC);
+
+CREATE TABLE IF NOT EXISTS stock_snapshots (
+  kind text NOT NULL, code text NOT NULL, snap_date date NOT NULL,
+  payload jsonb NOT NULL,
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (kind, code, snap_date)
+);
+CREATE INDEX IF NOT EXISTS stock_snapshots_code ON stock_snapshots (code, kind, snap_date DESC);
 """
 
 _CODE_RE = re.compile(r"^[0-9A-Z]{6}$")            # 0220W0 같은 영문 혼합 코드 포함
@@ -110,8 +118,11 @@ FLOW_NUM = ("close", "change_pct", "amt_prsn", "amt_frgn", "amt_orgn", "amt_fund
             "amt_ivtr", "amt_pe", "amt_etc", "hold_ratio", "short_amt", "short_vol_pct", "short_amt_pct", "loan_bal_amt")
 FLOW_INT = ("qty_prsn", "qty_frgn", "qty_orgn", "short_qty", "loan_new", "loan_rdmp", "loan_bal_chg", "loan_bal_qty")
 FLOW_COLS = FLOW_NUM + FLOW_INT
-PARTS = ("dart", "flow", "naver", "ca", "financials", "holders", "research")
-TABLES = ("flow", "disclosures", "ca", "runs", "financials", "holders", "research")
+PARTS = ("dart", "flow", "naver", "ca", "financials", "holders", "research", "valuation")
+TABLES = ("flow", "disclosures", "ca", "runs", "financials", "holders", "research", "snapshots")
+# 일별 스냅샷(과거를 다시 받을 수 없어 매일 쌓는 것) — 종류를 늘릴 때 여기에 추가한다. 내용은 통째로 payload(jsonb).
+SNAP_KINDS = ("valuation",)
+SNAP_MAX_BYTES = 20000
 FIN_NUM = ("revenue", "op_income", "pretax_income", "net_income", "assets", "liabilities", "equity")
 FIN_REPRT = ("11013", "11012", "11014", "11011")   # 1분기 · 반기 · 3분기 · 사업보고서
 HOLDER_INT = ("shares", "shares_chg", "ctr_shares")
@@ -259,6 +270,18 @@ def normalize_research(row):
             "source": _text(row.get("source"), 20)}
 
 
+def normalize_snapshot(row):
+    """일별 스냅샷 한 건 — (종류, 종목, 날짜) 키에 JSON 을 통째로. 종류는 SNAP_KINDS 만, 크기는 SNAP_MAX_BYTES 이하."""
+    kind, code, date = str(row.get("kind") or ""), _code(row.get("code")), _date(row.get("date") or row.get("snap_date"))
+    payload = row.get("payload")
+    if kind not in SNAP_KINDS or not code or not date or not isinstance(payload, dict) or not payload:
+        return None
+    body = json.dumps(payload, ensure_ascii=False)
+    if len(body.encode("utf-8")) > SNAP_MAX_BYTES:
+        return None
+    return {"kind": kind, "code": code, "snap_date": date, "payload": body}
+
+
 def _tagger():
     try:                                           # 서버는 analysis.sources 를 이미 올려 둔다. 없으면(경량 환경) 태그 없이
         from analysis.sources import dart_rule_direction
@@ -282,7 +305,7 @@ def upsert_rows(table, rows):
     tagger = _tagger() if table == "disclosures" else None
     norm = {"flow": normalize_flow, "ca": normalize_ca, "runs": normalize_run,
             "financials": normalize_financial, "holders": normalize_holder, "research": normalize_research,
-            "disclosures": lambda r: normalize_disclosure(r, tagger)}[table]
+            "snapshots": normalize_snapshot, "disclosures": lambda r: normalize_disclosure(r, tagger)}[table]
     good = []
     for r in rows:
         try:
@@ -297,7 +320,7 @@ def upsert_rows(table, rows):
     # 같은 키가 한 배치에 두 번 오면 ON CONFLICT 가 같은 행을 두 번 건드려 실패한다 — 마지막 것만 남긴다
     pk = {"flow": ("code", "trade_date"), "disclosures": ("rcept_no",), "ca": ("event_key",), "runs": ("run_date", "part"),
           "financials": ("code", "bsns_year", "reprt_code", "fs_div"), "holders": ("rcept_no", "reporter"),
-          "research": ("report_key",)}[table]
+          "research": ("report_key",), "snapshots": ("kind", "code", "snap_date")}[table]
     good = list({tuple(g[k] for k in pk): g for g in good}.values())
 
     def _op(cur):
@@ -335,6 +358,11 @@ def upsert_rows(table, rows):
             execute_values(cur, f"INSERT INTO stock_research ({', '.join(cols)}) VALUES %s"
                            f" ON CONFLICT (report_key) DO UPDATE SET {sets}, updated_at = now()",
                            [tuple(g[c] for c in cols) for g in good], page_size=500)
+        elif table == "snapshots":                   # 같은 날 다시 받으면 덮어쓴다(장중 값 → 마감 후 값)
+            execute_values(cur, "INSERT INTO stock_snapshots (kind, code, snap_date, payload) VALUES %s"
+                           " ON CONFLICT (kind, code, snap_date) DO UPDATE SET payload = EXCLUDED.payload, updated_at = now()",
+                           [(g["kind"], g["code"], g["snap_date"], g["payload"]) for g in good],
+                           template="(%s, %s, %s, %s::jsonb)", page_size=500)
         else:
             cols = ("run_date", "part", "universe", "ok", "failed", "rows", "note")
             execute_values(cur, f"INSERT INTO stock_collect_runs ({', '.join(cols)}) VALUES %s"
@@ -459,13 +487,28 @@ def research(code, frm=None, to=None):
     return report_db._run(_op)
 
 
+def snapshots(code, kind="valuation", frm=None, to=None):
+    """일별 스냅샷 시계열(최신순) — [{snap_date, payload}]. payload 는 수집 당시 JSON 그대로."""
+    code = _code(code)
+    if not code or kind not in SNAP_KINDS:
+        return None
+    f, t = _window(frm, to, days=365)
+
+    def _op(cur):
+        cur.execute("SELECT snap_date, payload FROM stock_snapshots WHERE kind=%s AND code=%s AND snap_date BETWEEN %s AND %s"
+                    " ORDER BY snap_date DESC LIMIT 800", (kind, code, f, t))
+        return _rows(cur, ("snap_date", "payload"))
+    return report_db._run(_op)
+
+
 def bundle(code, days=120):
     code = _code(code)
     if not code:
         return None
     frm = (datetime.date.today() - datetime.timedelta(days=max(1, min(int(days or 120), 800)))).isoformat()
     return {"code": code, "from": frm, "flow": flow(code, frm), "disclosures": disclosures(code, frm), "ca": ca(code, frm),
-            "financials": financials(code, 3), "holders": holders(code), "research": research(code, frm)}
+            "financials": financials(code, 3), "holders": holders(code), "research": research(code, frm),
+            "valuation": snapshots(code, "valuation", frm)}
 
 
 def status():
@@ -495,6 +538,9 @@ def status():
         out["financials"] = {"rows": n, "fromYear": lo, "toYear": hi, "codes": codes}
         cur.execute("SELECT bsns_year, reprt_code, count(DISTINCT code) FROM stock_financials GROUP BY 1, 2 ORDER BY 1 DESC, 2 LIMIT 24")
         out["financials"]["periods"] = [{"year": y, "reprt": r, "codes": c} for y, r, c in cur.fetchall()]
+        cur.execute("SELECT kind, count(*), min(snap_date), max(snap_date), count(DISTINCT code) FROM stock_snapshots GROUP BY kind ORDER BY kind")
+        out["snapshots"] = {k: {"rows": n, "from": lo.isoformat() if lo else None, "to": hi.isoformat() if hi else None, "codes": c}
+                            for k, n, lo, hi, c in cur.fetchall()}
         cur.execute("SELECT run_date, part, universe, ok, failed, rows, note, finished_at FROM stock_collect_runs"
                     " ORDER BY run_date DESC, part LIMIT 21")
         out["runs"] = _rows(cur, ("run_date", "part", "universe", "ok", "failed", "rows", "note", "finished_at"))

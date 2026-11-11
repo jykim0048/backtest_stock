@@ -178,8 +178,13 @@ def test_main_guards_and_dry_run():
     calls = []
     saved = (C.collect_flow, C.collect_dart, C.collect_ca, C.post_rows, C._is_trading_day)
     saved_new = (C.collect_financials, C.collect_holders, C.collect_research, C.load_corp_map)
+    saved_val = C.collect_valuation
+    C.collect_valuation = lambda codes, date, workers=6: (calls.append(("valuation", len(codes), date)) or
+                                                         ([{"kind": "valuation", "code": "005930", "date": date, "payload": {"per": 1}}],
+                                                          {"ok": len(codes), "failed": 0, "errs": []}))
     C.load_corp_map = lambda root=None: {"005930": "00126380", "000660": "00164779"}
-    C.collect_financials = lambda corps, periods, on_chunk=None, chunk=100: (calls.append(("financials", len(corps), len(periods))) or ([], 1))
+    C.collect_financials = lambda corps, periods, on_chunk=None, chunk=100, workers=4: (
+        calls.append(("financials", len(corps), len(periods))) or ([], 1))
     C.collect_holders = lambda pairs, workers=4, on_chunk=None, chunk=200: (calls.append(("holders", [c for c, _ in pairs])) or
                                                                             {"ok": len(pairs), "failed": 0, "rows": 0, "errs": []})
     C.collect_research = lambda codes, cutoff, pages=1, workers=6, detail=True, on_chunk=None, **k: (
@@ -210,6 +215,7 @@ def test_main_guards_and_dry_run():
         fin = [c for c in calls if c[0] == "financials"][0]
         assert fin[1] == 2 and fin[2] == len(C.fin_periods(now.date()))                  # 고유번호 2개 × 최근 결산 보고서
         assert [c for c in calls if c[0] == "research"][0][3] == 1
+        assert ("valuation", 3, now.date().isoformat()) in calls and ("snapshots", 1, True) in posted   # 그날 날짜로 스냅샷
         calls.clear(); posted.clear()
         rc = C.main(["--parts", "flow,naver", "--force", "--limit", "3"])
         assert rc == 0 and calls[0][0] == "flow" and calls[0][1] == 3 and calls[0][2] == ("flow", "naver")
@@ -224,6 +230,7 @@ def test_main_guards_and_dry_run():
     finally:
         C.collect_flow, C.collect_dart, C.collect_ca, C.post_rows, C._is_trading_day = saved
         C.collect_financials, C.collect_holders, C.collect_research, C.load_corp_map = saved_new
+        C.collect_valuation = saved_val
 
 
 def test_ca_windows_and_backfill():
@@ -303,6 +310,20 @@ def test_financials_holders_research_rows():
     assert S.normalize_financial(dict(c, reprt="99999")) is None and S.normalize_financial(dict(c, payload={})) is None
     # 보고서 선택: 백필은 연도 × 4종, 매일은 결산일이 최근 200일 안인 것만
     assert C.fin_periods(datetime.date(2026, 11, 11), [2024]) == [(2024, r) for r in C.FIN_REPRT]
+    assert C.fin_periods(datetime.date(2026, 11, 11), [2023], reprts=["11011", "11014"]) == [(2023, "11014"), (2023, "11011")]
+    # 한 보고서의 콜은 나란히 보내고(100개사씩), 보고서가 끝날 때마다 넘긴다
+    saved_j, saved_k, seen_urls, chunks = C._get_json, C.DART_KEY, [], []
+
+    def fake_dart(url, timeout=30, retries=2, headers=None):
+        seen_urls.append(url)
+        return {"status": "000", "list": FIN} if "corp_code=c0," in url else {"status": "013"}
+    C._get_json, C.DART_KEY = fake_dart, "k"
+    try:
+        _, n_calls = C.collect_financials([f"c{i}" for i in range(250)], [(2025, "11011"), (2025, "11014")],
+                                          on_chunk=lambda rows, y, r: chunks.append((y, r, len(rows))), workers=3)
+        assert n_calls == 6 and len(seen_urls) == 6 and chunks == [(2025, "11011", 2), (2025, "11014", 2)]
+    finally:
+        C._get_json, C.DART_KEY = saved_j, saved_k
     assert C.fin_periods(datetime.date(2026, 11, 11)) == [(2026, "11012"), (2026, "11014")]
     assert C.fin_periods(datetime.date(2026, 4, 1)) == [(2025, "11014"), (2025, "11011"), (2026, "11013")]
 
@@ -369,6 +390,37 @@ def test_upsert_new_tables():
         assert set(S.TABLES) >= {"financials", "holders", "research"}
     finally:
         S.report_db._run = saved
+
+
+VAL = {  # m.stock.naver.com/api/stock/<code>/integration 응답 형태
+    "totalInfos": [{"code": "per", "key": "PER", "value": "12.25배"}, {"code": "eps", "value": "22,292원"}, {"code": "cnsPer", "value": "N/A"},
+                   {"code": "pbr", "value": "1.31배"}, {"code": "dividendYieldRatio", "value": "0.61%"},
+                   {"code": "highPriceOf52Weeks", "value": "99,000"}, {"code": "highPriceOf52WeeksAdjusted", "value": "98,000"}, "잡음"],
+    "consensusInfo": {"recommMean": "4.00", "priceTargetMean": "95,000"},
+}
+
+
+def test_valuation_snapshot():
+    """밸류에이션 일별 스냅샷 — 응답 → (kind, code, date, payload jsonb). 없는 값은 키가 없고, 원문 지표는 info 에 그대로."""
+    r = C.valuation_row("005930", VAL, "2026-11-11")
+    p = r["payload"]
+    assert r["kind"] == "valuation" and r["code"] == "005930" and r["date"] == "2026-11-11"
+    assert p["per"] == 12.25 and p["eps"] == 22292.0 and p["pbr"] == 1.31 and p["dividendYield"] == 0.61
+    assert p["high52w"] == 98000.0 and p["opinionScore"] == 4.0 and p["targetPrice"] == 95000.0     # 수정주가 우선
+    assert "estPer" not in p and p["info"]["cnsPer"] == "N/A" and len(p["info"]) == 7
+    assert C.valuation_row("005930", {}, "2026-11-11") is None and C.valuation_row("005930", None, "2026-11-11") is None
+    n = S.normalize_snapshot(r)
+    assert n["kind"] == "valuation" and n["snap_date"] == "2026-11-11" and '"per": 12.25' in n["payload"]
+    assert S.normalize_snapshot(dict(r, kind="board")) is None                             # 허용 종류만
+    assert S.normalize_snapshot(dict(r, payload={"x": "가" * 20000})) is None              # 크기 상한
+    assert S.normalize_snapshot(dict(r, payload={})) is None and "snapshots" in S.TABLES and "valuation" in S.PARTS
+    saved = C._get_json
+    C._get_json = lambda url, timeout=30, retries=2, headers=None: VAL if "/005930/" in url else {}
+    try:
+        rows, stat = C.collect_valuation(["005930", "000660"], "2026-11-11", workers=2)
+        assert len(rows) == 1 and stat["ok"] == 1 and stat["failed"] == 1 and "지표 없음" in stat["errs"][0]
+    finally:
+        C._get_json = saved
 
 
 def test_server_routes():

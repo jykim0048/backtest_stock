@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
     inputs:
       parts:
-        description: "수집 파트 (dart,flow,naver,ca,financials,holders,research 중 쉼표로)"
+        description: "수집 파트 (dart,flow,naver,ca,financials,holders,research,valuation 중 쉼표로)"
         required: false
-        default: "dart,flow,naver,ca,financials,holders,research"
+        default: "dart,flow,naver,ca,financials,holders,research,valuation"
       dry_run:
         description: "true = 전송 없이 건수만 출력"
         required: false
@@ -56,7 +56,7 @@ jobs:
         env:
           DART_API_KEY: ${{ secrets.DART_API_KEY }}
           INGEST_TOKEN: ${{ secrets.REPORT_INGEST_TOKEN }}
-          PARTS: ${{ github.event.inputs.parts || 'dart,flow,naver,ca,financials,holders,research' }}
+          PARTS: ${{ github.event.inputs.parts || 'dart,flow,naver,ca,financials,holders,research,valuation' }}
           DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
           FORCE: ${{ github.event.inputs.force || 'false' }}
           LIMIT: ${{ github.event.inputs.limit || '0' }}
@@ -82,7 +82,7 @@ jobs:
           import sys, json
           d = json.load(sys.stdin)
           b = d.get('data') or {}
-          keys = ('flow', 'disclosures', 'ca', 'financials', 'holders', 'research')
+          keys = ('flow', 'disclosures', 'ca', 'financials', 'holders', 'research', 'valuation')
           print('status', d.get('status'), '|', ' | '.join(f'{k} {len(b.get(k) or [])}' for k in keys))
           for k in keys:
               rows = b.get(k) or []

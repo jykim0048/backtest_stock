@@ -11,6 +11,8 @@
   financials : DART 다중회사 주요계정(100개사/콜) × 최근 결산 보고서 → stock_financials   (상장 전 종목, 하루 ~55콜)
   holders    : DART 대량보유(5%) — 최근 공시 제목에 '대량보유'가 뜬 종목만 → stock_major_holders (종목당 1콜 = 전체 이력)
   research   : 네이버 리서치 종목 목록(+상세의 목표주가·의견) × 유니버스 → stock_research  (종목당 1콜 + 리포트당 1콜)
+  valuation  : 네이버 종목 통합(PER·PBR·컨센서스 목표가·52주 고저) × 유니버스 → stock_snapshots(kind=valuation, jsonb) (종목당 1콜)
+               과거 값을 다시 받을 수 없는 소스라 매일 그날 값을 쌓는다.
 
 수급 소스는 매번 수십 거래일을 주므로 그 창 전체를 다시 업서트한다(서버가 컬럼별 COALESCE) — 하루 이틀 빠져도 다음 실행이 메운다.
 PC 실행 금지(네트워크 규칙) — Actions 에서만. 로컬에서는 --dry-run 도 외부 호출을 하므로 테스트(tests/test_stock_data_collect.py)만 돌린다.
@@ -51,7 +53,7 @@ UA = {"User-Agent": "Mozilla/5.0 (backtest-stock stock-data-collect)"}
 BATCH = 2000                    # ingest 요청 한 건의 행 수
 MIN_COVERAGE = 0.8              # 유니버스 대비 수급 성공 종목 비율이 이보다 낮으면 실패 종료
 KIS_KEYS = ("prsn", "frgn", "orgn", "fund", "scrt", "insu", "ivtr", "pe", "etc")
-ALL_PARTS = ("dart", "flow", "naver", "ca", "financials", "holders", "research")
+ALL_PARTS = ("dart", "flow", "naver", "ca", "financials", "holders", "research", "valuation")
 
 
 def log(msg):
@@ -439,11 +441,11 @@ def fin_rows(items):
     return list(out.values())
 
 
-def fin_periods(today, years=None, lookback=200):
-    """조회할 (사업연도, 보고서) 목록. years 를 주면 그 연도의 4개 보고서 전부(백필),
+def fin_periods(today, years=None, lookback=200, reprts=None):
+    """조회할 (사업연도, 보고서) 목록. years 를 주면 그 연도의 보고서 전부(백필, reprts 로 일부만),
     없으면 결산일이 최근 lookback 일 안인 보고서만(매일 — 새로 나온 보고서·정정을 받는다)."""
     if years:
-        return [(y, r) for y in years for r in FIN_REPRT]
+        return [(y, r) for y in years for r in FIN_REPRT if not reprts or r in reprts]
     out = []
     for y in (today.year - 1, today.year):
         for r in FIN_REPRT:
@@ -452,22 +454,26 @@ def fin_periods(today, years=None, lookback=200):
     return out
 
 
-def collect_financials(corps, periods, on_chunk=None, chunk=100):
-    """고유번호 목록 × (연도, 보고서) → (행, 호출 수). 다중회사 API 는 한 번에 100개사."""
+def collect_financials(corps, periods, on_chunk=None, chunk=100, workers=4):
+    """고유번호 목록 × (연도, 보고서) → (행, 호출 수). 다중회사 API 는 한 번에 100개사.
+    100개사 한 콜이 50초 안팎 걸려(2026-11-11 실측: 보고서 하나 27콜에 25분) 한 보고서 안의 콜을 workers 개씩 나란히 보낸다."""
     if not DART_KEY:
         raise RuntimeError("DART_API_KEY 미설정")
     rows, calls = [], 0
+    groups = [corps[i:i + chunk] for i in range(0, len(corps), chunk)]
     for y, r in periods:
-        got = []
-        for i in range(0, len(corps), chunk):
-            data = _get_json(f"{DART_API}/fnlttMultiAcnt.json?crtfc_key={DART_KEY}&corp_code={','.join(corps[i:i + chunk])}"
-                             f"&bsns_year={y}&reprt_code={r}", timeout=40)
-            calls += 1
+        def one(group, y=y, r=r):
+            data = _get_json(f"{DART_API}/fnlttMultiAcnt.json?crtfc_key={DART_KEY}&corp_code={','.join(group)}"
+                             f"&bsns_year={y}&reprt_code={r}", timeout=150, retries=1)
             st = data.get("status")
             if st not in ("000", "013"):             # 013 = 조회된 데이터 없음
                 raise RuntimeError(f"DART status {st}: {data.get('message')}")
-            got.extend(fin_rows(data.get("list")))
-            time.sleep(0.15)
+            return fin_rows(data.get("list"))
+        got = []
+        with ThreadPoolExecutor(max_workers=max(1, workers)) as ex:
+            for part in ex.map(one, groups):         # 한 콜이라도 실패하면 그 보고서에서 멈춘다(앞 보고서는 이미 적재)
+                got.extend(part)
+        calls += len(groups)
         if on_chunk is not None:
             on_chunk(got, y, r)
         else:
@@ -630,6 +636,66 @@ def collect_research(codes, cutoff, pages=1, workers=6, detail=True, on_chunk=No
     return stat
 
 
+# ── 밸류에이션 일별 스냅샷(2026-11-11 추가) — 과거를 다시 받을 수 없어 매일 쌓는다 ─────────────────
+VALUATION_API = "https://m.stock.naver.com/api/stock/{code}/integration"
+VAL_FIELDS = (("per", ("per",)), ("eps", ("eps",)), ("estPer", ("cnsPer",)), ("estEps", ("cnsEps",)), ("pbr", ("pbr",)), ("bps", ("bps",)),
+              ("dividendYield", ("dividendYieldRatio",)), ("high52w", ("highPriceOf52WeeksAdjusted", "highPriceOf52Weeks")),
+              ("low52w", ("lowPriceOf52WeeksAdjusted", "lowPriceOf52Weeks")))
+
+
+def _vnum(s):
+    """'12.25배' / '22,292원' / '0.61%' / 'N/A' → float | None (analysis.sources._vnum 과 같은 규칙)."""
+    t = re.sub(r"[^\d.\-]", "", str(s if s is not None else ""))
+    try:
+        return float(t) if t not in ("", "-", ".") else None
+    except ValueError:
+        return None
+
+
+def valuation_row(code, d, date):
+    """네이버 종목 통합 응답 → 스냅샷 행. 정리한 지표(없는 값은 키 자체가 없다) + 받은 지표 원문(info)을 payload 에 통째로."""
+    d = d if isinstance(d, dict) else {}
+    info = {str(x.get("code")): x.get("value") for x in (d.get("totalInfos") or []) if isinstance(x, dict) and x.get("code")}
+    if not info:
+        return None
+    cns = d.get("consensusInfo") or {}
+    out = {}
+    for name, keys in VAL_FIELDS:
+        for k in keys:
+            v = _vnum(info.get(k))
+            if v is not None:
+                out[name] = v
+                break
+    for name, key in (("opinionScore", "recommMean"), ("targetPrice", "priceTargetMean")):
+        v = _vnum(cns.get(key))
+        if v is not None:
+            out[name] = v
+    out["info"] = info
+    return {"kind": "valuation", "code": code, "date": date, "payload": out}
+
+
+def collect_valuation(codes, date, workers=6):
+    """유니버스 × 통합 API(종목당 1콜) → (행, 통계)."""
+    stat = {"ok": 0, "failed": 0, "errs": []}
+
+    def one(code):
+        try:
+            return valuation_row(code, _get_json(VALUATION_API.format(code=code), timeout=15), date)
+        except Exception as e:                       # noqa: BLE001
+            return e
+    rows = []
+    with ThreadPoolExecutor(max_workers=max(1, workers)) as ex:
+        for code, got in zip(codes, ex.map(one, codes)):
+            if isinstance(got, dict):
+                stat["ok"] += 1
+                rows.append(got)
+            else:
+                stat["failed"] += 1
+                if len(stat["errs"]) < 5:
+                    stat["errs"].append(f"{code}: {got if got is not None else '지표 없음'}")
+    return rows, stat
+
+
 # ── 전송 ─────────────────────────────────────────────────────────────────────────────────────
 def post_rows(table, rows, dry=False):
     """→ (accepted, rejected). dry 면 전송 없이 건수만."""
@@ -687,6 +753,7 @@ def main(argv=None):
     ap.add_argument("--ca-types", help="CA 종류만(listing,dividend,…) — 시간 상한에 잘린 종류를 다시 받을 때")
     ap.add_argument("--ca-window", type=int, default=0, help="CA 창 길이(일)를 직접 지정 — 겹치지 않게 자른다(의무예치에는 쓰지 않는다)")
     ap.add_argument("--fin-years", help="재무 백필 사업연도(예: 2023,2024,2025) — 없으면 최근 결산 보고서만")
+    ap.add_argument("--fin-reprts", help="--fin-years 와 함께: 보고서 코드 일부만(11013 1분기 · 11012 반기 · 11014 3분기 · 11011 사업)")
     ap.add_argument("--holders-all", action="store_true", help="대량보유를 상장 전 종목에서 받는다(백필) — 없으면 최근 공시에 대량보유가 뜬 종목만")
     ap.add_argument("--research-days", type=int, default=3, help="증권사 리포트를 오늘부터 N일 전까지")
     ap.add_argument("--research-pages", type=int, default=1, help="종목당 리포트 목록 페이지 수 상한(20건/장)")
@@ -789,7 +856,7 @@ def main(argv=None):
             if a.limit:
                 corps = corps[:a.limit]
             years = [int(y) for y in (a.fin_years or "").split(",") if y.strip().isdigit()]
-            periods = fin_periods(today, years)
+            periods = fin_periods(today, years, reprts=[x.strip() for x in (a.fin_reprts or "").split(",") if x.strip()])
             tot = {"rows": 0, "acc": 0, "rej": 0, "codes": set()}
 
             def _send_fin(chunk, y, r):
@@ -797,7 +864,7 @@ def main(argv=None):
                 tot["rows"] += len(chunk); tot["acc"] += acc; tot["rej"] += rej
                 tot["codes"].update(x["code"] for x in chunk)
                 log(f"재무 {y} {r} {len({x['code'] for x in chunk})}종목 {len(chunk)}행 → accepted {acc} · rejected {rej}")
-            _, calls = collect_financials(corps, periods, on_chunk=_send_fin)
+            _, calls = collect_financials(corps, periods, on_chunk=_send_fin, workers=min(a.workers, 4))
             log(f"재무 {len(periods)}개 보고서 × {len(corps)}개사 {tot['rows']}행({calls}콜) → accepted {tot['acc']} · rejected {tot['rej']}")
             runs.append({"date": iso, "part": "financials", "universe": len(corps), "ok": len(tot["codes"]), "failed": 0, "rows": tot["rows"],
                          "note": f"{','.join(f'{y}-{r}' for y, r in periods)[:140]} {calls}콜 accepted {tot['acc']}"})
@@ -866,6 +933,28 @@ def main(argv=None):
             log(f"리포트 실패: {e}")
             failed_parts.append("research")
             runs.append({"date": iso, "part": "research", "ok": 0, "failed": 1, "rows": 0, "note": str(e)[:200]})
+
+    if "valuation" in parts:
+        try:
+            codes = build_universe(mode=a.universe)
+            if a.limit:
+                codes = codes[:a.limit]
+            rows, stat = collect_valuation(codes, iso, a.workers)
+            acc, rej = post_rows("snapshots", rows, a.dry_run)
+            for e in stat["errs"]:
+                log(f"실패 예: {e}")
+            n_tp = sum(1 for r in rows if "targetPrice" in r["payload"])
+            n_per = sum(1 for r in rows if "per" in r["payload"])
+            log(f"밸류에이션 {len(codes)}종목(성공 {stat['ok']} · 실패 {stat['failed']}) PER {n_per}건 · 목표주가 {n_tp}건"
+                f" → accepted {acc} · rejected {rej}")
+            runs.append({"date": iso, "part": "valuation", "universe": len(codes), "ok": stat["ok"], "failed": stat["failed"], "rows": len(rows),
+                         "note": f"PER {n_per} 목표주가 {n_tp} accepted {acc}"})
+            if codes and stat["ok"] / len(codes) < MIN_COVERAGE:
+                failed_parts.append(f"valuation 커버리지 {stat['ok']}/{len(codes)}")
+        except Exception as e:                       # noqa: BLE001
+            log(f"밸류에이션 실패: {e}")
+            failed_parts.append("valuation")
+            runs.append({"date": iso, "part": "valuation", "ok": 0, "failed": 1, "rows": 0, "note": str(e)[:200]})
 
     if runs and not a.dry_run:
         try:
