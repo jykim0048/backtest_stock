@@ -482,6 +482,10 @@ def _needs_analysis(stock, entry, now):
         age_h = (now - datetime.datetime.fromisoformat(asof)).total_seconds() / 3600
     except Exception:
         return True, "asOf파싱실패"
+    # 주가 영향 분해(2026-11-11): 요인 출력이 생기기 전에 만든 분석은 한 번만 다시 분석한다.
+    # 새로 분석하면 _meta.pf 가 붙으므로(요인이 안 나와도) 같은 종목을 이 사유로 되풀이하지 않는다.
+    if PRICE_FACTORS_ON and not meta.get("pf") and "priceFactors" not in a:
+        return True, "요인없음(1회)"
     if age_h >= TTL_HOURS:
         return True, f"TTL({age_h:.1f}h≥{TTL_HOURS}h)"
     base, cur = meta.get("price"), (entry or {}).get("basePrice")
@@ -954,7 +958,7 @@ def analyze_stock(stock, peer_cfg):
         res["consensus"] = cons
     # 증분 분석용 메타: 최신 공시 시그니처(신규 공시 감지). asOf/price 는 main 에서 채운다.
     if INCREMENTAL:
-        analysis["_meta"] = {"filingKey": _filing_key(disclosures)}
+        analysis["_meta"] = {"filingKey": _filing_key(disclosures), **({"pf": 1} if PRICE_FACTORS_ON else {})}
     return analysis
 
 

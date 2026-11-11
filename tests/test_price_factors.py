@@ -122,6 +122,31 @@ def test_schema_wiring():
     assert "priceFactors:" in G.SYSTEM and "priceFactors:" in G.REFINE_SYSTEM
 
 
+def test_reanalyze_once_when_factors_missing():
+    """증분 모드: 요인이 없는 이월 분석은 한 번만 재분석 — 새로 분석해 _meta.pf 가 붙으면 요인이 없어도 다시 하지 않는다."""
+    try:
+        import generate_analysis as G
+    except ImportError as e:
+        print("  (generate_analysis import 불가 — 생략:", type(e).__name__, ")")
+        return
+    import datetime
+    now = datetime.datetime(2026, 11, 11, 10, 40, tzinfo=G.KST)
+    fresh = (now - datetime.timedelta(minutes=30)).isoformat()
+    keep = G._latest_filing_key
+    G._latest_filing_key = lambda code: "k1"                 # 신규 공시 없음(외부 호출 차단)
+    try:
+        stock = {"code": "082740", "name": "한화엔진"}
+        old = {"analysis": {"catalyst": "x", "_meta": {"asOf": fresh, "filingKey": "k1", "price": 100}}, "basePrice": 100}
+        assert G._needs_analysis(stock, old, now) == (True, "요인없음(1회)")
+        tried = {"analysis": {"catalyst": "x", "_meta": {"asOf": fresh, "filingKey": "k1", "price": 100, "pf": 1}}, "basePrice": 100}
+        need, why = G._needs_analysis(stock, tried, now)
+        assert need is False and why.startswith("캐시"), (need, why)
+        has = {"analysis": {"catalyst": "x", "priceFactors": {"items": []}, "_meta": {"asOf": fresh, "filingKey": "k1", "price": 100}}, "basePrice": 100}
+        assert G._needs_analysis(stock, has, now)[0] is False
+    finally:
+        G._latest_filing_key = keep
+
+
 if __name__ == "__main__":
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     for t in tests:
