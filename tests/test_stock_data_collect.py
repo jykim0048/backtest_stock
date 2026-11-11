@@ -185,7 +185,7 @@ def test_main_guards_and_dry_run():
         on_chunk([{"rcept_no": "1"}], bgn, end)      # 창 하나씩 넘긴다
         return [], 2
     C.collect_dart = fake_dart
-    C.collect_ca = lambda today, f=None, t=None: (calls.append(("ca", f, t)) or ([], 0, []))
+    C.collect_ca = lambda today, f=None, t=None: (calls.append(("ca", f, t)) or ([], 0, [], {}))
     posted = []
     C.post_rows = lambda table, rows, dry=False: (posted.append((table, len(rows), dry)) or (len(rows), 0))
     C._is_trading_day = lambda d: True
@@ -210,6 +210,42 @@ def test_main_guards_and_dry_run():
         assert C.main(["--parts", "flow"]) == 0 and calls == []
     finally:
         C.collect_flow, C.collect_dart, C.collect_ca, C.post_rows, C._is_trading_day = saved
+
+
+def test_ca_windows_and_backfill():
+    """CA 백필 — 넓은 구간은 36일 창·28일 간격으로 나눠 창마다 적재하고, 한 창이 실패해도 나머지는 계속한다."""
+    assert C.ca_windows() == [(None, None)] and C.ca_windows("20261101", None) == [("20261101", None)]
+    assert C.ca_windows("20261028", "20261226") == [("20261028", "20261226")]              # 기본 창(59일)은 한 번에
+    wins = C.ca_windows("20251111", "20261111")
+    d = lambda s: datetime.datetime.strptime(s, "%Y%m%d").date()
+    assert wins[0][0] == "20251104" and wins[-1][1] == "20261111"                          # 첫 창은 7일 앞에서, 끝은 to 에서
+    assert all((d(t) - d(f)).days <= C.CA_WINDOW_DAYS - 1 for f, t in wins)
+    assert all((d(b[0]) - d(a[0])).days == C.CA_STEP_DAYS for a, b in zip(wins, wins[1:]))
+    # 의무예치 해제 목표(창 시작 +7 ~ +35일)가 빈틈 없이 이어진다
+    assert all(d(b[0]) + datetime.timedelta(days=7) <= d(a[0]) + datetime.timedelta(days=35) + datetime.timedelta(days=1)
+               for a, b in zip(wins, wins[1:]))
+
+    calls, posted = [], []
+    saved = (C.collect_ca, C.post_rows, C.time.sleep)
+
+    def fake_ca(today, f=None, t=None):
+        calls.append((f, t))
+        if len(calls) == 2:
+            raise RuntimeError("timeout")
+        return [{"event_key": f"k{len(calls)}"}], 3, [], ({"dividend": ["20251231"]} if len(calls) == 3 else {})
+    C.collect_ca = fake_ca
+    C.post_rows = lambda table, rows, dry=False: (posted.append((table, rows, dry)) or (len(rows), 0))
+    C.time.sleep = lambda s: None
+    try:
+        rc = C.main(["--parts", "ca", "--ca-from", "20251111", "--ca-to", "20261111"])
+        assert rc == 1 and calls == wins                                                   # 실패 창이 있으면 실패 종료, 그래도 끝까지 돈다
+        ca_posts = [p for p in posted if p[0] == "ca"]
+        assert len(ca_posts) == len(wins) - 1
+        run = [p for p in posted if p[0] == "runs"][0][1][0]
+        assert run["ok"] == len(wins) - 1 and run["failed"] == 1 and run["rows"] == len(wins) - 1
+        assert "truncated 1" in run["note"] and "실패창" in run["note"] and len(run["note"]) <= 200
+    finally:
+        C.collect_ca, C.post_rows, C.time.sleep = saved
 
 
 def test_server_routes():

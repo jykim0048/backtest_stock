@@ -17,7 +17,7 @@ PC 실행 금지(네트워크 규칙) — Actions 에서만. 로컬에서는 --d
   python collect_stock_data.py --parts dart,ca              # 일부만
   python collect_stock_data.py --dry-run --limit 5          # 전송 없이 5종목만 건수 출력
   python collect_stock_data.py --parts dart --dart-from 2025-11-11 --dart-to 2026-11-10   # 공시 백필(90일씩 끊어 조회)
-  python collect_stock_data.py --parts ca --ca-from 20251111 --ca-to 20270511             # CA 과거 창
+  python collect_stock_data.py --parts ca --ca-from 20251111 --ca-to 20270511             # CA 과거 창(60일 이상은 36일 창으로 나눠 조회)
 
 Env: DART_API_KEY · INGEST_TOKEN(또는 REPORT_INGEST_TOKEN) · FLOW_API_BASE(선택) · INGEST_ROWS_URL(선택)
 """
@@ -319,10 +319,37 @@ def collect_dart(bgn, end, on_chunk=None, chunk_days=30):
     return rows, calls
 
 
+CA_SPAN_MAX = 60        # 허브 시장 전체 /ca 는 120초 시간 상한 — 기본 창(−14 ~ +45일 = 59일)까지는 한 번에 받는다
+CA_WINDOW_DAYS = 36     # 그보다 넓으면(백필) 이 길이의 창으로 나눠 조회한다
+CA_STEP_DAYS = 28       # 창 간격 — 허브의 의무예치 조회는 '창 시작 +7 ~ +35일' 해제분만 훑으므로 28일 간격으로 겹쳐야 해제일이 이어진다
+CA_LEAD_DAYS = 7        # 같은 이유로 첫 창은 from 보다 7일 앞에서 시작한다
+
+
+def ca_windows(ca_from=None, ca_to=None):
+    """[from, to](YYYYMMDD) → 허브에 보낼 창 [(from, to)]. 한쪽이 없거나 CA_SPAN_MAX 일보다 좁으면 그대로 한 번.
+    넓은 구간을 한 번에 물으면 허브가 시간 상한(120초)·종류별 호출 상한(30)에서 잘라 뒷부분이 조용히 빠진다."""
+    if not (ca_from and ca_to):
+        return [(ca_from, ca_to)]
+    a = datetime.datetime.strptime(ca_from, "%Y%m%d").date()
+    b = datetime.datetime.strptime(ca_to, "%Y%m%d").date()
+    if (b - a).days < CA_SPAN_MAX:
+        return [(ca_from, ca_to)]
+    out, d = [], a - datetime.timedelta(days=CA_LEAD_DAYS)
+    while True:
+        e = min(b, d + datetime.timedelta(days=CA_WINDOW_DAYS - 1))
+        out.append((d.strftime("%Y%m%d"), e.strftime("%Y%m%d")))
+        if e >= b:
+            return out
+        d += datetime.timedelta(days=CA_STEP_DAYS)
+
+
 def collect_ca(today, ca_from=None, ca_to=None):
+    """허브 /ca 한 번 → (행, 이벤트 수, 오류 종류, 잘림 기록 {종류: [구간…]}).
+    잘림 = 허브가 시간·호출 상한이나 KIS 하루 100행 상한에 걸려 다 못 받은 구간(diag.truncated)."""
     import fetch_ca_calendar as cal                  # flatten·상장 필터·종목명 규칙을 캘린더와 똑같이
     url = f"{FLOW_API_BASE}/ca?raw=0" + (f"&from={ca_from}" if ca_from else "") + (f"&to={ca_to}" if ca_to else "")
-    resp = _get_json(url, timeout=90, headers={"User-Agent": "backtest-stock-stock-data"})
+    # 허브 시간 상한이 120초라 그보다 길게 기다린다(종전 90초는 창이 무거우면 응답 전에 끊겼다). 재시도는 허브 6시간 캐시가 받는다.
+    resp = _get_json(url, timeout=170, retries=1, headers={"User-Agent": "backtest-stock-stock-data"})
     if resp.get("status") not in (None, "success"):
         raise RuntimeError(f"허브 /ca status={resp.get('status')}")
     try:
@@ -330,7 +357,8 @@ def collect_ca(today, ca_from=None, ca_to=None):
     except Exception:                                # noqa: BLE001
         names, listed = {}, None
     flat = cal.flatten(resp.get("events") or [], names=names, listed=listed)
-    return ca_rows(flat, today), len(resp.get("events") or []), sorted((resp.get("errors") or {}).keys())
+    trunc = {k: v["truncated"] for k, v in (resp.get("diag") or {}).items() if isinstance(v, dict) and v.get("truncated")}
+    return ca_rows(flat, today), len(resp.get("events") or []), sorted((resp.get("errors") or {}).keys()), trunc
 
 
 # ── 전송 ─────────────────────────────────────────────────────────────────────────────────────
@@ -442,16 +470,38 @@ def main(argv=None):
             runs.append({"date": iso, "part": "dart", "ok": 0, "failed": 1, "rows": 0, "note": str(e)[:200]})
 
     if "ca" in parts:
-        try:
-            rows, n_ev, errs = collect_ca(iso, a.ca_from, a.ca_to)
-            acc, rej = post_rows("ca", rows, a.dry_run)
-            log(f"CA 이벤트 {n_ev}건 → {len(rows)}행 → accepted {acc} · rejected {rej}" + (f" · 허브 오류 타입 {errs}" if errs else ""))
-            runs.append({"date": iso, "part": "ca", "ok": 1, "failed": len(errs), "rows": len(rows),
-                         "note": f"events {n_ev}" + (f" errors {','.join(errs)}" if errs else "")})
-        except Exception as e:                       # noqa: BLE001
-            log(f"CA 실패: {e}")
-            failed_parts.append("ca")
-            runs.append({"date": iso, "part": "ca", "ok": 0, "failed": 1, "rows": 0, "note": str(e)[:200]})
+        wins = ca_windows(a.ca_from, a.ca_to)        # 넓은 구간(백필)은 창으로 나눠 창마다 바로 적재
+        tot = {"rows": 0, "ev": 0, "acc": 0, "rej": 0, "trunc": 0}
+        errs_all, bad, last_err = set(), [], ""
+        for i, (f, t) in enumerate(wins):
+            try:
+                rows, n_ev, errs, trunc = collect_ca(iso, f, t)
+                acc, rej = post_rows("ca", rows, a.dry_run)
+                tot["rows"] += len(rows); tot["ev"] += n_ev; tot["acc"] += acc; tot["rej"] += rej
+                tot["trunc"] += sum(len(v) for v in trunc.values())
+                errs_all.update(errs)
+                log(f"CA {f or '기본'}~{t or '기본'} 이벤트 {n_ev}건 → {len(rows)}행 → accepted {acc} · rejected {rej}"
+                    + (f" · 허브 오류 타입 {errs}" if errs else "")
+                    + (f" · 잘림 {json.dumps(trunc, ensure_ascii=False)[:400]}" if trunc else ""))
+            except Exception as e:                   # noqa: BLE001
+                last_err = str(e)[:160]
+                bad.append(f"{f}~{t}")
+                log(f"CA 실패 {f or '기본'}~{t or '기본'}: {e}")
+            if i + 1 < len(wins):
+                time.sleep(2)
+        if len(wins) > 1:
+            log(f"CA 합계 {len(wins)}창(실패 {len(bad)}) 이벤트 {tot['ev']}건 → {tot['rows']}행 → accepted {tot['acc']} · rejected {tot['rej']}"
+                f" · 잘린 구간 {tot['trunc']}")
+        note = (f"events {tot['ev']}" + (f" {a.ca_from}~{a.ca_to} {len(wins)}창" if len(wins) > 1 else "")
+                + (f" errors {','.join(sorted(errs_all))}" if errs_all else "") + (f" truncated {tot['trunc']}" if tot["trunc"] else "")
+                + (f" 실패창 {','.join(bad)[:80]} {last_err}" if bad else ""))
+        if len(wins) == 1:                           # 매일 실행 — 종전 기록 형식 그대로(ok 1/0, failed = 오류 종류 수)
+            runs.append({"date": iso, "part": "ca", "ok": 0 if bad else 1, "failed": 1 if bad else len(errs_all),
+                         "rows": tot["rows"], "note": (last_err if bad else note)[:200]})
+        else:                                        # 백필 — ok/failed = 창 수
+            runs.append({"date": iso, "part": "ca", "ok": len(wins) - len(bad), "failed": len(bad), "rows": tot["rows"], "note": note[:200]})
+        if bad:
+            failed_parts.append("ca" if len(wins) == 1 else f"ca {len(bad)}/{len(wins)}창")
 
     if runs and not a.dry_run:
         try:
