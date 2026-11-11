@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>연결 표현 비교 — 궤도·막대 × 또렷하게·옅게</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-dark: #070a13; --panel-bg: rgba(15, 23, 42, 0.55); --border-color: rgba(255, 255, 255, 0.08);
+    --kospi-blue: #00f0ff; --up-red: #ef4444; --down-blue: #3b82f6; --text-main: #f8fafc; --text-muted: #94a3b8;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg-dark); color: var(--text-main); font-family: 'Noto Sans KR', sans-serif; }
+  .wrap { max-width: 1680px; margin: 0 auto; padding: 22px 16px 28px; }
+  h1 { font-size: 18px; margin: 0 0 4px; }
+  .lead { font-size: 12.5px; color: var(--text-muted); margin: 0 0 16px; line-height: 1.55; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 14px; }
+  .card { border: 1px solid var(--border-color); border-radius: 18px; background: rgba(11, 18, 34, 0.97); overflow: hidden; display: flex; flex-direction: column; }
+  .head { display: flex; align-items: baseline; gap: 10px; padding: 14px 16px 10px; }
+  .tag { font-family: 'Outfit', sans-serif; font-weight: 700; font-size: 13px; padding: 2px 9px; border-radius: 8px; background: rgba(0, 240, 255, .14); color: var(--kospi-blue); }
+  .name { font-size: 15px; font-weight: 700; }
+  .open { margin-left: auto; font-size: 12px; color: var(--kospi-blue); text-decoration: none; white-space: nowrap; }
+  .open:hover { text-decoration: underline; }
+  .desc { padding: 0 16px 12px; font-size: 12px; color: var(--text-muted); line-height: 1.55; min-height: 68px; }
+  .stage { position: relative; aspect-ratio: 4 / 3; border-top: 1px solid var(--border-color);
+    background: radial-gradient(90% 80% at 50% 45%, rgba(0, 200, 216, .07), transparent 60%), rgba(7, 10, 19, .75); }
+  .stage iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; background: transparent; }
+  .foot { margin-top: 14px; font-size: 11.5px; color: var(--text-muted); line-height: 1.6; }
+  @media (max-width: 760px) { .desc { min-height: 0; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>연결 표현 비교</h1>
+  <p class="lead">같은 데이터(한화엔진 11/10 +9.7% 분해)·같은 구조(종목 → 항목 구 ⊃ 요인 공)이고, 종목과 항목을 잇는 방식만 다릅니다. 네 화면 모두 끌어서 돌리고 항목을 눌러 볼 수 있습니다.</p>
+  <div class="grid">
+    <section class="card">
+      <div class="head"><span class="tag">A</span><span class="name">궤도 실선</span><a class="open" href="factor_graph_v5.html?style=orbit">팝업으로 크게 보기 →</a></div>
+      <div class="desc">항목마다 다른 궤도를 또렷한 고리로 그립니다. 종목과 항목을 잇는 선은 없습니다. 고리 색 = 항목의 순 영향 방향.</div>
+      <div class="stage"><iframe src="factor_graph_v5.html?style=orbit&embed=1" title="A 궤도 실선"></iframe></div>
+    </section>
+    <section class="card">
+      <div class="head"><span class="tag">B</span><span class="name">막대 실선</span><a class="open" href="factor_graph_v5.html?style=bar">팝업으로 크게 보기 →</a></div>
+      <div class="desc">종목에서 각 항목으로 가는 또렷한 막대를 그립니다. 궤도 고리는 없습니다(항목은 A와 같은 궤도로 움직임). 막대 굵기는 모두 같고, 색 = 항목의 순 영향 방향.</div>
+      <div class="stage"><iframe src="factor_graph_v5.html?style=bar&embed=1" title="B 막대 실선"></iframe></div>
+    </section>
+    <section class="card">
+      <div class="head"><span class="tag">C</span><span class="name">이전 궤도 버전</span><a class="open" href="factor_graph_v5.html">팝업으로 크게 보기 →</a></div>
+      <div class="desc">직전 시안 그대로입니다. 궤도 고리와 종목–항목 연결선을 둘 다 옅게 그립니다(고리는 항목 색, 연결선은 가는 흰 선).</div>
+      <div class="stage"><iframe src="factor_graph_v5.html?embed=1" title="C 이전 궤도 버전"></iframe></div>
+    </section>
+    <section class="card">
+      <div class="head"><span class="tag">D</span><span class="name">막대 옅게</span><a class="open" href="factor_graph_v5.html?style=barsoft">팝업으로 크게 보기 →</a></div>
+      <div class="desc">B와 같은 막대를 C만큼 옅게 그립니다. 궤도 고리는 없습니다. 막대 굵기는 모두 같고, 색 = 항목의 순 영향 방향.</div>
+      <div class="stage"><iframe src="factor_graph_v5.html?style=barsoft&embed=1" title="D 막대 옅게"></iframe></div>
+    </section>
+  </div>
+  <p class="foot">%p 수치는 시안용 임의값입니다(합계만 실제 등락률 +9.7%에 맞춤). 네 화면은 따로 움직이므로 공전 위치가 조금 어긋날 수 있습니다.</p>
+</div>
+</body>
+</html>

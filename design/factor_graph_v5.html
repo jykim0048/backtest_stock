@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>주가 영향 분해 3D 시안 v5 — 종목 상세 팝업</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  /* 대시보드(public/index.html)와 같은 토큰 */
+  :root {
+    --bg-dark: #070a13; --panel-bg: rgba(15, 23, 42, 0.55); --border-color: rgba(255, 255, 255, 0.08);
+    --font-outfit: 'Outfit', sans-serif; --font-kr: 'Noto Sans KR', sans-serif;
+    --kospi-blue: #00f0ff; --up-red: #ef4444; --up-red-dim: rgba(239, 68, 68, 0.12);
+    --down-blue: #3b82f6; --down-blue-dim: rgba(59, 130, 246, 0.12);
+    --neutral: #94a3b8; --text-main: #f8fafc; --text-muted: #94a3b8;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body { background: var(--bg-dark); color: var(--text-main); font-family: var(--font-kr); overflow: hidden; }
+  button { font-family: inherit; }
+
+  /* 뒤에 깔린 대시보드(흐림) — 시안용 자리 표시 */
+  .backdrop { position: fixed; inset: 0; padding: 28px; opacity: .5; filter: blur(2px); pointer-events: none; }
+  .backdrop .row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 14px; }
+  .backdrop .card { height: 120px; border-radius: 14px; background: var(--panel-bg); border: 1px solid var(--border-color); }
+  .backdrop .card.tall { height: 300px; }
+  .overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, .6); backdrop-filter: blur(3px); }
+  .mock-note { position: fixed; left: 12px; bottom: 8px; z-index: 5; font-size: 11px; color: var(--text-muted); }
+
+  /* 종목 상세 팝업 — 대시보드 .detail-drawer 와 같은 모양 */
+  .detail-drawer {
+    position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    width: min(900px, calc(100vw - 32px)); max-height: 92vh; overflow-y: auto;
+    background: rgba(11, 18, 34, 0.97); border: 1px solid var(--border-color); border-radius: 20px;
+    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.6); padding: 0 30px 26px; display: flex; flex-direction: column; gap: 14px;
+  }
+  .detail-drawer > * { flex-shrink: 0; }          /* 세로 flex 안에서 줄이 눌리지 않게 */
+  .drawer-header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid var(--border-color);
+    padding: 22px 30px 16px; margin: 0 -30px; position: sticky; top: 0; z-index: 6; background: rgba(11, 18, 34, 0.97); border-radius: 20px 20px 0 0; }
+  .drawer-stock-name { font-size: 24px; font-weight: 700; }
+  .drawer-stock-meta { display: flex; gap: 8px; align-items: center; margin-top: 6px; font-size: 12px; color: var(--text-muted); font-family: var(--font-outfit); }
+  .market-badge { padding: 2px 8px; border-radius: 6px; background: rgba(0, 240, 255, .15); color: var(--kospi-blue); font-weight: 600; font-size: 11px; }
+  .chg { color: var(--up-red); font-weight: 600; }
+  .drawer-close-btn { background: none; border: 1px solid var(--border-color); color: var(--text-muted); width: 34px; height: 34px; border-radius: 10px; cursor: pointer; font-size: 14px; }
+  .drawer-toptabs { display: flex; gap: 8px; }
+  .drawer-toptab, .analysis-tab { background: rgba(255, 255, 255, .04); border: 1px solid var(--border-color); color: var(--text-muted);
+    padding: 8px 14px; border-radius: 10px; font-size: 13px; cursor: pointer; white-space: nowrap; }
+  .drawer-toptab.active { background: rgba(0, 240, 255, .12); color: var(--kospi-blue); border-color: rgba(0, 240, 255, .35); font-weight: 600; }
+  .drawer-section-title { margin: 0; font-size: 13px; color: var(--text-muted); font-weight: 500; letter-spacing: .02em; }
+  .analysis-tabs { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; }
+  .analysis-tab { padding: 6px 11px; font-size: 12px; }
+  .analysis-tab.active { background: rgba(255, 255, 255, .1); color: var(--text-main); border-color: rgba(255, 255, 255, .22); font-weight: 600; }
+  .analysis-tab .cnt { margin-left: 5px; font-family: var(--font-outfit); font-size: 10.5px; }
+  .analysis-tab .cnt .u { color: var(--up-red); } .analysis-tab .cnt .d { color: var(--down-blue); }
+  .analysis-content { border: 1px solid var(--border-color); border-radius: 14px; background: var(--panel-bg); padding: 14px 16px; font-size: 13px; line-height: 1.6; color: #cbd5e1; }
+  .analysis-content .ph { margin-top: 8px; font-size: 11.5px; color: var(--text-muted); }
+
+  /* ── 요인 분해(팝업 맨 위) ─────────────────────────────── */
+  .fg-wrap { display: flex; flex-direction: column; gap: 10px; }
+  .fg-top { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; }
+  .fg-title { font-size: 13px; font-weight: 700; white-space: nowrap; }
+  .fg-net { flex: 1 1 280px; min-width: 220px; }
+  .fg-net-line { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-muted); margin-bottom: 4px; }
+  .fg-net-line b { font-family: var(--font-outfit); font-size: 13px; }
+  .fg-net-line .up { color: var(--up-red); } .fg-net-line .down { color: var(--down-blue); }
+  .fg-bar { display: flex; height: 7px; border-radius: 6px; overflow: hidden; background: rgba(255, 255, 255, .06); }
+  .fg-bar i { display: block; height: 100%; }
+  .fg-bar .u { background: var(--up-red); } .fg-bar .d { background: var(--down-blue); }
+  .fg-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .chip { background: rgba(255, 255, 255, .04); border: 1px solid var(--border-color); color: var(--text-muted); padding: 5px 10px; border-radius: 999px; font-size: 12px; cursor: pointer; }
+  .chip.on { color: var(--text-main); border-color: rgba(255, 255, 255, .3); background: rgba(255, 255, 255, .09); }
+  .chip .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 5px; vertical-align: 1px; }
+
+  .fg-body { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 12px; }
+  .fg-wrap.folded .fg-body { display: none; }
+  .fg-stage { position: relative; height: 400px; border-radius: 16px; border: 1px solid var(--border-color); overflow: hidden;
+    background: radial-gradient(120% 90% at 50% 0%, rgba(239, 68, 68, .10), transparent 55%),
+                radial-gradient(120% 90% at 50% 100%, rgba(59, 130, 246, .12), transparent 55%), rgba(7, 10, 19, .7);
+    cursor: grab; touch-action: none; user-select: none; }
+  .fg-stage.drag { cursor: grabbing; }
+  .fg-stage canvas { display: block; width: 100%; height: 100%; }
+  .fg-labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+  .lbl { position: absolute; left: 0; top: 0; transform: translate(-50%, -50%); white-space: nowrap; font-size: 11.5px; line-height: 1.25;
+    padding: 2px 7px; border-radius: 7px; background: rgba(7, 10, 19, .72); border: 1px solid rgba(255, 255, 255, .08); color: var(--text-main);
+    will-change: transform, opacity; transition: opacity .2s; opacity: 0; }
+  .lbl.cat { font-weight: 700; font-size: 12px; background: rgba(15, 23, 42, .9); border-color: rgba(255, 255, 255, .18); }
+  .lbl.root { font-weight: 700; font-size: 14px; background: rgba(7, 10, 19, .92); border-color: rgba(0, 240, 255, .55); color: var(--kospi-blue); }
+  .lbl.sub { font-size: 10.5px; padding: 1px 6px; background: rgba(15, 23, 42, .95); color: #e2e8f0; }
+  .lbl.sub.up { border-color: rgba(239, 68, 68, .55); } .lbl.sub.down { border-color: rgba(59, 130, 246, .6); } .lbl.sub.neu { border-color: rgba(148, 163, 184, .5); }
+  .lbl.up b { color: var(--up-red); } .lbl.down b { color: var(--down-blue); } .lbl.neu b { color: var(--neutral); }
+  .lbl.sel { border-color: #fff; background: rgba(30, 41, 59, .95); }
+  .fg-axis { position: absolute; left: 12px; font-size: 11px; font-weight: 600; letter-spacing: .04em; pointer-events: none; }
+  .fg-axis.up { top: 10px; color: var(--up-red); } .fg-axis.down { bottom: 10px; color: var(--down-blue); }
+  .fg-tools { position: absolute; right: 10px; top: 10px; display: flex; gap: 6px; }
+  .tool { background: rgba(7, 10, 19, .7); border: 1px solid var(--border-color); color: var(--text-muted); border-radius: 8px; font-size: 11px; padding: 5px 8px; cursor: pointer; }
+  .tool:hover { color: var(--text-main); }
+  .fg-hint { position: absolute; right: 12px; bottom: 10px; font-size: 10.5px; color: var(--text-muted); pointer-events: none; }
+
+  .fg-side { border: 1px solid var(--border-color); border-radius: 16px; background: var(--panel-bg); padding: 14px; font-size: 12.5px; min-height: 0; overflow-y: auto; max-height: 400px; }
+  .fg-side h5 { margin: 0 0 8px; font-size: 13px; }
+  .fg-side h6 { margin: 12px 0 4px; font-size: 11.5px; color: var(--text-muted); font-weight: 500; }
+  .fg-side .dir { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 6px; margin-bottom: 8px; }
+  .dir.up { background: var(--up-red-dim); color: var(--up-red); } .dir.down { background: var(--down-blue-dim); color: var(--down-blue); }
+  .dir.neu { background: rgba(148, 163, 184, .14); color: var(--neutral); }
+  .fg-side p { margin: 0 0 9px; line-height: 1.55; color: #cbd5e1; }
+  .fg-side .meta { color: var(--text-muted); font-size: 11.5px; }
+  .wbar { display: flex; gap: 3px; margin: 2px 0 10px; } .wbar i { width: 18px; height: 5px; border-radius: 3px; background: rgba(255, 255, 255, .1); }
+  .fg-side ul { list-style: none; margin: 0; padding: 0; }
+  .fg-side li { display: flex; gap: 6px; padding: 6px 4px; border-top: 1px solid var(--border-color); line-height: 1.4; }
+  .fg-side li.pick { cursor: pointer; } .fg-side li.pick:hover { background: rgba(255, 255, 255, .04); }
+  .fg-side li .m { flex: 0 0 auto; width: 14px; font-weight: 700; }
+  .fg-side li .w { margin-left: auto; font-family: var(--font-outfit); color: var(--text-muted); font-size: 11px; }
+  .fg-side li.subrow { padding: 5px 4px; color: #cbd5e1; } .fg-side li.subrow .m { color: var(--text-muted); font-weight: 400; }
+  .fg-foot { font-size: 11px; color: var(--text-muted); line-height: 1.5; }
+  .fg-fallback { display: none; padding: 30px; text-align: center; color: var(--text-muted); font-size: 13px; }
+
+  @media (max-width: 720px) {
+    .detail-drawer { width: calc(100vw - 16px); padding: 0 14px 18px; border-radius: 14px; }
+    .drawer-header { margin: 0 -14px; padding: 16px 14px 12px; border-radius: 14px 14px 0 0; }
+    .fg-body { grid-template-columns: 1fr; }
+    .fg-stage { height: 330px; }
+    .fg-side { max-height: 220px; }
+    .lbl { font-size: 10.5px; }
+    .backdrop .row { grid-template-columns: repeat(2, 1fr); }
+    .mock-note, .fg-hint { display: none; }
+    .fg-axis { font-size: 10px; max-width: 46%; }
+    .fg-axis.up { top: 44px; }
+  }
+  @media (prefers-reduced-motion: reduce) { .lbl { transition: none; } }
+  /* ── v3: 주가 영향 분해 ── */
+  .fg-title small { font-weight: 400; color: var(--text-muted); margin-left: 6px; font-size: 11.5px; }
+  .dc { display: flex; flex-direction: column; gap: 5px; }
+  .dc-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  .dc-total { font-family: var(--font-outfit); font-size: 22px; font-weight: 700; color: var(--up-red); }
+  .dc-eq { font-size: 12px; color: var(--text-muted); }
+  .dc-bar { display: flex; height: 22px; border-radius: 8px; overflow: hidden; background: rgba(255, 255, 255, .05); gap: 2px; }
+  .dc-seg { height: 100%; min-width: 6px; display: flex; align-items: center; justify-content: center; font-family: var(--font-outfit); font-size: 11px; font-weight: 600;
+    color: #fff; cursor: pointer; white-space: nowrap; overflow: hidden; border: 0; padding: 0; transition: filter .15s, opacity .2s; }
+  .dc-seg:hover { filter: brightness(1.25); } .dc-seg.off { opacity: .25; }
+  .dc-seg.up { background: linear-gradient(180deg, #f87171, #dc2626); } .dc-seg.down { background: linear-gradient(180deg, #60a5fa, #2563eb); }
+  .dc-legend { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 11.5px; color: var(--text-muted); }
+  .dc-legend span b { font-family: var(--font-outfit); margin-left: 3px; } .dc-legend .up b { color: var(--up-red); } .dc-legend .down b { color: var(--down-blue); }
+  .fg-stage { height: 440px; background: radial-gradient(90% 80% at 50% 45%, rgba(0, 200, 216, .07), transparent 60%), rgba(7, 10, 19, .75); }
+  .fg-side { max-height: 440px; }
+  .lbl { text-align: center; }
+  .lbl .pc { font-family: var(--font-outfit); font-weight: 700; }
+  .lbl .pc.up { color: #fca5a5; } .lbl .pc.down { color: #93c5fd; } .lbl .pc.neu { color: var(--neutral); }
+  .lbl.root { font-size: 13px; padding: 3px 10px; } .lbl.root .pc { display: block; font-size: 17px; color: #fca5a5; line-height: 1.1; }
+  .lbl.cat { padding: 3px 9px; } .lbl.cat .pc { display: block; font-size: 14px; line-height: 1.15; }
+  .lbl.leaf { font-size: 10.5px; white-space: normal; max-width: 96px; line-height: 1.22; padding: 2px 5px; background: rgba(7, 10, 19, .62); border-color: rgba(255, 255, 255, .14); }
+  .lbl.leaf .pc { display: block; font-size: 13px; color: #fff; }
+  .lbl.leaf.compact { max-width: none; white-space: nowrap; }
+  .lbl.leaf.compact .tt { display: none; }
+  .lbl.leaf.compact { background: none; border-color: transparent; padding: 0; font-size: 11.5px; text-shadow: 0 1px 3px rgba(0, 0, 0, .95), 0 0 2px rgba(0, 0, 0, .9); }
+  .lbl.leaf.compact .pc { color: #fff; }
+  .row { display: flex; align-items: center; gap: 8px; padding: 7px 4px; border-top: 1px solid var(--border-color); cursor: pointer; font-size: 12.5px; }
+  .row:hover { background: rgba(255, 255, 255, .04); }
+  .row .nm { flex: 1 1 auto; min-width: 0; line-height: 1.35; }
+  .row .mb { flex: 0 0 54px; height: 6px; border-radius: 4px; background: rgba(255, 255, 255, .07); overflow: hidden; }
+  .row .mb i { display: block; height: 100%; border-radius: 4px; }
+  .row .pv { flex: 0 0 auto; width: 52px; text-align: right; font-family: var(--font-outfit); font-weight: 600; }
+  .pv.up { color: var(--up-red); } .pv.down { color: var(--down-blue); } .pv.neu { color: var(--neutral); }
+  .big { font-family: var(--font-outfit); font-size: 26px; font-weight: 700; line-height: 1.1; }
+  .big.up { color: var(--up-red); } .big.down { color: var(--down-blue); } .big.neu { color: var(--neutral); }
+  .share { font-size: 11.5px; color: var(--text-muted); margin: 2px 0 10px; }
+  .analysis-tab .pc { margin-left: 5px; font-family: var(--font-outfit); font-size: 11px; font-weight: 600; }
+  .analysis-tab .pc.up { color: var(--up-red); } .analysis-tab .pc.down { color: var(--down-blue); }
+  @media (max-width: 720px) { .fg-stage { height: 340px; } .fg-side { max-height: 240px; } .dc-total { font-size: 19px; } }
+  /* embed=1 — 3D 화면만 꽉 채움 */
+  body.embed { background: transparent; }
+  body.embed .backdrop, body.embed .overlay, body.embed .mock-note, body.embed .drawer-header, body.embed .fg-top, body.embed .dc, body.embed .fg-side,
+  body.embed .drawer-toptabs, body.embed .drawer-section-title, body.embed .analysis-tabs, body.embed .analysis-content, body.embed .fg-foot, body.embed .fg-hint { display: none; }
+  body.embed .detail-drawer { position: static; transform: none; width: 100%; max-height: none; height: 100vh; padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; overflow: hidden; }
+  body.embed .fg-wrap, body.embed .fg-body { height: 100%; } body.embed .fg-body { grid-template-columns: 1fr; }
+  body.embed .fg-stage { height: 100vh; border: 0; border-radius: 0; }
+</style>
+</head>
+<body>
+<div class="backdrop" aria-hidden="true">
+  <div class="row" style="display:grid"><div class="card"></div><div class="card"></div><div class="card"></div><div class="card"></div></div>
+</div>
+<div class="overlay"></div>
+<div class="mock-note">시안 v5 · 주가 영향 분해(3D, 항목별 궤도) — 한화엔진 2026-11-10 +9.7% · %p 수치는 시안용 예시</div>
+
+<div class="detail-drawer" role="dialog" aria-label="종목 상세">
+  <div class="drawer-header">
+    <div>
+      <span class="drawer-stock-name">한화엔진</span>
+      <div class="drawer-stock-meta"><span>082740</span><span class="market-badge">KOSPI</span><span>27,150원</span><span class="chg">11/10 +9.7%</span></div>
+    </div>
+    <button class="drawer-close-btn" aria-label="닫기">✕</button>
+  </div>
+
+  <section class="fg-wrap" id="fg-wrap">
+    <div class="fg-top">
+      <span class="fg-title">🧭 주가 영향 분해<small>딥리서치 항목별 · 요인별</small></span>
+      <div class="fg-chips" id="chips" style="margin-left:auto">
+        <button class="chip on" data-f="all">전체</button>
+        <button class="chip" data-f="up"><span class="dot" style="background:var(--up-red)"></span>상승</button>
+        <button class="chip" data-f="down"><span class="dot" style="background:var(--down-blue)"></span>하락</button>
+        <button class="chip" id="btn-fold">접기 ▴</button>
+      </div>
+    </div>
+    <div class="dc">
+      <div class="dc-head"><span class="dc-total" id="dc-total"></span><span class="dc-eq" id="dc-eq"></span></div>
+      <div class="dc-bar" id="dc-bar"></div>
+      <div class="dc-legend" id="dc-legend"></div>
+    </div>
+    <div class="fg-body">
+      <div class="fg-stage" id="stage">
+        <canvas id="cv"></canvas>
+        <div class="fg-labels" id="labels"></div>
+        <div class="fg-tools">
+          <button class="tool" id="btn-rot">⏸ 공전 멈춤</button>
+          <button class="tool" id="btn-reset">⟲ 처음 시점</button>
+        </div>
+        <div class="fg-hint">큰 구 = 항목(저마다의 궤도), 그 안의 공 = 요인(클수록 영향 큼) · 항목을 누르면 안으로 들어갑니다</div>
+        <div class="fg-fallback" id="fallback">이 브라우저에서는 3D를 표시할 수 없습니다. 오른쪽 목록으로 확인하세요.</div>
+      </div>
+      <aside class="fg-side" id="side"></aside>
+    </div>
+  </section>
+
+  <div class="drawer-toptabs">
+    <button class="drawer-toptab">📊 Account</button>
+    <button class="drawer-toptab active">🔬 Deep Research</button>
+  </div>
+  <h4 class="drawer-section-title">심층 리서치 (Deep Research)</h4>
+  <div class="analysis-tabs" id="atabs"></div>
+  <div class="analysis-content" id="acontent"></div>
+  <div class="fg-foot">
+    종목 → 딥리서치 6개 항목(투명한 구) ⊃ 요인(구 안의 공). 요인 공의 크기 = 주가에 미친 영향(%p), 항목 구는 안에 든 요인을 다 담는 크기라 요인이 크고 많을수록 커집니다. 색 = 방향(빨강 상승 · 파랑 하락).
+    요인 문구는 실제 딥리서치 결과에서 가져왔고, <b>%p 수치는 시안용으로 임의 배분</b>했습니다(합계만 실제 등락률 +9.7%에 맞춤).
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function () {
+  "use strict";
+  // 주소 옵션 — style: orbit(궤도 실선만) | bar(막대 실선만) | barsoft(막대만, 옅게) | 없음(궤도·연결선 둘 다 옅게) · embed=1: 3D 화면만(비교 페이지에 넣을 때)
+  var QS = new URLSearchParams(location.search), STYLE = QS.get("style") || "both";
+  if (QS.get("embed") === "1") document.body.classList.add("embed");
+  // ── 데이터: 기준 등락률과 요인별 주가 영향(%p). 문구는 한화엔진 장중 리포트, v(%p)는 시안용 임의 배분(합 = TOTAL) ──────────
+  var STOCK = { name: "한화엔진", period: "11/10(전일)", total: 9.7 };
+  var CATS = [
+    { id: "research", name: "증권사 리포트", icon: "🧾", sum: "증권가에서는 3분기 실적 부진을 일시적인 현상으로 평가하며, 엔진 본업의 성장과 AIDC(AI 데이터센터) 관련 수혜를 근거로 매수 의견을 유지하고 있습니다." },
+    { id: "flow", name: "수급", icon: "📊", sum: "외국인과 기관이 최근 순매수로 전환하며 수급 개선 흐름을 보이고 있습니다. 대차잔고가 11월 10일 기준 6만 주 이상 감소하며 숏커버링 가능성을 시사합니다." },
+    { id: "dart", name: "DART · CA", icon: "📑", sum: "3분기 실적 발표와 함께 주가 안정을 위한 자기주식 취득 결정을 공시했습니다. 12월 17일 임시주주총회에서 자기주식 보유 및 처분 계획을 승인할 예정입니다." },
+    { id: "news", name: "뉴스 분석", icon: "📰", sum: "3분기 실적은 조업일수 감소 등으로 컨센서스를 하회했으나, 본업인 엔진 사업의 성장성은 유효하다는 평가입니다." },
+    { id: "community", name: "토론방", icon: "💬", sum: "개인 투자자들은 실적 발표 이후 주가 변동성에 대해 우려하면서도, 데이터센터 엔진 계약 등 향후 수주 모멘텀에 대한 기대감을 동시에 표출하고 있습니다." },
+    { id: "peers", name: "해외 Peer", icon: "🌐", sum: "글로벌 엔진 및 기계 섹터인 CMI와 CAT에 대해 StockTwits 투자자들은 긍정적인 전망을 유지하고 있으나, 미국 엔진주는 동반 하락했습니다." }
+  ];
+  var F = [
+    { c: "research", v: 1.9, t: "데이터센터 발전용 엔진 수요 기대", e: "조선·발전용 엔진의 구조적 성장과 AI 데이터센터(AIDC)향 수요 확대 기대가 주가를 지지.", s: "증권사 리포트 요약", sub: ["AI 데이터센터(AIDC)향 수요 확대", "조선·발전용 엔진의 구조적 성장", "SK증권: 내년부터 2·4행정 모두 급성장"] },
+    { c: "research", v: 1.2, t: "증권사 3곳 모두 매수 유지", e: "최근 리포트 3건 전부 매수 의견. 실적 부진은 일시적이라는 평가.", s: "증권사 리포트", sub: ["iM증권 Buy · 목표가 69,000원 (11/9)", "SK증권 매수 · 목표가 75,000원 (10/15)", "목표가 평균 76,333원"] },
+    { c: "research", v: 0.8, t: "엔진 출하량 증가", e: "환율 영향은 제한적이고 엔진 출하량이 늘고 있다는 평가.", s: "iM증권 11/9", sub: ["엔진 출하량 증가 추세", "환율 영향은 제한적"] },
+    { c: "flow", v: 2.4, t: "외국인 3일 연속 순매수", e: "실적 급락 직후부터 외국인이 사흘 연속 순매수.", s: "수급(KIS) 일별", sub: ["11/6 +1.8만 주", "11/9 +16.6만 주", "11/10 +8.8만 주", "보유 비중 16.05% → 16.60%"] },
+    { c: "flow", v: 1.6, t: "대차잔고 감소 — 숏커버", e: "대차잔고가 6만 주 이상 줄어 숏커버링 매수가 유입된 것으로 추정.", s: "수급 코멘트", sub: ["11/10 기준 6만 주 넘게 감소", "숏커버링 가능성"] },
+    { c: "flow", v: 1.2, t: "기관 순매수 전환", e: "기관이 순매도에서 순매수로 돌아섬.", s: "수급(KIS) 일별", sub: ["11/10 +4.9만 주", "11/9 −4.6만 주에서 전환"] },
+    { c: "flow", v: -0.8, t: "실적 직후 기관 매물 잔여", e: "실적 직후 이틀간 기관이 49.6만 주를 순매도 — 잔여 매물 부담.", s: "수급(KIS) 일별", sub: ["11/5 −10.9만 주", "11/6 −38.7만 주"] },
+    { c: "flow", v: -0.6, t: "공매도 비중 5.7% → 8.9%", e: "반등일에 공매도 거래 비중이 올라감.", s: "공매도 일별", sub: ["11/9 5.68%", "11/10 8.88%", "11/10 공매도 5.8만 주"] },
+    { c: "dart", v: 2.6, t: "자기주식 취득 결정", e: "주가 안정과 주주가치 제고를 위한 자사주 매입 결정.", s: "DART 11/6", sub: ["11/6 주요사항보고서", "목적: 주가 안정·주주가치 제고", "뉴스 분석: 단기 호재 평가"] },
+    { c: "dart", v: -1.5, t: "3Q 영업이익 컨센서스 하회", e: "3분기 영업이익이 시장 기대치를 밑돎.", s: "DART 3Q26 실적", sub: ["3Q26 영업이익 409억 원", "조업일수 감소", "일시적 비용 증가"] },
+    { c: "dart", v: 0.7, t: "3Q 매출 4,136억 — 성장 유지", e: "매출은 전년 동기 대비 성장세 유지.", s: "DART 3Q26 실적", sub: ["3Q26 매출액 4,136억 원", "전년 동기 대비 성장"] },
+    { c: "dart", v: 0.4, t: "12/17 임시주총 — 자사주 계획 승인", e: "자기주식 보유·처분 계획 승인 안건.", s: "예탁원 CA", sub: ["자기주식 보유·처분 계획 안건", "예탁원 일정 D+26", "방향 호재 · 크기 중간"] },
+    { c: "news", v: 0.6, t: "그룹 시너지·데이터센터 관심", e: "한화그룹 내 시너지와 데이터센터 엔진 수요 확대가 뉴스의 주요 관심사.", s: "뉴스 분석 요약", sub: ["한화그룹 내 시너지", "데이터센터 엔진 수요 확대"] },
+    { c: "news", v: 0, t: "3Q 실적 해석 — 본업 성장은 유효", e: "실적은 기대를 밑돌았으나 엔진 사업의 성장성은 유효하다는 중립적 평가.", s: "iM증권 11/9 · 뉴스", sub: ["조업일수 감소로 컨센서스 하회", "엔진 사업 성장성 유효"] },
+    { c: "news", v: 0, t: "지배구조 관련 기사", e: "기업 지배구조·투명성 이슈. 단기 주가 영향은 제한적.", s: "BusinessPlus 11/11", sub: ["이사회 심의 범위 관련 보도", "장기 신뢰도 이슈"] },
+    { c: "community", v: -0.7, t: "급락 뒤 변동성 우려", e: "실적 발표 뒤 이틀 급락으로 변동성에 대한 우려가 남아 있음.", s: "네이버 토론방", sub: ["11/5 −9.1%", "11/6 −13.2%", "이틀간 −21%"] },
+    { c: "community", v: 0.5, t: "수주 모멘텀 기대", e: "데이터센터 엔진 계약 등 향후 수주에 대한 기대.", s: "네이버 토론방", sub: ["데이터센터 엔진 계약 기대", "주가 반등을 바라는 심리"] },
+    { c: "community", v: 0, t: "토론방 심리 중립", e: "기대와 우려가 함께 나타남.", s: "네이버 토론방", sub: ["기대와 우려 공존", "기관·외국인 매매에 민감"] },
+    { c: "peers", v: -0.9, t: "미국 엔진주 동반 하락", e: "미국 엔진·기계 대표주가 함께 내림.", s: "해외 Peer 시세", sub: ["Cummins −2.63%", "Caterpillar −2.39%"] },
+    { c: "peers", v: 0.2, t: "일본·영국 엔진주 상승", e: "일본·영국 엔진 업체는 오름.", s: "해외 Peer 시세", sub: ["미쓰비시중공업 +2.87%", "롤스로이스 +0.77%"] },
+    { c: "peers", v: 0.1, t: "StockTwits 긍정 우세", e: "글로벌 엔진·기계 섹터에 대한 해외 개인 투자자 전망은 긍정적.", s: "StockTwits", sub: ["$CMI 긍정 전망", "$CAT 긍정 전망"] }
+  ];
+  function esc(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
+  function sgn(v) { return v > 0.0001 ? "up" : v < -0.0001 ? "down" : "neu"; }
+  function pp(v, unit) { var a = Math.abs(v) < 0.05 ? 0 : v; return (a > 0 ? "+" : a < 0 ? "−" : "±") + Math.abs(a).toFixed(1) + (unit === false ? "" : "%p"); }
+  function catOf(id) { return CATS.filter(function (c) { return c.id === id; })[0]; }
+  // 항목 합계: net(순 영향) · gross(절대값 합 — 공 크기)
+  CATS.forEach(function (c) { c.net = 0; c.gross = 0; F.forEach(function (f) { if (f.c === c.id) { c.net += f.v; c.gross += Math.abs(f.v); } }); c.net = Math.round(c.net * 10) / 10; });
+  CATS.sort(function (a, b) { return b.net - a.net; });
+  var MAXG = Math.max.apply(null, CATS.map(function (c) { return c.gross; })), MAXF = Math.max.apply(null, F.map(function (f) { return Math.abs(f.v); }));
+  var SUMABS = CATS.reduce(function (a, c) { return a + Math.abs(c.net); }, 0);
+
+  // ── 상태 ───────────────────────────────────────────────────────────────────────────────────────────────
+  var side = document.getElementById("side"), selected = null, filter = "all", catFocus = null, tab = CATS[0].id;
+  var applyVisual = function () {}, faceNode = function () {}, sideHover = null;   // sideHover = 오른쪽 목록에서 가리킨 요인
+
+  // 분해 막대(위) — 항목별 순 영향을 한 줄로
+  document.getElementById("dc-total").textContent = pp(STOCK.total, false) + "%";
+  document.getElementById("dc-eq").innerHTML = STOCK.period + " 등락률을 딥리서치 항목별로 나눈 값 · 합계 = " + pp(STOCK.total, false) + "%";
+  function renderBar() {
+    document.getElementById("dc-bar").innerHTML = CATS.map(function (c) {
+      var w = Math.abs(c.net) / SUMABS * 100;
+      return '<button class="dc-seg ' + sgn(c.net) + (catFocus && catFocus !== c.id ? " off" : "") + '" data-id="' + c.id + '" style="flex:' + Math.max(w, 2).toFixed(2) + ' 1 0" title="' + esc(c.name) + " " + pp(c.net) + '">' +
+        (w > 9 ? esc(c.name) + " " + pp(c.net, false) : w > 4 ? pp(c.net, false) : "") + "</button>";
+    }).join("");
+    document.getElementById("dc-legend").innerHTML = CATS.map(function (c) { return '<span class="' + sgn(c.net) + '">' + esc(c.name) + "<b>" + pp(c.net) + "</b></span>"; }).join("");
+    Array.prototype.forEach.call(document.querySelectorAll("#dc-bar .dc-seg"), function (b) { b.onclick = function () { focusCat(b.dataset.id); }; });
+  }
+  function renderTabs() {
+    document.getElementById("atabs").innerHTML = CATS.map(function (c) {
+      return '<button class="analysis-tab' + (c.id === tab ? " active" : "") + '" data-id="' + c.id + '">' + c.icon + " " + esc(c.name) + '<span class="pc ' + sgn(c.net) + '">' + pp(c.net) + "</span></button>";
+    }).join("");
+    Array.prototype.forEach.call(document.querySelectorAll("#atabs .analysis-tab"), function (b) { b.onclick = function () { focusCat(b.dataset.id); }; });
+    document.getElementById("acontent").innerHTML = esc(catOf(tab).sum) + '<div class="ph">(이 아래는 기존 ' + esc(catOf(tab).name) + " 탭 내용 그대로)</div>";
+  }
+  function row(name, v, max, attr) {
+    return '<div class="row" ' + attr + '><span class="nm">' + esc(name) + '</span><span class="mb"><i style="width:' + Math.min(100, Math.abs(v) / max * 100).toFixed(0) + "%;background:" +
+      (v > 0 ? "var(--up-red)" : v < 0 ? "var(--down-blue)" : "var(--neutral)") + '"></i></span><span class="pv ' + sgn(v) + '">' + pp(v) + "</span></div>";
+  }
+  function renderSide() {
+    var h;
+    if (selected != null) {
+      var f = F[selected], c = catOf(f.c);
+      h = '<div class="meta" style="color:var(--text-muted);font-size:11.5px">' + esc(c.name) + " › 요인</div><h5 style=\"margin:4px 0 6px\">" + esc(f.t) + "</h5>" +
+        '<div class="big ' + sgn(f.v) + '">' + pp(f.v) + '</div><div class="share">' + STOCK.period + " " + pp(STOCK.total, false) + "% 중 " +
+        (Math.abs(f.v) / STOCK.total * 100).toFixed(0) + "% 크기 · " + esc(c.name) + " 안에서 " + (c.gross ? (Math.abs(f.v) / c.gross * 100).toFixed(0) : 0) + "%</div>" +
+        "<p>" + esc(f.e) + "</p><h6>근거</h6><ul>" + f.sub.map(function (s) { return '<li class="subrow"><span class="m">·</span><span>' + esc(s) + "</span></li>"; }).join("") + "</ul>" +
+        '<p class="meta" style="margin-top:10px">출처: ' + esc(f.s) + '</p><button class="chip" id="back">← ' + esc(c.name) + "</button>";
+      side.innerHTML = h; document.getElementById("back").onclick = function () { focusCat(f.c); };
+      return;
+    }
+    if (catFocus) {
+      var cc = catOf(catFocus), rows = F.map(function (f, i) { return { f: f, i: i }; }).filter(function (r) { return r.f.c === catFocus; })
+        .filter(function (r) { return filter === "all" || (filter === "up" ? r.f.v > 0 : r.f.v < 0); }).sort(function (a, b) { return Math.abs(b.f.v) - Math.abs(a.f.v); });
+      h = '<div class="meta" style="color:var(--text-muted);font-size:11.5px">딥리서치 항목</div><h5 style="margin:4px 0 6px">' + cc.icon + " " + esc(cc.name) + "</h5>" +
+        '<div class="big ' + sgn(cc.net) + '">' + pp(cc.net) + '</div><div class="share">' + STOCK.period + " " + pp(STOCK.total, false) + "% 에 대한 순 영향 · 요인 " + rows.length + "개</div>" +
+        rows.map(function (r) { return row(r.f.t, r.f.v, MAXF, 'data-i="' + r.i + '"'); }).join("") + '<button class="chip" id="allcat" style="margin-top:10px">← 전체 항목</button>';
+      side.innerHTML = h;
+      Array.prototype.forEach.call(side.querySelectorAll(".row[data-i]"), function (el) { el.onclick = function () { sideHover = null; select(+el.dataset.i); }; el.onmouseenter = function () { sideHover = +el.dataset.i; }; el.onmouseleave = function () { sideHover = null; }; });
+      document.getElementById("allcat").onclick = function () { catFocus = null; selected = null; refresh(); };
+      return;
+    }
+    h = "<h5>항목별 주가 영향</h5>" + CATS.map(function (c) { return row(c.icon + " " + c.name, c.net, Math.max.apply(null, CATS.map(function (x) { return Math.abs(x.net); })), 'data-c="' + c.id + '"'); }).join("") +
+      '<h6 style="margin-top:14px">영향이 큰 요인</h6>' + F.map(function (f, i) { return { f: f, i: i }; }).filter(function (r) { return filter === "all" || (filter === "up" ? r.f.v > 0 : r.f.v < 0); })
+        .sort(function (a, b) { return Math.abs(b.f.v) - Math.abs(a.f.v); }).slice(0, 6).map(function (r) { return row(r.f.t, r.f.v, MAXF, 'data-i="' + r.i + '"'); }).join("");
+    side.innerHTML = h;
+    Array.prototype.forEach.call(side.querySelectorAll(".row[data-c]"), function (el) { el.onclick = function () { focusCat(el.dataset.c); }; });
+    Array.prototype.forEach.call(side.querySelectorAll(".row[data-i]"), function (el) { el.onclick = function () { sideHover = null; select(+el.dataset.i); }; el.onmouseenter = function () { sideHover = +el.dataset.i; }; el.onmouseleave = function () { sideHover = null; }; });
+  }
+  function refresh() { renderBar(); renderTabs(); renderSide(); applyVisual(); }
+  function focusCat(id) { catFocus = id; tab = id; selected = null; refresh(); faceNode("cat", id); }
+  function select(i) { selected = i; if (i != null) { tab = F[i].c; catFocus = F[i].c; faceNode("leaf", i); } refresh(); }
+  Array.prototype.forEach.call(document.querySelectorAll("#chips .chip[data-f]"), function (b) {
+    b.onclick = function () {
+      filter = b.dataset.f; selected = null;
+      Array.prototype.forEach.call(document.querySelectorAll("#chips .chip[data-f]"), function (x) { x.classList.toggle("on", x === b); });
+      refresh();
+    };
+  });
+  refresh();
+
+  // ── 3D: 종목 → 항목(투명한 구) ⊃ 요인(안에 든 공) ─────────────────────────────────────────────────────────
+  var stage = document.getElementById("stage"), canvas = document.getElementById("cv"), labelBox = document.getElementById("labels");
+  var ok = !!window.THREE;
+  if (ok) { try { var tc = document.createElement("canvas"); ok = !!(tc.getContext("webgl") || tc.getContext("experimental-webgl")); } catch (e) { ok = false; } }
+  if (!ok) { canvas.style.display = "none"; document.getElementById("fallback").style.display = "block"; return; }
+
+  var scene = new THREE.Scene(), camera = new THREE.PerspectiveCamera(40, 1, 0.1, 100);
+  var HOME = { z: 16.5, rx: 0.5, ry: -0.18 };
+  var renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+  var key = new THREE.DirectionalLight(0xffffff, 0.95); key.position.set(5, 9, 12); scene.add(key);
+  var rim = new THREE.PointLight(0x38bdf8, 0.45); rim.position.set(-8, -4, -6); scene.add(rim);
+  var world = new THREE.Group(); scene.add(world);
+  var Y = new THREE.Vector3(0, 1, 0), O = new THREE.Vector3();
+  var RED = 0xef4444, BLUE = 0x3b82f6, GRAY = 0x94a3b8;
+  function colorOf(v) { return v > 0.0001 ? RED : v < -0.0001 ? BLUE : GRAY; }
+  var glowTex = (function () {
+    var c = document.createElement("canvas"); c.width = c.height = 128; var g = c.getContext("2d"), gr = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+    gr.addColorStop(0, "rgba(255,255,255,.9)"); gr.addColorStop(0.35, "rgba(255,255,255,.28)"); gr.addColorStop(1, "rgba(255,255,255,0)");
+    g.fillStyle = gr; g.fillRect(0, 0, 128, 128); return new THREE.CanvasTexture(c);
+  })();
+  var nodes = [], tubes = [];
+  function mkLabel(html, cls) { var el = document.createElement("div"); el.className = "lbl " + cls; el.innerHTML = html; labelBox.appendChild(el); return el; }
+  function glowOf(pos, r, color, op) {
+    var gl = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: color, blending: THREE.AdditiveBlending, transparent: true, opacity: op, depthWrite: false }));
+    gl.scale.setScalar(r); gl.position.copy(pos); world.add(gl); return gl;
+  }
+  // 속이 찬 공(종목·요인)
+  function ballNode(kind, pos, r, color, html, cls, extra) {
+    var m = new THREE.Mesh(new THREE.SphereGeometry(r, 36, 24), new THREE.MeshStandardMaterial({ color: color, emissive: color, emissiveIntensity: kind === "root" ? 0.5 : 0.38, roughness: 0.3, metalness: 0.15, transparent: true }));
+    m.position.copy(pos); world.add(m);
+    var n = { kind: kind, mesh: m, glow: kind === "root" ? glowOf(pos, r * 4.6, color, 0.5) : null, glowBase: 0.5, label: mkLabel(html, cls), pos: pos.clone(), r: r, op: 1, base: 1 };
+    for (var k in (extra || {})) n[k] = extra[k];
+    m.userData.node = n; nodes.push(n); return n;
+  }
+  // 투명한 구(항목) — 안의 요인 공이 비쳐 보인다. 앞면은 옅게, 뒷면은 테두리처럼
+  function shellNode(pos, R, color, html, extra) {
+    var m = new THREE.Mesh(new THREE.SphereGeometry(R, 48, 32), new THREE.MeshStandardMaterial({ color: color, emissive: color, emissiveIntensity: 0.3, roughness: 0.12, metalness: 0.25, transparent: true, opacity: 0.13, depthWrite: false }));
+    m.position.copy(pos); m.renderOrder = 2; world.add(m);
+    var back = new THREE.Mesh(new THREE.SphereGeometry(R * 1.015, 48, 32), new THREE.MeshBasicMaterial({ color: color, transparent: true, opacity: 0.2, side: THREE.BackSide, depthWrite: false }));
+    back.position.copy(pos); back.renderOrder = 0; world.add(back);
+    var n = { kind: "cat", mesh: m, back: back, glow: glowOf(pos, R * 3.3, color, 0.3), glowBase: 0.3, label: mkLabel(html, "cat"), pos: pos.clone(), r: R, op: 1, base: 0.13 };
+    for (var k in (extra || {})) n[k] = extra[k];
+    m.userData.node = n; nodes.push(n); return n;
+  }
+  // 종목–항목 연결은 가는 선 하나(강조하지 않음) — 항목이 궤도를 돌면 따라 움직인다
+  function link(owner, color) {
+    if (STYLE === "orbit") { tubes.push({ owner: owner }); return; }                 // 궤도 실선 버전: 연결 없음
+    if (STYLE === "bar" || STYLE === "barsoft") {                                     // 막대 버전: 가는 막대(굵기는 모두 같음) — bar 는 또렷하게, barsoft 는 옅게
+      var bar = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 1, 10), new THREE.MeshBasicMaterial({ color: color, transparent: true, opacity: 0.9 }));
+      world.add(bar); tubes.push({ bar: bar, owner: owner, base: STYLE === "bar" ? 0.9 : 0.3 }); return;
+    }
+    var l = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]), new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.12 }));
+    world.add(l); tubes.push({ line: l, owner: owner });
+  }
+  // 항목마다 다른 궤도(반지름·기울기). 같은 각속도로 돌아 서로 부딪히지 않는다
+  function orbitPos(o) { return new THREE.Vector3(Math.cos(o.a) * o.R, 0, Math.sin(o.a) * o.R).applyQuaternion(o.q); }
+  function ring(o, color) {
+    if (STYLE === "bar" || STYLE === "barsoft") return null;                          // 막대 버전: 궤도 고리 없음
+    if (STYLE === "orbit") {                                                          // 궤도 실선 버전: 두께가 있는 또렷한 고리
+      var tor = new THREE.Mesh(new THREE.TorusGeometry(o.R, 0.022, 8, 160), new THREE.MeshBasicMaterial({ color: color, transparent: true, opacity: 0.85 }));
+      tor.quaternion.copy(o.q).multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.PI / 2)); world.add(tor); return tor;
+    }
+    var pts = []; for (var a = 0; a <= 96; a++) pts.push(new THREE.Vector3(Math.cos(a / 96 * Math.PI * 2) * o.R, 0, Math.sin(a / 96 * Math.PI * 2) * o.R).applyQuaternion(o.q));
+    var l = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: color, transparent: true, opacity: 0.2 }));
+    world.add(l); return l;
+  }
+  var ORBITS = [[4.2, 0.10, 0.06], [5.0, -0.34, 0.16], [3.9, 0.38, -0.22], [5.3, 0.22, 0.32], [4.6, -0.18, -0.36], [5.6, -0.46, 0.05]];   // [반지름, x 기울기, z 기울기]
+  // 반지름 rs 인 공들을 서로 겹치지 않게 뭉쳐 놓고, 전부 담는 구의 반지름을 구한다(가운데로 당기고 겹치면 밀어내기 반복)
+  function pack(rs) {
+    var n = rs.length, ps = [], i, j, it, d = new THREE.Vector3();
+    for (i = 0; i < n; i++) {
+      var t = (i + 0.5) / n, ph = Math.acos(1 - 2 * t), th = Math.PI * (1 + Math.sqrt(5)) * i;
+      ps.push(new THREE.Vector3(Math.sin(ph) * Math.cos(th), Math.cos(ph), Math.sin(ph) * Math.sin(th)).multiplyScalar(n === 1 ? 0 : (rs[0] + rs[i]) * 1.2));
+    }
+    for (it = 0; it < 500; it++) {
+      for (i = 0; i < n; i++) ps[i].multiplyScalar(0.975);
+      for (i = 0; i < n; i++) for (j = i + 1; j < n; j++) {
+        d.subVectors(ps[j], ps[i]); var dist = d.length(), min = rs[i] + rs[j] + 0.06;
+        if (dist < min) { if (dist < 1e-6) d.set(1, 0, 0); else d.multiplyScalar(1 / dist); var push = (min - dist) / 2; ps[i].addScaledVector(d, -push); ps[j].addScaledVector(d, push); }
+      }
+    }
+    var c = new THREE.Vector3(), wsum = 0; ps.forEach(function (p, k) { c.addScaledVector(p, rs[k]); wsum += rs[k]; }); c.multiplyScalar(1 / (wsum || 1));
+    var R = 0; ps.forEach(function (p, k) { p.sub(c); R = Math.max(R, p.length() + rs[k]); });
+    return { ps: ps, R: R + 0.16 };
+  }
+
+  var root = ballNode("root", O, 0.9, 0x06b6d4, esc(STOCK.name) + '<span class="pc">' + pp(STOCK.total, false) + "%</span>", "root");
+  var MAXN = Math.max.apply(null, CATS.map(function (x) { return Math.abs(x.net); }));
+  CATS.forEach(function (c, ci) {
+    var mine = []; F.forEach(function (f, i) { if (f.c === c.id) mine.push(i); });
+    mine.sort(function (x, y) { return Math.abs(F[y].v) - Math.abs(F[x].v); });
+    var rs = mine.map(function (fi) { return 0.17 + 0.43 * Math.sqrt(Math.abs(F[fi].v) / MAXF); }), pk = pack(rs);
+    var ob = ORBITS[ci % ORBITS.length], orbit = { R: ob[0], q: new THREE.Quaternion().setFromEuler(new THREE.Euler(ob[1], 0, ob[2])), a: -Math.PI / 2 + ci / CATS.length * Math.PI * 2 };
+    var cp = orbitPos(orbit);
+    var cn = shellNode(cp, pk.R, colorOf(c.net), esc(c.name) + '<span class="pc ' + sgn(c.net) + '">' + pp(c.net) + "</span>", { cat: c.id, orbit: orbit });
+    cn.ring = ring(orbit, colorOf(c.net)); link(cn, colorOf(c.net));
+    mine.forEach(function (fi, k) {
+      var f = F[fi];
+      ballNode("leaf", cp.clone().add(pk.ps[k]), rs[k], colorOf(f.v), '<span class="pc ' + sgn(f.v) + '">' + pp(f.v, false) + '</span><span class="tt">' + esc(f.t) + "</span>", "leaf", { cat: c.id, idx: fi, host: cn, local: pk.ps[k].clone() });
+    });
+  });
+  function catNode(id) { return nodes.filter(function (x) { return x.kind === "cat" && x.cat === id; })[0]; }
+
+  applyVisual = function () {
+    nodes.forEach(function (n) {
+      var on = true;
+      if (n.kind === "leaf") {
+        var f = F[n.idx];
+        on = (filter === "all" || (filter === "up" ? f.v > 0 : f.v < 0)) && (!catFocus || f.c === catFocus);
+        if (selected != null) on = n.idx === selected;
+      } else if (n.kind === "cat") { on = !catFocus || n.cat === catFocus; }
+      n.dim = !on; n.op = on ? 1 : (n.kind === "cat" ? 0.3 : 0.1);
+      n.label.classList.toggle("sel", n.kind === "leaf" && n.idx === selected);
+    });
+  };
+  var spinTo = null, panTo = 0, panX = 0, zoom = HOME.z, narrow = false;
+  faceNode = function (kind, id) {
+    var n = nodes.filter(function (x) { return x.kind === kind && (kind === "leaf" ? x.idx === id : x.cat === id); })[0]; if (!n) return;
+    var cn = kind === "leaf" ? catNode(n.cat) : n;
+    // 고른 항목을 앞쪽 오른편으로 돌리고 가까이 — 안에 든 요인 공과 이름이 읽히게. 종목은 왼쪽에 남는다
+    var want = Math.atan2(cn.pos.z, cn.pos.x) - Math.PI / 2 + 0.45, cur = world.rotation.y;
+    spinTo = cur + Math.atan2(Math.sin(want - cur), Math.cos(want - cur));
+    var q = cn.pos.clone().applyEuler(new THREE.Euler(world.rotation.x, spinTo, 0, "XYZ"));   // 돌린 뒤 그 항목이 놓일 자리
+    panTo = -q.y; panX = -q.x + (narrow ? 0 : 0.9); zoom = q.z + Math.max(6.2, cn.r * 6.4) * (narrow ? 1.7 : 1);
+  };
+
+  var auto = !(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches), idleAt = 0, drag = null, moved = 0, hovered = null;
+  var btnRot = document.getElementById("btn-rot");
+  function setAuto(v) { auto = v; btnRot.textContent = v ? "⏸ 공전 멈춤" : "▶ 공전"; }
+  setAuto(auto);
+  btnRot.onclick = function (e) { e.stopPropagation(); setAuto(!auto); };
+  function home() { spinTo = null; panTo = 0; panX = 0; world.position.x = 0; world.position.y = 0; world.rotation.set(HOME.rx, HOME.ry, 0); zoom = HOME.z + (narrow ? 8 : 0); }
+  document.getElementById("btn-reset").onclick = function (e) { e.stopPropagation(); catFocus = null; selected = null; refresh(); home(); };
+  document.getElementById("btn-fold").onclick = function () {
+    var w = document.getElementById("fg-wrap"); w.classList.toggle("folded"); this.textContent = w.classList.contains("folded") ? "펼치기 ▾" : "접기 ▴"; resize();
+  };
+  var ray = new THREE.Raycaster(), ptr = new THREE.Vector2();
+  // 누른 곳: 지금 보고 있는 항목 안의 요인이면 그 요인, 아니면 그 요인이 든 항목(먼저 항목으로 들어간다)
+  function pick(e) {
+    var r = canvas.getBoundingClientRect();
+    ptr.set((e.clientX - r.left) / r.width * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+    ray.setFromCamera(ptr, camera);
+    var hl = ray.intersectObjects(nodes.filter(function (n) { return n.kind === "leaf" && !n.dim; }).map(function (n) { return n.mesh; }));
+    var leaf = hl.length ? hl[0].object.userData.node : null;
+    if (leaf && catFocus === leaf.cat) return leaf;
+    if (leaf) return catNode(leaf.cat);
+    var hs = ray.intersectObjects(nodes.filter(function (n) { return n.kind === "cat"; }).map(function (n) { return n.mesh; }));
+    if (hs.length) return hs[0].object.userData.node;
+    return ray.intersectObject(root.mesh).length ? root : null;
+  }
+  stage.addEventListener("pointerleave", function () { hovered = null; stage.style.cursor = ""; });
+  stage.addEventListener("pointerdown", function (e) {
+    if (e.target.closest(".fg-tools")) return;
+    drag = { x: e.clientX, y: e.clientY }; moved = 0; spinTo = null; stage.classList.add("drag"); stage.setPointerCapture(e.pointerId);
+  });
+  stage.addEventListener("pointermove", function (e) {
+    if (!drag) { var hn = e.target.closest(".fg-tools") ? null : pick(e); if (hn !== hovered) { hovered = hn; stage.style.cursor = hn ? "pointer" : ""; } return; }
+    var dx = e.clientX - drag.x, dy = e.clientY - drag.y; moved += Math.abs(dx) + Math.abs(dy);
+    world.rotation.y += dx * 0.008; world.rotation.x = Math.max(-1.1, Math.min(1.1, world.rotation.x + dy * 0.006));
+    drag = { x: e.clientX, y: e.clientY }; idleAt = performance.now() + 2500;
+  });
+  stage.addEventListener("pointerup", function (e) {
+    if (!drag) return; drag = null; stage.classList.remove("drag");
+    if (moved < 6 && !e.target.closest(".fg-tools")) {
+      var n = pick(e);
+      if (!n || n.kind === "root") { catFocus = null; selected = null; refresh(); home(); }
+      else if (n.kind === "cat") { if (catFocus === n.cat && selected != null) { selected = null; refresh(); } else focusCat(n.cat); }
+      else select(n.idx);
+      idleAt = performance.now() + 4000;
+    }
+  });
+  stage.addEventListener("wheel", function (e) { e.preventDefault(); zoom = Math.max(7, Math.min(30, zoom + e.deltaY * 0.012)); idleAt = performance.now() + 2500; }, { passive: false });
+  function resize() {
+    var w = stage.clientWidth, h = stage.clientHeight; if (!w || !h) return;
+    renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix();
+    var nw = w / h < 1.2; if (nw !== narrow) { narrow = nw; zoom = HOME.z + (narrow ? 8 : 0); }
+    nodes.forEach(function (n) { n.lw = 0; });
+  }
+  window.addEventListener("resize", resize);
+
+  var v = new THREE.Vector3(), t0 = performance.now(), last = t0, dv = new THREE.Vector3();
+  function frame(now) {
+    var w = stage.clientWidth, h = stage.clientHeight, dt = Math.min(0.05, (now - last) / 1000); last = now;
+    if (!w || !h) { requestAnimationFrame(frame); return; }
+    var k = Math.min(1, (now - t0) / 1000), ease = 1 - Math.pow(1 - k, 3);
+    world.scale.setScalar(0.25 + 0.75 * ease);
+    if (spinTo != null) { world.rotation.y += (spinTo - world.rotation.y) * 0.1; if (Math.abs(spinTo - world.rotation.y) < 0.002) spinTo = null; }
+    // 항목 구가 저마다의 궤도를 돈다 — 끌거나, 가리키거나, 무언가 골라 둔 동안은 멈춤
+    var orbiting = auto && !drag && now > idleAt && !catFocus && selected == null && !hovered;
+    nodes.forEach(function (n) {
+      if (!n.orbit) return;
+      if (orbiting) n.orbit.a += 0.1 * dt;
+      n.pos.copy(orbitPos(n.orbit)); n.mesh.position.copy(n.pos); n.back.position.copy(n.pos); n.glow.position.copy(n.pos);
+    });
+    nodes.forEach(function (n) { if (n.host) { n.pos.copy(n.host.pos).add(n.local); n.mesh.position.copy(n.pos); } });
+    if (!catFocus && selected == null && (panX || panTo)) { panX = 0; panTo = 0; zoom = HOME.z + (narrow ? 8 : 0); }
+    camera.position.z += (zoom - camera.position.z) * 0.12;
+    world.position.y += (panTo - world.position.y) * 0.1;
+    world.position.x += (panX - world.position.x) * 0.1;
+    nodes.forEach(function (n) {
+      n.cur = n.cur == null ? 1 : n.cur + (n.op - n.cur) * 0.2;                // 0~1 밝기
+      var hot = n === hovered || (n.kind === "cat" && n.cat === catFocus);
+      n.mesh.material.opacity = n.base * n.cur * (n.kind === "cat" && hot ? 1.5 : 1);
+      if (n.back) n.back.material.opacity = 0.2 * n.cur * (hot ? 1.5 : 1);
+      if (n.glow) n.glow.material.opacity = n.glowBase * n.cur;
+    });
+    tubes.forEach(function (t) {
+      var o = t.owner, len = o.pos.length(); dv.copy(o.pos).normalize();
+      if (t.line) {
+        var g = t.line.geometry.attributes.position;
+        g.setXYZ(0, dv.x * 0.9, dv.y * 0.9, dv.z * 0.9); g.setXYZ(1, o.pos.x - dv.x * o.r, o.pos.y - dv.y * o.r, o.pos.z - dv.z * o.r); g.needsUpdate = true;
+        t.line.material.opacity = 0.12 * o.cur;
+      }
+      if (t.bar) {                                              // 종목 표면 ~ 항목 구 표면
+        var span = Math.max(0.01, len - o.r - 0.9), mid = 0.9 + span / 2;
+        t.bar.position.set(dv.x * mid, dv.y * mid, dv.z * mid); t.bar.quaternion.setFromUnitVectors(Y, dv); t.bar.scale.y = span;
+        t.bar.material.opacity = t.base * Math.max(o.cur, 0.25);
+      }
+      if (o.ring) o.ring.material.opacity = STYLE === "orbit" ? (catFocus === o.cat ? 1 : 0.85) * Math.max(o.cur, 0.3) : (catFocus === o.cat ? 0.6 : 0.32) * Math.max(o.cur, 0.5);
+    });
+    world.updateMatrixWorld();
+    var pxPerUnit = h / (2 * Math.tan(camera.fov * Math.PI / 360));
+    nodes.forEach(function (n) {
+      n.mesh.getWorldPosition(v); var depth = v.z, dist = Math.max(1, camera.position.z - depth); v.project(camera);
+      if (!n.lw) {
+        n.label.classList.remove("compact"); n.lw = n.label.offsetWidth; n.lh = n.label.offsetHeight;
+        if (n.kind === "leaf") { n.label.classList.add("compact"); n.lwc = n.label.offsetWidth; n.lhc = n.label.offsetHeight; }
+      }
+      n.sx = (v.x * 0.5 + 0.5) * w; n.cy = (-v.y * 0.5 + 0.5) * h; n.pr = n.r * world.scale.x * pxPerUnit / dist;
+      n.near = Math.max(0, Math.min(1, (depth + 7) / 14));
+      n.prio = n.kind === "root" ? 1000 : (n.kind === "leaf" && n.idx === selected) ? 950 : (n.kind === "leaf" && (n === hovered || n.idx === sideHover)) ? 900 : n.dim ? -1 :
+               n.kind === "cat" ? 500 + n.near * 10 : Math.abs(F[n.idx].v) * 30 + n.near * 25 + (catFocus === n.cat ? 200 : 0);
+    });
+    var placed = [];
+    function fits(b) { return !placed.some(function (p) { return b[0] < p[1] && b[1] > p[0] && b[2] < p[3] && b[3] > p[2]; }); }
+    function box(x, y, lw, lh) { return [x - lw / 2 - 2, x + lw / 2 + 2, y - lh / 2 - 1, y + lh / 2 + 1]; }
+    nodes.slice().sort(function (a, b) { return b.prio - a.prio; }).forEach(function (n) {
+      var el = n.label, b, y, compact = false;
+      if (n.prio < 0) { el.style.opacity = 0; return; }
+      if (n.kind !== "leaf") {
+        y = n.kind === "root" ? n.cy + n.pr + n.lh / 2 + 3 : n.cy - n.pr - n.lh / 2 - 3;      // 종목 이름은 공 아래, 항목 이름은 구 위
+        b = box(n.sx, y, n.lw, n.lh); if (!fits(b) && n.kind !== "root") { el.style.opacity = 0; return; }
+      } else {
+        // 요인: 항목을 골랐거나 가리킨 요인은 이름까지(공 아래), 그 밖에는 공 위에 숫자만. 공이 너무 작으면 숨김
+        var full = (catFocus === n.cat && n.pr >= 24) || n.prio >= 900;   // 이름까지는 공이 충분히 클 때만
+        y = n.cy; b = box(n.sx, y, n.lw, n.lh);
+        if (!full || (!fits(b) && n.prio < 900)) {
+          compact = true; y = n.cy; b = box(n.sx, y, n.lwc, n.lhc);
+          if (n.pr < 9 || !fits(b)) { el.style.opacity = 0; return; }
+        }
+      }
+      placed.push(b);
+      el.classList.toggle("compact", compact);
+      el.style.transform = "translate(-50%, -50%) translate(" + n.sx.toFixed(1) + "px," + y.toFixed(1) + "px)";
+      el.style.opacity = ease;
+      el.style.zIndex = n.prio >= 900 ? 4 : n.kind === "leaf" ? (compact ? 1 : 3) : 2;
+    });
+    renderer.render(scene, camera);
+    requestAnimationFrame(frame);
+  }
+  resize(); home(); camera.position.set(0, 0, zoom); applyVisual();
+  requestAnimationFrame(frame);
+  window.__fg = { select: select, focusCat: focusCat, nodes: nodes.length, sum: Math.round(F.reduce(function (a, f) { return a + f.v; }, 0) * 10) / 10,
+                  radii: nodes.filter(function (n) { return n.kind === "cat"; }).map(function (n) { return n.cat + ":" + n.r.toFixed(2); }) };
+})();
+</script>
+</body>
+</html>
