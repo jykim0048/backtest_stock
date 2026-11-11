@@ -1,6 +1,6 @@
 {
  "date": "2026-11-11",
- "asof": "2026-11-11 10:38 KST",
+ "asof": "2026-11-11 11:08 KST",
  "sources": {
   "wisereport": true,
   "fnguide": false,
@@ -594,20 +594,22 @@
    "date": "2026-11-11",
    "code": "280360",
    "name": "롯데웰푸드",
-   "sector": null,
+   "sector": "필수소비재",
    "quarter": null,
-   "period": null,
-   "fs": null,
+   "period": "202609",
+   "fs": "연결",
    "sales": 11738.6,
-   "op": 898.6,
-   "np": 519.3,
+   "op": 899.0,
+   "np": 519.0,
    "salesYoY": 1.5,
    "opYoY": 29.7,
    "npYoY": 4.0,
    "tag": null,
    "consensus": {
     "op": 869.0,
-    "np": 548.0
+    "np": 548.0,
+    "yoy": 9.72,
+    "qoq": 51.88
    },
    "surprise": {
     "opGap": 3.4,
@@ -616,13 +618,69 @@
    "dartUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261111800116",
    "dartTitle": "연결재무제표기준영업(잠정)실적(공정공시)",
    "sources": [
+    "wisereport",
+    "dart"
+   ],
+   "market": "KOSPI",
+   "time": "10:29",
+   "capturedDate": "2026-11-11"
+  },
+  {
+   "date": "2026-11-11",
+   "code": "036460",
+   "name": "한국가스공사",
+   "sector": null,
+   "quarter": null,
+   "period": null,
+   "fs": null,
+   "sales": null,
+   "op": null,
+   "np": null,
+   "salesYoY": null,
+   "opYoY": null,
+   "npYoY": null,
+   "tag": null,
+   "consensus": {
+    "op": 4214.0,
+    "np": 675.0
+   },
+   "surprise": {
+    "opGap": null,
+    "npGap": null
+   },
+   "dartUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261111800145",
+   "dartTitle": "영업(잠정)실적(공정공시)",
+   "sources": [
     "dart",
     "dart-doc",
     "naver"
    ],
    "market": "KOSPI",
+   "noFigures": true,
+   "segments": {
+    "period": "2026-10",
+    "unit": "",
+    "items": [
+     {
+      "name": "도시가스용",
+      "value": 1142.0,
+      "mom": 19.6,
+      "yoy": 5.3,
+      "sub": false
+     },
+     {
+      "name": "발전용",
+      "value": 820.0,
+      "mom": 1.4,
+      "yoy": -30.7,
+      "sub": false
+     }
+    ],
+    "total": 1962.0,
+    "totalYoY": -13.5
+   },
    "capturedDate": "2026-11-11",
-   "time": "10:29"
+   "time": "10:50"
   },
   {
    "date": "2026-11-10",
@@ -1323,6 +1381,39 @@
    "market": "KOSPI",
    "time": "15:18",
    "capturedDate": "2026-11-10"
+  },
+  {
+   "date": "2026-11-10",
+   "code": "396690",
+   "name": "미래에셋글로벌리츠",
+   "sector": "금융",
+   "quarter": null,
+   "period": "202609",
+   "fs": "개별",
+   "sales": null,
+   "op": 22.0,
+   "np": -628.0,
+   "salesYoY": null,
+   "opYoY": null,
+   "npYoY": null,
+   "tag": null,
+   "consensus": {
+    "op": null,
+    "np": null,
+    "yoy": null,
+    "qoq": null
+   },
+   "surprise": {
+    "opGap": null,
+    "npGap": null
+   },
+   "dartUrl": null,
+   "dartTitle": null,
+   "sources": [
+    "wisereport"
+   ],
+   "market": "KOSPI",
+   "capturedDate": "2026-11-11"
   },
   {
    "date": "2026-11-10",
