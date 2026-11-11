@@ -32,6 +32,7 @@ import llm                           # provider-agnostic LLM with fallback chain
 from analysis import sources       # imports yfinance + redirects its cache to /tmp on CI
 from analysis import social        # peer 여론: StockTwits 스트림(주) + Reddit RSS 예산제(보조)
 from analysis import ca as ca_mod  # 예탁원 CA(기업행위) 일정 — 허브 /ca + 결정적 피처(d_n·창·물량·괴리)
+from analysis import price_factors  # 주가 영향 분해(추정) — LLM 요인 강도 → 기준일 등락률 %p 배분(2026-11-11)
 import yfinance as yf
 
 ROOT          = os.path.dirname(os.path.abspath(__file__))
@@ -211,6 +212,13 @@ StockTwits 여론, 국내외 뉴스, 국내 커뮤니티 글, DART 공시/재무
   "해당 기간 CA 일정 없음", "unavailable" 이면 items=[] 이고 summary 는 "수집 실패"."""
 
 
+# 주가 영향 분해(2026-11-11): LLM 이 요인(항목·방향·강도·근거)만 내고 %p 는 코드가 배분한다(analysis/price_factors.py).
+# 끄기: ANALYSIS_PRICE_FACTORS=0 — 스키마·프롬프트가 종전과 완전히 같아진다(분석이 깨질 때의 스위치).
+PRICE_FACTORS_ON = os.environ.get("ANALYSIS_PRICE_FACTORS", "1") != "0"
+if PRICE_FACTORS_ON:
+    SYSTEM += price_factors.PROMPT          # PROMPT 는 줄바꿈으로 시작한다
+
+
 # JSON Schema for the analysis call (strict structured output). peers.items and
 # dart.recentFilings are filled deterministically by code, so they're omitted here.
 _STR = {"type": "string"}
@@ -262,6 +270,7 @@ ANALYSIS_SCHEMA = _obj({
                        "magnitude": {"type": "string", "enum": ["작음", "중간", "큼"]},
                        "window": _STR, "implication": _STR, "rationale": _STR}),
     }),
+    **({"priceFactors": price_factors.ITEM_SCHEMA} if PRICE_FACTORS_ON else {}),
 })
 
 # 후속 라운드 1차 호출용 스키마 변형: 기존 필드 + followUp(추가 조사 요청).
@@ -893,6 +902,14 @@ def analyze_stock(stock, peer_cfg):
     # 수급 원본(최근 20거래일 + 가집계 랭킹)은 LLM 을 거치지 않고 그대로 싣는다 — 수치 환각 방지.
     if flow:
         analysis["flow"] = flow
+    # 주가 영향 분해(추정): LLM 요인 목록 → 기준일 등락률(수급 일별 최신 행)에 맞춘 %p. 요인·수급이 없으면 키를 뺀다.
+    try:
+        pf = price_factors.build(analysis.pop("priceFactors", None), flow)
+    except Exception as e:                                  # 분해 실패가 분석 전체를 깨지 않게
+        print(f"[research] {code} priceFactors 실패(생략): {type(e).__name__}: {e}", file=sys.stderr)
+        pf = None
+    if pf:
+        analysis["priceFactors"] = pf
     # 예탁원 CA: 결정적 피처 원본(대시보드 표, LLM 미경유) + LLM 해석을 type+순서로 매칭.
     _attach_ca(analysis, ca_feat)
     # 허브 /flow 실패(공매도/대차 결손)면 False 로 표시 — railway_server 가 이 결과를 짧은

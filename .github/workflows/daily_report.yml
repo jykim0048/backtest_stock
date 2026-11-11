@@ -70,6 +70,7 @@ jobs:
         env:
           GEMINI_API_KEY:      ${{ secrets.GEMINI_API_KEY }}
           LLM_CHAIN:           ${{ vars.LLM_CHAIN }}   # optional override; empty = default chain
+          ANALYSIS_PRICE_FACTORS: ${{ vars.ANALYSIS_PRICE_FACTORS }}   # 주가 영향 분해(3D) 요인 출력 — 저장소 변수에 0 을 넣으면 끔(비어 있으면 켬)
           ANTHROPIC_API_KEY:   ${{ secrets.ANTHROPIC_API_KEY }}
           DART_API_KEY:        ${{ secrets.DART_API_KEY }}
           TAVILY_API_KEY:      ${{ secrets.TAVILY_API_KEY }}
@@ -85,6 +86,7 @@ jobs:
           ANALYSIS_ARCHIVE_DIR: public/reports/down   # 날짜별 하락 아카이브에도 분석 병합
           GEMINI_API_KEY:      ${{ secrets.GEMINI_API_KEY }}
           LLM_CHAIN:           ${{ vars.LLM_CHAIN }}   # optional override; empty = default chain
+          ANALYSIS_PRICE_FACTORS: ${{ vars.ANALYSIS_PRICE_FACTORS }}   # 주가 영향 분해(3D) 요인 출력 — 저장소 변수에 0 을 넣으면 끔(비어 있으면 켬)
           ANTHROPIC_API_KEY:   ${{ secrets.ANTHROPIC_API_KEY }}
           DART_API_KEY:        ${{ secrets.DART_API_KEY }}
           TAVILY_API_KEY:      ${{ secrets.TAVILY_API_KEY }}
