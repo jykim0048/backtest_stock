@@ -388,13 +388,9 @@ def _build_prices(codes_param):
 
     is_codes = bool(codes_param)
     if is_codes:
-        ticker_map = {}
-        for tk in codes_param.split(","):
-            tk = tk.strip()
-            if not tk:
-                continue
-            code = tk.split(".")[0].zfill(6)
-            ticker_map[code] = tk if "." in tk else tk + ".KS"
+        # 접미사 없는 코드는 KRX 마스터로 .KS/.KQ 판별(2026-11-12 — 전엔 무조건 .KS 라 KOSDAQ 누락)
+        from ticker_utils import codes_to_tickers
+        ticker_map = codes_to_tickers(codes_param)
     else:
         ticker_map = _ticker_map_fresh()
     tickers_list = list(ticker_map.values())

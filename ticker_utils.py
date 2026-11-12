@@ -45,6 +45,23 @@ def _krx_ticker_lookup():
     return _KRX_TICKERS
 
 
+def codes_to_tickers(codes_param, krx=None):
+    """/api/prices?codes= 파라미터 → {code6: yahoo_ticker}.
+
+    접미사(.KS/.KQ)가 있으면 그대로, 없으면 KRX 마스터(krx_companies.json)의 정확한 티커,
+    마스터에도 없으면 .KS. 2026-11-12 이전에는 접미사 없는 코드에 무조건 .KS 를 붙여
+    KOSDAQ 종목이 누락되거나 엉뚱한 값이 왔다(036930·089030 누락, 240810 → 79,700 0.00%)."""
+    krx = _krx_ticker_lookup() if krx is None else krx
+    out = {}
+    for tk in str(codes_param or "").split(","):
+        tk = tk.strip()
+        if not tk:
+            continue
+        code = tk.split(".")[0].zfill(6)
+        out[code] = tk if "." in tk else (krx.get(code) or code + ".KS")
+    return out
+
+
 def get_ticker_map():
     """
     Build a {code: yahoo_ticker} map from the 장전 워치리스트 AND the 장중 관심종목.
