@@ -358,7 +358,8 @@ def _krx_master_map():
 
     public/assets/krx_companies.json (KRX 전체 종목 마스터, ~2700개)을 쓴다.
     pykrx/KRX 직접 호출은 GitHub Actions 해외 IP에서 빈 응답을 받으므로
-    네트워크 의존 없는 정적 파일을 사용한다. 분기(코스피200·코스닥150 리뷰) 단위로 교체.
+    네트워크 의존 없는 정적 파일을 사용한다. 2026-11-12부터 theme_map.yml(평일 06:30)이
+    tools/build_krx_companies.py 로 매일 병합 갱신한다(KIS 마스터 + DART 이름, 우선주 pref:true 포함).
 
     market 은 "KOSPI"(유가증권) | "KOSDAQ"(코스닥) | None(코넥스/기타)로 정규화한다.
     종목코드별 시장 구분의 단일 진실 소스(SSOT) — index_constituents.json 의 분류 오류로
@@ -378,8 +379,9 @@ def _krx_master_map():
         raw = c.get("market", "") or ""
         market = "KOSPI" if "유가" in raw else ("KOSDAQ" if "코스닥" in raw else None)
         out[code] = {"name": c.get("name"), "market": market}
-    # krx_companies.json 은 2026-06 이후 갱신이 멈춰 신규 상장·분할 종목이 없다 → 이름이 코드로 찍힘
-    # (2026-11-09 한화머시너리앤서비스홀딩스 0220W0). index_constituents.json 의 names(네이버 현재명,
+    # krx_companies.json 은 2026-06~11 갱신이 멈춰 신규 상장·분할 종목이 빠졌었다 → 이름이 코드로 찍힘
+    # (2026-11-09 한화머시너리앤서비스홀딩스 0220W0). 11-12 매일 자동 갱신 뒤에도 상장 당일 06:30 이전
+    # 등 틈이 있어 안전망으로 유지 — index_constituents.json 의 names(네이버 현재명,
     # 유니버스=K200∪KQ150 전부 포함)로 빠진 종목·빈 이름만 채운다. market 은 SSOT 보정 대상이
     # 아니므로 None(기존 시장 값 유지) — 기존 등재 종목의 이름·시장은 바꾸지 않는다.
     for code, name in _constituent_names().items():

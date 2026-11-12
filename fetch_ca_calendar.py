@@ -116,7 +116,8 @@ KRX_CAPS = os.path.join(ROOT, "public", "assets", "krx_caps.json")
 
 def load_listed(path=KRX_CAPS):
     """코스피·코스닥 상장 종목 코드 집합 — krx_caps.json(매일 갱신, 시가총액 맵). 실패·빈 파일이면 None(필터 안 함).
-    krx_companies.json 은 2026-06 이후 갱신이 멈춰 최근 상장사(인텔리빅스 등)가 빠져 있어 상장 판정엔 쓰지 않는다."""
+    krx_companies.json 은 2026-11-12부터 매일 갱신되지만(상폐는 2회 연속 누락 뒤 반영) 우선주·리츠 등 범위가
+    달라, 상장 판정은 종전대로 krx_caps.json 으로 한다."""
     try:
         with open(path, encoding="utf-8") as f:
             caps = (json.load(f) or {}).get("caps") or {}

@@ -76,20 +76,25 @@ BRIEFING_PATH = os.path.join(ROOT, "public", "briefing", "latest.json")
 
 
 # --- KRX master: resolve a free-text query (name or 6-digit code) to a stock ---
-def _load_master():
-    by_code, by_name = {}, {}
+def _load_master(rows=None):
+    """KRX 마스터 → (by_code, by_name, tickers{code: yahoo 티커}). rows 가 없으면 컨테이너 로컬 파일."""
+    by_code, by_name, tickers = {}, {}, {}
     try:
-        with open(KRX_MASTER, encoding="utf-8") as f:
-            for c in json.load(f):
-                code = str(c.get("code", "")).zfill(6)
-                name = (c.get("name") or "").strip()
-                if not code or not name:
-                    continue
-                raw = c.get("market", "") or ""
-                market = "KOSPI" if "유가" in raw else ("KOSDAQ" if "코스닥" in raw else "KOSPI")
-                entry = {"code": code, "name": name, "market": market}
-                by_code[code] = entry
-                by_name.setdefault(name, entry)
+        if rows is None:
+            with open(KRX_MASTER, encoding="utf-8") as f:
+                rows = json.load(f)
+        for c in rows:
+            code = str(c.get("code", "")).zfill(6)
+            name = (c.get("name") or "").strip()
+            if c.get("ticker"):
+                tickers[code] = c["ticker"]
+            if not code or not name:
+                continue
+            raw = c.get("market", "") or ""
+            market = "KOSPI" if "유가" in raw else ("KOSDAQ" if "코스닥" in raw else "KOSPI")
+            entry = {"code": code, "name": name, "market": market}
+            by_code[code] = entry
+            by_name.setdefault(name, entry)
     except Exception as ex:
         print(f"[research] master load failed: {ex}", file=sys.stderr)
     # 약명 별칭 — KRX 마스터는 정식명(현대자동차)인데 대시보드·KIS·네이버는 약명(현대차).
@@ -110,18 +115,48 @@ def _load_master():
         print(f"[research] master alias: {n_alias}건 약명 병합")
     except Exception as ex:
         print(f"[research] alias load failed: {ex}", file=sys.stderr)
-    return by_code, by_name
+    return by_code, by_name, tickers
 
 
-_BY_CODE, _BY_NAME = _load_master()
+_BY_CODE, _BY_NAME, _TICKERS = _load_master()
+# 마스터는 매일 06:30 theme_map.yml 이 갱신·커밋한다(2026-11-12 tools/build_krx_companies.py).
+# 컨테이너 로컬본은 배포 시점에 멈추므로 KRX_MASTER_TTL(기본 6시간)마다 GitHub raw 로 다시 읽는다
+# — 신규 상장 종목이 재배포 없이 검색·시세(.KS/.KQ 판별)에 잡히게. 실패·이상(행 부족)이면 기존 유지.
+KRX_MASTER_TTL = int(os.environ.get("KRX_MASTER_TTL", str(6 * 3600)))
+_MASTER_STATE = {"ts": time.time(), "src": "local", "n": len(_BY_CODE)}
+_MASTER_LOCK = threading.Lock()
+
+
+def _refresh_master():
+    global _BY_CODE, _BY_NAME, _TICKERS
+    now = time.time()
+    with _MASTER_LOCK:
+        if now - _MASTER_STATE["ts"] < KRX_MASTER_TTL:
+            return
+        _MASTER_STATE["ts"] = now                     # 실패해도 TTL 동안 재시도 안 함
+    try:
+        body = _raw_fetch("public/assets/krx_companies.json")
+        rows = json.loads(body.decode("utf-8")) if body else None
+        if not rows or len(rows) < 2000:
+            return
+        by_code, by_name, tickers = _load_master(rows)
+        if len(by_code) >= 2000:
+            _BY_CODE, _BY_NAME, _TICKERS = by_code, by_name, tickers
+            _MASTER_STATE.update(src="raw", n=len(by_code))
+            print(f"[research] master reloaded from raw: {len(by_code)} stocks", flush=True)
+    except Exception as ex:
+        print(f"[research] master reload failed(기존 유지): {ex}", file=sys.stderr, flush=True)
 
 
 def resolve(q):
+    _refresh_master()
     q = (q or "").strip()
     if not q:
         return None
     if q.isdigit():
         return _BY_CODE.get(q.zfill(6))
+    if len(q) == 6 and q.upper() in _BY_CODE:         # 영숫자 신형 코드(0220W0 등)
+        return _BY_CODE[q.upper()]
     if q in _BY_NAME:
         return _BY_NAME[q]
     ql = q.lower()                                    # fuzzy: shortest name containing q
@@ -390,7 +425,8 @@ def _build_prices(codes_param):
     if is_codes:
         # 접미사 없는 코드는 KRX 마스터로 .KS/.KQ 판별(2026-11-12 — 전엔 무조건 .KS 라 KOSDAQ 누락)
         from ticker_utils import codes_to_tickers
-        ticker_map = codes_to_tickers(codes_param)
+        _refresh_master()
+        ticker_map = codes_to_tickers(codes_param, _TICKERS or None)
     else:
         ticker_map = _ticker_map_fresh()
     tickers_list = list(ticker_map.values())

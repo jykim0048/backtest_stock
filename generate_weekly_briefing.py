@@ -919,14 +919,15 @@ def _snapshot_breadth(today):
 
 
 def _common_code(code):
-    """우선주 코드 → 보통주 코드(끝자리 0). 보통주면 None (krx_companies 는 보통주만 등재)."""
+    """우선주 코드 → 보통주 코드(끝자리 0). 보통주면 None. (krx_companies 는 2026-11-12부터 우선주도
+    pref:true 로 등재 — 업종 조회 등 보통주 기준 맵용·미등재 폴백용으로 유지)"""
     code = str(code or "").zfill(6)
     return code[:5] + "0" if code[5] != "0" else None
 
 
 def _ticker_of_codes(codes):
-    """krx_companies.json 에서 code→yfinance 티커. 미등재 우선주는 보통주 티커의
-    시장 접미사(.KS/.KQ)로 자기 코드 티커를 만든다(2026-09-14, S-Oil우 010955 결손).
+    """krx_companies.json 에서 code→yfinance 티커. 우선주는 2026-11-12부터 등재 티커를 그대로 쓰고,
+    미등재 우선주(안전망)는 보통주 티커의 시장 접미사(.KS/.KQ)로 자기 코드 티커를 만든다(2026-09-14, S-Oil우 010955 결손).
     보통주 티커를 그대로 쓰면 가격이 달라 틀린 등락률이 되므로 코드는 우선주 것 유지."""
     out = {}
     try:
@@ -1120,7 +1121,7 @@ def _breadth_weekly(dates):
                     mkt[code0] = "KOSDAQ" if "코스닥" in raw else "KOSPI"
         except Exception:
             pass
-        # 우선주는 krx_companies 미등재 → 보통주 시장으로 폴백(2026-09-14, 섹터와 동일)
+        # 우선주 미등재 시 보통주 시장으로 폴백(2026-09-14 — 11-12부터 우선주도 등재, 안전망으로 유지)
         stocks = [{**{k: x.get(k) for k in ("code", "name", "chgPct", "nearRate")},
                    "market": mkt.get(str(x.get("code") or "").zfill(6))
                              or mkt.get(_common_code(x.get("code")))}

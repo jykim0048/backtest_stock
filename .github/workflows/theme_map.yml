@@ -36,11 +36,23 @@ jobs:
         continue-on-error: true   # 실패 시 기존 섹터맵 유지(스크립트 자체도 부족 시 중단)
         run: python build_sector_map_auto.py
 
+      # 전 상장 종목 마스터 병합 갱신(2026-11-12) — 신규 상장·우선주·이전상장·사명변경·상폐(2회 누락).
+      # 파싱 부족·대량 변경이면 스크립트가 파일을 안 쓰고 실패 → 기존 마스터 유지(대량 반영은 krx_companies.yml 수동 force).
+      - name: Refresh KRX companies master (KIS 마스터 + DART 이름)
+        continue-on-error: true
+        env:
+          DART_API_KEY: ${{ secrets.DART_API_KEY }}
+        run: python tools/build_krx_companies.py
+
       - name: Commit and push maps
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           # krx_caps.json: 전 종목 시총(우선주 포함, 2026-09-22) — 공매도·대차 시총대비 분모
+          # krx_companies(_history).json: 전 상장 종목 마스터(2026-11-12 자동 갱신) — 없으면 아래 폴백
+          for f in krx_companies.json krx_companies_history.json; do
+            git add "public/assets/$f" 2>/dev/null || true
+          done
           git add public/assets/theme_map.json public/assets/krx_sector_map.json \
                   public/assets/krx_code_sector.json public/assets/krx_caps.json 2>/dev/null || \
           git add public/assets/theme_map.json public/assets/krx_sector_map.json \
