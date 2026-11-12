@@ -59,6 +59,26 @@ jobs:
           python tools/build_krx_companies.py --rename "${{ inputs.rename || 'kis' }}" \
             ${{ (github.event_name != 'workflow_dispatch' || inputs.dry_run) && '--dry-run' || '' }} 2>&1 | tee report.txt
 
+      # 로그·요약은 로그인해야 보이지만 주석(Annotations)은 공개 — 리포트를 3.5KB 조각 주석으로(최대 10개)
+      - name: Report as annotations
+        if: ${{ always() }}
+        shell: python
+        run: |
+          import os
+          try:
+              s = open("report.txt", encoding="utf-8", errors="replace").read()
+          except FileNotFoundError:
+              s = "(report.txt 없음)"
+          lines, chunks, cur = s.splitlines(), [], ""
+          for ln in lines:
+              if len(cur) + len(ln) + 1 > 3500:
+                  chunks.append(cur); cur = ""
+              cur += ln + "\n"
+          chunks.append(cur)
+          for i, c in enumerate(chunks[:10], 1):
+              esc = c.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+              print(f"::notice title=krx_companies report {i}/{len(chunks)}::{esc}")
+
       - name: Commit and push
         if: ${{ github.event_name == 'workflow_dispatch' && !inputs.dry_run }}
         run: |
