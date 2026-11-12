@@ -2,8 +2,14 @@ name: Refresh KRX Companies Master
 
 # public/assets/krx_companies.json(전 상장 종목 마스터) 갱신 — tools/build_krx_companies.py.
 # KIS 공개 마스터(상장 목록·시장·우선주) + DART corp_name(정식 회사명) 병합. 2026-11-12 추가.
-# 수동 실행 전용: 첫 진단(dry_run)·대량 변경 반영(force)·재시도. 매일 갱신은 theme_map.yml(평일 06:30 KST) 단계.
+# 수동 실행: 첫 진단(dry_run)·대량 변경 반영(force)·재시도. 매일 갱신은 theme_map.yml(평일 06:30 KST) 단계.
 on:
+  # 도구·워크플로가 바뀌면 드라이런만 자동 실행(검증용 — 파일은 수동 실행에서만 씀)
+  push:
+    branches: [main]
+    paths:
+      - tools/build_krx_companies.py
+      - .github/workflows/krx_companies.yml
   workflow_dispatch:
     inputs:
       dry_run:
@@ -17,7 +23,7 @@ on:
       rename:
         description: "사명변경 정책 (kis=KIS 이름 바뀔 때만, dart=DART 이름과 다르면, off)"
         type: choice
-        options: [kis, dart, off]
+        options: ["kis", "dart", "off"]
         default: kis
 
 concurrency:
@@ -47,11 +53,11 @@ jobs:
           DART_API_KEY: ${{ secrets.DART_API_KEY }}
           FORCE: ${{ inputs.force && '1' || '' }}
         run: |
-          python tools/build_krx_companies.py --rename "${{ inputs.rename }}" \
-            ${{ inputs.dry_run && '--dry-run' || '' }}
+          python tools/build_krx_companies.py --rename "${{ inputs.rename || 'kis' }}" \
+            ${{ (github.event_name != 'workflow_dispatch' || inputs.dry_run) && '--dry-run' || '' }}
 
       - name: Commit and push
-        if: ${{ !inputs.dry_run }}
+        if: ${{ github.event_name == 'workflow_dispatch' && !inputs.dry_run }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
