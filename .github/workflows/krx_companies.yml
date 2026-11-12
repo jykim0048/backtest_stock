@@ -1,0 +1,68 @@
+name: Refresh KRX Companies Master
+
+# public/assets/krx_companies.json(전 상장 종목 마스터) 갱신 — tools/build_krx_companies.py.
+# KIS 공개 마스터(상장 목록·시장·우선주) + DART corp_name(정식 회사명) 병합. 2026-11-12 추가.
+# 수동 실행 전용: 첫 진단(dry_run)·대량 변경 반영(force)·재시도. 매일 갱신은 theme_map.yml(평일 06:30 KST) 단계.
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "쓰지 않고 진단·변경 목록만 출력"
+        type: boolean
+        default: true
+      force:
+        description: "대량 변경 한도 무시(첫 실행 — 6월 이후 누적 + 우선주)"
+        type: boolean
+        default: false
+      rename:
+        description: "사명변경 정책 (kis=KIS 이름 바뀔 때만, dart=DART 이름과 다르면, off)"
+        type: choice
+        options: [kis, dart, off]
+        default: kis
+
+concurrency:
+  group: krx-companies
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Refresh master
+        id: refresh
+        env:
+          DART_API_KEY: ${{ secrets.DART_API_KEY }}
+          FORCE: ${{ inputs.force && '1' || '' }}
+        run: |
+          python tools/build_krx_companies.py --rename "${{ inputs.rename }}" \
+            ${{ inputs.dry_run && '--dry-run' || '' }}
+
+      - name: Commit and push
+        if: ${{ !inputs.dry_run }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add public/assets/krx_companies.json public/assets/krx_companies_history.json
+          git diff --staged --quiet && echo "No changes to commit" && exit 0
+          git commit -m "chore: refresh krx_companies.json $(date -u +'%Y-%m-%d') — ${{ steps.refresh.outputs.summary }} [skip railway]"
+          for i in $(seq 1 5); do
+            if git push origin HEAD:main; then echo "pushed (attempt $i)"; exit 0; fi
+            echo "push attempt $i rejected; rebasing onto latest main..."
+            git fetch origin main
+            git rebase FETCH_HEAD || { git rebase --abort; echo "::error::rebase conflict"; exit 1; }
+            sleep $((RANDOM % 4 + 2))
+          done
+          echo "::error::push failed after 5 attempts" && exit 1

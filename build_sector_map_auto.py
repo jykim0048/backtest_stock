@@ -70,18 +70,42 @@ _BIG_CODES = ("0021", "0027")     # 대분류 코드로 그룹핑할 항목(금�
 _TAIL = {"kospi_code": 228, "kosdaq_code": 222}
 
 
-def _parse_mst(name, verify=True):
-    """마스터 파일 → [{code, name, big(대분류), mid(중분류), cap, pref}] (주권만).
-
-    pref=True 는 우선주(코드 끝자리 ≠ 0, 신형 영숫자 코드 포함). 섹터·업종 맵은
-    보통주만 쓰고(호출측 필터), 우선주는 전 종목 시총 파일(krx_caps.json)에만 쓴다
-    (2026-09-22 — 공매도·대차 시총대비에서 삼성전자우 등 우선주가 시총 결측)."""
+def _download_mst(name, verify=True):
+    """KIS 공개 CDN 마스터 zip → 디코드된 텍스트(cp949)."""
     r = requests.get(MST_URL.format(name=name), timeout=60, verify=verify)
     r.raise_for_status()
     with zipfile.ZipFile(io.BytesIO(r.content)) as z:
-        raw = z.read(f"{name}.mst").decode("cp949", errors="replace")
-    tail = _TAIL[name]
-    rows = [row for row in raw.splitlines() if len(row) > tail + 21]
+        return z.read(f"{name}.mst").decode("cp949", errors="replace")
+
+
+def _detect_tail(lines, lo=120, hi=320):
+    """고정부 폭을 모르는 마스터(코넥스 등) — 고정부 첫 2자리 = 그룹코드('ST')가 가장 많이
+    맞는 끝 역산 폭. 종목명 길이는 행마다 달라도 고정부 폭은 같다는 점을 이용."""
+    best, best_n = None, 0
+    sample = lines[:500]
+    for t in range(lo, hi):
+        n = sum(1 for row in sample if len(row) > t + 21 and row[-t:-t + 2] == "ST")
+        if n > best_n:
+            best, best_n = t, n
+    return best if best_n >= max(10, len(sample) // 3) else None
+
+
+def _parse_mst(name, verify=True, groups=("ST",), raw=None):
+    """마스터 파일 → [{code, name, big(대분류), mid(중분류), cap, pref, group}].
+
+    groups: 남길 증권 그룹코드(기본 'ST' 주권만 — 섹터맵·시총 파일 동작 불변). None 이면 전부.
+    종목 마스터(tools/build_krx_companies.py)는 리츠·인프라·외국주권 등도 쓴다(2026-11-12).
+    pref=True 는 우선주(코드 끝자리 ≠ 0, 신형 영숫자 코드 포함). 섹터·업종 맵은
+    보통주만 쓰고(호출측 필터), 우선주는 전 종목 시총 파일(krx_caps.json)에만 쓴다
+    (2026-09-22 — 공매도·대차 시총대비에서 삼성전자우 등 우선주가 시총 결측).
+    _TAIL 에 없는 파일(konex_code)은 고정부 폭을 자동 탐지한다(big/mid/cap 은 신뢰 불가)."""
+    if raw is None:
+        raw = _download_mst(name, verify)
+    lines = raw.splitlines()
+    tail = _TAIL.get(name) or _detect_tail(lines)
+    if not tail:
+        return []
+    rows = [row for row in lines if len(row) > tail + 21]
     # 그룹코드('ST') 시작 오프셋(pad) 탐지 — 폭 테이블 오차와 무관하게 정렬
     c = Counter()
     for row in rows[:500]:
@@ -103,7 +127,8 @@ def _parse_mst(name, verify=True):
         # 우선주 = 끝자리 ≠ 0(5·7·9·K 등). 신형 영숫자 보통주 코드(예: 인벤테라 0007J0)는
         # 끝자리 0 이라 보통주 — 종전 isdigit 필터가 이들을 전부 빠뜨려 업종·섹터 결측(2026-09-22)
         pref = code[5] != "0"
-        if p2[pad:pad + 2] != "ST":                    # 주권만(ETF/ETN/리츠 등 제외)
+        group = p2[pad:pad + 2]
+        if groups is not None and group not in groups:   # 기본 주권만(ETF/ETN/리츠 등 제외)
             continue
         big = p2[pad + 3: pad + 7]                     # 그룹2+시총규모1 다음 4자리
         mid = p2[pad + 7: pad + 11]
@@ -113,7 +138,7 @@ def _parse_mst(name, verify=True):
         except ValueError:
             cap = 0.0
         out.append({"code": code, "name": kname, "big": big, "mid": mid, "cap": cap,
-                    "pref": pref})
+                    "pref": pref, "group": group})
     # 진단 프로브(2026-09-09): SECTOR_PROBE=코드,코드 — 원시 필드/고정부 덤프.
     # (지엘팜텍 204840 이 HTS 상 '유통'인데 전 종목 맵에서 빠짐 — 미분류인지
     #  파싱 오프셋 문제인지 클라우드 로그로 판별)
