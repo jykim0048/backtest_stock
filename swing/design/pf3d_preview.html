@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>swing paper 3D 시안 — 당일 등락 요인 분해</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
+<!-- 팝업 모양은 실제 대시보드 스타일 그대로(서버 루트 = swing/) -->
+<link rel="stylesheet" href="../static/style.css">
+<style>
+  /* 시안 전용: 팝업을 페이지 안에 펼쳐 보인다(실제로는 모달) */
+  .pv-wrap { max-width: 940px; margin: 0 auto; padding: 14px 16px 40px; }
+  .pv-note { font-size: 12px; line-height: 1.6; color: var(--text-muted); margin-bottom: 12px; padding: 10px 14px; border: 1px dashed rgba(255, 255, 255, .16); border-radius: 12px; }
+  .pv-note b { color: var(--text-main); } .pv-note .new { color: var(--kospi-blue); font-weight: 700; }
+  dialog#decision { position: static; max-height: none; margin: 0 auto; display: block; }
+
+  /* ── 새로 들어가는 것: 당일 등락 요인 분해 카드(3D) ── */
+  .pf3d-card { border: 1px solid rgba(0, 240, 255, .28); border-radius: 10px; padding: 8px 11px 10px; background: rgba(0, 240, 255, .04); }
+  .pf3d-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .pf3d-top strong { font-size: 13px; }
+  .pf3d-top .basis { font-size: 12px; color: var(--text-muted); } .pf3d-top .basis b { font-family: var(--font-outfit); font-size: 13.5px; }
+  .pf3d-est { font-size: 10.5px; font-weight: 600; padding: 0 7px; border-radius: 6px; border: 1px solid var(--border-color); color: var(--text-muted); }
+  .pf3d-top em { margin-left: auto; font-style: normal; font-size: 11.5px; color: var(--kospi-blue); white-space: nowrap; cursor: pointer; }
+  .pf3d-card .up, .o3-info .up { color: var(--up-red); } .pf3d-card .down, .o3-info .down { color: var(--down-blue); } .pf3d-card .neu { color: var(--text-muted); }
+  .o3-stage { position: relative; height: 380px; margin-top: 8px; border-radius: 12px; border: 1px solid var(--border-color); overflow: hidden;
+    background: radial-gradient(90% 80% at 50% 45%, rgba(0, 200, 216, .07), transparent 60%), rgba(7, 10, 19, .75); cursor: grab; touch-action: none; user-select: none; }
+  .o3-stage.drag { cursor: grabbing; }
+  .o3-stage canvas { display: block; width: 100%; height: 100%; }
+  .o3-labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+  .o3-lbl { position: absolute; left: 0; top: 0; transform: translate(-50%, -50%); white-space: nowrap; text-align: center; font-size: 11.5px; line-height: 1.25; padding: 2px 7px; border-radius: 7px;
+    background: rgba(7, 10, 19, .72); border: 1px solid rgba(255, 255, 255, .08); color: var(--text-main); will-change: transform, opacity; transition: opacity .2s; opacity: 0; }
+  .o3-lbl .pc { font-family: var(--font-outfit); font-weight: 700; }
+  .o3-lbl .pc.up { color: #fca5a5; } .o3-lbl .pc.down { color: #93c5fd; } .o3-lbl .pc.neu { color: var(--text-muted); }
+  .o3-lbl.root { font-weight: 700; font-size: 13px; padding: 3px 10px; background: rgba(7, 10, 19, .92); border-color: rgba(0, 240, 255, .55); color: var(--kospi-blue); }
+  .o3-lbl.root .pc { display: block; font-size: 16px; line-height: 1.15; }
+  .o3-lbl.cat { font-weight: 700; font-size: 12px; padding: 3px 9px; background: rgba(15, 23, 42, .9); border-color: rgba(255, 255, 255, .18); }
+  .o3-lbl.cat .pc { display: block; font-size: 13.5px; line-height: 1.15; }
+  .o3-lbl.leaf { font-size: 10.5px; white-space: normal; max-width: 104px; line-height: 1.22; padding: 2px 5px; background: rgba(7, 10, 19, .62); border-color: rgba(255, 255, 255, .14); }
+  .o3-lbl.leaf .pc { display: block; font-size: 12.5px; color: #fff; }
+  .o3-lbl.leaf.compact { max-width: none; white-space: nowrap; background: none; border-color: transparent; padding: 0; font-size: 11px; text-shadow: 0 1px 3px rgba(0, 0, 0, .95), 0 0 2px rgba(0, 0, 0, .9); }
+  .o3-lbl.leaf.compact .tt { display: none; }
+  .o3-lbl.sel { border-color: #fff; background: rgba(30, 41, 59, .95); }
+  .o3-tools { position: absolute; right: 10px; top: 10px; display: flex; gap: 6px; }
+  .o3-tool { background: rgba(7, 10, 19, .7); border: 1px solid var(--border-color); color: var(--text-muted); border-radius: 8px; font-size: 11px; padding: 5px 8px; cursor: pointer; font-family: inherit; }
+  .o3-hint { position: absolute; right: 12px; bottom: 10px; font-size: 10.5px; color: var(--text-muted); pointer-events: none; }
+  .o3-info { position: absolute; left: 10px; bottom: 10px; max-width: min(340px, calc(100% - 20px)); padding: 9px 11px; border-radius: 10px; font-size: 12px; line-height: 1.5; background: rgba(11, 18, 34, .92); border: 1px solid rgba(255, 255, 255, .16); }
+  .o3-info .k { font-size: 10.5px; color: var(--text-muted); } .o3-info .t { font-weight: 700; } .o3-info .t b { font-family: var(--font-outfit); margin-left: 4px; }
+  .o3-info .e { color: #cbd5e1; margin-top: 2px; }
+  .pf3d-foot { margin-top: 5px; font-size: 11px; color: var(--text-muted); line-height: 1.5; }
+  @media (max-width: 640px) { .o3-stage { height: 300px; } .o3-hint { display: none; } }
+
+  /* 맨 위 한 줄 — 왼쪽 카드 3×2(+ PM 요약) · 오른쪽 3D. 좁은 화면에서는 위아래로 */
+  .dec-top { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.12fr); gap: 14px; align-items: stretch; }
+  .dec-top .dec-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .dec-top .dec-grid .port-val { font-size: 14px; }
+  .dec-top .dec-left .dec-sec { margin-top: 12px; }
+  .dec-top #dec-pf3d { margin-top: 0; display: flex; }
+  .dec-top .pf3d-card { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  .dec-top .o3-stage { flex: 1; height: auto; min-height: 300px; }
+  .dec-top .o3-hint { display: none; }
+  .dec-top .pf3d-top .basis { font-size: 11.5px; }
+  @media (max-width: 760px) { .dec-top { grid-template-columns: 1fr; } .dec-top .o3-stage { min-height: 300px; } }
+</style>
+</head>
+<body>
+<div class="pv-wrap">
+  <div class="pv-note" id="pv-note">
+    <b>시안</b> — 종목을 눌렀을 때 뜨는 판단 팝업은 <b>기존 그대로</b>이고, 새로 들어가는 것은 트레이딩 히스토리 카드 위의
+    <span class="new">당일 등락 요인 분해</span> 카드 하나입니다. 팝업의 값·PM 요약·히스토리·리포트 = swing-web 실제 데이터,
+    요인 16개 = 11/10 재판별 리포트에서 <b>손으로 추린 예시</b>(요인을 뽑는 단계는 아직 없음).
+  </div>
+  <dialog id="decision" open>
+    <form method="dialog" class="dlg-head" onsubmit="return false"><h2 id="dec-title">불러오는 중…</h2><button aria-label="닫기">✕</button></form>
+    <div id="dec-body"></div>
+  </dialog>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function () {
+  "use strict";
+  var API = "https://swing-web-production.up.railway.app", KEY = "decision/2026-11-05/004370/entry", NAME = "농심";
+  function $(id) { return document.getElementById(id); }
+  function esc(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
+  function sgn(v) { return v > 1e-9 ? "up" : v < -1e-9 ? "down" : "neu"; }
+  function won(v) { return v == null ? "—" : Math.round(v).toLocaleString(); }
+  function wonS(v) { return (v > 0 ? "+" : v < 0 ? "−" : "") + Math.abs(Math.round(v)).toLocaleString(); }
+  function pctTxt(v) { return (v > 0 ? "+" : v < 0 ? "−" : "") + Math.abs(v).toFixed(2) + "%"; }
+  function fp(v, cat) { return (v > 1e-9 ? "+" : v < -1e-9 ? "−" : "±") + Math.abs(v).toFixed(1) + (cat ? "%p" : ""); }
+
+  // ── 3D 엔진(메인 대시보드 PF3D 와 같은 모양: 가운데 → 투명한 구(항목별 궤도) ⊃ 공) ───────────────────────────
+  // model = { root: {name, valueHtml}, groups: [{id, name, net, items: [{title, v, ...}]}], fmt(v, cat), info(item, group), groupInfo(group) }
+  function Orb3D(stage, opts) {
+    var canvas = stage.querySelector("canvas"), labelBox = stage.querySelector(".o3-labels"), infoEl = stage.querySelector(".o3-info");
+    var T = window.THREE, RED = 0xef4444, BLUE = 0x3b82f6, GRAY = 0x94a3b8;
+    var scene = new T.Scene(), camera = new T.PerspectiveCamera(40, 1, 0.1, 200);
+    var renderer = new T.WebGLRenderer({ canvas: canvas, antialias: true, alpha: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    scene.add(new T.AmbientLight(0xffffff, 0.6));
+    var key = new T.DirectionalLight(0xffffff, 0.95); key.position.set(5, 9, 12); scene.add(key);
+    var rim = new T.PointLight(0x38bdf8, 0.45); rim.position.set(-8, -4, -6); scene.add(rim);
+    var world = new T.Group(); scene.add(world);
+    var gc = document.createElement("canvas"); gc.width = gc.height = 128; var g2 = gc.getContext("2d"), gr = g2.createRadialGradient(64, 64, 0, 64, 64, 64);
+    gr.addColorStop(0, "rgba(255,255,255,.9)"); gr.addColorStop(0.35, "rgba(255,255,255,.28)"); gr.addColorStop(1, "rgba(255,255,255,0)");
+    g2.fillStyle = gr; g2.fillRect(0, 0, 128, 128); var glowTex = new T.CanvasTexture(gc);
+    var ray = new T.Raycaster(), ptr = new T.Vector2(), v = new T.Vector3(), dv = new T.Vector3();
+    var nodes = [], links = [], M = null, MAXV = 1;
+    var HOME = { z: 17, rx: 0.3, ry: -0.18 }, zoom = 17, spinTo = null, panTo = 0, panX = 0, narrow = false;
+    var catFocus = null, selected = null, hovered = null, drag = null, moved = 0, idleAt = 0, t0 = 0, last = 0;
+    var auto = !(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+    var ORBITS = [[4.2, 0.10, 0.06], [5.0, -0.34, 0.16], [3.9, 0.38, -0.22], [5.3, 0.22, 0.32], [4.6, -0.18, -0.36], [5.6, -0.46, 0.05], [4.9, 0.30, 0.20]];
+    function colorOf(x) { return x > 1e-9 ? RED : x < -1e-9 ? BLUE : GRAY; }
+    function mkLabel(html, cls) { var el = document.createElement("div"); el.className = "o3-lbl " + cls; el.innerHTML = html; labelBox.appendChild(el); return el; }
+    function glowOf(pos, r, color, op) {
+      var gl = new T.Sprite(new T.SpriteMaterial({ map: glowTex, color: color, blending: T.AdditiveBlending, transparent: true, opacity: op, depthWrite: false }));
+      gl.scale.setScalar(r); gl.position.copy(pos); world.add(gl); return gl;
+    }
+    function ballNode(kind, pos, r, color, html, cls, extra) {
+      var m = new T.Mesh(new T.SphereGeometry(r, 32, 22), new T.MeshStandardMaterial({ color: color, emissive: color, emissiveIntensity: kind === "root" ? 0.5 : 0.38, roughness: 0.3, metalness: 0.15, transparent: true }));
+      m.position.copy(pos); world.add(m);
+      var n = { kind: kind, mesh: m, glow: kind === "root" ? glowOf(pos, r * 4.6, color, 0.5) : null, glowBase: 0.5, label: mkLabel(html, cls), pos: pos.clone(), r: r, op: 1, base: 1 };
+      for (var k in (extra || {})) n[k] = extra[k];
+      m.userData.node = n; nodes.push(n); return n;
+    }
+    function shellNode(pos, R, color, html, extra) {
+      var m = new T.Mesh(new T.SphereGeometry(R, 44, 30), new T.MeshStandardMaterial({ color: color, emissive: color, emissiveIntensity: 0.3, roughness: 0.12, metalness: 0.25, transparent: true, opacity: 0.13, depthWrite: false }));
+      m.position.copy(pos); m.renderOrder = 2; world.add(m);
+      var back = new T.Mesh(new T.SphereGeometry(R * 1.015, 44, 30), new T.MeshBasicMaterial({ color: color, transparent: true, opacity: 0.2, side: T.BackSide, depthWrite: false }));
+      back.position.copy(pos); world.add(back);
+      var n = { kind: "cat", mesh: m, back: back, glow: glowOf(pos, R * 3.3, color, 0.3), glowBase: 0.3, label: mkLabel(html, "cat"), pos: pos.clone(), r: R, op: 1, base: 0.13 };
+      for (var k in (extra || {})) n[k] = extra[k];
+      m.userData.node = n; nodes.push(n); return n;
+    }
+    function orbitPos(o) { return new T.Vector3(Math.cos(o.a) * o.R, 0, Math.sin(o.a) * o.R).applyQuaternion(o.q); }
+    function pack(rs) {
+      var n = rs.length, ps = [], i, j, it, d = new T.Vector3();
+      for (i = 0; i < n; i++) {
+        var t = (i + 0.5) / n, ph = Math.acos(1 - 2 * t), th = Math.PI * (1 + Math.sqrt(5)) * i;
+        ps.push(new T.Vector3(Math.sin(ph) * Math.cos(th), Math.cos(ph), Math.sin(ph) * Math.sin(th)).multiplyScalar(n === 1 ? 0 : (rs[0] + rs[i]) * 1.2));
+      }
+      for (it = 0; it < 400; it++) {
+        for (i = 0; i < n; i++) ps[i].multiplyScalar(0.975);
+        for (i = 0; i < n; i++) for (j = i + 1; j < n; j++) {
+          d.subVectors(ps[j], ps[i]); var dist = d.length(), min = rs[i] + rs[j] + 0.05;
+          if (dist < min) { if (dist < 1e-6) d.set(1, 0, 0); else d.multiplyScalar(1 / dist); var push = (min - dist) / 2; ps[i].addScaledVector(d, -push); ps[j].addScaledVector(d, push); }
+        }
+      }
+      var c = new T.Vector3(), ws = 0; ps.forEach(function (p, k) { c.addScaledVector(p, rs[k]); ws += rs[k]; }); c.multiplyScalar(1 / (ws || 1));
+      var R = 0; ps.forEach(function (p, k) { p.sub(c); R = Math.max(R, p.length() + rs[k]); });
+      return { ps: ps, R: R + 0.14 };
+    }
+    function clear() {
+      while (world.children.length) { var o = world.children[0]; world.remove(o); if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); }
+      labelBox.innerHTML = ""; nodes = []; links = []; catFocus = null; selected = null; hovered = null; drag = null; spinTo = null; panTo = 0; panX = 0;
+    }
+    function load(model) {
+      clear(); M = model;
+      var G = model.groups;
+      MAXV = 1e-9; G.forEach(function (g) { g.items.forEach(function (it) { MAXV = Math.max(MAXV, Math.abs(it.v)); }); });
+      ballNode("root", new T.Vector3(), 0.9, 0x06b6d4, esc(model.root.name) + model.root.valueHtml, "root");
+      G.forEach(function (g, gi) {
+        var rs = g.items.map(function (it) { return 0.17 + 0.43 * Math.sqrt(Math.abs(it.v) / MAXV); }), pk = pack(rs);
+        var ob = ORBITS[gi % ORBITS.length];
+        var orbit = { R: ob[0], q: new T.Quaternion().setFromEuler(new T.Euler(ob[1], 0, ob[2])), a: -Math.PI / 2 + gi / G.length * Math.PI * 2 };
+        var cn = shellNode(orbitPos(orbit), pk.R, colorOf(g.net), esc(g.name) + '<span class="pc ' + sgn(g.net) + '">' + model.fmt(g.net, true) + "</span>", { cat: g.id, orbit: orbit, group: g });
+        var pts = []; for (var a = 0; a <= 96; a++) pts.push(new T.Vector3(Math.cos(a / 96 * Math.PI * 2) * orbit.R, 0, Math.sin(a / 96 * Math.PI * 2) * orbit.R).applyQuaternion(orbit.q));
+        cn.ring = new T.Line(new T.BufferGeometry().setFromPoints(pts), new T.LineBasicMaterial({ color: colorOf(g.net), transparent: true, opacity: 0.3 })); world.add(cn.ring);
+        var ln = new T.Line(new T.BufferGeometry().setFromPoints([new T.Vector3(), new T.Vector3()]), new T.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.12 })); world.add(ln);
+        links.push({ line: ln, owner: cn });
+        g.items.forEach(function (it, k) {
+          ballNode("leaf", cn.pos.clone().add(pk.ps[k]), rs[k], colorOf(it.v), '<span class="pc">' + model.fmt(it.v) + '</span><span class="tt">' + esc(it.title) + "</span>", "leaf", { cat: g.id, item: it, host: cn, local: pk.ps[k].clone() });
+        });
+      });
+      home(); camera.position.set(0, 0, zoom); applyVisual(); renderInfo(); t0 = last = performance.now();
+    }
+    function applyVisual() {
+      nodes.forEach(function (n) {
+        var on = true;
+        if (n.kind === "leaf") { on = !catFocus || n.cat === catFocus; if (selected) on = n === selected; }
+        else if (n.kind === "cat") on = !catFocus || n.cat === catFocus;
+        n.dim = !on; n.op = on ? 1 : (n.kind === "cat" ? 0.3 : 0.1);
+        n.label.classList.toggle("sel", n === selected);
+      });
+    }
+    function renderInfo() {
+      if (selected) { infoEl.innerHTML = M.info(selected.item, selected.host.group); infoEl.style.display = ""; }
+      else if (catFocus) { var cn = catNode(catFocus); infoEl.innerHTML = M.groupInfo(cn.group); infoEl.style.display = ""; }
+      else infoEl.style.display = "none";
+    }
+    function catNode(id) { for (var i = 0; i < nodes.length; i++) if (nodes[i].kind === "cat" && nodes[i].cat === id) return nodes[i]; return null; }
+    function faceNode(cn) {
+      var want = Math.atan2(cn.pos.z, cn.pos.x) - Math.PI / 2 + 0.45, cur = world.rotation.y;
+      spinTo = cur + Math.atan2(Math.sin(want - cur), Math.cos(want - cur));
+      var q = cn.pos.clone().applyEuler(new T.Euler(world.rotation.x, spinTo, 0, "XYZ"));
+      panTo = -q.y; panX = -q.x + (narrow ? 0 : 0.9); zoom = q.z + Math.max(6.2, cn.r * 6.4) * (narrow ? 1.7 : 1);
+    }
+    function focusCat(id) { catFocus = id; selected = null; applyVisual(); renderInfo(); var cn = catNode(id); if (cn) faceNode(cn); if (opts.onPick) opts.onPick(id, null); }
+    function select(n) { selected = n; catFocus = n.cat; faceNode(n.host); applyVisual(); renderInfo(); if (opts.onPick) opts.onPick(n.cat, n.item); }
+    function home() { spinTo = null; panTo = 0; panX = 0; world.position.set(0, 0, 0); world.rotation.set(HOME.rx, HOME.ry, 0); zoom = HOME.z + (narrow ? 8 : 0); }
+    function reset() { catFocus = null; selected = null; applyVisual(); renderInfo(); home(); }
+    function pick(e) {
+      var r = canvas.getBoundingClientRect();
+      ptr.set((e.clientX - r.left) / r.width * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1); ray.setFromCamera(ptr, camera);
+      var hl = ray.intersectObjects(nodes.filter(function (n) { return n.kind === "leaf" && !n.dim; }).map(function (n) { return n.mesh; }));
+      var leaf = hl.length ? hl[0].object.userData.node : null;
+      if (leaf && catFocus === leaf.cat) return leaf;
+      if (leaf) return leaf.host;
+      var hs = ray.intersectObjects(nodes.filter(function (n) { return n.kind === "cat"; }).map(function (n) { return n.mesh; }));
+      return hs.length ? hs[0].object.userData.node : null;
+    }
+    var btnRot = stage.querySelector('[data-a="rot"]');
+    function setAuto(x) { auto = x; btnRot.textContent = x ? "⏸ 공전 멈춤" : "▶ 공전"; }
+    setAuto(auto);
+    btnRot.onclick = function (e) { e.stopPropagation(); setAuto(!auto); };
+    stage.querySelector('[data-a="reset"]').onclick = function (e) { e.stopPropagation(); reset(); };
+    stage.addEventListener("pointerleave", function () { hovered = null; stage.style.cursor = ""; });
+    stage.addEventListener("pointerdown", function (e) {
+      if (e.target.closest(".o3-tools") || e.target.closest(".o3-info")) return;
+      drag = { x: e.clientX, y: e.clientY }; moved = 0; spinTo = null; stage.classList.add("drag"); try { stage.setPointerCapture(e.pointerId); } catch (err) {}
+    });
+    stage.addEventListener("pointermove", function (e) {
+      if (!drag) { var hn = (e.target.closest(".o3-tools") || e.target.closest(".o3-info")) ? null : pick(e); if (hn !== hovered) { hovered = hn; stage.style.cursor = hn ? "pointer" : ""; } return; }
+      var dx = e.clientX - drag.x, dy = e.clientY - drag.y; moved += Math.abs(dx) + Math.abs(dy);
+      world.rotation.y += dx * 0.008; world.rotation.x = Math.max(-1.1, Math.min(1.1, world.rotation.x + dy * 0.006));
+      drag = { x: e.clientX, y: e.clientY }; idleAt = performance.now() + 2500;
+    });
+    stage.addEventListener("pointerup", function (e) {
+      if (!drag) return; drag = null; stage.classList.remove("drag");
+      if (moved < 6) {
+        var n = pick(e);
+        if (!n) reset();
+        else if (n.kind === "cat") { if (catFocus === n.cat && selected) { selected = null; applyVisual(); renderInfo(); } else focusCat(n.cat); }
+        else select(n);
+        idleAt = performance.now() + 4000;
+      }
+    });
+    stage.addEventListener("wheel", function (e) { e.preventDefault(); zoom = Math.max(7, Math.min(40, zoom + e.deltaY * 0.014)); idleAt = performance.now() + 2500; }, { passive: false });
+    function resize() {
+      var w = stage.clientWidth, h = stage.clientHeight; if (!w || !h) return;
+      renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix();
+      var nw = w / h < 1.2; if (nw !== narrow) { narrow = nw; if (!catFocus) zoom = HOME.z + (narrow ? 8 : 0); }
+      nodes.forEach(function (n) { n.lw = 0; });
+    }
+    window.addEventListener("resize", resize);
+    function frame(now) {
+      requestAnimationFrame(frame);
+      var w = stage.clientWidth, h = stage.clientHeight, dt = Math.min(0.05, (now - last) / 1000); last = now;
+      if (!w || !h || !M) return;
+      if (w !== frame.w || h !== frame.h) { frame.w = w; frame.h = h; resize(); }
+      var k = Math.min(1, (now - t0) / 1000), ease = 1 - Math.pow(1 - k, 3);
+      world.scale.setScalar(0.25 + 0.75 * ease);
+      if (spinTo != null) { world.rotation.y += (spinTo - world.rotation.y) * 0.1; if (Math.abs(spinTo - world.rotation.y) < 0.002) spinTo = null; }
+      var orbiting = auto && !drag && now > idleAt && !catFocus && !selected && !hovered;
+      nodes.forEach(function (n) { if (!n.orbit) return; if (orbiting) n.orbit.a += 0.08 * dt; n.pos.copy(orbitPos(n.orbit)); n.mesh.position.copy(n.pos); n.back.position.copy(n.pos); n.glow.position.copy(n.pos); });
+      nodes.forEach(function (n) { if (n.host) { n.pos.copy(n.host.pos).add(n.local); n.mesh.position.copy(n.pos); } });
+      if (!catFocus && !selected && (panX || panTo)) { panX = 0; panTo = 0; zoom = HOME.z + (narrow ? 8 : 0); }
+      camera.position.z += (zoom - camera.position.z) * 0.12; world.position.y += (panTo - world.position.y) * 0.1; world.position.x += (panX - world.position.x) * 0.1;
+      nodes.forEach(function (n) {
+        n.cur = n.cur == null ? 1 : n.cur + (n.op - n.cur) * 0.2;
+        var hot = n === hovered || (n.kind === "cat" && n.cat === catFocus);
+        n.mesh.material.opacity = n.base * n.cur * (n.kind === "cat" && hot ? 1.5 : 1);
+        if (n.back) n.back.material.opacity = 0.2 * n.cur * (hot ? 1.5 : 1);
+        if (n.glow) n.glow.material.opacity = n.glowBase * n.cur;
+      });
+      var rootR = nodes[0] ? nodes[0].r : 0.9;
+      links.forEach(function (t) {
+        var o = t.owner, g = t.line.geometry.attributes.position; dv.copy(o.pos).normalize();
+        g.setXYZ(0, dv.x * rootR, dv.y * rootR, dv.z * rootR); g.setXYZ(1, o.pos.x - dv.x * o.r, o.pos.y - dv.y * o.r, o.pos.z - dv.z * o.r); g.needsUpdate = true;
+        t.line.material.opacity = 0.12 * o.cur; o.ring.material.opacity = (catFocus === o.cat ? 0.6 : 0.3) * Math.max(o.cur, 0.5);
+      });
+      world.updateMatrixWorld();
+      var pxPerUnit = h / (2 * Math.tan(camera.fov * Math.PI / 360));
+      nodes.forEach(function (n) {
+        n.mesh.getWorldPosition(v); var depth = v.z, dist = Math.max(1, camera.position.z - depth); v.project(camera);
+        if (!n.lw) { n.label.classList.remove("compact"); n.lw = n.label.offsetWidth; n.lh = n.label.offsetHeight; if (n.kind === "leaf") { n.label.classList.add("compact"); n.lwc = n.label.offsetWidth; n.lhc = n.label.offsetHeight; } }
+        n.sx = (v.x * 0.5 + 0.5) * w; n.cy = (-v.y * 0.5 + 0.5) * h; n.pr = n.r * world.scale.x * pxPerUnit / dist; n.near = Math.max(0, Math.min(1, (depth + 9) / 18));
+        n.prio = n.kind === "root" ? 1000 : n === selected ? 950 : (n.kind === "leaf" && n === hovered) ? 900 : n.dim ? -1 :
+                 n.kind === "cat" ? 500 + n.near * 10 + Math.abs(n.group.net) / (MAXV || 1) : Math.abs(n.item.v) / MAXV * 150 + n.near * 25 + (catFocus === n.cat ? 200 : 0);
+      });
+      var placed = [];
+      function fits(b) { return !placed.some(function (p) { return b[0] < p[1] && b[1] > p[0] && b[2] < p[3] && b[3] > p[2]; }); }
+      function bx(x, y, lw, lh) { return [x - lw / 2 - 2, x + lw / 2 + 2, y - lh / 2 - 1, y + lh / 2 + 1]; }
+      nodes.slice().sort(function (a, b) { return b.prio - a.prio; }).forEach(function (n) {
+        var el = n.label, b, y, compact = false;
+        if (n.prio < 0) { el.style.opacity = 0; return; }
+        if (n.kind !== "leaf") {
+          y = n.kind === "root" ? n.cy + n.pr + n.lh / 2 + 3 : n.cy - n.pr - n.lh / 2 - 3;
+          b = bx(n.sx, y, n.lw, n.lh);
+          if (!fits(b) && n.kind === "cat") { y = Math.min(n.cy + n.pr + n.lh / 2 + 3, h - n.lh / 2 - 24); b = bx(n.sx, y, n.lw, n.lh); }   // 위가 막히면 구 아래에(화면 밖으로는 안 나가게)
+          if (!fits(b) && n.kind !== "root") { el.style.opacity = 0; return; }
+        } else {
+          var full = (catFocus === n.cat && n.pr >= 22) || n.prio >= 900;
+          y = n.cy; b = bx(n.sx, y, n.lw, n.lh);
+          if (!full || (!fits(b) && n.prio < 900)) { compact = true; b = bx(n.sx, y, n.lwc, n.lhc); if (n.pr < 9 || !fits(b)) { el.style.opacity = 0; return; } }
+        }
+        placed.push(b); el.classList.toggle("compact", compact);
+        el.style.transform = "translate(-50%, -50%) translate(" + n.sx.toFixed(1) + "px," + y.toFixed(1) + "px)";
+        el.style.opacity = ease; el.style.zIndex = n.prio >= 900 ? 4 : n.kind === "leaf" ? (compact ? 1 : 3) : 2;
+      });
+      renderer.render(scene, camera);
+    }
+    requestAnimationFrame(frame);
+    return { load: load, reset: reset, focus: focusCat, state: function () { return { nodes: nodes.length, catFocus: catFocus, selected: !!selected }; } };
+  }
+
+  // ── 당일 등락 요인: 항목 = 애널리스트 5역할(종합 리포트 I-1~I-5) ─────────────────────────────────────────
+  var CATS = [["market", "기술적 분석"], ["sentiment", "심리"], ["news", "뉴스·공시"], ["fundamentals", "펀더멘털"], ["flow", "수급"]];
+  var CAT_LABEL = { etc: "기타·시장" }; CATS.forEach(function (c) { CAT_LABEL[c[0]] = c[1]; });
+  // 예시 요인(농심 2026-11-10 재판별 리포트에서 사람이 추림) — [항목, 방향(+1 상승 / −1 하락 / 0 중립), 강도 1~5, 제목, 근거]
+  var FACT = [
+    ["market", -1, 3, "50일선(406,860원) 아래 — 저항 확인", "주가가 50일 이동평균선을 밑돌아 중기 하락 압력."],
+    ["market", -1, 2, "거래량 20일 평균의 0.63배", "상승 시도에 거래량이 따라붙지 않아 매수세 부족."],
+    ["market", -1, 2, "MACD 히스토그램 축소", "상승 모멘텀 약화(히스토그램 800.3)."],
+    ["market", 1, 2, "200일선(390,333원) 지지 구간", "장기 상승 추세는 유지."],
+    ["sentiment", -1, 3, "공정위 라면 담합 조사 우려", "토론방에서 정부 규제 우려가 지배적."],
+    ["sentiment", -1, 2, "토론방 — 공매도·주가 부진 불만", "심리 점수 4.5/10(Mixed)."],
+    ["sentiment", 1, 1, "신라면 40주년 한정판 마케팅", "브랜드 충성도 강화, 단기 영향은 제한적."],
+    ["news", -1, 4, "3Q26 실적 컨센서스 하회 전망", "유안타·하나증권 — 가격 인상 뒤 국내 판매량 저항."],
+    ["news", 1, 2, "미국·유럽 법인 출하 증가", "미국 판매량 회복, 유럽 신규 시장 출하 증가."],
+    ["fundamentals", 1, 2, "PBR 0.77배 · PER 12.3배 저평가", "업종 평균 대비 낮은 밸류에이션."],
+    ["fundamentals", 1, 1, "부채비율 36.9% · 이자보상 10.4배", "재무 건전성 매우 우량."],
+    ["fundamentals", -1, 1, "영업이익률 6.2% — 전분기 7.2%", "2026 Q2 영업이익 592억(전분기 674억)."],
+    ["flow", -1, 5, "기관 이틀 연속 순매도(13.8억·17.4억)", "11/9·11/10 기관계 순매도 전환."],
+    ["flow", -1, 4, "공매도 거래 비중 17.27%", "최근 5일 평균보다 높은 수준."],
+    ["flow", 1, 2, "외국인 11/10 +7.7억 순매수", "11/9 −23.3억 뒤 순매수 전환."],
+    ["flow", 0, 1, "대차잔고 936억(시총 4.03%) 변화 없음", "최근 10일 증감 폭이 크지 않음."]
+  ];
+  // 배분 규칙 — 메인 analysis/price_factors.attribute 와 같은 식(등락률을 요인 강도에 비례해 %p 로)
+  function attribute(items, rate) {
+    var r = +rate, U = 0, D = 0, r1 = function (x) { return Math.round(x * 10) / 10; };
+    items.forEach(function (x) { if (x.dir > 0) U += x.st; else if (x.dir < 0) D += x.st; });
+    var gross;
+    if ((r > 0 && U === 0) || (r < 0 && D === 0)) gross = Math.abs(r) * 2;
+    else { gross = (U || D) ? Math.abs(r) * Math.min((U + D) / Math.max(Math.abs(U - D), 1e-9), 3) : Math.abs(r); if (U && D) gross = Math.max(gross, 1); }
+    gross = Math.max(gross, Math.abs(r));
+    var u = (gross + r) / 2, d = (gross - r) / 2, resid = 0;
+    if (U === 0) { resid += u; u = 0; }
+    if (D === 0) { resid -= d; d = 0; }
+    var out = items.map(function (x) { return { cat: x.cat, title: x.title, dir: x.dir, st: x.st, ev: x.ev, pp: r1(x.dir > 0 ? u * x.st / U : x.dir < 0 ? -d * x.st / D : 0) }; });
+    if (Math.abs(resid) >= 0.05) out.push({ cat: "etc", title: "요인으로 설명되지 않은 변동", dir: resid > 0 ? 1 : -1, st: 0, ev: "제시된 요인의 방향만으로는 등락률을 설명할 수 없어 남은 부분(시장·업종 흐름 등).", pp: r1(resid) });
+    var diff = r1(r1(r) - out.reduce(function (s, x) { return s + x.pp; }, 0));
+    if (out.length && Math.abs(diff) >= 0.05) { var big = out.reduce(function (a, b) { return Math.abs(b.pp) > Math.abs(a.pp) ? b : a; }); big.pp = r1(big.pp + diff); }
+    return out;
+  }
+  function pfModel(rate) {
+    var rows = attribute(FACT.map(function (f) { return { cat: f[0], dir: f[1], st: f[2], title: f[3], ev: f[4] }; }), rate);
+    var groups = CATS.concat(rows.some(function (x) { return x.cat === "etc"; }) ? [["etc", CAT_LABEL.etc]] : []).map(function (c) {
+      var items = rows.filter(function (x) { return x.cat === c[0]; }).map(function (x) { return { title: x.title, v: x.pp, dir: x.dir, st: x.st, ev: x.ev }; });
+      var net = 0; items.forEach(function (it) { net += it.v; });
+      return { id: c[0], name: c[1], net: Math.round(net * 10) / 10, items: items };
+    }).filter(function (g) { return g.items.length; });
+    return { root: { name: NAME, valueHtml: '<span class="pc ' + sgn(rate) + '">' + fp(rate) + "%</span>" }, groups: groups, fmt: fp, n: rows.length,
+      info: function (it, g) { return '<div class="k">' + esc(g.name) + " › " + (it.dir > 0 ? "상승 요인" : it.dir < 0 ? "하락 요인" : "중립") + (it.st ? " · 강도 " + it.st : "") + '</div><div class="t">' + esc(it.title) + ' <b class="' + sgn(it.v) + '">' + fp(it.v, true) + '</b></div><div class="e">' + esc(it.ev) + "</div>"; },
+      groupInfo: function (g) { return '<div class="k">리포트 항목</div><div class="t">' + esc(g.name) + ' <b class="' + sgn(g.net) + '">' + fp(g.net, true) + '</b></div><div class="e">요인 ' + g.items.length + "개 — 아래 종합 리포트의 이 항목이 함께 열립니다.</div>"; } };
+  }
+
+  // ── 팝업(기존 app.js openDecision 과 같은 구조 — 시안용 간략 구현) ──────────────────────────────────────────
+  var ROLE_GROUPS = [
+    ["I. 애널리스트 리포트", [["market", "I-1. Market Analyst · 기술적 분석"], ["sentiment", "I-2. Sentiment Analyst · 심리"], ["news", "I-3. News Analyst · 뉴스·공시"],
+      ["fundamentals", "I-4. Fundamentals Analyst · 펀더멘털"], ["flow", "I-5. Flow Analyst · 수급"]]],
+    ["II. 강세·약세 토론과 Research Manager", [["debate", "II-1. 강세·약세 토론"], ["research_manager", "II-2. Research Manager"]]],
+    ["III. Trader", [["trader", "Trader"]]], ["IV. 리스크 토론", [["risk_debate", "공격 → 보수 → 중립"]]], ["V. Portfolio Manager", [["pm", "Portfolio Manager"]]],
+    ["부록 · 수집 정보", [["peers", "해외 비교기업"], ["ca", "예탁원 CA 일정(원자료)"], ["collect", "수집 상태"]]]];
+  function rating(r) { var s = String(r || "—"), c = /buy|overweight/i.test(s) ? "buy" : /sell|underweight/i.test(s) ? "sell" : ""; return '<span class="rating ' + c + '">' + esc(s) + "</span>"; }
+  function md(s) {   // 시안용 최소 마크다운(제목·굵게·목록, 표는 원문 그대로)
+    var out = [], pre = [];
+    function flush() { if (pre.length) { out.push('<pre style="white-space:pre-wrap;font-size:11.5px">' + pre.join("\n") + "</pre>"); pre = []; } }
+    String(s || "").split("\n").forEach(function (ln) {
+      var t = esc(ln).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>"), m;
+      if (/^\s*\|/.test(ln)) { pre.push(esc(ln)); return; }
+      flush();
+      if ((m = /^(#{2,6})\s+(.*)/.exec(t))) out.push("<h" + Math.min(6, m[1].length + 1) + ">" + m[2] + "</h" + Math.min(6, m[1].length + 1) + ">");
+      else if ((m = /^\s*(?:[-*]|\d+\.)\s+(.*)/.exec(t))) out.push("<ul><li>" + m[1] + "</li></ul>");
+      else if (t.trim()) out.push("<p>" + t + "</p>");
+    });
+    flush(); return out.join("").replace(/<\/ul><ul>/g, "");
+  }
+  function histCard(h) {
+    if (!h || h.status === "none") return "";
+    var ws = h.side === "short" ? "SHORT" : "LONG", days = h.days || [];
+    var vs = h.vsAvgPct != null ? (h.qty ? "현재가 " + won(h.last) + (h.lastTs ? "(" + h.lastTs + ")" : "") + " · 평단 대비 " : "마지막 종가 " + won(h.last) + " · 평단 대비 ") + pctTxt(h.vsAvgPct) : "";
+    var pnl = "";
+    if (h.realized) pnl = '<div class="hist-num"><span>실현 손익</span><b class="' + sgn(h.realized) + '">' + wonS(h.realized) + "</b></div>";
+    else if (h.qty && h.avg && h.last) { var ur = (h.side === "short" ? -1 : 1) * (h.last - h.avg) * h.qty; pnl = '<div class="hist-num"><span>평가 손익</span><b class="' + sgn(ur) + '">' + wonS(ur) + "</b><small>" + pctTxt(h.vsAvgPct) + "</small></div>"; }
+    var svg = "";
+    if (days.length > 1) {   // 시안용 간략 차트(실제 카드는 봉·체결 화살표·비중)
+      var W = 820, H = 120, lo = Math.min.apply(null, days.map(function (d) { return d.l; })), hi = Math.max.apply(null, days.map(function (d) { return d.h; }));
+      var X = function (i) { return 30 + i * (W - 60) / (days.length - 1); }, Y = function (p) { return 12 + (hi - p) / ((hi - lo) || 1) * (H - 30); };
+      svg = '<svg class="hist-chart" viewBox="0 0 ' + W + " " + H + '">' +
+        (h.avg ? '<line x1="20" x2="' + (W - 20) + '" y1="' + Y(h.avg) + '" y2="' + Y(h.avg) + '" stroke="#00f0ff" stroke-dasharray="4 4" stroke-width="1"/>' : "") +
+        days.map(function (d, i) { var up = d.c >= d.o, c = up ? "#ef4444" : "#3b82f6"; return '<line x1="' + X(i) + '" x2="' + X(i) + '" y1="' + Y(d.h) + '" y2="' + Y(d.l) + '" stroke="' + c + '"/><rect x="' + (X(i) - 9) + '" y="' + Y(Math.max(d.o, d.c)) + '" width="18" height="' + Math.max(1.5, Math.abs(Y(d.o) - Y(d.c))) + '" fill="' + c + '"/>' +
+          '<text x="' + X(i) + '" y="' + (H - 3) + '" fill="#94a3b8" font-size="10" text-anchor="middle">' + d.d.slice(5) + "</text>"; }).join("") + "</svg>";
+    }
+    return '<div class="hist-card"><div class="hist-top"><strong>트레이딩 히스토리</strong><span class="side-tag ' + h.side + '">' + ws + "</span>" +
+      (h.status === "open" ? '<span class="flag held">보유 ' + won(h.qty) + "주</span>" : '<span class="flag">청산 완료</span>') + "<em>타임라인 펼치기 ▾</em></div>" +
+      '<div class="hist-main"><div class="hist-avg"><span>평단</span><b>' + (h.avg ? won(h.avg) : "—") + "</b><small>" + esc(vs) + "</small></div>" +
+      '<div class="hist-num"><span>PM 목표</span><b>' + (h.targetWeight || 0).toFixed(1) + '%</b></div><div class="hist-num"><span>현재</span><b>' + (h.nowWeight || 0).toFixed(1) + "%</b></div>" + pnl + "</div>" + svg +
+      '<div class="hist-foot"><div class="hist-sub">' + esc(h.summary || "") + '</div><div class="hist-legend"><span>일봉(시안 간략)</span></div></div></div>';
+  }
+  // 당일 등락률 — 히스토리의 현재가 ÷ 직전 거래일 종가(실제 구현에서는 서버가 실시간 시세의 prevClose 로 계산)
+  function todayMove(h) {
+    var days = (h && h.days) || [];
+    if (!h || !h.last || days.length < 2) return null;
+    var prev = days[days.length - 2];
+    return { date: days[days.length - 1].d, ts: h.lastTs, price: h.last, prevClose: prev.c, rate: Math.round((h.last / prev.c - 1) * 10000) / 100 };
+  }
+  var orb = null, MOVE = null;
+  function render(d, h) {
+    var sh = d.side === "short", lr = d.latestReview, rv = lr ? " · " + esc(lr.date.slice(5)) + " 재판별" : "";
+    $("dec-title").textContent = d.code + " · " + d.date + " · " + (sh ? "공매도 진입" : "신규 진입");
+    var stop = lr && lr.stop != null ? lr.stop : d.stop, tgt = lr ? lr.target : d.target;
+    var g = [["PM 등급" + rv, rating(lr ? lr.rating : d.rating)], ["Trader" + rv, esc((lr ? lr.trader : d.action) || "—")],
+      ["진입가 리밋", '<span class="param-value entry">' + won(d.entry) + '</span><small class="dec-sub">' + (h && h.avg ? "실제 평단 " + won(h.avg) : "") + "</small>"],
+      ["손절가" + (lr ? " · 재판별 후" : ""), '<span class="param-value stop">' + won(stop) + "</span>"],
+      ["목표가(PM)" + (lr ? " · 재판별 후" : ""), '<span class="param-value target">' + (tgt ? won(tgt) : "—") + "</span>"],
+      ["비중", (d.pm_weight ? "PM " + (d.pm_weight * 100).toFixed(1) + "%" : "PM —") + " · Trader " + (d.weight ? (d.weight * 100).toFixed(1) + "%" : "—")]];
+    g = [g[0], g[1], g[5], g[2], g[3], g[4]];     // 1열 PM 등급·Trader·비중 / 2열 진입가 리밋·손절가·목표가(2026-11-12)
+    var grid = '<div class="dec-grid">' + g.map(function (x) { return '<div class="port-item"><span class="port-lbl">' + x[0] + '</span><span class="port-val">' + x[1] + "</span></div>"; }).join("") + "</div>";
+    var summ = "";
+    if (lr && lr.summary) summ = '<div class="dec-sec"><h4>PM 요약 <span class="muted">· 최근 재판별 ' + esc(lr.date.slice(5)) + "</span> " + rating(lr.rating) + '</h4><div class="report">' + esc(lr.summary) + "</div>" +
+      (d.summary ? '<details class="dec-first"><summary>최초 진입 판단 요약 · ' + esc((d.date || "").slice(5)) + '</summary><div class="report">' + esc(d.summary) + "</div></details>" : "") + "</div>";
+    else if (d.summary) summ = '<div class="dec-sec"><h4>PM 요약</h4><div class="report">' + esc(d.summary) + "</div></div>";
+    // ▼ 맨 위 한 줄: 왼쪽 = PM 등급~비중 카드 3×2(+ PM 요약), 오른쪽 = 당일 등락 요인 분해 카드
+    MOVE = todayMove(h) || { date: "2026-11-11", ts: "15:34", price: 389500, prevClose: 400000, rate: -2.63 };
+    var pf3d = '<div class="dec-sec" id="dec-pf3d"><div class="pf3d-card"><div class="pf3d-top"><strong>당일 등락 요인 분해</strong>' +
+      '<span class="basis">' + esc(MOVE.date.slice(5).replace("-", "/")) + (MOVE.ts ? " " + esc(MOVE.ts) : "") + ' 기준 <b class="' + sgn(MOVE.rate) + '">' + pctTxt(MOVE.rate) + "</b> · " + won(MOVE.prevClose) + " → " + won(MOVE.price) + "</span>" +
+      '<span class="pf3d-est">추정</span><em id="pf3d-fold">접기 ▴</em></div>' +
+      '<div class="o3-stage" id="pf3d-stage"><canvas></canvas><div class="o3-labels"></div>' +
+      '<div class="o3-tools"><button type="button" class="o3-tool" data-a="rot">⏸ 공전 멈춤</button><button type="button" class="o3-tool" data-a="reset">⟲ 처음 시점</button></div>' +
+      '<div class="o3-info" style="display:none"></div><div class="o3-hint">큰 구 = 리포트 항목, 안의 공 = 요인(클수록 영향 큼) · 끌어서 회전 · 눌러서 자세히</div></div>' +
+      '<div class="pf3d-foot" id="pf3d-foot"></div></div></div>';
+    var html = '<div class="dec-top"><div class="dec-left">' + grid + summ + '</div>' + pf3d + "</div>";
+    html += '<div class="dec-sec" id="dec-hist">' + histCard(h) + "</div>";
+    var reps = d.reports || {};
+    var groups = ROLE_GROUPS.map(function (x) { return [x[0], x[1].filter(function (r) { return reps[r[0]]; })]; }).filter(function (x) { return x[1].length; });
+    if (groups.length) html += '<div class="dec-sec"><h4>종합 리포트</h4>' + groups.map(function (x) {
+      var rep = function (k) { return '<div class="report md">' + (k === "peers" ? '<pre style="white-space:pre-wrap;font-size:11.5px">' + esc(reps[k]) + "</pre>" : md(reps[k])) + "</div>"; };
+      var body = x[1].length === 1 ? rep(x[1][0][0]) : '<div class="role-list">' + x[1].map(function (r) { return '<details data-role="' + r[0] + '"><summary>' + esc(r[1]) + "</summary>" + rep(r[0]) + "</details>"; }).join("") + "</div>";
+      return '<details class="stage"><summary>' + esc(x[0]) + (x[1].length > 1 ? ' <span class="muted">' + x[1].length + "</span>" : "") + "</summary>" + body + "</details>";
+    }).join("") + "</div>";
+    html += '<p class="muted" style="font-size:11px;margin-top:14px">판단 엔진 ' + esc(d.agent || "—") + "</p>";
+    $("dec-body").innerHTML = html;
+    var ok = !!window.THREE; if (ok) { try { var tc = document.createElement("canvas"); ok = !!(tc.getContext("webgl") || tc.getContext("experimental-webgl")); } catch (e) { ok = false; } }
+    if (!ok) { $("dec-pf3d").hidden = true; return; }     // 3D 를 못 그리면 카드만 숨김 — 팝업은 그대로
+    var model = pfModel(MOVE.rate);
+    $("pf3d-foot").textContent = "요인 " + model.n + "개 · 리포트의 요인 강도(1~5)를 당일 등락률에 맞춰 %p 로 나눈 추정치 — 빨강 = 주가를 올린 요인, 파랑 = 내린 요인" + (sh ? " (Short 포지션에는 반대로 작용)" : "");
+    orb = Orb3D($("pf3d-stage"), { onPick: function (cat) {     // 항목·요인을 누르면 종합 리포트의 그 항목을 연다
+      var el = document.querySelector('#dec-body details[data-role="' + cat + '"]'); if (!el) return;
+      Array.prototype.forEach.call(document.querySelectorAll("#dec-body details[data-role]"), function (x) { x.open = x === el; });
+      el.closest("details.stage").open = true;
+    } });
+    orb.load(model);
+    $("pf3d-fold").onclick = function () { var st = $("pf3d-stage"), hid = st.style.display !== "none"; st.style.display = hid ? "none" : ""; $("pf3d-foot").style.display = hid ? "none" : ""; this.textContent = hid ? "펼치기 ▾" : "접기 ▴"; };
+  }
+  function get(p) { return fetch(API + p).then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); }); }
+  Promise.all([get("/api/swing/decision?key=" + encodeURIComponent(KEY)), get("/api/swing/history?key=" + encodeURIComponent(KEY)).catch(function () { return null; })])
+    .then(function (r) { render(r[0], r[1]); })
+    .catch(function (e) { $("dec-title").textContent = "판단 원문을 불러오지 못했습니다(" + e.message + ")"; });
+  window.__sw = { state: function () { return orb && orb.state(); }, focus: function (id) { orb.focus(id); }, move: function () { return MOVE; }, model: function () { return pfModel(MOVE.rate); } };
+})();
+</script>
+</body>
+</html>

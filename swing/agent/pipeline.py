@@ -19,6 +19,7 @@ from .. import config
 from . import KIT_DIR, SOURCE_SHA, ensure_kit_path
 from . import ca as ca_mod
 from . import peers as peers_mod
+from . import price_factors as pf_mod
 
 ROLES = os.path.join(KIT_DIR, "references", "roles")
 ROUNDS = int(os.environ.get("SWING_AGENT_ROUNDS", "1") or 1)
@@ -202,12 +203,19 @@ class TradingAgent:
         self.calls = []                                   # (역할 파일, 모델) — 테스트·로그용
 
     # ── LLM 역할 호출 ──
-    def _call(self, role_file, user, max_tokens=4096):
+    def _call(self, role_file, user, max_tokens=4096, factors=None):
+        """factors = (항목, 받을 리스트, 덧붙일 프롬프트) 를 주면 응답 스키마에 factors 를 더하고(당일 등락 요인,
+        2026-11-12 PLAN_3D.md) LLM 이 낸 목록을 그 리스트에 넣는다. 요인이 없거나 틀려도 markdown 처리는 그대로."""
+        schema = MD_SCHEMA
+        if factors is not None:
+            schema, user = pf_mod.SCHEMA, user + factors[2]
         try:
-            data, model = self.llm_fn(_system(role_file), user, max_tokens, MD_SCHEMA)
+            data, model = self.llm_fn(_system(role_file), user, max_tokens, schema)
         except Exception as ex:
             raise RoleError(f"{role_file}: {type(ex).__name__}: {ex}") from ex
         self.calls.append((role_file, model))
+        if factors is not None and isinstance(data, dict) and isinstance(data.get("factors"), list):
+            factors[1].extend(data["factors"])
         md = data.get("markdown") if isinstance(data, dict) else data
         if not isinstance(md, str) or not md.strip():
             raise RoleError(f"{role_file}: 빈 응답")
@@ -272,10 +280,13 @@ class TradingAgent:
             if not price or price.get("status") == "unavailable" or legs.get("price") == "unavailable":
                 raise RoleError("가격 수집 실패(01_price unavailable) — 가격 없이 분석하지 않음")
 
-            # 1~5 애널리스트
+            # 1~5 애널리스트 — 각자 자기 관점의 당일 등락 요인(factors)도 같이 낸다(호출 수 그대로, 2026-11-12)
+            pf_basis = pf_mod.basis(price, req.date) if pf_mod.ON else None
+            pf_raw = {}
             for key, role, files in ANALYSTS:
                 extra = ca_mod.guide(legs.get("ksd_ca")) if key == "news" and legs.get("ksd_ca") != "skipped" else ""
-                R[key] = self._call(role, self._analyst_user(stock, req, out, files, extra))
+                fx = (key, pf_raw.setdefault(key, []), pf_mod.prompt(key, pf_basis)) if pf_mod.ON else None
+                R[key] = self._call(role, self._analyst_user(stock, req, out, files, extra), factors=fx)
             reports = self._reports_block(R)
 
             # 6 Bull ↔ Bear
@@ -330,4 +341,9 @@ class TradingAgent:
                               error=msg, reports=R, side=req.side, chart=chart)
         d = A.decision_from_markdown(req, R["trader"], R["pm"], reports=R, agent=self.name)
         d.chart = chart
+        if pf_mod.ON:
+            try:                                          # 요인 분해는 보조 — 실패해도 판단은 그대로
+                d.price_factors = pf_mod.build(pf_raw, pf_basis)
+            except Exception as ex:
+                print(f"[agent] {req.code} price_factors 실패(생략): {type(ex).__name__}: {ex}")
         return d

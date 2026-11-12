@@ -52,6 +52,7 @@ class Decision:
     error: Optional[str] = None      # 판단 실패 사유(수집 실패·LLM 실패)
     side: str = "long"               # 요청 방향(대시보드 제목 — 공매도 진입·환매 검토)
     chart: Optional[dict] = None     # I-1 기술적 분석 차트 시계열(swing/chart.py, 최근 90거래일)
+    price_factors: Optional[dict] = None  # 당일 등락 요인 분해(추정, swing/agent/price_factors.py — 판단 팝업 3D, 2026-11-12)
 
     def to_dict(self):
         return asdict(self)

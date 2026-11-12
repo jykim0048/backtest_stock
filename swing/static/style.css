@@ -893,3 +893,49 @@ td small.sub-qty { display: block; font-size: 10.5px; color: var(--text-muted); 
 .at-mut { color: var(--text-muted); font-weight: 400; }
 .at-split b { color: #e2e8f0; }
 .at-note { padding: 14px; font-size: 13px; color: var(--text-muted); border: 1px dashed var(--border-color); border-radius: 10px; }
+
+/* 판단 팝업 맨 윗줄 + 당일 등락 요인 분해 3D(2026-11-12, static/pf3d.js · PLAN_3D.md) */
+.dec-top { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.12fr); gap: 14px; align-items: stretch; }
+.dec-top.solo { grid-template-columns: minmax(0, 1fr); }
+.dec-top .dec-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.dec-top .dec-grid .port-val { font-size: 14px; }
+.dec-top .dec-left .dec-sec { margin-top: 12px; }
+.dec-top #dec-pf3d { margin-top: 0; display: flex; min-width: 0; }
+.pf3d-card { flex: 1; display: flex; flex-direction: column; min-width: 0; border: 1px solid rgba(0, 240, 255, .28); border-radius: 10px; padding: 8px 11px 10px; background: rgba(0, 240, 255, .04); }
+.pf3d-card [hidden] { display: none !important; }
+.pf3d-top { display: flex; align-items: center; gap: 6px 8px; flex-wrap: wrap; }
+.pf3d-top strong { font-size: 13px; }
+.pf3d-top .basis { font-size: 11.5px; color: var(--text-muted); }
+.pf3d-top .basis b { font-family: var(--font-outfit); font-size: 13px; }
+.pf3d-top .neu { color: var(--text-muted); }
+.pf3d-est { font-size: 10.5px; font-weight: 600; padding: 0 7px; border-radius: 6px; border: 1px solid var(--border-color); color: var(--text-muted); cursor: help; }
+.pf3d-top em { margin-left: auto; font-style: normal; font-size: 11.5px; color: var(--kospi-blue); white-space: nowrap; cursor: pointer; }
+.pf3d-foot { margin-top: 5px; font-size: 11px; color: var(--text-muted); line-height: 1.5; }
+.o3-stage { position: relative; flex: 1; min-height: 300px; margin-top: 8px; border-radius: 12px; border: 1px solid var(--border-color); overflow: hidden;
+  background: radial-gradient(90% 80% at 50% 45%, rgba(0, 200, 216, .07), transparent 60%), rgba(7, 10, 19, .75); cursor: grab; touch-action: none; user-select: none; }
+.o3-stage.drag { cursor: grabbing; }
+.o3-stage canvas { position: absolute; inset: 0; display: block; width: 100%; height: 100%; }
+.o3-labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.o3-lbl { position: absolute; left: 0; top: 0; transform: translate(-50%, -50%); white-space: nowrap; text-align: center; font-size: 11.5px; line-height: 1.25; padding: 2px 7px; border-radius: 7px;
+  background: rgba(7, 10, 19, .72); border: 1px solid rgba(255, 255, 255, .08); color: var(--text-main); will-change: transform, opacity; transition: opacity .2s; opacity: 0; }
+.o3-lbl .pc { font-family: var(--font-outfit); font-weight: 700; }
+.o3-lbl .pc.up { color: #fca5a5; }
+.o3-lbl .pc.down { color: #93c5fd; }
+.o3-lbl .pc.neu { color: var(--text-muted); }
+.o3-lbl.root { font-weight: 700; font-size: 13px; padding: 3px 10px; background: rgba(7, 10, 19, .92); border-color: rgba(0, 240, 255, .55); color: var(--kospi-blue); }
+.o3-lbl.root .pc { display: block; font-size: 16px; line-height: 1.15; }
+.o3-lbl.cat { font-weight: 700; font-size: 12px; padding: 3px 9px; background: rgba(15, 23, 42, .9); border-color: rgba(255, 255, 255, .18); }
+.o3-lbl.cat .pc { display: block; font-size: 13.5px; line-height: 1.15; }
+.o3-lbl.leaf { font-size: 10.5px; white-space: normal; max-width: 104px; line-height: 1.22; padding: 2px 5px; background: rgba(7, 10, 19, .62); border-color: rgba(255, 255, 255, .14); }
+.o3-lbl.leaf .pc { display: block; font-size: 12.5px; color: #fff; }
+.o3-lbl.leaf.compact { max-width: none; white-space: nowrap; background: none; border-color: transparent; padding: 0; font-size: 11px; text-shadow: 0 1px 3px rgba(0, 0, 0, .95), 0 0 2px rgba(0, 0, 0, .9); }
+.o3-lbl.leaf.compact .tt { display: none; }
+.o3-lbl.sel { border-color: #fff; background: rgba(30, 41, 59, .95); }
+.o3-tools { position: absolute; right: 10px; top: 10px; display: flex; gap: 6px; }
+.o3-tool { background: rgba(7, 10, 19, .7); border: 1px solid var(--border-color); color: var(--text-muted); border-radius: 8px; font-size: 11px; padding: 5px 8px; cursor: pointer; font-family: inherit; }
+.o3-info { position: absolute; left: 10px; bottom: 10px; max-width: min(340px, calc(100% - 20px)); padding: 9px 11px; border-radius: 10px; font-size: 12px; line-height: 1.5; background: rgba(11, 18, 34, .92); border: 1px solid rgba(255, 255, 255, .16); }
+.o3-info .k { font-size: 10.5px; color: var(--text-muted); }
+.o3-info .t { font-weight: 700; }
+.o3-info .t b { font-family: var(--font-outfit); margin-left: 4px; }
+.o3-info .e { color: #cbd5e1; margin-top: 2px; }
+@media (max-width: 760px) { .dec-top { grid-template-columns: minmax(0, 1fr); } .o3-stage { min-height: 300px; } }

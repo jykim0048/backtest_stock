@@ -234,6 +234,36 @@ class TestBuild(unittest.TestCase):
             server.STORE = old
         self.assertEqual((lr["stop"], lr["target"], lr["trader"], lr["reviewAction"]), (57000, 71000, "Hold", "hold_updated"))   # run 기록(적용값) 우선
 
+    def test_decision_api_price_factors_latest_in_round_and_today(self):
+        # 판단 팝업 3D(2026-11-12) — 같은 회차 마지막 재판별의 요인, 오늘 등락은 장중 시세 ÷ 전일 종가(없으면 원장 종가)
+        from swing import server
+        st = setup()
+        pf = lambda d, r: {"basis": {"date": d, "ratePct": r}, "items": [{"cat": "flow", "pp": r}], "byCat": {"flow": r}}
+        st.put(KEY, {"code": "006110", "rating": "Overweight", "price_factors": pf("2026-10-27", 1.5)})
+        st.put("decision/2026-10-29/006110/review", {"rating": "Hold", "price_factors": pf("2026-10-29", -2.0)})
+        st.put("decision/2026-10-31/006110/review", {"rating": "Hold"})                  # 요인 없는 재판별(기능 이전) — 건너뜀
+        old, server.STORE = server.STORE, st
+        old_bus = history.live_bus
+        try:
+            L = st.get("ledger")
+            L["positions"][0]["prevClose"] = 56000.0
+            st.put("ledger", L)
+            d = server.api_decision({"key": KEY})                                         # 정산 뒤 — 원장 종가
+            self.assertEqual((d["priceFactors"]["from"], d["priceFactors"]["fromPurpose"], d["priceFactors"]["basis"]["ratePct"]),
+                             ("decision/2026-10-29/006110/review", "review", -2.0))
+            t = d["priceToday"]
+            self.assertEqual((t["kind"], t["date"], t["price"], t["prevClose"]), ("close", "2026-11-02", 55600.0, 56000.0))
+            self.assertAlmostEqual(t["ratePct"], -0.71, places=2)
+            st.put("intraday/2026-11-03", {"vwap": {"006110": {"price": 57000.0, "ts": "2026-11-03T10:15:00+09:00"}}, "orders": {}, "exits": {}})
+            history.live_bus = lambda: {}
+            t = server.api_decision({"key": KEY})["priceToday"]                           # 장중 — 원장 종가(55,600)가 전일 종가
+            self.assertEqual((t["kind"], t["date"], t["ts"], t["price"], t["prevClose"]), ("live", "2026-11-03", "10:15", 57000.0, 55600.0))
+            st.put("decision/2026-10-29/006110/review", {"rating": "Hold"})
+            st.put(KEY, {"code": "006110", "rating": "Overweight"})
+            self.assertNotIn("priceFactors", server.api_decision({"key": KEY}))            # 요인 없음 → 필드 없음
+        finally:
+            server.STORE, history.live_bus = old, old_bus
+
     def test_live_api_prefers_fresher_bus_price(self):
         from swing import server
         st = setup()

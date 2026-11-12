@@ -1819,6 +1819,7 @@
         ["진입가 리밋", '<span class="param-value entry">' + won(d.entry) + '</span><small class="dec-sub" id="dec-avg"></small>'], ["손절가" + (lr ? " · 재판별 후" : ""), '<span class="param-value stop">' + won(stop) + "</span>"],
         ["목표가(PM)" + (lr ? " · 재판별 후" : ""), '<span class="param-value target">' + (tgt ? won(tgt) : "—") + "</span>"],
         ["비중", (d.pm_weight ? "PM " + (d.pm_weight * 100).toFixed(1) + "%" : "PM —") + " · Trader " + (d.weight ? (d.weight * 100).toFixed(1) + "%" : "—")]];
+      g = [g[0], g[1], g[5], g[2], g[3], g[4]];     // 1열 PM 등급·Trader·비중 / 2열 진입가 리밋·손절가·목표가(2026-11-12)
       var h = '<div class="dec-grid">' + g.map(function (x) {
         return '<div class="port-item"><span class="port-lbl">' + x[0] + '</span><span class="port-val">' + x[1] + "</span></div>";
       }).join("") + "</div>";
@@ -1828,6 +1829,9 @@
           "</span> " + rating(lr.rating) + ' <button type="button" class="hist-raw" data-key="' + esc(lr.key) + '">원문 ›</button></h4><div class="report">' + esc(lr.summary) + "</div>" +
           (d.summary ? '<details class="dec-first"><summary>최초 진입 판단 요약 · ' + esc((d.date || "").slice(5)) + "</summary>" + '<div class="report">' + esc(d.summary) + "</div></details>" : "") + "</div>";
       } else if (d.summary) h += '<div class="dec-sec"><h4>PM 요약</h4><div class="report">' + esc(d.summary) + "</div></div>";
+      // 당일 등락 요인 분해 3D(2026-11-12, static/pf3d.js) — 요인이 있으면 맨 윗줄: 왼쪽 카드 3×2 + PM 요약 · 오른쪽 3D 카드
+      var pf3d = window.PF3D ? PF3D.html(d) : "";
+      if (pf3d) h = '<div class="dec-top"><div class="dec-left">' + h + "</div>" + pf3d + "</div>";
       h += '<div class="dec-sec" id="dec-hist" hidden></div>';
       var reps = d.reports || {}, known = {};
       ROLE_GROUPS.forEach(function (g) { g[1].forEach(function (r) { known[r[0]] = 1; }); });
@@ -1843,7 +1847,7 @@
         };
         var body = g[1].length === 1 ? rep(g[1][0][0])
           : '<div class="role-list">' + g[1].map(function (r) {
-            return "<details><summary>" + esc(r[1]) + "</summary>" + rep(r[0]) + "</details>";
+            return '<details data-role="' + esc(r[0]) + '"><summary>' + esc(r[1]) + "</summary>" + rep(r[0]) + "</details>";
           }).join("") + "</div>";
         return '<details class="stage"><summary>' + esc(g[0]) + (g[1].length > 1 ? ' <span class="muted">' + g[1].length + "</span>" : "") +
           "</summary>" + body + "</details>";
@@ -1853,9 +1857,23 @@
       bindTechChart($("dec-body"), d.chart);
       if (!$("decision").open) $("decision").showModal();
       $("decision").scrollTop = 0;
+      if (window.PF3D) { if (pf3d) PF3D.mount(d, decName(d), openRole); else PF3D.unmount(); }
       loadHistory(key);
     }).catch(function (e) { alert("판단 원문을 불러오지 못했습니다: " + e.message); });
   }
+  // 3D 카드 연동(2026-11-12): 가운데 이름(보유·주문·거래 기록에서 종목명) · 항목을 누르면 종합 리포트의 그 역할을 연다
+  function decName(d) {
+    var c = d.code;
+    var hit = [].concat(S.positions || [], S.trades || []).find(function (x) { return x && x.code === c && x.name; });
+    return hit ? hit.name : c;
+  }
+  function openRole(cat) {
+    var el = document.querySelector('#dec-body details[data-role="' + cat + '"]');
+    if (!el) return;
+    Array.prototype.forEach.call(document.querySelectorAll("#dec-body details[data-role]"), function (x) { x.open = x === el; });
+    var st = el.closest("details.stage"); if (st) st.open = true;
+  }
+  $("decision").addEventListener("close", function () { if (window.PF3D) PF3D.unmount(); });
   document.addEventListener("click", function (e) {
     var b = e.target.closest("[data-key]");    // 사유 배지(매도 판단)가 행(진입 판단)보다 우선
     if (!b) return;

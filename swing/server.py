@@ -521,24 +521,65 @@ def api_decision(q):
         lr = _latest_review(k)
         if lr:
             d = {**d, "latestReview": lr}
+        pf = _price_factors(k, d)
+        if pf:
+            d = {**d, "priceFactors": pf, "priceToday": _price_today(d.get("code") or k.split("/")[2])}
     return d
 
 
-def _latest_review(key):
+def _price_factors(key, doc):
+    """판단 팝업 3D(2026-11-12) — 같은 회차에서 요인이 있는 가장 최근 판단(재판별 최신순 → 이 판단)의 당일 등락 요인. 없으면 None."""
+    src, pf = key, (doc or {}).get("price_factors")
+    for rk in reversed(_round_reviews(key)):
+        rpf = (STORE.get(rk) or {}).get("price_factors")
+        if rpf:
+            src, pf = rk, rpf
+            break
+    if not pf:
+        return None
+    p = src.split("/")
+    return {**pf, "from": src, "fromDate": p[1], "fromPurpose": p[3].split("-")[0]}
+
+
+def _price_today(code):
+    """3D 를 다시 나눌 오늘 등락 — 장중(정산 전)은 Live Trader 시세 ÷ 전일 종가, 정산 뒤엔 보유 종목의 원장 종가 ÷ 전일 종가.
+    어느 쪽도 없으면 None(대시보드는 판단일 등락률 그대로)."""
+    from swing import history
+    L = _ledger()
+    pos = next((p for p in L["positions"] if p["code"] == code), None)
+    v = history.live_prices(STORE, L.get("asof")).get(code)
+    if v and v.get("price"):
+        prev = v.get("prevClose") or (pos or {}).get("lastClose")   # 정산 전 원장 종가 = 전일 종가
+        if prev:
+            return {"date": history.live_date(STORE, L.get("asof")), "ts": (v.get("ts") or "")[11:16] or None,
+                    "price": v["price"], "prevClose": prev, "ratePct": round((v["price"] / prev - 1) * 100, 2), "kind": "live"}
+    if pos and pos.get("lastClose") and pos.get("prevClose"):
+        return {"date": L.get("asof"), "ts": None, "price": pos["lastClose"], "prevClose": pos["prevClose"],
+                "ratePct": round((pos["lastClose"] / pos["prevClose"] - 1) * 100, 2), "kind": "close"}
+    return None
+
+
+def _round_reviews(key):
+    """진입 판단 key 와 같은 회차의 재판별 key 들(날짜순). 진입 판단이 아니거나 회차를 못 찾으면 []."""
     p = key.split("/")
     if len(p) != 4 or not p[3].startswith("entry"):
-        return None
+        return []
     from swing import history
     date, code, short = p[1], p[2], p[3].endswith("-short")
     r = history._rounds(_ledger(), code, "short" if short else "long").get(key)
     if not r:
-        return None
+        return []
     end = history._span(r)[1] or "9999-12-31"                # 회차 청산일까지(보유 중이면 오늘까지) — 다른 회차 재판별 제외
     want = "review-short" if short else "review"
-    ks = [x for x in STORE.keys("decision/") if x.endswith(f"/{code}/{want}") and date < x.split("/")[1] <= end]
+    return sorted((x for x in STORE.keys("decision/") if x.endswith(f"/{code}/{want}") and date < x.split("/")[1] <= end),
+                  key=lambda x: x.split("/")[1])
+
+
+def _latest_review(key):
+    ks = _round_reviews(key)
     if not ks:
         return None
-    lk = max(ks, key=lambda x: x.split("/")[1])
+    lk = ks[-1]
     doc = STORE.get(lk) or {}
     # 손절·목표는 재판별 뒤 실제 적용된 값(run 기록 — 폭 상한·본전 손절 반영), 없으면 판단 문서 값
     rec = next((x for x in (STORE.get(f"run/{lk.split('/')[1]}") or {}).get("reviews") or [] if x.get("decisionKey") == lk), {})
