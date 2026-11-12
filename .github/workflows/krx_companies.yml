@@ -10,6 +10,7 @@ on:
     paths:
       - tools/build_krx_companies.py
       - .github/workflows/krx_companies.yml
+      - .github/annotate_report.py
   workflow_dispatch:
     inputs:
       dry_run:
@@ -25,6 +26,10 @@ on:
         type: choice
         options: ["kis", "dart", "off"]
         default: kis
+      delist_now:
+        description: "누락 종목 즉시 상폐(첫 일괄 반영 전용 — 드라이런 목록 확인 뒤)"
+        type: boolean
+        default: false
 
 concurrency:
   group: krx-companies
@@ -57,27 +62,19 @@ jobs:
           # 리포트를 실행 요약(Step Summary)에도 남긴다 — 로그는 로그인해야 보이지만 요약은 공개
           trap '{ echo "### krx_companies 갱신 리포트"; echo "\`\`\`"; cat report.txt; echo "\`\`\`"; } >> "$GITHUB_STEP_SUMMARY"' EXIT
           python tools/build_krx_companies.py --rename "${{ inputs.rename || 'kis' }}" \
-            ${{ (github.event_name != 'workflow_dispatch' || inputs.dry_run) && '--dry-run' || '' }} 2>&1 | tee report.txt
+            ${{ (github.event_name != 'workflow_dispatch' || inputs.dry_run) && '--dry-run' || '' }} \
+            ${{ inputs.delist_now && '--delist-now' || '' }} 2>&1 | tee report.txt
 
-      # 로그·요약은 로그인해야 보이지만 주석(Annotations)은 공개 — 리포트를 3.5KB 조각 주석으로(최대 10개)
-      - name: Report as annotations
+      # 로그·요약은 로그인해야 보이지만 주석(Annotations)은 공개 — 리포트를 조각 주석으로(단계당 10개 한도라 3단계)
+      - name: Report as annotations (1-10)
         if: ${{ always() }}
-        shell: python
-        run: |
-          import os
-          try:
-              s = open("report.txt", encoding="utf-8", errors="replace").read()
-          except FileNotFoundError:
-              s = "(report.txt 없음)"
-          lines, chunks, cur = s.splitlines(), [], ""
-          for ln in lines:
-              if len(cur) + len(ln) + 1 > 3500:
-                  chunks.append(cur); cur = ""
-              cur += ln + "\n"
-          chunks.append(cur)
-          for i, c in enumerate(chunks[:10], 1):
-              esc = c.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
-              print(f"::notice title=krx_companies report {i}/{len(chunks)}::{esc}")
+        run: python .github/annotate_report.py 0
+      - name: Report as annotations (11-20)
+        if: ${{ always() }}
+        run: python .github/annotate_report.py 10
+      - name: Report as annotations (21-30)
+        if: ${{ always() }}
+        run: python .github/annotate_report.py 20
 
       - name: Commit and push
         if: ${{ github.event_name == 'workflow_dispatch' && !inputs.dry_run }}

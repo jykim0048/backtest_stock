@@ -68,9 +68,11 @@ def new_history():
     return {"renames": [], "delisted": [], "transfers": [], "pendingDelist": {}, "kisNames": {}}
 
 
-def merge(existing, kis_rows, dart_names, history, today, rename="kis", konex_ok=True):
+def merge(existing, kis_rows, dart_names, history, today, rename="kis", konex_ok=True,
+          delist_now=False):
     """순수 병합. existing: 기존 행 목록, kis_rows: [{code, name, market, pref}] (그룹 필터 후),
     dart_names: {code: corp_name}, history: 이력 dict(변경 안 함 — 사본 반환), today: 'YYYY-MM-DD'.
+    delist_now: 누락 종목을 2회 기다리지 않고 바로 상폐 처리(첫 일괄 반영 전용 — 드라이런으로 확인한 뒤).
     반환 (rows, history, report)."""
     h = json.loads(json.dumps(history or {}, ensure_ascii=False))
     for k, v in new_history().items():
@@ -91,7 +93,7 @@ def merge(existing, kis_rows, dart_names, history, today, rename="kis", konex_ok
                 rows.append(row)
                 continue
             first = pending.get(code)
-            if first and first < today:                       # 서로 다른 날 2회 연속 누락 → 상폐
+            if delist_now or (first and first < today):       # 서로 다른 날 2회 연속 누락 → 상폐
                 h["delisted"].append({"code": code, "name": row.get("name"),
                                       "market": row.get("market"), "date": today})
                 pending.pop(code, None)
@@ -297,11 +299,14 @@ def main():
     ap.add_argument("--dry-run", action="store_true", help="쓰지 않고 P0 진단 + 변경 목록만 출력")
     ap.add_argument("--force", action="store_true", help="대량 변경 한도 무시(첫 실행용, FORCE=1 과 같음)")
     ap.add_argument("--rename", choices=("kis", "dart", "off"), default=os.environ.get("KRX_RENAME", "kis"))
+    ap.add_argument("--delist-now", action="store_true",
+                    help="누락 종목 즉시 상폐(첫 일괄 반영 전용 — 드라이런 목록 확인 뒤)")
     ap.add_argument("--insecure", action="store_true", help="로컬 테스트용 SSL 검증 생략")
     args = ap.parse_args()
     force = args.force or os.environ.get("FORCE") == "1"
     today = datetime.datetime.now(KST).strftime("%Y-%m-%d")
-    print(f"=== krx_companies 갱신 {today} (rename={args.rename}, force={force}, dry_run={args.dry_run}) ===")
+    print(f"=== krx_companies 갱신 {today} (rename={args.rename}, force={force}, dry_run={args.dry_run}, "
+          f"delist_now={args.delist_now}) ===")
 
     kis_all, konex_ok = load_kis(verify=not args.insecure)
     kis_rows = [r for r in kis_all if r["group"] in GROUPS]
@@ -329,7 +334,8 @@ def main():
     history = _read_json(HISTORY, new_history())
     if args.dry_run:
         diagnose(existing, kis_all, dart, konex_ok)
-    rows, h, rep = merge(existing, kis_rows, dart, history, today, rename=args.rename, konex_ok=konex_ok)
+    rows, h, rep = merge(existing, kis_rows, dart, history, today, rename=args.rename, konex_ok=konex_ok,
+                         delist_now=args.delist_now)
     _print_report(rep)
 
     out = os.environ.get("GITHUB_OUTPUT")

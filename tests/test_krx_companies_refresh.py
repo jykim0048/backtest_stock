@@ -94,6 +94,13 @@ class TestMerge(unittest.TestCase):
         self.assertEqual(h2["delisted"][0]["code"], "333330")
         self.assertEqual(h2["pendingDelist"], {})
 
+    def test_delist_now_first_bulk_run(self):
+        rows, h, rep = b.merge(EXISTING, kis(drop={"333330"}), DART, b.new_history(), "2026-11-13",
+                               delist_now=True)
+        self.assertNotIn("333330", {r["code"] for r in rows})
+        self.assertEqual([d["code"] for d in h["delisted"]], ["333330"])
+        self.assertEqual(h["pendingDelist"], {})
+
     def test_reappear_clears_pending(self):
         rows, h, _ = b.merge(EXISTING, kis(drop={"333330"}), DART, b.new_history(), "2026-11-13")
         rows2, h2, rep2 = b.merge(rows, kis(), DART, h, "2026-11-14")
