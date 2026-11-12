@@ -52,9 +52,12 @@ jobs:
         env:
           DART_API_KEY: ${{ secrets.DART_API_KEY }}
           FORCE: ${{ inputs.force && '1' || '' }}
+        shell: bash   # -eo pipefail — tee 뒤에도 스크립트 실패(안전장치 중단)가 단계 실패로
         run: |
+          # 리포트를 실행 요약(Step Summary)에도 남긴다 — 로그는 로그인해야 보이지만 요약은 공개
+          trap '{ echo "### krx_companies 갱신 리포트"; echo "\`\`\`"; cat report.txt; echo "\`\`\`"; } >> "$GITHUB_STEP_SUMMARY"' EXIT
           python tools/build_krx_companies.py --rename "${{ inputs.rename || 'kis' }}" \
-            ${{ (github.event_name != 'workflow_dispatch' || inputs.dry_run) && '--dry-run' || '' }}
+            ${{ (github.event_name != 'workflow_dispatch' || inputs.dry_run) && '--dry-run' || '' }} 2>&1 | tee report.txt
 
       - name: Commit and push
         if: ${{ github.event_name == 'workflow_dispatch' && !inputs.dry_run }}
