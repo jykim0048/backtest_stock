@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>주가 영향 분해 — 시장·업종 분리 시안</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root { --bg-dark: #070a13; --border-color: rgba(255, 255, 255, 0.08); --font-outfit: 'Outfit', sans-serif; --font-kr: 'Noto Sans KR', sans-serif;
+    --kospi-blue: #00f0ff; --up-red: #ef4444; --down-blue: #3b82f6; --text-main: #f8fafc; --text-muted: #94a3b8; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg-dark); color: var(--text-main); font-family: var(--font-kr); min-height: 100vh; }
+  button, select { font-family: inherit; }
+  .wrap { max-width: 900px; margin: 0 auto; padding: 14px 16px 40px; }
+  .pv-note { font-size: 12px; line-height: 1.6; color: var(--text-muted); margin-bottom: 12px; padding: 10px 14px; border: 1px dashed rgba(255, 255, 255, .16); border-radius: 12px; }
+  .pv-note b { color: var(--text-main); }
+  .bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+  .seg { display: inline-flex; border: 1px solid var(--border-color); border-radius: 9px; overflow: hidden; }
+  .seg button { background: none; border: 0; color: var(--text-muted); padding: 6px 12px; font-size: 12.5px; cursor: pointer; }
+  .seg button.on { background: rgba(0, 240, 255, .14); color: var(--kospi-blue); font-weight: 600; }
+  select { background: rgba(15, 23, 42, .9); color: var(--text-main); border: 1px solid var(--border-color); border-radius: 8px; padding: 6px 8px; font-size: 12.5px; }
+  .modal { background: #0f172a; border: 1px solid var(--border-color); border-radius: 14px; padding: 18px 22px 22px; }
+  .head { display: flex; align-items: baseline; gap: 10px; padding-bottom: 12px; border-bottom: 1px solid var(--border-color); margin-bottom: 14px; }
+  .head h2 { font-size: 20px; } .head .code { color: var(--text-muted); font-size: 13px; }
+  .badge { font-size: 10.5px; font-weight: 700; padding: 1px 6px; border-radius: 4px; color: var(--kospi-blue); border: 1px solid rgba(0, 240, 255, .5); }
+  .cap { font-size: 13px; font-weight: 700; margin-bottom: 8px; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+  .cap span { font-weight: 400; font-size: 12px; color: var(--text-muted); }
+  .cap .est { font-size: 10.5px; font-weight: 600; padding: 1px 7px; border-radius: 6px; border: 1px solid var(--border-color); }
+  .up { color: var(--up-red); } .down { color: var(--down-blue); } .neu { color: var(--text-muted); }
+  .layers { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; color: var(--text-muted); margin: -2px 0 8px; }
+  .layers b { font-family: var(--font-outfit); }
+  .o3-stage { position: relative; height: 380px; border-radius: 14px; border: 1px solid var(--border-color); overflow: hidden;
+    background: radial-gradient(90% 80% at 50% 45%, rgba(0, 200, 216, .07), transparent 60%), rgba(7, 10, 19, .75); cursor: grab; touch-action: none; user-select: none; }
+  .o3-stage.drag { cursor: grabbing; }
+  .o3-stage canvas { display: block; width: 100%; height: 100%; }
+  .o3-labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+  .o3-lbl { position: absolute; left: 0; top: 0; transform: translate(-50%, -50%); white-space: nowrap; text-align: center; font-size: 11.5px; line-height: 1.25; padding: 2px 7px; border-radius: 7px;
+    background: rgba(7, 10, 19, .72); border: 1px solid rgba(255, 255, 255, .08); color: var(--text-main); will-change: transform, opacity; transition: opacity .2s; opacity: 0; }
+  .o3-lbl .pc { font-family: var(--font-outfit); font-weight: 700; }
+  .o3-lbl .pc.up { color: #fca5a5; } .o3-lbl .pc.down { color: #93c5fd; } .o3-lbl .pc.neu { color: var(--text-muted); }
+  .o3-lbl.root { font-weight: 700; font-size: 13px; padding: 3px 10px; background: rgba(7, 10, 19, .92); border-color: rgba(0, 240, 255, .55); color: var(--kospi-blue); }
+  .o3-lbl.root .pc { display: block; font-size: 16px; line-height: 1.15; }
+  .o3-lbl.cat { font-weight: 700; font-size: 12px; padding: 3px 9px; background: rgba(15, 23, 42, .9); border-color: rgba(255, 255, 255, .18); }
+  .o3-lbl.cat .pc { display: block; font-size: 13.5px; line-height: 1.15; }
+  .o3-lbl.leaf { font-size: 10.5px; white-space: normal; max-width: 104px; line-height: 1.22; padding: 2px 5px; background: rgba(7, 10, 19, .62); border-color: rgba(255, 255, 255, .14); }
+  .o3-lbl.leaf .pc { display: block; font-size: 12.5px; color: #fff; }
+  .o3-lbl.leaf.compact { max-width: none; white-space: nowrap; background: none; border-color: transparent; padding: 0; font-size: 11px; text-shadow: 0 1px 3px rgba(0, 0, 0, .95), 0 0 2px rgba(0, 0, 0, .9); }
+  .o3-lbl.leaf.compact .tt { display: none; }
+  .o3-lbl.sel { border-color: #fff; background: rgba(30, 41, 59, .95); }
+  .o3-tools { position: absolute; right: 10px; top: 10px; display: flex; gap: 6px; }
+  .o3-tool { background: rgba(7, 10, 19, .7); border: 1px solid var(--border-color); color: var(--text-muted); border-radius: 8px; font-size: 11px; padding: 5px 8px; cursor: pointer; }
+  .o3-hint { position: absolute; right: 12px; bottom: 10px; font-size: 10.5px; color: var(--text-muted); pointer-events: none; }
+  .o3-info { position: absolute; left: 10px; bottom: 10px; max-width: min(360px, calc(100% - 20px)); padding: 9px 11px; border-radius: 10px; font-size: 12px; line-height: 1.5; background: rgba(11, 18, 34, .92); border: 1px solid rgba(255, 255, 255, .16); }
+  .o3-info .k { font-size: 10.5px; color: var(--text-muted); } .o3-info .t { font-weight: 700; } .o3-info .t b { font-family: var(--font-outfit); margin-left: 4px; }
+  .o3-info .e { color: #cbd5e1; margin-top: 2px; }
+  .foot { margin-top: 8px; font-size: 11.5px; color: var(--text-muted); line-height: 1.6; }
+  .tbl { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 12px; }
+  .tbl th, .tbl td { padding: 5px 8px; border-top: 1px solid var(--border-color); text-align: left; }
+  .tbl th { color: var(--text-muted); font-weight: 500; }
+  .tbl td.r, .tbl th.r { text-align: right; font-family: var(--font-outfit); }
+  @media (max-width: 640px) { .o3-stage { height: 320px; } .o3-hint { display: none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="pv-note"><b>시안</b> — 종목 상세 팝업의 '주가 영향 분해' 3D 에서 <b>기타·시장</b> 덩어리를 <b>시장(지수)</b> · <b>업종(지수 대비)</b> · <b>종목 고유</b>로 나누고, 전일 ±10% 이상 급등락 뒤 반대로 움직이면 <b>기타</b> 안에 가격 되돌림(규칙 요인) 노드를 더한 모습입니다(이름은 노드를 누르면 나옴).
+    데이터는 전부 운영 대시보드 실제 값(실시간 시세 · 장중 브리핑 업종 등락률 · 딥리서치 요인)입니다. 위 버튼으로 지금 방식과 견줘 볼 수 있습니다.</div>
+  <div class="bar">
+    <select id="pick"></select>
+    <div class="seg" id="mode"><button data-m="old">지금 방식</button><button data-m="new">시장·업종 분리</button><button class="on" data-m="rev">+ 전일 급등락 되돌림</button></div>
+    <span class="foot" id="asof" style="margin:0"></span>
+  </div>
+  <div class="modal">
+    <div class="head"><h2 id="nm">불러오는 중…</h2><span class="code" id="cd"></span><span class="badge" id="mk"></span></div>
+    <div class="cap">🧭 주가 영향 분해 <span id="basis"></span><span class="est">추정</span></div>
+    <div class="layers" id="layers"></div>
+    <div class="o3-stage" id="stage"><canvas></canvas><div class="o3-labels"></div>
+      <div class="o3-tools"><button class="o3-tool" data-a="rot">⏸ 공전 멈춤</button><button class="o3-tool" data-a="reset">⟲ 처음 시점</button></div>
+      <div class="o3-info" style="display:none"></div><div class="o3-hint">큰 구 = 항목, 안의 공 = 요인 · 끌어서 회전 · 눌러서 자세히</div></div>
+    <div class="foot" id="foot"></div>
+    <table class="tbl" id="tbl"></table>
+  </div>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function () {
+  "use strict";
+  function esc(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
+  function sgn(v) { return v > 1e-9 ? "up" : v < -1e-9 ? "down" : "neu"; }
+  function fp(v, cat) { return (v > 1e-9 ? "+" : v < -1e-9 ? "−" : "±") + Math.abs(v).toFixed(1) + (cat ? "%p" : ""); }
+  function pct(v, d) { return (v > 0 ? "+" : v < 0 ? "−" : "") + Math.abs(v).toFixed(d == null ? 2 : d) + "%"; }
+
+  function Orb3D(stage, opts) {
+    var canvas = stage.querySelector("canvas"), labelBox = stage.querySelector(".o3-labels"), infoEl = stage.querySelector(".o3-info");
+    var T = window.THREE, RED = 0xef4444, BLUE = 0x3b82f6, GRAY = 0x94a3b8;
+    var scene = new T.Scene(), camera = new T.PerspectiveCamera(40, 1, 0.1, 200);
+    var renderer = new T.WebGLRenderer({ canvas: canvas, antialias: true, alpha: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    scene.add(new T.AmbientLight(0xffffff, 0.6));
+    var key = new T.DirectionalLight(0xffffff, 0.95); key.position.set(5, 9, 12); scene.add(key);
+    var rim = new T.PointLight(0x38bdf8, 0.45); rim.position.set(-8, -4, -6); scene.add(rim);
+    var world = new T.Group(); scene.add(world);
+    var gc = document.createElement("canvas"); gc.width = gc.height = 128; var g2 = gc.getContext("2d"), gr = g2.createRadialGradient(64, 64, 0, 64, 64, 64);
+    gr.addColorStop(0, "rgba(255,255,255,.9)"); gr.addColorStop(0.35, "rgba(255,255,255,.28)"); gr.addColorStop(1, "rgba(255,255,255,0)");
+    g2.fillStyle = gr; g2.fillRect(0, 0, 128, 128); var glowTex = new T.CanvasTexture(gc);
+    var ray = new T.Raycaster(), ptr = new T.Vector2(), v = new T.Vector3(), dv = new T.Vector3();
+    var nodes = [], links = [], M = null, MAXV = 1;
+    var HOME = { z: 17, rx: 0.3, ry: -0.18 }, zoom = 17, spinTo = null, panTo = 0, panX = 0, narrow = false;
+    var catFocus = null, selected = null, hovered = null, drag = null, moved = 0, idleAt = 0, t0 = 0, last = 0;
+    var auto = !(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+    var ORBITS = [[4.2, 0.10, 0.06], [5.0, -0.34, 0.16], [3.9, 0.38, -0.22], [5.3, 0.22, 0.32], [4.6, -0.18, -0.36], [5.6, -0.46, 0.05], [4.9, 0.30, 0.20]];
+    function colorOf(x) { return x > 1e-9 ? RED : x < -1e-9 ? BLUE : GRAY; }
+    function mkLabel(html, cls) { var el = document.createElement("div"); el.className = "o3-lbl " + cls; el.innerHTML = html; labelBox.appendChild(el); return el; }
+    function glowOf(pos, r, color, op) {
+      var gl = new T.Sprite(new T.SpriteMaterial({ map: glowTex, color: color, blending: T.AdditiveBlending, transparent: true, opacity: op, depthWrite: false }));
+      gl.scale.setScalar(r); gl.position.copy(pos); world.add(gl); return gl;
+    }
+    function ballNode(kind, pos, r, color, html, cls, extra) {
+      var m = new T.Mesh(new T.SphereGeometry(r, 32, 22), new T.MeshStandardMaterial({ color: color, emissive: color, emissiveIntensity: kind === "root" ? 0.5 : 0.38, roughness: 0.3, metalness: 0.15, transparent: true }));
+      m.position.copy(pos); world.add(m);
+      var n = { kind: kind, mesh: m, glow: kind === "root" ? glowOf(pos, r * 4.6, color, 0.5) : null, glowBase: 0.5, label: mkLabel(html, cls), pos: pos.clone(), r: r, op: 1, base: 1 };
+      for (var k in (extra || {})) n[k] = extra[k];
+      m.userData.node = n; nodes.push(n); return n;
+    }
+    function shellNode(pos, R, color, html, extra) {
+      var m = new T.Mesh(new T.SphereGeometry(R, 44, 30), new T.MeshStandardMaterial({ color: color, emissive: color, emissiveIntensity: 0.3, roughness: 0.12, metalness: 0.25, transparent: true, opacity: 0.13, depthWrite: false }));
+      m.position.copy(pos); m.renderOrder = 2; world.add(m);
+      var back = new T.Mesh(new T.SphereGeometry(R * 1.015, 44, 30), new T.MeshBasicMaterial({ color: color, transparent: true, opacity: 0.2, side: T.BackSide, depthWrite: false }));
+      back.position.copy(pos); world.add(back);
+      var n = { kind: "cat", mesh: m, back: back, glow: glowOf(pos, R * 3.3, color, 0.3), glowBase: 0.3, label: mkLabel(html, "cat"), pos: pos.clone(), r: R, op: 1, base: 0.13 };
+      for (var k in (extra || {})) n[k] = extra[k];
+      m.userData.node = n; nodes.push(n); return n;
+    }
+    function orbitPos(o) { return new T.Vector3(Math.cos(o.a) * o.R, 0, Math.sin(o.a) * o.R).applyQuaternion(o.q); }
+    function pack(rs) {
+      var n = rs.length, ps = [], i, j, it, d = new T.Vector3();
+      for (i = 0; i < n; i++) {
+        var t = (i + 0.5) / n, ph = Math.acos(1 - 2 * t), th = Math.PI * (1 + Math.sqrt(5)) * i;
+        ps.push(new T.Vector3(Math.sin(ph) * Math.cos(th), Math.cos(ph), Math.sin(ph) * Math.sin(th)).multiplyScalar(n === 1 ? 0 : (rs[0] + rs[i]) * 1.2));
+      }
+      for (it = 0; it < 400; it++) {
+        for (i = 0; i < n; i++) ps[i].multiplyScalar(0.975);
+        for (i = 0; i < n; i++) for (j = i + 1; j < n; j++) {
+          d.subVectors(ps[j], ps[i]); var dist = d.length(), min = rs[i] + rs[j] + 0.05;
+          if (dist < min) { if (dist < 1e-6) d.set(1, 0, 0); else d.multiplyScalar(1 / dist); var push = (min - dist) / 2; ps[i].addScaledVector(d, -push); ps[j].addScaledVector(d, push); }
+        }
+      }
+      var c = new T.Vector3(), ws = 0; ps.forEach(function (p, k) { c.addScaledVector(p, rs[k]); ws += rs[k]; }); c.multiplyScalar(1 / (ws || 1));
+      var R = 0; ps.forEach(function (p, k) { p.sub(c); R = Math.max(R, p.length() + rs[k]); });
+      return { ps: ps, R: R + 0.14 };
+    }
+    function clear() {
+      while (world.children.length) { var o = world.children[0]; world.remove(o); if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); }
+      labelBox.innerHTML = ""; nodes = []; links = []; catFocus = null; selected = null; hovered = null; drag = null; spinTo = null; panTo = 0; panX = 0;
+    }
+    function load(model) {
+      clear(); M = model;
+      var G = model.groups;
+      MAXV = 1e-9; G.forEach(function (g) { g.items.forEach(function (it) { MAXV = Math.max(MAXV, Math.abs(it.v)); }); });
+      ballNode("root", new T.Vector3(), 0.9, 0x06b6d4, esc(model.root.name) + model.root.valueHtml, "root");
+      G.forEach(function (g, gi) {
+        var rs = g.items.map(function (it) { return 0.17 + 0.43 * Math.sqrt(Math.abs(it.v) / MAXV); }), pk = pack(rs);
+        var ob = ORBITS[gi % ORBITS.length];
+        var orbit = { R: ob[0], q: new T.Quaternion().setFromEuler(new T.Euler(ob[1], 0, ob[2])), a: -Math.PI / 2 + gi / G.length * Math.PI * 2 };
+        var cn = shellNode(orbitPos(orbit), pk.R, colorOf(g.net), esc(g.name) + '<span class="pc ' + sgn(g.net) + '">' + model.fmt(g.net, true) + "</span>", { cat: g.id, orbit: orbit, group: g });
+        var pts = []; for (var a = 0; a <= 96; a++) pts.push(new T.Vector3(Math.cos(a / 96 * Math.PI * 2) * orbit.R, 0, Math.sin(a / 96 * Math.PI * 2) * orbit.R).applyQuaternion(orbit.q));
+        cn.ring = new T.Line(new T.BufferGeometry().setFromPoints(pts), new T.LineBasicMaterial({ color: colorOf(g.net), transparent: true, opacity: 0.3 })); world.add(cn.ring);
+        var ln = new T.Line(new T.BufferGeometry().setFromPoints([new T.Vector3(), new T.Vector3()]), new T.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.12 })); world.add(ln);
+        links.push({ line: ln, owner: cn });
+        g.items.forEach(function (it, k) {
+          ballNode("leaf", cn.pos.clone().add(pk.ps[k]), rs[k], colorOf(it.v), '<span class="pc">' + model.fmt(it.v) + '</span><span class="tt">' + esc(it.title) + "</span>", "leaf", { cat: g.id, item: it, host: cn, local: pk.ps[k].clone() });
+        });
+      });
+      home(); camera.position.set(0, 0, zoom); applyVisual(); renderInfo(); t0 = last = performance.now();
+    }
+    function applyVisual() {
+      nodes.forEach(function (n) {
+        var on = true;
+        if (n.kind === "leaf") { on = !catFocus || n.cat === catFocus; if (selected) on = n === selected; }
+        else if (n.kind === "cat") on = !catFocus || n.cat === catFocus;
+        n.dim = !on; n.op = on ? 1 : (n.kind === "cat" ? 0.3 : 0.1);
+        n.label.classList.toggle("sel", n === selected);
+      });
+    }
+    function renderInfo() {
+      if (selected) { infoEl.innerHTML = M.info(selected.item, selected.host.group); infoEl.style.display = ""; }
+      else if (catFocus) { var cn = catNode(catFocus); infoEl.innerHTML = M.groupInfo(cn.group); infoEl.style.display = ""; }
+      else infoEl.style.display = "none";
+    }
+    function catNode(id) { for (var i = 0; i < nodes.length; i++) if (nodes[i].kind === "cat" && nodes[i].cat === id) return nodes[i]; return null; }
+    function faceNode(cn) {
+      var want = Math.atan2(cn.pos.z, cn.pos.x) - Math.PI / 2 + 0.45, cur = world.rotation.y;
+      spinTo = cur + Math.atan2(Math.sin(want - cur), Math.cos(want - cur));
+      var q = cn.pos.clone().applyEuler(new T.Euler(world.rotation.x, spinTo, 0, "XYZ"));
+      panTo = -q.y; panX = -q.x + (narrow ? 0 : 0.9); zoom = q.z + Math.max(6.2, cn.r * 6.4) * (narrow ? 1.7 : 1);
+    }
+    function focusCat(id) { catFocus = id; selected = null; applyVisual(); renderInfo(); var cn = catNode(id); if (cn) faceNode(cn); if (opts.onPick) opts.onPick(id, null); }
+    function select(n) { selected = n; catFocus = n.cat; faceNode(n.host); applyVisual(); renderInfo(); if (opts.onPick) opts.onPick(n.cat, n.item); }
+    function home() { spinTo = null; panTo = 0; panX = 0; world.position.set(0, 0, 0); world.rotation.set(HOME.rx, HOME.ry, 0); zoom = HOME.z + (narrow ? 8 : 0); }
+    function reset() { catFocus = null; selected = null; applyVisual(); renderInfo(); home(); }
+    function pick(e) {
+      var r = canvas.getBoundingClientRect();
+      ptr.set((e.clientX - r.left) / r.width * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1); ray.setFromCamera(ptr, camera);
+      var hl = ray.intersectObjects(nodes.filter(function (n) { return n.kind === "leaf" && !n.dim; }).map(function (n) { return n.mesh; }));
+      var leaf = hl.length ? hl[0].object.userData.node : null;
+      if (leaf && catFocus === leaf.cat) return leaf;
+      if (leaf) return leaf.host;
+      var hs = ray.intersectObjects(nodes.filter(function (n) { return n.kind === "cat"; }).map(function (n) { return n.mesh; }));
+      return hs.length ? hs[0].object.userData.node : null;
+    }
+    var btnRot = stage.querySelector('[data-a="rot"]');
+    function setAuto(x) { auto = x; btnRot.textContent = x ? "⏸ 공전 멈춤" : "▶ 공전"; }
+    setAuto(auto);
+    btnRot.onclick = function (e) { e.stopPropagation(); setAuto(!auto); };
+    stage.querySelector('[data-a="reset"]').onclick = function (e) { e.stopPropagation(); reset(); };
+    stage.addEventListener("pointerleave", function () { hovered = null; stage.style.cursor = ""; });
+    stage.addEventListener("pointerdown", function (e) {
+      if (e.target.closest(".o3-tools") || e.target.closest(".o3-info")) return;
+      drag = { x: e.clientX, y: e.clientY }; moved = 0; spinTo = null; stage.classList.add("drag"); try { stage.setPointerCapture(e.pointerId); } catch (err) {}
+    });
+    stage.addEventListener("pointermove", function (e) {
+      if (!drag) { var hn = (e.target.closest(".o3-tools") || e.target.closest(".o3-info")) ? null : pick(e); if (hn !== hovered) { hovered = hn; stage.style.cursor = hn ? "pointer" : ""; } return; }
+      var dx = e.clientX - drag.x, dy = e.clientY - drag.y; moved += Math.abs(dx) + Math.abs(dy);
+      world.rotation.y += dx * 0.008; world.rotation.x = Math.max(-1.1, Math.min(1.1, world.rotation.x + dy * 0.006));
+      drag = { x: e.clientX, y: e.clientY }; idleAt = performance.now() + 2500;
+    });
+    stage.addEventListener("pointerup", function (e) {
+      if (!drag) return; drag = null; stage.classList.remove("drag");
+      if (moved < 6) {
+        var n = pick(e);
+        if (!n) reset();
+        else if (n.kind === "cat") { if (catFocus === n.cat && selected) { selected = null; applyVisual(); renderInfo(); } else focusCat(n.cat); }
+        else select(n);
+        idleAt = performance.now() + 4000;
+      }
+    });
+    stage.addEventListener("wheel", function (e) { e.preventDefault(); zoom = Math.max(7, Math.min(40, zoom + e.deltaY * 0.014)); idleAt = performance.now() + 2500; }, { passive: false });
+    function resize() {
+      var w = stage.clientWidth, h = stage.clientHeight; if (!w || !h) return;
+      renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix();
+      var nw = w / h < 1.2; if (nw !== narrow) { narrow = nw; if (!catFocus) zoom = HOME.z + (narrow ? 8 : 0); }
+      nodes.forEach(function (n) { n.lw = 0; });
+    }
+    window.addEventListener("resize", resize);
+    function frame(now) {
+      requestAnimationFrame(frame);
+      var w = stage.clientWidth, h = stage.clientHeight, dt = Math.min(0.05, (now - last) / 1000); last = now;
+      if (!w || !h || !M) return;
+      if (w !== frame.w || h !== frame.h) { frame.w = w; frame.h = h; resize(); }
+      var k = Math.min(1, (now - t0) / 1000), ease = 1 - Math.pow(1 - k, 3);
+      world.scale.setScalar(0.25 + 0.75 * ease);
+      if (spinTo != null) { world.rotation.y += (spinTo - world.rotation.y) * 0.1; if (Math.abs(spinTo - world.rotation.y) < 0.002) spinTo = null; }
+      var orbiting = auto && !drag && now > idleAt && !catFocus && !selected && !hovered;
+      nodes.forEach(function (n) { if (!n.orbit) return; if (orbiting) n.orbit.a += 0.08 * dt; n.pos.copy(orbitPos(n.orbit)); n.mesh.position.copy(n.pos); n.back.position.copy(n.pos); n.glow.position.copy(n.pos); });
+      nodes.forEach(function (n) { if (n.host) { n.pos.copy(n.host.pos).add(n.local); n.mesh.position.copy(n.pos); } });
+      if (!catFocus && !selected && (panX || panTo)) { panX = 0; panTo = 0; zoom = HOME.z + (narrow ? 8 : 0); }
+      camera.position.z += (zoom - camera.position.z) * 0.12; world.position.y += (panTo - world.position.y) * 0.1; world.position.x += (panX - world.position.x) * 0.1;
+      nodes.forEach(function (n) {
+        n.cur = n.cur == null ? 1 : n.cur + (n.op - n.cur) * 0.2;
+        var hot = n === hovered || (n.kind === "cat" && n.cat === catFocus);
+        n.mesh.material.opacity = n.base * n.cur * (n.kind === "cat" && hot ? 1.5 : 1);
+        if (n.back) n.back.material.opacity = 0.2 * n.cur * (hot ? 1.5 : 1);
+        if (n.glow) n.glow.material.opacity = n.glowBase * n.cur;
+      });
+      var rootR = nodes[0] ? nodes[0].r : 0.9;
+      links.forEach(function (t) {
+        var o = t.owner, g = t.line.geometry.attributes.position; dv.copy(o.pos).normalize();
+        g.setXYZ(0, dv.x * rootR, dv.y * rootR, dv.z * rootR); g.setXYZ(1, o.pos.x - dv.x * o.r, o.pos.y - dv.y * o.r, o.pos.z - dv.z * o.r); g.needsUpdate = true;
+        t.line.material.opacity = 0.12 * o.cur; o.ring.material.opacity = (catFocus === o.cat ? 0.6 : 0.3) * Math.max(o.cur, 0.5);
+      });
+      world.updateMatrixWorld();
+      var pxPerUnit = h / (2 * Math.tan(camera.fov * Math.PI / 360));
+      nodes.forEach(function (n) {
+        n.mesh.getWorldPosition(v); var depth = v.z, dist = Math.max(1, camera.position.z - depth); v.project(camera);
+        if (!n.lw) { n.label.classList.remove("compact"); n.lw = n.label.offsetWidth; n.lh = n.label.offsetHeight; if (n.kind === "leaf") { n.label.classList.add("compact"); n.lwc = n.label.offsetWidth; n.lhc = n.label.offsetHeight; } }
+        n.sx = (v.x * 0.5 + 0.5) * w; n.cy = (-v.y * 0.5 + 0.5) * h; n.pr = n.r * world.scale.x * pxPerUnit / dist; n.near = Math.max(0, Math.min(1, (depth + 9) / 18));
+        n.prio = n.kind === "root" ? 1000 : n === selected ? 950 : (n.kind === "leaf" && n === hovered) ? 900 : n.dim ? -1 :
+                 n.kind === "cat" ? 500 + n.near * 10 + Math.abs(n.group.net) / (MAXV || 1) : Math.abs(n.item.v) / MAXV * 150 + n.near * 25 + (catFocus === n.cat ? 200 : 0);
+      });
+      var placed = [];
+      function fits(b) { return !placed.some(function (p) { return b[0] < p[1] && b[1] > p[0] && b[2] < p[3] && b[3] > p[2]; }); }
+      function bx(x, y, lw, lh) { return [x - lw / 2 - 2, x + lw / 2 + 2, y - lh / 2 - 1, y + lh / 2 + 1]; }
+      nodes.slice().sort(function (a, b) { return b.prio - a.prio; }).forEach(function (n) {
+        var el = n.label, b, y, compact = false;
+        if (n.prio < 0) { el.style.opacity = 0; return; }
+        if (n.kind !== "leaf") {
+          y = n.kind === "root" ? n.cy + n.pr + n.lh / 2 + 3 : n.cy - n.pr - n.lh / 2 - 3;
+          b = bx(n.sx, y, n.lw, n.lh);
+          if (!fits(b) && n.kind === "cat") { y = Math.min(n.cy + n.pr + n.lh / 2 + 3, h - n.lh / 2 - 24); b = bx(n.sx, y, n.lw, n.lh); }   // 위가 막히면 구 아래에(화면 밖으로는 안 나가게)
+          if (!fits(b) && n.kind !== "root") { el.style.opacity = 0; return; }
+        } else {
+          var full = (catFocus === n.cat && n.pr >= 22) || n.prio >= 900;
+          y = n.cy; b = bx(n.sx, y, n.lw, n.lh);
+          if (!full || (!fits(b) && n.prio < 900)) { compact = true; b = bx(n.sx, y, n.lwc, n.lhc); if (n.pr < 9 || !fits(b)) { el.style.opacity = 0; return; } }
+        }
+        placed.push(b); el.classList.toggle("compact", compact);
+        el.style.transform = "translate(-50%, -50%) translate(" + n.sx.toFixed(1) + "px," + y.toFixed(1) + "px)";
+        el.style.opacity = ease; el.style.zIndex = n.prio >= 900 ? 4 : n.kind === "leaf" ? (compact ? 1 : 3) : 2;
+      });
+      renderer.render(scene, camera);
+    }
+    requestAnimationFrame(frame);
+    return { load: load, reset: reset, focus: focusCat, state: function () { return { nodes: nodes.length, catFocus: catFocus, selected: !!selected }; } };
+  }
+
+
+  // ── 데이터 ─────────────────────────────────────────────────────────────────────────────────
+  var B = "https://backteststock-production.up.railway.app";
+  var CAT = { research: "증권사 리포트", flow: "수급", peers: "해외 Peer", news: "뉴스 분석", community: "토론방", dart: "DART · CA", etc: "기타·시장" };
+  var ORDER = ["market", "sector", "research", "flow", "peers", "news", "community", "dart", "etc"];
+  // 전일 급등락 되돌림(규칙 요인, LLM 아님) — 전일 등락이 ±REV_MIN% 이상이고 오늘 종목 고유 움직임이 반대 방향이면 붙인다.
+  // 강도 = |전일 등락| ÷ 5 (1~5) — 딥리서치 요인과 같은 눈금으로 종목 고유 몫을 나눠 갖는다.
+  var REV_MIN = 10;
+  function get(p) { return fetch(B + p + (p.indexOf("?") < 0 ? "?t=" + Date.now() : "")).then(function (r) { if (!r.ok) throw new Error(p + " " + r.status); return r.json(); }); }
+  var D = {};
+
+  // 배분 규칙 — analysis/price_factors.attribute 와 같은 식(등락률을 요인 강도에 비례해 %p 로, 설명 안 되는 몫은 etc)
+  function attribute(items, rate, etcTitle) {
+    var r = +rate, U = 0, Dn = 0, r1 = function (x) { return Math.round(x * 10) / 10; };
+    items.forEach(function (x) { if (x.dir > 0) U += x.strength; else if (x.dir < 0) Dn += x.strength; });
+    var gross;
+    if ((r > 0 && U === 0) || (r < 0 && Dn === 0)) gross = Math.abs(r) * 2;
+    else { gross = (U || Dn) ? Math.abs(r) * Math.min((U + Dn) / Math.max(Math.abs(U - Dn), 1e-9), 3) : Math.abs(r); if (U && Dn) gross = Math.max(gross, 1); }
+    gross = Math.max(gross, Math.abs(r));
+    var u = (gross + r) / 2, d = (gross - r) / 2, resid = 0;
+    if (U === 0) { resid += u; u = 0; }
+    if (Dn === 0) { resid -= d; d = 0; }
+    var out = items.map(function (x) { return Object.assign({}, x, { pp: r1(x.dir > 0 ? u * x.strength / U : x.dir < 0 ? -d * x.strength / Dn : 0) }); });
+    if (Math.abs(resid) >= 0.05) out.push({ cat: "etc", title: etcTitle, dir: resid > 0 ? 1 : -1, strength: 0, evidence: "딥리서치 요인의 방향만으로는 설명할 수 없는 몫.", pp: r1(resid) });
+    var diff = r1(r1(r) - out.reduce(function (s, x) { return s + x.pp; }, 0));
+    if (out.length && Math.abs(diff) >= 0.05) { var big = out.reduce(function (a, b) { return Math.abs(b.pp) > Math.abs(a.pp) ? b : a; }); big.pp = r1(big.pp + diff); }
+    return out;
+  }
+
+  function kstToday() { return new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10).replace(/-/g, ""); }
+  // 전일 등락 — 수급 표(analysis.flow.trend, 최신순)의 '오늘보다 앞선 첫 행'을 전일로, 그 다음 행 종가를 전전일 종가로.
+  // 전일 종가는 실시간 시세의 prevClose 를 우선(수급 표 전일 행은 분석 시각의 장중 값일 수 있음 — 후성 11/11 표 10,600 vs 실제 종가 10,070).
+  function prevMove(st) {
+    var rows = ((st.analysis.flow || {}).trend || []).filter(function (x) { return x && x.date && x.close; }), today = kstToday();
+    var i = rows.findIndex(function (x) { return String(x.date).replace(/-/g, "") < today; });
+    if (i < 0 || !rows[i + 1]) return null;
+    var live = D.px[st.code] || {}, prev = live.prevClose || rows[i].close, before = rows[i + 1].close;
+    return { date: String(rows[i].date), close: prev, before: before, rate: (prev / before - 1) * 100 };
+  }
+  function reversal(st, idio) {
+    var pm = prevMove(st);
+    if (!pm || Math.abs(pm.rate) < REV_MIN || !idio || pm.rate * idio >= 0) return null;
+    var st5 = Math.max(1, Math.min(5, Math.round(Math.abs(pm.rate) / 5))), up = pm.rate > 0;
+    var d = pm.date.replace(/^(\d{4})(\d{2})(\d{2})$/, "$2/$3");
+    return { cat: "etc", dir: up ? -1 : 1, strength: st5, rule: true,
+             title: "전일 " + pct(pm.rate, 1) + " " + (up ? "급등" : "급락") + " 되돌림",
+             evidence: d + " 종가 " + Math.round(pm.close).toLocaleString() + "원(" + pct(pm.rate) + ") 뒤 오늘 반대 방향 — " + (up ? "차익실현·과열 해소로" : "기술적 반등으로") +
+                       " 추정." };
+  }
+
+  // 시장·업종·종목 고유 분해. 반환 = {rows(요인 %p 목록, cat 포함), layers}
+  function decompose(st, mode) {
+    var pf = st.analysis.priceFactors, live = D.px[st.code] || {}, r = live.rate != null ? live.rate : pf.basis.ratePct;
+    var noLive = live.rate == null;                         // 실시간 시세 없음 → 기준 = 분석 당시 등락률(전일일 수 있음)
+    var items = (pf.items || []).filter(function (x) { return x.cat !== "etc"; }).map(function (x) { return { cat: x.cat, title: x.title, dir: x.dir, strength: x.strength, evidence: x.evidence }; });
+    if (mode === "old") return { r: r, rows: attribute(items, r, "요인으로 설명되지 않은 변동"), layers: null };
+    var kosdaq = /KOSDAQ/i.test(st.market || ""), idx = D.ib.indices[kosdaq ? "kosdaq" : "kospi"] || {};
+    var mkt = idx.rate || 0, secName = D.secMap[st.code], sec = null;
+    if (!kosdaq && secName) sec = (D.ib.sectorHeat || []).find(function (s) { return s.name === secName; }) || null;   // sectorHeat = KOSPI 업종
+    var secRate = sec ? sec.changePct : mkt, excess = sec ? secRate - mkt : 0, idio = r - secRate;
+    var rows = [{ cat: "market", title: (kosdaq ? "KOSDAQ" : "KOSPI") + " 지수", dir: mkt >= 0 ? 1 : -1, strength: 0, pp: Math.round(mkt * 10) / 10,
+                  evidence: (kosdaq ? "KOSDAQ" : "KOSPI") + " " + pct(mkt) + " — 시장 전체가 움직인 몫(베타 1 가정)." }];
+    if (sec) {
+      // 업종 구 안 = 업종(지수 대비) 움직임을 이끈 시총 상위 3종목 + 그 외. 종목 몫 = 시총 비중 × (그 종목 등락 − 지수 등락)
+      var list = D.secStocks[secName] || [], capSum = list.reduce(function (s, x) { return s + (x.cap || 0); }, 0) || 1, used = 0;
+      list.filter(function (x) { return x.code !== st.code; }).slice(0, 3).forEach(function (x) {
+        var q = D.px[x.code]; if (!q || q.rate == null) return;
+        var w = (x.cap || 0) / capSum, v = w * (q.rate - mkt); used += v;
+        rows.push({ cat: "sector", title: x.name + " " + pct(q.rate), dir: v >= 0 ? 1 : -1, strength: 0, pp: v, w: w, rate: q.rate, reason: D.reason[x.code] || "", code: x.code });
+      });
+      rows.push({ cat: "sector", title: "그 외 " + secName + " 종목", dir: excess - used >= 0 ? 1 : -1, strength: 0, pp: excess - used, rest: true,
+                  evidence: secName + " 업종 " + pct(secRate) + "(지수 대비 " + fp(excess, true) + ") 중 상위 3종목 몫을 뺀 나머지." });
+    }
+    var r1 = function (x) { return Math.round(x * 10) / 10; };
+    rows.forEach(function (x) { if (x.cat === "sector") x.pp = r1(x.pp); });
+    var rev = mode === "rev" && !noLive ? reversal(st, idio) : null;   // 시세가 없으면 '오늘'을 몰라 되돌림 판단 안 함
+    var research = attribute(rev ? items.concat([rev]) : items, idio, "종목 고유 — 설명 안 됨");
+    rows = rows.concat(research);
+    var sum = r1(rows.reduce(function (s, x) { return s + x.pp; }, 0)), diff = r1(r1(r) - sum);    // 반올림 오차 → 가장 큰 칸
+    if (Math.abs(diff) >= 0.05) { var big = rows.reduce(function (a, b) { return Math.abs(b.pp) > Math.abs(a.pp) ? b : a; }); big.pp = r1(big.pp + diff); }
+    return { r: r, rows: rows, layers: { noLive: noLive, kosdaq: kosdaq, mkt: mkt, sec: sec, secName: secName, secRate: secRate, excess: excess, idio: idio, rev: rev, pm: prevMove(st) } };
+  }
+
+  function buildModel(st, mode) {
+    var x = decompose(st, mode), L = x.layers;
+    var label = Object.assign({}, CAT, { market: "시장", sector: L && L.sec ? L.secName + " 업종" : "업종", etc: mode === "old" ? "기타·시장" : "기타" });
+    var groups = ORDER.map(function (c) {
+      var its = x.rows.filter(function (y) { return y.cat === c; }).map(function (y) {
+        return Object.assign({}, y, { v: y.pp }, y.rule ? { title: "", fullTitle: y.title } : {});
+      });
+      if (!its.length) return null;
+      var net = its.reduce(function (s, y) { return s + y.v; }, 0);
+      return { id: c, name: label[c], net: Math.round(net * 10) / 10, items: its };
+    }).filter(Boolean);
+    return { r: x.r, layers: L, rows: x.rows,
+      model: { root: { name: st.name, valueHtml: '<span class="pc ' + sgn(x.r) + '">' + fp(x.r) + "%</span>" }, groups: groups, fmt: fp,
+        info: function (it, g) {
+          if (it.cat === "sector" && !it.rest) return '<div class="k">' + esc(g.name) + ' › 시총 비중 ' + (it.w * 100).toFixed(1) + '%</div><div class="t">' + esc(it.title) + ' <b class="' + sgn(it.v) + '">' + fp(it.v, true) + '</b></div><div class="e">' +
+            (it.reason ? esc(it.reason) : "(등락 사유 없음 — 장중 브리핑 상·하위 3개 업종에만 대표 종목 뉴스가 붙음)") + "</div>";
+          if (it.rule) return '<div class="k">' + esc(g.name) + ' › 가격 되돌림 · 강도 ' + it.strength + '</div><div class="t">' + esc(it.fullTitle) + ' <b class="' + sgn(it.v) + '">' + fp(it.v, true) + '</b></div><div class="e">' + esc(it.evidence) + "</div>";
+          return '<div class="k">' + esc(g.name) + (it.strength ? " › " + (it.dir > 0 ? "상승 요인" : it.dir < 0 ? "하락 요인" : "중립") + " · 강도 " + it.strength : "") + '</div><div class="t">' + esc(it.title) + ' <b class="' + sgn(it.v) + '">' + fp(it.v, true) + '</b></div><div class="e">' + esc(it.evidence || "") + "</div>";
+        },
+        groupInfo: function (g) {
+          var e = { market: "지수가 움직인 만큼은 종목과 무관한 시장 몫으로 둡니다.", sector: "업종 등락률 − 지수 등락률. 안의 공 = 업종 움직임을 이끈 시총 상위 종목.",
+                    etc: MODE === "old" ? "제시된 요인의 방향만으로는 등락률을 설명할 수 없는 몫." :
+                         "업종까지 뺀 종목 고유 움직임 중 딥리서치 요인 밖의 몫 — 전일 급등락 되돌림(규칙 요인)과 그래도 설명되지 않는 몫. 안의 공을 누르면 내용이 나옵니다." }[g.id] || "딥리서치 요인 — 종목 고유 몫(당일 − 업종)을 강도 비례로 나눔.";
+          return '<div class="k">항목</div><div class="t">' + esc(g.name) + ' <b class="' + sgn(g.net) + '">' + fp(g.net, true) + '</b></div><div class="e">' + e + "</div>";
+        } } };
+  }
+
+  var orb = null, MODE = "rev", CUR = null;
+  function render() {
+    var st = CUR, b = buildModel(st, MODE), L = b.layers, live = D.px[st.code];
+    document.getElementById("nm").textContent = st.name; document.getElementById("cd").textContent = st.code; document.getElementById("mk").textContent = st.market || "";
+    document.getElementById("basis").innerHTML = (live && live.rate != null ? "기준 당일 등락률(실시간)" : "기준 " + esc(st.analysis.priceFactors.basis.date) + " 등락률(실시간 시세 없음)") + ' <b class="' + sgn(b.r) + '">' + pct(b.r, 1) + "</b>";
+    document.getElementById("layers").innerHTML = L ? '<span>시장 <b class="' + sgn(L.mkt) + '">' + fp(L.mkt, true) + "</b></span>" +
+      (L.sec ? '<span>' + esc(L.secName) + ' 업종 <b class="' + sgn(L.excess) + '">' + fp(L.excess, true) + "</b> <small>(업종 " + pct(L.secRate) + ")</small></span>" : '<span>업종 — ' + (L.kosdaq ? "KOSDAQ 종목(업종 등락률 없음)" : "업종 매핑 없음") + "</span>") +
+      '<span>종목 고유 <b class="' + sgn(L.idio) + '">' + fp(L.idio, true) + "</b> → 딥리서치" + (L.rev ? " + 되돌림" : "") + " 요인에 배분</span>" +
+      (L.pm ? '<span>전일 <b class="' + sgn(L.pm.rate) + '">' + pct(L.pm.rate, 1) + "</b>" + (MODE === "rev" && !L.rev ? " <small>(되돌림 조건 아님 — 전일 ±" + REV_MIN + "% 미만이거나 오늘 같은 방향)</small>" : "") + "</span>" : "") : "<span>당일 등락률 전체를 딥리서치 요인에 배분(설명 안 되는 몫 = 기타·시장)</span>";
+    var pf = st.analysis.priceFactors;
+    document.getElementById("foot").innerHTML = "딥리서치 요인 " + (pf.items || []).filter(function (x) { return x.cat !== "etc"; }).length + "개(" + esc(pf.basis.date) + " 분석, 당시 기준 " + pct(pf.basis.ratePct, 1) + ")" +
+      " · 업종 등락률 = 장중 브리핑 " + esc(D.ib.asof) + " · 시세 = 실시간";
+    document.getElementById("tbl").innerHTML = "<tr><th>항목</th><th>요인</th><th class='r'>%p</th></tr>" + b.rows.map(function (x) {
+      var nm = x.cat === "market" ? "시장" : x.cat === "sector" ? (L && L.secName ? L.secName + " 업종" : "업종") : x.cat === "etc" ? (MODE === "old" ? "기타·시장" : "기타") : CAT[x.cat];
+      return "<tr><td>" + esc(nm) + "</td><td>" + esc(x.title) + "</td><td class='r " + sgn(x.pp) + "'>" + fp(x.pp) + "</td></tr>";
+    }).join("") + "<tr><th colspan=2>합계</th><th class='r'>" + fp(b.rows.reduce(function (s, x) { return s + x.pp; }, 0)) + "</th></tr>";
+    if (orb) orb.load(b.model);
+  }
+
+  Promise.all([get("/daily_market_report.json"), get("/intraday_report.json"), get("/intraday_briefing.json"), get("/assets/krx_code_sector.json"), get("/assets/krx_sector_map.json")])
+    .then(function (r) {
+      var stocks = [], seen = {};
+      r[0].concat(r[1]).forEach(function (s) { if (s && s.analysis && s.analysis.priceFactors && !seen[s.code]) { seen[s.code] = 1; stocks.push(s); } });
+      D.ib = r[2]; D.secMap = r[3].map || {}; D.secStocks = {};
+      Object.keys(r[4].sectors || {}).forEach(function (k) { var v = r[4].sectors[k]; D.secStocks[v.name] = (v.stocks || []).slice().sort(function (a, b) { return (b.cap || 0) - (a.cap || 0); }); });
+      D.reason = {};
+      (D.ib.sectorsUp || []).concat(D.ib.sectorsDown || []).forEach(function (s) { (s.stocks || []).forEach(function (x) { if ((x.news || [])[0]) D.reason[x.code] = "뉴스: " + x.news[0]; }); });
+      stocks.forEach(function (s) { var f = (s.analysis.priceFactors.items || []).filter(function (x) { return x.cat !== "etc"; }).sort(function (a, b) { return b.strength - a.strength; })[0]; if (f && !D.reason[s.code]) D.reason[s.code] = "딥리서치: " + f.title; });
+      // 실시간 시세 — 대상 종목 + 각 업종 상위 3종목
+      var codes = {};
+      stocks.forEach(function (s) { codes[s.code] = 1; var sn = D.secMap[s.code]; (D.secStocks[sn] || []).slice(0, 4).forEach(function (x) { codes[x.code] = 1; }); });
+      // 시세 API 는 한 번에 많이 물으면 일부만 돌려준다 → 5종목씩 차례로(2026-11-12 확인: 20개 요청에 7개 응답)
+      var all = Object.keys(codes), chunks = [];
+      for (var i = 0; i < all.length; i += 5) chunks.push(all.slice(i, i + 5));
+      D.px = {};
+      return chunks.reduce(function (pr, ch) {
+        return pr.then(function () { return get("/api/prices?codes=" + ch.join(",")).then(function (p) { Object.assign(D.px, p.stocks || {}); }).catch(function () {}); });
+      }, Promise.resolve()).then(function () {
+        Object.keys(D.px).forEach(function (c) { var q = D.px[c]; if (q.price && q.prevClose) q.rate = (q.price / q.prevClose - 1) * 100; });
+        return stocks;
+      });
+    })
+    .then(function (stocks) {
+      var sel = document.getElementById("pick");
+      sel.innerHTML = stocks.map(function (s) { var q = D.px[s.code]; return '<option value="' + s.code + '">' + esc(s.name) + (q && q.rate != null ? " " + pct(q.rate, 1) : "") + " · " + esc(D.secMap[s.code] || "—") + "</option>"; }).join("");
+      var want = (new URLSearchParams(location.search)).get("code") || "093370";
+      CUR = stocks.find(function (s) { return s.code === want; }) || stocks[0]; sel.value = CUR.code;
+      sel.onchange = function () { CUR = stocks.find(function (s) { return s.code === sel.value; }); render(); };
+      Array.prototype.forEach.call(document.querySelectorAll("#mode button"), function (bt) {
+        bt.onclick = function () { MODE = bt.dataset.m; Array.prototype.forEach.call(document.querySelectorAll("#mode button"), function (x) { x.classList.toggle("on", x === bt); }); render(); };
+      });
+      document.getElementById("asof").textContent = "시세 " + new Date().toLocaleTimeString("ko-KR", { timeZone: "Asia/Seoul", hour: "2-digit", minute: "2-digit" }) + " · 업종 " + D.ib.asof;
+      orb = Orb3D(document.getElementById("stage"), {});
+      render();
+      window.__pv = { stocks: stocks, D: D, model: function () { return buildModel(CUR, MODE); }, focus: function (id) { orb.focus(id); }, state: function () { return orb.state(); } };
+    })
+    .catch(function (e) { document.getElementById("nm").textContent = "불러오지 못했습니다: " + e.message; });
+})();
+</script>
+</body>
+</html>
