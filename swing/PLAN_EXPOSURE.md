@@ -17,7 +17,7 @@
 |---|---|---|
 | R1 순노출 · R2 현금 | **적용 — 주당 10%p 단계 한도**(2026-11-10 사용자 결정, 아래 "단계 한도"). 방향 게이트(R1)·비중 확대(R2), 보유 강제 축소 없음. 대시보드는 최종 한도와 이번 주 한도를 함께 표시 | `exposure.glide_limits`·`net_room`·`boost_weight`·`guard_order`, `daily._exposure_setup`·`_new_entries`, `app.js limLine` |
 | R3 종목 상한 | **적용** — 신규·비중 채우기·재주문·보충 주문 모두(`engine.place_entry` 한 곳). 보유 + 대기 주문 + 이 주문 ≤ 상한이 되게 수량 축소, 여유 0.3% 미만이면 주문 안 함. 이미 넘은 보유는 추가만 막음 | `exposure.guard_order` |
-| R4 Short 담보 | **적용** — `SHORT_COLLATERAL=cash_first`(그날 Long 진입 몫을 뺀 여유 현금 ≥ 진입 금액이면 현금 담보, 아니면 대용) · `SHORT_MARGIN=0.5`. 주문 단위 선택. 기존 대용 Short 는 그대로 정산(요구 담보만 50%로) | `engine.settle_day` |
+| R4 Short 담보 | **적용** — `SHORT_COLLATERAL=cash_first`(그날 Long 진입 몫을 뺀 여유 현금 ≥ 진입 금액이면 현금 담보, 아니면 대용) · `SHORT_MARGIN=0.5`. 주문 단위 선택. 기존 대용 Short 는 그대로 정산(요구 담보만 50%로). **추가 진입(잔여분 topupOf)은 본 포지션 담보 방식을 따른다**(2026-11-12 수정 — 대용 포지션에 현금 담보로 합쳐져 11/10·11/11 평가액 −2,902만 오기록, 보정 `swing/tools/fix_topup_collateral.py`) | `engine.settle_day` |
 | R5 | **적용** | `vwap/executor.py` |
 | R6 섹터 | **구현됨 · 기본 꺼짐(2026-11-10 저녁 사용자 결정, `SWING_SECTOR_BRAKE=1` 로 켬)** — 켜면 브레이크: 그 섹터 같은 방향 후보는 판단 생략(행만 남김)·주문 차단, 한도 안 섹터도 ±10%를 넘기는 주문은 수량 축소. 우선 검토: **이미 후보에 오른** 반대 방향 종목을 판단 순서 맨 앞으로. 브레이크 상태는 원장 `sectorBrake`(해제 ±8%) | `daily._exposure_setup`·`_sector_split`, `exposure.update_brakes` |
 - **R6 우선 검토의 한계(다음 단계)**: 유니버스는 섹터마다 한 방향(강한 섹터 = Long, 약한 섹터 = Short)만 채점한다. 그래서 Long 이 쏠린 강한 섹터에는

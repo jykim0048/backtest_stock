@@ -244,6 +244,45 @@ class TestCashFirstCollateral(unittest.TestCase):
         self.assertEqual(by["000020"]["qty"], 30)
         self.assertEqual(by["000001"]["collateral"], "subst")
 
+    def _topup(self, L, qty, date="2026-09-03", valid="2026-09-04"):
+        s = next(p for p in L["positions"] if p["side"] == "short")
+        E.place_entry(L, code=s["code"], name="S", date=date, valid_date=valid, entry=10000, stop=10500, target=9400,
+                      weight=0.0, side="short", qty=qty, extra={"topupOf": s["id"], "topup": True})
+        return s
+
+    def _equity_unchanged_by_topup(self, L, s, qty):
+        fees = lambda: sum(p.get("borrowFee", 0) for p in L["positions"] if p["side"] == "short")
+        before, fee0 = E.equity_now(L), fees()
+        tax = qty * 10000 * config.SELL_TAX
+        E.settle_day(L, "2026-09-04", {"000010": bar(10000, 10000, 10000, 10000), "000001": bar(10000, 10100, 9900, 10000)})
+        fee = fees() - fee0
+        # 가격이 그대로면 평가액 변화 = 매도세 + 대차수수료뿐(추가 진입 금액이 사라지거나 부풀면 안 됨)
+        self.assertAlmostEqual(E.equity_now(L), before - tax - fee, delta=1.0)
+        return next(p for p in L["positions"] if p["id"] == s["id"])
+
+    def test_topup_into_subst_position_stays_subst(self):
+        # 2026-11-12 사고: 대용 포지션의 잔여분 주문이 cash_first 로 현금 담보가 되면서 현금만 빠지고 평가에는 안 잡혔다
+        L = self._book(0.60)
+        self._short(L, 0.30)
+        config.SHORT_COLLATERAL = "subst"
+        E.settle_day(L, "2026-09-03", {"000010": bar(10000, 10000, 10000, 10000), "000001": bar(9900, 10100, 9850, 10000)})
+        config.SHORT_COLLATERAL = "cash_first"
+        s = self._topup(L, 10)                                          # 현금 ~40만 ≥ 10만 → 예전 코드는 현금 담보로 골랐다
+        self.assertEqual(s["collateral"], "subst")
+        p = self._equity_unchanged_by_topup(L, s, 10)
+        self.assertEqual((p["qty"], p["collateral"]), (40, "subst"))
+        o = next(x for x in L["orderLog"] if x.get("topupOf") == s["id"])
+        self.assertEqual(o["collateral"], "subst")
+
+    def test_topup_into_cash_position_stays_cash(self):
+        L = self._book(0.60)
+        self._short(L, 0.30)
+        E.settle_day(L, "2026-09-03", {"000010": bar(10000, 10000, 10000, 10000), "000001": bar(9900, 10100, 9850, 10000)})
+        s = self._topup(L, 5)                                           # 남은 현금 ~10만 — cash_first 라면 대용을 골랐을 크기
+        self.assertEqual(s["collateral"], "cash")
+        p = self._equity_unchanged_by_topup(L, s, 5)
+        self.assertEqual((p["qty"], p["collateral"]), (35, "cash"))
+
 
 if __name__ == "__main__":
     unittest.main()

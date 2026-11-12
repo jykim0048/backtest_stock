@@ -427,6 +427,14 @@ def settle_day(L, date, bars, intraday=None):
             else:
                 px = o["entry"]
             mode = (o.get("collateral") or config.SHORT_COLLATERAL) if short else None
+            if short and o.get("topupOf"):
+                # 추가 진입(잔여분)은 본 포지션의 담보 방식을 그대로 따른다(2026-11-12 사고 수정). 포지션 하나에 담보 방식이 하나뿐이라
+                # 대용 포지션에 현금 담보로 합치면 현금은 진입 금액만큼 빠지는데 평가(position_value)는 대용식이라 그 금액이 사라졌다
+                # (11/10·11/11 한국금융지주·키움증권 — 평가액 −2,902만). 반대(현금 포지션 + 대용 추가)면 같은 금액이 부풀려진다.
+                base = next((x for x in L["positions"] if x["id"] == o["topupOf"]), None)
+                if base is not None:
+                    mode = "subst" if is_subst(base) else "cash"
+                    o["collateral"] = mode
             if mode == "cash_first":
                 # 현금 담보 먼저(2026-11-10 사용자 결정): 오늘 남은 Long 진입에 쓸 현금을 뺀 여유 현금이 진입 금액(+매도세) 이상이면
                 # 현금 담보, 모자라면 주식 대용(증거금률 SHORT_MARGIN). 주문 단위로 고른다(한 주문을 둘로 쪼개지 않음).
