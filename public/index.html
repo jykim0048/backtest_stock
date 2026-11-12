@@ -621,6 +621,12 @@
     .ca-type.pos  { background: var(--up-red-dim); color: var(--up-red); }
     .ca-code { color: var(--text-muted); font-size: 11px; margin-left: 3px; }
     .ca-more td { color: var(--text-muted); font-size: 11.5px !important; padding: 3px 2px 6px !important; }
+    /* 장중 시황 실적발표·CA 일정 — 5행까지만, 나머지는 펼치기(2026-11-12) */
+    table:not(.ib-open) tr[data-more] { display: none; }
+    tr.ib-more-row td { padding: 6px 2px 2px !important; text-align: center; }
+    .ib-more-btn { background: rgba(255,255,255,.05); border: 1px solid var(--border-color); color: var(--kospi-blue); border-radius: 8px;
+                   font-size: 12px; padding: 3px 14px; cursor: pointer; font-family: inherit; }
+    .ib-more-btn:hover { background: rgba(0,240,255,.08); }
     /* 워치리스트·주간 일별 CA 배지 — ★3 + 악재성(신주·추가상장 희석, 보호예수 해제, 무상감자·매매정지)은 강조 */
     .ca-pbadge { display: inline-block; font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 7px;
       margin: 2px 4px 2px 0; white-space: nowrap; cursor: help;
@@ -3249,6 +3255,27 @@
       }
       return rows;
     }
+    // 장중 시황 표 접기(2026-11-12) — 데이터 행 IB_ROW_LIMIT 개까지만 보이고 나머지는 data-more(숨김) + 맨 아래 펼치기 행.
+    // CA 의 날짜 머리행(ca-day)·'외 N건'(ca-more)은 한도에 세지 않되, 한도를 넘긴 뒤에 나오면 같이 숨긴다.
+    const IB_ROW_LIMIT = 5;
+    function _ibCutRows(rowsHtml, cols) {
+      let n = 0;
+      const html = (rowsHtml || "").replace(/<tr\b([^>]*)>/g, (m, attrs) => {
+        if (/class="ca-(day|more)"/.test(attrs)) return n >= IB_ROW_LIMIT ? `<tr data-more="1"${attrs}>` : m;
+        n++;
+        return n > IB_ROW_LIMIT ? `<tr data-more="1"${attrs}>` : m;
+      });
+      const hidden = n - IB_ROW_LIMIT;
+      if (hidden <= 0) return rowsHtml;
+      return html + `<tr class="ib-more-row"><td colspan="${cols || 5}"><button type="button" class="ib-more-btn"`
+           + ` data-n="${hidden}" onclick="_ibToggleMore(this)">펼치기 (+${hidden}) ▾</button></td></tr>`;
+    }
+    function _ibToggleMore(btn) {
+      const t = btn.closest("table"); if (!t) return;
+      const open = t.classList.toggle("ib-open");
+      btn.textContent = open ? "접기 ▴" : `펼치기 (+${btn.dataset.n}) ▾`;
+    }
+
     function _econCard(title, rowsHtml, note) {
       if (!rowsHtml) return "";
       return `<div class="briefing-wl" style="margin-top:12px"><div class="wl-h">`
@@ -3287,7 +3314,7 @@
         + `<span style="font-size:15.5px;">📈 실적발표 — 오늘 결과 · 오늘 예정 <span style="opacity:.6;">(${total})</span></span>`
         + `<span style="margin-left:auto; display:flex; gap:4px;">`
         + `${tab("전체", "전체")}${tab("KOSPI", "코스피")}${tab("KOSDAQ", "코스닥")}</span></div>`
-        + `<table><tbody>${rows || `<tr><td colspan="5" style="color:var(--text-muted);`
+        + `<table><tbody>${rows ? _ibCutRows(rows, 5) : `<tr><td colspan="5" style="color:var(--text-muted);`
         + ` font-size:13px; padding:8px 2px;">선택 시장 발표 없음</td></tr>`}</tbody></table>`
         + `<div style="font-size:10.5px;color:var(--text-muted);margin-top:6px">잠정실적 기준`
         + `(억원, 조=1만억) · 컨센서스/괴리율=WiseReport · 상회/하회·턴어라운드 판정=FnGuide `
@@ -4408,7 +4435,7 @@
                     + (caDep.length ? _caRowsHtml(caDep, d.date, 0, "deposit", `🔓 이번 주 보호예수 해제${wk}`, caDepN) : "");
       const caSection = caRowsH ? _econCard(
         `🏦 CA 일정 — 오늘 <span style="opacity:.6;">(${caTodayN + caDepN})</span>`,
-        caRowsH,
+        _ibCutRows(caRowsH, 5),
         _CA_NOTE + " · 보호예수는 이번 주 해제 종목만" + (ibCa.asof ? " · 수집 " + _brEsc(ibCa.asof) : "")) : "";
 
       // 장중 촉매 — 종목 단위(중복 통합) + 회차 선택 셀렉터(이전 회차 촉매 조회).
@@ -9280,8 +9307,10 @@ window.PF3D = (function () {
     if (wk === 0 || wk === 6 || hm < 900 || hm > 2000) return Promise.resolve(null);
     var work = context().then(function (c) {
       if (!c.ib || c.ib.date !== kstDate()) return null;      // 오늘 장중 브리핑이 아니면 업종 비교 불가
-      var codes = [stock.code], sn = c.secOf[stock.code];
-      (c.secStocks[sn] || []).filter(function (x) { return x.code !== stock.code; }).slice(0, 3).forEach(function (x) { codes.push(x.code); });
+      // /api/prices?codes= 는 접미사 없는 코드에 .KS 를 붙여 조회한다 → KOSDAQ 은 .KQ 를 붙여야 시세가 온다(없으면 누락·엉뚱한 값).
+      // 업종 상위 종목은 KOSPI 업종 맵(krx_sector_map.stocks)이라 .KS. 응답 키는 6자리 코드.
+      var codes = [stock.code + (/KOSDAQ/i.test(stock.market) ? ".KQ" : ".KS")], sn = c.secOf[stock.code];
+      (c.secStocks[sn] || []).filter(function (x) { return x.code !== stock.code; }).slice(0, 3).forEach(function (x) { codes.push(x.code + ".KS"); });
       return getJSON("/api/prices?codes=" + codes.join(",")).then(function (p) {
         var px = (p && p.stocks) || {};
         Object.keys(px).forEach(function (k) { var q = px[k]; if (q && q.price && q.prevClose) q.rate = (q.price / q.prevClose - 1) * 100; });
