@@ -9231,9 +9231,12 @@ window.PF3D = (function () {
   // 당일 등락률 r = 시장(지수 등락, 베타 1 가정) + 업종(업종 등락 − 지수 등락, KOSPI 업종만) + 종목 고유(r − 업종 등락).
   // 업종 안 = 시총 상위 3종목의 몫(시총 비중 × (그 종목 등락 − 지수 등락)) + 그 외. 종목 고유 몫만 딥리서치 요인에 배분(attribute).
   // 전일 등락이 ±REV_MIN% 이상이고 종목 고유가 반대 방향이면 '가격 되돌림' 요인(강도 = 전일 등락 ÷ 5)을 함께 배분 → 항목 '기타'.
+  // 장중 수집 실적발표(earningsEvents.releasedToday — 오늘 장중 발표·전일 장 마감 후 발표)가 컨센서스를 ±EARN_MIN% 이상
+  // 벗어나면(또는 FnGuide 컨상·컨하·턴어·적전 판정) '실적 발표' 요인(강도 = 영업이익 괴리율 ÷ 5)도 함께 배분 → 항목 '기타'(2026-11-12).
+  // 딥리서치가 발표 뒤에 돌아 이미 실적 요인(제목에 실적·영업이익 등)을 냈으면 중복이라 넣지 않는다.
   // 데이터: intraday_briefing.json(업종 등락·지수·대표 종목 뉴스, 30분 회차) · assets/krx_code_sector.json · assets/krx_sector_map.json · /api/prices.
   // 하나라도 없거나 오늘 데이터가 아니면 종전 방식(등락률 전체를 요인에 배분, 남는 몫 = 기타·시장).
-  var REV_MIN = 10, CTX = { at: 0, p: null };
+  var REV_MIN = 10, EARN_MIN = 5, CTX = { at: 0, p: null };
   function kstNow() { return new Date(Date.now() + 9 * 3600e3); }
   function kstDate() { return kstNow().toISOString().slice(0, 10); }
   function getJSON(u) { return fetch(u + (u.indexOf("?") < 0 ? "?" : "&") + "t=" + Date.now(), { cache: "no-store" }).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }); }
@@ -9241,14 +9244,15 @@ window.PF3D = (function () {
     if (CTX.p && Date.now() - CTX.at < 300000) return CTX.p;
     CTX.at = Date.now();
     CTX.p = Promise.all([getJSON("intraday_briefing.json"), getJSON("assets/krx_code_sector.json"), getJSON("assets/krx_sector_map.json")]).then(function (r) {
-      var ib = r[0], secOf = (r[1] && r[1].map) || {}, secStocks = {}, reason = {};
+      var ib = r[0], secOf = (r[1] && r[1].map) || {}, secStocks = {}, reason = {}, earn = {};
+      (((ib && ib.earningsEvents) || {}).releasedToday || []).forEach(function (e) { if (e && e.code && !earn[e.code]) earn[e.code] = e; });
       Object.keys((r[2] && r[2].sectors) || {}).forEach(function (k) {
         var v = r[2].sectors[k]; secStocks[v.name] = (v.stocks || []).slice().sort(function (a, b) { return (b.cap || 0) - (a.cap || 0); });
       });
       ((ib && ib.sectorsUp) || []).concat((ib && ib.sectorsDown) || []).forEach(function (sx) {
         (sx.stocks || []).forEach(function (x) { if (x && (x.news || [])[0]) reason[x.code] = x.news[0]; });
       });
-      return { ib: ib, secOf: secOf, secStocks: secStocks, reason: reason };
+      return { ib: ib, secOf: secOf, secStocks: secStocks, reason: reason, earn: earn };
     });
     return CTX.p;
   }
@@ -9261,6 +9265,31 @@ window.PF3D = (function () {
     if (i < 0 || !rows[i + 1]) return null;
     // 전일 종가는 실시간 시세의 prevClose(수급 표의 전일 행은 분석 시각의 장중 값일 수 있음 — 후성 11/11 표 10,600 vs 종가 10,070)
     return { date: String(rows[i].date), close: q.prevClose, rate: (q.prevClose / rows[i + 1].close - 1) * 100 };
+  }
+  var EARN_TAG = { "컨상": 1, "턴어": 1, "컨하": -1, "적전": -1, "적지": -1 };
+  var EARN_TAG_NAME = { "컨상": "컨센서스 상회", "턴어": "턴어라운드", "컨하": "컨센서스 하회", "적전": "적자전환", "적지": "적자지속" };
+  function eok(v) { var a = Math.abs(v); return (v < 0 ? "−" : "") + (a >= 10000 ? (a / 10000).toFixed(1).replace(/\.0$/, "") + "조" : Math.round(a).toLocaleString() + "억"); }
+  function earnFactor(stock, c) {
+    var e = (c.earn || {})[stock.code];
+    if (!e) return null;
+    var today = kstDate();
+    if (e.date === today && e.time && e.time >= "15:30") return null;            // 오늘 마감 뒤 발표 → 내일 주가 몫
+    var gap = (e.surprise || {}).opGap, dir = 0, st = 0;
+    if (typeof gap === "number" && Math.abs(gap) >= EARN_MIN) { dir = gap > 0 ? 1 : -1; st = Math.max(1, Math.min(5, Math.round(Math.abs(gap) / 5))); }
+    else if (typeof gap !== "number" && EARN_TAG[e.tag]) { dir = EARN_TAG[e.tag]; st = 2; }
+    if (!dir) return null;                                                      // 예상치 부합·컨센서스 없음 → 넣지 않음
+    var pf = stock.analysis.priceFactors || {}, bd = String((pf.basis || {}).date || "").slice(0, 10);
+    var dup = bd && bd >= String(e.date || "") && (pf.items || []).some(function (f) { return /실적|영업이익|어닝|잠정|컨센/.test(f.title || ""); });   // 요인 제목이 실적이면 중복
+    if (dup) return null;
+    var per = e.period && /^\d{6}$/.test(e.period) && +e.period.slice(4) % 3 === 0 ? e.period.slice(2, 4) + "년 " + (+e.period.slice(4) / 3) + "Q" : (e.quarter || "");
+    var cons = (e.consensus || {}).op, ng = (e.surprise || {}).npGap;
+    var head = typeof gap === "number" ? "실적 " + (gap > 0 ? "컨센서스 상회 +" : "컨센서스 하회 −") + Math.abs(gap).toFixed(1) + "%" : "실적 " + EARN_TAG_NAME[e.tag];
+    var when = (e.date === today ? "오늘" : String(e.date || "").slice(5).replace("-", "/")) + (e.time ? " " + e.time : "") + " 공시" + (e.late || e.date !== today ? "(장 마감 뒤 → 오늘 반영)" : "");
+    var ev = (per ? per + " " : "") + (e.fs ? e.fs + " " : "") + "잠정 영업이익 " + (typeof e.op === "number" ? eok(e.op) : "—") +
+             (typeof e.opYoY === "number" ? "(YoY " + (e.opYoY >= 0 ? "+" : "−") + Math.abs(e.opYoY) + "%)" : typeof e.opYoY === "string" ? "(" + e.opYoY + ")" : "") +
+             (typeof cons === "number" ? " · 컨센서스 " + eok(cons) : "") +
+             (typeof ng === "number" ? " · 순이익 컨센比 " + (ng >= 0 ? "+" : "−") + Math.abs(ng).toFixed(1) + "%" : "") + " — " + when + ".";
+    return { cat: "etc", dir: dir, strength: st, rule: true, ruleName: "실적 발표", title: "", fullTitle: head, evidence: ev };
   }
   function decompose(stock, r, c, px) {
     var r1 = function (v) { return Math.round(v * 10) / 10; };
@@ -9287,11 +9316,12 @@ window.PF3D = (function () {
     var pm = prevMove(stock, px), rev = null;
     if (pm && Math.abs(pm.rate) >= REV_MIN && idio && pm.rate * idio < 0) {
       var up = pm.rate > 0, d = pm.date.replace(/^(\d{4})(\d{2})(\d{2})$/, "$2/$3");
-      rev = { cat: "etc", dir: up ? -1 : 1, strength: Math.max(1, Math.min(5, Math.round(Math.abs(pm.rate) / 5))), rule: true,
+      rev = { cat: "etc", dir: up ? -1 : 1, strength: Math.max(1, Math.min(5, Math.round(Math.abs(pm.rate) / 5))), rule: true, ruleName: "가격 되돌림",
               title: "", fullTitle: "전일 " + (pm.rate > 0 ? "+" : "−") + Math.abs(pm.rate).toFixed(1) + "% " + (up ? "급등" : "급락") + " 되돌림",
               evidence: d + " 종가 " + Math.round(pm.close).toLocaleString() + "원(" + pctTxt(pm.rate) + ") 뒤 오늘 반대 방향 — " + (up ? "차익실현·과열 해소로" : "기술적 반등으로") + " 추정." };
     }
-    attribute(rev ? src.concat([rev]) : src, idio).forEach(function (f) {
+    var earnF = earnFactor(stock, c), extra = [rev, earnF].filter(Boolean);
+    attribute(src.concat(extra), idio).forEach(function (f) {
       if (f.cat === "etc" && !f.rule) { f.title = "설명되지 않은 종목 고유 변동"; f.evidence = "시장·업종을 뺀 종목 고유 움직임 중 딥리서치 요인으로 설명되지 않는 몫."; }
       rows.push(f);
     });
@@ -9463,7 +9493,7 @@ window.PF3D = (function () {
     if (!infoEl) return;
     if (selected != null && F[selected]) {
       var f = F[selected];
-      var sub = f.rule ? " › 가격 되돌림 · 강도 " + f.strength : f.cat === "sector" && typeof f.w === "number" ? " › 시총 비중 " + (f.w * 100).toFixed(1) + "%" :
+      var sub = f.rule ? " › " + (f.ruleName || "가격 되돌림") + " · 강도 " + f.strength : f.cat === "sector" && typeof f.w === "number" ? " › 시총 비중 " + (f.w * 100).toFixed(1) + "%" :
                 f.cat === "market" || f.cat === "sector" || f.cat === "etc" ? "" : " › 요인";
       infoEl.innerHTML = '<div class="pf3d-info-k">' + esc(catName(f.cat)) + sub + '</div><div class="pf3d-info-t">' + esc(f.fullTitle || f.title) + ' <b class="' + sgn(f.pp) + '">' + pp(f.pp) + "</b></div>" +
         (f.evidence ? '<div class="pf3d-info-e">' + esc(f.evidence) + "</div>" : "");
