@@ -244,6 +244,8 @@ class TestBuild(unittest.TestCase):
         st.put("decision/2026-10-31/006110/review", {"rating": "Hold"})                  # 요인 없는 재판별(기능 이전) — 건너뜀
         old, server.STORE = server.STORE, st
         old_bus = history.live_bus
+        from swing import price_split
+        old_ctx, price_split.context = price_split.context, lambda: None             # 네트워크 없이 — 분리 없음(종전 방식)
         try:
             L = st.get("ledger")
             L["positions"][0]["prevClose"] = 56000.0
@@ -252,6 +254,7 @@ class TestBuild(unittest.TestCase):
             self.assertEqual((d["priceFactors"]["from"], d["priceFactors"]["fromPurpose"], d["priceFactors"]["basis"]["ratePct"]),
                              ("decision/2026-10-29/006110/review", "review", -2.0))
             t = d["priceToday"]
+            self.assertIsNone(d["priceSplit"])                                            # 장중 브리핑 없음 → 분리 안 함
             self.assertEqual((t["kind"], t["date"], t["price"], t["prevClose"]), ("close", "2026-11-02", 55600.0, 56000.0))
             self.assertAlmostEqual(t["ratePct"], -0.71, places=2)
             st.put("intraday/2026-11-03", {"vwap": {"006110": {"price": 57000.0, "ts": "2026-11-03T10:15:00+09:00"}}, "orders": {}, "exits": {}})
@@ -262,7 +265,7 @@ class TestBuild(unittest.TestCase):
             st.put(KEY, {"code": "006110", "rating": "Overweight"})
             self.assertNotIn("priceFactors", server.api_decision({"key": KEY}))            # 요인 없음 → 필드 없음
         finally:
-            server.STORE, history.live_bus = old, old_bus
+            server.STORE, history.live_bus, price_split.context = old, old_bus, old_ctx
 
     def test_live_api_prefers_fresher_bus_price(self):
         from swing import server

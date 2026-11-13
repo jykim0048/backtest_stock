@@ -523,7 +523,15 @@ def api_decision(q):
             d = {**d, "latestReview": lr}
         pf = _price_factors(k, d)
         if pf:
-            d = {**d, "priceFactors": pf, "priceToday": _price_today(d.get("code") or k.split("/")[2])}
+            code = d.get("code") or k.split("/")[2]
+            today = _price_today(code)
+            split = None
+            try:                                              # 시장·업종·종목 고유 분리 + 규칙 요인(2026-11-13, swing/price_split.py)
+                from swing import price_split
+                split, today = price_split.for_decision(code, _index_of(code) == "1001", pf, today)
+            except Exception as ex:
+                print(f"[swing] price_split 실패(종전 방식): {type(ex).__name__}: {str(ex)[:160]}", flush=True)
+            d = {**d, "priceFactors": pf, "priceToday": today, "priceSplit": split}
     return d
 
 

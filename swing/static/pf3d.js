@@ -33,7 +33,8 @@
     var catFocus = null, selected = null, hovered = null, drag = null, moved = 0, idleAt = 0, t0 = 0, last = 0;
     var alive = true;
     var auto = !(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
-    var ORBITS = [[4.2, 0.10, 0.06], [5.0, -0.34, 0.16], [3.9, 0.38, -0.22], [5.3, 0.22, 0.32], [4.6, -0.18, -0.36], [5.6, -0.46, 0.05], [4.9, 0.30, 0.20]];
+    var ORBITS = [[4.2, 0.10, 0.06], [5.0, -0.34, 0.16], [3.9, 0.38, -0.22], [5.3, 0.22, 0.32], [4.6, -0.18, -0.36], [5.6, -0.46, 0.05], [4.9, 0.30, 0.20],
+                  [5.9, 0.12, -0.30], [4.4, -0.40, 0.28]];   // 시장·업종 항목이 더해져 최대 8개(2026-11-13)
     function colorOf(x) { return x > 1e-9 ? RED : x < -1e-9 ? BLUE : GRAY; }
     function mkLabel(html, cls) { var el = document.createElement("div"); el.className = "o3-lbl " + cls; el.innerHTML = html; labelBox.appendChild(el); return el; }
     function glowOf(pos, r, color, op) {
@@ -251,23 +252,44 @@
   }
 
   // ── 모델: 저장된 요인(강도·방향)을 기준 등락률에 맞춰 다시 나눈다(swing/agent/price_factors.attribute 와 같은 식) ──
+  // priceSplit(서버 swing/price_split.py, 2026-11-13 — main 대시보드 3D 와 같은 규칙)이 있으면 그 배분을 그대로 쓴다:
+  // 시장(지수) · 업종(지수 대비 초과, 시총 상위 3종목 + 그 외) · 애널리스트 요인(종목 고유 몫) · 기타(가격 되돌림·실적 발표 규칙 요인 + 미설명)
   function current(d) {
     var pf = d.priceFactors, t = d.priceToday, b = pf.basis || {};
     if (t && typeof t.ratePct === "number" && isFinite(t.ratePct)) return { rate: t.ratePct, date: t.date, ts: t.ts, price: t.price, prev: t.prevClose, kind: t.kind };
     return { rate: b.ratePct, date: b.date, ts: null, price: b.close, prev: b.prevClose, kind: "stored" };
   }
+  var ROLE = { market: 1, sentiment: 1, news: 1, fundamentals: 1, flow: 1 };   // 종합 리포트에 있는 항목(누르면 그 역할을 펼침)
+  function split(d) { var sp = d.priceSplit; return sp && (sp.items || []).length && typeof sp.ratePct === "number" ? sp : null; }
   function model(d, name) {
-    var pf = d.priceFactors, cur = current(d);
-    var base = (pf.items || []).filter(function (x) { return x.cat !== "etc"; }).map(function (x) { return { cat: x.cat, title: x.title, dir: x.dir, st: x.strength, ev: x.evidence }; });
-    var rows = attribute(base, cur.rate);
-    var groups = CATS.map(function (c) {
-      var items = rows.filter(function (x) { return x.cat === c[0]; }).map(function (x) { return { title: x.title, v: x.pp, dir: x.dir, st: x.st, ev: x.ev }; });
+    var pf = d.priceFactors, cur = current(d), sp = split(d), rows, cats;
+    if (sp) {
+      rows = sp.items.map(function (x) { return { cat: x.cat, title: x.title, full: x.fullTitle, dir: x.dir, st: x.strength, ev: x.evidence, pp: x.pp, rule: x.ruleName || null, w: x.w }; });
+      cats = [["index", "시장"], ["sector", sp.sector ? sp.sector + " 업종" : "업종"]].concat(CATS.slice(0, 5), [["etc", "기타"]]);
+    } else {
+      var base = (pf.items || []).filter(function (x) { return x.cat !== "etc"; }).map(function (x) { return { cat: x.cat, title: x.title, dir: x.dir, st: x.strength, ev: x.evidence }; });
+      rows = attribute(base, cur.rate); cats = CATS;
+    }
+    var rate = sp ? sp.ratePct : cur.rate;
+    var groups = cats.map(function (c) {
+      var items = rows.filter(function (x) { return x.cat === c[0]; }).map(function (x) { return { title: x.title, full: x.full, v: x.pp, dir: x.dir, st: x.st, ev: x.ev, rule: x.rule, w: x.w }; });
       var net = 0; items.forEach(function (it) { net += it.v; });
       return { id: c[0], name: c[1], net: Math.round(net * 10) / 10, items: items };
     }).filter(function (g) { return g.items.length; });
-    return { root: { name: name || d.code, valueHtml: '<span class="pc ' + sgn(cur.rate) + '">' + fp(cur.rate) + "%</span>" }, groups: groups, fmt: fp, n: rows.length,
-      info: function (it, g) { return '<div class="k">' + esc(g.name) + " › " + (it.dir > 0 ? "상승 요인" : it.dir < 0 ? "하락 요인" : "중립") + (it.st ? " · 강도 " + it.st : "") + '</div><div class="t">' + esc(it.title) + ' <b class="' + sgn(it.v) + '">' + fp(it.v, true) + '</b></div><div class="e">' + esc(it.ev) + "</div>"; },
-      groupInfo: function (g) { return '<div class="k">리포트 항목</div><div class="t">' + esc(g.name) + ' <b class="' + sgn(g.net) + '">' + fp(g.net, true) + '</b></div><div class="e">요인 ' + g.items.length + "개" + (g.id === "etc" ? "" : " — 아래 종합 리포트의 이 항목이 함께 열립니다.") + "</div>"; } };
+    var DESC = { index: "지수가 움직인 만큼은 종목과 무관한 시장 몫으로 둡니다.",
+                 sector: "업종 등락률 − 지수 등락률. 안의 공 = 업종 움직임을 이끈 시총 상위 종목 — 누르면 등락 사유가 나옵니다.",
+                 etc: sp ? "시장·업종을 뺀 종목 고유 움직임 중 애널리스트 요인 밖의 몫 — 전일 급등락 되돌림·실적 발표(규칙 요인)와 그래도 설명되지 않는 몫. 안의 공을 누르면 내용이 나옵니다."
+                         : "제시된 요인만으로는 등락률을 설명할 수 없어 남은 몫." };
+    return { root: { name: name || d.code, valueHtml: '<span class="pc ' + sgn(rate) + '">' + fp(rate) + "%</span>" }, groups: groups, fmt: fp, n: rows.length,
+      info: function (it, g) {
+        var k = it.rule ? g.name + " › " + it.rule + " · 강도 " + it.st
+              : g.id === "sector" && typeof it.w === "number" ? g.name + " › 시총 비중 " + (it.w * 100).toFixed(1) + "%"
+              : g.id === "index" || g.id === "sector" || g.id === "etc" ? g.name
+              : g.name + " › " + (it.dir > 0 ? "상승 요인" : it.dir < 0 ? "하락 요인" : "중립") + (it.st ? " · 강도 " + it.st : "");
+        return '<div class="k">' + esc(k) + '</div><div class="t">' + esc(it.full || it.title) + ' <b class="' + sgn(it.v) + '">' + fp(it.v, true) + '</b></div><div class="e">' + esc(it.ev) + "</div>"; },
+      groupInfo: function (g) {
+        return '<div class="k">' + (ROLE[g.id] ? "리포트 항목" : "등락 구성") + '</div><div class="t">' + esc(g.name) + ' <b class="' + sgn(g.net) + '">' + fp(g.net, true) + '</b></div><div class="e">' +
+          (DESC[g.id] || ("요인 " + g.items.length + "개 — 아래 종합 리포트의 이 항목이 함께 열립니다.")) + "</div>"; } };
   }
 
   // ── 카드 HTML(openDecision 이 맨 윗줄 오른쪽에 넣는다). 요인이 없으면 "" ──
@@ -284,7 +306,9 @@
       '<div class="o3-stage" id="pf3d-stage"><canvas></canvas><div class="o3-labels"></div>' +
       '<div class="o3-tools"><button type="button" class="o3-tool" data-a="rot">⏸ 공전 멈춤</button><button type="button" class="o3-tool" data-a="reset">⟲ 처음 시점</button></div>' +
       '<div class="o3-info" style="display:none"></div></div>' +
-      '<div class="pf3d-foot" id="pf3d-foot">' + esc(from) + " · 리포트의 요인 강도(1~5)를 등락률에 맞춰 %p 로 나눈 추정치 — 빨강 = 주가를 올린 요인, 파랑 = 내린 요인" +
+      '<div class="pf3d-foot" id="pf3d-foot">' + esc(from) + (split(d)
+        ? " · 시장(지수)·업종 몫을 먼저 빼고, 남은 종목 고유 몫을 리포트 요인 강도(1~5)와 규칙 요인(가격 되돌림·실적 발표)에 %p 로 나눈 추정치"
+        : " · 리포트의 요인 강도(1~5)를 등락률에 맞춰 %p 로 나눈 추정치") + " — 빨강 = 주가를 올린 요인, 파랑 = 내린 요인" +
       (d.side === "short" ? "(Short 포지션에는 반대로 작용)" : "") + "</div></div></div>";
   }
 
@@ -314,7 +338,7 @@
       if (my !== token || !document.getElementById("pf3d-stage")) return;   // 그사이 다른 판단을 열었거나 닫았으면 버림
       if (!ok || !webgl()) { hideCard(); return; }
       try {
-        inst = Orb3D(document.getElementById("pf3d-stage"), { onPick: function (cat) { if (onPick && cat !== "etc") onPick(cat); } });
+        inst = Orb3D(document.getElementById("pf3d-stage"), { onPick: function (cat) { if (onPick && ROLE[cat]) onPick(cat); } });
         inst.load(model(d, name));
       } catch (e) { console.warn("[PF3D]", e); hideCard(); return; }
       var fold = document.getElementById("pf3d-fold");
