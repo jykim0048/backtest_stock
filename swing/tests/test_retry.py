@@ -36,6 +36,18 @@ class TestRetry(unittest.TestCase):
         self.assertEqual([p["code"] for p in L["positions"]], ["000010"])
         self.assertEqual(r3["retries"], [])
 
+    def test_topup_not_retried(self):
+        # 2026-11-13 영원무역 — 비중 채우기 미도달은 재주문하지 않고 _topups 가 현재 상태로 다시 판단
+        o = {"id": "o9", "code": "000010", "name": "A", "side": "long", "status": "cancelled", "note": "미도달(VWAP)",
+             "validDate": "2026-09-22", "entry": 10000.0, "stop": 9000.0, "qty": 10, "topupOf": "p1", "topup": 1}
+        L = {"positions": [{"id": "p1", "code": "000010", "stop": 10100.0, "sellPending": {"kind": "stop"}}], "orders": [], "orderLog": [o]}
+        out = daily._retry_unfilled(L, {"cancelled": [o]}, {"000010": {"close": 9900.0}}, "2026-09-22", "2026-09-23")
+        self.assertEqual(len(out), 1)
+        self.assertFalse(out[0]["ok"])
+        self.assertIn("비중 채우기", out[0]["why"])
+        self.assertEqual(L["orders"], [])
+        self.assertNotIn("retriedBy", o)
+
     def test_band_guard_stops(self):
         px = prices.DictPrices({
             "2026-09-21": {"000010": b(10000, 10100, 9900, 10050)},

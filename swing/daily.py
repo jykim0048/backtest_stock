@@ -593,7 +593,11 @@ def _retry_unfilled(L, ev, bars, date, nxt, backlog=(), fut_ok=None):
         row = {"code": o["code"], "name": o.get("name"), "side": o.get("side", "long"), "retry": n, "ok": False, "why": ""}
         b = bars.get(o["code"]) or {}
         close, entry, stop = b.get("close"), o.get("entry"), o.get("stop")
-        if n > config.ENTRY_RETRY_MAX:
+        if o.get("topupOf"):
+            # 비중 채우기는 재주문하지 않는다 — 매일 _topups 가 현재 상태(청산 예약·손절 이력·현재 손절가·PM 등급)로 다시 판단
+            # (2026-11-13 영원무역: 재주문이 청산 예약·Live PM 이 올린 손절가를 안 보고 나가 같은 날 매수·손절 청산이 겹침)
+            row["why"] = "비중 채우기 — 재주문 대신 비중 채우기 판정"
+        elif n > config.ENTRY_RETRY_MAX:
             row["why"] = f"재시도 상한 {config.ENTRY_RETRY_MAX}회"
         elif fut_ok and o.get("side") == "short" and o["code"] not in fut_ok:
             row["why"] = "주식선물 미상장 — 재주문 안 함"

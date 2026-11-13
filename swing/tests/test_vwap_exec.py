@@ -270,6 +270,40 @@ class TestExecutor(unittest.TestCase):
         x = ex.doc["exits"]["p1"]
         self.assertEqual(self.fills(x), [("09:30", 10, 4800.0, "stop"), ("09:40", 30, 4950, "vwap")])
 
+    def test_topup_blocked_when_base_sell_pending(self):
+        # 2026-11-13 영원무역 — 본 포지션이 청산 예약(손절 분할 이월)인데 추가 매수가 같이 체결되던 문제
+        ex = self.ex(ledger_with(order={"code": "000020", "topupOf": "p1", "entry": 5000.0, "stop": 4500.0, "qty": 50},
+                                 position={"sellPending": {"kind": "stop", "reason": "분할 청산 잔여"}}))
+        run(ex, path("000020", [("09:00", 4990), ("09:10", 4900), ("09:30", 4950)]))
+        r = ex.doc["orders"]["o1"]
+        self.assertEqual(r["fills"], [])
+        self.assertTrue(r["done"])
+        self.assertIn("청산 예약", r["why"])
+        self.assertTrue(ex.doc["exits"]["p1"]["fills"])                  # 예약 청산은 그대로 진행
+
+    def test_topup_uses_base_position_stop(self):
+        # 주문 손절가(4,500)보다 본 포지션 손절가(4,950, Live PM 상향)가 빡빡하면 그쪽 — 그 아래에선 사지 않는다
+        ex = self.ex(ledger_with(order={"code": "000020", "topupOf": "p1", "entry": 5000.0, "stop": 4500.0, "qty": 50},
+                                 position={"stop": 4950.0}))
+        self.assertEqual(ex.doc["orders"]["o1"]["stop"], 4950.0)
+
+    def test_topup_cancelled_when_base_exit_starts(self):
+        # Live PM exit 지시로 본 포지션 청산이 시작되면 남은 추가 매수 분할 취소
+        ex = self.ex(ledger_with(order={"code": "000020", "topupOf": "p1", "entry": 5000.0, "stop": 4800.0, "qty": 50}, position={}))
+        run(ex, path("000020", [("09:00", 4990)]))
+        self.assertEqual(sum(f["qty"] for f in ex.doc["orders"]["o1"]["fills"]), 5)
+        ex.apply_instructions([{"id": "i1", "positionId": "p1", "action": "exit"}], ts("09:05"))
+        run(ex, path("000020", [("09:00", 4990), ("09:10", 4950), ("09:40", 4900)]))
+        r = ex.doc["orders"]["o1"]
+        self.assertTrue(r["done"])
+        self.assertIn("청산 중", r["why"])
+        self.assertEqual(sum(f["qty"] for f in r["fills"]), 5)
+
+    def test_topup_stop_follows_tighten(self):
+        ex = self.ex(ledger_with(order={"code": "000020", "topupOf": "p1", "entry": 5000.0, "stop": 4800.0, "qty": 50}, position={}))
+        ex.apply_instructions([{"id": "i1", "positionId": "p1", "action": "tighten_stop", "newStop": 4900.0}], ts("09:05"))
+        self.assertEqual(ex.doc["orders"]["o1"]["stop"], 4900.0)
+
     def test_stop_includes_todays_topup_fills(self):
         # 2026-11-03 광전자 — 시가에 산 추가분이 손절 청산에서 빠져 다음 날 따로 팔리던 문제
         ex = self.ex(ledger_with(order={"code": "000020", "topupOf": "p1", "entry": 5000.0, "stop": 4800.0, "qty": 50}, position={}))

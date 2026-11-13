@@ -149,10 +149,21 @@ class Executor:
                 continue
             if not o.get("topupOf") and o["code"] in held:
                 continue                      # 엔진이 '이미 보유'로 건너뜀
+            # 비중 채우기(topup)는 본 포지션을 따른다(2026-11-13 영원무역 — 청산 예약 중인데 주문 손절가 67,000 으로 추가 매수,
+            # 본 포지션 손절가는 Live PM 이 71,000 으로 올린 뒤): 손절가 = 주문·본 포지션 중 빡빡한 쪽, 청산 예약이면 매수 안 함
+            base = self.held.get(o.get("topupOf")) if o.get("topupOf") else None
+            stop, why = o["stop"], None
+            if base is not None:
+                mv = doc["stopMoves"].get(base["id"])
+                bs = mv["newStop"] if mv else base.get("stop")
+                if bs is not None:
+                    stop = bs if stop is None else (min(stop, bs) if o.get("side") == "short" else max(stop, bs))
+                if base.get("sellPending"):
+                    why = "본 포지션 청산 예약 — 추가 매수 안 함"
             doc["orders"].setdefault(o["id"], {
-                "code": o["code"], "name": o.get("name"), "side": o.get("side", "long"), "cap": o["entry"], "stop": o["stop"],
-                "planned": o["qty"], "plan": slice_plan(o["qty"]), "next": 0, "ref": None, "fills": [], "done": False,
-                "why": None, "topupOf": o.get("topupOf"), "rating": o.get("rating"), "weight": o.get("weight")})
+                "code": o["code"], "name": o.get("name"), "side": o.get("side", "long"), "cap": o["entry"], "stop": stop,
+                "planned": o["qty"], "plan": slice_plan(o["qty"]), "next": 0, "ref": None, "fills": [], "done": bool(why),
+                "why": why, "topupOf": o.get("topupOf"), "rating": o.get("rating"), "weight": o.get("weight")})
             if o.get("topupOf"):
                 self.base_of[o["id"]] = o["topupOf"]
             if o["id"] not in doc["watched"]["orders"]:
@@ -387,6 +398,10 @@ class Executor:
                 return False, "유리한 방향 아님"
             self.doc["stopMoves"][pid] = {"ts": ts, "old": w["stop"], "newStop": float(ns)}
             w["stop"] = float(ns)
+            for oid, b in self.base_of.items():         # 그 포지션 추가 매수도 새 손절가 안쪽에서만(2026-11-13)
+                r = self.doc["orders"].get(oid)
+                if b == pid and r and not r["done"]:
+                    r["stop"] = min(r["stop"], float(ns)) if side == "short" else max(r["stop"], float(ns))
             return True, None
         if act == "flag_review":
             self.doc["reviews"][pid] = {"ts": ts, "reason": ins.get("reason")}
@@ -399,6 +414,12 @@ class Executor:
                 "triggerTs": ts, "instruction": ins.get("id")}
 
     def _entry(self, oid, r, st, ts, hm):
+        base = r.get("topupOf")
+        if base and (base in self.doc["exits"] or self._trims(base)):
+            # 본 포지션이 오늘 청산(손절·예약·Live PM exit/trim·스위칭 재원) 중이면 추가 매수 중단 — 사고 파는 것을 동시에 하지 않는다
+            r.update(done=True, why="본 포지션 청산 중 — 추가 매수 남은 분할 취소")
+            self.dirty = True
+            return
         if r["fills"]:
             hit = self._stop_hit(st, r["side"], r["stop"], first=False)
             if hit and swing_config.FILL_DAY_STOP == "review" and not r.get("topupOf"):
