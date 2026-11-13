@@ -299,17 +299,12 @@
     if (typeof cur.rate !== "number" || !isFinite(cur.rate)) return "";
     var when = cur.kind === "live" ? mdd(cur.date) + (cur.ts ? " " + esc(cur.ts) : "") + " 기준" : cur.kind === "close" ? mdd(cur.date) + " 종가 기준" : mdd(cur.date) + " 판단일 종가 기준";
     var move = cur.price && cur.prev ? " · " + won(cur.prev) + " → " + won(cur.price) : "";
-    var from = (pf.fromPurpose === "review" ? mdd(pf.fromDate) + " 재판별" : mdd(pf.fromDate) + " 진입 판단") + " 요인";
     return '<div class="dec-sec" id="dec-pf3d"><div class="pf3d-card"><div class="pf3d-top"><strong>당일 등락 요인 분해</strong>' +
       '<span class="basis">' + when + ' <b class="' + sgn(cur.rate) + '">' + pctTxt(cur.rate) + "</b>" + move + "</span>" +
       '<span class="pf3d-est" title="' + esc(pf.method || "") + '">추정</span><em id="pf3d-fold">접기 ▴</em></div>' +
       '<div class="o3-stage" id="pf3d-stage"><canvas></canvas><div class="o3-labels"></div>' +
       '<div class="o3-tools"><button type="button" class="o3-tool" data-a="rot">⏸ 공전 멈춤</button><button type="button" class="o3-tool" data-a="reset">⟲ 처음 시점</button></div>' +
-      '<div class="o3-info" style="display:none"></div></div>' +
-      '<div class="pf3d-foot" id="pf3d-foot">' + esc(from) + (split(d)
-        ? " · 시장(지수)·업종 몫을 먼저 빼고, 남은 종목 고유 몫을 리포트 요인 강도(1~5)와 규칙 요인(가격 되돌림·실적 발표)에 %p 로 나눈 추정치"
-        : " · 리포트의 요인 강도(1~5)를 등락률에 맞춰 %p 로 나눈 추정치") + " — 빨강 = 주가를 올린 요인, 파랑 = 내린 요인" +
-      (d.side === "short" ? "(Short 포지션에는 반대로 작용)" : "") + "</div></div></div>";
+      '<div class="o3-info" style="display:none"></div></div></div></div>';   // 하단 설명 줄은 표기 안 함(2026-11-13 사용자 요청)
   }
 
   var loading = null, inst = null, token = 0;
@@ -344,7 +339,7 @@
       var fold = document.getElementById("pf3d-fold");
       if (fold) fold.onclick = function () {
         var st = document.getElementById("pf3d-stage"), hid = !st.hidden; st.hidden = hid;
-        document.getElementById("pf3d-foot").hidden = hid; fold.textContent = hid ? "펼치기 ▾" : "접기 ▴";
+        fold.textContent = hid ? "펼치기 ▾" : "접기 ▴";
       };
     });
   }
