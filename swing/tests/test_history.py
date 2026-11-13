@@ -281,6 +281,7 @@ class TestBuild(unittest.TestCase):
         p = r["positions"][0]
         self.assertEqual((r["live"], r["source"], r["liveTs"], p["price"], p["value"]), (True, "bus", "10:15:45", 50500.0, 49 * 50500))
         self.assertEqual(p["chgPct"], 1.0)                                   # KIS 전일 종가 대비
+        self.assertEqual(r["cashLive"], r["cash"])                           # 오늘 체결 없음 → 장중 현금 = 원장 현금
 
     def test_live_api_off_after_settlement(self):
         from swing import server
@@ -309,6 +310,7 @@ class TestBuild(unittest.TestCase):
         x = next(p for p in ps if p["id"] == "live:o9")
         self.assertEqual((x["qty"], x["entry"], x["price"], x["liveEntry"]["planned"], x["decisionKey"]), (10, 200000.0, 202000.0, 50, "decision/2026-11-02/000660/entry"))
         self.assertEqual(lv["equity"] - (L["cash"] + 49 * 55600), 10 * 2000)      # 평가액엔 체결가 대비 손익만
+        self.assertEqual(lv["cashLive"], round(L["cash"]) - (5 * 199000 + 5 * 201000))   # 장중 현금 = 원장 현금 − 오늘 매수 대금(2026-11-13)
 
     def test_todays_new_entry_card_has_average_price(self):
         st = setup()

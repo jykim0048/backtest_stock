@@ -68,11 +68,11 @@ def api_summary(q):
         by_reason[t["reason"]] = by_reason.get(t["reason"], 0) + 1
     from swing import history
     equity, ret = (eq["equity"], eq["retPct"]) if eq else (round(L["cash"]), 0.0)
-    live_ts = None
+    live_ts = cash_live = None
     lv = api_live(q)                                     # 장중(정산 전) — /api/swing/live 와 같은 평가액(2026-11-03·04)
     if lv.get("live") and L["positions"]:
-        equity, ret, live_ts = lv["equity"], lv["retPct"], lv["liveTs"]
-    return {"asof": L.get("asof"), "capital0": L["capital0"], "cash": round(L["cash"]),
+        equity, ret, live_ts, cash_live = lv["equity"], lv["retPct"], lv["liveTs"], lv.get("cashLive")
+    return {"asof": L.get("asof"), "capital0": L["capital0"], "cash": round(L["cash"]), "cashLive": cash_live,
             "equity": equity, "retPct": ret, "liveTs": live_ts, "liveDate": history.live_date(STORE, L.get("asof")) if live_ts else None,
             "closeEquity": eq["equity"] if eq else round(L["cash"]),
             "positions": len(L["positions"]), "openOrders": len(L["orders"]),
@@ -216,8 +216,16 @@ def api_live(q):
                         if not p["id"].startswith("live:")
                         else (-1 if p["side"] == "short" else 1) * (p["price"] - p["entry"]) * p["qty"] + (p.get("liveRealized") or 0) for p in ps)
     live = history.live_prices(STORE, L.get("asof"))
+    # 장중 현금(2026-11-13) — 원장 현금은 16:30 정산 때만 바뀌어 장중 매수·매도가 현금 한도 줄에 안 보였다.
+    # 평가액 − 장중 수량·평단 기준 포지션 평가 = 오늘 체결 대금까지 반영한 현금(매도 세금은 평가액처럼 정산 때 반영)
+    def pv(p):
+        if p["id"].startswith("live:"):                  # 오늘 신규 Short 담보 방식은 정산이 정한다 — 설정이 현금 담보일 때만 현금을 묶음
+            return engine.position_value(dict(p, collateral=None if config.SHORT_COLLATERAL == "cash" else "subst"), p["price"])
+        return engine.position_value(p, p["price"])
+    cash_live = v - sum(pv(p) for p in ps)
     return {"live": True, "liveTs": ts, "liveDate": history.live_date(STORE, L.get("asof")), "source": "bus" if any(x.get("bus") for x in live.values()) else "doc",
             "equity": round(v), "retPct": round((v / L["capital0"] - 1) * 100, 2) if L.get("capital0") else None, "cash": round(L["cash"]),
+            "cashLive": round(cash_live),
             "positions": [p if p["id"].startswith("live:") else {k: p.get(k) for k in ("id", "code", "side", "price", "priceTs", "chgPct", "value", "unrealPct", "liveExit",
                                                                                   "qty", "entry", "qtyLedger", "liveAdd", "liveRealized", "liveRealizedPct", "holdDay")}
                           for p in ps]}

@@ -260,14 +260,16 @@
   function liveRows(rows, s) {
     var last = rows[rows.length - 1];
     if (!s || !s.liveTs || !s.liveDate || (last && last.date >= s.liveDate)) return rows;
-    return rows.concat([{ date: s.liveDate, equity: s.equity, retPct: s.retPct, cash: s.cash, positions: s.positions, live: s.liveTs }]);
+    return rows.concat([{ date: s.liveDate, equity: s.equity, retPct: s.retPct, cash: cashNow(s), positions: s.positions, live: s.liveTs }]);
   }
   // 노출·현금 한도(PLAN_EXPOSURE.md, 2026-11-10) — /api/swing/config 의 exposure. 표시 전용(주문 단계 적용은 서버)
   function expLim() { return (S.config && S.config.exposure) || null; }
   function wCap(code) { var L = expLim(); return L ? ((L.topCodes || []).indexOf(code) >= 0 ? L.weightMaxTop : L.weightMax) : null; }
   function limFlag(txt, tip) { return ' <span class="lim-flag" title="' + esc(tip) + '">' + esc(txt) + "</span>"; }
   // 순노출 밴드·현금 한도 한 줄 — 안이면 회색, 벗어나면 노랑으로 초과 폭
-  function limLine(net, cashPct) {
+  // 장중이면 오늘 체결 대금까지 반영한 현금(cashLive, 2026-11-13), 아니면 원장 현금
+  function cashNow(s) { return s.liveTs && s.cashLive != null ? s.cashLive : s.cash; }
+  function limLine(net, cashPct, live) {
     var L = expLim();
     if (!L) return "";
     // 단계 한도(주당 10%p, 2026-11-10) — 최종 한도에 닿기 전엔 이번 주 한도 대비 초과 폭을 보여 준다
@@ -280,7 +282,7 @@
       (over ? '<b class="lim-bad">' + (over > 0 ? "+" : "") + over.toFixed(1) + "%p 초과</b>" : '<b class="lim-ok">안</b>') + "</span>";
     if (cashPct != null) {
       var cm = E.cashMax * 100, co = cashPct - cm;
-      h += ' · <span title="현금 한도 — 원장 현금 ÷ 평가액' + stTip + '">현금 ' + cashPct.toFixed(1) + "% / 한도 " + (L.cashMax * 100).toFixed(0) + "% " +
+      h += ' · <span title="현금 한도 — ' + (live ? "장중 현금(전일 정산 현금 ± 오늘 체결 대금, 정산 전 추정)" : "원장 현금") + ' ÷ 평가액' + stTip + '">현금 ' + cashPct.toFixed(1) + "% / 한도 " + (L.cashMax * 100).toFixed(0) + "% " +
         (st ? "(이번 주 " + cm.toFixed(1) + "%) " : "") +
         (co > 0 ? '<b class="lim-bad">+' + co.toFixed(1) + "%p 초과</b>" : '<b class="lim-ok">안</b>') + "</span>";
     }
@@ -307,7 +309,7 @@
       '<div class="wt-bar"><span class="b-long" style="width:' + (wL / Math.max(100, wL + wS) * 100) + '%"></span><span class="b-short" style="width:' +
       (wS / Math.max(100, wL + wS) * 100) + '%"></span></div>' +
       '<span class="port-sub">Long <b class="up">' + wL.toFixed(1) + "%</b> · Short <b class=\"down\">" + wS.toFixed(1) + "%</b> · " +
-      (S.positions || []).length + "종목</span>" + limLine(wL - wS, s.cash != null && base ? s.cash / base * 100 : null) + "</div></div></div>";
+      (S.positions || []).length + "종목</span>" + limLine(wL - wS, cashNow(s) != null && base ? cashNow(s) / base * 100 : null, s.liveTs && s.cashLive != null) + "</div></div></div>";
     var dr = dayReturn(lrows, cap);
     h += '<div class="port-item"><span class="port-lbl">당일' + (dr && dr.live ? " (장중)" : "") + '</span><span class="port-val">' +
       (dr ? pct(dr.v) : "—") + '</span><span class="port-sub">' + (dr ? '<span class="' + (dr.amt > 0 ? "up" : dr.amt < 0 ? "down" : "") + '">' +
@@ -1172,7 +1174,7 @@
 
   // ── Long·Short 포트폴리오(현재 보유 구성: 노출·비중·섹터) ──
   function renderHoldingsPF(ps, summary) {
-    var total = summary.equity || 1, cash = summary.cash || 0;
+    var total = summary.equity || 1, cash = cashNow(summary) || 0;
     var L = ps.filter(function (p) { return sideOf(p) === "long"; });
     var Sh = ps.filter(function (p) { return sideOf(p) === "short"; });
     function sum(a, f) { return a.reduce(function (x, p) { return x + (f(p) || 0); }, 0); }
@@ -2225,7 +2227,7 @@
       var have = {};
       S.positions = (S.positions || []).filter(function (p) { return by[p.id]; }).map(function (p) { have[p.id] = 1; return Object.assign({}, p, by[p.id]); })
         .concat(r.positions.filter(function (x) { return !have[x.id]; }));   // 장중 신규 체결 행(live:*)은 통째로 온다
-      Object.assign(S.summary, { equity: r.equity, retPct: r.retPct, liveTs: r.liveTs, liveDate: r.liveDate });
+      Object.assign(S.summary, { equity: r.equity, retPct: r.retPct, liveTs: r.liveTs, liveDate: r.liveDate, cashLive: r.cashLive });
       renderPortfolio(S.summary); renderPositions(S.positions); renderHoldingsPF(S.positions, S.summary);
       renderEquity(liveRows(S.equity, S.summary), S.summary.capital0);
       if (Date.now() - (S.benchAt || 0) > 60000) loadBench();   // 코스피 장중 점은 1분마다 갱신
