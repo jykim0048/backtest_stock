@@ -161,7 +161,11 @@ def update_brakes(prev, net_pct):
 # 그 주의 한도 = 출발값 − 10%p × 주차(start 부터 7일 = 1주차, 다음 7일 = 2주차 …), 최종 한도에 닿으면 그 뒤로는 최종 한도. 주차는 주문의 진입일 기준.
 # 맞추는 장치(보유 강제 축소 없음 — 신규 주문만 조절):
 #   · 방향 게이트(R1): 순노출이 그 주 상한을 넘기게 되는 Long 주문은 축소·중단(하한이면 Short). 보수적으로 본다 —
-#     같은 방향 대기 주문은 전량 체결, 반대 방향 대기 주문은 미체결로 가정(Short 체결률이 낮아 계획만 믿으면 상한을 넘는다).
+#     같은 방향 대기 주문은 전량 체결, 반대 방향 대기 주문은 OPP_CREDIT 만큼만 체결로 가정.
+#     (2026-11-16 사용자 결정: 처음엔 반대 방향을 0 으로 봐서 11/13 정산이 양쪽 비중 채우기 Long 12%·Short 11% 를 내자
+#      Short 여유 +0.02% → Short 신규 10종목 판단 생략·채우기 7건 차단, Long 신규도 +15% 로 축소 — 순노출 +1% 인데 양쪽 다 막혔다.
+#      10/26~11/13 진입 주문 금액 체결률 Long ~48%·Short ~57% → 기본 0.5.)
+OPP_CREDIT = float(os.environ.get("SWING_NET_OPP_CREDIT", "0.5"))   # 반대 방향 대기 주문을 체결로 셈하는 비율(0 = 예전처럼 미체결 가정, 1 = 전량)
 #   · 비중 확대(R2): 현금이 그 주 한도를 넘는 동안 신규 주문 비중을 최대 BOOST_MAX 배(종목 상한 R3 안), 확대분 합계는 현금 초과분까지.
 GLIDE_ON = os.environ.get("SWING_EXPOSURE_GLIDE", "1") != "0"   # 0 = 순노출·현금 한도는 표시만(방향 게이트·비중 확대 미적용)
 GLIDE_START = "2026-11-16"      # 1주차 첫날(주문 진입일 기준) — 이 날짜 전 진입분은 단계 한도 미적용(표시만)
@@ -196,7 +200,7 @@ def glide_limits(g, date):
 
 def net_room(ctx, positions, orders, side):
     """순노출 한도(ctx["limits"])까지 그 방향으로 더 낼 수 있는 금액(음수 = 이미 초과). 한도가 없으면 None.
-    보유(종가 평가, 청산 예약분 제외) + 같은 방향 대기 주문 전량 기준 — 반대 방향 대기 주문은 미체결로 본다."""
+    보유(종가 평가, 청산 예약분 제외) + 같은 방향 대기 주문 전량 + 반대 방향 대기 주문 × OPP_CREDIT 기준."""
     lim, eq = (ctx or {}).get("limits"), float((ctx or {}).get("eq") or 0)
     if not lim or eq <= 0:
         return None
@@ -206,8 +210,8 @@ def net_room(ctx, positions, orders, side):
     bp, bo = book(positions, [], ctx.get("px")), book([], orders)
     net = tot(bp, "long") - tot(bp, "short")
     if side == "short":
-        return (net - tot(bo, "short")) - lim["netMin"] * eq
-    return lim["netMax"] * eq - (net + tot(bo, "long"))
+        return (net + OPP_CREDIT * tot(bo, "long") - tot(bo, "short")) - lim["netMin"] * eq
+    return lim["netMax"] * eq - (net + tot(bo, "long") - OPP_CREDIT * tot(bo, "short"))
 
 
 def net_label(ctx, side):

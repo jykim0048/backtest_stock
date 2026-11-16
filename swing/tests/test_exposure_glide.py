@@ -1,6 +1,7 @@
 """순노출·현금 단계 한도(2026-11-10 사용자 결정: 주당 10%p) — 주차·한도 계산, 방향 게이트, 비중 확대. 오프라인."""
 import tempfile
 import unittest
+from unittest import mock
 
 from swing import agent_iface as A
 from swing import daily, prices, store
@@ -55,15 +56,30 @@ class TestNetGate(unittest.TestCase):
     def book(self):
         return [pos("000100", "long", "화학", 30, 10000), pos("000200", "short", "유통", 10, 10000)]   # Long 30% · Short 10% → 순 +20%
 
-    def test_net_room_counts_same_side_pending_only(self):
+    def test_net_room_counts_opposite_pending_partly(self):
         c, ps = self.ctx(), self.book()
         self.assertEqual(X.net_room(c, ps, [], "long"), 50_000)                              # 25% − 20%
         pend = [order("000300", "long", "건설", 3, 10000), order("000400", "short", "철강", 9, 10000)]
-        self.assertEqual(X.net_room(c, ps, pend, "long"), 20_000)                            # 대기 Long 3% 만 차감, 대기 Short 는 미체결로 봄
-        self.assertEqual(X.net_room(c, ps, pend, "short"), 210_000)                          # (20% − 대기 Short 9%) − (−10%)
+        with mock.patch.object(X, "OPP_CREDIT", 0.0):                                        # 예전 규칙 — 반대 방향은 미체결
+            self.assertEqual(X.net_room(c, ps, pend, "long"), 20_000)                        # 대기 Long 3% 만 차감
+            self.assertEqual(X.net_room(c, ps, pend, "short"), 210_000)                      # (20% − 대기 Short 9%) − (−10%)
+        with mock.patch.object(X, "OPP_CREDIT", 0.5):
+            self.assertEqual(X.net_room(c, ps, pend, "long"), 65_000)                        # 25% − (20% + 3% − 9%×0.5)
+            self.assertEqual(X.net_room(c, ps, pend, "short"), 225_000)                      # (20% + 3%×0.5 − 9%) − (−10%)
         self.assertIsNone(X.net_room({"eq": 1_000_000, "px": {}}, ps, [], "long"))           # 한도 없음 → 보지 않는다
         gone = [pos("000100", "long", "화학", 30, 10000, sellPending={"kind": "pm_sell"})] + ps[1:]
         self.assertEqual(X.net_room(c, gone, [], "long"), 350_000)                           # 청산 예약분은 내일 나감
+
+    def test_both_side_topups_leave_room(self):
+        # 2026-11-13: 순 +1% 에서 양쪽 채우기 Long 12%·Short 11% → 예전엔 Short 여유 ≈ 0(신규 중단), 이제는 Long 절반을 인정
+        c = self.ctx(net_max=0.15)
+        ps = [pos("000100", "long", "화학", 40, 10000), pos("000200", "short", "유통", 39, 10000)]
+        pend = [order("000300", "long", "건설", 12, 10000), order("000400", "short", "철강", 11, 10000)]
+        with mock.patch.object(X, "OPP_CREDIT", 0.0):
+            self.assertLess(X.net_room(c, ps, pend, "short"), X.MIN_ORDER_PCT * c["eq"])
+        with mock.patch.object(X, "OPP_CREDIT", 0.5):
+            self.assertEqual(X.net_room(c, ps, pend, "short"), 60_000)                       # (1% + 6% − 11%) + 10%
+            self.assertEqual(X.net_room(c, ps, pend, "long"), 75_000)                        # 15% − (1% + 12% − 5.5%)
 
     def test_guard_trims_long_to_stage_cap_and_blocks_at_cap(self):
         ps = self.book()
