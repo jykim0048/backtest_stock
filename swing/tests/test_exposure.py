@@ -18,7 +18,7 @@ class TestExposure(unittest.TestCase):
 
     def test_limits_are_the_decided_rules(self):
         L = X.limits(["005930", "000660"])
-        self.assertEqual((L["netMin"], L["netMax"], L["cashMax"]), (-0.10, 0.15, 0.10))
+        self.assertEqual((L["netMin"], L["netMax"], L["cashMax"]), (-0.15, 0.15, 0.10))
         self.assertEqual((L["sectorNetMax"], L["sectorNetRelease"]), (0.10, 0.08))
         self.assertEqual((L["weightMax"], L["weightMaxTop"], L["topCodes"]), (0.05, 0.10, ["005930", "000660"]))
 
@@ -59,8 +59,8 @@ class TestExposure(unittest.TestCase):
     def test_summarize_inside_band_and_below_min(self):
         s = X.summarize([pos("A", "long", "x", 500), pos("B", "short", "y", 450)], 50, 1000)
         self.assertEqual((s["netOver"], s["cashOver"]), (0.0, 0.0))
-        s = X.summarize([pos("A", "long", "x", 300), pos("B", "short", "y", 450)], 100, 1000)
-        self.assertAlmostEqual(s["netOver"], -0.05)                 # 하한 −10% 를 5%p 밑돎(음수)
+        s = X.summarize([pos("A", "long", "x", 250), pos("B", "short", "y", 450)], 100, 1000)
+        self.assertAlmostEqual(s["netOver"], -0.05)                 # 하한 −15% 를 5%p 밑돎(음수)
         self.assertEqual(X.summarize([], 0, 0)["netPct"], 0.0)      # 빈 장부·평가액 0 도 안전
 
     def test_over_weight_uses_per_stock_cap(self):

@@ -30,7 +30,7 @@ class TestGlideLimits(unittest.TestCase):
 
     def test_limits_step_10pp_per_week_to_final(self):
         w1 = X.glide_limits(G, "2026-11-16")
-        self.assertEqual((w1["netMax"], w1["netMin"], w1["cashMax"], w1["week"], w1["final"]), (0.278, -0.10, 0.295, 1, False))
+        self.assertEqual((w1["netMax"], w1["netMin"], w1["cashMax"], w1["week"], w1["final"]), (0.278, -0.15, 0.295, 1, False))
         self.assertEqual(X.glide_limits(G, "2026-11-20")["netMax"], 0.278)        # 금요일까지 1주차
         w2 = X.glide_limits(G, "2026-11-23")                                      # 11/20(금) 정산의 주문(11/23 진입)부터 2주차
         self.assertEqual((w2["netMax"], w2["cashMax"], w2["final"]), (0.178, 0.195, False))
@@ -40,12 +40,12 @@ class TestGlideLimits(unittest.TestCase):
 
     def test_inside_band_or_no_state_is_final_at_once(self):
         f = X.glide_limits(None, "2026-11-11")
-        self.assertEqual((f["netMin"], f["netMax"], f["cashMax"], f["final"], f["week"]), (-0.10, 0.15, 0.10, True, None))
+        self.assertEqual((f["netMin"], f["netMax"], f["cashMax"], f["final"], f["week"]), (-0.15, 0.15, 0.10, True, None))
         ok = X.glide_limits({"start": "2026-11-10", "net0": 0.05, "cash0": 0.08}, "2026-11-11")
-        self.assertEqual((ok["netMin"], ok["netMax"], ok["cashMax"], ok["final"]), (-0.10, 0.15, 0.10, True))
+        self.assertEqual((ok["netMin"], ok["netMax"], ok["cashMax"], ok["final"]), (-0.15, 0.15, 0.10, True))
         low = X.glide_limits({"start": "2026-11-10", "net0": -0.33, "cash0": 0.08}, "2026-11-11")   # 하한 쪽도 대칭
         self.assertEqual((low["netMin"], low["netMax"], low["final"]), (-0.23, 0.15, False))
-        self.assertEqual(X.glide_limits({"start": "2026-11-10", "net0": -0.33, "cash0": 0.08}, "2026-11-24")["netMin"], -0.10)
+        self.assertEqual(X.glide_limits({"start": "2026-11-10", "net0": -0.33, "cash0": 0.08}, "2026-11-24")["netMin"], -0.15)
 
 
 class TestNetGate(unittest.TestCase):
@@ -93,10 +93,11 @@ class TestNetGate(unittest.TestCase):
         self.assertEqual(X.guard_order(self.ctx(0.25), ps, [], order("000300", "long", "건설", 8, 10000))[1], "종목 상한 5% — 5/8주로 축소")
 
     def test_guard_blocks_short_below_floor(self):
-        ps = [pos("000100", "long", "화학", 5, 10000), pos("000200", "short", "유통", 13, 10000)]   # 순 −8%
-        q, why = X.guard_order(self.ctx(), ps, [], order("000400", "short", "철강", 4, 10000))
-        self.assertEqual((q, why), (2, "순노출 한도 -10.0% — 2/4주로 축소"))            # 하한은 최종 한도 그대로
-        self.assertEqual(X.guard_order(self.ctx(), ps, [], order("000300", "long", "건설", 4, 10000)), (4, None))
+        ps = [pos("000100", "long", "화학", 5, 10000), pos("000200", "short", "유통", 18, 10000)]   # 순 −13%
+        c = self.ctx(net_min=-0.15)
+        q, why = X.guard_order(c, ps, [], order("000400", "short", "철강", 4, 10000))
+        self.assertEqual((q, why), (2, "순노출 한도 -15.0% — 2/4주로 축소"))            # 하한은 최종 한도 그대로(2026-11-17 −10% → −15%)
+        self.assertEqual(X.guard_order(c, ps, [], order("000300", "long", "건설", 4, 10000)), (4, None))
 
 
 class TestBoost(unittest.TestCase):

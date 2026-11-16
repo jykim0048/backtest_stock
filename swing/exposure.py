@@ -1,6 +1,6 @@
 """노출·현금 한도(PLAN_EXPOSURE.md, 2026-11-10 사용자 결정) — 한도값과 현황 계산(순수 함수, 외부 호출 없음).
 
-  R1 순노출 (Long − Short) ÷ 평가액 : NET_MIN ~ NET_MAX (−10% ~ +15%)
+  R1 순노출 (Long − Short) ÷ 평가액 : NET_MIN ~ NET_MAX (±15% — 2026-11-17 사용자 결정, 종전 −10% ~ +15%)
   R2 현금 ÷ 평가액                 : CASH_MAX (10%) 이하 — 현금 = 원장 현금(담보로 묶이지 않은 몫)
   R3 종목당 비중 상한               : 코스피 시총 상위 TOP_N(2) 종목 WEIGHT_MAX_TOP(10%), 그 외 WEIGHT_MAX(5%)
   R1·R2 는 주당 10%p 씩 단계적으로 좁힌다(glide_limits — 아래 "단계 한도").
@@ -14,7 +14,7 @@
 import datetime
 import os
 
-NET_MIN = -0.10
+NET_MIN = -0.15                # 2026-11-17 사용자 결정 −10% → −15%(Short 비중 채우기만으로 하한이 차 Short 신규가 이틀 연속 판단 생략)
 NET_MAX = 0.15
 CASH_MAX = 0.10
 SECTOR_NET_MAX = 0.10
