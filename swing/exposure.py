@@ -200,14 +200,15 @@ def glide_limits(g, date):
 
 def net_room(ctx, positions, orders, side):
     """순노출 한도(ctx["limits"])까지 그 방향으로 더 낼 수 있는 금액(음수 = 이미 초과). 한도가 없으면 None.
-    보유(종가 평가, 청산 예약분 제외) + 같은 방향 대기 주문 전량 + 반대 방향 대기 주문 × OPP_CREDIT 기준."""
+    보유(종가 평가, 청산 예약분 포함 — 대시보드와 같은 기준) + 같은 방향 대기 주문 전량 + 반대 방향 대기 주문 × OPP_CREDIT 기준.
+    (2026-11-17 사용자 결정: 종전엔 청산 예약분을 '내일 나감'으로 빼서 11/16 정산이 화면 +2.8% 대신 −3.2% 로 봤다.)"""
     lim, eq = (ctx or {}).get("limits"), float((ctx or {}).get("eq") or 0)
     if not lim or eq <= 0:
         return None
 
     def tot(b, k):
         return sum(v[k] for v in b["sector"].values())
-    bp, bo = book(positions, [], ctx.get("px")), book([], orders)
+    bp, bo = book([dict(p, sellPending=None) for p in positions or []], [], ctx.get("px")), book([], orders)
     net = tot(bp, "long") - tot(bp, "short")
     if side == "short":
         return (net + OPP_CREDIT * tot(bo, "long") - tot(bo, "short")) - lim["netMin"] * eq

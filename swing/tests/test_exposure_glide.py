@@ -68,7 +68,7 @@ class TestNetGate(unittest.TestCase):
             self.assertEqual(X.net_room(c, ps, pend, "short"), 225_000)                      # (20% + 3%×0.5 − 9%) − (−10%)
         self.assertIsNone(X.net_room({"eq": 1_000_000, "px": {}}, ps, [], "long"))           # 한도 없음 → 보지 않는다
         gone = [pos("000100", "long", "화학", 30, 10000, sellPending={"kind": "pm_sell"})] + ps[1:]
-        self.assertEqual(X.net_room(c, gone, [], "long"), 350_000)                           # 청산 예약분은 내일 나감
+        self.assertEqual(X.net_room(c, gone, [], "long"), 50_000)                            # 청산 예약분도 보유로 센다(2026-11-17, 종전 350_000)
 
     def test_both_side_topups_leave_room(self):
         # 2026-11-13: 순 +1% 에서 양쪽 채우기 Long 12%·Short 11% → 예전엔 Short 여유 ≈ 0(신규 중단), 이제는 Long 절반을 인정

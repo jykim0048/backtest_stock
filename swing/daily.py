@@ -361,8 +361,9 @@ def _exposure_setup(L, store, bars, date, run, note=True):
         brakes = X.update_brakes(L.get("sectorBrake") or {}, net)
         L["sectorBrake"] = brakes
         ctx = {"eq": eq, "top": top, "brakes": brakes, "px": px}
-        ps = [{"code": p["code"], "name": p.get("name"), "side": p.get("side", "long"), "sector": p.get("sector"), "value": X._val(p, px)}
-              for p in L["positions"]]
+        # 순노출·현금 현황은 청산 예약분 포함(2026-11-17 사용자 결정 — 대시보드·방향 게이트와 같은 기준)
+        ps = [{"code": p["code"], "name": p.get("name"), "side": p.get("side", "long"), "sector": p.get("sector"),
+               "value": X._val(dict(p, sellPending=None), px)} for p in L["positions"]]
         sm = X.summarize(ps, L["cash"], eq, top)
         run["exposure"] = {"netPct": round(sm["netPct"] * 100, 2), "cashPct": round(sm["cashPct"] * 100, 2),
                            "longPct": round(sm["longPct"] * 100, 2), "shortPct": round(sm["shortPct"] * 100, 2),
