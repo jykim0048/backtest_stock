@@ -1,8 +1,8 @@
 {
- "asof": "2026-11-17 15:41 KST",
- "hubAsof": "2026-11-17 14:09",
- "from": "2026-11-03",
- "to": "2027-01-01",
+ "asof": "2026-11-18 07:46 KST",
+ "hubAsof": "2026-11-18 07:46",
+ "from": "2026-11-04",
+ "to": "2027-01-02",
  "rows": [
   {
    "date": "2026-08-03",
@@ -144,6 +144,24 @@
    "importance": 1,
    "fields": {
     "buyReqPrice": 10488.0
+   }
+  },
+  {
+   "date": "2026-09-22",
+   "kind": "ex",
+   "milestoneLabel": "권리락",
+   "type": "paidin",
+   "typeLabel": "유상증자",
+   "code": "042940",
+   "name": "상지건설",
+   "importance": 3,
+   "fields": {
+    "issuePrice": 5000.0,
+    "discountPct": 0.0,
+    "newShares": 1635087.0,
+    "totalShares": 6828712.0,
+    "allotRate": 32.25,
+    "newSharesPct": 23.94
    }
   },
   {
@@ -471,7 +489,7 @@
    "type": "revsplit",
    "typeLabel": "액면교체",
    "code": "206400",
-   "name": "베노티앤알",
+   "name": "아인스팩씨엔에스",
    "importance": 3,
    "fields": {
     "faceBefore": 500.0,
@@ -659,7 +677,7 @@
    "type": "revsplit",
    "typeLabel": "액면교체",
    "code": "206400",
-   "name": "베노티앤알",
+   "name": "아인스팩씨엔에스",
    "importance": 1,
    "fields": {
     "faceBefore": 500.0,
@@ -895,17 +913,6 @@
    "date": "2026-10-21",
    "kind": "record",
    "milestoneLabel": "기준일",
-   "type": "purreq",
-   "typeLabel": "주식매수청구",
-   "code": "196170",
-   "name": "알테오젠",
-   "importance": 1,
-   "fields": {}
-  },
-  {
-   "date": "2026-10-21",
-   "kind": "record",
-   "milestoneLabel": "기준일",
    "type": "revsplit",
    "typeLabel": "액면교체",
    "code": "288980",
@@ -1040,37 +1047,21 @@
   },
   {
    "date": "2026-11-02",
-   "kind": "halt",
-   "milestoneLabel": "매매정지",
-   "type": "capdcrs",
-   "typeLabel": "자본감소",
-   "code": "412540",
-   "name": "제일엠앤에스",
-   "importance": 3,
-   "fields": {
-    "reduceType": "무상감자",
-    "reduceRate": "0.05",
-    "method": "곱하기"
-   }
-  },
-  {
-   "date": "2026-11-02",
-   "kind": "ex",
-   "milestoneLabel": "배당락(추정)",
-   "type": "dividend",
-   "typeLabel": "배당",
-   "code": "055550",
-   "name": "신한금융지주회사",
+   "kind": "subscribe",
+   "milestoneLabel": "청약",
+   "type": "paidin",
+   "typeLabel": "유상증자",
+   "code": "042940",
+   "name": "상지건설",
    "importance": 2,
    "fields": {
-    "cashDps": 740.0,
-    "faceDivPct": 14.8,
-    "stockDivPct": 0.0,
-    "kind": "분기",
-    "faceValue": 5000.0,
-    "highDividend": "Y"
-   },
-   "note": "기준일 전 영업일 — 공휴일 미반영 추정"
+    "issuePrice": 5000.0,
+    "discountPct": 0.0,
+    "newShares": 1635087.0,
+    "totalShares": 6828712.0,
+    "allotRate": 32.25,
+    "newSharesPct": 23.94
+   }
   },
   {
    "date": "2026-11-02",
@@ -1085,136 +1076,6 @@
   },
   {
    "date": "2026-11-03",
-   "kind": "listing",
-   "milestoneLabel": "추가 상장",
-   "type": "listing",
-   "typeLabel": "상장정보",
-   "code": "006740",
-   "name": "블루산업개발",
-   "importance": 3,
-   "fields": {
-    "reason": "유상증자",
-    "newShares": 2989131.0,
-    "totalShares": 8940090.0,
-    "issuePrice": 2944.0,
-    "newSharesPct": 33.44
-   }
-  },
-  {
-   "date": "2026-11-03",
-   "kind": "listing",
-   "milestoneLabel": "추가 상장",
-   "type": "listing",
-   "typeLabel": "상장정보",
-   "code": "060230",
-   "name": "제이케이시냅스",
-   "importance": 3,
-   "fields": {
-    "reason": "유상증자",
-    "newShares": 2079002.0,
-    "totalShares": 21624220.0,
-    "issuePrice": 962.0,
-    "newSharesPct": 9.61
-   }
-  },
-  {
-   "date": "2026-11-03",
-   "kind": "listing",
-   "milestoneLabel": "추가 상장",
-   "type": "listing",
-   "typeLabel": "상장정보",
-   "code": "011300",
-   "name": "우성머티리얼스",
-   "importance": 2,
-   "fields": {
-    "reason": "국내CB행사",
-    "newShares": 17630.0,
-    "totalShares": 20491286.0,
-    "issuePrice": 2836.0,
-    "newSharesPct": 0.09
-   }
-  },
-  {
-   "date": "2026-11-03",
-   "kind": "listing",
-   "milestoneLabel": "추가 상장",
-   "type": "listing",
-   "typeLabel": "상장정보",
-   "code": "0147B0",
-   "name": "래블업",
-   "importance": 2,
-   "fields": {
-    "reason": "STOCKOPTION행사",
-    "newShares": 17600.0,
-    "totalShares": 14565939.0,
-    "issuePrice": 500.0,
-    "newSharesPct": 0.12
-   }
-  },
-  {
-   "date": "2026-11-03",
-   "kind": "deadline",
-   "milestoneLabel": "반대의사 접수시한",
-   "type": "purreq",
-   "typeLabel": "주식매수청구",
-   "code": "196170",
-   "name": "알테오젠",
-   "importance": 2,
-   "fields": {}
-  },
-  {
-   "date": "2026-11-03",
-   "kind": "listing",
-   "milestoneLabel": "추가 상장",
-   "type": "listing",
-   "typeLabel": "상장정보",
-   "code": "295310",
-   "name": "에이치브이엠",
-   "importance": 2,
-   "fields": {
-    "reason": "국내CB행사",
-    "newShares": 92942.0,
-    "totalShares": 12807599.0,
-    "issuePrice": 32278.0,
-    "newSharesPct": 0.73
-   }
-  },
-  {
-   "date": "2026-11-03",
-   "kind": "listing",
-   "milestoneLabel": "추가 상장",
-   "type": "listing",
-   "typeLabel": "상장정보",
-   "code": "372320",
-   "name": "큐로셀",
-   "importance": 2,
-   "fields": {
-    "reason": "STOCKOPTION행사",
-    "newShares": 2000.0,
-    "totalShares": 15229152.0,
-    "issuePrice": 19050.0,
-    "newSharesPct": 0.01
-   }
-  },
-  {
-   "date": "2026-11-03",
-   "kind": "listing",
-   "milestoneLabel": "추가 상장",
-   "type": "listing",
-   "typeLabel": "상장정보",
-   "code": "441270",
-   "name": "파인엠텍",
-   "importance": 2,
-   "fields": {
-    "reason": "국내CB행사",
-    "newShares": 38000.0,
-    "totalShares": 42756275.0,
-    "issuePrice": 5594.0,
-    "newSharesPct": 0.09
-   }
-  },
-  {
-   "date": "2026-11-03",
    "kind": "record",
    "milestoneLabel": "기준일",
    "type": "purreq",
@@ -1223,67 +1084,6 @@
    "name": "경농",
    "importance": 1,
    "fields": {}
-  },
-  {
-   "date": "2026-11-03",
-   "kind": "listing",
-   "milestoneLabel": "추가 상장",
-   "type": "listing",
-   "typeLabel": "상장정보",
-   "code": "304840",
-   "name": "타임엑스에이아이",
-   "importance": 1,
-   "fields": {
-    "reason": "상호변경",
-    "newShares": 25094080.0,
-    "totalShares": 12547040.0,
-    "issuePrice": 500.0,
-    "newSharesPct": 200.0
-   }
-  },
-  {
-   "date": "2026-11-03",
-   "kind": "record",
-   "milestoneLabel": "기준일",
-   "type": "capdcrs",
-   "typeLabel": "자본감소",
-   "code": "412540",
-   "name": "제일엠앤에스",
-   "importance": 1,
-   "fields": {
-    "reduceType": "무상감자",
-    "reduceRate": "0.05",
-    "method": "곱하기"
-   }
-  },
-  {
-   "date": "2026-11-03",
-   "kind": "record",
-   "milestoneLabel": "기준일",
-   "type": "ipo",
-   "typeLabel": "공모주청약",
-   "code": "493410",
-   "name": "넥스아이",
-   "importance": 1,
-   "fields": {
-    "offerPrice": 8000.0,
-    "leadManager": "한국투자증권"
-   }
-  },
-  {
-   "date": "2026-11-03",
-   "end": "2026-11-04",
-   "kind": "subscribe",
-   "milestoneLabel": "공모 청약",
-   "type": "ipo",
-   "typeLabel": "공모주청약",
-   "code": "493410",
-   "name": "넥스아이",
-   "importance": 1,
-   "fields": {
-    "offerPrice": 8000.0,
-    "leadManager": "한국투자증권"
-   }
   },
   {
    "date": "2026-11-04",
@@ -1583,9 +1383,9 @@
    "fields": {
     "reason": "액면분할",
     "newShares": 8119846.0,
-    "totalShares": 13936200.0,
+    "totalShares": 14270200.0,
     "issuePrice": 500.0,
-    "newSharesPct": 58.26
+    "newSharesPct": 56.9
    }
   },
   {
@@ -1823,6 +1623,35 @@
     "faceBefore": 500.0,
     "faceAfter": 1000.0,
     "direction": "merge"
+   }
+  },
+  {
+   "date": "2026-11-05",
+   "kind": "record",
+   "milestoneLabel": "기준일",
+   "type": "ipo",
+   "typeLabel": "공모주청약",
+   "code": "493260",
+   "name": "옵토닉스",
+   "importance": 1,
+   "fields": {
+    "offerPrice": 12000.0,
+    "leadManager": "한국투자증권"
+   }
+  },
+  {
+   "date": "2026-11-05",
+   "end": "2026-11-06",
+   "kind": "subscribe",
+   "milestoneLabel": "공모 청약",
+   "type": "ipo",
+   "typeLabel": "공모주청약",
+   "code": "493260",
+   "name": "옵토닉스",
+   "importance": 1,
+   "fields": {
+    "offerPrice": 12000.0,
+    "leadManager": "한국투자증권"
    }
   },
   {
@@ -2124,11 +1953,11 @@
    "typeLabel": "보호예수",
    "code": "163280",
    "name": "에어레인",
-   "importance": 3,
+   "importance": 2,
    "fields": {
-    "shares": 1581312.0,
-    "reason": "최대주주",
-    "pctOfTotal": 11.62,
+    "shares": 70000.0,
+    "reason": "-",
+    "pctOfTotal": 0.5146,
     "depositFrom": "2024-11-08",
     "releaseDate": "2026-11-08"
    }
@@ -2165,6 +1994,40 @@
     "totalShares": 7504716.0,
     "issuePrice": 1751.0,
     "newSharesPct": 15.22
+   }
+  },
+  {
+   "date": "2026-11-09",
+   "kind": "release",
+   "milestoneLabel": "보호예수 해제",
+   "type": "deposit",
+   "typeLabel": "보호예수",
+   "code": "372320",
+   "name": "큐로셀",
+   "importance": 3,
+   "fields": {
+    "shares": 2547966.0,
+    "reason": "최대주주",
+    "pctOfTotal": 18.71,
+    "depositFrom": "2023-11-09",
+    "releaseDate": "2026-11-09"
+   }
+  },
+  {
+   "date": "2026-11-09",
+   "kind": "release",
+   "milestoneLabel": "보호예수 해제",
+   "type": "deposit",
+   "typeLabel": "보호예수",
+   "code": "451760",
+   "name": "컨텍",
+   "importance": 3,
+   "fields": {
+    "shares": 3978003.0,
+    "reason": "최대주주",
+    "pctOfTotal": 27.65,
+    "depositFrom": "2023-11-09",
+    "releaseDate": "2026-11-09"
    }
   },
   {
@@ -2257,23 +2120,6 @@
     "highDividend": "Y"
    },
    "note": "기준일 전 영업일 — 공휴일 미반영 추정"
-  },
-  {
-   "date": "2026-11-09",
-   "kind": "release",
-   "milestoneLabel": "보호예수 해제",
-   "type": "deposit",
-   "typeLabel": "보호예수",
-   "code": "372320",
-   "name": "큐로셀",
-   "importance": 2,
-   "fields": {
-    "shares": 2000.0,
-    "reason": "-",
-    "pctOfTotal": 0.0131,
-    "depositFrom": "2026-11-03",
-    "releaseDate": "2026-11-09"
-   }
   },
   {
    "date": "2026-11-09",
@@ -2517,7 +2363,8 @@
     "faceDivPct": 130.0,
     "stockDivPct": 0.0,
     "kind": "분기",
-    "faceValue": 1000.0
+    "faceValue": 1000.0,
+    "highDividend": "Y"
    },
    "note": "기준일 전 영업일 — 공휴일 미반영 추정"
   },
@@ -2671,6 +2518,23 @@
   {
    "date": "2026-11-11",
    "kind": "listing",
+   "milestoneLabel": "추가 상장",
+   "type": "listing",
+   "typeLabel": "상장정보",
+   "code": "101000",
+   "name": "케이에스인더스트리",
+   "importance": 3,
+   "fields": {
+    "reason": "유상증자",
+    "newShares": 3117692.0,
+    "totalShares": 17914172.0,
+    "issuePrice": 1283.0,
+    "newSharesPct": 17.4
+   }
+  },
+  {
+   "date": "2026-11-11",
+   "kind": "listing",
    "milestoneLabel": "재상장",
    "type": "revsplit",
    "typeLabel": "액면교체",
@@ -2681,6 +2545,23 @@
     "faceBefore": 500.0,
     "faceAfter": 2500.0,
     "direction": "merge"
+   }
+  },
+  {
+   "date": "2026-11-11",
+   "kind": "listing",
+   "milestoneLabel": "추가 상장",
+   "type": "listing",
+   "typeLabel": "상장정보",
+   "code": "0153R0",
+   "name": "바로팜",
+   "importance": 2,
+   "fields": {
+    "reason": "-",
+    "newShares": 93000.0,
+    "totalShares": 11965617.0,
+    "issuePrice": 21300.0,
+    "newSharesPct": 0.78
    }
   },
   {
@@ -2700,6 +2581,91 @@
     "faceValue": 5000.0
    },
    "note": "기준일 전 영업일 — 공휴일 미반영 추정"
+  },
+  {
+   "date": "2026-11-11",
+   "kind": "listing",
+   "milestoneLabel": "추가 상장",
+   "type": "listing",
+   "typeLabel": "상장정보",
+   "code": "331380",
+   "name": "포커스에이아이",
+   "importance": 2,
+   "fields": {
+    "reason": "유상증자",
+    "newShares": 774293.0,
+    "totalShares": 37734520.0,
+    "issuePrice": 2070.0,
+    "newSharesPct": 2.05
+   }
+  },
+  {
+   "date": "2026-11-11",
+   "kind": "listing",
+   "milestoneLabel": "추가 상장",
+   "type": "listing",
+   "typeLabel": "상장정보",
+   "code": "377300",
+   "name": "카카오페이",
+   "importance": 2,
+   "fields": {
+    "reason": "STOCKOPTION행사",
+    "newShares": 1411.0,
+    "totalShares": 135332525.0,
+    "issuePrice": 9734.0,
+    "newSharesPct": 0.0
+   }
+  },
+  {
+   "date": "2026-11-11",
+   "kind": "listing",
+   "milestoneLabel": "추가 상장",
+   "type": "listing",
+   "typeLabel": "상장정보",
+   "code": "396300",
+   "name": "에이치티로보틱스",
+   "importance": 2,
+   "fields": {
+    "reason": "STOCKOPTION행사",
+    "newShares": 142000.0,
+    "totalShares": 26631500.0,
+    "issuePrice": 3205.0,
+    "newSharesPct": 0.53
+   }
+  },
+  {
+   "date": "2026-11-11",
+   "kind": "listing",
+   "milestoneLabel": "추가 상장",
+   "type": "listing",
+   "typeLabel": "상장정보",
+   "code": "461300",
+   "name": "아이스크림미디어",
+   "importance": 2,
+   "fields": {
+    "reason": "STOCKOPTION행사",
+    "newShares": 27000.0,
+    "totalShares": 13365433.0,
+    "issuePrice": 3000.0,
+    "newSharesPct": 0.2
+   }
+  },
+  {
+   "date": "2026-11-11",
+   "kind": "listing",
+   "milestoneLabel": "추가 상장",
+   "type": "listing",
+   "typeLabel": "상장정보",
+   "code": "486990",
+   "name": "노타",
+   "importance": 2,
+   "fields": {
+    "reason": "STOCKOPTION행사",
+    "newShares": 45150.0,
+    "totalShares": 21451080.0,
+    "issuePrice": 3077.0,
+    "newSharesPct": 0.21
+   }
   },
   {
    "date": "2026-11-11",
@@ -2723,6 +2689,23 @@
    "importance": 1,
    "fields": {
     "buyReqPrice": 3675.0
+   }
+  },
+  {
+   "date": "2026-11-11",
+   "kind": "listing",
+   "milestoneLabel": "추가 상장",
+   "type": "listing",
+   "typeLabel": "상장정보",
+   "code": "288980",
+   "name": "모아데이타",
+   "importance": 1,
+   "fields": {
+    "reason": "액면병합",
+    "newShares": 7504716.0,
+    "totalShares": 7504716.0,
+    "issuePrice": 2500.0,
+    "newSharesPct": 100.0
    }
   },
   {
@@ -2857,20 +2840,6 @@
    "name": "콜마비앤에이치",
    "importance": 1,
    "fields": {}
-  },
-  {
-   "date": "2026-11-12",
-   "kind": "listing",
-   "milestoneLabel": "신규 상장",
-   "type": "ipo",
-   "typeLabel": "공모주청약",
-   "code": "493410",
-   "name": "넥스아이",
-   "importance": 1,
-   "fields": {
-    "offerPrice": 8000.0,
-    "leadManager": "한국투자증권"
-   }
   },
   {
    "date": "2026-11-13",
@@ -3128,7 +3097,7 @@
    "type": "revsplit",
    "typeLabel": "액면교체",
    "code": "206400",
-   "name": "베노티앤알",
+   "name": "아인스팩씨엔에스",
    "importance": 3,
    "fields": {
     "faceBefore": 500.0,
@@ -3346,6 +3315,20 @@
    }
   },
   {
+   "date": "2026-11-17",
+   "kind": "listing",
+   "milestoneLabel": "신규 상장",
+   "type": "ipo",
+   "typeLabel": "공모주청약",
+   "code": "493260",
+   "name": "옵토닉스",
+   "importance": 1,
+   "fields": {
+    "offerPrice": 12000.0,
+    "leadManager": "한국투자증권"
+   }
+  },
+  {
    "date": "2026-11-18",
    "kind": "release",
    "milestoneLabel": "보호예수 해제",
@@ -3502,6 +3485,24 @@
     "pctOfTotal": 11.8,
     "depositFrom": "2025-11-20",
     "releaseDate": "2026-11-20"
+   }
+  },
+  {
+   "date": "2026-11-20",
+   "kind": "listing",
+   "milestoneLabel": "신주 상장",
+   "type": "paidin",
+   "typeLabel": "유상증자",
+   "code": "042940",
+   "name": "상지건설",
+   "importance": 3,
+   "fields": {
+    "issuePrice": 5000.0,
+    "discountPct": 0.0,
+    "newShares": 1635087.0,
+    "totalShares": 6828712.0,
+    "allotRate": 32.25,
+    "newSharesPct": 23.94
    }
   },
   {
@@ -3796,23 +3797,6 @@
   },
   {
    "date": "2026-11-23",
-   "kind": "release",
-   "milestoneLabel": "보호예수 해제",
-   "type": "deposit",
-   "typeLabel": "보호예수",
-   "code": "145170",
-   "name": "노브랜드",
-   "importance": 2,
-   "fields": {
-    "shares": 39000.0,
-    "reason": "최대주주",
-    "pctOfTotal": 0.2307,
-    "depositFrom": "2026-10-06",
-    "releaseDate": "2026-11-23"
-   }
-  },
-  {
-   "date": "2026-11-23",
    "kind": "deadline",
    "milestoneLabel": "반대의사 접수시한",
    "type": "purreq",
@@ -3981,6 +3965,24 @@
     "faceBefore": 500.0,
     "faceAfter": 1000.0,
     "direction": "merge"
+   }
+  },
+  {
+   "date": "2026-11-24",
+   "kind": "pay",
+   "milestoneLabel": "배당금 지급",
+   "type": "dividend",
+   "typeLabel": "배당",
+   "code": "443060",
+   "name": "에이치디현대마린솔루션",
+   "importance": 1,
+   "fields": {
+    "cashDps": 900.0,
+    "faceDivPct": 180.0,
+    "stockDivPct": 0.0,
+    "kind": "분기",
+    "faceValue": 500.0,
+    "highDividend": "Y"
    }
   },
   {
@@ -4575,24 +4577,6 @@
   {
    "date": "2026-11-27",
    "kind": "pay",
-   "milestoneLabel": "배당금 지급",
-   "type": "dividend",
-   "typeLabel": "배당",
-   "code": "055550",
-   "name": "신한금융지주회사",
-   "importance": 1,
-   "fields": {
-    "cashDps": 740.0,
-    "faceDivPct": 14.8,
-    "stockDivPct": 0.0,
-    "kind": "분기",
-    "faceValue": 5000.0,
-    "highDividend": "Y"
-   }
-  },
-  {
-   "date": "2026-11-27",
-   "kind": "pay",
    "milestoneLabel": "매수대금 지급",
    "type": "purreq",
    "typeLabel": "주식매수청구",
@@ -4723,51 +4707,6 @@
    "date": "2026-11-30",
    "kind": "record",
    "milestoneLabel": "기준일",
-   "type": "meeting",
-   "typeLabel": "주주총회",
-   "code": "036580",
-   "name": "(주)팜스코",
-   "importance": 1,
-   "fields": {
-    "reason": "임시총회",
-    "agenda": "사내이사 선임",
-    "agendaCount": 1
-   }
-  },
-  {
-   "date": "2026-11-30",
-   "kind": "record",
-   "milestoneLabel": "기준일",
-   "type": "meeting",
-   "typeLabel": "주주총회",
-   "code": "037270",
-   "name": "(주)와이지플러스",
-   "importance": 1,
-   "fields": {
-    "reason": "임시총회",
-    "agenda": "정관변경 · 독립(사외)이사 선임",
-    "agendaCount": 2
-   }
-  },
-  {
-   "date": "2026-11-30",
-   "kind": "record",
-   "milestoneLabel": "기준일",
-   "type": "meeting",
-   "typeLabel": "주주총회",
-   "code": "039740",
-   "name": "한국정보공학(주)",
-   "importance": 1,
-   "fields": {
-    "reason": "임시총회",
-    "agenda": "자본준비금의 이익잉여금 전입의 건",
-    "agendaCount": 1
-   }
-  },
-  {
-   "date": "2026-11-30",
-   "kind": "record",
-   "milestoneLabel": "기준일",
    "type": "merger",
    "typeLabel": "합병/분할",
    "code": "080420",
@@ -4870,36 +4809,6 @@
    }
   },
   {
-   "date": "2026-12-01",
-   "kind": "record",
-   "milestoneLabel": "기준일",
-   "type": "meeting",
-   "typeLabel": "주주총회",
-   "code": "0153R0",
-   "name": "(주)바로팜",
-   "importance": 1,
-   "fields": {
-    "reason": "임시총회",
-    "agenda": "자본준비금 감액 및 이익잉여금 전입의 건 · 자본준비금 감액 및 결손금 보전의 건",
-    "agendaCount": 2
-   }
-  },
-  {
-   "date": "2026-12-01",
-   "kind": "record",
-   "milestoneLabel": "기준일",
-   "type": "meeting",
-   "typeLabel": "주주총회",
-   "code": "290690",
-   "name": "(주)아리바이오홀딩스",
-   "importance": 1,
-   "fields": {
-    "reason": "임시총회",
-    "agenda": "정관변경",
-    "agendaCount": 1
-   }
-  },
-  {
    "date": "2026-12-02",
    "kind": "pay",
    "milestoneLabel": "배당금 지급",
@@ -4915,6 +4824,21 @@
     "kind": "분기",
     "faceValue": 2500.0,
     "highDividend": "Y"
+   }
+  },
+  {
+   "date": "2026-12-02",
+   "kind": "record",
+   "milestoneLabel": "기준일",
+   "type": "meeting",
+   "typeLabel": "주주총회",
+   "code": "083790",
+   "name": "씨지인바이츠(주)",
+   "importance": 1,
+   "fields": {
+    "reason": "임시총회",
+    "agenda": "정관변경 · 액면변경",
+    "agendaCount": 2
    }
   },
   {
@@ -4946,7 +4870,7 @@
    "importance": 1,
    "fields": {
     "reason": "임시총회",
-    "agenda": "정관변경 · 이사선임",
+    "agenda": "이사선임 · 정관변경",
     "agendaCount": 2
    }
   },
@@ -5037,6 +4961,54 @@
     "faceValue": 500.0
    },
    "note": "기준일 전 영업일 — 공휴일 미반영 추정"
+  },
+  {
+   "date": "2026-12-03",
+   "kind": "record",
+   "milestoneLabel": "기준일",
+   "type": "meeting",
+   "typeLabel": "주주총회",
+   "code": "016670",
+   "name": "(주)디모아",
+   "importance": 1,
+   "fields": {
+    "reason": "임시총회",
+    "agenda": "독립(사외)이사 선임 · 정관변경",
+    "agendaCount": 2
+   }
+  },
+  {
+   "date": "2026-12-03",
+   "kind": "record",
+   "milestoneLabel": "기준일",
+   "type": "meeting",
+   "typeLabel": "주주총회",
+   "code": "065570",
+   "name": "삼영이엔씨(주)",
+   "importance": 1,
+   "fields": {
+    "reason": "임시총회",
+    "agenda": "독립(사외)이사 선임 · 비상임이사 선임 · 사내이사 선임",
+    "agendaCount": 3
+   }
+  },
+  {
+   "date": "2026-12-03",
+   "kind": "pay",
+   "milestoneLabel": "배당금 지급",
+   "type": "dividend",
+   "typeLabel": "배당",
+   "code": "267250",
+   "name": "에이치디현대",
+   "importance": 1,
+   "fields": {
+    "cashDps": 1300.0,
+    "faceDivPct": 130.0,
+    "stockDivPct": 0.0,
+    "kind": "분기",
+    "faceValue": 1000.0,
+    "highDividend": "Y"
+   }
   },
   {
    "date": "2026-12-04",
@@ -5403,9 +5375,9 @@
    "name": "영광와이케이엠씨",
    "importance": 3,
    "fields": {
-    "shares": 1446353.0,
-    "reason": "최대주주",
-    "pctOfTotal": 9.986,
+    "shares": 176600.0,
+    "reason": "벤처금융",
+    "pctOfTotal": 1.219,
     "depositFrom": "2026-11-16",
     "releaseDate": "2026-12-16"
    }
@@ -5447,6 +5419,23 @@
    "importance": 2,
    "fields": {
     "buyReqPrice": 9153.0
+   }
+  },
+  {
+   "date": "2026-12-17",
+   "kind": "release",
+   "milestoneLabel": "보호예수 해제",
+   "type": "deposit",
+   "typeLabel": "보호예수",
+   "code": "493260",
+   "name": "옵토닉스",
+   "importance": 2,
+   "fields": {
+    "shares": 91000.0,
+    "reason": "최대주주",
+    "pctOfTotal": 0.9513,
+    "depositFrom": "2026-11-17",
+    "releaseDate": "2026-12-17"
    }
   },
   {
@@ -5547,7 +5536,7 @@
    "importance": 1,
    "fields": {
     "reason": "임시총회",
-    "agenda": "자기주식보유처분계획 승인의 건 · 감사선임 · 이사선임 · 정관변경 · 임원퇴직금 개정규정 승인의 건",
+    "agenda": "정관변경 · 이사선임 · 감사선임 · 자기주식보유처분계획 승인의 건 · 임원퇴직금 개정규정 승인의 건",
     "agendaCount": 5
    }
   },
@@ -5584,21 +5573,6 @@
   },
   {
    "date": "2026-12-23",
-   "kind": "meeting",
-   "milestoneLabel": "주주총회",
-   "type": "meeting",
-   "typeLabel": "주주총회",
-   "code": "0153R0",
-   "name": "(주)바로팜",
-   "importance": 1,
-   "fields": {
-    "reason": "임시총회",
-    "agenda": "자본준비금 감액 및 이익잉여금 전입의 건 · 자본준비금 감액 및 결손금 보전의 건",
-    "agendaCount": 2
-   }
-  },
-  {
-   "date": "2026-12-23",
    "kind": "pay",
    "milestoneLabel": "매수대금 지급",
    "type": "purreq",
@@ -5612,23 +5586,6 @@
   },
   {
    "date": "2026-12-24",
-   "kind": "release",
-   "milestoneLabel": "보호예수 해제",
-   "type": "deposit",
-   "typeLabel": "보호예수",
-   "code": "491000",
-   "name": "리브스메드",
-   "importance": 2,
-   "fields": {
-    "shares": 51000.0,
-    "reason": "-",
-    "pctOfTotal": 0.204,
-    "depositFrom": "2026-05-07",
-    "releaseDate": "2026-12-24"
-   }
-  },
-  {
-   "date": "2026-12-24",
    "kind": "meeting",
    "milestoneLabel": "주주총회",
    "type": "meeting",
@@ -5638,7 +5595,7 @@
    "importance": 1,
    "fields": {
     "reason": "임시총회",
-    "agenda": "정관변경 · 이사선임",
+    "agenda": "이사선임 · 정관변경",
     "agendaCount": 2
    }
   },
@@ -5648,13 +5605,13 @@
    "milestoneLabel": "주주총회",
    "type": "meeting",
    "typeLabel": "주주총회",
-   "code": "037270",
-   "name": "(주)와이지플러스",
+   "code": "065570",
+   "name": "삼영이엔씨(주)",
    "importance": 1,
    "fields": {
     "reason": "임시총회",
-    "agenda": "정관변경 · 독립(사외)이사 선임",
-    "agendaCount": 2
+    "agenda": "독립(사외)이사 선임 · 비상임이사 선임 · 사내이사 선임",
+    "agendaCount": 3
    }
   },
   {
@@ -5711,13 +5668,13 @@
    "milestoneLabel": "주주총회",
    "type": "meeting",
    "typeLabel": "주주총회",
-   "code": "036580",
-   "name": "(주)팜스코",
+   "code": "083790",
+   "name": "씨지인바이츠(주)",
    "importance": 1,
    "fields": {
     "reason": "임시총회",
-    "agenda": "사내이사 선임",
-    "agendaCount": 1
+    "agenda": "정관변경 · 액면변경",
+    "agendaCount": 2
    }
   },
   {
@@ -5895,21 +5852,6 @@
   },
   {
    "date": "2026-12-30",
-   "kind": "meeting",
-   "milestoneLabel": "주주총회",
-   "type": "meeting",
-   "typeLabel": "주주총회",
-   "code": "039740",
-   "name": "한국정보공학(주)",
-   "importance": 1,
-   "fields": {
-    "reason": "임시총회",
-    "agenda": "자본준비금의 이익잉여금 전입의 건",
-    "agendaCount": 1
-   }
-  },
-  {
-   "date": "2026-12-30",
    "kind": "pay",
    "milestoneLabel": "배당금 지급",
    "type": "dividend",
@@ -5979,21 +5921,6 @@
    "importance": 2,
    "fields": {
     "buyReqPrice": 29797.0
-   }
-  },
-  {
-   "date": "2027-01-06",
-   "kind": "meeting",
-   "milestoneLabel": "주주총회",
-   "type": "meeting",
-   "typeLabel": "주주총회",
-   "code": "290690",
-   "name": "(주)아리바이오홀딩스",
-   "importance": 1,
-   "fields": {
-    "reason": "임시총회",
-    "agenda": "정관변경",
-    "agendaCount": 1
    }
   },
   {
@@ -6085,7 +6012,7 @@
    "importance": 1,
    "fields": {
     "reason": "임시총회",
-    "agenda": "자기주식보유처분계획 승인의 건 · 감사선임 · 이사선임 · 정관변경 · 임원퇴직금 개정규정 승인의 건",
+    "agenda": "정관변경 · 이사선임 · 감사선임 · 자기주식보유처분계획 승인의 건 · 임원퇴직금 개정규정 승인의 건",
     "agendaCount": 5
    }
   },
@@ -6126,6 +6053,21 @@
    }
   },
   {
+   "date": "2027-02-02",
+   "kind": "meeting",
+   "milestoneLabel": "주주총회",
+   "type": "meeting",
+   "typeLabel": "주주총회",
+   "code": "016670",
+   "name": "(주)디모아",
+   "importance": 1,
+   "fields": {
+    "reason": "임시총회",
+    "agenda": "독립(사외)이사 선임 · 정관변경",
+    "agendaCount": 2
+   }
+  },
+  {
    "date": "2027-02-11",
    "kind": "pay",
    "milestoneLabel": "매수대금 지급",
@@ -6140,33 +6082,33 @@
   }
  ],
  "counts": {
-  "paidin": 17,
+  "paidin": 18,
   "bonus": 9,
-  "dividend": 140,
-  "purreq": 84,
+  "dividend": 139,
+  "purreq": 78,
   "merger": 2,
   "revsplit": 20,
   "capdcrs": 7,
-  "listing": 59,
+  "listing": 58,
   "ipo": 6,
   "forfeit": 0,
-  "deposit": 69,
-  "meeting": 13
+  "deposit": 70,
+  "meeting": 9
  },
  "rowCounts": {
   "revsplit": 48,
-  "purreq": 121,
-  "paidin": 16,
-  "capdcrs": 13,
+  "purreq": 119,
+  "paidin": 19,
+  "capdcrs": 11,
   "bonus": 12,
-  "dividend": 71,
   "listing": 47,
   "ipo": 6,
+  "dividend": 71,
   "deposit": 44,
   "merger": 2,
-  "meeting": 18
+  "meeting": 14
  },
  "errors": {},
- "unlistedSkipped": 185,
+ "unlistedSkipped": 179,
  "source": "KIS ksdinfo via hub /ca"
 }
