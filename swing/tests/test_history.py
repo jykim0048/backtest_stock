@@ -206,6 +206,23 @@ class TestBuild(unittest.TestCase):
         self.assertEqual((p["price"], p["priceTs"], p["value"]), (50000.0, "10:15:30", 49 * 50000))
         self.assertAlmostEqual(p["unrealPct"], (50000 / 65563 - 1) * 100, places=1)
 
+    def test_day_chg_live_then_close(self):
+        """성과 기여도 종목별 당일 등락률(2026-11-17) — 장중 = 현재가 ÷ 전일 종가(원장 종가), 정산 뒤 = 원장 종가 ÷ 전일 종가."""
+        from swing import history as H, server
+        st = setup()
+        st.put("intraday/2026-11-03", {"vwap": {"006110": {"price": 50040.0, "ts": "2026-11-03T10:15:30+09:00"}}, "orders": {}, "exits": {}})
+        old, server.STORE = server.STORE, st
+        old_bus, H.live_bus = H.live_bus, lambda: {}
+        try:
+            L = st.get("ledger")
+            live = server._day_chg(L, "2026-11-03")
+            L["positions"][0]["prevClose"] = 50000.0
+            closed = server._day_chg(L, None)
+        finally:
+            server.STORE, H.live_bus = old, old_bus
+        self.assertEqual(live, {"006110": round((50040 / 55600 - 1) * 100, 2)})
+        self.assertEqual(closed, {"006110": 11.2})
+
     def test_decision_api_attaches_latest_review_of_same_round(self):
         from swing import server
         st = setup()

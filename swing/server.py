@@ -256,9 +256,31 @@ def api_attribution(q):
         i2 = (live_idx.get(ic) if d2 is None else cl("IDX:" + ic, d2))
         return i2 / i1 - 1 if i1 and i2 else None
     out = attrib.compute(L, ps, equity_now=eq_now, live_day=day, doc=doc, close=cl, mkt=mkt)
+    chg = _day_chg(L, day)
+    for per in ("day", "all"):                                 # 종목별 당일 등락률(2026-11-17, 섹터 표 종목 행)
+        for e in (out.get(per) or {}).get("byCode") or []:
+            e["dayChg"] = chg.get(e.get("code"))
     out["closesPending"] = cl.kick()
     out["indexLive"] = {ic: live_idx.get(ic) for ic in sorted(mkts)} if day else None
     out["indexWait"] = sorted(ic for ic, t in _Closes._idx_fail.items() if t)
+    return out
+
+
+def _day_chg(L, day):
+    """종목별 당일 등락률 %(2026-11-17, 성과 기여도 섹터 표) — 장중(정산 전)은 Live Trader 시세 ÷ 전일 종가,
+    정산 뒤엔 보유 종목의 원장 종가 ÷ 전일 종가. 오늘 청산돼 원장에서 빠진 종목·전일 종가가 없는 종목은 없음."""
+    from swing import history
+    out = {}
+    pos = {p["code"]: p for p in L["positions"]}
+    for c, p in pos.items():
+        if p.get("lastClose") and p.get("prevClose"):
+            out[c] = round((p["lastClose"] / p["prevClose"] - 1) * 100, 2)
+    if day:
+        out = {}
+        for c, v in history.live_prices(STORE, L.get("asof")).items():
+            prev = v.get("prevClose") or (pos.get(c) or {}).get("lastClose")   # 정산 전 원장 종가 = 전일 종가
+            if v.get("price") and prev:
+                out[c] = round((v["price"] / prev - 1) * 100, 2)
     return out
 
 

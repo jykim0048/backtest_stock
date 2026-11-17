@@ -1377,7 +1377,11 @@
       return td('<span class="at-cellbar ' + (pnl > 0 ? "up" : pnl < 0 ? "down" : "") + '" style="width:' + w.toFixed(1) + '%"></span>' +
         '<span class="at-cellnum" title="' + esc(tip) + '">' + ppCell(pnl / base * 100) + "</span>", "r at-ret");
     }
-    var h = '<thead><tr><th>섹터 · 종목</th><th class="r">종목</th>' + (split
+    var chgHead = '<th class="r" title="종목별 당일 등락률 — 장중 = 현재가 ÷ 전일 종가, 정산 뒤 = 종가 ÷ 전일 종가(가격 기준, Short 도 같은 부호)">당일 등락</th>';
+    function chgCell(v) {     // 종목별 당일 등락률(2026-11-17) — 섹터 행은 빈칸
+      return td(v == null ? '<span class="at-mut">—</span>' : '<span class="num ' + signCls(v) + '">' + pctTxt(v) + "</span>", "r");
+    }
+    var h = '<thead><tr><th>섹터 · 종목</th><th class="r">종목</th>' + chgHead + (split
       ? '<th class="r" title="현재 Long − Short 평가금액">순노출</th>' +
         '<th class="r" title="선정 중 시장(상장시장 지수) 등락 몫, β = 1">시장효과</th><th class="r" title="선정 − 시장효과 — 판단일 종가 → 끝 가격 중 지수를 넘어선 몫">PM 선정</th>' +
         '<th class="r" title="판단일 종가 대비 체결 평단 − 미체결 기회손익">진입</th>' +
@@ -1386,12 +1390,12 @@
         '<th class="r" title="순노출 ÷ 현재 평가액">순비중</th><th class="r">손익(원)</th>') +
       '<th class="r" title="손익 ÷ 기준 — 숫자 뒤 막대 = 섹터 최대 대비 크기">기여도</th><th class="r" title="손익 ÷ ' + expNote + ' — 숫자 뒤 막대 = 섹터 최대 대비 크기">노출 대비</th>' +
       '<th title="현재 보유 평가금액 — 가운데에서 왼쪽 파랑 = Short, 오른쪽 빨강 = Long"><span class="at-poshead"><span class="down">Short ◀</span><span class="up">▶ Long</span></span></th></tr></thead><tbody>';
-    if (!secs.length) h += '<tr class="empty"><td colspan="' + (split ? 11 : 10) + '">기여 내역 없음</td></tr>';
+    if (!secs.length) h += '<tr class="empty"><td colspan="' + (split ? 12 : 11) + '">기여 내역 없음</td></tr>';
     secs.forEach(function (x) {
       var open = !!AT.open[x.sector], kids = bySec[x.sector].slice().sort(function (a, b) { return b.pnl - a.pnl; });
       h += '<tr class="at-sec' + (open ? " open" : "") + '" data-sec="' + esc(x.sector) + '" title="종목별 ' + (open ? "접기" : "펼치기") + '">' +
         td('<span class="at-caret">' + (open ? "▾" : "▸") + '</span><span class="stock-name" style="font-size:13px">' + esc(x.sector) + "</span>") +
-        td('<span class="num">' + x.n + "</span>", "r") +
+        td('<span class="num">' + x.n + "</span>", "r") + td("", "r") +
         (split ? netCells(x.expL, x.expS, secLim, secTip) + atSplitCells(atSplitSum(bySec[x.sector]), base)
           : td('<span class="num up">' + (x.expL ? eok(x.expL) : "—") + "</span>", "r") + td('<span class="num down">' + (x.expS ? eok(x.expS) : "—") + "</span>", "r") +
             netCells(x.expL, x.expS, secLim, secTip) + td(atWon(x.pnl), "r")) +
@@ -1402,7 +1406,7 @@
         var l = sh ? 0 : e.expNow || 0, s2 = sh ? e.expNow || 0 : 0;
         h += '<tr class="at-kid"' + (e.decisionKey ? ' data-key="' + esc(e.decisionKey) + '" title="판단 원문 보기"' : "") + ">" +
           td('<span class="side-tag ' + e.side + '">' + e.side.toUpperCase() + "</span>" + stock(e.name || e.code, e.code)) +
-          td('<span class="at-state">' + st + "</span>", "r") +
+          td('<span class="at-state">' + st + "</span>", "r") + chgCell(e.dayChg) +
           (split ? netCells(l, s2) + atSplitCells(e.split, base, e)
             : td(l ? '<span class="num up">' + eok(l) + "</span>" : "", "r") + td(s2 ? '<span class="num down">' + eok(s2) + "</span>" : "", "r") +
               netCells(l, s2) + td(atWon(e.pnl), "r")) +
