@@ -63,6 +63,7 @@ LLM 이 실패하거나 느려도 L1~L3·L5 는 독립적으로 돈다. LLM 실�
 | T5 | 보유 섹터 반전 — `kis:sectors` 하락 상위 5 진입(Long) / 상승 상위 5(Short) | 상위 5 | 보유 섹터 |
 | T6 | 포트폴리오 일중 손익 | −1.5% (`LIVEPM_DD_DAY`) | 전체 |
 | T7 | 정기 점검 | 09:10 · 11:00 · 13:30 · 14:50 | 전체 |
+| T8 | 순노출 이탈(2026-11-17) | 장중 순노출(원장 보유 + Live Trader 오늘 체결, 현재가)이 그날 한도(`exposure.live_limits`) 바깥으로 `exposure.NET_PM_BUFFER`(2%p) 이상 | 전체 — 스냅샷 `netExposure{netPct, limit*, over, excessKrw}`, 프롬프트 10번: 넘친 방향 보유를 trim·exit 해 excessKrw 안팎 축소 |
 
 - 방향은 `side` 로 뒤집는다(Short 는 가격 상승이 불리).
 - 디바운스: 같은 종목 + 같은 트리거는 **15분**(`LIVEPM_DEBOUNCE_MIN`) 안에 다시 호출하지 않는다.

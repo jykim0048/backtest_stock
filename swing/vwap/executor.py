@@ -35,6 +35,10 @@ Live PM 지시(2026-10-19, PLAN_LIVE_TRADER §5-2) — 매 폴링마다 livepm/<
   시가에는 팔지 않는다(ENTRY_START 부터). 판 직후 같은 폴링에서 막혔던 매수를 다시 시도한다.
   (10-20 첫 운영의 '남은 매수 금액 전체 − 현금' 방식은 살 수 없는 주문 몫까지 미리 팔아 현금 9,240만 원이 남았다 → 폐기.)
   정산은 진입 전에 재원 매도를 현금으로 반영하고, 못 산 수량은 잔여분 추가 주문으로 다음 날 이어진다.
+순노출 한도(2026-11-17 사용자 결정, exposure.NET_ENFORCE=intraday) — 정산은 순노출로 판단·주문을 막지 않고, 여기서 진입 분할 체결 직전에
+  장중 순노출(원장 보유 + 오늘 체결, 현재가 평가 — exposure.live_gross)이 그날 한도(exposure.live_limits = 단계 한도)를 넘기는 수량만
+  체결하지 않고 기다린다(기록 netWait). 반대 방향이 체결되면 여유가 생겨 다시 체결한다. 청산(손절·예약·지시·스위칭)은 막지 않는다.
+  못 채운 수량은 정산이 다음 날로 넘긴다(부분 체결 → 비중 채우기, 0주 → '미도달(순노출 한도 대기)' 재주문).
 진입 우선순위(2026-11-03 사용자 지시) — 매 폴링마다 주문을 engine.entry_priority(PM 등급 → 높은 비중) 순으로 검토해 현금을 먼저 준다.
   순위가 높아도 그 폴링에 체결 조건(진입가 상한·VWAP)이 안 맞으면 다음 순위를 바로 검토한다 — 현금을 묶어 두지 않는다.
 슬라이스 기록 = {code, name, side, plan[수량], next, ref, fills[{ts, qty, price, mode: open|vwap|force|stop|stop_gap, vwap}], done, why, …}
@@ -44,6 +48,7 @@ import math
 
 from .. import config as swing_config
 from .. import engine
+from .. import exposure as X
 from ..config import MAX_WEIGHT, SELL_TAX
 from ..intraday.feed import Tick
 from . import config as C
@@ -141,6 +146,10 @@ class Executor:
         self.pool = {p["id"]: p for p in L.get("positions") or []           # 스위칭 재원 후보 — 예약 청산 없는 Long
                      if not engine.is_short(p) and not p.get("sellPending")}
         self.equity = engine.equity_now(L) if "cash" in L else 0.0             # D 등급 비중 기준 — 전일 종가 평가액
+        self.net_lim = X.live_limits(L, self.date) if self.equity > 0 else None  # 장중 순노출 한도(None = 검사 안 함)
+        if self.net_lim:
+            doc["net"] = {"netMin": self.net_lim["netMin"], "netMax": self.net_lim["netMax"], "week": self.net_lim.get("week"),
+                          "eq": round(self.equity)}
         if "cashStart" not in doc["switch"]:
             doc["switch"]["cashStart"] = float(engine._free_cash(L)) if L.get("positions") is not None and "cash" in L else 0.0
         self.base_of = {}
@@ -267,6 +276,33 @@ class Executor:
 
     def _afford(self, px):
         return max(0, int(math.floor(self.cash() / px))) if px > 0 else 0
+
+    # ── 순노출(2026-11-17) ──────────────────────────────────────────────────
+    def _price(self, code):
+        st = self.states.get(code)
+        if st is not None and st.last is not None:
+            return st.last.price
+        return (self.doc["vwap"].get(code) or {}).get("price")
+
+    def net_now(self):
+        """장중 Long·Short·순노출 금액(원장 보유 + 오늘 체결, 현재가)."""
+        return X.live_gross(self.held.values(), self.doc, self._price)
+
+    def _net_cap(self, r, q, px, ts):
+        """순노출 한도 안에서 이 진입이 체결할 수 있는 수량(≤ q). 한도가 없으면 q. 막히면 기록 netWait."""
+        if not self.net_lim or q <= 0 or px <= 0:
+            return q
+        g = self.net_now()
+        room = X.live_room(self.net_lim, self.equity, g, r["side"])
+        n = max(0, min(q, int(room // px))) if room is not None else q
+        if n < q:
+            w = r.setdefault("netWait", {"first": ts, "n": 0})                     # n = 막힌 횟수, blocked = 마지막에 막힌 수량
+            w.update(last=ts, n=w["n"] + 1, blocked=q - n, netPct=round(g["net"] / self.equity * 100, 2))
+            if n == 0 and not filled(r):
+                lim = self.net_lim["netMax" if r["side"] == "long" else "netMin"]
+                r["why"] = f"순노출 한도 {lim * 100:+.1f}% — 반대 방향 체결 대기"
+            self.dirty = True
+        return n
 
     def _switch(self, ts, hm, requests):
         """적시 스위칭 — 막힌 매수의 부족 금액만큼 보유 Long 을 판다. 반환 True = 하나라도 팔았음."""
@@ -502,16 +538,21 @@ class Executor:
             r["next"] = 1
             q0 = r["plan"][0]
             ok = inside(t.open) and in_cap(t.open)            # 시가가 손절·진입가 상한 밖이면 첫 분할도 체결하지 않는다(2026-11-03)
+            if ok and entry:
+                q0 = self._net_cap(r, q0, t.open, ts)                 # 순노출 한도(2026-11-17) — 넘기는 수량은 다음 분할로
             if ok and entry and long_:
                 q0 = min(q0, self._afford(t.open))                    # Long 매수는 현금 한도 안에서만(시가엔 재원 매도 없음)
-                if q0 < r["plan"][0] and len(r["plan"]) > 1:
+            if ok and entry and q0 < r["plan"][0]:                     # 못 채운 첫 분할은 다음 분할로(분할이 하나뿐이면 하나 더)
+                if len(r["plan"]) > 1:
                     r["plan"][1] += r["plan"][0] - q0
-                    r["plan"][0] = q0
+                else:
+                    r["plan"].append(r["plan"][0] - q0)
+                r["plan"][0] = q0
             if ok and q0 > 0:
                 self._fill(r, q0, t.open, ts, "open", st.vwap)
                 self.log(f"[vwap] {ts[11:19]} 시가 {'진입' if entry else '청산'} {r['code']} {r['side']} {q0:,}주 @ {t.open:,.0f}")
             elif ok:
-                r["why"] = "현금 부족 — 시가 체결 생략"
+                r["why"] = r["why"] if r.get("netWait") else "현금 부족 — 시가 체결 생략"
             else:
                 if len(r["plan"]) > 1:                        # 첫 분할을 다음 분할에 합침
                     r["plan"][1] += r["plan"][0]
@@ -524,9 +565,10 @@ class Executor:
         # ③ 기다리면 손해인 방향으로 기준가 대비 5% 이상 → 전량(2026-10-18): Long 진입·Short 청산 = 상승, Short 진입·Long 청산 = 하락
         away = 1 if entry == long_ else -1
         if r["ref"] and away * (px / r["ref"] - 1) >= C.FORCE_MOVE and inside(px) and in_cap(px):
-            q = min(remain, self._afford(px)) if entry and long_ else remain
-            if entry and long_ and q < remain:
-                self._ask_cash(r, st, remain - q, px)            # 모자란 만큼 적시 스위칭
+            qn = self._net_cap(r, remain, px, ts) if entry else remain     # 순노출 한도(2026-11-17)
+            q = min(qn, self._afford(px)) if entry and long_ else qn
+            if entry and long_ and q < qn:
+                self._ask_cash(r, st, qn - q, px)                # 모자란 만큼 적시 스위칭(순노출로 막힌 몫은 제외)
             if q <= 0:
                 return
             self._fill(r, q, px, ts, "force", st.vwap)
@@ -548,10 +590,11 @@ class Executor:
         if not ok or r["next"] >= len(r["plan"]):
             return
         q = min(r["plan"][r["next"]], remain)
-        if entry and long_:
-            qa = min(q, self._afford(px))                         # 현금 한도 — 모자라면 이 분할을 줄여 체결하고 나머지는 남긴다
-            if qa < q and not retry:
-                self._ask_cash(r, st, q - qa, px)                 # 모자란 만큼 적시 스위칭
+        if entry:
+            qn = self._net_cap(r, q, px, ts)                       # 순노출 한도(2026-11-17) — 넘기는 수량은 기다린다
+            qa = min(qn, self._afford(px)) if long_ else qn        # 현금 한도 — 모자라면 이 분할을 줄여 체결하고 나머지는 남긴다
+            if long_ and qa < qn and not retry:
+                self._ask_cash(r, st, qn - qa, px)                # 모자란 만큼 적시 스위칭(순노출로 막힌 몫은 제외)
             if qa <= 0:
                 return
             if qa < q:

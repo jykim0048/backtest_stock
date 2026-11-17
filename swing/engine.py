@@ -405,7 +405,12 @@ def settle_day(L, date, bars, intraday=None):
         elif not o.get("topupOf") and any(p["code"] == o["code"] for p in L["positions"]):
             o.update(status="skipped", note="이미 보유")
         elif o["id"] in w_ord and not sum(f["qty"] for f in ((I["orders"].get(o["id"]) or {}).get("fills") or [])):
-            o.update(status="cancelled", note="미도달(VWAP 분할 — 진입가 리밋·VWAP 조건 미충족)")
+            nw = (I["orders"].get(o["id"]) or {}).get("netWait")
+            # 순노출 한도로 장중 체결을 못 한 주문(2026-11-17)도 '미도달' 로 남겨 다음 정산의 재주문(_retry_unfilled)이 이어 가게 한다
+            o.update(status="cancelled", note=("미도달(순노출 한도 대기 — 장중 Live Trader 가 한도 때문에 체결 보류)" if nw
+                                               else "미도달(VWAP 분할 — 진입가 리밋·VWAP 조건 미충족)"))
+            if nw:
+                o["netWait"] = nw
         elif o["id"] not in w_ord and short and b["high"] < o["entry"]:
             o.update(status="cancelled",
                      note=f"미도달(고가 {b['high']:,.0f} < 진입 {o['entry']:,.0f})")
@@ -422,7 +427,10 @@ def settle_day(L, date, bars, intraday=None):
                 if fq < o["qty"]:
                     planned = o["qty"]
                     o["partial"] = {"planned": planned, "filled": fq, "remain": planned - fq}
-                    o["note"] = f"장중 분할 {len(irec['fills'])}회 — {fq:,}/{planned:,}주, 잔여 {planned - fq:,}주 다음 영업일 추가 주문"
+                    o["note"] = f"장중 분할 {len(irec['fills'])}회 — {fq:,}/{planned:,}주, 잔여 {planned - fq:,}주 다음 영업일 추가 주문" + (
+                        " · 순노출 한도 대기" if irec.get("netWait") else "")
+                if irec.get("netWait"):
+                    o["netWait"] = irec["netWait"]
                 o["qty"] = fq
             else:
                 px = o["entry"]

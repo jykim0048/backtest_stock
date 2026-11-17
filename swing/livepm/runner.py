@@ -4,6 +4,7 @@
 지시는 `livepm/<date>/instructions` 에 **추가만** 한다 — Live Trader 가 읽어 VWAP 분할로 집행한다(PLAN_LIVE_TRADER §5-2, M2).
 저장: livepm/<date>/instructions · livepm/<date>/calls/<n>(스냅샷·결정·게이트·비용) · livepm/<date>/run(요약·상태 변화)
 """
+from .. import exposure as X
 from . import agent as A
 from . import config as C
 from . import gate as G
@@ -83,15 +84,27 @@ class DayRunner:
             return []
         status = self.status_fn(ts)
         intraday = self.intraday_fn(ts) or {}
-        trigs = self.trig.scan(ts, self.book, status, exiting=set((intraday.get("exits") or {}).keys()))
+        net = self.net_info(intraday)
+        trigs = self.trig.scan(ts, self.book, status, exiting=set((intraday.get("exits") or {}).keys()),
+                               net=net and net["breach"])
         if not trigs:
             return []
-        return self._decide(ts, trigs, status, intraday)
+        return self._decide(ts, trigs, status, intraday, net)
 
-    def _decide(self, ts, trigs, status, intraday):
+    def net_info(self, intraday):
+        """장중 순노출(2026-11-17, exposure.NET_ENFORCE=intraday) — 원장 보유 + Live Trader 오늘 체결, 현재가.
+        반환 None(한도 없음) 또는 {limits, gross, eq, breach(이탈이면 dict)}."""
+        lim = X.live_limits(self.book.L, self.date)
+        if not lim:
+            return None
+        g = X.live_gross(self.book.positions.values(), intraday, self.book.px)
+        eq = self.book.equity()
+        return {"limits": lim, "gross": g, "eq": eq, "breach": X.live_breach(lim, eq, g)}
+
+    def _decide(self, ts, trigs, status, intraday, net=None):
         today = {"callsUsed": self.trig.calls, "costKrw": round(self.trig.cost), "decisions": self.decisions[-10:]}
         snap, text = SN.build(ts, self.state.state, trigs, self.book, status=status, intraday=intraday,
-                              memory=self.memory, today=today)
+                              memory=self.memory, today=today, net=net)
         dec, meta = self.agent.decide(text)
         self.trig.spend(meta.get("costKrw") or 0.0)
         reviewed = G.review(dec.get("decisions"), ts=ts, book=self.book, state=self.state, intraday=intraday,

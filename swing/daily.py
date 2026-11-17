@@ -276,10 +276,11 @@ def run_day(date, store, agent, prices, wb, *, force=False, log=print, uni=None,
                             f"반대 방향 우선 검토 Long {len(prio_l)} · Short {len(prio_s)}")
     # 방향 게이트(2026-11-10, 순노출 단계 한도): 그 방향으로 더 낼 여유가 없으면(비중 채우기까지 낸 뒤 기준) 후보를 판단하지 않는다 —
     # 판단 자리는 반대 방향으로 넘어간다(judge_budget). 주문 단계 차단은 engine.place_entry 의 가드가 맡는다.
+    # 2026-11-17 사용자 결정: 기본(X.NET_ENFORCE=intraday)은 이 게이트를 쓰지 않는다 — 순노출은 Live Trader 가 장중 체결 직전에 적용.
     gated_l, gated_s, gate_why = [], [], None
     for g_side in ("long", "short"):
         g_room = X.net_room(engine.EXPOSURE_CTX, L["positions"], L["orders"], g_side) if engine.EXPOSURE_CTX else None
-        if g_room is None or g_room >= X.MIN_ORDER_PCT * engine.EXPOSURE_CTX["eq"]:
+        if X.NET_ENFORCE != "order" or g_room is None or g_room >= X.MIN_ORDER_PCT * engine.EXPOSURE_CTX["eq"]:
             continue
         gate_why = f"{X.net_label(engine.EXPOSURE_CTX, g_side)} — {'Short' if g_side == 'short' else 'Long'} 신규 중단(판단 생략)"
         if g_side == "long":
@@ -382,12 +383,13 @@ def _exposure_setup(L, store, bars, date, run, note=True):
             ctx["boostLeft"] = max(0.0, L["cash"] - lim["cashMax"] * eq)
             run["exposure"]["limits"] = {"netMin": round(lim["netMin"] * 100, 2), "netMax": round(lim["netMax"] * 100, 2),
                                          "cashMax": round(lim["cashMax"] * 100, 2), "week": lim["week"], "final": lim["final"],
-                                         "start": lim.get("start")}
+                                         "start": lim.get("start"), "enforce": X.NET_ENFORCE}
             if note and (not lim["final"] or sm["netOver"] or sm["cashOver"]):
                 run["notes"].append(
                     ("순노출·현금 한도" if lim["final"] else f"순노출·현금 단계 한도 {lim['week']}주차(주당 {X.GLIDE_STEP * 100:.0f}%p)")
                     + f" — 순노출 {lim['netMin'] * 100:+.1f} ~ {lim['netMax'] * 100:+.1f}%(지금 {sm['netPct'] * 100:+.1f}%)"
-                    + f" · 현금 {lim['cashMax'] * 100:.1f}% 이하(지금 {sm['cashPct'] * 100:.1f}%)")
+                    + f" · 현금 {lim['cashMax'] * 100:.1f}% 이하(지금 {sm['cashPct'] * 100:.1f}%)"
+                    + (" — 순노출은 장중 Live Trader 가 체결 직전에 적용" if X.NET_ENFORCE == "intraday" else ""))
         elif X.GLIDE_ON and note and (sm["netOver"] or sm["cashOver"]):
             run["notes"].append(f"순노출 {sm['netPct'] * 100:+.1f}% · 현금 {sm['cashPct'] * 100:.1f}% — 한도 밖(표시만). "
                                 f"단계 한도는 {X.GLIDE_START} 진입분부터 적용")

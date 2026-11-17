@@ -13,7 +13,17 @@ def _r(x, n=2):
     return None if x is None else round(x * 100, n)
 
 
-def build(ts, state, triggers, book, *, status=None, intraday=None, memory=None, today=None):
+def _net(net):
+    """장중 순노출(원장 보유 + 오늘 체결) — 한도·이탈. excessKrw = 한도 안으로 되돌리려면 줄여야 할 넘친 방향 명목 금액."""
+    eq, g, lim, b = net["eq"] or 1, net["gross"], net["limits"], net.get("breach")
+    out = {"netPct": _r(g["net"] / eq), "longPct": _r(g["long"] / eq, 1), "shortPct": _r(g["short"] / eq, 1),
+           "limitMinPct": _r(lim["netMin"], 1), "limitMaxPct": _r(lim["netMax"], 1)}
+    if b:
+        out.update(over=b["side"], excessKrw=round(b["excessKrw"]))
+    return out
+
+
+def build(ts, state, triggers, book, *, status=None, intraday=None, memory=None, today=None, net=None):
     memory = memory or {}
     intraday = intraday or {}
     exits = intraday.get("exits") or {}
@@ -50,6 +60,7 @@ def build(ts, state, triggers, book, *, status=None, intraday=None, memory=None,
             "portfolio": {"equity": round(eq), "cash": round(book.L.get("cash", 0)), "dayPnlPct": _r(book.day_pnl()),
                           "longGrossPct": _r(ex["longGross"], 1), "shortGrossPct": _r(ex["shortGross"], 1),
                           "sectorWeights": ex["sectorWeights"]},
+            **({"netExposure": _net(net)} if net else {}),
             "positions": positions,
             "market": {"sectorsUp": up, "sectorsDown": down},
             "today": today or {}}

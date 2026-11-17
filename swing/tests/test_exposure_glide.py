@@ -49,6 +49,12 @@ class TestGlideLimits(unittest.TestCase):
 
 
 class TestNetGate(unittest.TestCase):
+    """종전 정산 단계 순노출 적용(NET_ENFORCE=order) — 2026-11-17 기본은 intraday(test_net_intraday.py)."""
+    def setUp(self):
+        p = mock.patch.object(X, "NET_ENFORCE", "order")
+        p.start()
+        self.addCleanup(p.stop)
+
     def ctx(self, net_max=0.25, net_min=-0.10, final=False, eq=1_000_000, **kw):
         return {"eq": eq, "top": TOP, "brakes": {}, "px": {},
                 "limits": {"netMin": net_min, "netMax": net_max, "cashMax": 0.3, "week": 1, "final": final}, **kw}
@@ -156,6 +162,9 @@ class TestRunDayGlide(unittest.TestCase):
     def setUp(self):
         self._keep = (X.GUARD_ON, X.GLIDE_ON, X.NET_MAX, X.BOOST_MAX, X.GLIDE_START)
         X.GUARD_ON, X.GLIDE_ON, X.GLIDE_START = True, True, "2026-09-01"          # 테스트 날짜(9월)에서 단계 한도가 켜지게
+        p = mock.patch.object(X, "NET_ENFORCE", "order")                         # 종전 정산 게이트 검증(기본 intraday 는 test_net_intraday)
+        p.start()
+        self.addCleanup(p.stop)
         self.st = store.FileStore(tempfile.mkdtemp())
 
     def tearDown(self):

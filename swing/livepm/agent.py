@@ -45,6 +45,9 @@ SYSTEM = """당신은 한국 주식 스윙 모의 포트폴리오의 장중 포�
 7. 확신이 낮으면 exit 대신 flag_review 를 쓴다.
 8. liveTrader.exiting 이 있는 포지션은 이미 청산 중이므로 결정하지 않는다.
 9. 트리거된 종목(triggered=true)은 반드시 decisions 에 포함하고, 나머지는 바꿀 필요가 있을 때만 포함한다.
+10. netExposure 는 장중 순노출(Long − Short)과 한도다. 트리거 T8(순노출 이탈)이면 넘친 방향(over: long 이면 Long, short 이면 Short) 포지션에서
+    thesis 가 약하거나 수익이 낮거나 손절에 가까운 것부터 trim 또는 exit 해, 합계가 excessKrw 안팎이 되게 한다. 반대 방향은 줄이지 않는다.
+    신규 진입은 Live Trader 가 이미 한도 안에서만 체결하므로 당신은 보유 축소만 판단한다.
 출력은 주어진 JSON 스키마만 따른다. reason 은 한국어 1~2문장, 스냅샷 수치를 인용한다."""
 
 

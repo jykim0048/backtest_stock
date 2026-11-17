@@ -171,6 +171,13 @@ GLIDE_ON = os.environ.get("SWING_EXPOSURE_GLIDE", "1") != "0"   # 0 = 순노출�
 GLIDE_START = "2026-11-16"      # 1주차 첫날(주문 진입일 기준) — 이 날짜 전 진입분은 단계 한도 미적용(표시만)
 GLIDE_STEP = 0.10              # 주당 좁히는 폭(10%p)
 BOOST_MAX = 2.0                # 비중 확대 배수 상한(1.0 = 확대 없음)
+# 순노출(R1) 적용 위치(2026-11-17 사용자 결정): intraday = 정산은 순노출로 판단·주문을 막지 않고(후보 전부 판단·PM 통과분 전량 주문),
+# Live Trader 가 진입 분할 체결 직전에 장중 순노출(현재가 + 오늘 체결)로 한도를 넘기는 수량만 미루고(반대 방향이 체결되면 다시 체결),
+# Live PM 이 가격 변동으로 한도를 NET_PM_BUFFER 넘게 벗어나면 넘친 방향 trim·exit 을 판단한다. 못 채운 수량은 다음 날로 이월
+# (부분 체결 → 비중 채우기, 0주 → '미도달' 재주문). order = 종전(정산 방향 게이트 + 주문 수량 축소).
+# 11/13·11/16·11/17 정산이 반대 방향 대기 주문을 절반만 인정하는 보수적 계산 때문에 Short(또는 Long) 신규를 판단 생략·주문 안 함으로 막았다.
+NET_ENFORCE = (os.environ.get("SWING_NET_ENFORCE", "intraday") or "intraday").strip().lower()
+NET_PM_BUFFER = 0.02           # Live PM 순노출 이탈 트리거(T8) — 한도 바깥으로 이만큼(%p) 넘었을 때
 
 
 def glide_week(start, date):
@@ -253,7 +260,7 @@ def guard_order(ctx, positions, orders, o):
         net = s["long"] - s["short"]
         room_sec = SECTOR_NET_MAX * eq - net if side == "long" else SECTOR_NET_MAX * eq + net
         rooms.append((room_sec, f"섹터 {sector} 순노출 한도 ±{SECTOR_NET_MAX * 100:.0f}%"))
-    room_net = net_room(ctx, positions, orders, side)
+    room_net = net_room(ctx, positions, orders, side) if NET_ENFORCE == "order" else None   # intraday 면 Live Trader 가 체결 직전에
     if room_net is not None:
         rooms.append((room_net, net_label(ctx, side)))
     room, why = min(rooms, key=lambda x: x[0])               # 같으면 앞의 것(종목 → 섹터 → 순노출)
@@ -263,3 +270,66 @@ def guard_order(ctx, positions, orders, o):
     if max_qty * entry < MIN_ORDER_PCT * eq:
         return 0, f"{why} 도달 — 주문 안 함"
     return max_qty, f"{why} — {max_qty:,}/{qty:,}주로 축소"
+
+
+# ── 장중 순노출(2026-11-17, NET_ENFORCE=intraday) — Live Trader 체결 직전 검사 · Live PM 이탈 트리거 공용 ─────────────────
+def live_limits(ledger, date):
+    """그날(진입일) 순노출 한도 {netMin, netMax, …} — 단계 한도 꺼짐·시작 전·order 모드면 None(장중 검사 안 함)."""
+    if NET_ENFORCE != "intraday" or not GLIDE_ON or str(date)[:10] < GLIDE_START:
+        return None
+    return glide_limits((ledger or {}).get("exposureGlide"), date)
+
+
+def _filled(r):
+    return sum(int(f.get("qty") or 0) for f in (r or {}).get("fills") or [])
+
+
+def live_gross(positions, intraday, price_of):
+    """장중 Long·Short 명목 금액(현재가) = 원장 보유(청산 예약분 포함 — 대시보드와 같은 기준) + 오늘 진입 체결 − 오늘 청산 체결.
+    intraday = Live Trader intraday/<date>(orders·exits 슬라이스 기록), price_of(code) → 현재가 또는 None.
+    현재가가 없으면 보유는 원장 종가(lastClose → entry), 오늘 체결분은 체결 평균가. 반환 {long, short, net}."""
+    qty, ref = {}, {}
+    for p in positions or []:
+        k = (p["code"], _side(p))
+        qty[k] = qty.get(k, 0) + int(p.get("qty") or 0)
+        ref.setdefault(p["code"], float(p.get("lastClose") or p.get("entry") or 0))
+    for grp, sign in (("orders", 1), ("exits", -1)):
+        for r in ((intraday or {}).get(grp) or {}).values():
+            n = _filled(r)
+            if not n:
+                continue
+            k = (r["code"], _side(r))
+            qty[k] = qty.get(k, 0) + sign * n
+            if r["code"] not in ref:
+                ref[r["code"]] = sum(f["qty"] * f["price"] for f in r["fills"]) / n
+    out = {"long": 0.0, "short": 0.0}
+    for (code, side), q in qty.items():
+        if q > 0:
+            out[side] += q * float(price_of(code) or ref.get(code) or 0)
+    out["net"] = out["long"] - out["short"]
+    return out
+
+
+def live_room(lim, eq, gross, side):
+    """장중 순노출 한도까지 그 방향으로 더 체결할 수 있는 금액(음수 = 이미 넘음). 한도·평가액이 없으면 None."""
+    if not lim or not eq or eq <= 0:
+        return None
+    if side == "short":
+        return gross["net"] - lim["netMin"] * eq
+    return lim["netMax"] * eq - gross["net"]
+
+
+def live_breach(lim, eq, gross, buffer=NET_PM_BUFFER):
+    """Live PM 이탈 판정 → None 또는 {side(넘친 방향), netPct, limitPct, excessPct, excessKrw}.
+    넘친 방향 = 순노출이 상한 위면 long(Long 과다), 하한 아래면 short. 한도 바깥으로 buffer 를 넘어야 이탈로 본다.
+    excess 는 한도까지 되돌리는 데 필요한 축소 금액(버퍼 무시)."""
+    if not lim or not eq or eq <= 0:
+        return None
+    net = gross["net"] / eq
+    if net > lim["netMax"] + buffer:
+        return {"side": "long", "netPct": net, "limitPct": lim["netMax"], "excessPct": net - lim["netMax"],
+                "excessKrw": (net - lim["netMax"]) * eq}
+    if net < lim["netMin"] - buffer:
+        return {"side": "short", "netPct": net, "limitPct": lim["netMin"], "excessPct": lim["netMin"] - net,
+                "excessKrw": (lim["netMin"] - net) * eq}
+    return None

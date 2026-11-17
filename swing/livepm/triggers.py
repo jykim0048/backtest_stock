@@ -4,6 +4,7 @@
   T3 불리한 방향 5분 변동 JUMP_5M 이상                               T4 VI 발동(/status vi)
   T5 보유 업종이 KOSPI 업종 하락 상위 N(Long)·상승 상위 N(Short)      T6 포트폴리오 일중 손실 DD_DAY 이상
   T7 정기 점검(SCHEDULE 시각마다 1번)
+  T8 장중 순노출이 한도 바깥으로 NET_PM_BUFFER 이상(2026-11-17 — 넘친 방향 trim·exit 검토, 디바운스 DEBOUNCE_MIN)
 같은 종목·같은 트리거는 DEBOUNCE_MIN 분 안에 다시 내지 않는다. 한 버스 항목(폴링 1회)에서 나온 트리거는 한 호출로 묶는다
 (폴링 15초 > BATCH_WAIT_S 3초라 폴링 단위 묶음과 같다). 하루 호출 MAX_CALLS·비용 MAX_COST_KRW 를 넘으면 T7 만, 둘 다 넘으면 없음.
 """
@@ -47,8 +48,9 @@ class Triggers:
         prev = self.last.get(key)
         return prev is None or _min(prev, ts) >= C.DEBOUNCE_MIN
 
-    def scan(self, ts, book, status=None, exiting=()):
-        """반환 [{id, code, pid, detail}] — 디바운스 통과분만, 기록까지 한다. exiting = Live Trader 가 청산 중인 포지션 id."""
+    def scan(self, ts, book, status=None, exiting=(), net=None):
+        """반환 [{id, code, pid, detail}] — 디바운스 통과분만, 기록까지 한다. exiting = Live Trader 가 청산 중인 포지션 id.
+        net = exposure.live_breach 결과(순노출 이탈이면 dict) → T8."""
         hm = ts[11:16]
         out = []
         vi_on = {v.get("code") for v in (status or {}).get("vi") or [] if v.get("vi_on")}
@@ -81,6 +83,11 @@ class Triggers:
         if dp <= -C.DD_DAY and self._fresh(("*", "T6"), ts):
             self.last[("*", "T6")] = ts
             out.append({"id": "T6", "code": "*", "pid": None, "detail": f"포트폴리오 일중 {dp * 100:.2f}%"})
+        if net and hm < C.DECIDE_END and self._fresh(("*", "T8"), ts):
+            self.last[("*", "T8")] = ts
+            out.append({"id": "T8", "code": "*", "pid": None,
+                        "detail": f"순노출 {net['netPct'] * 100:+.1f}%(한도 {net['limitPct'] * 100:+.1f}%) — "
+                                  f"{'Long' if net['side'] == 'long' else 'Short'} 과다, {net['excessKrw'] / 1e4:,.0f}만원 축소 필요"})
         for s in C.SCHEDULE:
             if hm >= s and s not in self.sched_done:
                 self.sched_done.add(s)
