@@ -54,6 +54,18 @@ class TestParse(unittest.TestCase):
         d.error = "x"
         self.assertFalse(A.sell_verdict(d))
 
+    def test_pm_stop_priority(self):
+        # 2026-11-17 강원랜드: PM 이 리스크 토론으로 손절가를 조정하면 **Stop Loss** 줄 값이 최종 — 없거나 방향 틀리면 Trader
+        r = A.DecisionRequest(code="1", name="n", date="d", purpose="entry")
+        t = A.parse_trader(TRADER)
+        d = A.decision_from_markdown(r, TRADER, PM + "\n**Stop Loss**: 9,000원")
+        self.assertEqual((d.stop, d.trader_stop), (9000, t["stop"]))
+        self.assertEqual(A.decision_from_markdown(r, TRADER, PM).stop, t["stop"])                       # PM 줄 없음 → Trader
+        bad = A.decision_from_markdown(r, TRADER, PM + "\n**Stop Loss**: %d원" % (t["entry"] + 100))   # 진입가 위(Long) → 무시
+        self.assertEqual(bad.stop, t["stop"])
+        self.assertEqual(A.final_stop(13000, 13200, 12000, "short"), 13000)
+        self.assertEqual(A.final_stop(11000, 13200, 12000, "short"), 13200)
+
     def test_pm_weight_priority(self):
         pm = PM + "\n**Position Weight**: 포트폴리오의 4%\n"
         d = A.decision_from_markdown(A.DecisionRequest(code="1", name="n", date="d", purpose="entry"), TRADER, pm)

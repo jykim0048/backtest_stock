@@ -80,6 +80,12 @@ def _weight_rule():
             f"반영한 최종 비중을 출력 끝에 `**Position Weight**: <%>` 한 줄로 확정한다(없으면 Trader 비중, 상한 초과분은 잘림).")
 
 
+def _stop_rule():
+    """PM 최종 손절가(2026-11-17) — 리스크 토론에서 손절가를 바꾸면 본문이 아니라 이 줄이 주문·실시간 손절에 쓰인다."""
+    return (" 손절가 규칙: PM 은 리스크 토론을 반영한 최종 손절가를 출력 끝에 `**Stop Loss**: <원>` 한 줄로 확정한다"
+            "(Trader 값을 그대로 쓰면 같은 값을 적는다 — 본문에서 조정만 하고 이 줄을 빼면 Trader 손절가가 쓰인다).")
+
+
 def _catalyst_line(req):
     """하방 촉매 소스(2026-10-15) — 공시·뉴스 원문 요약과 강도를 PM·Trader 가 보고 '이미 반영된 급락 추격'인지 판단하게 한다."""
     c = getattr(req, "catalyst", None) or {}
@@ -134,11 +140,11 @@ def strategy_context(req):
                 "계속 보유할 경우 Trader 는 새 Stop Loss(현재가 아래), PM 은 새 Price Target(현재가 위)을 원 단위로 제시한다"
                 "(목표 도달 후 보유는 손절가가 매수가 아래로 내려가지 않는다). Trader Action 은 Sell/Hold 중심.").format(
             e=p.get("entry"), s=p.get("stop"), t=p.get("target") or "없음", h=p.get("holdDay"),
-            n=config.HOLD_DAYS, mx=config.MAX_HOLD_DAYS, r=req.reason or "-")
+            n=config.HOLD_DAYS, mx=config.MAX_HOLD_DAYS, r=req.reason or "-") + _stop_rule()
     return ("[전략 맥락] 스윙 모의투자 신규 진입 검토. 주문은 다음 영업일 1일 유효 지정가(Entry Price 도달 시 "
             "그 가격 체결), 보유 최대 {n}영업일 후 종가 청산. Stop Loss 필수(없으면 주문 안 됨). Price Target 은 "
             "{n}영업일 안에 현실적인 수준으로. 섹터 신호: {sig} {sec}, 스크리닝 근거: {r}.").format(
-        n=config.HOLD_DAYS, sig=req.signal or "-", sec=req.sector or "-", r=req.reason or "-") + _weight_rule() + _momentum_line(req)
+        n=config.HOLD_DAYS, sig=req.signal or "-", sec=req.sector or "-", r=req.reason or "-") + _weight_rule() + _stop_rule() + _momentum_line(req)
 
 
 def _short_context(req):
@@ -152,7 +158,7 @@ def _short_context(req):
                 "PM 은 새 Price Target(현재가 아래)을 원 단위로 제시한다(목표 도달 후 보유는 손절가가 공매도 진입가 "
                 "위로 올라가지 않는다). Trader Action 은 Buy(환매)/Hold 중심.").format(
             e=p.get("entry"), s=p.get("stop"), t=p.get("target") or "없음", h=p.get("holdDay"),
-            n=config.HOLD_DAYS, mx=config.MAX_HOLD_DAYS, r=req.reason or "-")
+            n=config.HOLD_DAYS, mx=config.MAX_HOLD_DAYS, r=req.reason or "-") + _stop_rule()
     return ("[전략 맥락] 스윙 모의투자 **공매도(Short) 신규 진입** 검토 — 이 종목은 약세 신호로 선정됐다. "
             "여기서 Trader Action **Sell = 공매도 신규 진입**(보유 주식 매도가 아님), PM Rating Sell/Underweight "
             "= 공매도 진행, 그 외 등급은 진입하지 않는다. 주문은 다음 영업일 1일 유효 지정가 매도(고가가 Entry Price "
@@ -160,7 +166,7 @@ def _short_context(req):
             "**위**(필수, 없으면 주문 안 됨), Price Target 은 Entry Price **아래**로 {n}영업일 안에 현실적인 수준. "
             "보유 {n}영업일 후 재판별, 대차수수료 연 {br:.1f}%. 섹터 신호: {sig} {sec}, 스크리닝 근거: {r}.").format(
         lc=f"{req.last_close:,.0f}원" if req.last_close else "미상", n=config.HOLD_DAYS,
-        br=config.BORROW_RATE * 100, sig=req.signal or "-", sec=req.sector or "-", r=req.reason or "-") + _weight_rule() + _catalyst_line(req) + _momentum_line(req)
+        br=config.BORROW_RATE * 100, sig=req.signal or "-", sec=req.sector or "-", r=req.reason or "-") + _weight_rule() + _stop_rule() + _catalyst_line(req) + _momentum_line(req)
 
 
 def _default_llm(system, user, max_tokens, schema):

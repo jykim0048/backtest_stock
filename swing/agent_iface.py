@@ -3,7 +3,8 @@
 실제 구현(P1: homework 레포 trading_agent 역할 프롬프트 헤드리스 이식)은 같은 형식의
 `decide(req) -> Decision` 만 맞추면 run_daily 에 그대로 꽂힌다.
 
-가격 출처(사용자 합의): 진입가·손절가 = Trader, 목표가 = PM Price Target(생략 가능).
+가격 출처(사용자 합의): 진입가 = Trader, 목표가 = PM Price Target(생략 가능),
+손절가 = PM **Stop Loss**(리스크 토론 반영 최종값, 2026-11-17 사용자 결정) → 없거나 방향이 틀리면 Trader Stop Loss.
 등급은 PM `**Rating**:` 줄. 5단계 단어가 없으면 REVIEW(Hold 로 뭉개지 않음 — 스킬 규칙).
 """
 import re
@@ -42,7 +43,8 @@ class Decision:
     rating: str = "REVIEW"           # PM 등급
     action: Optional[str] = None     # Trader Action
     entry: Optional[float] = None    # Trader Entry Price(원)
-    stop: Optional[float] = None     # Trader Stop Loss(원)
+    stop: Optional[float] = None     # 최종 손절가(원) — PM **Stop Loss** 우선, 없거나 방향 틀리면 Trader(2026-11-17)
+    trader_stop: Optional[float] = None  # Trader Stop Loss(원) — PM 이 바꿨는지 대조용
     target: Optional[float] = None   # PM Price Target(원)
     weight: Optional[float] = None   # Trader Position Sizing → 비율(0~1)
     pm_weight: Optional[float] = None  # PM **Position Weight**(리스크 토론 반영 최종 비중) → 비율. 수량 계산은 PM 우선(2026-10-14)
@@ -133,6 +135,7 @@ def parse_pm(text):
     return {"rating": _word(_field(text, "Rating"), RATINGS) or "REVIEW",
             "target": parse_price(_field(text, "Price Target")),
             "weight": parse_weight(_field(text, "Position Weight")),      # 2026-10-14: PM 최종 비중(전략 맥락에서 요구)
+            "stop": parse_price(_field(text, "Stop Loss")),              # 2026-11-17: PM 최종 손절가(전략 맥락에서 요구)
             "summary": _field(text, "Executive Summary") or ""}
 
 
@@ -140,8 +143,17 @@ def decision_from_markdown(req, trader_md, pm_md, reports=None, agent=""):
     t, p = parse_trader(trader_md), parse_pm(pm_md)
     return Decision(code=req.code, date=req.date, purpose=req.purpose,
                     rating=p["rating"], action=t["action"], entry=t["entry"],
-                    stop=t["stop"], target=p["target"], weight=t["weight"], pm_weight=p["weight"],
+                    stop=final_stop(p["stop"], t["stop"], t["entry"], req.side), trader_stop=t["stop"],
+                    target=p["target"], weight=t["weight"], pm_weight=p["weight"],
                     summary=p["summary"], reports=reports or {}, agent=agent, side=req.side)
+
+
+def final_stop(pm_stop, trader_stop, entry, side="long"):
+    """최종 손절가(2026-11-17 강원랜드 — PM 이 본문에서 13,200 → 13,000 으로 조정했는데 Trader 값이 주문에 쓰였다).
+    PM **Stop Loss** 가 있고 진입가 기준 방향이 맞으면(Long 진입가 아래·Short 위, 진입가 없으면 그대로) PM 값, 아니면 Trader 값."""
+    if pm_stop and (not entry or (pm_stop > entry if side == "short" else pm_stop < entry)):
+        return pm_stop
+    return trader_stop
 
 
 # ── 판정 ────────────────────────────────────────────────────────────────────

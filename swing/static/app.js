@@ -1822,7 +1822,9 @@
       var stop = lr && lr.stop != null ? lr.stop : d.stop, tgt = lr ? lr.target : d.target;
       var g = [["PM 등급" + rv, lr ? rating(lr.rating, lr.error) : rating(d.rating, d.error)], ["Trader" + rv, esc((lr ? lr.trader : d.action) || "—")],
         // 판단 진입가 = 주문 진입가 상한(Long 이하·Short 이상에서만 체결), 아래에 실제 평단(히스토리 로드 후, 2026-11-04)
-        ["진입가 리밋", '<span class="param-value entry">' + won(d.entry) + '</span><small class="dec-sub" id="dec-avg"></small>'], ["손절가" + (lr ? " · 재판별 후" : ""), '<span class="param-value stop">' + won(stop) + "</span>"],
+        ["진입가 리밋", '<span class="param-value entry">' + won(d.entry) + '</span><small class="dec-sub" id="dec-avg"></small>'], ["손절가" + (lr ? " · 재판별 후" : ""), '<span class="param-value stop">' + won(stop) + "</span>" +
+          // PM 이 Trader 손절가를 바꿨으면(2026-11-17 PM **Stop Loss**) 아래에 Trader 값
+          (!lr && d.trader_stop != null && d.stop != null && d.trader_stop !== d.stop ? '<small class="dec-sub">PM 조정 · Trader ' + won(d.trader_stop) + "</small>" : "")],
         ["목표가(PM)" + (lr ? " · 재판별 후" : ""), '<span class="param-value target">' + (tgt ? won(tgt) : "—") + "</span>"],
         ["비중", (d.pm_weight ? "PM " + (d.pm_weight * 100).toFixed(1) + "%" : "PM —") + " · Trader " + (d.weight ? (d.weight * 100).toFixed(1) + "%" : "—")]];
       g = [g[0], g[1], g[5], g[2], g[3], g[4]];     // 1열 PM 등급·Trader·비중 / 2열 진입가 리밋·손절가·목표가(2026-11-12)
