@@ -856,6 +856,10 @@ td small.sub-qty { display: block; font-size: 10.5px; color: var(--text-muted); 
 .q-toggle .q-n { font-family: var(--font-outfit); font-weight: 500; opacity: .8; }
 .q-toggle .q-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--amber); display: inline-block; }
 .q-why { display: block; font-size: 10px; color: var(--text-muted); margin-top: 2px; white-space: nowrap; }
+.q-why.net { color: var(--amber); }
+.q-net { font-size: 11px; color: var(--text-muted); padding: 6px 0; border-bottom: 1px solid var(--border-color); }
+.q-net b { color: var(--text-main); }
+.q-room.full { color: var(--amber); font-weight: 600; }
 
 /* ── 성과 기여도(2026-11-05) — Long·Short PF 탭 ── */
 .at-ctl { display: flex; gap: 8px; flex-wrap: wrap; }

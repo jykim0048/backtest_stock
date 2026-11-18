@@ -491,6 +491,35 @@ class TestBuild(unittest.TestCase):
         self.assertIsNone(w({"price": 9700}, filled=100))
         self.assertIsNone(w({"price": 9700}, rec={"done": True}))
 
+    def test_queue_net_wait(self):
+        """2026-11-18: 순노출 한도로 실행기가 미루는 주문 — '분할 간격' 이 아니라 '순노출 대기', 패널 머리에 장중 순노출."""
+        from swing import server
+        o = {"qty": 100, "entry": 10000.0, "stop": 11000.0}
+        rec = {"netWait": {"n": 3, "blocked": 40}}
+        net = {"netPct": -14.98, "netMin": -15.0, "netMax": 15.0, "room": {"short": 100_000, "long": 30_000_000}}
+        lv = {"price": 10100, "vwap": 10050}                                     # Short — 가격 조건 충족
+        w = server._wait_reason(o, rec, lv, "short", 60, True, False, net=net)
+        self.assertEqual(w[0], "순노출 대기")
+        self.assertIn("남은 40주 중 9주만", w[1])
+        self.assertEqual(server._wait_reason(o, {}, lv, "short", 60, True, False, net=net)[0], "분할 간격")   # 막힌 기록 없음
+        roomy = dict(net, room={"short": 10_000_000})
+        self.assertEqual(server._wait_reason(o, rec, lv, "short", 60, True, False, net=roomy)[0], "분할 간격")  # 여유 생김 → 재개
+        self.assertEqual(server._wait_reason(o, rec, {"price": 9900, "vwap": 10050}, "short", 60, True, False, net=net)[0],
+                         "리밋 이탈 -1.0%")                                       # 가격 조건이 먼저
+        done = server._wait_reason(o, rec, lv, "short", 0, True, True, net=net)
+        self.assertEqual(done[0], "순노출 한도")
+        self.assertIn("미도달(순노출 한도 대기)", done[1])
+        # _live_net — 원장 보유 + 오늘 체결, 현재가 · doc.net 한도
+        L = {"positions": [{"code": "A", "side": "long", "qty": 100, "lastClose": 1000},
+                           {"code": "B", "side": "short", "qty": 100, "lastClose": 2000}]}
+        doc = {"net": {"netMin": -0.15, "netMax": 0.15, "week": 1, "eq": 1_000_000},
+               "vwap": {"A": {"price": 1100}},
+               "orders": {"o": {"code": "C", "side": "short", "fills": [{"qty": 10, "price": 3000}]}}}
+        n = server._live_net(L, doc)
+        self.assertEqual((n["longPct"], n["shortPct"], n["netPct"]), (11.0, 23.0, -12.0))
+        self.assertEqual(n["room"], {"short": 30_000, "long": 270_000})
+        self.assertIsNone(server._live_net(L, {"vwap": {}}))                     # order 모드 — 한도 기록 없음
+
     def test_history_avg_includes_todays_topup(self):
         h = history.build(self._topup_today(), KEY, log=lambda *a: None)
         avg = (49 * 65563 + 10 * 49000 + 20 * 49600) / 79

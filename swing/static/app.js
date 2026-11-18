@@ -370,7 +370,7 @@
           var full = r.qty && r.filled >= r.qty;
           st = full ? '<span class="q-st ok">완료</span>' : r.done ? '<span class="q-st stop" title="' + esc(r.why || "") + '">중단 ' + won(r.filled) + "/" + won(r.qty) + "</span>"
             : r.filled ? '<span class="q-st run">' + won(r.filled) + "/" + won(r.qty) + "주</span>" : '<span class="q-st wait">대기</span>';
-          if (r.wait) st += '<small class="q-why" title="' + esc(r.waitTip || "") + '">' + esc(r.wait) + "</small>";   // 대기 사유(2026-11-04)
+          if (r.wait) st += '<small class="q-why' + (/^순노출/.test(r.wait) ? " net" : "") + '" title="' + esc(r.waitTip || "") + '">' + esc(r.wait) + "</small>";   // 대기 사유(2026-11-04)
         } else {
           st = r.fits ? '<span class="q-st ok" title="누적 필요 금액이 ' + res + ' 안">' + res + " 안</span>"
             : '<span class="q-st short" title="누적 필요 금액이 ' + res + "를 넘음 — " + (short ? "장중엔 체결되지만 정산 때 담보 여력만큼만 순위대로 진입, 나머지는 다음 영업일 추가 주문" : "그 시점 현금이 모자라면 보유 종목을 팔아 재원 마련(적시 스위칭)") + '">' + (short ? "담보 부족 예상" : "스위칭 필요") + "</span>";
@@ -391,8 +391,20 @@
       return '<button type="button" data-qside="' + sd + '" class="' + sd + (Q.side === sd ? " on" : "") + '">' + (sd === "short" ? "Short" : "Long") +
         ' <span class="q-n">' + n + "</span>" + (over ? '<i class="q-dot" title="필요 금액이 예산 초과"></i>' : "") + "</button>";
     }).join("") + "</div>";
+    // 장중 순노출(2026-11-18) — Live Trader 가 진입 분할 체결 직전에 보는 값. 한 방향 여유가 없으면 그 방향 주문은 '순노출 대기'
+    var netLine = "";
+    if (q.live && q.net) {
+      var N = q.net, sgn = function (v) { return (v > 0 ? "+" : "") + v.toFixed(1); };
+      var rm = function (sd) {
+        var v = (N.room || {})[sd] || 0, full = v < 1;
+        return '<span class="q-room' + (full ? " full" : "") + '">' + (sd === "short" ? "Short" : "Long") + " 여유 " + (full ? "없음" : eok(v)) + "</span>";
+      };
+      netLine = '<div class="q-net" title="원장 보유 + 오늘 체결, 현재가 평가 ÷ 전일 평가액 — Live Trader 가 진입 분할 체결 직전에 이 값으로 한도를 넘기는 수량만 미룹니다(청산은 막지 않음)">' +
+        "장중 순노출 <b>" + sgn(N.netPct) + "%</b> <small>(Long " + N.longPct.toFixed(1) + " · Short " + N.shortPct.toFixed(1) + ")</small> / 한도 " +
+        sgn(N.netMin) + " ~ " + sgn(N.netMax) + "% · " + rm("long") + " · " + rm("short") + "</div>";
+    }
     var body = block(Q.side) || '<div class="q-empty">' + (Q.side === "short" ? "Short" : "Long") + " 진입 주문이 없습니다</div>";
-    el.innerHTML = tog + rules + '<div class="q-body">' + body + "</div>" +
+    el.innerHTML = tog + rules + netLine + '<div class="q-body">' + body + "</div>" +
       '<div class="q-note">Long 은 현금, Short 는 ' + (q.collateralPolicy === "cash_first" ? "현금 담보 먼저 · 모자라면 대용 담보(증거금 " + Math.round((q.margin || 0) * 100) + "%)"
         : q.collateral === "subst" ? "대용 담보(증거금 " + Math.round((q.margin || 0) * 100) + "%)" : "현금 담보") +
       " — 같은 현금을 나눠 쓰므로 두 필요 금액을 함께 봐야 합니다. 비중 채우기 주문도 같은 순서로 경쟁합니다.</div>";
