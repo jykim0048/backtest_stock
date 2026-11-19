@@ -519,6 +519,17 @@ class TestBuild(unittest.TestCase):
         self.assertEqual((n["longPct"], n["shortPct"], n["netPct"]), (11.0, 23.0, -12.0))
         self.assertEqual(n["room"], {"short": 30_000, "long": 270_000})
         self.assertIsNone(server._live_net(L, {"vwap": {}}))                     # order 모드 — 한도 기록 없음
+        # 진행 중 Long 청산 잔량(A 20주 × 1,100 = 2.2%)은 Short 여유에서 미리 뺀다(2026-11-19) · 설명에 '미리 반영'
+        doc["exits"] = {"p": {"code": "A", "side": "long", "planned": 20, "fills": []}}
+        n = server._live_net(L, doc)
+        self.assertEqual((n["pending"]["long"], n["room"]["short"], n["room"]["long"]), (2.2, 8_000, 270_000))
+        rec = {"netWait": {"n": 3}}
+        w = server._wait_reason({"qty": 100, "entry": 10000.0, "stop": 11000.0}, rec, {"price": 10100, "vwap": 10050},
+                                "short", 0, True, False, net=n)
+        self.assertEqual(w[0], "순노출 대기")
+        self.assertIn("진행 중 Long 청산 2.2%p 미리 반영", w[1])
+        self.assertIn("16:19 안에", server._wait_reason({"qty": 100, "entry": 10000.0, "stop": 11000.0}, {}, {"price": 10100, "vwap": 10050},
+                                                        "short", 0, True, True, date="2026-11-19")[1])   # 수능일 진입 마감
 
     def test_history_avg_includes_todays_topup(self):
         h = history.build(self._topup_today(), KEY, log=lambda *a: None)

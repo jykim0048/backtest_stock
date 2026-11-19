@@ -9,6 +9,7 @@ SESSION_START = "08:55"
 SESSION_END = "15:30"
 DECIDE_START = "09:00"          # G7 판단·지시 허용 시간
 DECIDE_END = "15:20"
+# 시각은 평소 장(09:00~15:30) 기준 — 수능일 등 장 시간이 밀리는 날은 swing/session_hours.py 가 그날만 늦춘다(코드는 at() 로 읽음).
 
 # 입력(§2) — 시세는 Redis 버스(Live Trader 발행), VI·업종은 /status 직접
 STATUS_POLL_S = 60
@@ -21,6 +22,14 @@ JUMP_5M = 0.03                  # T3 불리한 방향 5분 변동률
 SECTOR_TOP_N = 5                # T5 업종 상·하위 N
 DD_DAY = 0.015                  # T6 포트폴리오 일중 손실
 SCHEDULE = ("09:10", "11:00", "13:30", "14:50")   # T7 정기 점검
+_TIMES = ("SESSION_START", "SESSION_END", "DECIDE_START", "DECIDE_END", "SCHEDULE")
+
+
+def at(date, name):
+    """그날(date) 시각 상수('HH:MM', SCHEDULE 은 튜플) — 장 시간이 밀린 날은 session_hours 만큼 늦춘 값."""
+    from .. import session_hours
+    return session_hours.times({k: globals()[k] for k in _TIMES}, date)[name]
+
 DEBOUNCE_MIN = 15               # 같은 종목·같은 트리거 재호출 금지(분)
 BATCH_WAIT_S = 3                # 겹친 트리거를 모으는 시간(초)
 MAX_CALLS = 40                  # 하루 LLM 호출 상한

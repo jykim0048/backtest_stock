@@ -17,7 +17,7 @@
 """
 import datetime
 
-from . import config, daily, engine, signals, tradedays
+from . import config, daily, engine, session_hours, signals, tradedays
 from . import exposure as X
 
 KST = datetime.timezone(datetime.timedelta(hours=9))
@@ -63,9 +63,9 @@ def guard(date, store, wb, now=None):
     if prog.get("status") == "running":
         return "다른 실행 진행 중(progress running)", run, None
     now = now or datetime.datetime.now(KST)
-    hm = now.hour * 100 + now.minute
-    if now.weekday() < 5 and 900 <= hm < 1530:
-        return "장중(09:00~15:30 KST) 실행 금지 — Live Trader 가 원장을 함께 씀", run, None
+    hm = f"{now.hour:02d}:{now.minute:02d}"                   # 수능일 등은 밀린 장 시간(session_hours)
+    if now.weekday() < 5 and session_hours.shift("09:00", now.date()) <= hm < session_hours.shift("15:30", now.date()):
+        return "장중(09:00~15:30 KST, 장 시간이 밀린 날은 그만큼) 실행 금지 — Live Trader 가 원장을 함께 씀", run, None
     return None, run, L
 
 
@@ -198,9 +198,9 @@ def guard_braked(date, store, wb, now=None):
     if prog.get("status") == "running":
         return "다른 실행 진행 중(progress running)", run, None
     now = now or datetime.datetime.now(KST)
-    hm = now.hour * 100 + now.minute
-    if now.weekday() < 5 and 900 <= hm < 1530:
-        return "장중(09:00~15:30 KST) 실행 금지 — Live Trader 가 원장을 함께 씀", run, None
+    hm = f"{now.hour:02d}:{now.minute:02d}"                   # 수능일 등은 밀린 장 시간(session_hours)
+    if now.weekday() < 5 and session_hours.shift("09:00", now.date()) <= hm < session_hours.shift("15:30", now.date()):
+        return "장중(09:00~15:30 KST, 장 시간이 밀린 날은 그만큼) 실행 금지 — Live Trader 가 원장을 함께 씀", run, None
     return None, run, L
 
 

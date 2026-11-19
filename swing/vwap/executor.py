@@ -38,6 +38,8 @@ Live PM 지시(2026-10-19, PLAN_LIVE_TRADER §5-2) — 매 폴링마다 livepm/<
 순노출 한도(2026-11-17 사용자 결정, exposure.NET_ENFORCE=intraday) — 정산은 순노출로 판단·주문을 막지 않고, 여기서 진입 분할 체결 직전에
   장중 순노출(원장 보유 + 오늘 체결, 현재가 평가 — exposure.live_gross)이 그날 한도(exposure.live_limits = 단계 한도)를 넘기는 수량만
   체결하지 않고 기다린다(기록 netWait). 반대 방향이 체결되면 여유가 생겨 다시 체결한다. 청산(손절·예약·지시·스위칭)은 막지 않는다.
+  같은 쪽으로 순노출을 밀 진행 중 청산 잔량(Short 진입엔 Long 청산, Long 진입엔 Short 환매 — exposure.live_pending)은 이미 나간 것으로
+  보고 여유에서 뺀다(2026-11-19 — 청산은 막지 않으니 진입이 그만큼 덜 채워야 청산이 끝나도 한도 안).
   못 채운 수량은 정산이 다음 날로 넘긴다(부분 체결 → 비중 채우기, 0주 → '미도달(순노출 한도 대기)' 재주문).
 진입 우선순위(2026-11-03 사용자 지시) — 매 폴링마다 주문을 engine.entry_priority(PM 등급 → 높은 비중) 순으로 검토해 현금을 먼저 준다.
   순위가 높아도 그 폴링에 체결 조건(진입가 상한·VWAP)이 안 맞으면 다음 순위를 바로 검토한다 — 현금을 묶어 두지 않는다.
@@ -217,7 +219,7 @@ class Executor:
                     self._advance(r, st, ts, hm, "entry", retry=True)
         self._requests = []
         self.doc["asof"] = ts
-        self.doc["complete"] = hm >= C.COMPLETE_AT
+        self.doc["complete"] = hm >= C.at(self.date, "COMPLETE_AT")
 
     def _stop_hit(self, st, side, stop, first):
         """(가격, kind) 또는 None."""
@@ -293,11 +295,13 @@ class Executor:
         if not self.net_lim or q <= 0 or px <= 0:
             return q
         g = self.net_now()
-        room = X.live_room(self.net_lim, self.equity, g, r["side"])
+        pend = X.live_pending(self.doc, self._price)                        # 진행 중 청산 잔량(2026-11-19) — 같은 쪽으로 밀 몫은 미리 뺀다
+        room = X.live_room(self.net_lim, self.equity, g, r["side"], pend)
         n = max(0, min(q, int(room // px))) if room is not None else q
         if n < q:
             w = r.setdefault("netWait", {"first": ts, "n": 0})                     # n = 막힌 횟수, blocked = 마지막에 막힌 수량
-            w.update(last=ts, n=w["n"] + 1, blocked=q - n, netPct=round(g["net"] / self.equity * 100, 2))
+            w.update(last=ts, n=w["n"] + 1, blocked=q - n, netPct=round(g["net"] / self.equity * 100, 2),
+                     pendingPct=round(pend["long" if r["side"] == "short" else "short"] / self.equity * 100, 2))
             if n == 0 and not filled(r):
                 lim = self.net_lim["netMax" if r["side"] == "long" else "netMin"]
                 r["why"] = f"순노출 한도 {lim * 100:+.1f}% — 반대 방향 체결 대기"
@@ -306,7 +310,7 @@ class Executor:
 
     def _switch(self, ts, hm, requests):
         """적시 스위칭 — 막힌 매수의 부족 금액만큼 보유 Long 을 판다. 반환 True = 하나라도 팔았음."""
-        if not (C.ENTRY_START <= hm < C.ENTRY_END):
+        if not (C.at(self.date, "ENTRY_START") <= hm < C.at(self.date, "ENTRY_END")):
             return False                                         # 시가(동시호가 직후)에는 재원 매도 안 함
         need = sum(q * px for _r, _st, q, px in requests) - max(0.0, self.cash())
         if need <= 0:
@@ -577,7 +581,7 @@ class Executor:
             self.log(f"[vwap] {ts[11:19]} 전량 {'진입' if entry else '청산'} {r['code']} {r['side']} {q:,}주 @ {px:,.0f}"
                      f" (기준가 대비 {px / r['ref'] - 1:+.1%})")
             return
-        if not (C.ENTRY_START <= hm < C.ENTRY_END) or st.n_obs < C.MIN_OBS or st.vwap is None:
+        if not (C.at(self.date, "ENTRY_START") <= hm < C.at(self.date, "ENTRY_END")) or st.n_obs < C.MIN_OBS or st.vwap is None:
             return
         vw = [f for f in r["fills"] if f["mode"] == "vwap"]
         if vw and _minutes(vw[-1]["ts"], ts) < C.MIN_GAP_MIN and not (retry and vw[-1]["ts"] == ts):

@@ -49,6 +49,18 @@ class TestLiveFunctions(_Intraday):
         self.assertEqual((g["long"], g["short"]), (60 * 1200, 50 * 2000 + 10 * 3000))   # 현재가 없으면 종가·체결 평균
         self.assertEqual(X.live_room({"netMin": -0.1, "netMax": 0.1}, 1_000_000, g, "long"), 100_000 - g["net"])
 
+    def test_live_pending_reserves_room(self):
+        # 진행 중 Long 청산 잔량은 Short 여유에서, Short 환매 잔량은 Long 여유에서 미리 뺀다(2026-11-19). 끝난 청산은 무시.
+        doc = {"exits": {"a": {"code": "A", "side": "long", "planned": 100, "fills": [{"qty": 40, "price": 1000}]},
+                         "b": {"code": "B", "side": "short", "planned": 10, "fills": [], "ref": 2000},
+                         "c": {"code": "C", "side": "long", "planned": 50, "fills": [], "done": True}}}
+        pend = X.live_pending(doc, {"A": 1100}.get)
+        self.assertEqual((pend["long"], pend["short"]), (60 * 1100, 10 * 2000))   # 현재가 없으면 기준가
+        lim, eq, g = {"netMin": -0.1, "netMax": 0.1}, 1_000_000, {"net": 0.0}
+        self.assertEqual(X.live_room(lim, eq, g, "short", pend), 100_000 - 66_000)
+        self.assertEqual(X.live_room(lim, eq, g, "long", pend), 100_000 - 20_000)
+        self.assertEqual(X.live_room(lim, eq, g, "short"), 100_000)               # pending 없으면 종전
+
     def test_live_breach_buffer(self):
         lim, eq = {"netMin": -0.15, "netMax": 0.15}, 1_000_000
         self.assertIsNone(X.live_breach(lim, eq, {"net": 160_000}))                # +16% — 버퍼 2%p 안
@@ -87,6 +99,16 @@ class TestTraderNetCap(_Intraday):
         r = ex.doc["orders"]["o1"]
         self.assertEqual([f["qty"] for f in r["fills"]], [30, 69])               # 하한 −0.2%(100만) 까지 — 70만 ÷ 10,010 = 69주
         self.assertIn("netWait", r)
+
+    def test_short_entry_leaves_room_for_pending_long_exit(self):
+        # 위 test_short_entry_waits_at_floor 와 같되 Long 청산 30만(30주 × 1만)이 진행 중 → 하한 100만 중 70만만 Short 진입
+        L = ledger_with(order={"side": "short", "entry": 10000.0, "stop": 10500.0, "target": 9000.0})
+        ex = self.ex(L)
+        ex.doc["exits"]["px"] = {"code": "000099", "side": "long", "planned": 30, "fills": [], "ref": 10000.0, "done": False}
+        run(ex, path("000010", [("09:00", 10000), ("09:10", 10010), ("09:30", 10020)]))
+        r = ex.doc["orders"]["o1"]
+        self.assertEqual([f["qty"] for f in r["fills"]], [30, 39])               # 70만 − 시가 30만 = 40만 ÷ 10,010 = 39주
+        self.assertEqual(r["netWait"]["pendingPct"], 0.06)                      # 30만 / 5억
 
     def test_off_when_order_mode(self):
         with mock.patch.object(X, "NET_ENFORCE", "order"):

@@ -310,13 +310,33 @@ def live_gross(positions, intraday, price_of):
     return out
 
 
-def live_room(lim, eq, gross, side):
-    """장중 순노출 한도까지 그 방향으로 더 체결할 수 있는 금액(음수 = 이미 넘음). 한도·평가액이 없으면 None."""
+def live_pending(intraday, price_of):
+    """진행 중인 청산(intraday exits 중 done 아님)의 남은 금액 {long, short} — 현재가(없으면 체결 평균가·기준가).
+    Long 청산 잔량은 앞으로 순노출을 낮추고(Short 쪽으로), Short 청산(환매) 잔량은 높인다."""
+    out = {"long": 0.0, "short": 0.0}
+    for r in ((intraday or {}).get("exits") or {}).values():
+        if r.get("done"):
+            continue
+        n = _filled(r)
+        left = int(r.get("planned") or 0) - n
+        if left <= 0:
+            continue
+        px = price_of(r["code"]) or (sum(f["qty"] * f["price"] for f in r["fills"]) / n if n else r.get("ref")) or 0
+        out[_side(r)] += left * float(px)
+    return out
+
+
+def live_room(lim, eq, gross, side, pending=None):
+    """장중 순노출 한도까지 그 방향으로 더 체결할 수 있는 금액(음수 = 이미 넘음). 한도·평가액이 없으면 None.
+    pending = live_pending — 같은 방향으로 순노출을 밀 진행 중 청산 잔량을 이미 나간 것으로 본다(2026-11-19 사용자 결정:
+    11/19 Short 진입이 여유를 −15% 선까지 채운 뒤 제주항공·LG씨엔에스 Long 청산이 이어져 −16% 까지 밀렸다).
+    Short 진입은 Long 청산 잔량을, Long 진입은 Short 청산 잔량을 뺀다. 반대 쪽 청산 잔량(여유를 늘리는 쪽)은 체결이 확실하지 않아 미리 쓰지 않는다."""
     if not lim or not eq or eq <= 0:
         return None
+    p = pending or {}
     if side == "short":
-        return gross["net"] - lim["netMin"] * eq
-    return lim["netMax"] * eq - gross["net"]
+        return gross["net"] - float(p.get("long") or 0) - lim["netMin"] * eq
+    return lim["netMax"] * eq - gross["net"] - float(p.get("short") or 0)
 
 
 def live_breach(lim, eq, gross, buffer=NET_PM_BUFFER):

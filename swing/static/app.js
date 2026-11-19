@@ -397,9 +397,12 @@
       var N = q.net, sgn = function (v) { return (v > 0 ? "+" : "") + v.toFixed(1); };
       var rm = function (sd) {
         var v = (N.room || {})[sd] || 0, full = v < 1;
-        return '<span class="q-room' + (full ? " full" : "") + '">' + (sd === "short" ? "Short" : "Long") + " 여유 " + (full ? "없음" : eok(v)) + "</span>";
+        // 진행 중 청산 잔량(2026-11-19) — Short 여유엔 Long 청산, Long 여유엔 Short 환매 잔량을 미리 뺀 값
+        var p = (N.pending || {})[sd === "short" ? "long" : "short"] || 0;
+        var pn = p >= 0.05 ? ' <small>(' + (sd === "short" ? "Long 청산" : "Short 환매") + " 진행 " + p.toFixed(1) + "%p 반영)</small>" : "";
+        return '<span class="q-room' + (full ? " full" : "") + '">' + (sd === "short" ? "Short" : "Long") + " 여유 " + (full ? "없음" : eok(v)) + "</span>" + pn;
       };
-      netLine = '<div class="q-net" title="원장 보유 + 오늘 체결, 현재가 평가 ÷ 전일 평가액 — Live Trader 가 진입 분할 체결 직전에 이 값으로 한도를 넘기는 수량만 미룹니다(청산은 막지 않음)">' +
+      netLine = '<div class="q-net" title="원장 보유 + 오늘 체결, 현재가 평가 ÷ 전일 평가액 — Live Trader 가 진입 분할 체결 직전에 이 값으로 한도를 넘기는 수량만 미룹니다(청산은 막지 않음). 여유는 같은 쪽으로 순노출을 밀 진행 중 청산 잔량을 미리 뺀 값">' +
         "장중 순노출 <b>" + sgn(N.netPct) + "%</b> <small>(Long " + N.longPct.toFixed(1) + " · Short " + N.shortPct.toFixed(1) + ")</small> / 한도 " +
         sgn(N.netMin) + " ~ " + sgn(N.netMax) + "% · " + rm("long") + " · " + rm("short") + "</div>";
     }

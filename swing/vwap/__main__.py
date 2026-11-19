@@ -1,6 +1,6 @@
 """swing-vwap 진입점 — Live Trader(장중 집행기)(PLAN_LIVE_TRADER.md).
 
-  python -m swing.vwap                 # 상시: 영업일 09:00~15:35 폴링, 그 외 다음 세션까지 대기
+  python -m swing.vwap                 # 상시: 영업일 09:00~15:35 폴링(장 시간이 밀린 날은 session_hours 만큼 늦춤), 그 외 다음 세션까지 대기
   python -m swing.vwap --once          # 오늘 세션 하나만
   python -m swing.vwap --replay 2026-10-20 --source file:<dir> --store file:<dir>
       # source 의 ledger·intraday/<date>/ticks/* 로 실행기를 다시 돌려 store 의 intraday/<date> 에 쓴다(검증용)
@@ -51,7 +51,7 @@ def run_session(st, date, *, feed=None, bus=None, clock=now_kst, sleep=time.slee
     """bus = 시세 버스(Redis) 발행기 — Live PM 이 구독한다. 실패해도 집행은 계속(PriceBus 가 예외를 삼킴)."""
     feed = feed or PollingFeed(log=log)
     bus = bus if bus is not None else PriceBus.from_env(log=log)
-    start, end = _at(date, C.SESSION_START), _at(date, C.SESSION_END)
+    start, end = _at(date, C.at(date, "SESSION_START")), _at(date, C.at(date, "SESSION_END"))
     while clock() < start:
         sleep(min(60, max(1, (start - clock()).total_seconds())))
     ex = Executor(st, date, st.get("ledger"), log=log)
@@ -102,12 +102,12 @@ def main(argv=None):
         return
     while True:
         today = now_kst().date().isoformat()
-        if tradedays.is_trading_day(today) and now_kst() < _at(today, C.SESSION_END):
+        if tradedays.is_trading_day(today) and now_kst() < _at(today, C.at(today, "SESSION_END")):
             run_session(st, today)
             if a.once:
                 return
         nxt = tradedays.next_trading_day(today)
-        wake = _at(nxt, C.SESSION_START) - datetime.timedelta(minutes=5)
+        wake = _at(nxt, C.at(nxt, "SESSION_START")) - datetime.timedelta(minutes=5)
         print(f"[vwap] 다음 세션 {nxt} — {wake.isoformat()} 까지 대기", flush=True)
         while now_kst() < wake:
             time.sleep(min(600, max(1, (wake - now_kst()).total_seconds())))

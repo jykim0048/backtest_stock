@@ -460,7 +460,7 @@ def api_queue(q):
             rec = (doc.get("orders") or {}).get(o["id"]) or {}
             filled = sum(f["qty"] for f in rec.get("fills") or [])
             wait = _wait_reason(o, rec, (doc.get("vwap") or {}).get(o["code"]) or {}, side, filled, cum <= budget[side] + 1,
-                                bool(doc.get("complete")), net=net) if day else None
+                                bool(doc.get("complete")), net=net, date=day) if day else None
             rows.append({"rank": i + 1, "id": o["id"], "code": o["code"], "name": o.get("name"), "rating": o.get("rating"),
                          "weight": o.get("weight"), "qty": o.get("qty"), "entry": o.get("entry"), "stop": o.get("stop"),
                          "need": round(need), "cum": round(cum), "fits": cum <= budget[side] + 1,
@@ -487,11 +487,14 @@ def _live_net(L, doc):
     if not eq or nl.get("netMin") is None or nl.get("netMax") is None:
         return None
     vw = doc.get("vwap") or {}
-    g = X.live_gross(L.get("positions") or [], doc, lambda c: (vw.get(c) or {}).get("price"))
+    px = lambda c: (vw.get(c) or {}).get("price")                                  # noqa: E731
+    g = X.live_gross(L.get("positions") or [], doc, px)
+    pend = X.live_pending(doc, px)                                                  # 진행 중 청산 잔량(2026-11-19) — 실행기와 같은 여유
     lim = {"netMin": nl["netMin"], "netMax": nl["netMax"]}
     return {"netPct": round(g["net"] / eq * 100, 2), "longPct": round(g["long"] / eq * 100, 2), "shortPct": round(g["short"] / eq * 100, 2),
             "netMin": round(nl["netMin"] * 100, 2), "netMax": round(nl["netMax"] * 100, 2), "week": nl.get("week"),
-            "room": {sd: round(X.live_room(lim, eq, g, sd)) for sd in ("long", "short")}}
+            "pending": {sd: round(pend[sd] / eq * 100, 2) for sd in ("long", "short")},   # 청산 진행 중 잔량(평가액 대비 %)
+            "room": {sd: round(X.live_room(lim, eq, g, sd, pend)) for sd in ("long", "short")}}
 
 
 def _net_wait(o, rec, side, filled, px, net, complete):
@@ -506,7 +509,10 @@ def _net_wait(o, rec, side, filled, px, net, complete):
         return None
     can = max(0, min(remain, int(room // px)))
     lim = net["netMin" if side == "short" else "netMax"]
-    head = f"{'마감 때 ' if complete else ''}장중 순노출 {net['netPct']:+.1f}%(한도 {lim:+.0f}%) — 남은 {remain:,}주 중 {can:,}주만 한도 안"
+    pend = (net.get("pending") or {}).get("long" if side == "short" else "short") or 0
+    pnote = (f" · 진행 중 {'Long 청산' if side == 'short' else 'Short 환매'} {pend:.1f}%p 미리 반영" if pend >= 0.05 else "")
+    head = (f"{'마감 때 ' if complete else ''}장중 순노출 {net['netPct']:+.1f}%(한도 {lim:+.0f}%){pnote} — "
+            f"남은 {remain:,}주 중 {can:,}주만 한도 안")
     if complete:
         nxt = ("정산 때 '미도달(순노출 한도 대기)' → 다음 영업일 재주문" if not filled
                else "남은 수량은 잔여분 추가 주문(비중 채우기)으로 이어짐")
@@ -514,7 +520,13 @@ def _net_wait(o, rec, side, filled, px, net, complete):
     return "순노출 대기", f"{head} · 반대 방향이 체결되거나 가격이 움직여 여유가 생기면 재개(막힌 횟수 {w.get('n', 0)}회)"
 
 
-def _wait_reason(o, rec, lv, side, filled, fits, complete, net=None):
+def _entry_end(date):
+    """Live Trader 진입 마감 시각(평소 15:19, 수능일 등 장 시간이 밀린 날은 그만큼 늦춤 — session_hours)."""
+    from swing.vwap import config as VC
+    return VC.at(date, "ENTRY_END") if date else VC.ENTRY_END
+
+
+def _wait_reason(o, rec, lv, side, filled, fits, complete, net=None, date=None):
     """장중 진입 주문이 왜 (더) 체결되지 않는지 — 실행기 조건(executor._advance)과 같은 순서로 짧게. (라벨, 설명) 또는 None.
     net = _live_net(장중 순노출) — 가격 조건은 맞는데 순노출 한도로 미루는 중이면 '순노출 대기'(2026-11-18)."""
     qty = o.get("qty") or 0
@@ -548,7 +560,7 @@ def _wait_reason(o, rec, lv, side, filled, fits, complete, net=None):
         if nw:
             return nw
         return "분할 미완", ("마감 때는 조건이 맞았지만, VWAP보다 유리한 구간에서만 5분 간격으로 나눠 체결해 "
-                           "15:19 안에 다 못 채움" + rest)
+                           f"{_entry_end(date)} 안에 다 못 채움" + rest)
     if cond:
         return cond
     nw = _net_wait(o, rec, side, filled, px, net, False)   # 실행기도 가격 조건이 맞을 때만 순노출을 본다(executor._net_cap)

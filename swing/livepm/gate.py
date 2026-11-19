@@ -41,7 +41,7 @@ def review(decisions, *, ts, book, state, intraday=None, recent=()):
             r["outcome"] = "hold"
             continue
         px = book.px(code)
-        if not (C.DECIDE_START <= hm < C.DECIDE_END):
+        if not (C.at(ts[:10], "DECIDE_START") <= hm < C.at(ts[:10], "DECIDE_END")):
             r.update(outcome="reject", why="G7 판단 시간 밖")
             continue
         if not state.allows(act):

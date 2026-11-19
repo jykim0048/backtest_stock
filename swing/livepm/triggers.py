@@ -83,15 +83,15 @@ class Triggers:
         if dp <= -C.DD_DAY and self._fresh(("*", "T6"), ts):
             self.last[("*", "T6")] = ts
             out.append({"id": "T6", "code": "*", "pid": None, "detail": f"포트폴리오 일중 {dp * 100:.2f}%"})
-        if net and hm < C.DECIDE_END and self._fresh(("*", "T8"), ts):
+        if net and hm < C.at(ts[:10], "DECIDE_END") and self._fresh(("*", "T8"), ts):
             self.last[("*", "T8")] = ts
             out.append({"id": "T8", "code": "*", "pid": None,
                         "detail": f"순노출 {net['netPct'] * 100:+.1f}%(한도 {net['limitPct'] * 100:+.1f}%) — "
                                   f"{'Long' if net['side'] == 'long' else 'Short'} 과다, {net['excessKrw'] / 1e4:,.0f}만원 축소 필요"})
-        for s in C.SCHEDULE:
+        for s in C.at(ts[:10], "SCHEDULE"):
             if hm >= s and s not in self.sched_done:
                 self.sched_done.add(s)
-                if hm < C.DECIDE_END:
+                if hm < C.at(ts[:10], "DECIDE_END"):
                     out.append({"id": "T7", "code": "*", "pid": None, "detail": f"정기 점검 {s}"})
         return self.budget(out)
 

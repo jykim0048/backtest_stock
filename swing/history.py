@@ -105,7 +105,9 @@ def _mins(hm):
 def minute_bars(ticks, step, day_bar=None):
     """15초 틱 → step 분봉 [{t, o, h, l, c, vw}]. 틱은 표본이라 고저가 실제보다 좁을 수 있고 동시호가가 빠진다 —
     그날 일봉(KRX 확정)이 있으면 첫 봉 시가·마지막 봉 종가를 그 값으로 덮는다. vw = 그 봉 끝의 당일 누적 VWAP."""
-    t0, t1 = _mins(SESSION[0]), _mins(SESSION[1])
+    from swing import session_hours                        # 수능일 등 장 시간이 밀린 날은 그만큼(2026-11-19)
+    d = min((x["ts"][:10] for x in ticks), default="")
+    t0, t1 = _mins(session_hours.shift(SESSION[0], d)), _mins(session_hours.shift(SESSION[1], d))
     out = {}
     for x in sorted(ticks, key=lambda x: x["ts"]):
         m, px = _mins(x["ts"][11:16]), x.get("price")

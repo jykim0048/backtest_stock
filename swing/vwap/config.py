@@ -13,6 +13,15 @@ ENTRY_START = "09:05"       # VWAP 분할 시작 — 동시호가 직후 노이�
 ENTRY_END = "15:19"         # 종가 단일가(15:20~) 전까지
 SESSION_END = "15:35"       # 종가 체결(15:30) 반영 후 종료
 COMPLETE_AT = "15:30"       # 마지막 틱이 이 시각 이후면 '세션 완주'
+# 위 시각은 평소 장(09:00~15:30) 기준. 수능일 등 장 시간이 밀리는 날은 swing/session_hours.py 가 그날만 늦춘다 — 코드는 at() 로 읽는다.
+_TIMES = ("SESSION_START", "ENTRY_START", "ENTRY_END", "SESSION_END", "COMPLETE_AT")
+
+
+def at(date, name):
+    """그날(date) 시각 상수 'HH:MM' — 장 시간이 밀린 날은 session_hours 만큼 늦춘 값."""
+    from .. import session_hours
+    return session_hours.times({k: globals()[k] for k in _TIMES}, date)[name]
+
 
 OPEN_PCT = 0.10             # S1 첫 분할 비율 — 진입·예약 청산은 시가, 손절은 도달 가격
 FORCE_MOVE = 0.05           # S4 기준가 대비 기다리면 손해인 방향으로 5% 이상 → 남은 수량 전량

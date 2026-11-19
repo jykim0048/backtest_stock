@@ -55,7 +55,7 @@ class StatusFeed:
 def run_session(store, date, *, bus, agent=None, status_fn=None, clock=now_kst, sleep=time.sleep,
                 mono=time.monotonic, log=print, poll_ms=20000, heartbeat_s=60):
     """하루 세션. bus = BusFeed(history·poll·alive). 반환 DayRunner."""
-    start, end, decide = at(date, C.SESSION_START), at(date, C.SESSION_END), at(date, C.DECIDE_START)
+    start, end, decide = (at(date, C.at(date, k)) for k in ("SESSION_START", "SESSION_END", "DECIDE_START"))
     while clock() < start:
         sleep(min(60, max(1, (start - clock()).total_seconds())))
     agent = agent or A.LLMAgent()
@@ -92,7 +92,7 @@ def main_loop(store, bus, *, log=print):
         log(f"[livepm] 경고: LLM 키 없음({C.LLM_CHAIN}) — 판단 실패 시 전부 hold")
     while True:
         today = now_kst().date().isoformat()
-        if tradedays.is_trading_day(today) and now_kst() < at(today, C.SESSION_END):
+        if tradedays.is_trading_day(today) and now_kst() < at(today, C.at(today, "SESSION_END")):
             try:
                 run_session(store, today, bus=bus, log=log)
             except Exception as ex:                      # 세션 하나가 죽어도 서비스는 살아 있게(재시도는 1분 뒤)
@@ -100,7 +100,7 @@ def main_loop(store, bus, *, log=print):
                 time.sleep(60)
                 continue
         nxt = tradedays.next_trading_day(today)
-        wake = at(nxt, C.SESSION_START) - datetime.timedelta(minutes=5)
+        wake = at(nxt, C.at(nxt, "SESSION_START")) - datetime.timedelta(minutes=5)
         log(f"[livepm] 다음 세션 {nxt} — {wake.isoformat()} 까지 대기")
         while now_kst() < wake:
             time.sleep(min(600, max(5, (wake - now_kst()).total_seconds())))
