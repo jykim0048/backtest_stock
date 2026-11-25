@@ -1,6 +1,6 @@
 {
- "date": "2026-11-25",
- "asof": "2026-11-25 15:40 KST",
+ "date": "2026-11-26",
+ "asof": "2026-11-26 07:47 KST",
  "sources": {
   "naver": true,
   "forexfactory": true
@@ -300,9 +300,7 @@
     "diff": -0.7,
     "verdict": "below"
    }
-  }
- ],
- "upcoming": [
+  },
   {
    "nation": "USA",
    "name": "MBA 구매지수",
@@ -311,12 +309,18 @@
    "period": "20 Nov2026",
    "category": "EMPLOYMENT",
    "releaseAtKST": "2026-11-25 21:00",
+   "actual": 151.6,
    "previous": 137.6,
    "unit": "",
    "unitScale": "",
    "forecast": null,
    "forecastSource": null,
-   "source": "naver"
+   "source": "naver",
+   "surprise": {
+    "vs": "previous",
+    "diff": 14.0,
+    "verdict": "above"
+   }
   },
   {
    "nation": "USA",
@@ -326,12 +330,18 @@
    "period": "20 Nov2026",
    "category": "CENTRAL_BANKS",
    "releaseAtKST": "2026-11-25 21:00",
+   "actual": 212,
    "previous": 199.8,
    "unit": "",
    "unitScale": "",
    "forecast": null,
    "forecastSource": null,
-   "source": "naver"
+   "source": "naver",
+   "surprise": {
+    "vs": "previous",
+    "diff": 12.2,
+    "verdict": "above"
+   }
   },
   {
    "nation": "USA",
@@ -341,12 +351,18 @@
    "period": "20 Nov2026",
    "category": "CENTRAL_BANKS",
    "releaseAtKST": "2026-11-25 21:00",
+   "actual": 535.5,
    "previous": 532.8,
    "unit": "",
    "unitScale": "",
    "forecast": null,
    "forecastSource": null,
-   "source": "naver"
+   "source": "naver",
+   "surprise": {
+    "vs": "previous",
+    "diff": 2.7,
+    "verdict": "above"
+   }
   },
   {
    "nation": "USA",
@@ -356,12 +372,18 @@
    "period": "20 Nov2026",
    "category": "CENTRAL_BANKS",
    "releaseAtKST": "2026-11-25 21:00",
+   "actual": 7.38,
    "previous": 7.35,
    "unit": "%",
    "unitScale": "",
    "forecast": null,
    "forecastSource": null,
-   "source": "naver"
+   "source": "naver",
+   "surprise": {
+    "vs": "previous",
+    "diff": 0.03,
+    "verdict": "above"
+   }
   },
   {
    "nation": "USA",
@@ -371,12 +393,18 @@
    "period": "20 Nov2026",
    "category": "CENTRAL_BANKS",
    "releaseAtKST": "2026-11-25 21:00",
+   "actual": 6.1,
    "previous": -2.3,
    "unit": "%",
    "unitScale": "",
    "forecast": null,
    "forecastSource": null,
-   "source": "naver"
+   "source": "naver",
+   "surprise": {
+    "vs": "previous",
+    "diff": 8.4,
+    "verdict": "above"
+   }
   },
   {
    "nation": "USA",
@@ -386,12 +414,18 @@
    "period": "Oct 2026",
    "category": "EMPLOYMENT",
    "releaseAtKST": "2026-11-25 22:00",
+   "actual": 1.297,
    "previous": 1.398,
    "unit": "",
    "unitScale": "M",
    "forecast": null,
    "forecastSource": null,
-   "source": "naver"
+   "source": "naver",
+   "surprise": {
+    "vs": "previous",
+    "diff": -0.101,
+    "verdict": "below"
+   }
   },
   {
    "nation": "USA",
@@ -401,12 +435,18 @@
    "period": "Oct 2026",
    "category": "EMPLOYMENT",
    "releaseAtKST": "2026-11-25 22:00",
+   "actual": -7.2,
    "previous": -0.4,
    "unit": "%",
    "unitScale": "",
    "forecast": null,
    "forecastSource": null,
-   "source": "naver"
+   "source": "naver",
+   "surprise": {
+    "vs": "previous",
+    "diff": -6.8,
+    "verdict": "below"
+   }
   },
   {
    "nation": "USA",
@@ -416,13 +456,19 @@
    "period": "Q3 2026",
    "category": "GDP",
    "releaseAtKST": "2026-11-25 22:30",
+   "actual": 4.3,
    "previous": 1.5,
    "unit": "%",
    "unitScale": "",
    "forecast": 3.5,
    "forecastSource": "forexfactory",
    "source": "naver",
-   "forecastText": "3.5"
+   "forecastText": "3.5",
+   "surprise": {
+    "vs": "forecast",
+    "diff": 0.8,
+    "verdict": "above"
+   }
   },
   {
    "nation": "USA",
@@ -432,13 +478,37 @@
    "period": "21 Nov2026",
    "category": "EMPLOYMENT",
    "releaseAtKST": "2026-11-25 22:30",
+   "actual": 189,
    "previous": 203,
    "unit": "pers",
    "unitScale": "K",
    "forecast": 201.0,
    "forecastSource": "forexfactory",
    "source": "naver",
-   "forecastText": "201"
+   "forecastText": "201",
+   "surprise": {
+    "vs": "forecast",
+    "diff": -12.0,
+    "verdict": "below"
+   }
+  },
+  {
+   "nation": "USA",
+   "name": "미국 GDP 성장률 잠정치(전분기 연율)",
+   "reutersCode": null,
+   "importance": 4,
+   "period": null,
+   "category": "FOMC",
+   "releaseAtKST": "2026-11-25 22:30",
+   "actual": null,
+   "previous": 3.4,
+   "unit": "%",
+   "unitScale": "",
+   "forecast": 3.5,
+   "forecastText": "3.5",
+   "forecastSource": "forexfactory",
+   "surprise": null,
+   "source": "forexfactory"
   },
   {
    "nation": "USA",
@@ -448,12 +518,18 @@
    "period": "Oct 2026",
    "category": "BSI_CSI",
    "releaseAtKST": "2026-11-25 22:30",
+   "actual": 0.3,
    "previous": 0.5,
    "unit": "%",
    "unitScale": "",
    "forecast": null,
    "forecastSource": null,
-   "source": "naver"
+   "source": "naver",
+   "surprise": {
+    "vs": "previous",
+    "diff": -0.2,
+    "verdict": "below"
+   }
   },
   {
    "nation": "USA",
@@ -463,13 +539,19 @@
    "period": "Oct 2026",
    "category": "EMPLOYMENT",
    "releaseAtKST": "2026-11-25 22:30",
+   "actual": 0.2,
    "previous": 1.8,
    "unit": "%",
    "unitScale": "",
    "forecast": 0.7,
    "forecastSource": "forexfactory",
    "source": "naver",
-   "forecastText": "0.7"
+   "forecastText": "0.7",
+   "surprise": {
+    "vs": "forecast",
+    "diff": -0.5,
+    "verdict": "below"
+   }
   },
   {
    "nation": "USA",
@@ -479,12 +561,18 @@
    "period": "Oct 2026",
    "category": "BSI_CSI",
    "releaseAtKST": "2026-11-25 22:30",
+   "actual": 0.7,
    "previous": 0.2,
    "unit": "%",
    "unitScale": "",
    "forecast": null,
    "forecastSource": null,
-   "source": "naver"
+   "source": "naver",
+   "surprise": {
+    "vs": "previous",
+    "diff": 0.5,
+    "verdict": "above"
+   }
   },
   {
    "nation": "USA",
@@ -494,13 +582,19 @@
    "period": "Oct 2026",
    "category": "EMPLOYMENT",
    "releaseAtKST": "2026-11-25 22:30",
+   "actual": 0.5,
    "previous": 0.5,
    "unit": "%",
    "unitScale": "",
    "forecast": 0.5,
    "forecastSource": "forexfactory",
    "source": "naver",
-   "forecastText": "0.5"
+   "forecastText": "0.5",
+   "surprise": {
+    "vs": "forecast",
+    "diff": 0.0,
+    "verdict": "inline"
+   }
   },
   {
    "nation": "USA",
@@ -510,13 +604,19 @@
    "period": "Oct 2026",
    "category": "PRICE",
    "releaseAtKST": "2026-11-25 22:30",
+   "actual": 0.3,
    "previous": 0.3,
    "unit": "%",
    "unitScale": "",
    "forecast": 0.3,
    "forecastSource": "forexfactory",
    "source": "naver",
-   "forecastText": "0.3"
+   "forecastText": "0.3",
+   "surprise": {
+    "vs": "forecast",
+    "diff": 0.0,
+    "verdict": "inline"
+   }
   },
   {
    "nation": "USA",
@@ -526,12 +626,18 @@
    "period": "Oct 2026",
    "category": "BSI_CSI",
    "releaseAtKST": "2026-11-25 22:30",
+   "actual": 0,
    "previous": 0,
    "unit": "%",
    "unitScale": "",
    "forecast": null,
    "forecastSource": null,
-   "source": "naver"
+   "source": "naver",
+   "surprise": {
+    "vs": "previous",
+    "diff": 0.0,
+    "verdict": "inline"
+   }
   },
   {
    "nation": "USA",
@@ -541,12 +647,18 @@
    "period": "14 Nov2026",
    "category": "EMPLOYMENT",
    "releaseAtKST": "2026-11-25 22:30",
+   "actual": 1.697,
    "previous": 1.763,
    "unit": "pers",
    "unitScale": "M",
    "forecast": null,
    "forecastSource": null,
-   "source": "naver"
+   "source": "naver",
+   "surprise": {
+    "vs": "previous",
+    "diff": -0.066,
+    "verdict": "below"
+   }
   },
   {
    "nation": "USA",
@@ -556,12 +668,18 @@
    "period": "21 Nov2026",
    "category": "EMPLOYMENT",
    "releaseAtKST": "2026-11-25 22:30",
+   "actual": 196,
    "previous": 197.75,
    "unit": "pers",
    "unitScale": "K",
    "forecast": null,
    "forecastSource": null,
-   "source": "naver"
+   "source": "naver",
+   "surprise": {
+    "vs": "previous",
+    "diff": -1.75,
+    "verdict": "below"
+   }
   },
   {
    "nation": "USA",
@@ -571,12 +689,18 @@
    "period": "Oct 2026",
    "category": "PRICE",
    "releaseAtKST": "2026-11-25 22:30",
+   "actual": 3.8,
    "previous": 3.6,
    "unit": "%",
    "unitScale": "",
    "forecast": null,
    "forecastSource": null,
-   "source": "naver"
+   "source": "naver",
+   "surprise": {
+    "vs": "previous",
+    "diff": 0.2,
+    "verdict": "above"
+   }
   },
   {
    "nation": "USA",
@@ -586,12 +710,18 @@
    "period": "Oct 2026",
    "category": "PRICE",
    "releaseAtKST": "2026-11-25 22:30",
+   "actual": 0.3,
    "previous": 0.5,
    "unit": "%",
    "unitScale": "",
    "forecast": null,
    "forecastSource": null,
-   "source": "naver"
+   "source": "naver",
+   "surprise": {
+    "vs": "previous",
+    "diff": -0.2,
+    "verdict": "below"
+   }
   },
   {
    "nation": "USA",
@@ -601,12 +731,18 @@
    "period": "Oct 2026",
    "category": "EMPLOYMENT",
    "releaseAtKST": "2026-11-25 22:30",
+   "actual": 0.4,
    "previous": 2.2,
    "unit": "%",
    "unitScale": "",
    "forecast": null,
    "forecastSource": null,
-   "source": "naver"
+   "source": "naver",
+   "surprise": {
+    "vs": "previous",
+    "diff": -1.8,
+    "verdict": "below"
+   }
   },
   {
    "nation": "USA",
@@ -616,12 +752,18 @@
    "period": "Oct 2026",
    "category": "PRICE",
    "releaseAtKST": "2026-11-25 22:30",
+   "actual": 3.3,
    "previous": 3.1,
    "unit": "%",
    "unitScale": "",
    "forecast": null,
    "forecastSource": null,
-   "source": "naver"
+   "source": "naver",
+   "surprise": {
+    "vs": "previous",
+    "diff": 0.2,
+    "verdict": "above"
+   }
   },
   {
    "nation": "USA",
@@ -631,12 +773,18 @@
    "period": "Q3 2026",
    "category": "BSI_CSI",
    "releaseAtKST": "2026-11-25 22:30",
+   "actual": 3.8,
    "previous": 8.2,
    "unit": "%",
    "unitScale": "",
    "forecast": null,
    "forecastSource": null,
-   "source": "naver"
+   "source": "naver",
+   "surprise": {
+    "vs": "previous",
+    "diff": -4.4,
+    "verdict": "below"
+   }
   },
   {
    "nation": "USA",
@@ -646,12 +794,18 @@
    "period": "Oct 2026",
    "category": "EMPLOYMENT",
    "releaseAtKST": "2026-11-25 22:30",
+   "actual": 1.2,
    "previous": 0.5,
    "unit": "%",
    "unitScale": "",
    "forecast": null,
    "forecastSource": null,
-   "source": "naver"
+   "source": "naver",
+   "surprise": {
+    "vs": "previous",
+    "diff": 0.7,
+    "verdict": "above"
+   }
   },
   {
    "nation": "USA",
@@ -661,27 +815,18 @@
    "period": "Oct 2026",
    "category": "EMPLOYMENT",
    "releaseAtKST": "2026-11-26 00:00",
+   "actual": 0.701,
    "previous": 0.676,
    "unit": "",
    "unitScale": "M",
    "forecast": null,
    "forecastSource": null,
-   "source": "naver"
-  },
-  {
-   "nation": "USA",
-   "name": "달라스 연준 개인소비지출",
-   "reutersCode": "USDALL=ECIX",
-   "importance": 1,
-   "period": "Oct 2026",
-   "category": "BSI_CSI",
-   "releaseAtKST": "2026-11-26 00:00",
-   "previous": 2.8,
-   "unit": "%",
-   "unitScale": "",
-   "forecast": null,
-   "forecastSource": null,
-   "source": "naver"
+   "source": "naver",
+   "surprise": {
+    "vs": "previous",
+    "diff": 0.025,
+    "verdict": "above"
+   }
   },
   {
    "nation": "USA",
@@ -691,12 +836,18 @@
    "period": "Oct 2026",
    "category": "EMPLOYMENT",
    "releaseAtKST": "2026-11-26 00:00",
+   "actual": 14.2,
    "previous": -0.6,
    "unit": "%",
    "unitScale": "",
    "forecast": null,
    "forecastSource": null,
-   "source": "naver"
+   "source": "naver",
+   "surprise": {
+    "vs": "previous",
+    "diff": 14.8,
+    "verdict": "above"
+   }
   },
   {
    "nation": "USA",
@@ -706,12 +857,18 @@
    "period": "20 Nov2026",
    "category": "EMPLOYMENT",
    "releaseAtKST": "2026-11-26 00:30",
+   "actual": 0.428,
    "previous": -0.129,
    "unit": "bbl/d",
    "unitScale": "M",
    "forecast": null,
    "forecastSource": null,
-   "source": "naver"
+   "source": "naver",
+   "surprise": {
+    "vs": "previous",
+    "diff": 0.557,
+    "verdict": "above"
+   }
   },
   {
    "nation": "USA",
@@ -721,12 +878,18 @@
    "period": "20 Nov2026",
    "category": "EMPLOYMENT",
    "releaseAtKST": "2026-11-26 00:30",
+   "actual": 1.8,
    "previous": 0.5,
    "unit": "%",
    "unitScale": "",
    "forecast": null,
    "forecastSource": null,
-   "source": "naver"
+   "source": "naver",
+   "surprise": {
+    "vs": "previous",
+    "diff": 1.3,
+    "verdict": "above"
+   }
   },
   {
    "nation": "USA",
@@ -736,12 +899,18 @@
    "period": "20 Nov2026",
    "category": "EMPLOYMENT",
    "releaseAtKST": "2026-11-26 00:30",
+   "actual": 0.258,
    "previous": -0.202,
    "unit": "bbl/d",
    "unitScale": "M",
    "forecast": null,
    "forecastSource": null,
-   "source": "naver"
+   "source": "naver",
+   "surprise": {
+    "vs": "previous",
+    "diff": 0.46,
+    "verdict": "above"
+   }
   },
   {
    "nation": "USA",
@@ -751,12 +920,18 @@
    "period": "20 Nov2026",
    "category": "EMPLOYMENT",
    "releaseAtKST": "2026-11-26 00:30",
+   "actual": 1.733,
    "previous": 5.192,
    "unit": "bbl",
    "unitScale": "M",
    "forecast": null,
    "forecastSource": null,
-   "source": "naver"
+   "source": "naver",
+   "surprise": {
+    "vs": "previous",
+    "diff": -3.459,
+    "verdict": "below"
+   }
   },
   {
    "nation": "USA",
@@ -766,12 +941,18 @@
    "period": "20 Nov2026",
    "category": "EMPLOYMENT",
    "releaseAtKST": "2026-11-26 00:30",
+   "actual": 0.219,
    "previous": -0.775,
    "unit": "bbl",
    "unitScale": "M",
    "forecast": null,
    "forecastSource": null,
-   "source": "naver"
+   "source": "naver",
+   "surprise": {
+    "vs": "previous",
+    "diff": 0.994,
+    "verdict": "above"
+   }
   },
   {
    "nation": "USA",
@@ -781,12 +962,18 @@
    "period": "20 Nov2026",
    "category": "EMPLOYMENT",
    "releaseAtKST": "2026-11-26 00:30",
+   "actual": 0.715,
    "previous": 1.571,
    "unit": "bbl",
    "unitScale": "M",
    "forecast": null,
    "forecastSource": null,
-   "source": "naver"
+   "source": "naver",
+   "surprise": {
+    "vs": "previous",
+    "diff": -0.856,
+    "verdict": "below"
+   }
   },
   {
    "nation": "USA",
@@ -796,12 +983,18 @@
    "period": "20 Nov2026",
    "category": "EMPLOYMENT",
    "releaseAtKST": "2026-11-26 00:30",
+   "actual": 1.893,
    "previous": -2.155,
    "unit": "bbl",
    "unitScale": "M",
    "forecast": null,
    "forecastSource": null,
-   "source": "naver"
+   "source": "naver",
+   "surprise": {
+    "vs": "previous",
+    "diff": 4.048,
+    "verdict": "above"
+   }
   },
   {
    "nation": "USA",
@@ -811,12 +1004,18 @@
    "period": "20 Nov2026",
    "category": "EMPLOYMENT",
    "releaseAtKST": "2026-11-26 00:30",
+   "actual": 1.109,
    "previous": 3.38,
    "unit": "bbl",
    "unitScale": "M",
    "forecast": null,
    "forecastSource": null,
-   "source": "naver"
+   "source": "naver",
+   "surprise": {
+    "vs": "previous",
+    "diff": -2.271,
+    "verdict": "below"
+   }
   },
   {
    "nation": "USA",
@@ -826,12 +1025,18 @@
    "period": "20 Nov2026",
    "category": "EMPLOYMENT",
    "releaseAtKST": "2026-11-26 00:30",
+   "actual": -0.012,
    "previous": 0.14,
    "unit": "bbl/d",
    "unitScale": "M",
    "forecast": null,
    "forecastSource": null,
-   "source": "naver"
+   "source": "naver",
+   "surprise": {
+    "vs": "previous",
+    "diff": -0.152,
+    "verdict": "below"
+   }
   },
   {
    "nation": "USA",
@@ -841,12 +1046,18 @@
    "period": "20 Nov2026",
    "category": "EMPLOYMENT",
    "releaseAtKST": "2026-11-26 00:30",
+   "actual": -0.534,
    "previous": -1.209,
    "unit": "bbl",
    "unitScale": "M",
    "forecast": null,
    "forecastSource": null,
-   "source": "naver"
+   "source": "naver",
+   "surprise": {
+    "vs": "previous",
+    "diff": 0.675,
+    "verdict": "above"
+   }
   },
   {
    "nation": "USA",
@@ -856,13 +1067,21 @@
    "period": "20 Nov2026",
    "category": "EMPLOYMENT",
    "releaseAtKST": "2026-11-26 02:00",
+   "actual": -24,
    "previous": 20,
    "unit": "ft3",
    "unitScale": "B",
    "forecast": null,
    "forecastSource": null,
-   "source": "naver"
-  },
+   "source": "naver",
+   "surprise": {
+    "vs": "previous",
+    "diff": -44.0,
+    "verdict": "below"
+   }
+  }
+ ],
+ "upcoming": [
   {
    "nation": "KOR",
    "name": "중앙은행 기준금리",
@@ -1015,6 +1234,21 @@
   },
   {
    "nation": "USA",
+   "name": "레드북 소매판매지수 전년대비",
+   "reutersCode": "USREDY=ECIX",
+   "importance": 1,
+   "period": "28 Nov2026",
+   "category": "BSI_CSI",
+   "releaseAtKST": "2026-12-01 22:55",
+   "previous": 11.3,
+   "unit": "%",
+   "unitScale": "",
+   "forecast": null,
+   "forecastSource": null,
+   "source": "naver"
+  },
+  {
+   "nation": "USA",
    "name": "ISM 제조업 구매관리자지수(PMI)",
    "reutersCode": "USPMI=ECIX",
    "importance": 4,
@@ -1157,6 +1391,21 @@
    "category": "EMPLOYMENT",
    "releaseAtKST": "2026-12-02 22:15",
    "previous": 86,
+   "unit": "pers",
+   "unitScale": "K",
+   "forecast": null,
+   "forecastSource": null,
+   "source": "naver"
+  },
+  {
+   "nation": "USA",
+   "name": "Challenger 고용변화율",
+   "reutersCode": "USCHAL=ECIX",
+   "importance": 1,
+   "period": "Nov 2026",
+   "category": "EMPLOYMENT",
+   "releaseAtKST": "2026-12-03 19:30",
+   "previous": 43.994,
    "unit": "pers",
    "unitScale": "K",
    "forecast": null,
