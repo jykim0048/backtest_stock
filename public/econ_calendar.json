@@ -1,6 +1,6 @@
 {
  "date": "2026-11-26",
- "asof": "2026-11-26 09:38 KST",
+ "asof": "2026-11-26 10:08 KST",
  "sources": {
   "naver": true,
   "forexfactory": true
@@ -1079,9 +1079,7 @@
     "diff": -44.0,
     "verdict": "below"
    }
-  }
- ],
- "upcoming": [
+  },
   {
    "nation": "KOR",
    "name": "중앙은행 기준금리",
@@ -1090,13 +1088,21 @@
    "period": "Nov 2026",
    "category": "CENTRAL_BANKS",
    "releaseAtKST": "2026-11-26 10:00",
+   "actual": 3.25,
    "previous": 3,
    "unit": "%",
    "unitScale": "",
    "forecast": null,
    "forecastSource": null,
-   "source": "naver"
-  },
+   "source": "naver",
+   "surprise": {
+    "vs": "previous",
+    "diff": 0.25,
+    "verdict": "above"
+   }
+  }
+ ],
+ "upcoming": [
   {
    "nation": "USA",
    "name": "도매재고 전월대비",
