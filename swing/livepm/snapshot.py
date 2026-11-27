@@ -14,13 +14,14 @@ def _r(x, n=2):
 
 
 def _net(net):
-    """장중 순노출(원장 보유 + 오늘 체결) — 한도·이탈. excessKrw = 한도 안으로 되돌리려면 줄여야 할 넘친 방향 명목 금액."""
+    """장중 순노출(원장 보유 + 오늘 체결) — 이탈(T8)일 때만 수치·한도·넘친 방향·excessKrw(한도 안으로 되돌리려면 줄여야 할
+    넘친 방향 명목 금액). 이탈이 아니면 inBand 만."""
     eq, g, lim, b = net["eq"] or 1, net["gross"], net["limits"], net.get("breach")
-    out = {"netPct": _r(g["net"] / eq), "longPct": _r(g["long"] / eq, 1), "shortPct": _r(g["short"] / eq, 1),
-           "limitMinPct": _r(lim["netMin"], 1), "limitMaxPct": _r(lim["netMax"], 1)}
-    if b:
-        out.update(over=b["side"], excessKrw=round(b["excessKrw"]))
-    return out
+    if not b:                                     # T8 아님(한도 ±버퍼 안) — 수치를 주면 LLM 이 한도 초과로 읽고 줄인다(2026-11-27)
+        return {"inBand": True, "note": "순노출 허용 범위 — 순노출을 이유로 trim·exit 하지 않는다"}
+    return {"netPct": _r(g["net"] / eq), "longPct": _r(g["long"] / eq, 1), "shortPct": _r(g["short"] / eq, 1),
+            "limitMinPct": _r(lim["netMin"], 1), "limitMaxPct": _r(lim["netMax"], 1),
+            "over": b["side"], "excessKrw": round(b["excessKrw"])}
 
 
 def build(ts, state, triggers, book, *, status=None, intraday=None, memory=None, today=None, net=None):

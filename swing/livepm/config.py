@@ -56,5 +56,6 @@ THESIS_STOP_USED = 0.50         # 트리거 안 걸린 포지션도 손절 거�
 
 # RiskGate(§7)
 MIN_CONF_EXIT = 0.6             # G3
+MIN_CONF_UNTRIGGERED = 0.8      # G10 트리거 없는 종목 exit/trim — 논거 무효(thesisValid=false)일 때 이 확신도 이상만(2026-11-27)
 FLIP_MIN = 30                   # G4 같은 종목 지시 재발행 금지(분)
 MAX_REDUCE_PER_CALL = 0.30      # G6 한 호출 exit+trim 합계 / 평가액

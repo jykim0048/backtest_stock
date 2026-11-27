@@ -7,6 +7,10 @@
   G6 한 호출의 exit+trim 명목 합계 > 평가액 × MAX_REDUCE_PER_CALL → 큰 것부터 한도까지, 나머지 flag_review
   G7 판단 시간(DECIDE_START~END) 밖 → 거부   G8 Live Trader 가 이미 청산 중(손절·예약·지시) → 거부
   G9 거래 상태가 허용하지 않음 → 거부
+  G10 이번 호출에 트리거가 없는 종목의 exit/trim → flag_review 로 강등. 예외: T8(순노출 이탈)이 떴고 넘친 방향 포지션이거나,
+      논거 무효(thesisValid=false)·확신도 MIN_CONF_UNTRIGGERED 이상(2026-11-27 — 11/27 T5 호출에서 트리거 없는
+      이수스페셜티케미컬을 순노출 +16.15%(T8 기준 +17% 전)를 이유로 줄였다)
+trimPct 는 0~1 비율. LLM 이 퍼센트(50.0)로 답하면 100 으로 나눈다(2026-11-27 — 50.0 이 상한 0.9 로 잘려 90% 매도).
 """
 import datetime
 
@@ -18,10 +22,24 @@ def _min(a, b):
     return (datetime.datetime.fromisoformat(b) - datetime.datetime.fromisoformat(a)).total_seconds() / 60
 
 
-def review(decisions, *, ts, book, state, intraday=None, recent=()):
+def trim_pct(v):
+    """LLM trimPct → 0.1~0.9 비율. 1 보다 크면 퍼센트로 보고 100 으로 나눈다. 없으면 0.5."""
+    try:
+        x = float(v) if v is not None else 0.5
+    except (TypeError, ValueError):
+        x = 0.5
+    if x > 1:
+        x /= 100.0
+    return min(0.9, max(0.1, x))
+
+
+def review(decisions, *, ts, book, state, intraday=None, recent=(), triggers=None, net=None):
     """decisions = LLM decisions 목록. recent = 오늘 이미 낸 지시 목록. 반환 [{code, pid, decision, outcome, action, why, …}].
-    outcome = hold | pass | downgrade | reject. pass·downgrade 이고 action ≠ hold 인 것만 지시가 된다."""
+    outcome = hold | pass | downgrade | reject. pass·downgrade 이고 action ≠ hold 인 것만 지시가 된다.
+    triggers = 이번 호출 트리거 목록(None 이면 G10 생략), net = runner.net_info(breach 로 T8 넘친 방향)."""
     hm = ts[11:16]
+    trig_codes = {t.get("code") for t in triggers or [] if t.get("code") not in (None, "*")}
+    t8_side = ((net or {}).get("breach") or {}).get("side") if any(t.get("id") == "T8" for t in triggers or []) else None
     intraday = intraday or {}
     exiting = set((intraday.get("exits") or {}).keys())
     entering = {r.get("code") for r in (intraday.get("orders") or {}).values() if not r.get("done")}
@@ -69,7 +87,14 @@ def review(decisions, *, ts, book, state, intraday=None, recent=()):
             if code in entering:
                 r.update(outcome="downgrade", action="flag_review", why="G5 Live Trader 진입 진행 중")
                 continue
-            pct = 1.0 if act == "exit" else min(0.9, max(0.1, float(d.get("trimPct") or 0.5)))
+            side = "short" if engine.is_short(p) else "long"
+            if triggers is not None and code not in trig_codes and t8_side != side and not (
+                    d.get("thesisValid") is False and (d.get("confidence") or 0) >= C.MIN_CONF_UNTRIGGERED):
+                r.update(outcome="downgrade", action="flag_review",
+                         why="G10 트리거 없는 종목 축소 — T8 넘친 방향이거나 논거 무효·확신도 "
+                             f"{C.MIN_CONF_UNTRIGGERED} 이상일 때만")
+                continue
+            pct = 1.0 if act == "exit" else trim_pct(d.get("trimPct"))
             r["pct"] = pct
             r["notional"] = p["qty"] * pct * (px or p["entry"])
     # G6 — 한 호출 위험 축소 합계 한도

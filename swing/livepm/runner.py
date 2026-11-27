@@ -108,7 +108,7 @@ class DayRunner:
         dec, meta = self.agent.decide(text)
         self.trig.spend(meta.get("costKrw") or 0.0)
         reviewed = G.review(dec.get("decisions"), ts=ts, book=self.book, state=self.state, intraday=intraday,
-                            recent=self.instructions)
+                            recent=self.instructions, triggers=trigs, net=net)
         self.calls += 1
         n = self.calls
         new = []

@@ -157,6 +157,25 @@ class TestGate(unittest.TestCase):
         self.s.state = "halted"
         self.assertEqual(self.rev({"action": "exit"})["why"][:2], "G9")
 
+    def test_trim_pct_units(self):
+        # 2026-11-27 — LLM 이 50.0(퍼센트)으로 답해 상한 0.9 로 잘려 90% 매도 → 1 초과는 퍼센트로 본다
+        self.assertEqual([G.trim_pct(v) for v in (0.5, 50.0, 30, 100, None, "x", 0.01)], [0.5, 0.5, 0.3, 0.9, 0.5, 0.5, 0.1])
+        self.assertEqual(self.rev({"action": "trim", "trimPct": 50.0})["pct"], 0.5)
+
+    def test_g10_untriggered_reduce(self):
+        t5_other = [{"id": "T5", "code": "000099", "detail": "x"}]
+        keep = {"thesisValid": True}
+        r = self.rev(dict(keep, action="trim", trimPct=0.5), triggers=t5_other)       # 11/27 이수스페셜티케미컬 사례
+        self.assertEqual((r["outcome"], r["action"], r["why"][:3]), ("downgrade", "flag_review", "G10"))
+        self.assertEqual(self.rev(dict(keep, action="trim"), triggers=[{"id": "T1", "code": "000020"}])["outcome"], "pass")   # 트리거 종목
+        self.assertEqual(self.rev(dict(keep, action="trim"), triggers=None)["outcome"], "pass")                             # 트리거 미전달 = 종전
+        self.assertEqual(self.rev({"action": "exit", "confidence": 0.85}, triggers=t5_other)["outcome"], "pass")            # 논거 무효·확신 0.85
+        self.assertEqual(self.rev({"action": "exit", "confidence": 0.7}, triggers=t5_other)["why"][:3], "G10")
+        t8 = t5_other + [{"id": "T8", "code": "*", "detail": "x"}]
+        over = lambda sd: {"breach": {"side": sd}}                                     # noqa: E731
+        self.assertEqual(self.rev(dict(keep, action="trim"), triggers=t8, net=over("long"))["outcome"], "pass")   # Long 과다 → Long 축소 허용
+        self.assertEqual(self.rev(dict(keep, action="trim"), triggers=t8, net=over("short"))["why"][:3], "G10")   # 반대 방향은 아님
+
     def test_g6_cap(self):
         L = ledger_with(position={"qty": 40000})
         L["positions"].append(dict(L["positions"][0], id="p2", code="000030", qty=30000))
@@ -178,6 +197,18 @@ class TestSnapshot(unittest.TestCase):
         p = snap["positions"][0]
         self.assertEqual((p["stopDistUsedPct"], p["triggered"], p["liveTrader"]["filled"]), (75, True, 10))
         self.assertEqual(json.loads(text)["trigger"][0]["id"], "T1")
+
+    def test_net_only_detailed_on_breach(self):
+        # 2026-11-27 — T8 전(한도 ±버퍼 안)엔 수치를 주지 않는다(+16.15% 를 '한도 초과'로 읽고 줄였다)
+        b = LiveBook(long_ledger())
+        feed(b, [("09:00", 5000)])
+        net = {"eq": 1_000_000, "gross": {"net": 161_500, "long": 521_000, "short": 359_500},
+               "limits": {"netMin": -0.15, "netMax": 0.15}, "breach": None}
+        snap, _ = SN.build(ts("10:00"), "active", [], b, net=net)
+        self.assertEqual(snap["netExposure"]["inBand"], True)
+        self.assertNotIn("netPct", snap["netExposure"])
+        snap, _ = SN.build(ts("10:00"), "active", [], b, net=dict(net, breach={"side": "long", "excessKrw": 30_000.0}))
+        self.assertEqual((snap["netExposure"]["over"], snap["netExposure"]["excessKrw"], snap["netExposure"]["netPct"]), ("long", 30_000, 16.15))
 
 
 class TestRunner(unittest.TestCase):
